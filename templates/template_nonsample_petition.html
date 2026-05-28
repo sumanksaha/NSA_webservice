@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Times New Roman', serif; line-height: 2; margin: 50px; }
+        .header { text-align: center; font-weight: bold; margin-bottom: 30px; }
+        .sub-header { margin-bottom: 20px; font-weight: bold; }
+        .justify { text-align: justify; text-indent: 35px; margin-bottom: 12px; }
+        p, li { margin-bottom: 10px; }
+        .bold { font-weight: bold; }
+        .center { text-align: center; }
+        .footer-table { width: 100%; margin-top: 20px; border: none; }
+        .footer-table td { width: 50%; border: none; }
+        .container {
+            margin-top:20px;
+            margin-bottom:25px; 
+            display: flex; 
+            border-top: 2px solid black; 
+            border-bottom: 2px solid black;
+            min-height: 500px; /* Adjust based on content */
+        }
+        
+         .violation-table {
+        width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .violation-table th,
+        .violation-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        .violation-table th {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .legal-notice-box {
+            border: 2px solid #2c3e50; /* Dark, professional professional blue/grey */
+            padding: 15px;
+            margin: 20px 0;
+            background-color: #f8f9fa;
+            font-weight: bold;
+            line-height: 1.6;
+            border-radius: 4px;
+        }
+        .section-title {
+            text-transform: uppercase;
+            text-decoration: underline;
+            display: block;
+            margin-bottom: 10px;
+    }
+
+        .column { width: 50%; padding: 20px; box-sizing: border-box; }
+        .left-col { border-right: 1px solid black; }
+        
+        .entry { margin-bottom: 40px; }
+        .entry-title { font-weight: bold; margin-bottom: 5px; }
+        
+        /* Page Break Logic */
+        .page-break { page-break-after: always; }
+    </style>
+</head>
+<body>
+
+    <div class="bold">Before the Ld. Adjudicating Officer, KMC</div>
+    <div>F.S. & S Case No. </div>
+
+    <div class="sub-header" style="text-align: left;">
+        Complainant/Food Business Operator with Address<br>
+        Company/Firm/Proprietor
+    </div>
+
+    <div class="container">
+        <div class="column left-col">
+            <div class="entry">
+                <div class="entry-title">1. Suman Kumar Saha</div>
+                <div>Food Safety Officer</div>
+                <div>Kolkata Municipal Corporation</div>
+            </div>
+            <div class="entry">
+                <div class="entry-title">2. License Officer</div>
+                <div>5, S.N. Banerjee Road, Kolkata - 700013</div>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="entry">
+                <div> <strong> {{ fbo_owner }} </strong></div>
+                <div> {{ fbo_name }}</div>
+                <div> {{ fbo_address }}</div>
+                <div> {{ fssai_license }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="page-break"></div>
+
+    <p class="bold">Most Respectfully Sheweth: -</p>
+    
+    <p class="justify">The humble petition on behalf of the complainant above named</p>
+<section>
+    <h3 class="center">STATEMENT OF FACTS</h3>
+    <ol class="justify">
+        <li> That the complainant above named is the Suman Kumar Saha (hereinafter referred to as the “FSO”) appointed u/s 37 of the Food Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata Municipal Corporation and he has been authorised by the Designated Officer, Kolkata Municipal Corporation dated {{ authorization_date }} to launch the present complaint for adjudication before the Ld. Adjudicating Officer, Kolkata Municipal Corporation. </li>
+        <li> That on <strong> {{ First_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, Lic No- {{ fssai_license }}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
+        <li> That on inspection, FSO observed several discrepancies at the premises. </li>
+</ol>
+<table class="violation-table">
+<tr>
+    <th style="width:8%">Sl.</th>
+    <th style="width:32%">Nature of Non‑Compliance</th>
+    <th>Observation</th>
+</tr>
+
+{% set ns = namespace(sl=1) %}
+
+{% if clean_premise|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Unclean Premises</td>
+<td>The premises were found inadequately maintained and unhygienic, indicating non‑compliance with prescribed sanitary and hygiene requirements.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if refrigerator_clean|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Refrigerator Maintenance</td>
+<td>Refrigeration facilities were found unclean and not maintained in hygienic condition.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if proper_attire|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Protective Attire</td>
+<td>Food handlers were found without prescribed protective attire including apron and/or headgear.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if proper_covered_utensil|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Covering of Food/Utensils</td>
+<td>Food utensils and/or food articles were found uncovered, exposing them to potential contamination.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if date_tag|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Absence of Date Tagging</td>
+<td>Stored food items lacked proper date identification and traceability markings.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if veg_nonveg_separation|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Segregation of Veg and Non‑Veg Items</td>
+<td>Segregation between vegetarian and non‑vegetarian food items was not adequately maintained.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if food_segregation|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Segregation of Raw and Prepared Food</td>
+<td>Raw and prepared food articles were not properly segregated, creating risk of cross‑contamination.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if license_display|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper License Display</td>
+<td>The FBO was found not displaying its FSSAI license prominently at the premises.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if artificial_colour|lower == 'yes' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Use of Artificial Colours</td>
+<td>The FBO was found using artificial colours in the preparation of food items.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+</table>
+<ol class="justify" start="4">
+
+
+<li> That the FSO issued an instruction sheet to the FBO to address the non-compliance issues.</li>
+<li> That on {{Complaint_date}}, the FSO received a complaint from the complainant regarding the sale of a {{concerned_food}} that was perceived as unfit for human consumption at the time of delivery.</li>
+<li> That on {{ inspection_date}}, the FSO conducted a follow-up inspection and observed continued non-compliance with food safety standards and with directives issued by the FSO.</li>
+<li> That Food Safety Officer submitted all the relevant documents in connection with above sample and placed before the Designated Officer for his perusal and further proceedings. </li>
+<li> That the Designated Officer authorized Food Safety Officer on {{authorization_date}} to file an application for Adjudication with the Adjudicating Officer . </li>
+</ol>
+</section>
+       
+
+<div class="legal-notice-box">
+        <span class="section-title">Liability under Section 55:</span>
+        <blockquote>
+            If a food business operator or an importer without reasonable ground, <strong>fails to comply with the requirements
+            of this Act or the rules or regulations or orders issued thereunder</strong>
+            , as directed by the Food Safety Officer, he shall be liable to a penalty which may extend to two lakh rupees.
+        </blockquote>
+
+        <span class="section-title">Liability under Section 56:</span>
+        <blockquote>
+          Any person who, whether by himself or by any other person on his behalf, ,<strong> manufactures or processes any article of 
+          food for human consumption under unhygienic or unsanitary conditions</strong> , shall be liable to a penalty which may extend 
+          to one lakh rupees.  
+        </blockquote>
+
+</div>
+    
+    <p class="justify">
+        Under the circumstances, it is prayed that Your Honour may kindly be pleased to issue notice upon the FBO to make representation and fix a date of hearing and after hearing pass necessary order/ orders contravening 
+        <strong>Sections 55 and 56</strong> of the Food Safety and Standards Act, 2006, and pass such order or orders as deemed fit and proper in the interest of justice.
+    </p>
+
+    <p>And for this act of kindness your petitioner as in duty bound shall ever pray.</p>
+
+    <table class="footer-table">
+        <tr>
+            <td>Designated Officer<br>Kolkata Municipal Corporation</td>
+            <td style="text-align: right;">Food Safety Officer<br>Kolkata Municipal Corporation</td>
+        </tr>
+    </table>
+
+    <strong> List of Enclosures</strong>
+    <ol class="justify">
+        
+        <li>    Copy of Inspection Report and instruction sheet issued to the FBO dated {{ First_inspection_date }} </li>
+        <li>    Copy of {{fssai_license}} </li>
+        <li>    Letter of approval from the Designated Officer </li>
+    </ol>
+
+<div style="page-break-before: always;"></div>
+
+<div class="recipient" style="margin-top:30px;">
+    <strong>To</strong><br>
+    The Designated Officer,<br>
+    Food Cell,<br>
+    Kolkata Municipal Corporation.
+</div>
+
+<div style="margin-top:35px; margin-bottom:25px;">
+    <strong>Re :</strong> 
+    <u>Filing of Complaint before the Ld. Adjudicating Officer</u>
+</div>
+
+<div class="paragraph" style="text-indent:0; line-height:2; text-align:justify;">
+    In view of your approval for initiation of adjudication proceedings dated
+    <strong>{{ authorization_date }}</strong>, the prepared draft copy of the
+    petition of complaint is hereby placed before you for your kind perusal
+    and necessary approval, please.
+</div>
+
+<div style="margin-top:100px; text-align:right; line-height:1.8;">
+    Food Safety Officer<br>
+    Food Cell<br>
+    Kolkata Municipal Corporation
+</div>
+</body>
+</html>
