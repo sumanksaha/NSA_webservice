@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
-from playwright.sync_api import async_playwright
+from playwright.async_api import async_playwright
 import zipfile
 
 app=FastAPI()
