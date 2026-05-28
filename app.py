@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import async_playwright
 import zipfile
 
 app=FastAPI()
@@ -77,8 +77,8 @@ async def generate_all(request:Request):
 
     outputs=[]
 
-    with sync_playwright() as p:
-        browser=p.chromium.launch()
+    async with async_playwright() as p:
+        browser= await p.chromium.launch()
 
         for tpl,prefix in [
             ("Legal_NonsampleAdjudication_Template.html","Permission_Letter"),
@@ -94,10 +94,10 @@ async def generate_all(request:Request):
             with open(htmlf,'w',encoding='utf-8') as f:
                 f.write(rendered)
 
-            page=browser.new_page()
-            page.set_content(rendered,wait_until='networkidle')
-            page.pdf(path=pdff,format='A4',print_background=True)
-            page.close()
+            page= await browser.new_page()
+            await page.set_content(rendered,wait_until='networkidle')
+            await page.pdf(path=pdff,format='A4',print_background=True)
+            await page.close()
 
             outputs.extend([htmlf,pdff])
 
