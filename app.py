@@ -79,7 +79,6 @@ def fdate(v):
     except:
         return v
 
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     context = {
@@ -87,12 +86,11 @@ async def home(request: Request):
         "checklist": CHECKLIST
     }
 
-     return templates.TemplateResponse(
+    return templates.TemplateResponse(
         request=request,
         name="index.html",
         context=context
     )
-
 
 @app.post("/generate_all")
 async def generate_all(request: Request):
