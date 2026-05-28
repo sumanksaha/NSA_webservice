@@ -111,6 +111,27 @@
         <li> That on <strong> {{ First_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, Lic No- {{ fssai_license }}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
         <li> That on inspection, FSO observed several discrepancies at the premises. </li>
 </ol>
+
+ <div class="table-title">
+    Statement of Observed Non-Compliances During Inspection
+</div>
+<table class="violation-table">
+
+<tr>
+    <th style="width:8%">Sl.</th>
+    <th style="width:32%">Nature of Non-Compliance</th>
+    <th>Observation</th>
+</tr>
+
+{% for v in violations %}
+<tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ v.title }}</td>
+    <td>{{ v.Observation }}</td>
+</tr>
+{% endfor %}
+
+</table>   
 <!---<table class="violation-table">
 <tr>
     <th style="width:8%">Sl.</th>
