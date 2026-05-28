@@ -2,6 +2,6 @@
 fastapi
 uvicorn
 jinja2
-playwright
+weasyprint
 python-multipart
 num2words
