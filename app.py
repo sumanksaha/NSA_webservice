@@ -87,9 +87,10 @@ async def home(request: Request):
         "checklist": CHECKLIST
     }
 
-    return templates.TemplateResponse(
-        "index.html",
-        context
+     return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context=context
     )
 
 
