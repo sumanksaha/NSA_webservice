@@ -196,4 +196,3 @@ async def generate_all(request: Request):
         filename="CasePack_Final.zip",
         media_type="application/zip"
     )
-```
