@@ -254,15 +254,20 @@
 
     <div class="paragraph">
       The undersigned issued an instruction sheet to the FBO to address the
-      non-compliance issues on or before {{ compliance_deadline }}. 
-      {% if complaint_lodged == 'yes' %} + Subsequently, on {{ Complaint_date }}, the
-      FSO received a complaint from the complainant regarding the sale of a {{
-      concerned_food }} that {{ problem }}, further corroborating the FBO's
-      continued non-compliance. 
-      {% endif %} 
-      A follow-up inspection was conducted on {{ inspection_date}} and the FSO observed continued
-      non-compliance with food safety standards and with directives issued by
-      the FSO.
+      non-compliance issues on or before {{ compliance_deadline }}.
+    </div>
+    {% if complaint_lodged == 'yes' %}
+    <div class="paragraph">
+      Subsequently, on {{ Complaint_date }}, the FSO received a complaint from
+      the complainant regarding the sale of a {{ concerned_food }} that {{
+      problem }}, further corroborating the FBO's continued non-compliance.
+    </div>
+    {% endif %}
+
+    <div class="paragraph">
+      TA follow-up inspection was conducted on {{ inspection_date}} and the FSO
+      observed continued non-compliance with food safety standards and with
+      directives issued by the FSO.
     </div>
 
     <div class="legal-prayer">
