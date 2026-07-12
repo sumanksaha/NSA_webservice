@@ -226,8 +226,14 @@
 <ol class="justify" start="4">--->
 
 
-<li> That the FSO issued a directives/ instruction sheet with detailed description of modifications necessary to address the shortcomings.</li>
-<li> That on {{Complaint_date}}, the FSO received a complaint from the complainant regarding the sale of a {{ concerned_food }} that {{ problem }}.</li>
+<li> The undersigned issued an instruction sheet to the FBO to address the
+      non-compliance issues on or before {{ compliance_deadline }}. 
+      {% if complaint_lodged == 'yes' %} + Subsequently, on {{ Complaint_date }}, the
+      FSO received a complaint from the complainant regarding the sale of a {{
+      concerned_food }} that {{ problem }}, further corroborating the FBO's
+      continued non-compliance. 
+      {% endif %}
+    </li>
 <li> That on {{ inspection_date}}, the FSO conducted a follow-up inspection and observed continued non-compliance with food safety standards and with directives issued by the FSO.</li>
 <li> That Food Safety Officer submitted all the relevant documents in connection with above FBO and placed before the Designated Officer for his perusal and further proceedings. </li>
 <li> That the Designated Officer authorized Food Safety Officer on {{authorization_date}} to file an application for Adjudication with the Adjudicating Officer . </li>
