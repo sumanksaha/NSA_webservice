@@ -1,81 +1,188 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="UTF-8">
-<title>Food Safety Adjudication Portal</title>
-<style>
-body{font-family:Arial;background:#edf1f5;margin:0}
-.wrap{max-width:1250px;margin:20px auto;background:#fff;padding:25px;border-radius:10px}
-h1{border-bottom:3px solid #333;padding-bottom:10px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.section{margin-top:25px}
-.card{border:1px solid #ddd;padding:12px;border-radius:6px;background:#fafafa}
-.checkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-label{font-weight:bold}
-input,textarea,select{width:100%;padding:8px;margin-top:5px}
-.btn{padding:12px 18px;background:#0b5394;color:white;border:none;border-radius:5px;margin-top:15px}
-.preview{margin-top:20px;padding:15px;background:#f9f9f9;border:1px solid #ccc}
-</style>
-</head>
-<body>
-<div class="wrap">
-<h1>Food Safety Non‑Sample Adjudication Petition-generation Portal powered by CLAUDE MYTHOS</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Food Safety Adjudication Portal</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #edf1f5;
+        margin: 0;
+      }
+      .wrap {
+        max-width: 1250px;
+        margin: 20px auto;
+        background: #fff;
+        padding: 25px;
+        border-radius: 10px;
+      }
+      h1 {
+        border-bottom: 3px solid #333;
+        padding-bottom: 10px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .section {
+        margin-top: 25px;
+      }
+      .card {
+        border: 1px solid #ddd;
+        padding: 12px;
+        border-radius: 6px;
+        background: #fafafa;
+      }
+      .checkgrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      label {
+        font-weight: bold;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+      }
+      .btn {
+        padding: 12px 18px;
+        background: #0b5394;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        margin-top: 15px;
+      }
+      .preview {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f9f9f9;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Food Safety Non‑Sample Adjudication Petition-generation portal</h1>
 
-<form method="post" action="/generate_all">
+      <form method="post" action="/generate_all">
+        <div class="form-group">
+          <label>Food Safety Officer Name</label>
+          <input
+            type="text"
+            name="food_safety_officer"
+            placeholder="Enter Food Safety Officer Name"
+            required
+          />
+        </div>
 
-<div class="form-group">
-    <label>Food Safety Officer Name</label>
-    <input
-        type="text"
-        name="food_safety_officer"
-        placeholder="Enter Food Safety Officer Name"
-        required
-    >
-</div>
- 
-<div class="section">
-<h3>Case Information</h3>
-<div class="grid">
-<div><label>Case Number</label><input required name="case_number"></div>
-<div><label>FBO Owner</label><input required name="fbo_owner"></div>
-<div><label>FBO Name</label><input required name="fbo_name"></div>
-<div><label>FBO Address</label><textarea required name="fbo_address"></textarea></div>
-<div><label>FSSAI License</label><input required name="fssai_license"></div>
-<div><label>Concerned Food</label><input name="concerned_food"></div>
-</div>
-<label>Complaint / Problem</label>
-<textarea required name="problem"></textarea>
-</div>
+        <div class="section">
+          <h3>Case Information</h3>
+          <div class="grid">
+            <div>
+              <label>Case Number</label><input required name="case_number" />
+            </div>
+            <div>
+              <label>FBO Owner</label><input required name="fbo_owner" />
+            </div>
+            <div><label>FBO Name</label><input required name="fbo_name" /></div>
+            <div>
+              <label>FBO Address</label
+              ><textarea required name="fbo_address"></textarea>
+            </div>
+            <div>
+              <label>FSSAI License</label
+              ><input required name="fssai_license" />
+            </div>
+            <div>
+              <label>Concerned Food</label><input name="concerned_food" />
+            </div>
+          </div>
 
-<div class="section">
-<h3>Dates</h3>
-<div class="grid">
-<div><label>First Inspection</label><input required type="date" name="First_inspection_date"></div>
-<div><label>Complaint Date</label><input required type="date" name="Complaint_date"></div>
-<div><label>Follow-up Inspection</label><input required type="date" name="inspection_date"></div>
-<div><label>Authorization Date</label><input required type="date" name="authorization_date"></div>
-</div>
-</div>
+          <div class="card" style="margin-top: 12px">
+            <label
+              ><input
+                type="checkbox"
+                id="complaint_toggle"
+                name="complaint_lodged"
+                value="yes"
+                style="width: auto; display: inline-block; margin-right: 8px"
+              />
+              Was a third-party complaint lodged in this case?</label
+            >
+          </div>
 
-<div class="section">
-<h3>Inspection Checklist</h3>
-<div class="checkgrid">
-{% for c in checklist %}
-<div class="card">
-<label>{{ c.replace('_',' ') }}</label>
-<select name="{{c}}">
-<option value="yes">Yes</option>
-<option value="no">No</option>
-</select>
-</div>
-{% endfor %}
-</div>
-</div>
+          <div id="complaint_fields" style="display: none; margin-top: 10px">
+            <label>Complaint / Problem</label>
+            <textarea name="problem"></textarea>
+          </div>
+        </div>
 
-<button class="btn">Generate Full Case Pack</button>
+        <div class="section">
+          <h3>Dates</h3>
+          <div class="grid">
+            <div>
+              <label>First Inspection</label
+              ><input required type="date" name="First_inspection_date" />
+            </div>
+            <div>
+              <label
+                >Compliance Deadline (per directive/instruction sheet)</label
+              ><input required type="date" name="compliance_deadline" />
+            </div>
+            <div id="complaint_date_field" style="display: none">
+              <label>Complaint Date</label
+              ><input type="date" name="Complaint_date" />
+            </div>
+            <div>
+              <label>Follow-up Inspection</label
+              ><input required type="date" name="inspection_date" />
+            </div>
+            <div>
+              <label>Authorization Date</label
+              ><input required type="date" name="authorization_date" />
+            </div>
+          </div>
+        </div>
 
-</form>
-</div>
-</body>
+        <script>
+          const toggle = document.getElementById("complaint_toggle");
+          const fields = [
+            document.getElementById("complaint_fields"),
+            document.getElementById("complaint_date_field"),
+          ];
+          toggle.addEventListener("change", () => {
+            fields.forEach(
+              (f) => (f.style.display = toggle.checked ? "block" : "none"),
+            );
+            const problemField = fields[0].querySelector("textarea");
+            const dateField = fields[1].querySelector("input");
+            problemField.required = toggle.checked;
+            dateField.required = toggle.checked;
+          });
+        </script>
+
+        <div class="section">
+          <h3>Inspection Checklist</h3>
+          <div class="checkgrid">
+            {% for c in checklist %}
+            <div class="card">
+              <label>{{ c.replace('_',' ') }}</label>
+              <select name="{{c}}">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <button class="btn">Generate Full Case Pack</button>
+      </form>
+    </div>
+  </body>
 </html>
