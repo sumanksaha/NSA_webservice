@@ -2,12 +2,18 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <title>Food Safety Adjudication Portal</title>
     <style>
       body {
-        font-family: Arial;
-        background: #edf1f5;
+        font-family: "Inter", Arial, sans-serif;
+        background: #f4f2ed;
         margin: 0;
+        color: #1a1a1a;
       }
       .wrap {
         max-width: 1250px;
@@ -15,10 +21,17 @@
         background: #fff;
         padding: 25px;
         border-radius: 10px;
+        border: 1px solid #e0ddd4;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
       h1 {
-        border-bottom: 3px solid #333;
+        font-family: "Source Serif 4", Georgia, serif;
+        font-weight: 700;
+        font-size: 26px;
+        letter-spacing: -0.3px;
+        border-bottom: 3px solid #0b2545;
         padding-bottom: 10px;
+        color: #0b2545;
       }
       .grid {
         display: grid;
@@ -27,12 +40,54 @@
       }
       .section {
         margin-top: 25px;
+        background: #fff;
+        border: 1px solid #e0ddd4;
+        border-radius: 8px;
+        padding: 20px 22px;
+        box-shadow:
+          0 1px 2px rgba(11, 37, 69, 0.06),
+          0 1px 6px rgba(11, 37, 69, 0.04);
       }
       .card {
-        border: 1px solid #ddd;
+        border: 1px solid #e5e2d8;
         padding: 12px;
         border-radius: 6px;
-        background: #fafafa;
+        background: #faf9f6;
+        box-shadow: none;
+      }
+      .toggle-card {
+        border: 1px solid #e5e2d8;
+        padding: 12px;
+        border-radius: 6px;
+        background: #faf9f6;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .toggle-card.active {
+        border-color: #7a2e2e;
+        background: #fdf6f6;
+        border-left: 3px solid #7a2e2e;
+      }
+      .toggle-card label {
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        color: #333;
+        cursor: pointer;
+      }
+      .conditional-block {
+        display: none;
+        border-left: 2px solid #e5e2d8;
+        padding-left: 14px;
+        margin-top: 10px;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .conditional-block.active {
+        display: block;
+        opacity: 1;
+        border-left-color: #7a2e2e;
       }
       .checkgrid {
         display: grid;
@@ -40,7 +95,21 @@
         gap: 12px;
       }
       label {
-        font-weight: bold;
+        font-family: "Inter", sans-serif;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #333;
+      }
+      h3 {
+        font-family: "Source Serif 4", Georgia, serif;
+        font-weight: 600;
+        font-size: 19px;
+        color: #0b2545;
+        margin-bottom: 12px;
+        border-left: 3px solid #7a2e2e;
+        padding-left: 10px;
       }
       input,
       textarea,
@@ -51,11 +120,16 @@
       }
       .btn {
         padding: 12px 18px;
-        background: #0b5394;
+        background: #0b2545;
         color: white;
         border: none;
         border-radius: 5px;
         margin-top: 15px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+      .btn:hover {
+        background: #122f5c;
       }
       .preview {
         margin-top: 20px;
@@ -103,7 +177,11 @@
             </div>
           </div>
 
-          <div class="card" style="margin-top: 12px">
+          <div
+            class="toggle-card"
+            id="complaint_toggle_card"
+            style="margin-top: 12px"
+          >
             <label
               ><input
                 type="checkbox"
@@ -116,7 +194,7 @@
             >
           </div>
 
-          <div id="complaint_fields" style="display: none; margin-top: 10px">
+          <div id="complaint_fields" class="conditional-block">
             <label>Complaint / Problem</label>
             <textarea name="problem"></textarea>
           </div>
@@ -134,7 +212,7 @@
                 >Compliance Deadline (per directive/instruction sheet)</label
               ><input required type="date" name="compliance_deadline" />
             </div>
-            <div id="complaint_date_field" style="display: none">
+            <div id="complaint_date_field" class="conditional-block">
               <label>Complaint Date</label
               ><input type="date" name="Complaint_date" />
             </div>
@@ -150,15 +228,15 @@
         </div>
 
         <script>
+          const toggleCard = document.getElementById("complaint_toggle_card");
           const toggle = document.getElementById("complaint_toggle");
           const fields = [
             document.getElementById("complaint_fields"),
             document.getElementById("complaint_date_field"),
           ];
           toggle.addEventListener("change", () => {
-            fields.forEach(
-              (f) => (f.style.display = toggle.checked ? "block" : "none"),
-            );
+            toggleCard.classList.toggle("active", toggle.checked);
+            fields.forEach((f) => f.classList.toggle("active", toggle.checked));
             const problemField = fields[0].querySelector("textarea");
             const dateField = fields[1].querySelector("input");
             problemField.required = toggle.checked;
