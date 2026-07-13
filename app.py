@@ -84,7 +84,7 @@ def fdate(v):
         return v
 
 async def lookup_ce(license_no: str):
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10,verify=False) as client:
         await client.get(
             "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp"
         )
@@ -92,9 +92,10 @@ async def lookup_ce(license_no: str):
             "https://www.kmcgov.in/KMCPortal/LicenseInformationAction.do?passedParam=searchResult",
             data={"searchLicenseNo": license_no},
             headers={
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp",
-            },
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  },
         )
         data = resp.json()
 
@@ -131,7 +132,8 @@ async def lookup_ce_route(payload: LicenseLookupRequest):
         return JSONResponse({"error": "License number is required."}, status_code=400)
     try:
         result = await lookup_ce(license_no)
-    except httpx.RequestError:
+    except httpx.RequestError as e:
+        print(f"KMC request failed: {type(e).__name__}: {e}")  # TEMP DEBUG
         return JSONResponse({"error": "Could not reach KMC portal. Try again."}, status_code=502)
     if not result:
         return JSONResponse({"error": "License not found."}, status_code=404)
