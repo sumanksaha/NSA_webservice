@@ -163,13 +163,24 @@ async def generate_all(request: Request):
     form = await request.form()
     data = dict(form)
 
-    for k in [
+    is_pre_authorization = str(data.get('pre_authorization', 'no')).strip().lower() == 'yes'
+
+    date_fields = [
         'First_inspection_date',
         'Complaint_date',
         'inspection_date',
-        'authorization_date'
-    ]:
+    ]
+    if not is_pre_authorization:
+        date_fields.append('authorization_date')
+
+    for k in date_fields:
         data[k] = fdate(data.get(k, ''))
+
+    if is_pre_authorization:
+        # Authorization hasn't been granted yet in this case — the permission
+        # memo requests it, so don't carry a stray/blank authorization_date
+        # into the render context.
+        data.pop('authorization_date', None)
 
     data['compilation_date'] = datetime.today().strftime(
         "%d %B %Y"
@@ -195,16 +206,29 @@ async def generate_all(request: Request):
 
     outputs = []
 
-    templates_to_generate = [
-        (
-            "Legal_NonsampleAdjudication_Template.html",
-            "Permission_Letter"
-        ),
-        (
-            "template_nonsample_petition.html",
-            "Petition"
-        )
-    ]
+    if is_pre_authorization:
+        # Permission not yet granted: generate only the permission-request
+        # memo (which asks the Designated Officer for authorization).
+        templates_to_generate = [
+            (
+                "Legal_NonsampleAdjudication_Template.html",
+                "Permission_Letter"
+            ),
+        ]
+    else:
+        # Permission already granted (authorization_date is known):
+        # generate only the petition, which cites that date.
+        if not data.get('authorization_date'):
+            return JSONResponse(
+                {"error": "authorization_date is required when Pre-Authorization Case is not ticked."},
+                status_code=400,
+            )
+        templates_to_generate = [
+            (
+                "template_nonsample_petition.html",
+                "Petition"
+            ),
+        ]
 
     for tpl, prefix in templates_to_generate:
 
@@ -240,9 +264,10 @@ async def generate_all(request: Request):
             pdff
         ])
 
+    zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zipname = os.path.join(
         OUTPUT_DIR,
-        "CasePack_Final.zip"
+        f"{zip_prefix}_Final.zip"
     )
 
     with zipfile.ZipFile(
@@ -257,6 +282,6 @@ async def generate_all(request: Request):
 
     return FileResponse(
         zipname,
-        filename="CasePack_Final.zip",
+        filename=f"{zip_prefix}_Final.zip",
         media_type="application/zip"
     )

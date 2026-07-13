@@ -325,7 +325,7 @@
               <label>Follow-up Inspection</label
               ><input required type="date" name="inspection_date" />
             </div>
-            <div>
+            <div id="authorization_date_field">
               <label>Authorization Date</label
               ><input required type="date" name="authorization_date" />
             </div>
@@ -359,6 +359,37 @@
               card.classList.toggle("active", input.checked);
             });
           });
+
+          // Authorization Date is only relevant/known when this is NOT a
+          // pre-authorization case (i.e. authorization has already been
+          // granted, so the petition can cite its date). When
+          // Pre-Authorization Case is ticked, the case pack instead
+          // generates the permission-request memo, which asks for
+          // authorization rather than assuming it — so the field is hidden
+          // and its required/submitted value is cleared.
+          const preAuthToggle = document.getElementById(
+            "pre_authorization_toggle",
+          );
+          const authDateField = document.getElementById(
+            "authorization_date_field",
+          );
+
+          function syncAuthorizationDateVisibility() {
+            const isPreAuthorization = preAuthToggle.checked;
+            authDateField.style.display = isPreAuthorization ? "none" : "";
+            const authDateInput = authDateField.querySelector(
+              '[name="authorization_date"]',
+            );
+            authDateInput.required = !isPreAuthorization;
+            if (isPreAuthorization) {
+              authDateInput.value = "";
+            }
+          }
+          preAuthToggle.addEventListener(
+            "change",
+            syncAuthorizationDateVisibility,
+          );
+          syncAuthorizationDateVisibility();
 
           // Show/hide license lookup block: only relevant when FBO IS licensed
           // (i.e. Non-Licensed toggle is UNCHECKED). Checking "Non-Licensed"
