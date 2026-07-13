@@ -102,6 +102,9 @@ async def lookup_ce(license_no: str):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
   },
         )
+        print(f"Status: {resp.status_code}")  # TEMP DEBUG
+        print(f"Content-Type: {resp.headers.get('content-type')}")  # TEMP DEBUG
+        print(f"Body (first 500 chars): {resp.text[:500]}")  # TEMP DEBUG
         data = resp.json()
 
     if not data.get("success"):
