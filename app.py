@@ -15,6 +15,7 @@ from pydantic import BaseModel
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
+SECTION_MD_PATH = "fss_sections.md"
 env = Environment(loader=FileSystemLoader("templates"))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

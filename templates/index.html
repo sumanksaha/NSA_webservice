@@ -370,9 +370,9 @@
           );
 
           function syncLicenseLookupVisibility() {
-            const isLicensed = !nonLicenseToggle.checked;
-            licenseLookupBlock.style.display = isLicensed ? "" : "none";
-            if (!isLicensed) {
+            const showLicenseBlock = nonLicenseToggle.checked;
+            licenseLookupBlock.style.display = showLicenseBlock ? "" : "none";
+            if (!showLicenseBlock) {
               document.getElementById("ce_license_no").value = "";
               document.getElementById("ce_trade_name").value = "";
               document.getElementById("ce_proprietor").value = "";
