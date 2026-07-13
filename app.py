@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 from weasyprint import HTML
 import zipfile
 import os
+import httpx
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -71,6 +73,8 @@ RULES = {
     )
 }
 
+class LicenseLookupRequest(BaseModel):
+    license_no: str
 
 def fdate(v):
     try:
@@ -78,6 +82,34 @@ def fdate(v):
         return dt.strftime("%d %B %Y")
     except:
         return v
+
+async def lookup_ce(license_no: str):
+    async with httpx.AsyncClient(timeout=10) as client:
+        await client.get(
+            "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp"
+        )
+        resp = await client.post(
+            "https://www.kmcgov.in/KMCPortal/LicenseInformationAction.do?passedParam=searchResult",
+            data={"searchLicenseNo": license_no},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp",
+            },
+        )
+        data = resp.json()
+
+    if not data.get("success"):
+        return None
+    try:
+        rows = data["licenseNo"][0]
+        identity = rows[0]
+    except (KeyError, IndexError):
+        return None
+
+    fee_heads = [{"section": r.get("sectionCode"), "amount": r.get("demandAmount")} for r in rows]
+    return {"identity": identity, "fee_heads": fee_heads, "is_closed": bool(identity.get("licClosingDate"))}
+
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -91,6 +123,20 @@ async def home(request: Request):
         name="index.html",
         context=context
     )
+
+@app.post("/lookup_ce")
+async def lookup_ce_route(payload: LicenseLookupRequest):
+    license_no = payload.license_no.strip()
+    if not license_no:
+        return JSONResponse({"error": "License number is required."}, status_code=400)
+    try:
+        result = await lookup_ce(license_no)
+    except httpx.RequestError:
+        return JSONResponse({"error": "Could not reach KMC portal. Try again."}, status_code=502)
+    if not result:
+        return JSONResponse({"error": "License not found."}, status_code=404)
+    return result
+
 
 @app.post("/generate_all")
 async def generate_all(request: Request):

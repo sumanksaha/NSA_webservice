@@ -154,6 +154,111 @@
           />
         </div>
 
+        <div class="section" id="flags_section">
+          <h3>Case Flags</h3>
+          <div class="checkgrid" id="flags_grid">
+            <div class="toggle-card" id="non_license_toggle_card">
+              <label
+                ><input
+                  type="checkbox"
+                  id="non_license_toggle"
+                  name="non_license"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Non-Licensed / Unregistered FBO?</label
+              >
+            </div>
+
+            <div
+              id="license_lookup_block"
+              class="conditional-block active"
+              style="
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 12px;
+                margin: 10px 0;
+              "
+            >
+              <label>Trade License No. (KMC lookup)</label>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <input
+                  type="text"
+                  id="ce_license_no"
+                  placeholder="Enter License No."
+                  style="flex: 1"
+                />
+                <button
+                  type="button"
+                  id="ce_fetch_btn"
+                  style="white-space: nowrap"
+                >
+                  Fetch Details
+                </button>
+              </div>
+              <div
+                id="ce_lookup_status"
+                style="font-size: 0.85em; margin-top: 4px"
+              ></div>
+
+              <div class="grid" style="margin-top: 10px">
+                <div>
+                  <label>Trade/Unit Name</label>
+                  <input type="text" id="ce_trade_name" readonly />
+                </div>
+                <div>
+                  <label>Proprietor</label>
+                  <input type="text" id="ce_proprietor" readonly />
+                </div>
+                <div>
+                  <label>Address</label>
+                  <textarea id="ce_address" readonly></textarea>
+                </div>
+                <div>
+                  <label>License Status</label>
+                  <input type="text" id="ce_status" readonly />
+                </div>
+              </div>
+
+              <label style="margin-top: 8px; display: block">
+                <input
+                  type="checkbox"
+                  id="ce_copy_toggle"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Copy fetched details into FBO Owner / FBO Name / FBO Address
+                below
+              </label>
+            </div>
+
+            <div class="toggle-card" id="pre_authorization_toggle_card">
+              <label
+                ><input
+                  type="checkbox"
+                  id="pre_authorization_toggle"
+                  name="pre_authorization"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Pre-Authorization Case?</label
+              >
+            </div>
+
+            <div class="toggle-card" id="complaint_toggle_card">
+              <label
+                ><input
+                  type="checkbox"
+                  id="complaint_toggle"
+                  name="complaint_lodged"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Was a third-party complaint lodged in this case?</label
+              >
+            </div>
+          </div>
+        </div>
+
         <div class="section">
           <h3>Case Information</h3>
           <div class="grid">
@@ -177,7 +282,7 @@
             </div>
           </div>
 
-          <div
+          <!--<div
             class="toggle-card"
             id="complaint_toggle_card"
             style="margin-top: 12px"
@@ -192,7 +297,7 @@
               />
               Was a third-party complaint lodged in this case?</label
             >
-          </div>
+          </div>-->
 
           <div id="complaint_fields" class="conditional-block">
             <label>Complaint / Problem</label>
@@ -242,6 +347,111 @@
             problemField.required = toggle.checked;
             dateField.required = toggle.checked;
           });
+
+          // Simple active-state highlighting for the other two case-flag checkboxes
+          [
+            ["non_license_toggle", "non_license_toggle_card"],
+            ["pre_authorization_toggle", "pre_authorization_toggle_card"],
+          ].forEach(([inputId, cardId]) => {
+            const input = document.getElementById(inputId);
+            const card = document.getElementById(cardId);
+            input.addEventListener("change", () => {
+              card.classList.toggle("active", input.checked);
+            });
+          });
+
+          // Show/hide license lookup block: only relevant when FBO IS licensed
+          // (i.e. Non-Licensed toggle is UNCHECKED). Checking "Non-Licensed"
+          // hides it and clears any fetched values.
+          const nonLicenseToggle =
+            document.getElementById("non_license_toggle");
+          const licenseLookupBlock = document.getElementById(
+            "license_lookup_block",
+          );
+
+          function syncLicenseLookupVisibility() {
+            const isLicensed = !nonLicenseToggle.checked;
+            licenseLookupBlock.style.display = isLicensed ? "" : "none";
+            if (!isLicensed) {
+              document.getElementById("ce_license_no").value = "";
+              document.getElementById("ce_trade_name").value = "";
+              document.getElementById("ce_proprietor").value = "";
+              document.getElementById("ce_address").value = "";
+              document.getElementById("ce_status").value = "";
+              document.getElementById("ce_copy_toggle").checked = false;
+              document.getElementById("ce_lookup_status").textContent = "";
+            }
+          }
+          nonLicenseToggle.addEventListener(
+            "change",
+            syncLicenseLookupVisibility,
+          );
+          syncLicenseLookupVisibility();
+
+          // Fetch trade license details from backend /lookup_ce endpoint
+          const ceFetchBtn = document.getElementById("ce_fetch_btn");
+          const ceStatusEl = document.getElementById("ce_lookup_status");
+          const ceCopyToggle = document.getElementById("ce_copy_toggle");
+
+          function maybeCopyToFbo() {
+            if (!ceCopyToggle.checked) return;
+            document.querySelector('[name="fbo_owner"]').value =
+              document.getElementById("ce_proprietor").value;
+            document.querySelector('[name="fbo_name"]').value =
+              document.getElementById("ce_trade_name").value;
+            document.querySelector('[name="fbo_address"]').value =
+              document.getElementById("ce_address").value;
+          }
+
+          ceFetchBtn.addEventListener("click", async () => {
+            const licenseNo = document
+              .getElementById("ce_license_no")
+              .value.trim();
+            if (!licenseNo) {
+              ceStatusEl.textContent = "Enter a license number first.";
+              ceStatusEl.style.color = "#b00";
+              return;
+            }
+            ceStatusEl.textContent = "Fetching…";
+            ceStatusEl.style.color = "#555";
+            ceFetchBtn.disabled = true;
+            try {
+              const resp = await fetch("/lookup_ce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_no: licenseNo }),
+              });
+              const data = await resp.json();
+              if (!resp.ok || !data.identity) {
+                ceStatusEl.textContent = data.error || "License not found.";
+                ceStatusEl.style.color = "#b00";
+                return;
+              }
+              const id = data.identity;
+              document.getElementById("ce_trade_name").value =
+                id.tradeName || "";
+              document.getElementById("ce_proprietor").value =
+                id.licProprietor || "";
+              document.getElementById("ce_address").value = [
+                id.addressInfo1,
+                id.addressInfo2,
+                id.addressCity,
+              ]
+                .filter(Boolean)
+                .join(", ");
+              document.getElementById("ce_status").value = id.licStatus || "";
+              ceStatusEl.textContent = "Fetched successfully.";
+              ceStatusEl.style.color = "#080";
+              maybeCopyToFbo();
+            } catch (err) {
+              ceStatusEl.textContent = "Lookup failed: " + err.message;
+              ceStatusEl.style.color = "#b00";
+            } finally {
+              ceFetchBtn.disabled = false;
+            }
+          });
+
+          ceCopyToggle.addEventListener("change", maybeCopyToFbo);
         </script>
 
         <div class="section">
@@ -258,6 +468,142 @@
             {% endfor %}
           </div>
         </div>
+
+        <div class="section" id="sections_section">
+          <h3>Applicable FSS Act Sections</h3>
+
+          <div style="margin-bottom: 14px">
+            <button
+              type="button"
+              class="btn"
+              id="suggest_sections_btn"
+              style="margin-top: 0"
+            >
+              Suggest Sections (AI)
+            </button>
+            <span
+              id="suggest_status"
+              style="margin-left: 12px; font-size: 13px; color: #555"
+            ></span>
+          </div>
+
+          <div class="checkgrid" id="sections_grid">
+            <div class="toggle-card" id="section_55_card">
+              <label>
+                <input
+                  type="checkbox"
+                  class="section-checkbox"
+                  id="section_55"
+                  name="section_55"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Sec. 55 – Failure to Comply with FSO Directions
+              </label>
+            </div>
+            <div class="toggle-card" id="section_56_card">
+              <label>
+                <input
+                  type="checkbox"
+                  class="section-checkbox"
+                  id="section_56"
+                  name="section_56"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Sec. 56 – Unhygienic/Unsanitary Processing
+              </label>
+            </div>
+            <div class="toggle-card" id="section_58_card">
+              <label>
+                <input
+                  type="checkbox"
+                  class="section-checkbox"
+                  id="section_58"
+                  name="section_58"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Sec. 58 – General Contravention (No Specific Penalty)
+              </label>
+            </div>
+            <div class="toggle-card" id="section_63_card">
+              <label>
+                <input
+                  type="checkbox"
+                  class="section-checkbox"
+                  id="section_63"
+                  name="section_63"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Sec. 63 – Operating Without Licence
+              </label>
+            </div>
+            <div class="toggle-card" id="section_64_card">
+              <label>
+                <input
+                  type="checkbox"
+                  class="section-checkbox"
+                  id="section_64"
+                  name="section_64"
+                  value="yes"
+                  style="width: auto; display: inline-block; margin-right: 8px"
+                />
+                Sec. 64 – Subsequent Offence
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          // Active-state highlight for manual section checkboxes
+          document.querySelectorAll(".section-checkbox").forEach((cb) => {
+            cb.addEventListener("change", () => {
+              document
+                .getElementById(cb.id + "_card")
+                .classList.toggle("active", cb.checked);
+            });
+          });
+
+          // Hybrid AI suggestion: LangChain backend proposes sections, officer confirms/overrides
+          document
+            .getElementById("suggest_sections_btn")
+            .addEventListener("click", async () => {
+              const statusEl = document.getElementById("suggest_status");
+              statusEl.textContent = "Analyzing checklist...";
+              try {
+                const formData = new FormData(document.querySelector("form"));
+                const res = await fetch("/suggest_sections", {
+                  method: "POST",
+                  body: formData,
+                });
+                const data = await res.json(); // expected: { sections: ["55","58",...] }
+
+                document
+                  .querySelectorAll(".section-checkbox")
+                  .forEach((cb) => (cb.checked = false));
+                document.querySelectorAll(".toggle-card").forEach((c) => {
+                  if (c.id.startsWith("section_")) c.classList.remove("active");
+                });
+
+                (data.sections || []).forEach((sec) => {
+                  const cb = document.getElementById("section_" + sec);
+                  if (cb) {
+                    cb.checked = true;
+                    document
+                      .getElementById("section_" + sec + "_card")
+                      .classList.add("active");
+                  }
+                });
+                statusEl.textContent =
+                  "AI-suggested sections applied — please review before submitting.";
+              } catch (err) {
+                statusEl.textContent =
+                  "Suggestion failed — select sections manually.";
+              }
+            });
+        </script>
 
         <button class="btn">Generate Full Case Pack</button>
       </form>

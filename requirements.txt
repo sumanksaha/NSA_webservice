@@ -5,3 +5,4 @@ jinja2
 weasyprint
 python-multipart
 num2words
+httpx
