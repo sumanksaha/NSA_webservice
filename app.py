@@ -8,6 +8,8 @@ import zipfile
 import os
 import httpx
 import ssl
+import re
+import json
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -102,10 +104,16 @@ async def lookup_ce(license_no: str):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
   },
         )
-        print(f"Status: {resp.status_code}")  # TEMP DEBUG
-        print(f"Content-Type: {resp.headers.get('content-type')}")  # TEMP DEBUG
-        print(f"Body (first 500 chars): {resp.text[:500]}")  # TEMP DEBUG
-        data = resp.json()
+        
+        raw_text = resp.text
+        # KMC's endpoint returns JSON with unquoted keys — fix before parsing
+        fixed_text = re.sub(r'([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', raw_text)
+        try:
+            data = json.loads(fixed_text)
+        except json.JSONDecodeError as e:
+            print(f"JSON repair failed: {e}")  # TEMP DEBUG
+            print(f"Fixed text (first 500 chars): {fixed_text[:500]}")  # TEMP DEBUG
+            return None
 
     if not data.get("success"):
         return None
