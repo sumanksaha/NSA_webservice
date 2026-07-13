@@ -7,6 +7,7 @@ from weasyprint import HTML
 import zipfile
 import os
 import httpx
+import ssl
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -84,7 +85,11 @@ def fdate(v):
         return v
 
 async def lookup_ce(license_no: str):
-    async with httpx.AsyncClient(timeout=10,verify=False) as client:
+    ctx = ssl.create_default_context()
+    ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    async with httpx.AsyncClient(timeout=10, verify=ctx) as client:
         await client.get(
             "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp"
         )
