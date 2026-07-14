@@ -273,6 +273,13 @@ async def generate_all(request: Request):
             'Artificial colours were reportedly used in food preparation.'
         })
 
+    if data.get('Expired_item') == 'yes':
+        violations.append({
+            'title': 'Expired Items Present',
+            'Observation':
+            'Expired food items were found on the premises.'
+        })
+
     data['violations'] = violations
 
     outputs = []

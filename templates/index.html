@@ -564,8 +564,8 @@
             <div class="card">
               <label>{{ c.replace('_',' ') }}</label>
               <select name="{{c}}">
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
+                <option value="yes"{% if c not in ['artificial_colour', 'Expired_item'] %} selected{% endif %}>Yes</option>
+                <option value="no"{% if c in ['artificial_colour', 'Expired_item'] %} selected{% endif %}>No</option>
               </select>
             </div>
             {% endfor %}
