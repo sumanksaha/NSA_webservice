@@ -10,6 +10,7 @@ import httpx
 import ssl
 import re
 import json
+import sqlite3
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -22,6 +23,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# FSSAI License/Registration lookup DBs
+DB_DIR = os.path.join(BASE_DIR, "db")
+LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
+REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
 
 CHECKLIST = [
     'clean_premise', 'refrigerator_clean', 'proper_attire',
@@ -79,6 +85,53 @@ RULES = {
 
 class LicenseLookupRequest(BaseModel):
     license_no: str
+
+
+class FssaiLookupRequest(BaseModel):
+    license_no: str
+
+
+def lookup_fssai(license_no: str):
+    """
+    Look up an FSSAI License/Registration number.
+    Numbers starting with '1' are Registration-category FBOs -> license_data.db.
+    Numbers starting with '2' are License-category FBOs -> registration_data.db.
+    Returns a dict with companyName/fullAddress/expiryDate/source, or None if
+    not found / prefix not recognized.
+    """
+    if not license_no:
+        return None, "License/Registration number is required."
+
+    prefix = license_no[0]
+    if prefix == '1':
+        db_path, table, col, source = LICENSE_DB_PATH, "license_records", "license_no", "license_data"
+    elif prefix == '2':
+        db_path, table, col, source = REGISTRATION_DB_PATH, "registration_records", "registration_no", "registration_data"
+    else:
+        return None, "Unrecognized License/Registration number prefix (expected to start with 1 or 2)."
+
+    if not os.path.exists(db_path):
+        return None, f"Lookup database not found: {os.path.basename(db_path)}."
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?",
+            (license_no,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return None, "License/Registration number not found."
+
+    return {
+        "companyName": row["company_name"],
+        "fullAddress": row["full_address"],
+        "expiryDate": row["expiry_date"],
+        "source": source,
+    }, None
 
 def fdate(v):
     try:
@@ -155,6 +208,16 @@ async def lookup_ce_route(payload: LicenseLookupRequest):
     if not result:
         return JSONResponse({"error": "License not found."}, status_code=404)
     return result
+
+
+@app.post("/lookup_fssai")
+async def lookup_fssai_route(payload: FssaiLookupRequest):
+    license_no = payload.license_no.strip()
+    result, error = lookup_fssai(license_no)
+    if error:
+        status_code = 400 if "required" in error or "prefix" in error else 404
+        return JSONResponse({"error": error}, status_code=status_code)
+    return {"identity": result}
 
 
 @app.post("/generate_all")

@@ -274,8 +274,26 @@
               ><textarea required name="fbo_address"></textarea>
             </div>
             <div>
-              <label>FSSAI License</label
-              ><input required name="fssai_license" />
+              <label>FSSAI License</label>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <input
+                  required
+                  name="fssai_license"
+                  id="fssai_license"
+                  style="flex: 1"
+                />
+                <button
+                  type="button"
+                  id="fssai_fetch_btn"
+                  style="white-space: nowrap"
+                >
+                  Fetch Details
+                </button>
+              </div>
+              <div
+                id="fssai_lookup_status"
+                style="font-size: 0.85em; margin-top: 4px"
+              ></div>
             </div>
             <div>
               <label>Concerned Food</label><input name="concerned_food" />
@@ -483,6 +501,59 @@
           });
 
           ceCopyToggle.addEventListener("change", maybeCopyToFbo);
+
+          // Fetch FBO details from backend /lookup_fssai endpoint using the
+          // FSSAI License/Registration No. entered in Case Information.
+          // Numbers starting with 1 are queried against license_data.db;
+          // numbers starting with 2 are queried against registration_data.db
+          // (routing is decided server-side).
+          const fssaiFetchBtn = document.getElementById("fssai_fetch_btn");
+          const fssaiStatusEl = document.getElementById("fssai_lookup_status");
+
+          fssaiFetchBtn.addEventListener("click", async () => {
+            const licenseNo = document
+              .getElementById("fssai_license")
+              .value.trim();
+            if (!licenseNo) {
+              fssaiStatusEl.textContent = "Enter a License/Registration number first.";
+              fssaiStatusEl.style.color = "#b00";
+              return;
+            }
+            fssaiStatusEl.textContent = "Fetching…";
+            fssaiStatusEl.style.color = "#555";
+            fssaiFetchBtn.disabled = true;
+            try {
+              const resp = await fetch("/lookup_fssai", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_no: licenseNo }),
+              });
+              const data = await resp.json();
+              if (!resp.ok || !data.identity) {
+                fssaiStatusEl.textContent =
+                  data.error || "License/Registration number not found.";
+                fssaiStatusEl.style.color = "#b00";
+                return;
+              }
+              const id = data.identity;
+              document.querySelector('[name="fbo_name"]').value =
+                id.companyName || "";
+              document.querySelector('[name="fbo_address"]').value =
+                id.fullAddress || "";
+              const sourceLabel =
+                id.source === "license_data" ? "License DB" : "Registration DB";
+              fssaiStatusEl.textContent =
+                `Fetched from ${sourceLabel}` +
+                (id.expiryDate ? ` (expiry: ${id.expiryDate})` : "") +
+                ". FBO Name / FBO Address populated.";
+              fssaiStatusEl.style.color = "#080";
+            } catch (err) {
+              fssaiStatusEl.textContent = "Lookup failed: " + err.message;
+              fssaiStatusEl.style.color = "#b00";
+            } finally {
+              fssaiFetchBtn.disabled = false;
+            }
+          });
         </script>
 
         <div class="section">
