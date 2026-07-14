@@ -676,6 +676,29 @@
             .getElementById("suggest_sections_btn")
             .addEventListener("click", async () => {
               const statusEl = document.getElementById("suggest_status");
+
+              // Warn before clobbering any sections the officer already
+              // ticked by hand (Sec 58 is manual-only and always preserved,
+              // so it's excluded from this check).
+              const alreadyTicked = Array.from(
+                document.querySelectorAll(
+                  ".section-checkbox:not(.manual-section):checked",
+                ),
+              ).map((cb) => cb.id.replace("section_", ""));
+
+              if (alreadyTicked.length > 0) {
+                const proceed = confirm(
+                  "AI suggestion will replace your current selection for Sec. " +
+                    alreadyTicked.join(", Sec. ") +
+                    ". Continue?",
+                );
+                if (!proceed) {
+                  statusEl.textContent =
+                    "AI suggestion cancelled — manual selection kept.";
+                  return;
+                }
+              }
+
               statusEl.textContent = "Analyzing checklist...";
               try {
                 const formData = new FormData(document.querySelector("form"));

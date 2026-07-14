@@ -54,6 +54,24 @@ _HYGIENE_CHECKLIST_ITEMS = {
 # Sections the officer must tick manually — never returned by the suggester.
 _MANUAL_ONLY_SECTIONS = {"58"}
 
+# Checklist items whose non-compliance indicates failure to comply with
+# standing FSO directions (Sec 55). Broader than the hygiene set used for
+# Sec 56 — includes documentation/display lapses that aren't "unhygienic"
+# per se but do show a prior direction wasn't followed.
+_DIRECTION_COMPLIANCE_ITEMS = {
+    "clean_premise": "Premises not maintained per prior directions.",
+    "refrigerator_clean": "Refrigeration hygiene directions not followed.",
+    "proper_attire": "Protective-attire directions not followed.",
+    "proper_covered_utensil": "Food-covering directions not followed.",
+    "date_tag": "Date-tagging/traceability directions not followed.",
+    "veg_nonveg_separation": "Veg/non-veg segregation directions not followed.",
+    "food_segregation": "Food segregation directions not followed.",
+    "license_display": "Licence-display directions not followed.",
+    "Expired_item": "Directions on removing expired stock not followed.",
+    "Pest_report": "Pest-control documentation directions not followed.",
+    "Water_report": "Water-test documentation directions not followed.",
+}
+
 SYSTEM_PROMPT = """You are assisting a Food Safety Officer under the FSS Act, 2006.
 Given inspection checklist results and case facts, suggest whether Section 56
 and/or Section 64 are applicable. Only choose from: 56, 64.
@@ -75,7 +93,9 @@ Rules:
 USER_PROMPT = """Case facts:
 {case_facts}
 
-Inspection checklist (yes = non-compliant unless noted otherwise):
+Inspection checklist (no = non-compliant / violation found, yes = compliant —
+EXCEPT fields whose name itself states the violation, e.g. 'artificial_colour: yes'
+means artificial colours WERE used, which is a violation):
 {checklist}
 
 Non-license flag: {non_license}
@@ -120,9 +140,34 @@ def _detect_section_56_from_checklist(form_data: dict) -> tuple[bool, str]:
     return True, f"Checklist shows unhygienic/unsanitary conditions: {summary}."
 
 
+def _detect_section_55_from_checklist(form_data: dict) -> tuple[bool, str]:
+    """
+    Returns (applies, one-line reasoning) when the checklist shows an actual
+    failure to comply with standing FSO directions. Section 55 must be
+    evidence-based, not auto-applied to every licensed FBO — the officer
+    still confirms/overrides via the UI.
+    """
+    violations = [
+        desc
+        for field, desc in _DIRECTION_COMPLIANCE_ITEMS.items()
+        if form_data.get(field) == "no"
+    ]
+    if form_data.get("artificial_colour") == "yes":
+        violations.append("Artificial colours used despite standing directions.")
+    if not violations:
+        return False, ""
+
+    summary = "; ".join(violations[:2])
+    if len(violations) > 2:
+        summary += f"; and {len(violations) - 2} more compliance lapse(s)"
+    return True, f"Checklist shows failure to comply with prior FSO directions: {summary}."
+
+
 def _invoke_llm_suggestions(form_data: dict, section_text: str) -> dict:
     checklist_items = {
-        k: v for k, v in form_data.items() if k not in _NON_CHECKLIST_FIELDS
+        k: v
+        for k, v in form_data.items()
+        if k not in _NON_CHECKLIST_FIELDS and not k.startswith("section_")
     }
     case_facts = (
         f"FBO name: {form_data.get('fbo_name', '')}\n"
@@ -181,7 +226,9 @@ def suggest_sections(form_data: dict) -> dict:
 
     Section selection rules:
     1. Non-licensed FBO (non_license=yes) -> only Section 63.
-    2. Licensed FBO -> Section 55 is always applied.
+    2. Licensed FBO -> Section 55 is suggested ONLY when the checklist shows
+       an actual failure to comply with prior FSO directions (evidence-based,
+       not automatic).
     3. Section 58 is never auto-suggested; the officer ticks it manually.
     4. Section 56 is applied when hygiene violations are observed in the
        checklist or inferred by the model from the input data.
@@ -204,14 +251,14 @@ def suggest_sections(form_data: dict) -> dict:
             },
         }
 
-    # Rule 2: licensed cases — Section 55 is mandatory.
-    sections: list[str] = ["55"]
-    reasoning: dict[str, str] = {
-        "55": (
-            "Licensed FBO follow-up inspection — mandatory application of "
-            "Section 55 for failure to comply with prior FSO directions."
-        )
-    }
+    # Rule 2: licensed cases — Section 55 only if checklist evidence shows
+    # failure to comply with prior directions. Not applied blindly.
+    sections: list[str] = []
+    reasoning: dict[str, str] = {}
+    direction_applies, direction_reason = _detect_section_55_from_checklist(form_data)
+    if direction_applies:
+        sections.append("55")
+        reasoning["55"] = direction_reason
 
     # Rule 4a: checklist-based Section 56 detection.
     hygiene_applies, hygiene_reason = _detect_section_56_from_checklist(form_data)
