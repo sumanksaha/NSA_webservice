@@ -13,6 +13,8 @@ import json
 import sqlite3
 from pydantic import BaseModel
 
+from suggester import suggest_sections
+
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
@@ -218,6 +220,12 @@ async def lookup_fssai_route(payload: FssaiLookupRequest):
         status_code = 400 if "required" in error or "prefix" in error else 404
         return JSONResponse({"error": error}, status_code=status_code)
     return {"identity": result}
+
+
+@app.post("/suggest_sections")
+async def suggest_sections_route(request: Request):
+    form = await request.form()
+    return suggest_sections(dict(form))
 
 
 @app.post("/generate_all")

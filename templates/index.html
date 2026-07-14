@@ -620,7 +620,7 @@
               <label>
                 <input
                   type="checkbox"
-                  class="section-checkbox"
+                  class="section-checkbox manual-section"
                   id="section_58"
                   name="section_58"
                   value="yes"
@@ -628,6 +628,9 @@
                 />
                 Sec. 58 – General Contravention (No Specific Penalty)
               </label>
+              <p style="margin: 8px 0 0 28px; font-size: 12px; color: #666; font-weight: 400; text-transform: none; letter-spacing: 0;">
+                Manual selection only — not auto-suggested by AI.
+              </p>
             </div>
             <div class="toggle-card" id="section_63_card">
               <label>
@@ -680,16 +683,25 @@
                   method: "POST",
                   body: formData,
                 });
-                const data = await res.json(); // expected: { sections: ["55","58",...] }
+                const data = await res.json();
+
+                const manualSections = new Set(
+                  Array.from(
+                    document.querySelectorAll(".manual-section:checked"),
+                  ).map((cb) => cb.id.replace("section_", "")),
+                );
 
                 document
-                  .querySelectorAll(".section-checkbox")
+                  .querySelectorAll(".section-checkbox:not(.manual-section)")
                   .forEach((cb) => (cb.checked = false));
                 document.querySelectorAll(".toggle-card").forEach((c) => {
-                  if (c.id.startsWith("section_")) c.classList.remove("active");
+                  if (c.id.startsWith("section_") && !c.querySelector(".manual-section")) {
+                    c.classList.remove("active");
+                  }
                 });
 
                 (data.sections || []).forEach((sec) => {
+                  if (manualSections.has(sec)) return;
                   const cb = document.getElementById("section_" + sec);
                   if (cb) {
                     cb.checked = true;
@@ -698,8 +710,13 @@
                       .classList.add("active");
                   }
                 });
+
+                const manualNote = manualSections.has("58")
+                  ? " Sec. 58 left to your manual selection."
+                  : " Tick Sec. 58 manually if a general contravention applies.";
                 statusEl.textContent =
-                  "AI-suggested sections applied — please review before submitting.";
+                  "AI-suggested sections applied — please review before submitting." +
+                  manualNote;
               } catch (err) {
                 statusEl.textContent =
                   "Suggestion failed — select sections manually.";
