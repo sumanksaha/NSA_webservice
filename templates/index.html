@@ -295,7 +295,7 @@
                 style="font-size: 0.85em; margin-top: 4px"
               ></div>
             </div>
-            <div>
+            <div id="concerned_food_field" class="conditional-block">
               <label>Concerned Food</label><input name="concerned_food" />
             </div>
           </div>
@@ -356,6 +356,7 @@
           const fields = [
             document.getElementById("complaint_fields"),
             document.getElementById("complaint_date_field"),
+            document.getElementById("concerned_food_field"),
           ];
           toggle.addEventListener("change", () => {
             toggleCard.classList.toggle("active", toggle.checked);
