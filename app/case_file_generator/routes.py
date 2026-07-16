@@ -117,9 +117,125 @@ def process_form_data(form_data):
     return case_data
 
 
+def case_file_to_dict(case_file):
+    """
+    Convert a CaseFile model instance to a dictionary for JSON serialization.
+    This includes all fields needed for form pre-population and document regeneration.
+    """
+    return {
+        'id': case_file.id,
+        'case_number': case_file.case_number,
+        'food_safety_officer_name': case_file.food_safety_officer_name,
+        'authorization_date': case_file.authorization_date,
+        'inspection_date': case_file.inspection_date,
+        'inspection_time': case_file.inspection_time,
+        'manufacturer_fssai': case_file.manufacturer_fssai,
+        'manufacturer_name': case_file.manufacturer_name,
+        'manufacturer_fbo_name': case_file.manufacturer_fbo_name,
+        'manufacturer_address': case_file.manufacturer_address,
+        'retailer_fssai': case_file.retailer_fssai,
+        'retailer_name': case_file.retailer_name,
+        'retailer_fbo_name': case_file.retailer_fbo_name,
+        'retailer_address': case_file.retailer_address,
+        'product_name': case_file.product_name,
+        'batch_no': case_file.batch_no,
+        'sample_quantity': case_file.sample_quantity,
+        'packet_count': case_file.packet_count,
+        'mfg_date': case_file.mfg_date,
+        'expiry_date': case_file.expiry_date,
+        'other_food_articles': case_file.other_food_articles,
+        'total_cost': case_file.total_cost,
+        'cost_in_words': case_file.cost_in_words,
+        'sample_code': case_file.sample_code,
+        'sample_submission_date': case_file.sample_submission_date,
+        'Lab_Registration_No': case_file.Lab_Registration_No,
+        'do_receipt_date': case_file.do_receipt_date,
+        'is_misbranded': 'misbranded' if case_file.is_misbranded else '',
+        'is_substandard': 'substandard' if case_file.is_substandard else '',
+        'analyst_report_no': case_file.analyst_report_no,
+        'analyst_report_date': case_file.analyst_report_date,
+        'directive_letter_no': case_file.directive_letter_no,
+        'directive_letter_date': case_file.directive_letter_date,
+        'retailer_report_receive_date': case_file.retailer_report_receive_date,
+        'manufacturer_report_receive_date': case_file.manufacturer_report_receive_date,
+        'applicable_regulation': case_file.applicable_regulation,
+        'applicable_clause': case_file.applicable_clause,
+        'sample_name': case_file.sample_name,
+        'applicable_sections': case_file.applicable_sections,
+        'created_at': case_file.created_at.isoformat() if case_file.created_at else None,
+        'synced_at': case_file.synced_at.isoformat() if case_file.synced_at else None
+    }
+
+
 @case_file_generator_bp.route('/')
 def index():
     return render_template('case_file_generator/index.html')
+
+
+# Case retrieval endpoints for data reuse
+@case_file_generator_bp.route('/cases', methods=['GET'])
+def list_cases():
+    """List all existing case files."""
+    cases = CaseFile.query.order_by(CaseFile.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'case_number': c.case_number,
+        'product_name': c.product_name,
+        'manufacturer_name': c.manufacturer_name,
+        'created_at': c.created_at.isoformat() if c.created_at else None
+    } for c in cases])
+
+
+@case_file_generator_bp.route('/case/<int:case_id>', methods=['GET'])
+def get_case(case_id):
+    """Retrieve a specific case file by ID."""
+    case_file = CaseFile.query.get_or_404(case_id)
+    return jsonify(case_file_to_dict(case_file))
+
+
+@case_file_generator_bp.route('/case/by_number/<case_number>', methods=['GET'])
+def get_case_by_number(case_number):
+    """Retrieve a specific case file by case number."""
+    case_file = CaseFile.query.filter_by(case_number=case_number).first_or_404()
+    return jsonify(case_file_to_dict(case_file))
+
+
+@case_file_generator_bp.route('/regenerate/<int:case_id>', methods=['GET'])
+def regenerate_case_files(case_id):
+    """Regenerate both Petition and Permission Letter from an existing case."""
+    case_file = CaseFile.query.get_or_404(case_id)
+    form_data = case_file_to_dict(case_file)
+    case_data = process_form_data(form_data)
+    
+    try:
+        from weasyprint import HTML
+        petition_html = render_template('case_file_generator/petition.html', **case_data)
+        permission_html = render_template('case_file_generator/permission_letter.html', **case_data)
+        
+        petition_pdf = io.BytesIO()
+        HTML(string=petition_html).write_pdf(petition_pdf)
+        petition_pdf.seek(0)
+        
+        permission_pdf = io.BytesIO()
+        HTML(string=permission_html).write_pdf(permission_pdf)
+        permission_pdf.seek(0)
+        
+        zip_buffer = io.BytesIO()
+        case_number = case_data.get('case_number', 'unknown').replace('/', '_')
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"Petition_{case_number}.pdf", petition_pdf.getvalue())
+            zf.writestr(f"Permission_Letter_{case_number}.pdf", permission_pdf.getvalue())
+        
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name=f"Case_Files_{case_number}_Regenerated.zip",
+            mimetype="application/zip"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to regenerate: {str(e)}"}), 500
 
 
 @case_file_generator_bp.route('/lookup_fssai', methods=['POST'])

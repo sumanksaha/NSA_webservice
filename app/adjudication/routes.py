@@ -69,6 +69,57 @@ RULES = {
     )
 }
 
+
+def adjudication_to_dict(adj):
+    """
+    Convert an Adjudication model instance to a dictionary for JSON serialization.
+    This includes all fields needed for form pre-population and document regeneration.
+    """
+    return {
+        'id': adj.id,
+        'case_number': adj.case_number,
+        'food_safety_officer': adj.food_safety_officer,
+        'non_license': adj.non_license,
+        'pre_authorization': adj.pre_authorization,
+        'complaint_lodged': adj.complaint_lodged,
+        'ce_license_no': adj.ce_license_no,
+        'ce_trade_name': adj.ce_trade_name,
+        'ce_proprietor': adj.ce_proprietor,
+        'ce_address': adj.ce_address,
+        'ce_status': adj.ce_status,
+        'fbo_owner': adj.fbo_owner,
+        'fbo_name': adj.fbo_name,
+        'fbo_address': adj.fbo_address,
+        'fssai_license': adj.fssai_license,
+        'concerned_food': adj.concerned_food,
+        'problem': adj.problem,
+        'First_inspection_date': adj.First_inspection_date,
+        'compliance_deadline': adj.compliance_deadline,
+        'Complaint_date': adj.Complaint_date,
+        'inspection_date': adj.inspection_date,
+        'authorization_date': adj.authorization_date,
+        'clean_premise': adj.clean_premise,
+        'refrigerator_clean': adj.refrigerator_clean,
+        'proper_attire': adj.proper_attire,
+        'proper_covered_utensil': adj.proper_covered_utensil,
+        'date_tag': adj.date_tag,
+        'veg_nonveg_separation': adj.veg_nonveg_separation,
+        'food_segregation': adj.food_segregation,
+        'license_display': adj.license_display,
+        'artificial_colour': adj.artificial_colour,
+        'Expired_item': adj.Expired_item,
+        'Pest_report': adj.Pest_report,
+        'Water_report': adj.Water_report,
+        'section_55': adj.section_55,
+        'section_56': adj.section_56,
+        'section_58': adj.section_58,
+        'section_63': adj.section_63,
+        'section_64': adj.section_64,
+        'created_at': adj.created_at.isoformat() if adj.created_at else None,
+        'synced_at': adj.synced_at.isoformat() if adj.synced_at else None
+    }
+
+
 @adjudication_bp.route('/')
 def index():
     return render_template('adjudication/index.html', checklist=CHECKLIST)
@@ -107,6 +158,98 @@ def suggest_sections_route():
     form_data = request.form.to_dict()
     suggestions = suggest_sections(form_data)
     return jsonify(suggestions)
+
+
+# Adjudication retrieval endpoints for data reuse
+@adjudication_bp.route('/cases', methods=['GET'])
+def list_adjudication_cases():
+    """List all existing adjudication cases."""
+    cases = Adjudication.query.order_by(Adjudication.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'case_number': c.case_number,
+        'fbo_name': c.fbo_name,
+        'food_safety_officer': c.food_safety_officer,
+        'created_at': c.created_at.isoformat() if c.created_at else None
+    } for c in cases])
+
+
+@adjudication_bp.route('/case/<int:case_id>', methods=['GET'])
+def get_adjudication_case(case_id):
+    """Retrieve a specific adjudication case by ID."""
+    adj = Adjudication.query.get_or_404(case_id)
+    return jsonify(adjudication_to_dict(adj))
+
+
+@adjudication_bp.route('/case/by_number/<case_number>', methods=['GET'])
+def get_adjudication_case_by_number(case_number):
+    """Retrieve a specific adjudication case by case number."""
+    adj = Adjudication.query.filter_by(case_number=case_number).first_or_404()
+    return jsonify(adjudication_to_dict(adj))
+
+
+@adjudication_bp.route('/regenerate/<int:case_id>', methods=['GET'])
+def regenerate_adjudication_documents(case_id):
+    """Regenerate documents from an existing adjudication case."""
+    adj = Adjudication.query.get_or_404(case_id)
+    form_data = adjudication_to_dict(adj)
+    
+    is_pre_authorization = str(form_data.get('pre_authorization', 'no')).strip().lower() == 'yes'
+    
+    # Render context
+    context = form_data.copy()
+    context['compilation_date'] = datetime.today().strftime("%d %B %Y")
+    
+    # Violations building
+    violations = []
+    for k, (title, obs) in RULES.items():
+        if form_data.get(k) == 'no':
+            violations.append({'title': title, 'Observation': obs})
+            
+    if form_data.get('artificial_colour') == 'yes':
+        violations.append({
+            'title': 'Use of Artificial Colours',
+            'Observation': 'Artificial colours were reportedly used in food preparation.'
+        })
+        
+    if form_data.get('Expired_item') == 'yes':
+        violations.append({
+            'title': 'Expired Items Present',
+            'Observation': 'Expired food items were found on the premises.'
+        })
+        
+    context['violations'] = violations
+    
+    outputs = []
+    if is_pre_authorization:
+        templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
+    else:
+        if not form_data.get('authorization_date'):
+            return jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
+        templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
+        
+    for tpl, prefix in templates_to_generate:
+        from weasyprint import HTML
+        rendered_html = render_template(tpl, **context)
+        pdf_buffer = io.BytesIO()
+        HTML(string=rendered_html).write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+        outputs.append((f"{prefix}.pdf", pdf_buffer.getvalue()))
+        
+    zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as z:
+        for fname, data in outputs:
+            z.writestr(fname, data)
+            
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name=f"{zip_prefix}_Case_{form_data.get('case_number', 'unknown')}_Regenerated.zip",
+        mimetype="application/zip"
+    )
 
 
 @adjudication_bp.route('/generate_all', methods=['POST'])
