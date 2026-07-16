@@ -45,3 +45,7 @@ def create_app():
         db.create_all()
         
     return app
+
+
+# Create the Flask application instance for Gunicorn
+app = create_app()
