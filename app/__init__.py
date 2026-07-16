@@ -1,5 +1,6 @@
 import os
 from flask import Flask, redirect, url_for
+from flask_migrate import Migrate
 from app.extensions import db
 
 def create_app():
@@ -18,6 +19,9 @@ def create_app():
     
     # Initialize SQLAlchemy database
     db.init_app(app)
+    
+    # Initialize Flask-Migrate
+    migrate = Migrate(app, db)
     
     # Register custom Jinja filters globally
     from app.utils.filters import to_words, format_date_indian
@@ -40,9 +44,10 @@ def create_app():
         return redirect(url_for('case_file_generator.index'))
         
     # Initialize database tables (models must be imported first)
-    with app.app_context():
-        from app import models  # noqa: F401 — registers CaseFile, Adjudication, Bill
-        db.create_all()
+    # Temporarily disabled for Alembic migration generation
+    # with app.app_context():
+    #     from app import models  # noqa: F401 — registers CaseFile, Adjudication, Bill
+    #     db.create_all()
         
     return app
 
