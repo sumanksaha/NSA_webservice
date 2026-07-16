@@ -1,0 +1,10 @@
+# Google Sheets API Private Credentials
+instance/credentials.json
+
+# Local Runtime SQLite Database (Active Instance Store)
+instance/app.db
+
+# Dynamic Bytecode and Environment Cache
+__pycache__/
+*.pyc
+.env
