@@ -33,10 +33,12 @@ def create_app():
     from app.case_file_generator.routes import case_file_generator_bp
     from app.adjudication.routes import adjudication_bp
     from app.bill_generator.routes import bill_generator_bp
+    from app.fbo_issue.routes import fbo_issue_bp
     
     app.register_blueprint(case_file_generator_bp, url_prefix='/case_file_generator')
     app.register_blueprint(adjudication_bp, url_prefix='/adjudication')
     app.register_blueprint(bill_generator_bp, url_prefix='/bill_generator')
+    app.register_blueprint(fbo_issue_bp, url_prefix='/fbo-issue')
     
     # Redirect root to first tab (Sample Adjudication)
     @app.route('/')
