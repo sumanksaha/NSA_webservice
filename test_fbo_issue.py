@@ -423,3 +423,385 @@ class TestReadRoutes:
         issues = resp.get_json()
         assert len(issues) == 1
         assert issues[0]['state'] == 'permission_pending'
+
+
+# ============================================================================
+# INTEGRATION TESTS: FBOIssue lookup from adjudication and bill_generator modules
+# ============================================================================
+
+@pytest.fixture
+def app_with_all_blueprints():
+    """Create Flask app with all blueprints for integration testing."""
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['TESTING'] = True
+    
+    db.init_app(app)
+    
+    # Register all relevant blueprints
+    from app.adjudication.routes import adjudication_bp
+    from app.bill_generator.routes import bill_generator_bp
+    from app.fbo_issue.routes import fbo_issue_bp
+    
+    app.register_blueprint(adjudication_bp, url_prefix='/adjudication')
+    app.register_blueprint(bill_generator_bp, url_prefix='/bill_generator')
+    app.register_blueprint(fbo_issue_bp, url_prefix='/fbo-issue')
+    
+    with app.app_context():
+        db.create_all()
+    
+    yield app
+
+
+@pytest.fixture
+def integration_client(app_with_all_blueprints):
+    """Create test client for integration testing."""
+    with app_with_all_blueprints.test_client() as client:
+        with app_with_all_blueprints.app_context():
+            yield client
+
+
+@pytest.fixture
+def mock_lookup_fssai_integration(monkeypatch):
+    """Mock lookup_fssai for integration tests."""
+    def mock_lookup(license_no):
+        if license_no and (license_no.startswith('1') or license_no.startswith('2')):
+            return {
+                'companyName': f'Test Company {license_no}',
+                'fullAddress': f'Test Address {license_no}',
+                'expiryDate': '2026-12-31',
+                'source': 'license_data' if license_no.startswith('1') else 'registration_data'
+            }, None
+        return None, f"License/Registration number not found: {license_no}"
+    
+    import app.utils.lookup as lookup_module
+    monkeypatch.setattr(lookup_module, 'lookup_fssai', mock_lookup)
+    import app.adjudication.routes as adj_routes
+    monkeypatch.setattr(adj_routes, 'lookup_fssai', mock_lookup)
+    import app.fbo_issue.routes as fbo_routes
+    monkeypatch.setattr(fbo_routes, 'lookup_fssai', mock_lookup)
+
+
+class TestAdjudicationFboIssueIntegration:
+    """Test FBOIssue lookup integration with adjudication blueprint."""
+    
+    def test_lookup_fbo_issues_by_fbo_id(self, integration_client, mock_lookup_fssai_integration):
+        """Test that adjudication can lookup FBO issues by fbo_id."""
+        # Create an FBO issue first
+        data = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000999',
+            'fso_name': 'Integration Test FSO',
+            'fbo_name': 'Integration Test FBO',
+            'detail_json': {'checklist': ['clean_premise', 'license_display']}
+        }
+        resp = integration_client.post('/fbo-issue/new', 
+                                       data=json.dumps(data), 
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup issues by fbo_id via adjudication endpoint
+        resp = integration_client.get('/adjudication/lookup_fbo_issues?fbo_id=200000000000999')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        assert issues[0]['fbo_id'] == '200000000000999'
+        assert issues[0]['fbo_name'] == 'Integration Test FBO'
+        assert issues[0]['source_type'] == 'inspection'
+        assert issues[0]['state'] == 'open'
+        
+        # Check prefill data
+        assert 'prefill' in issues[0]
+        prefill = issues[0]['prefill']
+        assert prefill['fbo_name'] == 'Integration Test FBO'
+        assert prefill['fssai_license'] == '200000000000999'
+        assert prefill['food_safety_officer'] == 'Integration Test FSO'
+        assert 'clean_premise, license_display' in prefill['problem']
+    
+    def test_lookup_fbo_issues_by_issue_id(self, integration_client, mock_lookup_fssai_integration):
+        """Test that adjudication can lookup specific FBO issue by ID."""
+        # Create an FBO issue
+        data = {
+            'source_type': 'sample',
+            'fbo_id': '200000000000888',
+            'fso_name': 'Sample Test FSO',
+            'detail_json': {
+                'sampling_date': '2026-07-16',
+                'sample_name': 'Test Sample',
+                'price': '150',
+                'sample_code': 'SAMP999'
+            }
+        }
+        resp = integration_client.post('/fbo-issue/new',
+                                       data=json.dumps(data),
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup specific issue by ID via adjudication endpoint
+        resp = integration_client.get(f'/adjudication/lookup_fbo_issues?issue_id={issue_id}')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        assert issues[0]['issue_id'] == issue_id
+        assert issues[0]['source_type'] == 'sample'
+        
+        # Check prefill data for sample
+        prefill = issues[0]['prefill']
+        assert prefill['fbo_name'] == 'Test Company 200000000000888'  # From mock
+        assert prefill['sample_code'] == 'SAMP999'
+        assert prefill['sample_name'] == 'Test Sample'
+        assert prefill['price'] == '150'
+    
+    def test_lookup_filters_open_issues(self, integration_client, monkeypatch):
+        """Test that open issues are returned by lookup."""
+        # Apply mock directly for this test
+        def mock_lookup(license_no):
+            if license_no and (license_no.startswith('1') or license_no.startswith('2')):
+                return {
+                    'companyName': f'Test Company {license_no}',
+                    'fullAddress': f'Test Address {license_no}',
+                    'expiryDate': '2026-12-31',
+                    'source': 'license_data' if license_no.startswith('1') else 'registration_data'
+                }, None
+            return None, f"License/Registration number not found: {license_no}"
+        
+        import app.utils.lookup as lookup_module
+        import app.fbo_issue.routes as fbo_routes
+        monkeypatch.setattr(lookup_module, 'lookup_fssai', mock_lookup)
+        monkeypatch.setattr(fbo_routes, 'lookup_fssai', mock_lookup)
+        
+        # Create an open issue
+        data = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000777',
+            'fso_name': 'Open Test FSO',
+            'detail_json': {'checklist': ['item1']}
+        }
+        resp = integration_client.post('/fbo-issue/new',
+                                       data=json.dumps(data),
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup should return open issues
+        resp = integration_client.get('/adjudication/lookup_fbo_issues?fbo_id=200000000000777')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        assert issues[0]['state'] == 'open'
+        assert issues[0]['issue_id'] == issue_id
+    
+    def test_lookup_requires_fbo_id_or_issue_id(self, integration_client):
+        """Test that lookup requires at least one parameter."""
+        resp = integration_client.get('/adjudication/lookup_fbo_issues')
+        assert resp.status_code == 400
+        assert 'Either fbo_id or issue_id is required' in resp.get_json()['error']
+
+
+class TestBillGeneratorFboIssueIntegration:
+    """Test FBOIssue lookup integration with bill_generator blueprint."""
+    
+    def test_lookup_fbo_issues_by_fbo_id(self, integration_client, mock_lookup_fssai_integration):
+        """Test that bill_generator can lookup FBO issues by fbo_id."""
+        # Create an FBO issue
+        data = {
+            'source_type': 'sample',
+            'fbo_id': '200000000000666',
+            'fso_name': 'Bill Test FSO',
+            'detail_json': {
+                'sampling_date': '2026-07-16',
+                'sample_name': 'Billing Sample',
+                'price': '200',
+                'sample_code': 'BILL001'
+            }
+        }
+        resp = integration_client.post('/fbo-issue/new',
+                                       data=json.dumps(data),
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup issues by fbo_id via bill_generator endpoint
+        resp = integration_client.get('/bill_generator/lookup_fbo_issues?fbo_id=200000000000666')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        assert issues[0]['fbo_id'] == '200000000000666'
+        assert issues[0]['source_type'] == 'sample'
+        
+        # Check prefill data for billing
+        assert 'prefill' in issues[0]
+        prefill = issues[0]['prefill']
+        assert prefill['Name'] == 'Test Company 200000000000666'
+        assert prefill['EMP_ID'] == 'Bill Test FSO'
+        assert prefill['sample_code'] == 'BILL001'
+        assert prefill['price'] == '200'
+    
+    def test_lookup_fbo_issues_by_issue_id(self, integration_client, mock_lookup_fssai_integration):
+        """Test that bill_generator can lookup specific FBO issue by ID."""
+        # Create an inspection issue
+        data = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000555',
+            'fso_name': 'Inspection FSO',
+            'detail_json': {'checklist': ['clean_premise', 'license_display', 'Pest_report']}
+        }
+        resp = integration_client.post('/fbo-issue/new',
+                                       data=json.dumps(data),
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup specific issue by ID via bill_generator endpoint
+        resp = integration_client.get(f'/bill_generator/lookup_fbo_issues?issue_id={issue_id}')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        assert issues[0]['issue_id'] == issue_id
+        
+        # Check prefill data for inspection
+        prefill = issues[0]['prefill']
+        assert prefill['Name'] == 'Test Company 200000000000555'
+        assert prefill['EMP_ID'] == 'Inspection FSO'
+        assert 'inspection_details' in prefill
+    
+    def test_lookup_filters_state_correctly(self, integration_client, mock_lookup_fssai_integration):
+        """Test that bill_generator lookup filters by state correctly."""
+        # Create multiple issues with different states
+        data1 = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000444',
+            'fso_name': 'FSO 1',
+            'detail_json': {'checklist': ['item1']}
+        }
+        data2 = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000444',
+            'fso_name': 'FSO 2',
+            'detail_json': {'checklist': ['item2']}
+        }
+        
+        resp1 = integration_client.post('/fbo-issue/new',
+                                        data=json.dumps(data1),
+                                        content_type='application/json')
+        issue1_id = resp1.get_json()['issue_id']
+        
+        resp2 = integration_client.post('/fbo-issue/new',
+                                        data=json.dumps(data2),
+                                        content_type='application/json')
+        issue2_id = resp2.get_json()['issue_id']
+        
+        # Transition issue1 to permission_granted (should be included)
+        integration_client.post(f'/fbo-issue/{issue1_id}/transition',
+                               data=json.dumps({'to_state': 'permission_granted', 'asserted_by': 'User'}),
+                               content_type='application/json')
+        
+        # Transition issue2 to dismissed (should NOT be included)
+        integration_client.post(f'/fbo-issue/{issue2_id}/transition',
+                               data=json.dumps({'to_state': 'dismissed', 'asserted_by': 'User'}),
+                               content_type='application/json')
+        
+        # Lookup should return only issue1 (open and permission_granted)
+        resp = integration_client.get('/bill_generator/lookup_fbo_issues?fbo_id=200000000000444')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        # Should have issue1 (permission_granted) and possibly others in open state
+        assert len(issues) >= 1
+        issue_ids = [issue['issue_id'] for issue in issues]
+        assert issue1_id in issue_ids
+        assert issue2_id not in issue_ids  # Dismissed should not appear
+    
+    def test_lookup_requires_parameters(self, integration_client):
+        """Test that bill_generator lookup requires at least one parameter."""
+        resp = integration_client.get('/bill_generator/lookup_fbo_issues')
+        assert resp.status_code == 400
+        assert 'Either fbo_id or issue_id is required' in resp.get_json()['error']
+
+
+class TestIntegrationEndToEnd:
+    """End-to-end integration tests across all modules."""
+    
+    def test_lookup_open_issue_with_prefill(self, integration_client, monkeypatch):
+        """Test complete workflow: create FBO issue -> lookup via adjudication -> verify prefill."""
+        # Apply mock directly for this test
+        def mock_lookup(license_no):
+            if license_no and (license_no.startswith('1') or license_no.startswith('2')):
+                return {
+                    'companyName': f'Test Company {license_no}',
+                    'fullAddress': f'Test Address {license_no}',
+                    'expiryDate': '2026-12-31',
+                    'source': 'license_data' if license_no.startswith('1') else 'registration_data'
+                }, None
+            return None, f"License/Registration number not found: {license_no}"
+        
+        import app.utils.lookup as lookup_module
+        import app.fbo_issue.routes as fbo_routes
+        monkeypatch.setattr(lookup_module, 'lookup_fssai', mock_lookup)
+        monkeypatch.setattr(fbo_routes, 'lookup_fssai', mock_lookup)
+        
+        # Step 1: Create FBO issue
+        fbo_data = {
+            'source_type': 'inspection',
+            'fbo_id': '200000000000111',
+            'fso_name': 'EndToEnd FSO',
+            'fbo_name': 'EndToEnd FBO',
+            'detail_json': {
+                'checklist': ['clean_premise', 'refrigerator_clean', 'Pest_report']
+            }
+        }
+        create_resp = integration_client.post('/fbo-issue/new',
+                                             data=json.dumps(fbo_data),
+                                             content_type='application/json')
+        assert create_resp.status_code == 201
+        issue_id = create_resp.get_json()['issue_id']
+        
+        # Step 2: Lookup via adjudication (issue is in open state)
+        lookup_resp = integration_client.get(f'/adjudication/lookup_fbo_issues?issue_id={issue_id}')
+        assert lookup_resp.status_code == 200
+        issues = lookup_resp.get_json()
+        assert len(issues) == 1
+        
+        issue = issues[0]
+        assert issue['state'] == 'open'
+        assert issue['fbo_id'] == '200000000000111'
+        assert 'prefill' in issue
+        
+        prefill = issue['prefill']
+        assert prefill['fbo_name'] == 'EndToEnd FBO'
+        assert prefill['fssai_license'] == '200000000000111'
+        assert 'clean_premise, refrigerator_clean, Pest_report' in prefill['problem']
+    
+    def test_sample_with_manufacturer(self, integration_client, mock_lookup_fssai_integration):
+        """Test sample issue with manufacturer_fbo_id includes manufacturer info."""
+        # Create sample issue with manufacturer
+        sample_data = {
+            'source_type': 'sample',
+            'fbo_id': '200000000000222',
+            'manufacturer_fbo_id': '200000000000333',
+            'fso_name': 'Manufacturer Test FSO',
+            'detail_json': {
+                'sampling_date': '2026-07-16',
+                'sample_name': 'Manufactured Product',
+                'price': '300',
+                'sample_code': 'MFG001'
+            }
+        }
+        resp = integration_client.post('/fbo-issue/new',
+                                       data=json.dumps(sample_data),
+                                       content_type='application/json')
+        assert resp.status_code == 201
+        issue_id = resp.get_json()['issue_id']
+        
+        # Lookup via adjudication
+        resp = integration_client.get(f'/adjudication/lookup_fbo_issues?issue_id={issue_id}')
+        assert resp.status_code == 200
+        issues = resp.get_json()
+        assert len(issues) == 1
+        
+        prefill = issues[0]['prefill']
+        assert prefill['manufacturer_fssai'] == '200000000000333'
+        assert prefill['sample_name'] == 'Manufactured Product'
+        assert prefill['price'] == '300'
