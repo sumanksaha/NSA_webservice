@@ -1,5 +1,6 @@
 flask
 flask-sqlalchemy
+flask-migrate
 gspread==6.2.1
 google-auth==2.56.0
 jinja2
