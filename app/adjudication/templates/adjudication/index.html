@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+
+{% block title %}NSA Adjudication Portal{% endblock %}
+
+{% block extra_css %}
+/* Specific Adjudication styles - now using theme.css classes */
+.toggle-card {
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: 6px;
+    background: var(--bg-subtle);
+    transition: all 0.25s ease;
+}
+
+.toggle-card:hover {
+    border-color: var(--accent-primary);
+}
+
+.toggle-card.active {
+    border-color: var(--accent-primary);
+    background: rgba(22, 36, 74, 0.05);
+    box-shadow: 0 0 15px rgba(22, 36, 74, 0.1);
+}
+
+.toggle-card label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.toggle-card input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+}
+
+.conditional-block {
+    display: none;
+    border-left: 3px solid var(--accent-primary);
+    padding-left: 20px;
+    margin-top: 15px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    grid-column: 1 / -1;
+}
+
+.conditional-block.active {
+    display: block;
+    opacity: 1;
+}
+
+.ai-reasoning-box {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(22, 36, 74, 0.08);
+    border: 1px dashed rgba(22, 36, 74, 0.3);
+    border-radius: 6px;
+    color: var(--accent-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.lookup-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.lookup-wrapper input {
+    flex: 1;
+}
+
+.status-indicator {
+    font-size: 0.8rem;
+    margin-top: 6px;
+    color: var(--text-body);
+}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-scale-balanced"></i> Non-Sample Adjudication Portal</h2>
+    </div>
+
+    <form method="post" action="{{ url_for('adjudication.generate_all') }}">
+        <!-- Food Safety Officer -->
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label>Food Safety Officer Name</label>
+                <input type="text" name="food_safety_officer" value="Suman Kumar Saha" required placeholder="Enter FSO name">
+            </div>
+        </div>
+
+        <!-- Case Flags Section -->
+        <div class="section-header" style="margin-top: 30px;">
+            <h3>Case Flags</h3>
+        </div>
+        <div class="form-row" style="margin-top: 15px;">
+            <div class="toggle-card" id="non_license_toggle_card">
+                <label>
+                    <input type="checkbox" id="non_license_toggle" name="non_license" value="yes">
+                    Non-Licensed / Unregistered FBO?
+                </label>
+            </div>
+            <div class="toggle-card" id="pre_authorization_toggle_card">
+                <label>
+                    <input type="checkbox" id="pre_authorization_toggle" name="pre_authorization" value="yes">
+                    Pre-Authorization Case?
+                </label>
+            </div>
+            <div class="toggle-card" id="complaint_toggle_card">
+                <label>
+                    <input type="checkbox" id="complaint_toggle" name="complaint_lodged" value="yes">
+                    Was a third-party complaint lodged?
+                </label>
+            </div>
+        </div>
+
+        <!-- KMC lookup box -->
+        <div id="license_lookup_block" class="conditional-block toggle-card active" style="margin-bottom: 25px;">
+            <label style="margin-bottom: 8px; display: block;">KMC Trade License Details Lookup</label>
+            <div class="lookup-wrapper">
+                <input type="text" id="ce_license_no" placeholder="Enter License Number">
+                <button type="button" id="ce_fetch_btn" class="btn btn-secondary">Fetch Details</button>
+            </div>
+            <div id="ce_lookup_status" class="status-indicator"></div>
+
+            <div class="form-row" style="margin-top: 15px;">
+                <div class="form-group">
+                    <label>Trade/Unit Name</label>
+                    <input type="text" id="ce_trade_name" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Proprietor</label>
+                    <input type="text" id="ce_proprietor" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="ce_address" readonly>
+                </div>
+                <div class="form-group">
+                    <label>License Status</label>
+                    <input type="text" id="ce_status" readonly>
+                </div>
+            </div>
+
+            <label style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="ce_copy_toggle" style="width: auto;">
+                Copy fetched details into FBO Owner / FBO Name / FBO Address below
+            </label>
+        </div>
+
+        <!-- Case Information Section -->
+        <div class="section-header" style="margin-top: 30px;">
+            <h3>Case Information</h3>
+        </div>
+        <div class="form-row" style="margin-top: 15px;">
+            <div class="form-group">
+                <label>Case Number</label>
+                <input type="text" name="case_number" required placeholder="e.g., 2026/FSS/104">
+            </div>
+            <div class="form-group">
+                <label>FBO Owner</label>
+                <input type="text" name="fbo_owner" required placeholder="FBO Owner Name">
+            </div>
+            <div class="form-group">
+                <label>FBO Name</label>
+                <input type="text" name="fbo_name" required placeholder="Trade/FBO Name">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>FBO Address</label>
+                <textarea name="fbo_address" required placeholder="Full FBO address details"></textarea>
+            </div>
+            <div class="form-group">
+                <label>FSSAI License / Registration No</label>
+                <div class="lookup-wrapper">
+                    <input type="text" name="fssai_license" id="fssai_license" required placeholder="FSSAI License Number">
+                    <button type="button" id="fssai_fetch_btn" class="btn btn-secondary">Fetch</button>
+                </div>
+                <div id="fssai_lookup_status" class="status-indicator"></div>
+            </div>
+            <div class="form-group" id="concerned_food_field">
+                <label>Concerned Food</label>
+                <input type="text" name="concerned_food" placeholder="e.g., Prepared Food">
+            </div>
+        </div>
+
+        <!-- Complaint Details Box -->
+        <div id="complaint_fields" class="conditional-block">
+            <div class="form-group">
+                <label>Complaint / Problem</label>
+                <textarea name="problem" placeholder="Describe the third-party complaint or hygiene issues observed..."></textarea>
+            </div>
+        </div>
+
+        <!-- Dates Section -->
+        <div class="section-header" style="margin-top: 30px;">
+            <h3>Dates</h3>
+        </div>
+        <div class="form-row" style="margin-top: 15px;">
+            <div class="form-group">
+                <label>First Inspection Date</label>
+                <input type="date" name="First_inspection_date" required>
+            </div>
+            <div class="form-group">
+                <label>Compliance Deadline (Directive Sheet)</label>
+                <input type="date" name="compliance_deadline" required>
+            </div>
+            <div class="form-group" id="complaint_date_field">
+                <label>Complaint Date</label>
+                <input type="date" name="Complaint_date">
+            </div>
+            <div class="form-group">
+                <label>Follow-up Inspection Date</label>
+                <input type="date" name="inspection_date" required>
+            </div>
+            <div class="form-group" id="authorization_date_field">
+                <label>Authorization Date</label>
+                <input type="date" name="authorization_date">
+            </div>
+        </div>
+
+        <!-- Inspection Checklist -->
+        <div class="section-header" style="margin-top: 30px;">
+            <h3>Inspection Checklist</h3>
+        </div>
+        <div class="checklist-grid">
+            {% for c in checklist %}
+            <div class="checklist-card">
+                <label>{{ c.replace('_',' ') }}</label>
+                <select name="{{ c }}">
+                    <option value="yes" {% if c not in ['artificial_colour', 'Expired_item'] %}selected{% endif %}>Yes</option>
+                    <option value="no" {% if c in ['artificial_colour', 'Expired_item'] %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Applicable FSS Act Sections -->
+        <div class="section-header" style="margin-top: 40px;">
+            <h3>Applicable FSS Act Sections</h3>
+        </div>
+        
+        <div style="margin: 15px 0 20px 0; display: flex; align-items: center; gap: 15px;">
+            <button type="button" class="btn btn-primary" id="suggest_sections_btn">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Sections (AI)
+            </button>
+            <span id="suggest_status" class="status-indicator"></span>
+        </div>
+
+        <div class="form-row">
+            <div class="toggle-card" id="section_55_card">
+                <label>
+                    <input type="checkbox" class="section-checkbox" id="section_55" name="section_55" value="yes">
+                    Sec. 55 – Failure to Comply with FSO Directions
+                </label>
+            </div>
+            <div class="toggle-card" id="section_56_card">
+                <label>
+                    <input type="checkbox" class="section-checkbox" id="section_56" name="section_56" value="yes">
+                    Sec. 56 – Unhygienic/Unsanitary Processing
+                </label>
+            </div>
+            <div class="toggle-card" id="section_58_card">
+                <label>
+                    <input type="checkbox" class="section-checkbox manual-section" id="section_58" name="section_58" value="yes">
+                    Sec. 58 – General Contravention
+                </label>
+                <p style="margin: 5px 0 0 28px; font-size: 11px; color: var(--text-muted);">
+                    Manual selection only.
+                </p>
+            </div>
+            <div class="toggle-card" id="section_63_card">
+                <label>
+                    <input type="checkbox" class="section-checkbox" id="section_63" name="section_63" value="yes">
+                    Sec. 63 – Operating Without License
+                </label>
+            </div>
+            <div class="toggle-card" id="section_64_card">
+                <label>
+                    <input type="checkbox" class="section-checkbox" id="section_64" name="section_64" value="yes">
+                    Sec. 64 – Subsequent Offence
+                </label>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <button type="submit" class="btn btn-primary" style="padding: 16px 40px; font-size: 16px;">
+                <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handles complaint fields toggling
+    const complaintToggle = document.getElementById("complaint_toggle");
+    const complaintCard = document.getElementById("complaint_toggle_card");
+    const complaintBlocks = [
+        document.getElementById("complaint_fields"),
+        document.getElementById("complaint_date_field"),
+        document.getElementById("concerned_food_field")
+    ];
+
+    function syncComplaintFields() {
+        const isComplaint = complaintToggle.checked;
+        complaintCard.classList.toggle("active", isComplaint);
+        complaintBlocks.forEach(block => {
+            if (block) {
+                block.classList.toggle("active", isComplaint);
+                const txt = block.querySelector("textarea");
+                if (txt) txt.required = isComplaint;
+                const inp = block.querySelector("input[type='date']");
+                if (inp) inp.required = isComplaint;
+            }
+        });
+    }
+    complaintToggle.addEventListener("change", syncComplaintFields);
+    syncComplaintFields();
+
+    // Checkbox styling active classes
+    document.querySelectorAll(".section-checkbox").forEach(cb => {
+        cb.addEventListener("change", () => {
+            document.getElementById(cb.id + "_card").classList.toggle("active", cb.checked);
+        });
+    });
+
+    // Copying toggle highlight
+    document.getElementById("non_license_toggle").addEventListener("change", function() {
+        document.getElementById("non_license_toggle_card").classList.toggle("active", this.checked);
+        syncLicenseLookupVisibility();
+    });
+    
+    document.getElementById("pre_authorization_toggle").addEventListener("change", function() {
+        document.getElementById("pre_authorization_toggle_card").classList.toggle("active", this.checked);
+        syncAuthorizationDateVisibility();
+    });
+
+    // Authorization Date field visibility
+    const preAuthToggle = document.getElementById("pre_authorization_toggle");
+    const authDateField = document.getElementById("authorization_date_field");
+
+    function syncAuthorizationDateVisibility() {
+        const isPreAuth = preAuthToggle.checked;
+        authDateField.style.display = isPreAuth ? "none" : "";
+        const authDateInput = authDateField.querySelector('[name="authorization_date"]');
+        if (authDateInput) {
+            authDateInput.required = !isPreAuth;
+            if (isPreAuth) authDateInput.value = "";
+        }
+    }
+    syncAuthorizationDateVisibility();
+
+    // License lookup block visibility
+    const nonLicenseToggle = document.getElementById("non_license_toggle");
+    const licenseLookupBlock = document.getElementById("license_lookup_block");
+
+    function syncLicenseLookupVisibility() {
+        const showLookup = !nonLicenseToggle.checked;
+        licenseLookupBlock.style.display = showLookup ? "block" : "none";
+        if (!showLookup) {
+            document.getElementById("ce_license_no").value = "";
+            document.getElementById("ce_trade_name").value = "";
+            document.getElementById("ce_proprietor").value = "";
+            document.getElementById("ce_address").value = "";
+            document.getElementById("ce_status").value = "";
+            document.getElementById("ce_copy_toggle").checked = false;
+            document.getElementById("ce_lookup_status").textContent = "";
+        }
+    }
+    syncLicenseLookupVisibility();
+
+    // Fetch KMC Trade details
+    const ceFetchBtn = document.getElementById("ce_fetch_btn");
+    const ceStatus = document.getElementById("ce_lookup_status");
+    const ceCopyToggle = document.getElementById("ce_copy_toggle");
+
+    function copyKmcToFbo() {
+        if (!ceCopyToggle.checked) return;
+        document.querySelector('[name="fbo_owner"]').value = document.getElementById("ce_proprietor").value;
+        document.querySelector('[name="fbo_name"]').value = document.getElementById("ce_trade_name").value;
+        document.querySelector('[name="fbo_address"]').value = document.getElementById("ce_address").value;
+    }
+
+    ceFetchBtn.addEventListener("click", async () => {
+        const licNo = document.getElementById("ce_license_no").value.trim();
+        if (!licNo) {
+            ceStatus.textContent = "Please enter a trade license number.";
+            ceStatus.style.color = "var(--accent-secondary)";
+            return;
+        }
+        ceStatus.textContent = "Fetching trade details...";
+        ceStatus.style.color = "var(--text-body)";
+        ceFetchBtn.disabled = true;
+
+        try {
+            const resp = await fetch("{{ url_for('adjudication.lookup_ce_route') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_no: licNo })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.identity) {
+                ceStatus.textContent = data.error || "Trade license not found.";
+                ceStatus.style.color = "var(--accent-secondary)";
+                return;
+            }
+            const id = data.identity;
+            document.getElementById("ce_trade_name").value = id.tradeName || "";
+            document.getElementById("ce_proprietor").value = id.licProprietor || "";
+            document.getElementById("ce_address").value = [id.addressInfo1, id.addressInfo2, id.addressCity].filter(Boolean).join(", ");
+            document.getElementById("ce_status").value = id.licStatus || "";
+            
+            ceStatus.textContent = "Fetched successfully.";
+            ceStatus.style.color = "var(--accent-primary)";
+            copyKmcToFbo();
+        } catch (err) {
+            ceStatus.textContent = "Lookup failed: " + err.message;
+            ceStatus.style.color = "var(--accent-secondary)";
+        } finally {
+            ceFetchBtn.disabled = false;
+        }
+    });
+
+    ceCopyToggle.addEventListener("change", copyKmcToFbo);
+
+    // Fetch FSSAI details
+    const fssaiFetchBtn = document.getElementById("fssai_fetch_btn");
+    const fssaiStatus = document.getElementById("fssai_lookup_status");
+
+    fssaiFetchBtn.addEventListener("click", async () => {
+        const licNo = document.getElementById("fssai_license").value.trim();
+        if (!licNo) {
+            fssaiStatus.textContent = "Please enter a FSSAI license number.";
+            fssaiStatus.style.color = "var(--accent-secondary)";
+            return;
+        }
+        fssaiStatus.textContent = "Querying FSSAI database...";
+        fssaiStatus.style.color = "var(--text-body)";
+        fssaiFetchBtn.disabled = true;
+
+        try {
+            const resp = await fetch("{{ url_for('adjudication.lookup_fssai_route') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_no: licNo })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.identity) {
+                fssaiStatus.textContent = data.error || "License not found in FSSAI records.";
+                fssaiStatus.style.color = "var(--accent-secondary)";
+                return;
+            }
+            const id = data.identity;
+            document.querySelector('[name="fbo_name"]').value = id.companyName || "";
+            document.querySelector('[name="fbo_address"]').value = id.fullAddress || "";
+            const src = id.source === "license_data" ? "License DB" : "Registration DB";
+            
+            fssaiStatus.textContent = `Fetched from ${src} (Expiry: ${id.expiryDate || 'N/A'}).`;
+            fssaiStatus.style.color = "var(--accent-primary)";
+        } catch (err) {
+            fssaiStatus.textContent = "Lookup failed: " + err.message;
+            fssaiStatus.style.color = "var(--accent-secondary)";
+        } finally {
+            fssaiFetchBtn.disabled = false;
+        }
+    });
+
+    // AI Suggestions handler
+    const suggestBtn = document.getElementById("suggest_sections_btn");
+    const suggestStatus = document.getElementById("suggest_status");
+
+    suggestBtn.addEventListener("click", async () => {
+        const alreadyChecked = Array.from(document.querySelectorAll(".section-checkbox:not(.manual-section):checked"))
+                                   .map(cb => cb.id.replace("section_", ""));
+        
+        if (alreadyChecked.length > 0) {
+            const proceed = confirm("AI suggestion will overwrite your current selections for Sec. " + alreadyChecked.join(", Sec. ") + ". Proceed?");
+            if (!proceed) {
+                suggestStatus.textContent = "Cancelled. Kept manual choices.";
+                return;
+            }
+        }
+
+        suggestStatus.textContent = "Analyzing checklist & FSS Act guidelines...";
+        suggestStatus.style.color = "var(--text-body)";
+
+        try {
+            const formData = new FormData(document.querySelector("form"));
+            const resp = await fetch("{{ url_for('adjudication.suggest_sections_route') }}", {
+                method: "POST",
+                body: formData
+            });
+            const data = await resp.json();
+
+            const manualSelected = new Set(
+                Array.from(document.querySelectorAll(".manual-section:checked")).map(cb => cb.id.replace("section_", ""))
+            );
+
+            // Clear all non-manual sections
+            document.querySelectorAll(".section-checkbox:not(.manual-section)").forEach(cb => {
+                cb.checked = false;
+                document.getElementById(cb.id + "_card").classList.remove("active");
+            });
+
+            // Set suggested sections
+            (data.sections || []).forEach(sec => {
+                if (manualSelected.has(sec)) return;
+                const cb = document.getElementById("section_" + sec);
+                if (cb) {
+                    cb.checked = true;
+                    document.getElementById("section_" + sec + "_card").classList.add("active");
+                }
+            });
+
+            suggestStatus.textContent = "Suggested sections applied.";
+            suggestStatus.style.color = "var(--accent-primary)";
+        } catch (err) {
+            suggestStatus.textContent = "Error: " + err.message;
+            suggestStatus.style.color = "var(--accent-secondary)";
+        }
+    });
+</script>
+{% endblock %}

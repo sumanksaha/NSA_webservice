@@ -1,8 +1,10 @@
-
-fastapi
-uvicorn
+flask
+flask-sqlalchemy
+gspread==6.2.1
+google-auth==2.56.0
 jinja2
 weasyprint
 python-multipart
 num2words
 httpx
+

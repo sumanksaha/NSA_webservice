@@ -1,3 +1,37 @@
+# Section 51
+
+## Penalty for sub-standard food.
+
+**Text:**
+
+Any person who whether by himself or by any other person on his behalf
+manufactures for sale or stores or sells or distributes or imports any article of food for human
+consumption which is sub-standard, shall be liable to a penalty which may extend to **five lakh
+rupees.**
+
+---
+
+# Section 52
+
+## Penalty for misbranded food.
+
+**Text:**
+
+### 1
+
+Any person who whether by himself or by any other person on his behalf
+manufactures for sale or stores or sells or distributes or imports any article of food for human
+consumption which is misbranded, shall be liable to a penalty which may extend to **three lakh
+rupees**.
+
+### 2
+
+The Adjudicating Officer may issue a direction to the person found guilty of an
+offence under this section, for taking corrective action to rectify the mistake or such article of
+food shall be destroyed.
+
+---
+
 # Section 55
 
 ## Penalty for failure to comply with the directions of Food Safety Officer
@@ -10,7 +44,7 @@ regulations or orders issued thereunder, as directed by the Food Safety
 Officer, he shall be liable to a penalty which may extend to **₹2,00,000
 (two lakh rupees).**
 
-------------------------------------------------------------------------
+---
 
 # Section 56
 
@@ -23,7 +57,7 @@ manufactures or processes any article of food for human consumption
 under unhygienic or unsanitary conditions shall be liable to a penalty
 which may extend to **₹1,00,000 (one lakh rupees).**
 
-------------------------------------------------------------------------
+---
 
 # Section 58
 
@@ -36,7 +70,7 @@ regulations made thereunder, for the contravention of which no penalty
 has been separately provided in this Chapter, shall be liable to a
 penalty which may extend to **₹2,00,000 (two lakh rupees).**
 
-------------------------------------------------------------------------
+---
 
 # Section 63
 
@@ -50,10 +84,10 @@ or by any person on his behalf who is required to obtain a licence,
 manufactures, sells, stores, distributes, or imports any article of food
 without a licence, shall be punishable with:
 
--   Imprisonment for a term which may extend to **6 months**, and
--   A fine which may extend to **₹5,00,000 (five lakh rupees).**
+- Imprisonment for a term which may extend to **6 months**, and
+- A fine which may extend to **₹5,00,000 (five lakh rupees).**
 
-------------------------------------------------------------------------
+---
 
 # Section 64
 

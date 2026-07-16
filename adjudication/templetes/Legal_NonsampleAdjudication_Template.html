@@ -1,0 +1,297 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @page {
+        size: A4;
+        margin: 1.5cm 1.2cm 1.5cm 1.2cm;
+      }
+
+      body {
+        font-family: "Times New Roman", serif;
+        font-size: 12pt;
+        line-height: 2;
+        color: #000;
+        margin: 0;
+        padding: 0;
+        text-align: justify;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .office {
+        font-size: 14pt;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+
+      .suboffice {
+        font-size: 12pt;
+        margin-top: 3px;
+      }
+
+      .memo {
+        margin-top: 15px;
+        margin-bottom: 20px;
+      }
+
+      .recipient {
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+
+      .subject {
+        margin-top: 15px;
+        margin-bottom: 20px;
+        font-weight: bold;
+        text-decoration: underline;
+      }
+
+      .reference {
+        margin-bottom: 20px;
+      }
+
+      .paragraph {
+        margin-bottom: 14px;
+        text-indent: 40px;
+        line-height: 2;
+      }
+
+      .violation-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        margin-bottom: 20px;
+      }
+
+      .violation-table th,
+      .violation-table td {
+        border: 1px solid #000;
+        padding: 8px;
+        vertical-align: top;
+      }
+
+      .violation-table th {
+        text-align: center;
+        font-weight: bold;
+      }
+
+      .violation-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .legal-prayer {
+        margin-top: 25px;
+        text-align: justify;
+      }
+
+      .signature {
+        margin-top: 60px;
+        width: 100%;
+      }
+
+      .signature-right {
+        width: 45%;
+        float: right;
+        text-align: center;
+      }
+
+      .footer-note {
+        margin-top: 100px;
+        font-size: 10pt;
+        border-top: 1px solid #000;
+        padding-top: 8px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+      <!---<div class="office"> Food Cell, Kolkata Municipal Corporation </div>
+    <div class="suboffice"> 5, S.N. Banerjee Road, Kolkata - 700013 </div>--->
+    </div>
+
+    <div class="memo">
+      <!--<strong>Memo No.:</strong> {{ memo_no }} <br>-->
+      <strong>Date:</strong> {{ compilation_date }}
+    </div>
+
+    <div class="recipient">
+      <strong>To</strong><br />
+      The Designated Officer,<br />
+      Food Cell,<br />
+      Kolkata Municipal Corporation.
+    </div>
+
+    <div class="subject">
+      Subject: Prayer for authorization for filing of adjudication proceedings
+      against {{ fbo_name }}, situated at {{ fbo_address }} under Section 55 and
+      56 of the Food Safety and Standards Act, 2006.
+    </div>
+
+    <div class="paragraph">Sir/Madam,</div>
+
+    <div class="paragraph">
+      During inspection conducted on
+      <strong> {{ First_inspection_date }}</strong> at the food business
+      establishment namely <strong>{{ fbo_name }}</strong>, situated at
+      <strong>{{ fbo_address }}</strong>, the following non-compliances and
+      contraventions of food hygiene and sanitary requirements prescribed under
+      the Food Safety and Standards Act, 2006 and allied Regulations were
+      observed:
+    </div>
+
+    <div class="table-title">
+      Statement of Observed Non-Compliances During Inspection
+    </div>
+    <table class="violation-table">
+      <tr>
+        <th style="width: 8%">Sl.</th>
+        <th style="width: 32%">Nature of Non-Compliance</th>
+        <th>Observation</th>
+      </tr>
+
+      {% for v in violations %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ v.title }}</td>
+        <td>{{ v.Observation }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <!---<table class="violation-table">
+<tr>
+    <th style="width:8%">Sl.</th>
+    <th style="width:32%">Nature of Non‑Compliance</th>
+    <th>Observation</th>
+</tr>
+
+{% set ns = namespace(sl=1) %}
+
+{% if clean_premise|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Unclean Premises</td>
+<td>The premises were found inadequately maintained and unhygienic, indicating non‑compliance with prescribed sanitary and hygiene requirements.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if refrigerator_clean|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Refrigerator Maintenance</td>
+<td>Refrigeration facilities were found unclean and not maintained in hygienic condition.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if proper_attire|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Protective Attire</td>
+<td>Food handlers were found without prescribed protective attire including apron and/or headgear.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if proper_covered_utensil|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Covering of Food/Utensils</td>
+<td>Food utensils and/or food articles were found uncovered, exposing them to potential contamination.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if date_tag|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Absence of Date Tagging</td>
+<td>Stored food items lacked proper date identification and traceability markings.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if veg_nonveg_separation|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Segregation of Veg and Non‑Veg Items</td>
+<td>Segregation between vegetarian and non‑vegetarian food items was not adequately maintained.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if food_segregation|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper Segregation of Raw and Prepared Food</td>
+<td>Raw and prepared food articles were not properly segregated, creating risk of cross‑contamination.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if license_display|lower == 'no' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Improper License Display</td>
+<td>The FBO was found not displaying its FSSAI license prominently at the premises.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+{% if artificial_colour|lower == 'yes' %}
+<tr>
+<td>{{ ns.sl }}</td>
+<td>Use of Artificial Colours</td>
+<td>The FBO was found using artificial colours in the preparation of food items.</td>
+</tr>
+{% set ns.sl = ns.sl + 1 %}
+{% endif %}
+
+</table>--->
+
+    <div class="paragraph">
+      The undersigned issued an instruction sheet to the FBO to address the
+      non-compliance issues on or before {{ compliance_deadline }}.
+    </div>
+    {% if complaint_lodged == 'yes' %}
+    <div class="paragraph">
+      Subsequently, on {{ Complaint_date }}, the FSO received a complaint from
+      the complainant regarding the sale of a {{ concerned_food }} that {{
+      problem }}, further corroborating the FBO's continued non-compliance.
+    </div>
+    {% endif %}
+
+    <div class="paragraph">
+      That a follow-up inspection was conducted on {{ inspection_date}} and the
+      FSO observed continued non-compliance with food safety standards and with
+      directives issued by the FSO.
+    </div>
+
+    <div class="legal-prayer">
+      In view of the above findings and observed contraventions, it is
+      respectfully prayed that necessary permission may kindly be accorded for
+      initiation and filing of adjudication proceedings before the Learned
+      Adjudicating Officer under Section 55 and 56 of the Food Safety and
+      Standards Act, 2006, as deemed fit and proper in the interest of food
+      safety and public health.
+    </div>
+
+    <div class="signature-section">
+      <div>Date: {{ compilation_date }}</div>
+      <div style="text-align: right">
+        Signature of Food Safety Officer: __________________________<br />
+        <span style="font-size: 0.8em">(Food Safety Officer)</span>
+      </div>
+    </div>
+
+    <div style="clear: both"></div>
+  </body>
+</html>

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Billing Reimbursement Generator{% endblock %}
+
+{% block extra_css %}
+/* Billing Form Styles - now using theme.css classes */
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-receipt"></i> Billing & Reimbursement Portal</h2>
+    </div>
+
+    <form action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
+        <!-- Officer & Identification Details -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-user-tie"></i> FSO details</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="Name">Officer Name</label>
+                <input type="text" id="Name" name="Name" required value="Suman Kumar Saha" placeholder="Enter Full Name">
+            </div>
+            <div class="form-group">
+                <label for="EMP_ID">Employee ID</label>
+                <input type="text" id="EMP_ID" name="EMP_ID" required value="81276" placeholder="Enter Employee ID">
+            </div>
+            <div class="form-group">
+                <label for="Designation">Designation</label>
+                <input type="text" id="Designation" name="Designation" required value="Food Safety Officer" placeholder="e.g. Food Safety Officer">
+            </div>
+        </div>
+
+        <!-- Sample Details -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-vials"></i> Sample & Bill Summary</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="Enf_samp_No">Enforcement Sample Count</label>
+                <input type="number" id="Enf_samp_No" name="Enf_samp_No" required value="8" min="0" placeholder="e.g., 8">
+            </div>
+            <div class="form-group">
+                <label for="Surv_samp_No">Surveillance Sample Count</label>
+                <input type="number" id="Surv_samp_No" name="Surv_samp_No" required value="7" min="0" placeholder="e.g., 7">
+            </div>
+            <div class="form-group">
+                <label for="Total_bill">Total Bill Amount (Rs.)</label>
+                <input type="text" id="Total_bill" name="Total_bill" required value="6025.55" placeholder="e.g., 6025.55">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="No_of_enfbills">Number of Enforcement Bills</label>
+                <input type="text" id="No_of_enfbills" name="No_of_enfbills" required value="3" placeholder="e.g., 3">
+            </div>
+            <div class="form-group">
+                <label for="No_of_survbills">Number of Surveillance Bills</label>
+                <input type="text" id="No_of_survbills" name="No_of_survbills" required value="1" placeholder="e.g., 1">
+            </div>
+        </div>
+
+        <!-- Sanction Cum Allotment details -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-file-invoice-dollar"></i> Sanction & T.R Details</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="TR_Value">T.R / Allotment Order No</label>
+                <input type="text" id="TR_Value" name="TR_Value" required value="912" placeholder="e.g., 912">
+            </div>
+            <div class="form-group">
+                <label for="TR_date">T.R / Allotment Date</label>
+                <input type="date" id="TR_date" name="TR_date" required>
+            </div>
+            <div class="form-group">
+                <label for="Submission_date">Submission Date</label>
+                <input type="date" id="Submission_date" name="Submission_date" required>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <button type="submit" class="btn btn-primary" style="padding: 16px 40px; font-size: 16px;">
+                <i class="fa-solid fa-file-pdf"></i> Generate & Stream Reimbursement PDF
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Autofill today's date for submission if empty
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        const trDateInput = document.getElementById('TR_date');
+        const subDateInput = document.getElementById('Submission_date');
+        
+        if (!trDateInput.value) {
+            trDateInput.value = '2026-05-15'; // default matching old sample
+        }
+        if (!subDateInput.value) {
+            subDateInput.value = today;
+        }
+    });
+</script>
+{% endblock %}

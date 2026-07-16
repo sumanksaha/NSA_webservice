@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Case File Generator{% endblock %}
+
+{% block extra_css %}
+/* Custom Sample Adjudication styles - now using theme.css classes */
+.fssai-lookup {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.fssai-lookup input {
+    flex: 1;
+}
+.fssai-info {
+    margin-top: 10px;
+    padding: 12px;
+    background: rgba(22, 36, 74, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-body);
+}
+.analysis-result-group {
+    display: flex;
+    gap: 30px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+.analysis-result-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text-body);
+}
+.analysis-result-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-folder-open"></i> Sample Adjudication Case File Generator</h2>
+    </div>
+    
+    <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
+        <!-- Case Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Case Information</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="case_number">Case Number</label>
+                <input type="text" id="case_number" name="case_number" required placeholder="e.g., 2026/FSS/104">
+            </div>
+            <div class="form-group">
+                <label for="food_safety_officer_name">Food Safety Officer Name</label>
+                <input type="text" id="food_safety_officer_name" name="food_safety_officer_name" required value="Suman Kumar Saha">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="authorization_date">Authorization Date</label>
+                <input type="date" id="authorization_date" name="authorization_date" required>
+            </div>
+            <div class="form-group">
+                <label for="inspection_date">Inspection Date</label>
+                <input type="date" id="inspection_date" name="inspection_date" required>
+            </div>
+            <div class="form-group">
+                <label for="inspection_time">Inspection Time</label>
+                <input type="time" id="inspection_time" name="inspection_time" required value="12:40">
+            </div>
+        </div>
+
+        <!-- Manufacturer Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-industry"></i> Manufacturer Information</h3>
+        </div>
+        <div class="form-group">
+            <label for="manufacturer_fssai">Manufacturer FSSAI Number</label>
+            <div class="fssai-lookup">
+                <input type="text" id="manufacturer_fssai" name="manufacturer_fssai" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+                <button type="button" class="btn btn-secondary" onclick="lookupFssai('manufacturer')">Lookup</button>
+            </div>
+            <div id="manufacturer_info" class="fssai-info" style="display: none;"></div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="manufacturer_name">Manufacturer Name</label>
+                <input type="text" id="manufacturer_name" name="manufacturer_name" required placeholder="FBO Owner Name">
+            </div>
+            <div class="form-group">
+                <label for="manufacturer_fbo_name">Manufacturer FBO Name</label>
+                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" required placeholder="FBO Trade Name">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="manufacturer_address">Manufacturer Address</label>
+                <textarea id="manufacturer_address" name="manufacturer_address" required placeholder="Full manufacturer premises address"></textarea>
+            </div>
+        </div>
+
+        <!-- Retailer Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-shop"></i> Retailer Information</h3>
+        </div>
+        <div class="form-group">
+            <label for="retailer_fssai">Retailer FSSAI Number</label>
+            <div class="fssai-lookup">
+                <input type="text" id="retailer_fssai" name="retailer_fssai" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+                <button type="button" class="btn btn-secondary" onclick="lookupFssai('retailer')">Lookup</button>
+            </div>
+            <div id="retailer_info" class="fssai-info" style="display: none;"></div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="retailer_name">Retailer Name</label>
+                <input type="text" id="retailer_name" name="retailer_name" required placeholder="Retailer Name">
+            </div>
+            <div class="form-group">
+                <label for="retailer_fbo_name">Retailer FBO Name</label>
+                <input type="text" id="retailer_fbo_name" name="retailer_fbo_name" required placeholder="Retailer Trade Name">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="retailer_address">Retailer Address</label>
+                <textarea id="retailer_address" name="retailer_address" required placeholder="Full retailer premises address"></textarea>
+            </div>
+        </div>
+
+        <!-- Product Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-bowl-food"></i> Product & Sample Details</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="product_name">Product Name</label>
+                <input type="text" id="product_name" name="product_name" required placeholder="e.g., Taaja Jalpan Nilgiri Chanachur">
+            </div>
+            <div class="form-group">
+                <label for="batch_no">Batch Number</label>
+                <input type="text" id="batch_no" name="batch_no" required placeholder="e.g., IFF">
+            </div>
+            <div class="form-group">
+                <label for="sample_quantity">Sample Quantity</label>
+                <input type="text" id="sample_quantity" name="sample_quantity" required value="1000g">
+            </div>
+            <div class="form-group">
+                <label for="packet_count">Packet Count</label>
+                <input type="number" id="packet_count" name="packet_count" required value="4">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="mfg_date">Date of Manufacturing</label>
+                <input type="date" id="mfg_date" name="mfg_date" required>
+            </div>
+            <div class="form-group">
+                <label for="expiry_date">Date of Expiry</label>
+                <input type="date" id="expiry_date" name="expiry_date" required>
+            </div>
+            <div class="form-group">
+                <label for="total_cost">Total Cost (Rs.)</label>
+                <input type="text" id="total_cost" name="total_cost" required value="500">
+            </div>
+            <div class="form-group">
+                <label for="cost_in_words">Cost in Words</label>
+                <input type="text" id="cost_in_words" name="cost_in_words" required value="Rupees Five Hundred Only">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="other_food_articles">Other Food Articles Found</label>
+                <input type="text" id="other_food_articles" name="other_food_articles" value="Chanachur, Nimki, Roasted Chana">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sample_code">Sample Code</label>
+                <input type="text" id="sample_code" name="sample_code" required placeholder="e.g., SL/WB/110223/2025/13061">
+            </div>
+            <div class="form-group">
+                <label for="sample_submission_date">Sample Submission Date</label>
+                <input type="date" id="sample_submission_date" name="sample_submission_date" required>
+            </div>
+            <div class="form-group">
+                <label for="Lab_Registration_No">Lab Registration Number</label>
+                <input type="text" id="Lab_Registration_No" name="Lab_Registration_No" required value="WB/FOOD/2025/001">
+            </div>
+            <div class="form-group">
+                <label for="do_receipt_date">DO Receipt Date</label>
+                <input type="date" id="do_receipt_date" name="do_receipt_date" required>
+            </div>
+        </div>
+
+        <!-- Analysis Result -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-flask"></i> Analysis Result & Regulatory Action</h3>
+        </div>
+        <div class="form-group">
+            <label>Select Analysis Result Category:</label>
+            <div class="analysis-result-group">
+                <label>
+                    <input type="checkbox" id="is_misbranded" name="is_misbranded" value="misbranded">
+                    Misbranded
+                </label>
+                <label>
+                    <input type="checkbox" id="is_substandard" name="is_substandard" value="substandard">
+                    Substandard
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="analyst_report_no">Analyst Report Number</label>
+                <input type="text" id="analyst_report_no" name="analyst_report_no" required placeholder="e.g., PK/378/2025-26">
+            </div>
+            <div class="form-group">
+                <label for="analyst_report_date">Analyst Report Date</label>
+                <input type="date" id="analyst_report_date" name="analyst_report_date" required>
+            </div>
+            <div class="form-group">
+                <label for="directive_letter_no">Directive Letter Number</label>
+                <input type="text" id="directive_letter_no" name="directive_letter_no" required placeholder="e.g., H/FSSA/FSO/3054/2025-26">
+            </div>
+            <div class="form-group">
+                <label for="directive_letter_date">Directive Letter Date</label>
+                <input type="date" id="directive_letter_date" name="directive_letter_date" required>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="retailer_report_receive_date">Retailer Report Receive Date</label>
+                <input type="date" id="retailer_report_receive_date" name="retailer_report_receive_date" required>
+            </div>
+            <div class="form-group">
+                <label for="manufacturer_report_receive_date">Manufacturer Report Receive Date</label>
+                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" required>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="applicable_regulation">Applicable Regulation</label>
+                <input type="text" id="applicable_regulation" name="applicable_regulation" value="Regulation No 5(9)">
+            </div>
+            <div class="form-group">
+                <label for="applicable_clause">Applicable Clause</label>
+                <input type="text" id="applicable_clause" name="applicable_clause" value="Clause (zf) of subsection 1 of section 3 of the FSSA,2006">
+            </div>
+            <div class="form-group">
+                <label for="sample_name">Sample Name</label>
+                <input type="text" id="sample_name" name="sample_name" value="Taaja Jalpan Nilgiri Chanachur">
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <button type="submit" class="btn btn-primary" style="padding: 16px 40px; font-size: 16px;">
+                <i class="fa-solid fa-file-zipper"></i> Generate Case Files
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function lookupFssai(type) {
+        const fssaiInput = document.getElementById(`${type}_fssai`);
+        const licenseNo = fssaiInput.value.trim();
+        const infoDiv = document.getElementById(`${type}_info`);
+        
+        if (!licenseNo) {
+            alert('Please enter a FSSAI license/registration number');
+            return;
+        }
+        
+        infoDiv.innerHTML = "Searching FSSAI records...";
+        infoDiv.style.color = "var(--text-secondary)";
+        infoDiv.style.display = 'block';
+        
+        try {
+            const response = await fetch("{{ url_for('case_file_generator.lookup_fssai_route') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ license_no: licenseNo })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                infoDiv.innerHTML = `<span style="color: var(--accent-secondary)">${result.error}</span>`;
+                return;
+            }
+            
+            const identity = result.identity;
+            
+            // Fill the form fields
+            document.getElementById(`${type}_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_fbo_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_address`).value = identity.fullAddress || '';
+            
+            // Show details
+            infoDiv.innerHTML = 
+                `<strong>Found:</strong> ${identity.companyName}<br>` +
+                `<strong>Address:</strong> ${identity.fullAddress}<br>` +
+                `<strong>Expiry:</strong> ${identity.expiryDate || 'N/A'}<br>` +
+                `<strong>Source:</strong> ${identity.source === 'license_data' ? 'License DB' : 'Registration DB'}`;
+            infoDiv.style.color = "var(--accent-primary)";
+            
+        } catch (error) {
+            console.error('Lookup error:', error);
+            infoDiv.innerHTML = '<span style="color: var(--accent-secondary)">Error fetching FSSAI data. Please try again.</span>';
+        }
+    }
+</script>
+{% endblock %}
