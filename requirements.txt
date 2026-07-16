@@ -7,4 +7,5 @@ weasyprint
 python-multipart
 num2words
 httpx
+gunicorn
 
