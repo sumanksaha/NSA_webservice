@@ -363,7 +363,7 @@
     const licenseLookupBlock = document.getElementById("license_lookup_block");
 
     function syncLicenseLookupVisibility() {
-        const showLookup = !nonLicenseToggle.checked;
+        const showLookup = nonLicenseToggle.checked;
         licenseLookupBlock.style.display = showLookup ? "block" : "none";
         if (!showLookup) {
             document.getElementById("ce_license_no").value = "";
