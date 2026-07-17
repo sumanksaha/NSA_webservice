@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Billing Summary{% endblock %}
+
+{% block extra_css %}
+<style>
+    .billing-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .filter-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .filter-row {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: var(--text-body);
+    }
+    
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-family: var(--font-body);
+        font-size: 0.9rem;
+        background: var(--bg-page);
+        color: var(--text-body);
+    }
+    
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+    }
+    
+    .filter-actions {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .summary-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .summary-table th,
+    .summary-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .summary-table th {
+        background-color: var(--bg-subtle);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .summary-table tr:hover {
+        background-color: var(--bg-subtle);
+    }
+    
+    .grand-total-row {
+        font-weight: bold;
+        background-color: rgba(22, 36, 74, 0.05) !important;
+    }
+    
+    .grand-total-row td {
+        border-top: 2px solid var(--accent-primary);
+    }
+    
+    .price-cell {
+        text-align: right;
+        font-family: monospace;
+    }
+    
+    .count-cell {
+        text-align: center;
+    }
+    
+    .samples-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    
+    .samples-table th,
+    .samples-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .samples-table th {
+        background-color: var(--bg-subtle);
+        font-weight: 600;
+        color: var(--text-primary);
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .samples-table th:hover {
+        background-color: var(--bg-card);
+    }
+    
+    .samples-table tr:hover {
+        background-color: var(--bg-card);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-body);
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        color: var(--border);
+        margin-bottom: 15px;
+    }
+    
+    .export-btn {
+        background-color: var(--accent-primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: var(--font-body);
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .export-btn:hover {
+        background-color: var(--accent-secondary);
+        box-shadow: var(--shadow-card);
+    }
+    
+    .results-count {
+        color: var(--text-body);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .results-count i {
+        color: var(--accent-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-file-invoice-dollar"></i> Billing Summary</h2>
+    </div>
+    
+    <div class="billing-container">
+        <!-- Filter Panel -->
+        <div class="filter-panel">
+            <form method="get" action="{{ url_for('billing.index') }}" id="filterForm">
+                <h3 style="margin-bottom: 15px; color: var(--text-primary);">
+                    <i class="fa-solid fa-filter"></i> Filters
+                </h3>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" 
+                               value="{{ start_date }}">
+                    </div>
+                    <div class="filter-group">
+                        <label for="end_date">End Date</label>
+                        <input type="date" id="end_date" name="end_date" 
+                               value="{{ end_date }}">
+                    </div>
+                    <div class="filter-group">
+                        <label for="fso_name">FSO Name</label>
+                        <select id="fso_name" name="fso_name">
+                            <option value="">-- All FSOs --</option>
+                            {% for fso in fso_names %}
+                            <option value="{{ fso }}" {% if fso_name == fso %}selected{% endif %}>{{ fso }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sample_type">Sample Type</label>
+                        <select id="sample_type" name="sample_type">
+                            <option value="">-- All Types --</option>
+                            {% for stype in sample_types %}
+                            <option value="{{ stype }}" {% if sample_type == stype %}selected{% endif %}>{{ stype }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-search"></i> Apply Filters
+                    </button>
+                    <a href="{{ url_for('billing.index') }}" class="btn btn-secondary">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Results Header -->
+        <div class="results-header">
+            <div class="results-count">
+                {% if summary.total_count > 0 %}
+                    <i class="fa-solid fa-database"></i>
+                    Showing {{ summary.total_count }} sample(s)
+                    {% if start_date or end_date or fso_name or sample_type %}
+                        matching filters
+                    {% endif %}
+                {% else %}
+                    <i class="fa-solid fa-inbox"></i>
+                    No samples found
+                {% endif %}
+            </div>
+            
+            {% if summary.total_count > 0 %}
+            <a href="{{ url_for('billing.export_excel', 
+                            start_date=start_date, 
+                            end_date=end_date, 
+                            fso_name=fso_name, 
+                            sample_type=sample_type) }}" 
+               class="export-btn">
+                <i class="fa-solid fa-file-excel"></i> Export to Excel
+            </a>
+            {% endif %}
+        </div>
+        
+        <!-- Summary Card -->
+        {% if summary.total_count > 0 %}
+        <div class="summary-card">
+            <h3><i class="fa-solid fa-chart-pie"></i> Summary by Sample Type</h3>
+            
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Sample Type</th>
+                        <th class="count-cell">Count</th>
+                        <th class="price-cell">Total Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sample_type, data in summary.by_type.items() %}
+                    <tr>
+                        <td>{{ sample_type }}</td>
+                        <td class="count-cell">{{ data.count }}</td>
+                        <td class="price-cell">
+                            {% if data.total_price > 0 %}
+                                ₹{{ "%.2f"|format(data.total_price) }}
+                            {% else %}
+                                ₹0.00
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    <tr class="grand-total-row">
+                        <td><strong>GRAND TOTAL</strong></td>
+                        <td class="count-cell"><strong>{{ summary.total_count }}</strong></td>
+                        <td class="price-cell">
+                            <strong>
+                                {% if summary.grand_total > 0 %}
+                                    ₹{{ "%.2f"|format(summary.grand_total) }}
+                                {% else %}
+                                    ₹0.00
+                                {% endif %}
+                            </strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- Samples Table -->
+        {% if samples %}
+        <div style="overflow-x: auto;">
+            <table class="samples-table">
+                <thead>
+                    <tr>
+                        <th>Sample Code</th>
+                        <th>Sample Name</th>
+                        <th>Type</th>
+                        <th>FSO Name</th>
+                        <th>Collection Date</th>
+                        <th>Retailer</th>
+                        <th class="price-cell">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sample in samples %}
+                    <tr>
+                        <td>{{ sample.sample_code }}</td>
+                        <td>{{ sample.sample_name }}</td>
+                        <td>{{ sample.sample_type or '-' }}</td>
+                        <td>{{ sample.fso_name }}</td>
+                        <td>{{ sample.collection_date }}</td>
+                        <td>{{ sample.retailer_name or sample.retailer_fssai or '-' }}</td>
+                        <td class="price-cell">
+                            {% if sample.price %}
+                                ₹{{ "%.2f"|format(sample.price) }}
+                            {% else %}
+                                - 
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif summary.total_count == 0 %}
+        <div class="empty-state">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <p>No samples match the current filters.</p>
+            <p style="margin-top: 10px; font-size: 0.9rem; color: var(--text-body);">
+                Try adjusting your filter criteria.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set date inputs to reasonable defaults if not set
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (!startDateInput.value) {
+        // Default to first day of current month
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startDateInput.value = firstDay.toISOString().split('T')[0];
+    }
+    
+    if (!endDateInput.value) {
+        // Default to today
+        const today = new Date();
+        endDateInput.value = today.toISOString().split('T')[0];
+    }
+});
+</script>
+{% endblock %}
