@@ -7,6 +7,8 @@ WORKSHEET_MAP = {
     "non_sample": "NonSample_Adjudication",
     "sample": "Sample_CaseFile", 
     "billing": "Billing",
+    "sample_repo": "Sample_Repository",  # Step 5: Sample table sync
+    "inspection_log": "Inspection_Log",  # Step 5: Inspection table sync
 }
 
 SHEET_COLUMNS = {
@@ -29,11 +31,24 @@ SHEET_COLUMNS = {
         "Lab_Registration_No", "do_receipt_date", "is_misbranded", "is_substandard",
         "analyst_report_no", "analyst_report_date", "directive_letter_no", "directive_letter_date",
         "retailer_report_receive_date", "manufacturer_report_receive_date",
-        "applicable_regulation", "applicable_clause", "sample_name", "created_at"
+        "applicable_regulation", "applicable_clause", "sample_name", "sample_id", "created_at"
     ],
     "billing": [
         "Name", "EMP_ID", "Designation", "Enf_samp_No", "Surv_samp_No", "Total_bill",
         "No_of_enfbills", "No_of_survbills", "TR_Value", "TR_date", "Submission_date", "created_at"
+    ],
+    # Step 5: Sample Repository worksheet columns
+    "sample_repo": [
+        "id", "sample_code", "sample_name", "sample_type", "fso_name", 
+        "collection_date", "submission_date", "retailer_fssai", "retailer_name", 
+        "price", "created_at", "synced_at"
+    ],
+    # Step 5: Inspection Log worksheet columns
+    "inspection_log": [
+        "id", "inspection_code", "fso_name", "fssai_license", "ce_license_no",
+        "fbo_name", "fbo_address", "concerned_food", "problem", "inspection_date",
+        "compliance_deadline", "is_dismissed", "dismissed_by", "adjudication_id",
+        "created_at", "synced_at"
     ],
 }
 

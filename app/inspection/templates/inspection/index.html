@@ -1,0 +1,365 @@
+{% extends "inspection/base_inspection.html" %}
+
+{% block title %}Inspection Entry{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Inspection Entry Form</h2>
+    </div>
+    
+    <form id="inspectionForm" action="{{ url_for('inspection.create_inspection') }}" method="post" class="inspection-form">
+        <!-- Inspection Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Inspection Information</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fso_name">Food Safety Officer *</label>
+                <select id="fso_name" name="fso_name" required>
+                    <option value="">-- Select FSO --</option>
+                    {% for fso in fso_names %}
+                    <option value="{{ fso }}">{{ fso }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="inspection_date">Inspection Date *</label>
+                <input type="date" id="inspection_date" name="inspection_date" required onchange="updateComplianceDeadline()">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="compliance_deadline">Compliance Deadline</label>
+                <input type="date" id="compliance_deadline" name="compliance_deadline" readonly>
+                <small style="display: block; margin-top: 5px; color: var(--text-body); font-size: 0.8rem;">
+                    Auto-calculated as Inspection Date + 30 days (editable)
+                </small>
+            </div>
+            <div class="form-group">
+                <label for="concerned_food">Concerned Food</label>
+                <input type="text" id="concerned_food" name="concerned_food" placeholder="Enter concerned food item">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="problem">Problem Description</label>
+                <textarea id="problem" name="problem" placeholder="Describe the problem or violation found"></textarea>
+            </div>
+        </div>
+        
+        <!-- FBO Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-building"></i> FBO Information</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fssai_license">FSSAI License/Registration Number</label>
+                <div class="license-lookup">
+                    <input type="text" id="fssai_license" name="fssai_license" 
+                           placeholder="Enter FSSAI number (starts with 1 or 2)">
+                    <button type="button" class="btn btn-secondary" onclick="lookupFSSAI()">Lookup</button>
+                </div>
+                <div id="fssai_info" class="autofill-info" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ce_license_no">KMC CE License Number</label>
+                <div class="license-lookup">
+                    <input type="text" id="ce_license_no" name="ce_license_no" 
+                           placeholder="Enter KMC CE license number">
+                    <button type="button" class="btn btn-secondary" onclick="lookupCE()">Lookup</button>
+                </div>
+                <div id="ce_info" class="autofill-info" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fbo_name">FBO Name</label>
+                <input type="text" id="fbo_name" name="fbo_name" placeholder="Auto-filled from license lookup (editable)">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fbo_address">FBO Address</label>
+                <textarea id="fbo_address" name="fbo_address" placeholder="Auto-filled from license lookup (editable)"></textarea>
+            </div>
+        </div>
+        
+        <!-- Conflict Warning -->
+        <div id="conflict_warning" class="autofill-info conflict-warning" style="display: none; margin-top: 20px;">
+            <i class="fa-solid fa-exclamation-triangle"></i> 
+            <strong>License Conflict Detected:</strong> 
+            <span id="conflict_details"></span>
+            <br>Please manually resolve the FBO name and address.
+        </div>
+        
+        <div class="form-row" style="margin-top: 30px;">
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> Save Inspection
+                </button>
+                <button type="reset" class="btn btn-secondary">
+                    <i class="fa-solid fa-undo"></i> Reset
+                </button>
+                <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-list"></i> View All Inspections
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Track lookup sources for conflict detection
+let fssaiSource = null;
+let ceSource = null;
+
+// FSSAI lookup
+async function lookupFSSAI() {
+    const fssaiInput = document.getElementById('fssai_license');
+    const fboNameInput = document.getElementById('fbo_name');
+    const fboAddressInput = document.getElementById('fbo_address');
+    const infoDiv = document.getElementById('fssai_info');
+    
+    const fssaiNumber = fssaiInput.value.trim();
+    
+    if (!fssaiNumber) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+    
+    infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Looking up FSSAI...';
+    infoDiv.style.display = 'block';
+    infoDiv.style.color = 'var(--text-body)';
+    
+    try {
+        const response = await fetch('{{ url_for("inspection.lookup_fssai_route") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ fssai_license: fssaiNumber })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> ${data.error}`;
+            infoDiv.style.color = 'var(--color-error, #dc3545)';
+            infoDiv.classList.add('conflict-warning');
+            fssaiSource = null;
+        } else {
+            infoDiv.innerHTML = `<i class="fa-solid fa-check-circle"></i> FSSAI found: ${data.fbo_name || fssaiNumber}`;
+            infoDiv.style.color = 'var(--color-success, #28a745)';
+            infoDiv.classList.remove('conflict-warning');
+            
+            // Store source
+            fssaiSource = data;
+            
+            // Only autofill if fields are empty
+            if (!fboNameInput.value.trim()) {
+                fboNameInput.value = data.fbo_name || '';
+            }
+            if (!fboAddressInput.value.trim()) {
+                fboAddressInput.value = data.fbo_address || '';
+            }
+            
+            // Check for conflict with CE data
+            checkConflict();
+        }
+    } catch (error) {
+        infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> Lookup failed: ${error.message}`;
+        infoDiv.style.color = 'var(--color-error, #dc3545)';
+        infoDiv.classList.add('conflict-warning');
+        fssaiSource = null;
+    }
+}
+
+// CE lookup
+async function lookupCE() {
+    const ceInput = document.getElementById('ce_license_no');
+    const fboNameInput = document.getElementById('fbo_name');
+    const fboAddressInput = document.getElementById('fbo_address');
+    const infoDiv = document.getElementById('ce_info');
+    
+    const ceNumber = ceInput.value.trim();
+    
+    if (!ceNumber) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+    
+    infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Looking up KMC CE...';
+    infoDiv.style.display = 'block';
+    infoDiv.style.color = 'var(--text-body)';
+    
+    try {
+        const response = await fetch('{{ url_for("inspection.lookup_ce_route") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ce_license_no: ceNumber })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> ${data.error}`;
+            infoDiv.style.color = 'var(--color-error, #dc3545)';
+            infoDiv.classList.add('conflict-warning');
+            ceSource = null;
+        } else {
+            // Extract identity from KMC result
+            const identity = data.identity || {};
+            const tradeName = identity.tradeName || '';
+            const addressParts = [identity.addressInfo1, identity.addressInfo2, identity.addressCity].filter(Boolean);
+            const address = addressParts.join(', ');
+            
+            infoDiv.innerHTML = `<i class="fa-solid fa-check-circle"></i> KMC CE found: ${tradeName || ceNumber}`;
+            infoDiv.style.color = 'var(--color-success, #28a745)';
+            infoDiv.classList.remove('conflict-warning');
+            
+            // Store source for conflict detection
+            ceSource = {
+                fbo_name: tradeName,
+                fbo_address: address,
+                source: 'kmc_ce'
+            };
+            
+            // Only autofill if fields are empty
+            if (!fboNameInput.value.trim()) {
+                fboNameInput.value = tradeName;
+            }
+            if (!fboAddressInput.value.trim()) {
+                fboAddressInput.value = address;
+            }
+            
+            // Check for conflict with FSSAI data
+            checkConflict();
+        }
+    } catch (error) {
+        infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> Lookup failed: ${error.message}`;
+        infoDiv.style.color = 'var(--color-error, #dc3545)';
+        infoDiv.classList.add('conflict-warning');
+        ceSource = null;
+    }
+}
+
+// Check for conflicts between FSSAI and CE lookups
+function checkConflict() {
+    const conflictWarning = document.getElementById('conflict_warning');
+    const conflictDetails = document.getElementById('conflict_details');
+    
+    if (!fssaiSource || !ceSource) {
+        // No conflict if only one source
+        conflictWarning.style.display = 'none';
+        return;
+    }
+    
+    // Check if FBO names or addresses differ
+    const fssaiName = (fssaiSource.fbo_name || '').trim();
+    const ceName = (ceSource.fbo_name || '').trim();
+    const fssaiAddress = (fssaiSource.fbo_address || '').trim();
+    const ceAddress = (ceSource.fbo_address || '').trim();
+    
+    if (fssaiName !== ceName || fssaiAddress !== ceAddress) {
+        // Conflict detected
+        let details = [];
+        if (fssaiName && ceName && fssaiName !== ceName) {
+            details.push(`FBO Name: FSSAI="${fssaiName}", CE="${ceName}"`);
+        }
+        if (fssaiAddress && ceAddress && fssaiAddress !== ceAddress) {
+            details.push(`Address: FSSAI="${fssaiAddress}", CE="${ceAddress}"`);
+        }
+        
+        conflictDetails.textContent = details.join(' | ');
+        conflictWarning.style.display = 'block';
+    } else {
+        conflictWarning.style.display = 'none';
+    }
+}
+
+// Update compliance deadline when inspection date changes
+function updateComplianceDeadline() {
+    const inspectionDateInput = document.getElementById('inspection_date');
+    const complianceDeadlineInput = document.getElementById('compliance_deadline');
+    
+    const inspectionDate = inspectionDateInput.value;
+    if (!inspectionDate) {
+        complianceDeadlineInput.value = '';
+        return;
+    }
+    
+    // Parse date and add 30 days
+    const date = new Date(inspectionDate);
+    date.setDate(date.getDate() + 30);
+    const deadline = date.toISOString().split('T')[0];
+    complianceDeadlineInput.value = deadline;
+    
+    // Make it editable after setting the value
+    complianceDeadlineInput.readOnly = false;
+}
+
+// Form submission handling
+document.getElementById('inspectionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Inspection created successfully!\nInspection Code: ${data.inspection_code}\nID: ${data.inspection_id}`);
+            form.reset();
+            // Clear lookup sources
+            fssaiSource = null;
+            ceSource = null;
+            document.getElementById('fssai_info').style.display = 'none';
+            document.getElementById('ce_info').style.display = 'none';
+            document.getElementById('conflict_warning').style.display = 'none';
+            // Reset compliance deadline
+            document.getElementById('compliance_deadline').value = '';
+        } else {
+            alert(`Error: ${data.error || 'Failed to create inspection'}`);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
+// Set today's date as default for inspection_date
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('inspection_date').value = today;
+    // Auto-calculate compliance deadline
+    updateComplianceDeadline();
+});
+</script>
+{% endblock %}

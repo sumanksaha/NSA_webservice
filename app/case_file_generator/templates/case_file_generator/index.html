@@ -145,6 +145,25 @@
             </div>
         </div>
 
+        <!-- Link Sample Section (Step 5) -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-link"></i> Link to Sample (Optional)</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="sample_id">Link Sample by Code</label>
+                <div class="fssai-lookup">
+                    <input type="text" id="sample_code_search" placeholder="Search by sample code (e.g., SL/WB/110223/2025/13061)" 
+                           onchange="lookupSampleByCode()" 
+                           list="sample_codes">
+                    <datalist id="sample_codes"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="lookupSampleByCode()">Search Sample</button>
+                </div>
+                <input type="hidden" id="sample_id" name="sample_id">
+                <div id="sample_info" class="fssai-info" style="display: none;"></div>
+            </div>
+        </div>
+
         <!-- Product Information -->
         <div class="section-header">
             <h3><i class="fa-solid fa-bowl-food"></i> Product & Sample Details</h3>
@@ -287,6 +306,105 @@
 
 {% block extra_js %}
 <script>
+    // Load sample codes for datalist on page load
+    async function loadSampleCodes() {
+        try {
+            const response = await fetch("{{ url_for('case_file_generator.list_samples_for_datalist') }}");
+            const data = await response.json();
+            const datalist = document.getElementById('sample_codes');
+            
+            // Clear existing options
+            datalist.innerHTML = '';
+            
+            // Add each sample code as an option
+            data.sample_codes.forEach(code => {
+                const option = document.createElement('option');
+                option.value = code;
+                datalist.appendChild(option);
+            });
+            
+        } catch (error) {
+            console.log('Could not load sample codes list:', error);
+        }
+    }
+    
+    // Lookup sample by code and prefill form fields
+    async function lookupSampleByCode() {
+        const sampleCodeInput = document.getElementById('sample_code_search');
+        const sampleCode = sampleCodeInput.value.trim();
+        const infoDiv = document.getElementById('sample_info');
+        
+        if (!sampleCode) {
+            // Clear sample_id if no code entered
+            document.getElementById('sample_id').value = '';
+            infoDiv.style.display = 'none';
+            return;
+        }
+        
+        infoDiv.innerHTML = "Searching sample records...";
+        infoDiv.style.color = "var(--text-secondary)";
+        infoDiv.style.display = 'block';
+        
+        try {
+            const response = await fetch(`{{ url_for('case_file_generator.lookup_sample') }}?sample_code=${encodeURIComponent(sampleCode)}`);
+            const result = await response.json();
+            
+            if (result.error) {
+                infoDiv.innerHTML = `<span style="color: var(--accent-secondary)">${result.error}</span>`;
+                document.getElementById('sample_id').value = '';
+                return;
+            }
+            
+            // Set the sample_id
+            document.getElementById('sample_id').value = result.id;
+            
+            // Prefill form fields (remain editable/overridable)
+            const sampleName = result.sample_name || '';
+            const retailerFssai = result.retailer_fssai || '';
+            const retailerName = result.retailer_name || '';
+            const submissionDate = result.submission_date || '';
+            const price = result.price || '';
+            
+            // Update sample details section
+            document.getElementById('sample_name').value = sampleName;
+            
+            // Update retailer details section
+            if (retailerFssai) {
+                document.getElementById('retailer_fssai').value = retailerFssai;
+            }
+            if (retailerName) {
+                document.getElementById('retailer_name').value = retailerName;
+            }
+            
+            // Update sample submission date
+            if (submissionDate) {
+                document.getElementById('sample_submission_date').value = submissionDate;
+            }
+            
+            // Update total cost from sample price
+            if (price) {
+                document.getElementById('total_cost').value = price;
+            }
+            
+            // Update sample code
+            document.getElementById('sample_code').value = result.sample_code || '';
+            
+            // Show details
+            infoDiv.innerHTML = 
+                `<strong>Linked Sample:</strong> ${result.sample_code}<br>` +
+                `<strong>Sample Name:</strong> ${sampleName}<br>` +
+                `<strong>Retailer:</strong> ${retailerName} (${retailerFssai})<br>` +
+                `<strong>Submission Date:</strong> ${submissionDate || 'N/A'}<br>` +
+                `<strong>Price:</strong> Rs. ${price || '0'}`;
+            infoDiv.style.color = "var(--accent-primary)";
+            
+        } catch (error) {
+            console.error('Sample lookup error:', error);
+            infoDiv.innerHTML = '<span style="color: var(--accent-secondary)">Error fetching sample data. Please try again.</span>';
+            document.getElementById('sample_id').value = '';
+        }
+    }
+    
     async function lookupFssai(type) {
         const fssaiInput = document.getElementById(`${type}_fssai`);
         const licenseNo = fssaiInput.value.trim();
@@ -337,5 +455,8 @@
             infoDiv.innerHTML = '<span style="color: var(--accent-secondary)">Error fetching FSSAI data. Please try again.</span>';
         }
     }
+    
+    // Load sample codes on page load
+    document.addEventListener('DOMContentLoaded', loadSampleCodes);
 </script>
 {% endblock %}

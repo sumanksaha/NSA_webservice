@@ -11,6 +11,9 @@ class CaseFile(db.Model):
     inspection_date = db.Column(db.String(100), nullable=False)
     inspection_time = db.Column(db.String(100), nullable=False)
     
+    # Link to Sample (optional FK - Step 5 addition)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id', ondelete='SET NULL'), nullable=True)
+    
     # Manufacturer details
     manufacturer_fssai = db.Column(db.String(50), nullable=False)
     manufacturer_name = db.Column(db.String(200), nullable=False)
@@ -178,4 +181,67 @@ class FboIssueAudit(db.Model):
     
     __table_args__ = (
         db.Index('idx_fbo_issue_audit_issue_id', 'issue_id'),
+    )
+
+
+class FSO(db.Model):
+    __tablename__ = 'fso'
+    
+    fso_name = db.Column(db.String(100), primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_fso_name', 'fso_name'),
+    )
+
+
+class Sample(db.Model):
+    __tablename__ = 'sample'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    sample_code = db.Column(db.String(50), nullable=False, unique=True)
+    sample_name = db.Column(db.String(200), nullable=False)
+    sample_type = db.Column(db.String(100), nullable=True)
+    fso_name = db.Column(db.String(100), db.ForeignKey('fso.fso_name'), nullable=False)
+    collection_date = db.Column(db.String(100), nullable=False)
+    submission_date = db.Column(db.String(100), nullable=True)
+    retailer_fssai = db.Column(db.String(50), nullable=True)
+    retailer_name = db.Column(db.String(200), nullable=True)
+    price = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    synced_at = db.Column(db.DateTime, nullable=True)
+    
+    __table_args__ = (
+        db.Index('idx_sample_code', 'sample_code'),
+        db.Index('idx_sample_collection_date', 'collection_date'),
+        db.Index('idx_sample_fso_name', 'fso_name'),
+    )
+
+
+class Inspection(db.Model):
+    __tablename__ = 'inspection'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    inspection_code = db.Column(db.String(50), nullable=False, unique=True)
+    fso_name = db.Column(db.String(100), db.ForeignKey('fso.fso_name'), nullable=False)
+    fssai_license = db.Column(db.String(50), nullable=True)
+    ce_license_no = db.Column(db.String(100), nullable=True)
+    fbo_name = db.Column(db.String(200), nullable=True)
+    fbo_address = db.Column(db.Text, nullable=True)
+    concerned_food = db.Column(db.String(200), nullable=True)
+    problem = db.Column(db.Text, nullable=True)
+    inspection_date = db.Column(db.String(100), nullable=False)
+    compliance_deadline = db.Column(db.String(100), nullable=False)
+    is_dismissed = db.Column(db.Boolean, default=False)
+    dismissed_by = db.Column(db.String(100), nullable=True)
+    dismissed_at = db.Column(db.DateTime, nullable=True)
+    adjudication_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    synced_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index('idx_inspection_code', 'inspection_code'),
+        db.Index('idx_inspection_date', 'inspection_date'),
+        db.Index('idx_inspection_compliance_deadline', 'compliance_deadline'),
+        db.Index('idx_inspection_fso_name', 'fso_name'),
     )

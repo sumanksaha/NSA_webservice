@@ -201,13 +201,29 @@
                    class="tab-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}">
                     <i class="fa-solid fa-folder-open"></i> Sample Adjudication
                 </a>
+                <a href="{{ url_for('sample.index') }}" 
+                   class="tab-link {% if request.blueprint == 'sample' %}active{% endif %}">
+                    <i class="fa-solid fa-vial"></i> Sample
+                </a>
+                <a href="{{ url_for('inspection.index') }}" 
+                   class="tab-link {% if request.blueprint == 'inspection' %}active{% endif %}">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
+                </a>
+                <a href="{{ url_for('billing.index') }}" 
+                   class="tab-link {% if request.blueprint == 'billing' %}active{% endif %}">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Billing
+                </a>
                 <a href="{{ url_for('adjudication.index') }}" 
                    class="tab-link {% if request.blueprint == 'adjudication' %}active{% endif %}">
                     <i class="fa-solid fa-scale-balanced"></i> Adjudication
                 </a>
                 <a href="{{ url_for('bill_generator.index') }}" 
                    class="tab-link {% if request.blueprint == 'bill_generator' %}active{% endif %}">
-                    <i class="fa-solid fa-receipt"></i> Billing
+                    <i class="fa-solid fa-receipt"></i> Bill Generator
+                </a>
+                <a href="{{ url_for('settings.index') }}" 
+                   class="tab-link {% if request.blueprint == 'settings' %}active{% endif %}">
+                    <i class="fa-solid fa-gear"></i> Settings
                 </a>
             </nav>
         </div>

@@ -1,0 +1,189 @@
+{% extends "sample/base_sample.html" %}
+
+{% block title %}Sample Entry{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-vial"></i> Sample Entry Form</h2>
+    </div>
+    
+    <form id="sampleForm" action="{{ url_for('sample.create_sample') }}" method="post" class="sample-form">
+        <!-- Sample Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Sample Information</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sample_name">Sample Name *</label>
+                <input type="text" id="sample_name" name="sample_name" required placeholder="Enter sample name">
+            </div>
+            <div class="form-group">
+                <label for="sample_type">Sample Type</label>
+                <select id="sample_type" name="sample_type">
+                    <option value="">-- Select Type --</option>
+                    {% for stype in sample_types %}
+                    <option value="{{ stype }}">{{ stype }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fso_name">Food Safety Officer *</label>
+                <select id="fso_name" name="fso_name" required>
+                    <option value="">-- Select FSO --</option>
+                    {% for fso in fso_names %}
+                    <option value="{{ fso }}">{{ fso }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="collection_date">Collection Date *</label>
+                <input type="date" id="collection_date" name="collection_date" required>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="submission_date">Submission Date</label>
+                <input type="date" id="submission_date" name="submission_date">
+            </div>
+            <div class="form-group">
+                <label for="price">Price (INR)</label>
+                <input type="text" id="price" name="price" placeholder="Enter price">
+            </div>
+        </div>
+        
+        <!-- Retailer Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-shop"></i> Retailer Information</h3>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="retailer_fssai">Retailer FSSAI Number</label>
+                <div class="fssai-lookup">
+                    <input type="text" id="retailer_fssai" name="retailer_fssai" 
+                           placeholder="Enter FSSAI number (starts with 1 or 2)">
+                    <button type="button" class="btn btn-secondary" onclick="lookupRetailer()">Lookup</button>
+                </div>
+                <div id="retailer_info" class="autofill-info" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="retailer_name">Retailer Name</label>
+                <input type="text" id="retailer_name" name="retailer_name" placeholder="Auto-filled from FSSAI lookup">
+            </div>
+        </div>
+        
+        <div class="form-row" style="margin-top: 30px;">
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> Save Sample
+                </button>
+                <button type="reset" class="btn btn-secondary">
+                    <i class="fa-solid fa-undo"></i> Reset
+                </button>
+                <a href="{{ url_for('sample.list_samples') }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-list"></i> View All Samples
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% block extra_js %}
+<script>
+// Retailer FSSAI lookup
+async function lookupRetailer() {
+    const fssaiInput = document.getElementById('retailer_fssai');
+    const retailerNameInput = document.getElementById('retailer_name');
+    const infoDiv = document.getElementById('retailer_info');
+    
+    const fssaiNumber = fssaiInput.value.trim();
+    
+    if (!fssaiNumber) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+    
+    infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Looking up...';
+    infoDiv.style.display = 'block';
+    infoDiv.style.color = 'var(--text-body)';
+    
+    try {
+        const response = await fetch('{{ url_for("sample.lookup_retailer") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ retailer_fssai: fssaiNumber })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> ${data.error}`;
+            infoDiv.style.color = 'var(--color-error, #dc3545)';
+            retailerNameInput.value = '';
+        } else {
+            infoDiv.innerHTML = `<i class="fa-solid fa-check-circle"></i> Retailer found: ${data.companyName || fssaiNumber}`;
+            infoDiv.style.color = 'var(--color-success, #28a745)';
+            retailerNameInput.value = data.companyName || fssaiNumber;
+        }
+    } catch (error) {
+        infoDiv.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> Lookup failed: ${error.message}`;
+        infoDiv.style.color = 'var(--color-error, #dc3545)';
+        retailerNameInput.value = '';
+    }
+}
+
+// Form submission handling
+ document.getElementById('sampleForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Sample created successfully!\nSample Code: ${data.sample_code}\nID: ${data.sample_id}`);
+            form.reset();
+            // Optionally redirect to list view
+            // window.location.href = '{{ url_for("sample.list_samples") }}';
+        } else {
+            alert(`Error: ${data.error || 'Failed to create sample'}`);
+        }
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
+// Set today's date as default for collection_date
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('collection_date').value = today;
+});
+</script>
+{% endblock %}
+{% endblock %}
