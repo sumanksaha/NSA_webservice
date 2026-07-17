@@ -5,12 +5,13 @@ Provides endpoints for Sample CRUD operations and UI.
 """
 
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from app.extensions import db
 from app.models import Sample, FSO
 from app.utils.lookup import lookup_fssai
 from app.utils.fso_data import get_all_fso_names
 from app.sample.sample_utils import generate_sample_code
+from app.services.sheets_sync import sync_to_sheets
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
@@ -179,6 +180,31 @@ def create_sample():
     try:
         db.session.add(sample)
         db.session.commit()
+        
+        # Sync to Google Sheets (Step 5)
+        try:
+            row_dict = {
+                'id': sample.id,
+                'sample_code': sample.sample_code,
+                'sample_name': sample.sample_name,
+                'sample_type': sample.sample_type or '',
+                'fso_name': sample.fso_name,
+                'collection_date': sample.collection_date,
+                'submission_date': sample.submission_date or '',
+                'retailer_fssai': sample.retailer_fssai or '',
+                'retailer_name': sample.retailer_name or '',
+                'price': sample.price or '',
+                'created_at': sample.created_at.isoformat() if sample.created_at else '',
+                'synced_at': ''
+            }
+            success = sync_to_sheets("sample_repo", row_dict)
+            if success:
+                # Update synced_at timestamp
+                sample.synced_at = datetime.utcnow()
+                db.session.commit()
+        except Exception as e:
+            current_app.logger.warning(f"Sample Sheets sync failed: {e}")
+        
         return jsonify({
             'message': 'Sample created successfully',
             'sample_id': sample.id,
@@ -246,6 +272,27 @@ def update_sample(sample_id):
     
     try:
         db.session.commit()
+        
+        # Sync to Google Sheets (Step 5)
+        try:
+            row_dict = {
+                'id': sample.id,
+                'sample_code': sample.sample_code,
+                'sample_name': sample.sample_name,
+                'sample_type': sample.sample_type or '',
+                'fso_name': sample.fso_name,
+                'collection_date': sample.collection_date,
+                'submission_date': sample.submission_date or '',
+                'retailer_fssai': sample.retailer_fssai or '',
+                'retailer_name': sample.retailer_name or '',
+                'price': sample.price or '',
+                'created_at': sample.created_at.isoformat() if sample.created_at else '',
+                'synced_at': datetime.utcnow().isoformat()
+            }
+            sync_to_sheets("sample_repo", row_dict)
+        except Exception as e:
+            current_app.logger.warning(f"Sample Sheets sync failed: {e}")
+        
         return jsonify({'message': 'Sample updated successfully'}), 200
     except Exception as e:
         db.session.rollback()

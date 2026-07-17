@@ -3,7 +3,7 @@ import zipfile
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 from app.extensions import db
-from app.models import CaseFile
+from app.models import CaseFile, Sample
 from app.utils.lookup import lookup_fssai
 from app.utils.filters import format_date_indian
 from app.services.sheets_sync import sync_to_sheets
@@ -129,6 +129,7 @@ def case_file_to_dict(case_file):
         'authorization_date': case_file.authorization_date,
         'inspection_date': case_file.inspection_date,
         'inspection_time': case_file.inspection_time,
+        'sample_id': case_file.sample_id,  # Step 5: Link to Sample
         'manufacturer_fssai': case_file.manufacturer_fssai,
         'manufacturer_name': case_file.manufacturer_name,
         'manufacturer_fbo_name': case_file.manufacturer_fbo_name,
@@ -249,9 +250,49 @@ def lookup_fssai_route():
     return jsonify({"identity": result})
 
 
+@case_file_generator_bp.route('/lookup_sample', methods=['GET'])
+def lookup_sample():
+    """Lookup sample by sample_code for CaseFile prefill."""
+    sample_code = request.args.get('sample_code', '').strip()
+    if not sample_code:
+        return jsonify({'error': 'sample_code is required'}), 400
+    
+    sample = Sample.query.filter_by(sample_code=sample_code).first()
+    if not sample:
+        return jsonify({'error': f'Sample with code {sample_code} not found'}), 404
+    
+    # Return sample data for prefill
+    return jsonify({
+        'id': sample.id,
+        'sample_code': sample.sample_code,
+        'sample_name': sample.sample_name,
+        'retailer_fssai': sample.retailer_fssai or '',
+        'retailer_name': sample.retailer_name or '',
+        'submission_date': sample.submission_date or '',
+        'price': sample.price or ''
+    })
+
+
+@case_file_generator_bp.route('/samples', methods=['GET'])
+def list_samples_for_datalist():
+    """List all samples for datalist dropdown (returns sample codes only)."""
+    samples = Sample.query.order_by(Sample.sample_code.desc()).all()
+    sample_codes = [sample.sample_code for sample in samples]
+    return jsonify({'sample_codes': sample_codes})
+
+
 @case_file_generator_bp.route('/generate_case_file', methods=['POST'])
 def generate_case_file_route():
     form_data = request.form.to_dict()
+    
+    # Handle sample_id linkage (Step 5)
+    sample_id = None
+    if 'sample_id' in form_data and form_data['sample_id']:
+        try:
+            sample_id = int(form_data['sample_id'])
+        except ValueError:
+            # If sample_id is not a valid integer, ignore it
+            pass
     
     # Save record to database
     case_file_record = CaseFile(
@@ -260,6 +301,7 @@ def generate_case_file_route():
         authorization_date=form_data.get('authorization_date', ''),
         inspection_date=form_data.get('inspection_date', ''),
         inspection_time=form_data.get('inspection_time', ''),
+        sample_id=sample_id,  # Step 5: Link to Sample
         
         manufacturer_fssai=form_data.get('manufacturer_fssai', ''),
         manufacturer_name=form_data.get('manufacturer_name', ''),
@@ -309,6 +351,7 @@ def generate_case_file_route():
         row_dict = {k: v for k, v in form_data.items() if k in case_file_record.__dict__}
         row_dict['created_at'] = case_file_record.created_at.isoformat() if case_file_record.created_at else ""
         row_dict['applicable_sections'] = case_file_record.applicable_sections
+        row_dict['sample_id'] = case_file_record.sample_id  # Step 5: Include sample_id in sync
         success = sync_to_sheets("sample", row_dict)
         if not success:
             current_app.logger.warning("Case File: Sheets sync returned False - sync failed but not blocking")
