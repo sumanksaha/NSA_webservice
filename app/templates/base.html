@@ -205,6 +205,10 @@
                    class="tab-link {% if request.blueprint == 'sample' %}active{% endif %}">
                     <i class="fa-solid fa-vial"></i> Sample
                 </a>
+                <a href="{{ url_for('inspection.index') }}" 
+                   class="tab-link {% if request.blueprint == 'inspection' %}active{% endif %}">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
+                </a>
                 <a href="{{ url_for('billing.index') }}" 
                    class="tab-link {% if request.blueprint == 'billing' %}active{% endif %}">
                     <i class="fa-solid fa-file-invoice-dollar"></i> Billing

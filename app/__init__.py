@@ -37,6 +37,7 @@ def create_app():
     from app.sample.routes import sample_bp
     from app.billing.routes import billing_bp
     from app.settings.routes import settings_bp
+    from app.inspection.routes import inspection_bp
     
     app.register_blueprint(case_file_generator_bp, url_prefix='/case_file_generator')
     app.register_blueprint(adjudication_bp, url_prefix='/adjudication')
@@ -45,6 +46,7 @@ def create_app():
     app.register_blueprint(sample_bp, url_prefix='/sample')
     app.register_blueprint(billing_bp, url_prefix='/billing')
     app.register_blueprint(settings_bp, url_prefix='/settings')
+    app.register_blueprint(inspection_bp, url_prefix='/inspection')
     
     # FSO sync on startup - import and run sync in app context
     # This ensures FSO names are available as soon as the app starts

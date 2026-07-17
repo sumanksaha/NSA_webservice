@@ -1,0 +1,263 @@
+{% extends "inspection/base_inspection.html" %}
+
+{% block title %}Pending Action{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-exclamation-triangle"></i> Pending Action</h2>
+        <p style="margin-top: 10px; color: var(--text-body); font-size: 0.9rem;">
+            Inspections with compliance deadline passed, not dismissed, and not linked to adjudication
+        </p>
+    </div>
+    
+    <!-- Filter Panel -->
+    <div class="filter-panel">
+        <form method="get" action="{{ url_for('inspection.pending_action') }}" id="filterForm">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="filter_fso">Filter by FSO</label>
+                    <select id="filter_fso" name="fso_name">
+                        <option value="">-- All FSOs --</option>
+                        {% for fso in fso_names %}
+                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group" style="display: flex; align-items: flex-end; gap: 10px;">
+                    <button type="submit" class="btn btn-secondary">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                    <a href="{{ url_for('inspection.pending_action') }}" class="btn btn-secondary">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Inspection Table -->
+    <div style="overflow-x: auto;">
+        <table class="inspection-list-table">
+            <thead>
+                <tr>
+                    <th onclick="sortTable('inspection_code')">
+                        Inspection Code
+                        {% if sort_by == 'inspection_code' %}
+                            {% if sort_order == 'asc' %}
+                                <i class="fa-solid fa-sort-up"></i>
+                            {% else %}
+                                <i class="fa-solid fa-sort-down"></i>
+                            {% endif %}
+                        {% endif %}
+                    </th>
+                    <th onclick="sortTable('fso_name')">
+                        FSO
+                        {% if sort_by == 'fso_name' %}
+                            {% if sort_order == 'asc' %}
+                                <i class="fa-solid fa-sort-up"></i>
+                            {% else %}
+                                <i class="fa-solid fa-sort-down"></i>
+                            {% endif %}
+                        {% endif %}
+                    </th>
+                    <th>FBO Name</th>
+                    <th onclick="sortTable('inspection_date')">
+                        Inspection Date
+                        {% if sort_by == 'inspection_date' %}
+                            {% if sort_order == 'asc' %}
+                                <i class="fa-solid fa-sort-up"></i>
+                            {% else %}
+                                <i class="fa-solid fa-sort-down"></i>
+                            {% endif %}
+                        {% endif %}
+                    </th>
+                    <th onclick="sortTable('compliance_deadline')">
+                        Compliance Deadline
+                        {% if sort_by == 'compliance_deadline' %}
+                            {% if sort_order == 'asc' %}
+                                <i class="fa-solid fa-sort-up"></i>
+                            {% else %}
+                                <i class="fa-solid fa-sort-down"></i>
+                            {% endif %}
+                        {% endif %}
+                    </th>
+                    <th>Days Overdue</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inspection in inspections %}
+                <tr>
+                    <td>{{ inspection.inspection_code }}</td>
+                    <td>{{ inspection.fso_name }}</td>
+                    <td>{{ inspection.fbo_name or '-' }}</td>
+                    <td>{{ inspection.inspection_date }}</td>
+                    <td>{{ inspection.compliance_deadline }}</td>
+                    <td>
+                        <span style="color: var(--color-error, #dc3545); font-weight: 600;">
+                            {{ inspection.days_overdue }} day{{ 's' if inspection.days_overdue != 1 else '' }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('inspection.get_inspection', inspection_id=inspection.id) }}" 
+                           class="btn btn-small btn-secondary" title="View">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}" 
+                           class="btn btn-small btn-secondary" title="Edit">
+                            <i class="fa-solid fa-edit"></i>
+                        </a>
+                        <a href="#" onclick="confirmDismiss({{ inspection.id }})" 
+                           class="btn btn-small btn-secondary" title="Dismiss" style="color: var(--color-warning, #ffc107);">
+                            <i class="fa-solid fa-ban"></i>
+                        </a>
+                        <a href="{{ url_for('inspection.create_adjudication_from_inspection', inspection_id=inspection.id) }}" 
+                           class="btn btn-small btn-primary" title="Create Adjudication">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px;">
+                        <i class="fa-solid fa-circle-check" style="font-size: 3rem; color: var(--color-success, #28a745); margin-bottom: 10px;"></i>
+                        <br>
+                        No pending actions found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center; color: var(--text-body); font-size: 0.9rem;">
+        Showing {{ inspections|length }} pending actions
+    </div>
+    
+    <div style="margin-top: 30px; text-align: center; display: flex; gap: 15px; justify-content: center;">
+        <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-plus"></i> Add New Inspection
+        </a>
+        <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-list"></i> All Inspections
+        </a>
+        <a href="{{ url_for('inspection.open_issues') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-clock"></i> Open Issues ({{ open_count if open_count is defined else 0 }})
+        </a>
+        <a href="{{ url_for('inspection.history') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-history"></i> History
+        </a>
+    </div>
+</div>
+
+<!-- Dismiss Confirmation Modal (hidden by default) -->
+<div id="dismissModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: var(--bg-card); padding: 30px; border-radius: 10px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h3 style="margin-bottom: 20px; color: var(--text-primary);">
+            <i class="fa-solid fa-exclamation-triangle" style="color: var(--color-warning, #ffc107);"></i> 
+            Confirm Dismiss
+        </h3>
+        <p style="margin-bottom: 20px; color: var(--text-body);">
+            Are you sure you want to dismiss this inspection? This action cannot be undone in the UI.
+        </p>
+        <p style="margin-bottom: 20px; color: var(--text-body); font-size: 0.9rem;">
+            <strong>Inspection:</strong> <span id="dismissInspectionCode"></span><br>
+            <strong>FBO:</strong> <span id="dismissFboName"></span><br>
+            <strong>FSO:</strong> <span id="dismissFsoName"></span>
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+            <button onclick="cancelDismiss()" class="btn btn-secondary">Cancel</button>
+            <button onclick="confirmDismissFinal()" class="btn btn-primary" style="background: var(--color-error, #dc3545);">
+                <i class="fa-solid fa-ban"></i> Dismiss
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Track which inspection is being dismissed
+let dismissInspectionId = null;
+
+// Sort table by clicking headers
+function sortTable(column) {
+    let sortBy = column;
+    let sortOrder = 'asc';
+    
+    // Get current sort from URL or default
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentSortBy = urlParams.get('sort_by') || 'compliance_deadline';
+    const currentSortOrder = urlParams.get('sort_order') || 'asc';
+    
+    if (currentSortBy === column) {
+        sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    }
+    
+    // Build URL with new sort parameters
+    urlParams.set('sort_by', sortBy);
+    urlParams.set('sort_order', sortOrder);
+    window.location.search = urlParams.toString();
+}
+
+// Show dismiss confirmation modal
+function confirmDismiss(inspectionId) {
+    dismissInspectionId = inspectionId;
+    
+    // Get inspection details from the table row
+    const row = event.target.closest('tr');
+    const code = row.cells[0].textContent.trim();
+    const fboName = row.cells[2].textContent.trim();
+    const fsoName = row.cells[1].textContent.trim();
+    
+    document.getElementById('dismissInspectionCode').textContent = code;
+    document.getElementById('dismissFboName').textContent = fboName || 'N/A';
+    document.getElementById('dismissFsoName').textContent = fsoName;
+    
+    // Show modal
+    document.getElementById('dismissModal').style.display = 'flex';
+}
+
+// Cancel dismiss
+function cancelDismiss() {
+    dismissInspectionId = null;
+    document.getElementById('dismissModal').style.display = 'none';
+}
+
+// Confirm dismiss final
+function confirmDismissFinal() {
+    if (!dismissInspectionId) return;
+    
+    const inspectionId = dismissInspectionId;
+    dismissInspectionId = null;
+    document.getElementById('dismissModal').style.display = 'none';
+    
+    fetch(`/inspection/${inspectionId}/dismiss`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: ''
+    }).then(response => {
+        if (response.ok) {
+            return response.json();
+        } else {
+            return response.json().then(data => { throw new Error(data.error || 'Failed to dismiss'); });
+        }
+    }).then(data => {
+        alert(`Success: ${data.message}\nInspection Code: ${data.inspection_code}`);
+        window.location.reload();
+    }).catch(error => {
+        alert(`Error: ${error.message}`);
+    });
+}
+
+// Close modal on outside click
+document.getElementById('dismissModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        cancelDismiss();
+    }
+});
+</script>
+{% endblock %}

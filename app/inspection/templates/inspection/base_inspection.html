@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection Management{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<style>
+    /* Inspection module specific styles */
+    .inspection-form {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .license-lookup {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .license-lookup input {
+        flex: 1;
+    }
+    .autofill-info {
+        margin-top: 10px;
+        padding: 12px;
+        background: rgba(22, 36, 74, 0.05);
+        border-radius: 6px;
+        border-left: 3px solid var(--accent-primary);
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--text-body);
+    }
+    .conflict-warning {
+        background: rgba(220, 53, 69, 0.1);
+        border-left: 3px solid var(--color-error, #dc3545);
+        color: var(--color-error, #dc3545);
+    }
+    .inspection-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .inspection-list-table th,
+    .inspection-list-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .inspection-list-table th {
+        background-color: var(--bg-subtle);
+        font-weight: 600;
+        color: var(--text-primary);
+        cursor: pointer;
+        user-select: none;
+    }
+    .inspection-list-table th:hover {
+        background-color: var(--bg-card);
+    }
+    .inspection-list-table tr:hover {
+        background-color: var(--bg-card);
+    }
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .pagination a,
+    .pagination span {
+        padding: 8px 12px;
+        text-decoration: none;
+        color: var(--text-body);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+    .pagination a:hover {
+        background-color: var(--bg-subtle);
+    }
+    .pagination .active {
+        background-color: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+    .filter-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .filter-row {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    .filter-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: var(--text-body);
+    }
+    .form-row {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .form-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: var(--text-body);
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: var(--font-body);
+        background-color: var(--bg-card);
+        color: var(--text-body);
+    }
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    .section-header {
+        margin: 30px 0 20px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .section-header h3 {
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+{% endblock %}

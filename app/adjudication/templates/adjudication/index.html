@@ -85,11 +85,18 @@
     </div>
 
     <form method="post" action="{{ url_for('adjudication.generate_all') }}">
+        <!-- Hidden field to track source inspection -->
+        {% if prefill and prefill.from_inspection %}
+        <input type="hidden" name="from_inspection" value="{{ prefill.from_inspection }}">
+        {% endif %}
+        
         <!-- Food Safety Officer -->
         <div class="form-row">
             <div class="form-group full-width">
                 <label>Food Safety Officer Name</label>
-                <input type="text" name="food_safety_officer" value="Suman Kumar Saha" required placeholder="Enter FSO name">
+                <input type="text" name="food_safety_officer" 
+                       value="{{ prefill.food_safety_officer if prefill and prefill.food_safety_officer else 'Suman Kumar Saha' }}" 
+                       required placeholder="Enter FSO name">
             </div>
         </div>
 
@@ -122,7 +129,9 @@
         <div id="license_lookup_block" class="conditional-block toggle-card active" style="margin-bottom: 25px;">
             <label style="margin-bottom: 8px; display: block;">KMC Trade License Details Lookup</label>
             <div class="lookup-wrapper">
-                <input type="text" id="ce_license_no" placeholder="Enter License Number">
+                <input type="text" id="ce_license_no" 
+                       value="{{ prefill.ce_license_no if prefill and prefill.ce_license_no else '' }}" 
+                       placeholder="Enter License Number">
                 <button type="button" id="ce_fetch_btn" class="btn btn-secondary">Fetch Details</button>
             </div>
             <div id="ce_lookup_status" class="status-indicator"></div>
@@ -130,19 +139,27 @@
             <div class="form-row" style="margin-top: 15px;">
                 <div class="form-group">
                     <label>Trade/Unit Name</label>
-                    <input type="text" id="ce_trade_name" readonly>
+                    <input type="text" id="ce_trade_name" 
+                           value="{{ prefill.ce_trade_name if prefill and prefill.ce_trade_name else '' }}" 
+                           readonly>
                 </div>
                 <div class="form-group">
                     <label>Proprietor</label>
-                    <input type="text" id="ce_proprietor" readonly>
+                    <input type="text" id="ce_proprietor" 
+                           value="{{ prefill.ce_proprietor if prefill and prefill.ce_proprietor else '' }}" 
+                           readonly>
                 </div>
                 <div class="form-group">
                     <label>Address</label>
-                    <input type="text" id="ce_address" readonly>
+                    <input type="text" id="ce_address" 
+                           value="{{ prefill.ce_address if prefill and prefill.ce_address else '' }}" 
+                           readonly>
                 </div>
                 <div class="form-group">
                     <label>License Status</label>
-                    <input type="text" id="ce_status" readonly>
+                    <input type="text" id="ce_status" 
+                           value="{{ prefill.ce_status if prefill and prefill.ce_status else '' }}" 
+                           readonly>
                 </div>
             </div>
 
@@ -163,30 +180,38 @@
             </div>
             <div class="form-group">
                 <label>FBO Owner</label>
-                <input type="text" name="fbo_owner" required placeholder="FBO Owner Name">
+                <input type="text" name="fbo_owner" 
+                       value="{{ prefill.fbo_name if prefill and prefill.fbo_name and not (prefill.get('fbo_owner') or '').strip() else (prefill.fbo_owner if prefill and prefill.fbo_owner else '') }}" 
+                       required placeholder="FBO Owner Name">
             </div>
             <div class="form-group">
                 <label>FBO Name</label>
-                <input type="text" name="fbo_name" required placeholder="Trade/FBO Name">
+                <input type="text" name="fbo_name" 
+                       value="{{ prefill.fbo_name if prefill and prefill.fbo_name else '' }}" 
+                       required placeholder="Trade/FBO Name">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
                 <label>FBO Address</label>
-                <textarea name="fbo_address" required placeholder="Full FBO address details"></textarea>
+                <textarea name="fbo_address" required placeholder="Full FBO address details">{{ prefill.fbo_address if prefill and prefill.fbo_address else '' }}</textarea>
             </div>
             <div class="form-group">
                 <label>FSSAI License / Registration No</label>
                 <div class="lookup-wrapper">
-                    <input type="text" name="fssai_license" id="fssai_license" required placeholder="FSSAI License Number">
+                    <input type="text" name="fssai_license" id="fssai_license" 
+                           value="{{ prefill.fssai_license if prefill and prefill.fssai_license else '' }}" 
+                           required placeholder="FSSAI License Number">
                     <button type="button" id="fssai_fetch_btn" class="btn btn-secondary">Fetch</button>
                 </div>
                 <div id="fssai_lookup_status" class="status-indicator"></div>
             </div>
             <div class="form-group" id="concerned_food_field">
                 <label>Concerned Food</label>
-                <input type="text" name="concerned_food" placeholder="e.g., Prepared Food">
+                <input type="text" name="concerned_food" 
+                       value="{{ prefill.concerned_food if prefill and prefill.concerned_food else '' }}" 
+                       placeholder="e.g., Prepared Food">
             </div>
         </div>
 
@@ -194,7 +219,7 @@
         <div id="complaint_fields" class="conditional-block">
             <div class="form-group">
                 <label>Complaint / Problem</label>
-                <textarea name="problem" placeholder="Describe the third-party complaint or hygiene issues observed..."></textarea>
+                <textarea name="problem" placeholder="Describe the third-party complaint or hygiene issues observed...">{{ prefill.problem if prefill and prefill.problem else '' }}</textarea>
             </div>
         </div>
 
@@ -205,11 +230,15 @@
         <div class="form-row" style="margin-top: 15px;">
             <div class="form-group">
                 <label>First Inspection Date</label>
-                <input type="date" name="First_inspection_date" required>
+                <input type="date" name="First_inspection_date" 
+                       value="{{ prefill.First_inspection_date if prefill and prefill.First_inspection_date else '' }}" 
+                       required>
             </div>
             <div class="form-group">
                 <label>Compliance Deadline (Directive Sheet)</label>
-                <input type="date" name="compliance_deadline" required>
+                <input type="date" name="compliance_deadline" 
+                       value="{{ prefill.compliance_deadline if prefill and prefill.compliance_deadline else '' }}" 
+                       required>
             </div>
             <div class="form-group" id="complaint_date_field">
                 <label>Complaint Date</label>
@@ -217,7 +246,9 @@
             </div>
             <div class="form-group">
                 <label>Follow-up Inspection Date</label>
-                <input type="date" name="inspection_date" required>
+                <input type="date" name="inspection_date" 
+                       value="{{ prefill.inspection_date if prefill and prefill.inspection_date else '' }}" 
+                       required>
             </div>
             <div class="form-group" id="authorization_date_field">
                 <label>Authorization Date</label>

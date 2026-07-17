@@ -1,6 +1,6 @@
 import io
 import zipfile
-from datetime import datetime
+from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 from app.extensions import db
 from app.models import Adjudication, FboIssue
@@ -123,7 +123,17 @@ def adjudication_to_dict(adj):
 
 @adjudication_bp.route('/')
 def index():
-    return render_template('adjudication/index.html', checklist=CHECKLIST)
+    # Check for prefill data from inspection
+    prefill_data = {}
+    for key in ['from_inspection', 'food_safety_officer', 'fbo_name', 'fbo_address', 
+                'fssai_license', 'ce_license_no', 'First_inspection_date', 
+                'compliance_deadline', 'inspection_date', 'concerned_food', 
+                'problem', 'ce_trade_name', 'ce_proprietor', 'ce_address', 'ce_status']:
+        value = request.args.get(key)
+        if value:
+            prefill_data[key] = value
+    
+    return render_template('adjudication/index.html', checklist=CHECKLIST, prefill=prefill_data)
 
 
 @adjudication_bp.route('/lookup_ce', methods=['POST'])
@@ -397,6 +407,22 @@ def generate_all():
     
     db.session.add(adj)
     db.session.commit()
+    
+    # Link back to inspection if this was created from one
+    from_inspection = form_data.get('from_inspection')
+    if from_inspection:
+        try:
+            from app.models import Inspection
+            inspection = Inspection.query.get(int(from_inspection))
+            if inspection and not inspection.adjudication_id and not inspection.is_dismissed:
+                # Check if compliance_deadline has passed
+                today = date.today().isoformat()
+                if inspection.compliance_deadline < today:
+                    inspection.adjudication_id = adj.id
+                    db.session.commit()
+        except Exception as e:
+            current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
+            db.session.rollback()
     
     # Try syncing to Google Sheets (new module-based sync)
     try:
