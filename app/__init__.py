@@ -34,11 +34,32 @@ def create_app():
     from app.adjudication.routes import adjudication_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.fbo_issue.routes import fbo_issue_bp
+    from app.sample.routes import sample_bp
+    from app.settings.routes import settings_bp
     
     app.register_blueprint(case_file_generator_bp, url_prefix='/case_file_generator')
     app.register_blueprint(adjudication_bp, url_prefix='/adjudication')
     app.register_blueprint(bill_generator_bp, url_prefix='/bill_generator')
     app.register_blueprint(fbo_issue_bp, url_prefix='/fbo-issue')
+    app.register_blueprint(sample_bp, url_prefix='/sample')
+    app.register_blueprint(settings_bp, url_prefix='/settings')
+    
+    # FSO sync on startup - import and run sync in app context
+    # This ensures FSO names are available as soon as the app starts
+    from app.utils.fso_data import sync_fso_from_markdown
+    
+    @app.before_request
+    def sync_fso_on_startup():
+        """Sync FSO list from markdown on first request (app startup)."""
+        # Use a flag to only run once
+        if not hasattr(app, '_fso_synced'):
+            with app.app_context():
+                result = sync_fso_from_markdown()
+                if result.get('errors'):
+                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
+                else:
+                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
+                app._fso_synced = True
     
     # Redirect root to first tab (Sample Adjudication)
     @app.route('/')

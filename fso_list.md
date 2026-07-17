@@ -1,0 +1,23 @@
+# FSO List
+
+- Anwesha Paul
+- Kankana Srimany
+- Saikat Sarkar
+- Anik Koley
+- Ramiza Obaidi
+- Ranjan Dutta
+- Shamim Hossain
+- Tania Chakraborty
+- Jeannie Barla
+- Siddartha Mishra
+- Soifa Khatoon
+- Paresh Sharma
+- Amrita Mukherjee
+- Kingshuk Patra
+- Suman Saha
+- Arindam Paul
+- Pradip Malik
+- Jyotishman Soren
+- Rifat Islam
+- Md Sadruddin
+- Indranil Karmakar

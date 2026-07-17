@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-gear"></i> Settings & Administration</h2>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <h3><i class="fa-solid fa-users"></i> FSO Management</h3>
+        <p style="color: var(--text-body); margin-bottom: 15px;">
+            Food Safety Officer names are synced from <code>fso_list.md</code> file.
+        </p>
+        
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
+            <button onclick="syncFSO()" class="btn btn-primary">
+                <i class="fa-solid fa-sync-alt"></i> Sync FSO List Now
+            </button>
+            <div id="fsoSyncStatus" style="color: var(--text-body); font-size: 0.9rem;"></div>
+        </div>
+        
+        <div class="filter-panel">
+            <h4><i class="fa-solid fa-list"></i> Current FSO Names ({{ fso_names|length }})</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 10px;">
+                {% for fso in fso_names %}
+                <div style="background: var(--bg-subtle); padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+                    <i class="fa-solid fa-user-tie" style="color: var(--accent-primary); margin-right: 8px;"></i>
+                    {{ fso }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
+        <h3><i class="fa-solid fa-info-circle"></i> System Information</h3>
+        <p style="color: var(--text-body);">
+            FSO sync runs automatically on application startup.
+        </p>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Manual FSO sync
+async function syncFSO() {
+    const button = event.target.closest('button');
+    const statusDiv = document.getElementById('fsoSyncStatus');
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+    button.disabled = true;
+    statusDiv.innerHTML = '';
+    
+    try {
+        const response = await fetch('{{ url_for("settings.sync_fso") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            const result = data.result;
+            statusDiv.innerHTML = `<span style="color: var(--color-success, #28a745);">
+                <i class="fa-solid fa-check-circle"></i> 
+                Synced: ${result.inserted} inserted, ${result.updated} updated, ${result.skipped} skipped
+            </span>`;
+            
+            // Refresh the page to show updated FSO list
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            const result = data.result;
+            statusDiv.innerHTML = `<span style="color: var(--color-warning, #ffc107);">
+                <i class="fa-solid fa-exclamation-triangle"></i> 
+                Partial sync: ${result.inserted} inserted, ${result.updated} updated, Errors: ${result.errors.join(', ')}
+            </span>`;
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<span style="color: var(--color-error, #dc3545);">
+            <i class="fa-solid fa-exclamation-circle"></i> Sync failed: ${error.message}
+        </span>`;
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+</script>
+{% endblock %}
+{% endblock %}
