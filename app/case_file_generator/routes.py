@@ -297,7 +297,7 @@ def generate_case_file_route():
     # Save record to database
     case_file_record = CaseFile(
         case_number=form_data.get('case_number', ''),
-        food_safety_officer_name=form_data.get('food_safety_officer_name', 'Suman Kumar Saha'),
+        food_safety_officer_name=form_data.get('food_safety_officer_name', ''),
         authorization_date=form_data.get('authorization_date', ''),
         inspection_date=form_data.get('inspection_date', ''),
         inspection_time=form_data.get('inspection_time', ''),
