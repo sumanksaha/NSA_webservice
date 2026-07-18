@@ -1,3 +1,10 @@
+# Render Blueprint Configuration for NSA Webservice
+# 
+# IMPORTANT: Free-tier Render Postgres databases expire after 90 days unless upgraded.
+# This is an operational reminder - do NOT silently assume it's fine long-term.
+# You will need to upgrade to a paid plan before the 90-day period ends to avoid data loss.
+#
+# To check expiry: Render Dashboard -> Databases -> nsa-webservice-db -> Settings
 
 services:
   - type: web
@@ -5,3 +12,16 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && playwright install chromium
     startCommand: gunicorn --bind 0.0.0.0:10000 app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nsa-webservice-db
+          property: connectionString
+      - key: SPREADSHEET_ID
+        sync: false
+
+databases:
+  - name: nsa-webservice-db
+    plan: free
+    databaseName: nsa_db
+    user: nsa_user
