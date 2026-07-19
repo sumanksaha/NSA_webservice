@@ -15,17 +15,8 @@ from app.billing.billing_utils import compute_summary, generate_excel_report, fo
 from app.billing import billing_bp
 
 
-# Get sample types from Sample module
-SAMPLE_TYPES = [
-    'Food',
-    'Water',
-    'Oil',
-    'Dairy',
-    'Spices',
-    'Beverage',
-    'Packaged',
-    'Other'
-]
+# Sample types: enforcement or surveillance only
+SAMPLE_TYPES = ['enforcement', 'surveillance']
 
 
 @billing_bp.route('/')

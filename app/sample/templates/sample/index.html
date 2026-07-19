@@ -21,8 +21,7 @@
             </div>
             <div class="form-group">
                 <label for="sample_type">Sample Type</label>
-                <select id="sample_type" name="sample_type">
-                    <option value="">-- Select Type --</option>
+                <select id="sample_type" name="sample_type" required>
                     {% for stype in sample_types %}
                     <option value="{{ stype }}">{{ stype }}</option>
                     {% endfor %}

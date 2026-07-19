@@ -17,17 +17,8 @@ from app.services.sheets_sync import sync_to_sheets
 from app.sample import sample_bp
 
 
-# Sample types for dropdown
-SAMPLE_TYPES = [
-    'Food',
-    'Water',
-    'Oil',
-    'Dairy',
-    'Spices',
-    'Beverage',
-    'Packaged',
-    'Other'
-]
+# Sample types: enforcement or surveillance only
+SAMPLE_TYPES = ['enforcement', 'surveillance']
 
 
 @sample_bp.route('/')
@@ -146,6 +137,13 @@ def create_sample():
     if not sample_draw_date:
         return jsonify({'error': 'sample_draw_date is required'}), 400
     
+    # Validate sample_type is provided and valid
+    sample_type_val = form_data.get('sample_type', '').strip()
+    if not sample_type_val:
+        return jsonify({'error': 'sample_type is required'}), 400
+    if sample_type_val not in ['enforcement', 'surveillance']:
+        return jsonify({'error': f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"}), 400
+    
     # Validate FSO exists - map canonical to DB column
     fso = FSO.query.get(food_safety_officer_name)
     if not fso:
@@ -253,6 +251,14 @@ def update_sample(sample_id):
         sample.sample_name = form_data['sample_name'].strip()
     if 'sample_type' in form_data:
         sample.sample_type = form_data['sample_type'].strip() or None
+    if 'sample_type' in form_data:
+        sample_type_val = form_data['sample_type'].strip()
+        if not sample_type_val:
+            return jsonify({'error': 'sample_type cannot be empty'}), 400
+        if sample_type_val not in ['enforcement', 'surveillance']:
+            return jsonify({'error': f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"}), 400
+        sample.sample_type = sample_type_val
+    
     if 'fso_name' in form_data:
         fso_name = form_data['fso_name'].strip()
         # Validate FSO exists

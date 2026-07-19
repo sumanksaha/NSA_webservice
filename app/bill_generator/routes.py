@@ -1,7 +1,8 @@
 import io
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 from app.extensions import db
-from app.models import Bill, FboIssue
+from app.models import Bill, FboIssue, Sample
+from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
 from app.services.sheets_sync import sync_to_sheets
 import json
 
@@ -102,27 +103,73 @@ def lookup_fbo_issues():
     return jsonify(result), 200
 
 
+@bill_generator_bp.route('/bill/preview', methods=['GET'])
+def bill_preview():
+    """
+    Preview bill for a date range.
+    Query params: start, end (ISO date strings YYYY-MM-DD)
+    """
+    start = request.args.get('start')
+    end = request.args.get('end')
+    
+    # Validate
+    if not start or not end:
+        return jsonify({'error': 'Both start and end dates are required'}), 400
+    
+    if end < start:
+        return jsonify({'error': 'End date must be >= start date'}), 400
+    
+    try:
+        result = get_billable_samples(start, end)
+        return jsonify(result), 200
+    except Exception as e:
+        current_app.logger.error(f'Bill preview error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
 @bill_generator_bp.route('/generate_bill', methods=['POST'])
 def generate_bill_route():
     form_data = request.form.to_dict()
     
-    # Save record to database
+    # Get date range and recompute from samples
+    start_date = form_data.get('start_date')
+    end_date = form_data.get('end_date')
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'Both start and end dates are required'}), 400
+    
+    if end_date < start_date:
+        return jsonify({'error': 'End date must be >= start date'}), 400
+    
+    # Get billable samples and recompute server-side
+    sample_data = get_billable_samples(start_date, end_date)
+    
+    # Create bill record with server-computed values
+    total_amount = sample_data['enforcement_price'] + sample_data['surveillance_price']
     bill_record = Bill(
         Name=form_data.get('Name', ''),
         EMP_ID=form_data.get('EMP_ID', ''),
         Designation=form_data.get('Designation', 'Food Safety Officer'),
-        Enf_samp_No=int(form_data.get('Enf_samp_No', 0)),
-        Surv_samp_No=int(form_data.get('Surv_samp_No', 0)),
-        Total_bill=form_data.get('Total_bill', ''),
+        Enf_samp_No=sample_data['enforcement_no'],
+        Surv_samp_No=sample_data['surveillance_no'],
+        enforcement_price=sample_data['enforcement_price'],
+        surveillance_price=sample_data['surveillance_price'],
+        Total_bill=str(total_amount),
         No_of_enfbills=form_data.get('No_of_enfbills', ''),
         No_of_survbills=form_data.get('No_of_survbills', ''),
         TR_Value=form_data.get('TR_Value', ''),
         TR_date=form_data.get('TR_date', ''),
-        Submission_date=form_data.get('Submission_date', '')
+        Submission_date=form_data.get('Submission_date', ''),
+        start_date=start_date,
+        end_date=end_date
     )
     
     db.session.add(bill_record)
     db.session.commit()
+    
+    # Mark samples as billed and link to bill
+    actual_sample_ids = [s['sample_id'] for s in sample_data['samples']]
+    mark_samples_as_billed(actual_sample_ids, bill_record.id)
     
     # Try syncing to Google Sheets (new module-based sync)
     try:

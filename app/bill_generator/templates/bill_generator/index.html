@@ -13,6 +13,26 @@
     </div>
 
     <form action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
+        <!-- Date Range Filter for Preview -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-calendar-alt"></i> Date Range Filter</h3>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="start_date">Start Date</label>
+                <input type="date" id="start_date" name="start_date">
+            </div>
+            <div class="form-group">
+                <label for="end_date">End Date</label>
+                <input type="date" id="end_date" name="end_date">
+            </div>
+            <div class="form-group" style="display: flex; align-items: flex-end;">
+                <button type="button" id="preview-btn" class="btn btn-secondary" style="padding: 12px 24px;">
+                    <i class="fa-solid fa-eye"></i> Preview
+                </button>
+                <span id="preview-error" style="color: red; margin-left: 10px; font-size: 14px;"></span>
+            </div>
+        </div>
         <!-- Officer & Identification Details -->
         <div class="section-header">
             <h3><i class="fa-solid fa-user-tie"></i> FSO details</h3>
@@ -42,14 +62,23 @@
                 <input type="number" id="Enf_samp_No" name="Enf_samp_No" required value="8" min="0" placeholder="e.g., 8">
             </div>
             <div class="form-group">
+                <label for="Enf_samp_Price">Enforcement Price</label>
+                <input type="text" id="Enf_samp_Price" name="Enf_samp_Price" readonly placeholder="0.00">
+            </div>
+            <div class="form-group">
                 <label for="Surv_samp_No">Surveillance Sample Count</label>
                 <input type="number" id="Surv_samp_No" name="Surv_samp_No" required value="7" min="0" placeholder="e.g., 7">
             </div>
             <div class="form-group">
+                <label for="Surv_samp_Price">Surveillance Price</label>
+                <input type="text" id="Surv_samp_Price" name="Surv_samp_Price" readonly placeholder="0.00">
+            </div>
+            <div class="form-group">
                 <label for="Total_bill">Total Bill Amount (Rs.)</label>
-                <input type="text" id="Total_bill" name="Total_bill" required value="6025.55" placeholder="e.g., 6025.55">
+                <input type="text" id="Total_bill" name="Total_bill" required value="6025.55" placeholder="e.g., 6025.55" readonly>
             </div>
         </div>
+        <div id="preview-container"></div>
 
         <div class="form-row">
             <div class="form-group">
@@ -104,6 +133,119 @@
         if (!subDateInput.value) {
             subDateInput.value = today;
         }
+    });
+
+    // Preview button handler
+    document.getElementById('preview-btn').addEventListener('click', function() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const errorSpan = document.getElementById('preview-error');
+        
+        // Reset error
+        errorSpan.textContent = '';
+        
+        // Validate
+        if (!startDate || !endDate) {
+            errorSpan.textContent = 'Please select both start and end dates.';
+            return;
+        }
+        
+        if (endDate < startDate) {
+            errorSpan.textContent = 'End date must be >= start date.';
+            return;
+        }
+        
+        // Fetch preview
+        fetch(`/bill/preview?start=${startDate}&end=${endDate}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Preview failed'); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Map response to fields
+                document.getElementById('Enf_samp_No').value = data.enforcement_no || 0;
+                document.getElementById('Enf_samp_Price').value = (data.enforcement_price || 0).toFixed(2);
+                document.getElementById('Surv_samp_No').value = data.surveillance_no || 0;
+                document.getElementById('Surv_samp_Price').value = (data.surveillance_price || 0).toFixed(2);
+                document.getElementById('Total_bill').value = ((data.enforcement_price || 0) + (data.surveillance_price || 0)).toFixed(2);
+
+                // Build sample table
+                const container = document.getElementById('preview-container');
+                container.innerHTML = '';
+                
+                if (data.samples && data.samples.length > 0) {
+                    const table = document.createElement('table');
+                    table.style.width = '100%';
+                    table.style.marginTop = '20px';
+                    table.style.borderCollapse = 'collapse';
+                    
+                    // Header
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    ['SI No', 'Sample Code', 'Sample Name', 'Retailer', 'Price', 'Type'].forEach(text => {
+                        const th = document.createElement('th');
+                        th.textContent = text;
+                        th.style.border = '1px solid #ddd';
+                        th.style.padding = '8px';
+                        th.style.textAlign = 'left';
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Body
+                    const tbody = document.createElement('tbody');
+                    data.samples.forEach(sample => {
+                        const row = document.createElement('tr');
+                        
+                        const siNoCell = document.createElement('td');
+                        siNoCell.textContent = sample.si_no;
+                        siNoCell.style.border = '1px solid #ddd';
+                        siNoCell.style.padding = '8px';
+                        
+                        const codeCell = document.createElement('td');
+                        codeCell.textContent = sample.sample_code || '';
+                        codeCell.style.border = '1px solid #ddd';
+                        codeCell.style.padding = '8px';
+                        
+                        const nameCell = document.createElement('td');
+                        nameCell.textContent = sample.sample_name || '';
+                        nameCell.style.border = '1px solid #ddd';
+                        nameCell.style.padding = '8px';
+                        
+                        const retailerCell = document.createElement('td');
+                        retailerCell.textContent = sample.retailer_name || '';
+                        retailerCell.style.border = '1px solid #ddd';
+                        retailerCell.style.padding = '8px';
+                        
+                        const priceCell = document.createElement('td');
+                        priceCell.textContent = (parseFloat(sample.price) || 0).toFixed(2);
+                        priceCell.style.border = '1px solid #ddd';
+                        priceCell.style.padding = '8px';
+                        
+                        const typeCell = document.createElement('td');
+                        typeCell.textContent = sample.type || '';
+                        typeCell.style.border = '1px solid #ddd';
+                        typeCell.style.padding = '8px';
+                        
+                        row.appendChild(siNoCell);
+                        row.appendChild(codeCell);
+                        row.appendChild(nameCell);
+                        row.appendChild(retailerCell);
+                        row.appendChild(priceCell);
+                        row.appendChild(typeCell);
+                        tbody.appendChild(row);
+                    });
+                    table.appendChild(tbody);
+                    container.appendChild(table);
+                }
+            })
+            .catch(err => {
+                errorSpan.textContent = err.message;
+                console.error('Preview error:', err);
+            });
     });
 </script>
 {% endblock %}
