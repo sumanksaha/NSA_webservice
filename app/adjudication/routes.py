@@ -8,6 +8,27 @@ from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.suggester import suggest_sections
 from app.services.sheets_sync import sync_to_sheets
 import json
+from app.shared.case_keys import (
+    DERIVED_APPLICABLE_SECTIONS,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_CASE_TRACK,
+    DERIVED_VIOLATIONS,
+    DERIVED_SAME_ENTITY,
+    SECTION_55,
+    SECTION_56,
+    SECTION_58,
+    SECTION_63,
+    SECTION_64,
+    SHARED_NON_LICENSE,
+    SHARED_PRE_AUTHORIZATION,
+    SHARED_COMPLAINT_LODGED,
+)
+from app.shared.context_derivers import (
+    derive_applicable_sections_from_adjudication,
+    derive_sections_display,
+    derive_case_track,
+    derive_violations,
+)
 
 adjudication_bp = Blueprint(
     'adjudication',
@@ -297,29 +318,46 @@ def regenerate_adjudication_documents(case_id):
     
     is_pre_authorization = str(form_data.get('pre_authorization', 'no')).strip().lower() == 'yes'
     
+    # STEP 4: Derive all context fields using shared helpers
+    # Get section checkboxes
+    section_55 = form_data.get(SECTION_55, 'no')
+    section_56 = form_data.get(SECTION_56, 'no')
+    section_58 = form_data.get(SECTION_58, 'no')
+    section_63 = form_data.get(SECTION_63, 'no')
+    section_64 = form_data.get(SECTION_64, 'no')
+    
+    # Get case flags
+    non_license = form_data.get(SHARED_NON_LICENSE, 'no')
+    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, 'no')
+    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, 'no')
+    
+    # Derive applicable sections
+    applicable_sections = derive_applicable_sections_from_adjudication(
+        section_55=section_55,
+        section_56=section_56,
+        section_58=section_58,
+        section_63=section_63,
+        section_64=section_64,
+    )
+    
     # Render context
     context = form_data.copy()
     context['compilation_date'] = datetime.today().strftime("%d %B %Y")
     
-    # Violations building
-    violations = []
-    for k, (title, obs) in RULES.items():
-        if form_data.get(k) == 'no':
-            violations.append({'title': title, 'Observation': obs})
-            
-    if form_data.get('artificial_colour') == 'yes':
-        violations.append({
-            'title': 'Use of Artificial Colours',
-            'Observation': 'Artificial colours were reportedly used in food preparation.'
-        })
-        
-    if form_data.get('Expired_item') == 'yes':
-        violations.append({
-            'title': 'Expired Items Present',
-            'Observation': 'Expired food items were found on the premises.'
-        })
-        
-    context['violations'] = violations
+    # STEP 4: Add canonical derived context fields
+    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    context[DERIVED_CASE_TRACK] = derive_case_track(
+        non_license=non_license,
+        pre_authorization=pre_authorization,
+        complaint_lodged=complaint_lodged,
+        is_sample=False,
+    )
+    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
+    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
+    
+    # Keep backward compatible violations field
+    context['violations'] = context[DERIVED_VIOLATIONS]
     
     outputs = []
     if is_pre_authorization:
@@ -438,32 +476,46 @@ def generate_all():
     # Generate Adjudication Pack Documents in Memory
     is_pre_authorization = str(form_data.get('pre_authorization', 'no')).strip().lower() == 'yes'
     
+    # STEP 4: Derive all context fields using shared helpers
+    # Get section checkboxes
+    section_55 = form_data.get(SECTION_55, 'no')
+    section_56 = form_data.get(SECTION_56, 'no')
+    section_58 = form_data.get(SECTION_58, 'no')
+    section_63 = form_data.get(SECTION_63, 'no')
+    section_64 = form_data.get(SECTION_64, 'no')
+    
+    # Get case flags
+    non_license = form_data.get(SHARED_NON_LICENSE, 'no')
+    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, 'no')
+    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, 'no')
+    
+    # Derive applicable sections
+    applicable_sections = derive_applicable_sections_from_adjudication(
+        section_55=section_55,
+        section_56=section_56,
+        section_58=section_58,
+        section_63=section_63,
+        section_64=section_64,
+    )
+    
     # Render context
     context = form_data.copy()
     context['compilation_date'] = datetime.today().strftime("%d %B %Y")
     
-    # Violations building
-    violations = []
-    for k, (title, obs) in RULES.items():
-        if form_data.get(k) == 'no':
-            violations.append({
-                'title': title,
-                'Observation': obs
-            })
-            
-    if form_data.get('artificial_colour') == 'yes':
-        violations.append({
-            'title': 'Use of Artificial Colours',
-            'Observation': 'Artificial colours were reportedly used in food preparation.'
-        })
-        
-    if form_data.get('Expired_item') == 'yes':
-        violations.append({
-            'title': 'Expired Items Present',
-            'Observation': 'Expired food items were found on the premises.'
-        })
-        
-    context['violations'] = violations
+    # STEP 4: Add canonical derived context fields
+    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    context[DERIVED_CASE_TRACK] = derive_case_track(
+        non_license=non_license,
+        pre_authorization=pre_authorization,
+        complaint_lodged=complaint_lodged,
+        is_sample=False,
+    )
+    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
+    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
+    
+    # Keep backward compatible violations field
+    context['violations'] = context[DERIVED_VIOLATIONS]
     
     outputs = []
     if is_pre_authorization:

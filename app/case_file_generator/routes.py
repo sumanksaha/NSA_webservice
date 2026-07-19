@@ -7,6 +7,22 @@ from app.models import CaseFile, Sample
 from app.utils.lookup import lookup_fssai
 from app.utils.filters import format_date_indian
 from app.services.sheets_sync import sync_to_sheets
+from app.shared.case_keys import (
+    DERIVED_APPLICABLE_SECTIONS,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_CASE_TRACK,
+    DERIVED_VIOLATIONS,
+    DERIVED_SAME_ENTITY,
+    SAMPLE_IS_SUBSTANDARD,
+    SAMPLE_IS_MISBRANDED,
+    PARTY_MANUFACTURER_FSSAI,
+    PARTY_RETAILER_FSSAI,
+)
+from app.shared.context_derivers import (
+    derive_applicable_sections_from_case_file,
+    derive_sections_display,
+    derive_same_entity,
+)
 
 case_file_generator_bp = Blueprint(
     'case_file_generator',
@@ -90,15 +106,29 @@ def process_form_data(form_data):
     else:
         case_data['analysis_result'] = ""
     
-    # Determine applicable FSS Act sections
-    applicable_sections = get_applicable_sections(form_data)
+    # STEP 4: Derive applicable sections using shared helper
+    applicable_sections = derive_applicable_sections_from_case_file(
+        is_substandard=is_substandard,
+        is_misbranded=is_misbranded,
+    )
+    
+    # Keep backward compatible field for templates
     case_data['applicable_sections'] = applicable_sections
     case_data['applicable_sections_str'] = ' and '.join(applicable_sections)
-        
-    # Check if manufacturer and retailer are the same entity
-    manufacturer_fssai = case_data.get('manufacturer_fssai', '').strip()
-    retailer_fssai = case_data.get('retailer_fssai', '').strip()
-    case_data['same_entity'] = (manufacturer_fssai == retailer_fssai)
+    
+    # STEP 4: Add canonical derived context fields
+    case_data[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    case_data[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    case_data[DERIVED_CASE_TRACK] = 'sample'  # Case file is always sample track
+    case_data[DERIVED_VIOLATIONS] = []  # Sample cases don't have violations
+    
+    # STEP 4: Derive same_entity using shared helper
+    # Get FSSAI values from case_data (already processed) or form_data
+    manufacturer_fssai = case_data.get('manufacturer_fssai_license', case_data.get('manufacturer_fssai', '')).strip()
+    retailer_fssai = case_data.get('retailer_fssai_license', case_data.get('retailer_fssai', '')).strip()
+    same_entity = derive_same_entity(manufacturer_fssai, retailer_fssai)
+    case_data['same_entity'] = same_entity
+    case_data[DERIVED_SAME_ENTITY] = same_entity
     
     # Pre-format dates for display
     for field in date_fields:

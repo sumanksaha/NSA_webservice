@@ -126,6 +126,7 @@ DERIVED_APPLICABLE_SECTIONS = "applicable_sections"  # list[str] e.g. ["55", "56
 DERIVED_SECTIONS_DISPLAY = "sections_display"  # str e.g. "55, 56 and 58"
 DERIVED_CASE_TRACK = "case_track"  # "hygienic" | "nonsample_licence" | "sample"
 DERIVED_VIOLATIONS = "violations"  # list[dict[str, str]] with keys: title, observation
+DERIVED_SAME_ENTITY = "same_entity"  # bool - True if manufacturer == retailer
 DERIVED_DOCUMENT_ROLE = "document_role"  # "authorization" | "petition" | "cover"
 
 
@@ -455,6 +456,7 @@ __all__ = [
     "DERIVED_SECTIONS_DISPLAY",
     "DERIVED_CASE_TRACK",
     "DERIVED_VIOLATIONS",
+    "DERIVED_SAME_ENTITY",
     "DERIVED_DOCUMENT_ROLE",
     # Mappings
     "INSPECTION_OLD_TO_NEW",
