@@ -4,6 +4,8 @@ import ssl
 import re
 import json
 import httpx
+import time
+from threading import Lock
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # app/utils is nested two levels deep from the workspace root
@@ -11,6 +13,11 @@ WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', '..'))
 DB_DIR = os.path.join(WORKSPACE_DIR, "db")
 LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
 REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
+
+# Rate limiting for KMC CE lookup (govt website - 40 second gap required)
+_kmc_last_request_time = 0
+_kmc_rate_limit_lock = Lock()
+_KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
 
 def lookup_fssai(license_no: str):
     """
@@ -60,7 +67,22 @@ def lookup_fssai(license_no: str):
 def lookup_ce(license_no: str):
     """
     Fetches Trade License details from KMC portal.
+    Implements rate limiting: minimum 40 seconds between consecutive requests.
     """
+    global _kmc_last_request_time
+    
+    # Apply rate limiting for KMC portal (govt website)
+    with _kmc_rate_limit_lock:
+        current_time = time.time()
+        time_since_last = current_time - _kmc_last_request_time
+        if time_since_last < _KMC_RATE_LIMIT_SECONDS:
+            sleep_time = _KMC_RATE_LIMIT_SECONDS - time_since_last
+            time.sleep(sleep_time)
+            # Update last request time after sleeping
+            _kmc_last_request_time = time.time()
+        else:
+            _kmc_last_request_time = current_time
+    
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")
     ctx.check_hostname = False
