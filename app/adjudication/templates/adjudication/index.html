@@ -94,8 +94,8 @@
         <div class="form-row">
             <div class="form-group full-width">
                 <label>Food Safety Officer Name</label>
-                <input type="text" name="food_safety_officer" 
-                       value="{{ prefill.food_safety_officer if prefill and prefill.food_safety_officer else '' }}" 
+                <input type="text" name="food_safety_officer_name" 
+                       value="{{ prefill.food_safety_officer_name if prefill and prefill.food_safety_officer_name else '' }}" 
                        required placeholder="Enter FSO name">
             </div>
         </div>
@@ -230,8 +230,8 @@
         <div class="form-row" style="margin-top: 15px;">
             <div class="form-group">
                 <label>First Inspection Date</label>
-                <input type="date" name="First_inspection_date" 
-                       value="{{ prefill.First_inspection_date if prefill and prefill.First_inspection_date else '' }}" 
+                <input type="date" name="first_inspection_date" 
+                       value="{{ prefill.first_inspection_date if prefill and prefill.first_inspection_date else '' }}" 
                        required>
             </div>
             <div class="form-group">
@@ -242,12 +242,12 @@
             </div>
             <div class="form-group" id="complaint_date_field">
                 <label>Complaint Date</label>
-                <input type="date" name="Complaint_date">
+                <input type="date" name="complaint_date">
             </div>
             <div class="form-group">
                 <label>Follow-up Inspection Date</label>
-                <input type="date" name="inspection_date" 
-                       value="{{ prefill.inspection_date if prefill and prefill.inspection_date else '' }}" 
+                <input type="date" name="followup_inspection_date" 
+                       value="{{ prefill.followup_inspection_date if prefill and prefill.followup_inspection_date else '' }}" 
                        required>
             </div>
             <div class="form-group" id="authorization_date_field">

@@ -74,12 +74,12 @@
                 <input type="date" id="authorization_date" name="authorization_date" required>
             </div>
             <div class="form-group">
-                <label for="inspection_date">Inspection Date</label>
-                <input type="date" id="inspection_date" name="inspection_date" required>
+                <label for="sample_draw_date">Sample Draw Date</label>
+                <input type="date" id="sample_draw_date" name="sample_draw_date" required>
             </div>
             <div class="form-group">
-                <label for="inspection_time">Inspection Time</label>
-                <input type="time" id="inspection_time" name="inspection_time" required value="12:40">
+                <label for="sample_draw_time">Sample Draw Time</label>
+                <input type="time" id="sample_draw_time" name="sample_draw_time" required value="12:40">
             </div>
         </div>
 
@@ -88,9 +88,9 @@
             <h3><i class="fa-solid fa-industry"></i> Manufacturer Information</h3>
         </div>
         <div class="form-group">
-            <label for="manufacturer_fssai">Manufacturer FSSAI Number</label>
+            <label for="manufacturer_fssai_license">Manufacturer FSSAI Number</label>
             <div class="fssai-lookup">
-                <input type="text" id="manufacturer_fssai" name="manufacturer_fssai" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+                <input type="text" id="manufacturer_fssai_license" name="manufacturer_fssai_license" required placeholder="Enter FSSAI number (starts with 1 or 2)">
                 <button type="button" class="btn btn-secondary" onclick="lookupFssai('manufacturer')">Lookup</button>
             </div>
             <div id="manufacturer_info" class="fssai-info" style="display: none;"></div>
@@ -98,12 +98,12 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="manufacturer_name">Manufacturer Name</label>
-                <input type="text" id="manufacturer_name" name="manufacturer_name" required placeholder="FBO Owner Name">
+                <label for="manufacturer_person_name">Manufacturer Name</label>
+                <input type="text" id="manufacturer_person_name" name="manufacturer_person_name" required placeholder="FBO Owner Name">
             </div>
             <div class="form-group">
-                <label for="manufacturer_fbo_name">Manufacturer FBO Name</label>
-                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" required placeholder="FBO Trade Name">
+                <label for="manufacturer_trade_name">Manufacturer FBO Name</label>
+                <input type="text" id="manufacturer_trade_name" name="manufacturer_trade_name" required placeholder="FBO Trade Name">
             </div>
         </div>
         
@@ -119,9 +119,9 @@
             <h3><i class="fa-solid fa-shop"></i> Retailer Information</h3>
         </div>
         <div class="form-group">
-            <label for="retailer_fssai">Retailer FSSAI Number</label>
+            <label for="retailer_fssai_license">Retailer FSSAI Number</label>
             <div class="fssai-lookup">
-                <input type="text" id="retailer_fssai" name="retailer_fssai" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+                <input type="text" id="retailer_fssai_license" name="retailer_fssai_license" required placeholder="Enter FSSAI number (starts with 1 or 2)">
                 <button type="button" class="btn btn-secondary" onclick="lookupFssai('retailer')">Lookup</button>
             </div>
             <div id="retailer_info" class="fssai-info" style="display: none;"></div>
@@ -129,12 +129,12 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="retailer_name">Retailer Name</label>
-                <input type="text" id="retailer_name" name="retailer_name" required placeholder="Retailer Name">
+                <label for="retailer_person_name">Retailer Name</label>
+                <input type="text" id="retailer_person_name" name="retailer_person_name" required placeholder="Retailer Name">
             </div>
             <div class="form-group">
-                <label for="retailer_fbo_name">Retailer FBO Name</label>
-                <input type="text" id="retailer_fbo_name" name="retailer_fbo_name" required placeholder="Retailer Trade Name">
+                <label for="retailer_trade_name">Retailer FBO Name</label>
+                <input type="text" id="retailer_trade_name" name="retailer_trade_name" required placeholder="Retailer Trade Name">
             </div>
         </div>
         
@@ -223,8 +223,8 @@
                 <input type="date" id="sample_submission_date" name="sample_submission_date" required>
             </div>
             <div class="form-group">
-                <label for="Lab_Registration_No">Lab Registration Number</label>
-                <input type="text" id="Lab_Registration_No" name="Lab_Registration_No" required value="WB/FOOD/2025/001">
+                <label for="lab_registration_no">Lab Registration Number</label>
+                <input type="text" id="lab_registration_no" name="lab_registration_no" required value="WB/FOOD/2025/001">
             </div>
             <div class="form-group">
                 <label for="do_receipt_date">DO Receipt Date</label>
@@ -370,10 +370,10 @@
             
             // Update retailer details section
             if (retailerFssai) {
-                document.getElementById('retailer_fssai').value = retailerFssai;
+                document.getElementById('retailer_fssai_license').value = retailerFssai;
             }
             if (retailerName) {
-                document.getElementById('retailer_name').value = retailerName;
+                document.getElementById('retailer_person_name').value = retailerName;
             }
             
             // Update sample submission date
@@ -406,7 +406,7 @@
     }
     
     async function lookupFssai(type) {
-        const fssaiInput = document.getElementById(`${type}_fssai`);
+        const fssaiInput = document.getElementById(`${type}_fssai_license`);
         const licenseNo = fssaiInput.value.trim();
         const infoDiv = document.getElementById(`${type}_info`);
         
@@ -438,8 +438,8 @@
             const identity = result.identity;
             
             // Fill the form fields
-            document.getElementById(`${type}_name`).value = identity.companyName || '';
-            document.getElementById(`${type}_fbo_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_person_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_trade_name`).value = identity.companyName || '';
             document.getElementById(`${type}_address`).value = identity.fullAddress || '';
             
             // Show details
