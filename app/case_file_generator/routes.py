@@ -121,22 +121,23 @@ def case_file_to_dict(case_file):
     """
     Convert a CaseFile model instance to a dictionary for JSON serialization.
     This includes all fields needed for form pre-population and document regeneration.
+    Map DB columns to canonical keys for Step 3.
     """
     return {
         'id': case_file.id,
         'case_number': case_file.case_number,
         'food_safety_officer_name': case_file.food_safety_officer_name,
         'authorization_date': case_file.authorization_date,
-        'inspection_date': case_file.inspection_date,
-        'inspection_time': case_file.inspection_time,
+        'sample_draw_date': case_file.inspection_date,  # DB column: inspection_date -> canonical
+        'sample_draw_time': case_file.inspection_time,  # DB column: inspection_time -> canonical
         'sample_id': case_file.sample_id,  # Step 5: Link to Sample
-        'manufacturer_fssai': case_file.manufacturer_fssai,
-        'manufacturer_name': case_file.manufacturer_name,
-        'manufacturer_fbo_name': case_file.manufacturer_fbo_name,
+        'manufacturer_fssai_license': case_file.manufacturer_fssai,  # DB column -> canonical
+        'manufacturer_person_name': case_file.manufacturer_name,  # DB column -> canonical
+        'manufacturer_trade_name': case_file.manufacturer_fbo_name,  # DB column -> canonical
         'manufacturer_address': case_file.manufacturer_address,
-        'retailer_fssai': case_file.retailer_fssai,
-        'retailer_name': case_file.retailer_name,
-        'retailer_fbo_name': case_file.retailer_fbo_name,
+        'retailer_fssai_license': case_file.retailer_fssai,  # DB column -> canonical
+        'retailer_person_name': case_file.retailer_name,  # DB column -> canonical
+        'retailer_trade_name': case_file.retailer_fbo_name,  # DB column -> canonical
         'retailer_address': case_file.retailer_address,
         'product_name': case_file.product_name,
         'batch_no': case_file.batch_no,
@@ -149,7 +150,7 @@ def case_file_to_dict(case_file):
         'cost_in_words': case_file.cost_in_words,
         'sample_code': case_file.sample_code,
         'sample_submission_date': case_file.sample_submission_date,
-        'Lab_Registration_No': case_file.Lab_Registration_No,
+        'lab_registration_no': case_file.Lab_Registration_No,  # DB column -> canonical
         'do_receipt_date': case_file.do_receipt_date,
         'is_misbranded': 'misbranded' if case_file.is_misbranded else '',
         'is_substandard': 'substandard' if case_file.is_substandard else '',
@@ -261,15 +262,15 @@ def lookup_sample():
     if not sample:
         return jsonify({'error': f'Sample with code {sample_code} not found'}), 404
     
-    # Return sample data for prefill
+    # Return sample data for prefill - using canonical keys for Step 3
     return jsonify({
         'id': sample.id,
         'sample_code': sample.sample_code,
         'sample_name': sample.sample_name,
-        'retailer_fssai': sample.retailer_fssai or '',
-        'retailer_name': sample.retailer_name or '',
-        'submission_date': sample.submission_date or '',
-        'price': sample.price or ''
+        'retailer_fssai_license': sample.retailer_fssai or '',  # canonical
+        'retailer_person_name': sample.retailer_name or '',  # canonical
+        'sample_submission_date': sample.submission_date or '',  # canonical
+        'total_cost': sample.price or ''  # canonical (DB column: price)
     })
 
 
@@ -294,23 +295,23 @@ def generate_case_file_route():
             # If sample_id is not a valid integer, ignore it
             pass
     
-    # Save record to database
+    # Save record to database - using canonical keys from Step 2
     case_file_record = CaseFile(
         case_number=form_data.get('case_number', ''),
         food_safety_officer_name=form_data.get('food_safety_officer_name', ''),
         authorization_date=form_data.get('authorization_date', ''),
-        inspection_date=form_data.get('inspection_date', ''),
-        inspection_time=form_data.get('inspection_time', ''),
+        inspection_date=form_data.get('sample_draw_date', ''),  # canonical: sample_draw_date -> DB column inspection_date
+        inspection_time=form_data.get('sample_draw_time', ''),  # canonical
         sample_id=sample_id,  # Step 5: Link to Sample
         
-        manufacturer_fssai=form_data.get('manufacturer_fssai', ''),
-        manufacturer_name=form_data.get('manufacturer_name', ''),
-        manufacturer_fbo_name=form_data.get('manufacturer_fbo_name', ''),
+        manufacturer_fssai=form_data.get('manufacturer_fssai_license', ''),  # canonical
+        manufacturer_name=form_data.get('manufacturer_person_name', ''),  # canonical
+        manufacturer_fbo_name=form_data.get('manufacturer_trade_name', ''),  # canonical
         manufacturer_address=form_data.get('manufacturer_address', ''),
         
-        retailer_fssai=form_data.get('retailer_fssai', ''),
-        retailer_name=form_data.get('retailer_name', ''),
-        retailer_fbo_name=form_data.get('retailer_fbo_name', ''),
+        retailer_fssai=form_data.get('retailer_fssai_license', ''),  # canonical
+        retailer_name=form_data.get('retailer_person_name', ''),  # canonical
+        retailer_fbo_name=form_data.get('retailer_trade_name', ''),  # canonical
         retailer_address=form_data.get('retailer_address', ''),
         
         product_name=form_data.get('product_name', ''),
@@ -325,7 +326,7 @@ def generate_case_file_route():
         
         sample_code=form_data.get('sample_code', ''),
         sample_submission_date=form_data.get('sample_submission_date', ''),
-        Lab_Registration_No=form_data.get('Lab_Registration_No', ''),
+        Lab_Registration_No=form_data.get('lab_registration_no', ''),  # canonical
         do_receipt_date=form_data.get('do_receipt_date', ''),
         
         is_misbranded=form_data.get('is_misbranded') == 'misbranded',

@@ -75,11 +75,12 @@ def adjudication_to_dict(adj):
     """
     Convert an Adjudication model instance to a dictionary for JSON serialization.
     This includes all fields needed for form pre-population and document regeneration.
+    Map DB columns to canonical keys for Step 3.
     """
     return {
         'id': adj.id,
         'case_number': adj.case_number,
-        'food_safety_officer': adj.food_safety_officer,
+        'food_safety_officer_name': adj.food_safety_officer,  # DB column: food_safety_officer
         'non_license': adj.non_license,
         'pre_authorization': adj.pre_authorization,
         'complaint_lodged': adj.complaint_lodged,
@@ -94,10 +95,10 @@ def adjudication_to_dict(adj):
         'fssai_license': adj.fssai_license,
         'concerned_food': adj.concerned_food,
         'problem': adj.problem,
-        'First_inspection_date': adj.First_inspection_date,
+        'first_inspection_date': adj.First_inspection_date,  # DB column: First_inspection_date
         'compliance_deadline': adj.compliance_deadline,
-        'Complaint_date': adj.Complaint_date,
-        'inspection_date': adj.inspection_date,
+        'complaint_date': adj.Complaint_date,  # DB column: Complaint_date
+        'followup_inspection_date': adj.inspection_date,  # DB column: inspection_date (follow-up)
         'authorization_date': adj.authorization_date,
         'clean_premise': adj.clean_premise,
         'refrigerator_clean': adj.refrigerator_clean,
@@ -123,11 +124,11 @@ def adjudication_to_dict(adj):
 
 @adjudication_bp.route('/')
 def index():
-    # Check for prefill data from inspection
+    # Check for prefill data from inspection - using canonical keys from Step 3
     prefill_data = {}
-    for key in ['from_inspection', 'food_safety_officer', 'fbo_name', 'fbo_address', 
-                'fssai_license', 'ce_license_no', 'First_inspection_date', 
-                'compliance_deadline', 'inspection_date', 'concerned_food', 
+    for key in ['from_inspection', 'food_safety_officer_name', 'fbo_name', 'fbo_address', 
+                'fssai_license', 'ce_license_no', 'first_inspection_date', 
+                'compliance_deadline', 'concerned_food', 
                 'problem', 'ce_trade_name', 'ce_proprietor', 'ce_address', 'ce_status']:
         value = request.args.get(key)
         if value:
@@ -356,10 +357,10 @@ def regenerate_adjudication_documents(case_id):
 def generate_all():
     form_data = request.form.to_dict()
     
-    # Save record to local database
+    # Save record to local database - using canonical keys from Step 2
     adj = Adjudication(
         case_number=form_data.get('case_number', ''),
-        food_safety_officer=form_data.get('food_safety_officer', ''),
+        food_safety_officer=form_data.get('food_safety_officer_name', ''),  # canonical -> DB column
         non_license=form_data.get('non_license', 'no'),
         pre_authorization=form_data.get('pre_authorization', 'no'),
         complaint_lodged=form_data.get('complaint_lodged', 'no'),
@@ -377,10 +378,10 @@ def generate_all():
         concerned_food=form_data.get('concerned_food', ''),
         problem=form_data.get('problem', ''),
         
-        First_inspection_date=form_data.get('First_inspection_date', ''),
+        First_inspection_date=form_data.get('first_inspection_date', ''),  # canonical
         compliance_deadline=form_data.get('compliance_deadline', ''),
-        Complaint_date=form_data.get('Complaint_date', ''),
-        inspection_date=form_data.get('inspection_date', ''),
+        Complaint_date=form_data.get('complaint_date', ''),  # canonical
+        inspection_date=form_data.get('followup_inspection_date', ''),  # canonical -> DB column (follow-up)
         authorization_date=form_data.get('authorization_date', ''),
         
         # Checklist
