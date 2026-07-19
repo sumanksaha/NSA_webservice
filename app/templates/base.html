@@ -199,7 +199,7 @@
             <nav class="tabs">
                 <a href="{{ url_for('case_file_generator.index') }}" 
                    class="tab-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}">
-                    <i class="fa-solid fa-folder-open"></i> Sample Adjudication
+                    <i class="fa-solid fa-folder-open"></i> Sample -adjudication
                 </a>
                 <a href="{{ url_for('sample.index') }}" 
                    class="tab-link {% if request.blueprint == 'sample' %}active{% endif %}">
@@ -215,7 +215,7 @@
                 </a>
                 <a href="{{ url_for('adjudication.index') }}" 
                    class="tab-link {% if request.blueprint == 'adjudication' %}active{% endif %}">
-                    <i class="fa-solid fa-scale-balanced"></i> Adjudication
+                    <i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication
                 </a>
                 <a href="{{ url_for('bill_generator.index') }}" 
                    class="tab-link {% if request.blueprint == 'bill_generator' %}active{% endif %}">

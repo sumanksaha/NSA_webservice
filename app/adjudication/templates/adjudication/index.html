@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}NSA Adjudication Portal{% endblock %}
+{% block title %}NSA Non sample- adjudication Portal{% endblock %}
 
 {% block extra_css %}
-/* Specific Adjudication styles - now using theme.css classes */
+/* Specific Non sample- adjudication styles - now using theme.css classes */
 .toggle-card {
     border: 1px solid var(--border);
     padding: 16px;
@@ -81,7 +81,7 @@
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2><i class="fa-solid fa-scale-balanced"></i> Non-Sample Adjudication Portal</h2>
+        <h2><i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication Portal</h2>
     </div>
 
     <form method="post" action="{{ url_for('adjudication.generate_all') }}">

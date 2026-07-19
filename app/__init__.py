@@ -65,7 +65,7 @@ def create_app():
                     app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
                 app._fso_synced = True
     
-    # Redirect root to first tab (Sample Adjudication)
+    # Redirect root to first tab (Sample -adjudication)
     @app.route('/')
     def root():
         return redirect(url_for('case_file_generator.index'))

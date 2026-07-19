@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Case File Generator{% endblock %}
+{% block title %}Sample -adjudication{% endblock %}
 
 {% block extra_css %}
-/* Custom Sample Adjudication styles - now using theme.css classes */
+/* Custom Sample -adjudication styles - now using theme.css classes */
 .fssai-lookup {
     display: flex;
     gap: 10px;
@@ -49,7 +49,7 @@
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2><i class="fa-solid fa-folder-open"></i> Sample Adjudication Case File Generator</h2>
+        <h2><i class="fa-solid fa-folder-open"></i> Sample -adjudication</h2>
     </div>
     
     <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
