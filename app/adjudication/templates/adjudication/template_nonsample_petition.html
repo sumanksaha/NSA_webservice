@@ -84,7 +84,7 @@
     <div class="container">
         <div class="column left-col">
             <div class="entry">
-                <div class="entry-title">1. {{ food_safety_officer }}</div>
+                <div class="entry-title">1. {{ food_safety_officer_name }}</div>
                 <div>Food Safety Officer</div>
                 <div>Kolkata Municipal Corporation</div>
             </div>
@@ -113,7 +113,7 @@
     <h3 class="center">STATEMENT OF FACTS</h3>
     <ol class="justify">
         <li> That the complainant above named is the Food safety officer (hereinafter referred to as the “FSO”) appointed u/s 37 of the Food Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata Municipal Corporation and he has been authorised by the Designated Officer, Kolkata Municipal Corporation dated {{ authorization_date }} to launch the present complaint for adjudication before the Ld. Adjudicating Officer, Kolkata Municipal Corporation. </li>
-        <li> That on <strong> {{ First_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, License/Registration No- {{ fssai_license }}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
+        <li> That on <strong> {{ first_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, License/Registration No- {{ fssai_license }}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
         <li> That on inspection, FSO observed several discrepancies at the premises. </li>
     </ol>
 
@@ -131,7 +131,7 @@
         <tr>
             <td>{{ loop.index }}</td>
             <td>{{ v.title }}</td>
-            <td>{{ v.Observation }}</td>
+            <td>{{ v.observation }}</td>
         </tr>
         {% endfor %}
     </table>   
@@ -141,13 +141,13 @@
               non-compliance issues on or before {{ compliance_deadline }}. </li>
 
         {% if complaint_lodged == 'yes' %} 
-        <li>Subsequently, on {{ Complaint_date }}, the
+        <li>Subsequently, on {{ complaint_date }}, the
               FSO received a complaint from the complainant regarding the sale of a {{
               concerned_food }} that {{ problem }}, further corroborating the FBO's
               continued non-compliance.</li> 
         {% endif %}
         
-        <li> That on {{ inspection_date }}, the FSO conducted a follow-up inspection and observed continued non-compliance with food safety standards and with directives issued by the FSO.</li>
+        <li> That on {{ followup_inspection_date }}, the FSO conducted a follow-up inspection and observed continued non-compliance with food safety standards and with directives issued by the FSO.</li>
         <li> That Food Safety Officer submitted all the relevant documents in connection with above FBO and placed before the Designated Officer for his perusal and further proceedings. </li>
         <li> That the Designated Officer authorized Food Safety Officer on {{ authorization_date }} to file an application for Adjudication with the Adjudicating Officer. </li>
     </ol>
@@ -155,23 +155,35 @@
        
 
 <div class="legal-notice-box">
-        <span class="section-title">Liability under Section 55:</span>
-        <blockquote>
-            If a food business operator or an importer without reasonable ground, <strong>fails to comply with the requirements
-            of this Act or the rules or regulations or orders issued thereunder</strong>, as directed by the Food Safety Officer, he shall be liable to a penalty which may extend to two lakh rupees.
-        </blockquote>
-
-        <span class="section-title">Liability under Section 56:</span>
-        <blockquote>
-          Any person who, whether by himself or by any other person on his behalf, <strong>manufactures or processes any article of 
-          food for human consumption under unhygienic or unsanitary conditions</strong>, shall be liable to a penalty which may extend 
-          to one lakh rupees.  
-        </blockquote>
+    {% for sec in applicable_sections %}
+    <span class="section-title">Liability under Section {{ sec }}:</span>
+    <blockquote>
+        {% if sec == '55' %}
+        If a food business operator or an importer without reasonable ground, <strong>fails to comply with the requirements
+        of this Act or the rules or regulations or orders issued thereunder</strong>, as directed by the Food Safety Officer, he shall be liable to a penalty which may extend to two lakh rupees.
+        {% elif sec == '56' %}
+        Any person who, whether by himself or by any other person on his behalf, <strong>manufactures or processes any article of 
+        food for human consumption under unhygienic or unsanitary conditions</strong>, shall be liable to a penalty which may extend 
+        to one lakh rupees.
+        {% elif sec == '58' %}
+        Any person who whether by himself or by any other person on his behalf manufactures for sale or stores or sells or distributes or imports any article of food for human consumption which is unsafe shall be liable to a penalty which may extend to one lakh rupees.
+        {% elif sec == '63' %}
+        Any person who whether by himself or by any other person on his behalf manufactures or processes any article of food for human consumption without a license shall be liable to a penalty which may extend to five lakh rupees.
+        {% elif sec == '64' %}
+        Any person who publishes or is a party to the publication of any advertisement which is false or misleading shall be liable to a penalty which may extend to ten lakh rupees.
+        {% else %}
+        Liability provisions for Section {{ sec }} apply.
+        {% endif %}
+    </blockquote>
+    {% endfor %}
+    {% if not applicable_sections %}
+    <p><em>Error: no applicable sections specified.</em></p>
+    {% endif %}
 </div>
     
     <p class="justify">
         Under the circumstances, it is prayed that Your Honour may kindly be pleased to issue notice upon the FBO to make representation and fix a date of hearing and after hearing pass necessary order/ orders contravening 
-        <strong>Sections 55 and 56</strong> of the Food Safety and Standards Act, 2006, and pass such order or orders as deemed fit and proper in the interest of justice.
+        <strong>Section{{ 's' if applicable_sections|length > 1 else '' }} {{ sections_display }}</strong> of the Food Safety and Standards Act, 2006, and pass such order or orders as deemed fit and proper in the interest of justice.
     </p>
 
     <p>And for this act of kindness your petitioner as in duty bound shall ever pray.</p>
@@ -185,7 +197,7 @@
 
     <strong>List of Enclosures</strong>
     <ol class="justify">
-        <li>Copy of Inspection Report and instruction sheet issued to the FBO dated {{ First_inspection_date }}</li>
+        <li>Copy of Inspection Report and instruction sheet issued to the FBO dated {{ first_inspection_date }}</li>
         <li>Copy of {{ fssai_license }}</li>
         <li>Letter of approval from the Designated Officer</li>
     </ol>

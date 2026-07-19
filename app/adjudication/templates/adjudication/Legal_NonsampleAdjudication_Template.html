@@ -98,15 +98,14 @@
 
     <div class="subject">
       Subject: Prayer for authorization for filing of adjudication proceedings
-      against {{ fbo_name }}, situated at {{ fbo_address }} under Section 55 and
-      56 of the Food Safety and Standards Act, 2006.
+      against {{ fbo_name }}, situated at {{ fbo_address }} under Section{{ 's' if applicable_sections|length > 1 else '' }} {{ sections_display }} of the Food Safety and Standards Act, 2006.
     </div>
 
     <div class="paragraph">Sir/Madam,</div>
 
     <div class="paragraph">
       During inspection conducted on
-      <strong> {{ First_inspection_date }}</strong> at the food business
+      <strong> {{ first_inspection_date }}</strong> at the food business
       establishment namely <strong>{{ fbo_name }}</strong>, situated at
       <strong>{{ fbo_address }}</strong>, the following non-compliances and
       contraventions of food hygiene and sanitary requirements prescribed under
@@ -128,7 +127,7 @@
       <tr>
         <td>{{ loop.index }}</td>
         <td>{{ v.title }}</td>
-        <td>{{ v.Observation }}</td>
+        <td>{{ v.observation }}</td>
       </tr>
       {% endfor %}
     </table>
@@ -139,14 +138,14 @@
     </div>
     {% if complaint_lodged == 'yes' %}
     <div class="paragraph">
-      Subsequently, on {{ Complaint_date }}, the FSO received a complaint from
+      Subsequently, on {{ complaint_date }}, the FSO received a complaint from
       the complainant regarding the sale of a {{ concerned_food }} that {{
       problem }}, further corroborating the FBO's continued non-compliance.
     </div>
     {% endif %}
 
     <div class="paragraph">
-      That a follow-up inspection was conducted on {{ inspection_date }} and the
+      That a follow-up inspection was conducted on {{ followup_inspection_date }} and the
       FSO observed continued non-compliance with food safety standards and with
       directives issued by the FSO.
     </div>
@@ -155,7 +154,7 @@
       In view of the above findings and observed contraventions, it is
       respectfully prayed that necessary permission may kindly be accorded for
       initiation and filing of adjudication proceedings before the Learned
-      Adjudicating Officer under Section 55 and 56 of the Food Safety and
+      Adjudicating Officer under Section{{ 's' if applicable_sections|length > 1 else '' }} {{ sections_display }} of the Food Safety and
       Standards Act, 2006, as deemed fit and proper in the interest of food
       safety and public health.
     </div>
