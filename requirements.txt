@@ -1,9 +1,11 @@
+alembic>=1.13.0
 flask
 flask-sqlalchemy
 flask-migrate
 gspread==6.2.1
 google-auth==2.56.0
 jinja2
+psycopg2-binary>=2.9.9
 weasyprint
 python-multipart
 num2words

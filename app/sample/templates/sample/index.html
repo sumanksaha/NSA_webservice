@@ -21,8 +21,7 @@
             </div>
             <div class="form-group">
                 <label for="sample_type">Sample Type</label>
-                <select id="sample_type" name="sample_type">
-                    <option value="">-- Select Type --</option>
+                <select id="sample_type" name="sample_type" required>
                     {% for stype in sample_types %}
                     <option value="{{ stype }}">{{ stype }}</option>
                     {% endfor %}
@@ -32,8 +31,8 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="fso_name">Food Safety Officer *</label>
-                <select id="fso_name" name="fso_name" required>
+                <label for="food_safety_officer_name">Food Safety Officer *</label>
+                <select id="food_safety_officer_name" name="food_safety_officer_name" required>
                     <option value="">-- Select FSO --</option>
                     {% for fso in fso_names %}
                     <option value="{{ fso }}">{{ fso }}</option>
@@ -41,19 +40,19 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="collection_date">Collection Date *</label>
-                <input type="date" id="collection_date" name="collection_date" required>
+                <label for="sample_draw_date">Collection Date *</label>
+                <input type="date" id="sample_draw_date" name="sample_draw_date" required>
             </div>
         </div>
         
         <div class="form-row">
             <div class="form-group">
-                <label for="submission_date">Submission Date</label>
-                <input type="date" id="submission_date" name="submission_date">
+                <label for="sample_submission_date">Submission Date</label>
+                <input type="date" id="sample_submission_date" name="sample_submission_date">
             </div>
             <div class="form-group">
-                <label for="price">Price (INR)</label>
-                <input type="text" id="price" name="price" placeholder="Enter price">
+                <label for="total_cost">Price (INR)</label>
+                <input type="text" id="total_cost" name="total_cost" placeholder="Enter price">
             </div>
         </div>
         
@@ -64,9 +63,9 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="retailer_fssai">Retailer FSSAI Number</label>
+                <label for="retailer_fssai_license">Retailer FSSAI Number</label>
                 <div class="fssai-lookup">
-                    <input type="text" id="retailer_fssai" name="retailer_fssai" 
+                    <input type="text" id="retailer_fssai_license" name="retailer_fssai_license" 
                            placeholder="Enter FSSAI number (starts with 1 or 2)">
                     <button type="button" class="btn btn-secondary" onclick="lookupRetailer()">Lookup</button>
                 </div>
@@ -76,8 +75,8 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="retailer_name">Retailer Name</label>
-                <input type="text" id="retailer_name" name="retailer_name" placeholder="Auto-filled from FSSAI lookup">
+                <label for="retailer_person_name">Retailer Name</label>
+                <input type="text" id="retailer_person_name" name="retailer_person_name" placeholder="Auto-filled from FSSAI lookup">
             </div>
         </div>
         
@@ -101,8 +100,8 @@
 <script>
 // Retailer FSSAI lookup
 async function lookupRetailer() {
-    const fssaiInput = document.getElementById('retailer_fssai');
-    const retailerNameInput = document.getElementById('retailer_name');
+    const fssaiInput = document.getElementById('retailer_fssai_license');
+    const retailerNameInput = document.getElementById('retailer_person_name');
     const infoDiv = document.getElementById('retailer_info');
     
     const fssaiNumber = fssaiInput.value.trim();
@@ -122,7 +121,7 @@ async function lookupRetailer() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ retailer_fssai: fssaiNumber })
+            body: JSON.stringify({ retailer_fssai_license: fssaiNumber })
         });
         
         const data = await response.json();
@@ -179,10 +178,10 @@ async function lookupRetailer() {
     }
 });
 
-// Set today's date as default for collection_date
+// Set today's date as default for sample_draw_date
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('collection_date').value = today;
+    document.getElementById('sample_draw_date').value = today;
 });
 </script>
 {% endblock %}

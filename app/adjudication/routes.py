@@ -8,6 +8,28 @@ from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.suggester import suggest_sections
 from app.services.sheets_sync import sync_to_sheets
 import json
+from app.utils.pdf_utils import generate_pdf_from_html
+from app.shared.case_keys import (
+    DERIVED_APPLICABLE_SECTIONS,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_CASE_TRACK,
+    DERIVED_VIOLATIONS,
+    DERIVED_SAME_ENTITY,
+    SECTION_55,
+    SECTION_56,
+    SECTION_58,
+    SECTION_63,
+    SECTION_64,
+    SHARED_NON_LICENSE,
+    SHARED_PRE_AUTHORIZATION,
+    SHARED_COMPLAINT_LODGED,
+)
+from app.shared.context_derivers import (
+    derive_applicable_sections_from_adjudication,
+    derive_sections_display,
+    derive_case_track,
+    derive_violations,
+)
 
 adjudication_bp = Blueprint(
     'adjudication',
@@ -75,11 +97,12 @@ def adjudication_to_dict(adj):
     """
     Convert an Adjudication model instance to a dictionary for JSON serialization.
     This includes all fields needed for form pre-population and document regeneration.
+    Map DB columns to canonical keys for Step 3.
     """
     return {
         'id': adj.id,
         'case_number': adj.case_number,
-        'food_safety_officer': adj.food_safety_officer,
+        'food_safety_officer_name': adj.food_safety_officer,  # DB column: food_safety_officer
         'non_license': adj.non_license,
         'pre_authorization': adj.pre_authorization,
         'complaint_lodged': adj.complaint_lodged,
@@ -94,10 +117,10 @@ def adjudication_to_dict(adj):
         'fssai_license': adj.fssai_license,
         'concerned_food': adj.concerned_food,
         'problem': adj.problem,
-        'First_inspection_date': adj.First_inspection_date,
+        'first_inspection_date': adj.First_inspection_date,  # DB column: First_inspection_date
         'compliance_deadline': adj.compliance_deadline,
-        'Complaint_date': adj.Complaint_date,
-        'inspection_date': adj.inspection_date,
+        'complaint_date': adj.Complaint_date,  # DB column: Complaint_date
+        'followup_inspection_date': adj.inspection_date,  # DB column: inspection_date (follow-up)
         'authorization_date': adj.authorization_date,
         'clean_premise': adj.clean_premise,
         'refrigerator_clean': adj.refrigerator_clean,
@@ -123,11 +146,11 @@ def adjudication_to_dict(adj):
 
 @adjudication_bp.route('/')
 def index():
-    # Check for prefill data from inspection
+    # Check for prefill data from inspection - using canonical keys from Step 3
     prefill_data = {}
-    for key in ['from_inspection', 'food_safety_officer', 'fbo_name', 'fbo_address', 
-                'fssai_license', 'ce_license_no', 'First_inspection_date', 
-                'compliance_deadline', 'inspection_date', 'concerned_food', 
+    for key in ['from_inspection', 'food_safety_officer_name', 'fbo_name', 'fbo_address', 
+                'fssai_license', 'ce_license_no', 'first_inspection_date', 
+                'compliance_deadline', 'concerned_food', 
                 'problem', 'ce_trade_name', 'ce_proprietor', 'ce_address', 'ce_status']:
         value = request.args.get(key)
         if value:
@@ -296,29 +319,46 @@ def regenerate_adjudication_documents(case_id):
     
     is_pre_authorization = str(form_data.get('pre_authorization', 'no')).strip().lower() == 'yes'
     
+    # STEP 4: Derive all context fields using shared helpers
+    # Get section checkboxes
+    section_55 = form_data.get(SECTION_55, 'no')
+    section_56 = form_data.get(SECTION_56, 'no')
+    section_58 = form_data.get(SECTION_58, 'no')
+    section_63 = form_data.get(SECTION_63, 'no')
+    section_64 = form_data.get(SECTION_64, 'no')
+    
+    # Get case flags
+    non_license = form_data.get(SHARED_NON_LICENSE, 'no')
+    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, 'no')
+    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, 'no')
+    
+    # Derive applicable sections
+    applicable_sections = derive_applicable_sections_from_adjudication(
+        section_55=section_55,
+        section_56=section_56,
+        section_58=section_58,
+        section_63=section_63,
+        section_64=section_64,
+    )
+    
     # Render context
     context = form_data.copy()
     context['compilation_date'] = datetime.today().strftime("%d %B %Y")
     
-    # Violations building
-    violations = []
-    for k, (title, obs) in RULES.items():
-        if form_data.get(k) == 'no':
-            violations.append({'title': title, 'Observation': obs})
-            
-    if form_data.get('artificial_colour') == 'yes':
-        violations.append({
-            'title': 'Use of Artificial Colours',
-            'Observation': 'Artificial colours were reportedly used in food preparation.'
-        })
-        
-    if form_data.get('Expired_item') == 'yes':
-        violations.append({
-            'title': 'Expired Items Present',
-            'Observation': 'Expired food items were found on the premises.'
-        })
-        
-    context['violations'] = violations
+    # STEP 4: Add canonical derived context fields
+    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    context[DERIVED_CASE_TRACK] = derive_case_track(
+        non_license=non_license,
+        pre_authorization=pre_authorization,
+        complaint_lodged=complaint_lodged,
+        is_sample=False,
+    )
+    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
+    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
+    
+    # Keep backward compatible violations field
+    context['violations'] = context[DERIVED_VIOLATIONS]
     
     outputs = []
     if is_pre_authorization:
@@ -329,12 +369,13 @@ def regenerate_adjudication_documents(case_id):
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
         
     for tpl, prefix in templates_to_generate:
-        from weasyprint import HTML
         rendered_html = render_template(tpl, **context)
-        pdf_buffer = io.BytesIO()
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        outputs.append((f"{prefix}.pdf", pdf_buffer.getvalue()))
+        pdf_bytes, error = generate_pdf_from_html(rendered_html)
+        if pdf_bytes:
+            outputs.append((f"{prefix}.pdf", pdf_bytes))
+        else:
+            current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
+            return jsonify({"error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."}), 500
         
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zip_buffer = io.BytesIO()
@@ -356,10 +397,10 @@ def regenerate_adjudication_documents(case_id):
 def generate_all():
     form_data = request.form.to_dict()
     
-    # Save record to local database
+    # Save record to local database - using canonical keys from Step 2
     adj = Adjudication(
         case_number=form_data.get('case_number', ''),
-        food_safety_officer=form_data.get('food_safety_officer', ''),
+        food_safety_officer=form_data.get('food_safety_officer_name', ''),  # canonical -> DB column
         non_license=form_data.get('non_license', 'no'),
         pre_authorization=form_data.get('pre_authorization', 'no'),
         complaint_lodged=form_data.get('complaint_lodged', 'no'),
@@ -377,10 +418,10 @@ def generate_all():
         concerned_food=form_data.get('concerned_food', ''),
         problem=form_data.get('problem', ''),
         
-        First_inspection_date=form_data.get('First_inspection_date', ''),
+        First_inspection_date=form_data.get('first_inspection_date', ''),  # canonical
         compliance_deadline=form_data.get('compliance_deadline', ''),
-        Complaint_date=form_data.get('Complaint_date', ''),
-        inspection_date=form_data.get('inspection_date', ''),
+        Complaint_date=form_data.get('complaint_date', ''),  # canonical
+        inspection_date=form_data.get('followup_inspection_date', ''),  # canonical -> DB column (follow-up)
         authorization_date=form_data.get('authorization_date', ''),
         
         # Checklist
@@ -437,32 +478,46 @@ def generate_all():
     # Generate Adjudication Pack Documents in Memory
     is_pre_authorization = str(form_data.get('pre_authorization', 'no')).strip().lower() == 'yes'
     
+    # STEP 4: Derive all context fields using shared helpers
+    # Get section checkboxes
+    section_55 = form_data.get(SECTION_55, 'no')
+    section_56 = form_data.get(SECTION_56, 'no')
+    section_58 = form_data.get(SECTION_58, 'no')
+    section_63 = form_data.get(SECTION_63, 'no')
+    section_64 = form_data.get(SECTION_64, 'no')
+    
+    # Get case flags
+    non_license = form_data.get(SHARED_NON_LICENSE, 'no')
+    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, 'no')
+    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, 'no')
+    
+    # Derive applicable sections
+    applicable_sections = derive_applicable_sections_from_adjudication(
+        section_55=section_55,
+        section_56=section_56,
+        section_58=section_58,
+        section_63=section_63,
+        section_64=section_64,
+    )
+    
     # Render context
     context = form_data.copy()
     context['compilation_date'] = datetime.today().strftime("%d %B %Y")
     
-    # Violations building
-    violations = []
-    for k, (title, obs) in RULES.items():
-        if form_data.get(k) == 'no':
-            violations.append({
-                'title': title,
-                'Observation': obs
-            })
-            
-    if form_data.get('artificial_colour') == 'yes':
-        violations.append({
-            'title': 'Use of Artificial Colours',
-            'Observation': 'Artificial colours were reportedly used in food preparation.'
-        })
-        
-    if form_data.get('Expired_item') == 'yes':
-        violations.append({
-            'title': 'Expired Items Present',
-            'Observation': 'Expired food items were found on the premises.'
-        })
-        
-    context['violations'] = violations
+    # STEP 4: Add canonical derived context fields
+    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    context[DERIVED_CASE_TRACK] = derive_case_track(
+        non_license=non_license,
+        pre_authorization=pre_authorization,
+        complaint_lodged=complaint_lodged,
+        is_sample=False,
+    )
+    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
+    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
+    
+    # Keep backward compatible violations field
+    context['violations'] = context[DERIVED_VIOLATIONS]
     
     outputs = []
     if is_pre_authorization:
@@ -477,17 +532,16 @@ def generate_all():
         ]
         
     for tpl, prefix in templates_to_generate:
-        from weasyprint import HTML
-
         # Render the template to HTML string
         rendered_html = render_template(tpl, **context)
         
         # Compile HTML string to PDF using WeasyPrint in memory
-        pdf_buffer = io.BytesIO()
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        
-        outputs.append((f"{prefix}.pdf", pdf_buffer.getvalue()))
+        pdf_bytes, error = generate_pdf_from_html(rendered_html)
+        if pdf_bytes:
+            outputs.append((f"{prefix}.pdf", pdf_bytes))
+        else:
+            current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
+            return jsonify({"error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."}), 500
         
     # Zip the outputs in memory
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"

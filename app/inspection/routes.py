@@ -148,19 +148,19 @@ def create_inspection():
     """Create a new inspection record."""
     form_data = request.form.to_dict()
 
-    # Required fields
-    fso_name = form_data.get('fso_name', '').strip()
+    # Required fields - using canonical keys from Step 2
+    food_safety_officer_name = form_data.get('food_safety_officer_name', '').strip()
     inspection_date = form_data.get('inspection_date', '').strip()
 
-    if not fso_name:
-        return jsonify({'error': 'fso_name is required'}), 400
+    if not food_safety_officer_name:
+        return jsonify({'error': 'food_safety_officer_name is required'}), 400
     if not inspection_date:
         return jsonify({'error': 'inspection_date is required'}), 400
 
-    # Validate FSO exists
-    fso = FSO.query.get(fso_name)
+    # Validate FSO exists - map canonical to DB column
+    fso = FSO.query.get(food_safety_officer_name)
     if not fso:
-        return jsonify({'error': f'FSO "{fso_name}" not found in database'}), 400
+        return jsonify({'error': f'FSO "{food_safety_officer_name}" not found in database'}), 400
 
     # Generate inspection code
     inspection_code = generate_inspection_code()
@@ -180,9 +180,10 @@ def create_inspection():
     problem = form_data.get('problem', '').strip() or None
 
     # Create inspection record
+    # Map canonical keys to DB columns: food_safety_officer_name -> fso_name (FK)
     inspection = Inspection(
         inspection_code=inspection_code,
-        fso_name=fso_name,
+        fso_name=food_safety_officer_name,
         fssai_license=fssai_license,
         ce_license_no=ce_license_no,
         fbo_name=fbo_name,
@@ -275,13 +276,14 @@ def update_inspection(inspection_id):
     form_data = request.form.to_dict()
 
     # Update fields
-    if 'fso_name' in form_data:
-        fso_name = form_data['fso_name'].strip()
+    # Map canonical key to DB column: food_safety_officer_name -> fso_name
+    if 'food_safety_officer_name' in form_data:
+        food_safety_officer_name = form_data['food_safety_officer_name'].strip()
         # Validate FSO exists
-        fso = FSO.query.get(fso_name)
+        fso = FSO.query.get(food_safety_officer_name)
         if not fso:
-            return jsonify({'error': f'FSO "{fso_name}" not found'}), 400
-        inspection.fso_name = fso_name
+            return jsonify({'error': f'FSO "{food_safety_officer_name}" not found'}), 400
+        inspection.fso_name = food_safety_officer_name
 
     if 'fssai_license' in form_data:
         inspection.fssai_license = form_data['fssai_license'].strip() or None
@@ -599,17 +601,18 @@ def create_adjudication_from_inspection(inspection_id):
     if inspection.adjudication_id:
         return jsonify({'error': 'Inspection already linked to adjudication'}), 400
     
-    # Build prefill query parameters
+    # Build prefill query parameters - using canonical keys for Step 3
+    # Semantic mapping: Inspection.inspection_date -> adjudication.first_inspection_date
     prefill = {
         'from_inspection': inspection_id,
-        'food_safety_officer': inspection.fso_name,
+        'food_safety_officer_name': inspection.fso_name,  # canonical
         'fbo_name': inspection.fbo_name or '',
         'fbo_address': inspection.fbo_address or '',
         'fssai_license': inspection.fssai_license or '',
         'ce_license_no': inspection.ce_license_no or '',
-        'First_inspection_date': inspection.inspection_date,
+        'first_inspection_date': inspection.inspection_date,  # canonical: inspection date -> first inspection
         'compliance_deadline': inspection.compliance_deadline,
-        'inspection_date': inspection.inspection_date,
+        # Do NOT set followup_inspection_date from inspection - leave for user
         'concerned_food': inspection.concerned_food or '',
         'problem': inspection.problem or '',
     }

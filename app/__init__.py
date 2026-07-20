@@ -9,9 +9,17 @@ def create_app():
     # Ensure instance folder exists
     os.makedirs(app.instance_path, exist_ok=True)
     
-    # SQLite configuration
+    # Database configuration - PostgreSQL primary, SQLite fallback
     db_path = os.path.join(app.instance_path, 'app.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Normalize postgres:// to postgresql:// for SQLAlchemy compatibility
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+        app.logger.warning('DATABASE_URL not set - falling back to SQLite')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Google Sheets configuration (can be set via environment variable)
@@ -65,15 +73,17 @@ def create_app():
                     app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
                 app._fso_synced = True
     
-    # Redirect root to first tab (Sample Adjudication)
+    # Redirect root to first tab (Sample -adjudication)
     @app.route('/')
     def root():
         return redirect(url_for('case_file_generator.index'))
         
     # Initialize database tables (models must be imported first)
+    # Import models so they're registered with SQLAlchemy metadata
+    from app import models  # noqa: F401 — registers all models with db.metadata
+    
     # Temporarily disabled for Alembic migration generation
     # with app.app_context():
-    #     from app import models  # noqa: F401 — registers CaseFile, Adjudication, Bill
     #     db.create_all()
         
     return app

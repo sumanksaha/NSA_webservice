@@ -17,17 +17,8 @@ from app.services.sheets_sync import sync_to_sheets
 from app.sample import sample_bp
 
 
-# Sample types for dropdown
-SAMPLE_TYPES = [
-    'Food',
-    'Water',
-    'Oil',
-    'Dairy',
-    'Spices',
-    'Beverage',
-    'Packaged',
-    'Other'
-]
+# Sample types: enforcement or surveillance only
+SAMPLE_TYPES = ['enforcement', 'surveillance']
 
 
 @sample_bp.route('/')
@@ -107,7 +98,8 @@ def lookup_retailer():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
-    fssai_number = data.get('retailer_fssai', '').strip()
+    # Accept both old and new keys for backward compatibility during transition
+    fssai_number = data.get('retailer_fssai_license', data.get('retailer_fssai', '')).strip()
     if not fssai_number:
         return jsonify({'error': 'FSSAI number is required'}), 400
     
@@ -133,47 +125,54 @@ def create_sample():
     """Create a new sample record."""
     form_data = request.form.to_dict()
     
-    # Required fields
+    # Required fields - using canonical keys from Step 2
     sample_name = form_data.get('sample_name', '').strip()
-    fso_name = form_data.get('fso_name', '').strip()
-    collection_date = form_data.get('collection_date', '').strip()
+    food_safety_officer_name = form_data.get('food_safety_officer_name', '').strip()
+    sample_draw_date = form_data.get('sample_draw_date', '').strip()
     
     if not sample_name:
         return jsonify({'error': 'sample_name is required'}), 400
-    if not fso_name:
-        return jsonify({'error': 'fso_name is required'}), 400
-    if not collection_date:
-        return jsonify({'error': 'collection_date is required'}), 400
+    if not food_safety_officer_name:
+        return jsonify({'error': 'food_safety_officer_name is required'}), 400
+    if not sample_draw_date:
+        return jsonify({'error': 'sample_draw_date is required'}), 400
     
-    # Validate FSO exists
-    fso = FSO.query.get(fso_name)
+    # Validate sample_type is provided and valid
+    sample_type_val = form_data.get('sample_type', '').strip()
+    if not sample_type_val:
+        return jsonify({'error': 'sample_type is required'}), 400
+    if sample_type_val not in ['enforcement', 'surveillance']:
+        return jsonify({'error': f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"}), 400
+    
+    # Validate FSO exists - map canonical to DB column
+    fso = FSO.query.get(food_safety_officer_name)
     if not fso:
-        return jsonify({'error': f'FSO "{fso_name}" not found in database'}), 400
+        return jsonify({'error': f'FSO "{food_safety_officer_name}" not found in database'}), 400
     
     # Generate sample code
     sample_code = generate_sample_code()
     
-    # Handle retailer autofill
-    retailer_fssai = form_data.get('retailer_fssai', '').strip()
-    retailer_name = form_data.get('retailer_name', '').strip()
+    # Handle retailer autofill - using canonical keys
+    retailer_fssai_license = form_data.get('retailer_fssai_license', '').strip()
+    retailer_person_name = form_data.get('retailer_person_name', '').strip()
     
-    # If retailer_fssai is provided but retailer_name is empty, try to autofill
-    if retailer_fssai and not retailer_name:
-        result, error = lookup_fssai(retailer_fssai)
+    # If retailer_fssai_license is provided but retailer_person_name is empty, try to autofill
+    if retailer_fssai_license and not retailer_person_name:
+        result, error = lookup_fssai(retailer_fssai_license)
         if result and not error:
-            retailer_name = result.get('companyName', retailer_fssai)
+            retailer_person_name = result.get('companyName', retailer_fssai_license)
     
-    # Create sample record
+    # Create sample record - map canonical to DB columns
     sample = Sample(
         sample_code=sample_code,
         sample_name=sample_name,
         sample_type=form_data.get('sample_type', '').strip() or None,
-        fso_name=fso_name,
-        collection_date=collection_date,
-        submission_date=form_data.get('submission_date', '').strip() or None,
-        retailer_fssai=retailer_fssai or None,
-        retailer_name=retailer_name or None,
-        price=form_data.get('price', '').strip() or None,
+        fso_name=food_safety_officer_name,  # DB column: fso_name
+        collection_date=sample_draw_date,  # DB column: collection_date
+        submission_date=form_data.get('sample_submission_date', '').strip() or None,  # DB column: submission_date
+        retailer_fssai=retailer_fssai_license or None,  # DB column: retailer_fssai
+        retailer_name=retailer_person_name or None,  # DB column: retailer_name
+        price=form_data.get('total_cost', '').strip() or None,  # DB column: price (canonical: total_cost)
         created_at=datetime.utcnow()
     )
     
@@ -252,6 +251,14 @@ def update_sample(sample_id):
         sample.sample_name = form_data['sample_name'].strip()
     if 'sample_type' in form_data:
         sample.sample_type = form_data['sample_type'].strip() or None
+    if 'sample_type' in form_data:
+        sample_type_val = form_data['sample_type'].strip()
+        if not sample_type_val:
+            return jsonify({'error': 'sample_type cannot be empty'}), 400
+        if sample_type_val not in ['enforcement', 'surveillance']:
+            return jsonify({'error': f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"}), 400
+        sample.sample_type = sample_type_val
+    
     if 'fso_name' in form_data:
         fso_name = form_data['fso_name'].strip()
         # Validate FSO exists

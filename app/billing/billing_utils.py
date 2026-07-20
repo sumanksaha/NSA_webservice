@@ -45,11 +45,9 @@ def compute_summary(samples):
     grand_total = 0.0
     
     for sample in samples:
-        sample_type = getattr(sample, 'sample_type', None) or sample.get('sample_type')
-        if not sample_type:
-            sample_type = 'Other'
+        sample_type = getattr(sample, 'sample_type', None)
         
-        price_str = getattr(sample, 'price', None) or sample.get('price')
+        price_str = getattr(sample, 'price', None)
         price = format_price(price_str)
         
         if sample_type not in by_type:
