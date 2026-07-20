@@ -8,6 +8,7 @@ from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.suggester import suggest_sections
 from app.services.sheets_sync import sync_to_sheets
 import json
+from app.utils.pdf_utils import generate_pdf_from_html
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
     DERIVED_SECTIONS_DISPLAY,
@@ -368,12 +369,13 @@ def regenerate_adjudication_documents(case_id):
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
         
     for tpl, prefix in templates_to_generate:
-        from weasyprint import HTML
         rendered_html = render_template(tpl, **context)
-        pdf_buffer = io.BytesIO()
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        outputs.append((f"{prefix}.pdf", pdf_buffer.getvalue()))
+        pdf_bytes, error = generate_pdf_from_html(rendered_html)
+        if pdf_bytes:
+            outputs.append((f"{prefix}.pdf", pdf_bytes))
+        else:
+            current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
+            return jsonify({"error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."}), 500
         
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zip_buffer = io.BytesIO()
@@ -530,17 +532,16 @@ def generate_all():
         ]
         
     for tpl, prefix in templates_to_generate:
-        from weasyprint import HTML
-
         # Render the template to HTML string
         rendered_html = render_template(tpl, **context)
         
         # Compile HTML string to PDF using WeasyPrint in memory
-        pdf_buffer = io.BytesIO()
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        
-        outputs.append((f"{prefix}.pdf", pdf_buffer.getvalue()))
+        pdf_bytes, error = generate_pdf_from_html(rendered_html)
+        if pdf_bytes:
+            outputs.append((f"{prefix}.pdf", pdf_bytes))
+        else:
+            current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
+            return jsonify({"error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."}), 500
         
     # Zip the outputs in memory
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"

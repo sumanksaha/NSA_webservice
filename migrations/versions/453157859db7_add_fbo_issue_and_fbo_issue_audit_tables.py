@@ -56,15 +56,6 @@ def upgrade():
     with op.batch_alter_table('case_files', schema=None) as batch_op:
         batch_op.add_column(sa.Column('applicable_sections', sa.String(length=50), nullable=True))
 
-    # Add trigger for updated_at
-    op.execute("""
-CREATE TRIGGER trg_fbo_issue_updated_at
-AFTER UPDATE ON fbo_issue
-BEGIN
-    UPDATE fbo_issue SET updated_at = datetime('now') WHERE id = NEW.id;
-END;
-""")
-
     # ### end Alembic commands ###
 
 

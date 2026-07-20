@@ -161,8 +161,8 @@ class FboIssue(db.Model):
     source_type = db.Column(db.String, nullable=False)
     state = db.Column(db.String, nullable=False, default='open')
     fso_name = db.Column(db.String, nullable=False)
-    created_at = db.Column(db.String, nullable=False, default=datetime.utcnow().isoformat())
-    updated_at = db.Column(db.String, nullable=False, default=datetime.utcnow().isoformat())
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     detail_json = db.Column(db.Text, nullable=True)
     
     __table_args__ = (
