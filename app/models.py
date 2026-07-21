@@ -164,6 +164,9 @@ class FboIssue(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     detail_json = db.Column(db.Text, nullable=True)
+    reg_lat = db.Column(db.Float, nullable=True)
+    reg_lng = db.Column(db.Float, nullable=True)
+    geocoded_at = db.Column(db.DateTime, nullable=True)
     
     __table_args__ = (
         db.CheckConstraint("source_type IN ('inspection','sample')", name='ck_source_type'),
