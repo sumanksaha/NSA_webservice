@@ -138,7 +138,43 @@
             <td>{{ v.observation }}</td>
         </tr>
         {% endfor %}
-    </table>   
+    </table>  
+
+<style>
+.evidence-row {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 12px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 14px;
+  page-break-inside: avoid;
+}
+.evidence-row img { width: 100%; }
+.verified { color: green; font-weight: bold; }
+.warning { color: red; font-weight: bold; }
+</style>
+
+<section class="photo-evidence">
+  <h3>Photographic Evidence</h3>
+  {% for photo in adjudication.photos %}
+  <div class="evidence-row">
+    <div class="photo-col"><img src="{{ photo.filepath }}"></div>
+    <div class="detail-col">
+      <p><strong>Image ID:</strong> {{ photo.image_id }}</p>
+      <p><strong>Location:</strong> {{ photo.locality or "Unresolved" }}</p>
+      <p><strong>Captured:</strong> {{ photo.captured_at }}</p>
+      <p><strong>Verification:</strong>
+        {% if photo.verification_status == 'FLAG' %}
+          <span class="warning">⚠ UNVERIFIED — Manual Review Required</span>
+        {% else %}
+          <span class="verified">✓ Verified</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+</section>
 
     <ol class="justify" start="4">
         <li> The undersigned issued an instruction sheet to the FBO to address the

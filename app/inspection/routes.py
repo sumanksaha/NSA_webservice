@@ -672,6 +672,29 @@ def upload_photo_evidence():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
+    case_id = request.form['case_id']
+
+    # Validate case_id exists
+    inspection = Inspection.query.get(case_id)
+    if not inspection:
+        return jsonify({'error': f'Case with id {case_id} not found'}), 404
+
+    # Check if this is a sample case (substandard/misbranded violation type)
+    # Photo evidence is only applicable for non-sample inspection cases
+    if inspection.adjudication_id:
+        from app.models import Adjudication
+        adjudication = Adjudication.query.get(inspection.adjudication_id)
+        if adjudication:
+            # Check if this adjudication is linked to a sample case
+            from app.models import CaseFile
+            sample_case = CaseFile.query.filter_by(
+                food_safety_officer_name=adjudication.food_safety_officer,
+                inspection_date=adjudication.First_inspection_date
+            ).first()
+            
+            if sample_case and (sample_case.is_substandard or sample_case.is_misbranded):
+                return jsonify({"error": "Photo evidence not applicable for this violation type"}), 400
+
     # Validate required form fields
     required_fields = ['lat', 'lng', 'accuracy', 'case_id', 'captured_at']
     for field in required_fields:
@@ -686,13 +709,7 @@ def upload_photo_evidence():
     except ValueError:
         return jsonify({'error': 'lat, lng, and accuracy must be valid floats'}), 400
 
-    case_id = request.form['case_id']
     captured_at_str = request.form['captured_at']
-
-    # Validate case_id exists
-    inspection = Inspection.query.get(case_id)
-    if not inspection:
-        return jsonify({'error': f'Case with id {case_id} not found'}), 404
 
     # Parse captured_at from ISO string
     try:
