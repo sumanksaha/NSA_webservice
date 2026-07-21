@@ -360,6 +360,46 @@ def regenerate_adjudication_documents(case_id):
     # Keep backward compatible violations field
     context['violations'] = context[DERIVED_VIOLATIONS]
     
+    # Photo Evidence Integration for regenerate function
+    include_flagged = request.args.get('include_flagged', 'false').lower() == 'true'
+    flag_override_reason = request.args.get('flag_override_reason', '').strip()
+    
+    # Fetch all PhotoEvidence for this case
+    all_photos = PhotoEvidence.query.filter_by(case_id=case_id).order_by(PhotoEvidence.captured_at.asc()).all()
+    
+    # Split into verified and flagged photos
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
+    
+    # Determine final photos list based on include_flagged flag
+    if include_flagged:
+        if not flag_override_reason:
+            return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
+        
+        # Combine verified and flagged photos
+        final_photos = verified_photos + flagged_photos
+        
+        # Log audit for flagged photos inclusion
+        flagged_image_ids = [p.image_id for p in flagged_photos]
+        if flagged_image_ids:
+            log_audit("photo", ",".join(flagged_image_ids), "FLAGGED_PHOTO_INCLUDED", 
+                     actor=form_data.get('food_safety_officer_name', 'unknown'),
+                     details={"reason": flag_override_reason})
+    else:
+        final_photos = verified_photos
+    
+    # Add photos to context
+    context['adjudication'] = {
+        'photos': final_photos
+    }
+    
+    # Log adjudication order generation with photo evidence details
+    image_ids = [p.image_id for p in final_photos]
+    statuses = [p.verification_status for p in final_photos]
+    log_audit("adjudication_order", str(case_id), "ADJUDICATION_ORDER_REGENERATED",
+             actor=form_data.get('food_safety_officer_name', 'unknown'),
+             details={"image_ids": image_ids, "statuses": statuses})
+    
     outputs = []
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
@@ -518,6 +558,46 @@ def generate_all():
     
     # Keep backward compatible violations field
     context['violations'] = context[DERIVED_VIOLATIONS]
+    
+    # Photo Evidence Integration
+    include_flagged = request.form.get('include_flagged', 'false').lower() == 'true'
+    flag_override_reason = request.form.get('flag_override_reason', '').strip()
+    
+    # Fetch all PhotoEvidence for this case
+    all_photos = PhotoEvidence.query.filter_by(case_id=adj.id).order_by(PhotoEvidence.captured_at.asc()).all()
+    
+    # Split into verified and flagged photos
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
+    
+    # Determine final photos list based on include_flagged flag
+    if include_flagged:
+        if not flag_override_reason:
+            return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
+        
+        # Combine verified and flagged photos
+        final_photos = verified_photos + flagged_photos
+        
+        # Log audit for flagged photos inclusion
+        flagged_image_ids = [p.image_id for p in flagged_photos]
+        if flagged_image_ids:
+            log_audit("photo", ",".join(flagged_image_ids), "FLAGGED_PHOTO_INCLUDED", 
+                     actor=form_data.get('food_safety_officer_name', 'unknown'),
+                     details={"reason": flag_override_reason})
+    else:
+        final_photos = verified_photos
+    
+    # Add photos to context
+    context['adjudication'] = {
+        'photos': final_photos
+    }
+    
+    # Log adjudication order generation with photo evidence details
+    image_ids = [p.image_id for p in final_photos]
+    statuses = [p.verification_status for p in final_photos]
+    log_audit("adjudication_order", str(adj.id), "ADJUDICATION_ORDER_GENERATED",
+             actor=form_data.get('food_safety_officer_name', 'unknown'),
+             details={"image_ids": image_ids, "statuses": statuses})
     
     outputs = []
     if is_pre_authorization:
