@@ -11,7 +11,7 @@ services:
     name: food-adjudication-portal
     env: python
     buildCommand: pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2
-    startCommand: gunicorn --bind 0.0.0.0:10000 app:app
+    startCommand: FLASK_APP=app:create_app flask db upgrade && gunicorn --bind 0.0.0.0:10000 app:app
     envVars:
       - key: DATABASE_URL
         fromDatabase:
