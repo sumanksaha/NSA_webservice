@@ -7,11 +7,17 @@ Provides endpoints for Inspection CRUD operations and UI.
 from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from app.extensions import db
-from app.models import Inspection, FSO, Adjudication
+from app.models import Inspection, FSO, Adjudication, PhotoEvidence
 from app.utils.lookup import lookup_fssai, lookup_ce
 from app.utils.fso_data import get_all_fso_names
 from app.inspection.inspection_utils import generate_inspection_code, calculate_compliance_deadline
 from app.services.sheets_sync import sync_to_sheets
+from app.inspection.verification_service import verify_photo_location
+from app.inspection.image_processing import process_and_stamp_image
+from app.inspection.audit import log_audit
+import uuid
+import os
+from werkzeug.utils import secure_filename
 
 # Import the blueprint from __init__.py
 from app.inspection import inspection_bp
@@ -653,3 +659,116 @@ def link_adjudication(inspection_id, adjudication_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to link inspection to adjudication: {str(e)}'}), 500
+
+
+@inspection_bp.route('/photo-upload', methods=['POST'])
+def upload_photo_evidence():
+    """Upload photo evidence for an inspection."""
+    # Check if the post request has the file part
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    # Validate required form fields
+    required_fields = ['lat', 'lng', 'accuracy', 'case_id', 'captured_at']
+    for field in required_fields:
+        if field not in request.form:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+
+    # Validate lat, lng, accuracy are floats
+    try:
+        lat = float(request.form['lat'])
+        lng = float(request.form['lng'])
+        accuracy = float(request.form['accuracy'])
+    except ValueError:
+        return jsonify({'error': 'lat, lng, and accuracy must be valid floats'}), 400
+
+    case_id = request.form['case_id']
+    captured_at_str = request.form['captured_at']
+
+    # Validate case_id exists
+    inspection = Inspection.query.get(case_id)
+    if not inspection:
+        return jsonify({'error': f'Case with id {case_id} not found'}), 404
+
+    # Parse captured_at from ISO string
+    try:
+        captured_at = datetime.fromisoformat(captured_at_str)
+    except ValueError:
+        return jsonify({'error': 'captured_at must be a valid ISO format datetime string'}), 400
+
+    # Generate image_id using uuid4
+    image_id = str(uuid.uuid4())
+
+    # Save uploaded file temporarily
+    filename = secure_filename(file.filename)
+    temp_dir = os.path.join(current_app.instance_path, 'temp_uploads')
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_path = os.path.join(temp_dir, f"{image_id}_{filename}")
+    file.save(temp_path)
+
+    # Insert PhotoEvidence row
+    photo_evidence = PhotoEvidence(
+        image_id=image_id,
+        case_id=case_id,
+        filepath=temp_path,
+        raw_lat=lat,
+        raw_lng=lng,
+        accuracy=accuracy,
+        captured_at=captured_at,
+        uploaded_at=datetime.utcnow(),
+        verification_status='PENDING',
+        stamped=False
+    )
+
+    try:
+        db.session.add(photo_evidence)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # Clean up the temporary file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': f'Failed to save photo evidence: {str(e)}'}), 500
+
+    # Log audit for upload received
+    actor = request.remote_addr  # Use remote address as actor for now
+    log_audit("photo", image_id, "UPLOAD_RECEIVED", actor, {
+        "raw_lat": lat,
+        "raw_lng": lng,
+        "accuracy": accuracy
+    })
+
+    # Verify photo location
+    result = verify_photo_location(lat, lng, accuracy, request.remote_addr, inspection)
+
+    # Log audit for verification run
+    log_audit("photo", image_id, "VERIFICATION_RUN", actor, result)
+
+    # Process and stamp image
+    filepath = process_and_stamp_image(file, result["locality"], captured_at_str, result["verification_status"], image_id, case_id)
+
+    # Update PhotoEvidence row
+    photo_evidence.locality = result["locality"]
+    photo_evidence.ip_match = result["ip_match"]
+    photo_evidence.distance_to_fbo_m = result["distance_to_fbo_m"]
+    photo_evidence.verification_status = result["verification_status"]
+    photo_evidence.filepath = filepath
+    photo_evidence.stamped = True
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update photo evidence: {str(e)}'}), 500
+
+    # Log audit for photo saved
+    log_audit("photo", image_id, "PHOTO_SAVED", actor, {"filepath": filepath})
+
+    return jsonify({
+        'image_id': image_id,
+        'verification_status': result["verification_status"]
+    }), 201

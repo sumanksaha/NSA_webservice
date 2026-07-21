@@ -261,3 +261,36 @@ class Inspection(db.Model):
         db.Index('idx_inspection_compliance_deadline', 'compliance_deadline'),
         db.Index('idx_inspection_fso_name', 'fso_name'),
     )
+
+
+class PhotoEvidence(db.Model):
+    __tablename__ = 'photo_evidence'
+
+    image_id = db.Column(db.String, primary_key=True)
+    case_id = db.Column(db.String, db.ForeignKey('cases.id'), nullable=False)
+    filepath = db.Column(db.String, nullable=False)
+    raw_lat = db.Column(db.Float, nullable=False)
+    raw_lng = db.Column(db.Float, nullable=False)
+    accuracy = db.Column(db.Float, nullable=False)
+    captured_at = db.Column(db.DateTime, nullable=False)
+    uploaded_at = db.Column(db.DateTime, nullable=False)
+    locality = db.Column(db.String, nullable=True)
+    ip_region = db.Column(db.String, nullable=True)
+    ip_match = db.Column(db.Boolean, nullable=True)
+    distance_to_fbo_m = db.Column(db.Float, nullable=True)
+    verification_status = db.Column(db.String, default='PENDING')
+    stamped = db.Column(db.Boolean, default=False)
+
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_log'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_type = db.Column(db.String, nullable=False)
+    entity_id = db.Column(db.String, nullable=False)
+    action = db.Column(db.String, nullable=False)
+    actor = db.Column(db.String, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
+    prev_hash = db.Column(db.String, nullable=True)
+    curr_hash = db.Column(db.String, nullable=True)
+    details_json = db.Column(db.Text, nullable=True)
