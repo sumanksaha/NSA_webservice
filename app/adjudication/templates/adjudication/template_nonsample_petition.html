@@ -99,7 +99,11 @@
                 <div> <strong> {{ fbo_owner }} </strong></div>
                 <div> {{ fbo_name }}</div>
                 <div> {{ fbo_address }}</div>
-                <div> {{ fssai_license }}</div>
+                {% if '63' in applicable_sections or non_license == 'yes' %}
+                    <div> Trade License No: {{ ce_license_no }}</div>
+                {% else %}
+                    <div> {{ fssai_license }}</div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -113,7 +117,7 @@
     <h3 class="center">STATEMENT OF FACTS</h3>
     <ol class="justify">
         <li> That the complainant above named is the Food safety officer (hereinafter referred to as the “FSO”) appointed u/s 37 of the Food Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata Municipal Corporation and he has been authorised by the Designated Officer, Kolkata Municipal Corporation dated {{ authorization_date }} to launch the present complaint for adjudication before the Ld. Adjudicating Officer, Kolkata Municipal Corporation. </li>
-        <li> That on <strong> {{ first_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, License/Registration No- {{ fssai_license }}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
+        <li> That on <strong> {{ first_inspection_date }}</strong>, FSO inspected the premises of <strong> {{ fbo_name }} </strong> (hereinafter referred to as the “FBO”) situated at {{ fbo_address }}, {% if '63' in applicable_sections or non_license == 'yes' %}Trade License No- {{ ce_license_no }}{% else %}License/Registration No- {{ fssai_license }}{% endif %}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.</li>
         <li> That on inspection, FSO observed several discrepancies at the premises. </li>
     </ol>
 
@@ -142,7 +146,7 @@
 
         {% if complaint_lodged == 'yes' %} 
         <li>Subsequently, on {{ complaint_date }}, the
-              FSO received a complaint from the complainant regarding the sale of a {{
+              FSO received a complaint regarding the sale of {{
               concerned_food }} that {{ problem }}, further corroborating the FBO's
               continued non-compliance.</li> 
         {% endif %}
@@ -198,7 +202,7 @@
     <strong>List of Enclosures</strong>
     <ol class="justify">
         <li>Copy of Inspection Report and instruction sheet issued to the FBO dated {{ first_inspection_date }}</li>
-        <li>Copy of {{ fssai_license }}</li>
+        <li>Copy of {% if '63' in applicable_sections or non_license == 'yes' %}Trade License No: {{ ce_license_no }}{% else %}{{ fssai_license }}{% endif %}</li>
         <li>Letter of approval from the Designated Officer</li>
     </ol>
 
