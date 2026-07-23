@@ -270,7 +270,7 @@ class PhotoEvidence(db.Model):
     __tablename__ = 'photo_evidence'
 
     image_id = db.Column(db.String, primary_key=True)
-    case_id = db.Column(db.String, db.ForeignKey('cases.id'), nullable=False)
+    case_id = db.Column(db.String, db.ForeignKey('case_files.id'), nullable=False)
     filepath = db.Column(db.String, nullable=False)
     raw_lat = db.Column(db.Float, nullable=False)
     raw_lng = db.Column(db.Float, nullable=False)
