@@ -83,6 +83,7 @@
                         {% endif %}
                     </th>
                     <th>Days Overdue</th>
+                    <th>Photos</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -100,7 +101,13 @@
                         </span>
                     </td>
                     <td>
-                        <a href="{{ url_for('inspection.get_inspection', inspection_id=inspection.id) }}" 
+                        <span class="photo-badge" data-inspection-id="{{ inspection.id }}">
+                            <i class="fa-solid fa-camera"></i>
+                            <span class="photo-badge-count">0</span>
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}" 
                            class="btn btn-small btn-secondary" title="View">
                             <i class="fa-solid fa-eye"></i>
                         </a>
@@ -120,7 +127,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 40px;">
+                    <td colspan="8" style="text-align: center; padding: 40px;">
                         <i class="fa-solid fa-circle-check" style="font-size: 3rem; color: var(--color-success, #28a745); margin-bottom: 10px;"></i>
                         <br>
                         No pending actions found
@@ -178,6 +185,31 @@
 
 {% block extra_js %}
 <script>
+// Fetch photo counts for all inspection badges on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const badges = document.querySelectorAll('.photo-badge');
+    badges.forEach(function(badge) {
+        const inspectionId = badge.dataset.inspectionId;
+        if (inspectionId) {
+            fetch('/inspection/' + inspectionId + '/photos')
+                .then(function(response) { return response.json(); })
+                .then(function(photos) {
+                    const count = photos ? photos.length : 0;
+                    const countSpan = badge.querySelector('.photo-badge-count');
+                    countSpan.textContent = count;
+                    if (count > 0) {
+                        badge.classList.add('has-photos');
+                    } else {
+                        badge.classList.add('no-photos');
+                    }
+                })
+                .catch(function() {
+                    badge.classList.add('no-photos');
+                });
+        }
+    });
+});
+
 // Track which inspection is being dismissed
 let dismissInspectionId = null;
 

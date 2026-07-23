@@ -661,6 +661,44 @@ def link_adjudication(inspection_id, adjudication_id):
         return jsonify({'error': f'Failed to link inspection to adjudication: {str(e)}'}), 500
 
 
+
+@inspection_bp.route('/<int:inspection_id>/detail')
+def inspection_detail(inspection_id):
+    """Render the inspection detail page with photo upload UI."""
+    inspection = Inspection.query.get(inspection_id)
+    if not inspection:
+        return jsonify({'error': f'Inspection with id {inspection_id} not found'}), 404
+
+    photos = PhotoEvidence.query.filter_by(inspection_id=inspection_id).order_by(PhotoEvidence.uploaded_at.desc()).all()
+    fso_names = get_all_fso_names()
+    return render_template('inspection/detail.html',
+                         inspection=inspection,
+                         photos=photos,
+                         fso_names=fso_names)
+
+
+@inspection_bp.route('/<int:inspection_id>/photos', methods=['GET'])
+def get_inspection_photos(inspection_id):
+    """Get all photos for an inspection (JSON)."""
+    inspection = Inspection.query.get(inspection_id)
+    if not inspection:
+        return jsonify({'error': f'Inspection with id {inspection_id} not found'}), 404
+
+    photos = PhotoEvidence.query.filter_by(inspection_id=inspection_id).order_by(PhotoEvidence.uploaded_at.desc()).all()
+    return jsonify([{
+        'image_id': p.image_id,
+        'filepath': p.filepath,
+        'raw_lat': p.raw_lat,
+        'raw_lng': p.raw_lng,
+        'accuracy': p.accuracy,
+        'captured_at': p.captured_at.isoformat() if p.captured_at else None,
+        'uploaded_at': p.uploaded_at.isoformat() if p.uploaded_at else None,
+        'locality': p.locality,
+        'verification_status': p.verification_status,
+        'stamped': p.stamped
+    } for p in photos])
+
+
 @inspection_bp.route('/photo-upload', methods=['POST'])
 def upload_photo_evidence():
     """Upload photo evidence for an inspection."""
@@ -672,12 +710,27 @@ def upload_photo_evidence():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    case_id = request.form['case_id']
+    # Accept either inspection_id (preferred) or case_id (legacy)
+    inspection_id = request.form.get('inspection_id')
+    case_id = request.form.get('case_id')
 
-    # Validate case_id exists
-    inspection = Inspection.query.get(case_id)
+    if not inspection_id and not case_id:
+        return jsonify({'error': 'Either inspection_id or case_id is required'}), 400
+
+    # Determine the inspection record
+    if inspection_id:
+        try:
+            inspection_id = int(inspection_id)
+        except ValueError:
+            return jsonify({'error': 'inspection_id must be an integer'}), 400
+        inspection = Inspection.query.get(inspection_id)
+    else:
+        inspection = Inspection.query.get(case_id)
+        if inspection:
+            inspection_id = inspection.id
+
     if not inspection:
-        return jsonify({'error': f'Case with id {case_id} not found'}), 404
+        return jsonify({'error': 'Inspection not found'}), 404
 
     # Check if this is a sample case (substandard/misbranded violation type)
     # Photo evidence is only applicable for non-sample inspection cases
@@ -685,18 +738,16 @@ def upload_photo_evidence():
         from app.models import Adjudication
         adjudication = Adjudication.query.get(inspection.adjudication_id)
         if adjudication:
-            # Check if this adjudication is linked to a sample case
             from app.models import CaseFile
             sample_case = CaseFile.query.filter_by(
                 food_safety_officer_name=adjudication.food_safety_officer,
                 inspection_date=adjudication.First_inspection_date
             ).first()
-            
             if sample_case and (sample_case.is_substandard or sample_case.is_misbranded):
                 return jsonify({"error": "Photo evidence not applicable for this violation type"}), 400
 
     # Validate required form fields
-    required_fields = ['lat', 'lng', 'accuracy', 'case_id', 'captured_at']
+    required_fields = ['lat', 'lng', 'accuracy', 'captured_at']
     for field in required_fields:
         if field not in request.form:
             return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -727,10 +778,11 @@ def upload_photo_evidence():
     temp_path = os.path.join(temp_dir, f"{image_id}_{filename}")
     file.save(temp_path)
 
-    # Insert PhotoEvidence row
+    # Insert PhotoEvidence row with inspection_id
     photo_evidence = PhotoEvidence(
         image_id=image_id,
-        case_id=case_id,
+        inspection_id=inspection_id,
+        case_id=case_id or str(inspection_id),
         filepath=temp_path,
         raw_lat=lat,
         raw_lng=lng,
@@ -746,13 +798,12 @@ def upload_photo_evidence():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        # Clean up the temporary file
         if os.path.exists(temp_path):
             os.remove(temp_path)
         return jsonify({'error': f'Failed to save photo evidence: {str(e)}'}), 500
 
     # Log audit for upload received
-    actor = request.remote_addr  # Use remote address as actor for now
+    actor = request.remote_addr
     log_audit("photo", image_id, "UPLOAD_RECEIVED", actor, {
         "raw_lat": lat,
         "raw_lng": lng,
@@ -766,7 +817,7 @@ def upload_photo_evidence():
     log_audit("photo", image_id, "VERIFICATION_RUN", actor, result)
 
     # Process and stamp image
-    filepath = process_and_stamp_image(file, result["locality"], captured_at_str, result["verification_status"], image_id, case_id)
+    filepath = process_and_stamp_image(file, result["locality"], captured_at_str, result["verification_status"], image_id, str(inspection_id))
 
     # Update PhotoEvidence row
     photo_evidence.locality = result["locality"]

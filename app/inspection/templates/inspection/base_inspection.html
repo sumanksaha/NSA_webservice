@@ -148,5 +148,29 @@
         align-items: center;
         gap: 8px;
     }
+
+    /* Photo badge styles for list tables */
+    .photo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .photo-badge.has-photos {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--color-success, #28a745);
+    }
+    .photo-badge.no-photos {
+        background: rgba(108, 117, 125, 0.1);
+        color: var(--text-body);
+    }
+    .photo-badge-count {
+        font-weight: 600;
+    }
 </style>
 {% endblock %}
