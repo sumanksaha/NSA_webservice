@@ -197,6 +197,9 @@ ADJUDICATION_OLD_TO_NEW = {
     "First_inspection_date": DATE_FIRST_INSPECTION,  # Adjudication first visit
     "inspection_date": DATE_FOLLOWUP_INSPECTION,  # Adjudication follow-up (currently misnamed)
     "Complaint_date": DATE_COMPLAINT,
+    "Expired_item": "expired_item",
+    "Pest_report": "pest_report",
+    "Water_report": "water_report",
     "compliance_deadline": SHARED_COMPLIANCE_DEADLINE,
     "authorization_date": SHARED_AUTHORIZATION_DATE,
     # Sections (keep as-is, form-level)

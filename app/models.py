@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy.orm import validates
 from app.extensions import db
 
 class CaseFile(db.Model):
@@ -61,6 +62,14 @@ class CaseFile(db.Model):
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
+
+    @validates('sample_id')
+    def sync_sample_code(self, key, sample_id):
+        if sample_id is not None:
+            sample = Sample.query.get(sample_id)
+            if sample:
+                self.sample_code = sample.sample_code
+        return sample_id
 
 
 class Adjudication(db.Model):
@@ -134,9 +143,9 @@ class Bill(db.Model):
     Surv_samp_No = db.Column(db.Integer, nullable=False, default=0)
     enforcement_price = db.Column(db.Numeric(precision=10, scale=2), nullable=False, default=0.00)
     surveillance_price = db.Column(db.Numeric(precision=10, scale=2), nullable=False, default=0.00)
-    Total_bill = db.Column(db.String(50), nullable=False)
-    No_of_enfbills = db.Column(db.String(50), nullable=False)
-    No_of_survbills = db.Column(db.String(50), nullable=False)
+    Total_bill = db.Column(db.Float, nullable=False, default=0.0)
+    No_of_enfbills = db.Column(db.Integer, nullable=False, default=0)
+    No_of_survbills = db.Column(db.Integer, nullable=False, default=0)
     TR_Value = db.Column(db.String(100), nullable=False)
     TR_date = db.Column(db.DateTime, nullable=False)
     Submission_date = db.Column(db.DateTime, nullable=False)

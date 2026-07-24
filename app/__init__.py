@@ -1,9 +1,10 @@
 import os
+import threading
 from flask import Flask, redirect, url_for
 from flask_migrate import Migrate
 from app.extensions import db
 
-_fso_synced = False
+_fso_sync_lock = threading.Lock()
 
 def create_app():
     app = Flask(__name__)
@@ -62,22 +63,16 @@ def create_app():
     # This ensures FSO names are available as soon as the app starts
     from app.utils.fso_data import sync_fso_from_markdown
     
-    @app.before_request
-    def sync_fso_on_startup():
-        """Sync FSO list from markdown on first request (app startup)."""
-        global _fso_synced
-        if not _fso_synced:
+    with app.app_context():
+        with _fso_sync_lock:
             try:
-                with app.app_context():
-                    result = sync_fso_from_markdown()
-                    if result.get('errors'):
-                        app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
-                    else:
-                        app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
+                result = sync_fso_from_markdown()
+                if result.get('errors'):
+                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
+                else:
+                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
             except Exception as e:
                 app.logger.error(f"FSO startup sync failed: {str(e)}")
-            finally:
-                _fso_synced = True
     
     # Redirect root to first tab (Sample -adjudication)
     @app.route('/')

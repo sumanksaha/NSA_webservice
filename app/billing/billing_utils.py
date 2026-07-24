@@ -1,10 +1,5 @@
-"""
-billing_utils.py
-
-Utilities for the Billing module, including Excel export.
-"""
-
 import io
+import re
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
@@ -20,8 +15,10 @@ def format_price(price_str):
         return 0.0
     
     try:
-        # Remove commas, currency symbols, etc.
-        cleaned = str(price_str).replace(',', '').replace('₹', '').replace('Rs', '').strip()
+        # Strip non-numeric characters except decimal point
+        cleaned = re.sub(r'[^\d.]', '', str(price_str))
+        if not cleaned:
+            return 0.0
         return float(cleaned)
     except (ValueError, TypeError):
         return 0.0

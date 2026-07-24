@@ -38,14 +38,17 @@ def to_words(number):
     """
     if number is None or number == '':
         return ""
+    
     try:
-        # Check if number has decimal part
-        val = float(number)
+        # Sanitize input: strip commas, spaces, currency symbols before converting
+        number_str = str(number).replace(',', '').replace(' ', '').replace('₹', '').strip()
+        val = float(number_str)
+        
         if val.is_integer():
             return num2words(int(val), lang='en_IN').capitalize()
         else:
             # Separate rupees and paise if needed
-            parts = str(number).split('.')
+            parts = number_str.split('.')
             rupees = int(parts[0])
             paise = int(parts[1][:2]) if len(parts) > 1 else 0
 
@@ -54,9 +57,8 @@ def to_words(number):
                 paise_words = num2words(paise, lang='en_IN')
                 return f"{rupees_words} and {paise_words} Paise"
             return rupees_words
-    except Exception as e:
-        print(f"Filter error in to_words: {e}")
-        return str(number)
+    except (ValueError, TypeError):
+        return str(number) if number else ""
 
 
 def format_date_indian(date_val):
