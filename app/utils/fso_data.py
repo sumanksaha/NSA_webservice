@@ -42,7 +42,8 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
     - Lines with only '-': skipped
     """
     if not os.path.exists(path):
-        raise FileNotFoundError(f"FSO list file not found: {path}")
+        logger.warning(f"FSO list file not found: {path}")
+        return []
     
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()

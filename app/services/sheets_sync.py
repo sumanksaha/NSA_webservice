@@ -1,4 +1,5 @@
 import os
+import threading
 from flask import current_app
 import gspread
 
@@ -52,24 +53,25 @@ SHEET_COLUMNS = {
     ],
 }
 
-# Cached gspread client
-_client_cache = None
+# Thread-local storage for gspread client/worksheet instances
+_thread_local = threading.local()
 
-def get_client():
+def _get_client():
     """
-    Get a cached gspread client using service-account authentication.
+    Get a gspread client using service-account authentication.
     Uses credentials from instance/credentials.json or GOOGLE_APPLICATION_CREDENTIALS.
     """
-    global _client_cache
-    if _client_cache is not None:
-        return _client_cache
-    
+    cached = getattr(_thread_local, 'client', None)
+    if cached is not None:
+        return cached
+
     # Try to get credentials from instance/credentials.json
     creds_path = os.path.join(current_app.instance_path, 'credentials.json')
     if os.path.exists(creds_path):
         try:
-            _client_cache = gspread.service_account(filename=creds_path)
-            return _client_cache
+            client = gspread.service_account(filename=creds_path)
+            _thread_local.client = client
+            return client
         except Exception as e:
             current_app.logger.error(f"Failed to load credentials from {creds_path}: {e}")
     
@@ -79,31 +81,38 @@ def get_client():
         creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
         if creds_json:
             creds_data = json.loads(creds_json)
-            _client_cache = gspread.service_account_from_dict(creds_data)
-            return _client_cache
+            client = gspread.service_account_from_dict(creds_data)
+            _thread_local.client = client
+            return client
     except Exception as e:
         current_app.logger.error(f"Failed to parse GOOGLE_APPLICATION_CREDENTIALS: {e}")
     
     # Fallback to default service account
     try:
-        _client_cache = gspread.service_account()
-        return _client_cache
+        client = gspread.service_account()
+        _thread_local.client = client
+        return client
     except Exception as e:
         current_app.logger.error(f"Failed to authenticate with gspread service account: {e}")
         return None
 
-# Cached worksheet getter
-_ws_cache = {}
+def _get_worksheet(module):
+    """Get a worksheet for the specified module, cached in thread-local storage."""
+    cache = getattr(_thread_local, 'worksheets', {})
+    if module in cache:
+        return cache[module]
 
-def get_worksheet(module):
-    """Get a cached worksheet for the specified module."""
-    if module not in _ws_cache:
-        spreadsheet_id = current_app.config.get("GSHEETS_SPREADSHEET_ID") or current_app.config.get("SPREADSHEET_ID")
-        if not spreadsheet_id:
-            raise ValueError("GSHEETS_SPREADSHEET_ID or SPREADSHEET_ID is not configured")
-        sh = get_client().open_by_key(spreadsheet_id)
-        _ws_cache[module] = sh.worksheet(WORKSHEET_MAP[module])
-    return _ws_cache[module]
+    spreadsheet_id = current_app.config.get("GSHEETS_SPREADSHEET_ID") or current_app.config.get("SPREADSHEET_ID")
+    if not spreadsheet_id:
+        raise ValueError("GSHEETS_SPREADSHEET_ID or SPREADSHEET_ID is not configured")
+    client = _get_client()
+    if client is None:
+        raise RuntimeError("gspread client unavailable")
+    sh = client.open_by_key(spreadsheet_id)
+    ws = sh.worksheet(WORKSHEET_MAP[module])
+    cache[module] = ws
+    _thread_local.worksheets = cache
+    return ws
 
 
 def sync_to_sheets(module: str, row_dict: dict) -> bool:
@@ -120,7 +129,7 @@ def sync_to_sheets(module: str, row_dict: dict) -> bool:
     try:
         cols = SHEET_COLUMNS[module]
         row = [row_dict.get(c, "") for c in cols]
-        ws = get_worksheet(module)
+        ws = _get_worksheet(module)
         ws.append_row(row, value_input_option="USER_ENTERED")
         return True
     except Exception as e:

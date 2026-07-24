@@ -5,7 +5,7 @@ import re
 import json
 import httpx
 import time
-from threading import Lock
+import fcntl
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # app/utils is nested two levels deep from the workspace root
@@ -15,9 +15,9 @@ LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
 REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
 
 # Rate limiting for KMC CE lookup (govt website - 40 second gap required)
-_kmc_last_request_time = 0
-_kmc_rate_limit_lock = Lock()
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
+_KMC_LOCK_PATH = os.path.join(DB_DIR, ".kmc_lookup_lock")
+_KMC_LAST_REQUEST_TIME_PATH = os.path.join(DB_DIR, ".kmc_last_request_time")
 
 def lookup_fssai(license_no: str):
     """
@@ -67,21 +67,36 @@ def lookup_fssai(license_no: str):
 def lookup_ce(license_no: str):
     """
     Fetches Trade License details from KMC portal.
-    Implements rate limiting: minimum 40 seconds between consecutive requests.
+    Implements cross-process rate limiting: minimum 40 seconds between consecutive requests.
+    Uses file locking to coordinate across multiple workers/processes.
     """
-    global _kmc_last_request_time
-    
-    # Apply rate limiting for KMC portal (govt website)
-    with _kmc_rate_limit_lock:
+    lock_fd = None
+    try:
+        lock_fd = open(_KMC_LOCK_PATH, 'w')
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+
+        try:
+            with open(_KMC_LAST_REQUEST_TIME_PATH, 'r') as f:
+                last_time = float(f.read().strip() or '0')
+        except (FileNotFoundError, ValueError):
+            last_time = 0
+
         current_time = time.time()
-        time_since_last = current_time - _kmc_last_request_time
-        if time_since_last < _KMC_RATE_LIMIT_SECONDS:
-            sleep_time = _KMC_RATE_LIMIT_SECONDS - time_since_last
+        elapsed = current_time - last_time
+        if elapsed < _KMC_RATE_LIMIT_SECONDS:
+            sleep_time = _KMC_RATE_LIMIT_SECONDS - elapsed
             time.sleep(sleep_time)
-            # Update last request time after sleeping
-            _kmc_last_request_time = time.time()
-        else:
-            _kmc_last_request_time = current_time
+            current_time = time.time()
+
+        with open(_KMC_LAST_REQUEST_TIME_PATH, 'w') as f:
+            f.write(str(current_time))
+    finally:
+        if lock_fd:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                lock_fd.close()
+            except Exception:
+                pass
     
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")

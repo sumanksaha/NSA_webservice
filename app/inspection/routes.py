@@ -708,6 +708,58 @@ def get_inspection_photos(inspection_id):
     } for p in photos])
 
 
+def _extract_exif_gps(file_obj):
+    """
+    Attempt to extract GPS latitude, longitude, and altitude/accuracy from image EXIF.
+    Returns (lat, lng, accuracy) or (None, None, None) if unavailable.
+    """
+    try:
+        from PIL import Image, ExifTags
+        img = Image.open(file_obj)
+        exif = img.getexif()
+        if not exif:
+            return None, None, None
+
+        gps_info = {}
+        for tag, value in exif.items():
+            decoded = ExifTags.TAGS.get(tag, tag)
+            if decoded == 'GPSInfo':
+                for gps_tag in value:
+                    gps_decoded = ExifTags.GPSTAGS.get(gps_tag, gps_tag)
+                    gps_info[gps_decoded] = value[gps_tag]
+
+        def _convert_to_degrees(ref, values):
+            if not values or len(values) < 3:
+                return None
+            d, m, s = values
+            try:
+                deg = float(d) + float(m) / 60.0 + float(s) / 3600.0
+                if ref in ('S', 'W'):
+                    deg = -deg
+                return deg
+            except Exception:
+                return None
+
+        lat = _convert_to_degrees(gps_info.get('GPSLatitudeRef'), gps_info.get('GPSLatitude'))
+        lng = _convert_to_degrees(gps_info.get('GPSLongitudeRef'), gps_info.get('GPSLongitude'))
+
+        # Some cameras store GPSAltitude as (num, den) or a single float
+        accuracy = None
+        if 'GPSAltitude' in gps_info:
+            alt = gps_info['GPSAltitude']
+            try:
+                accuracy = float(alt)
+            except Exception:
+                try:
+                    accuracy = float(alt[0]) / float(alt[1])
+                except Exception:
+                    accuracy = None
+
+        return lat, lng, accuracy
+    except Exception:
+        return None, None, None
+
+
 @inspection_bp.route('/photo-upload', methods=['POST'])
 def upload_photo_evidence():
     """Upload photo evidence for an inspection."""
@@ -761,11 +813,22 @@ def upload_photo_evidence():
         if field not in request.form:
             return jsonify({'error': f'Missing required field: {field}'}), 400
 
-    # Validate lat, lng, accuracy are floats
+    # Extract EXIF/GPS data if available
+    exif_lat, exif_lng, exif_accuracy = _extract_exif_gps(file)
+
+    # Prefer form values, fall back to EXIF, then to 0.0 defaults
+    def _pick(form_key, fallback):
+        val = request.form.get(form_key)
+        if val is not None and str(val).strip() != '':
+            return val
+        if fallback is not None:
+            return fallback
+        return 0.0
+
     try:
-        lat = float(request.form['lat'])
-        lng = float(request.form['lng'])
-        accuracy = float(request.form['accuracy'])
+        lat = float(_pick('lat', exif_lat))
+        lng = float(_pick('lng', exif_lng))
+        accuracy = float(_pick('accuracy', exif_accuracy if exif_accuracy is not None else 0.0))
     except ValueError:
         return jsonify({'error': 'lat, lng, and accuracy must be valid floats'}), 400
 
