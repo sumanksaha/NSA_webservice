@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file
 from app.extensions import db
 from app.models import Sample
 from app.utils.fso_data import get_all_fso_names
+from app.utils.filters import parse_date
 from app.billing.billing_utils import compute_summary, generate_excel_report, format_price
 
 # Import the blueprint from __init__.py
@@ -33,9 +34,13 @@ def index():
     
     # Apply date filters
     if start_date:
-        query = query.filter(Sample.collection_date >= start_date)
+        parsed_start = parse_date(start_date)
+        if parsed_start:
+            query = query.filter(Sample.collection_date >= parsed_start)
     if end_date:
-        query = query.filter(Sample.collection_date <= end_date)
+        parsed_end = parse_date(end_date)
+        if parsed_end:
+            query = query.filter(Sample.collection_date <= parsed_end)
     
     # Apply optional filters
     if fso_name:
@@ -76,9 +81,13 @@ def export_excel():
     query = Sample.query
     
     if start_date:
-        query = query.filter(Sample.collection_date >= start_date)
+        parsed_start = parse_date(start_date)
+        if parsed_start:
+            query = query.filter(Sample.collection_date >= parsed_start)
     if end_date:
-        query = query.filter(Sample.collection_date <= end_date)
+        parsed_end = parse_date(end_date)
+        if parsed_end:
+            query = query.filter(Sample.collection_date <= parsed_end)
     if fso_name:
         query = query.filter(Sample.fso_name == fso_name)
     if sample_type:

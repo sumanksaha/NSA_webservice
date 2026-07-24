@@ -6,6 +6,7 @@ Shared query helpers for bill generation and preview.
 from datetime import datetime
 from app.models import Sample, BillSample
 from app.extensions import db
+from app.utils.filters import parse_date
 
 
 def get_billable_samples(start_date, end_date):
@@ -24,10 +25,14 @@ def get_billable_samples(start_date, end_date):
         - surveillance_price: float
         - samples: list of dicts with si_no, sample_code, sample_name, retailer_name, price, type
     """
+    # Parse date strings to datetime objects for proper range comparison
+    parsed_start = parse_date(start_date)
+    parsed_end = parse_date(end_date)
+    
     # Query unbilled samples in date range with normalized types
     query = Sample.query.filter(
-        Sample.collection_date >= start_date,
-        Sample.collection_date <= end_date,
+        Sample.collection_date >= parsed_start,
+        Sample.collection_date <= parsed_end,
         Sample.billed == False,
         Sample.sample_type.in_(['enforcement', 'surveillance'])
     ).order_by(Sample.collection_date)

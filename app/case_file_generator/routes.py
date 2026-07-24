@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file, curre
 from app.extensions import db
 from app.models import CaseFile, Sample
 from app.utils.lookup import lookup_fssai
-from app.utils.filters import format_date_indian
+from app.utils.filters import format_date_indian, parse_date
 from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
@@ -157,8 +157,8 @@ def case_file_to_dict(case_file):
         'id': case_file.id,
         'case_number': case_file.case_number,
         'food_safety_officer_name': case_file.food_safety_officer_name,
-        'authorization_date': case_file.authorization_date,
-        'sample_draw_date': case_file.inspection_date,  # DB column: inspection_date -> canonical
+        'authorization_date': case_file.authorization_date.isoformat() if case_file.authorization_date else None,
+        'sample_draw_date': case_file.inspection_date.isoformat() if case_file.inspection_date else None,  # DB column: inspection_date -> canonical
         'sample_draw_time': case_file.inspection_time,  # DB column: inspection_time -> canonical
         'sample_id': case_file.sample_id,  # Step 5: Link to Sample
         'manufacturer_fssai_license': case_file.manufacturer_fssai,  # DB column -> canonical
@@ -173,23 +173,23 @@ def case_file_to_dict(case_file):
         'batch_no': case_file.batch_no,
         'sample_quantity': case_file.sample_quantity,
         'packet_count': case_file.packet_count,
-        'mfg_date': case_file.mfg_date,
-        'expiry_date': case_file.expiry_date,
+        'mfg_date': case_file.mfg_date.isoformat() if case_file.mfg_date else None,
+        'expiry_date': case_file.expiry_date.isoformat() if case_file.expiry_date else None,
         'other_food_articles': case_file.other_food_articles,
         'total_cost': case_file.total_cost,
         'cost_in_words': case_file.cost_in_words,
         'sample_code': case_file.sample_code,
-        'sample_submission_date': case_file.sample_submission_date,
+        'sample_submission_date': case_file.sample_submission_date.isoformat() if case_file.sample_submission_date else None,
         'lab_registration_no': case_file.Lab_Registration_No,  # DB column -> canonical
-        'do_receipt_date': case_file.do_receipt_date,
+        'do_receipt_date': case_file.do_receipt_date.isoformat() if case_file.do_receipt_date else None,
         'is_misbranded': 'misbranded' if case_file.is_misbranded else '',
         'is_substandard': 'substandard' if case_file.is_substandard else '',
         'analyst_report_no': case_file.analyst_report_no,
-        'analyst_report_date': case_file.analyst_report_date,
+        'analyst_report_date': case_file.analyst_report_date.isoformat() if case_file.analyst_report_date else None,
         'directive_letter_no': case_file.directive_letter_no,
-        'directive_letter_date': case_file.directive_letter_date,
-        'retailer_report_receive_date': case_file.retailer_report_receive_date,
-        'manufacturer_report_receive_date': case_file.manufacturer_report_receive_date,
+        'directive_letter_date': case_file.directive_letter_date.isoformat() if case_file.directive_letter_date else None,
+        'retailer_report_receive_date': case_file.retailer_report_receive_date.isoformat() if case_file.retailer_report_receive_date else None,
+        'manufacturer_report_receive_date': case_file.manufacturer_report_receive_date.isoformat() if case_file.manufacturer_report_receive_date else None,
         'applicable_regulation': case_file.applicable_regulation,
         'applicable_clause': case_file.applicable_clause,
         'sample_name': case_file.sample_name,
@@ -329,8 +329,8 @@ def generate_case_file_route():
     case_file_record = CaseFile(
         case_number=form_data.get('case_number', ''),
         food_safety_officer_name=form_data.get('food_safety_officer_name', ''),
-        authorization_date=form_data.get('authorization_date', ''),
-        inspection_date=form_data.get('sample_draw_date', ''),  # canonical: sample_draw_date -> DB column inspection_date
+        authorization_date=parse_date(form_data.get('authorization_date', '')),
+        inspection_date=parse_date(form_data.get('sample_draw_date', '')),  # canonical: sample_draw_date -> DB column inspection_date
         inspection_time=form_data.get('sample_draw_time', ''),  # canonical
         sample_id=sample_id,  # Step 5: Link to Sample
         
@@ -348,25 +348,25 @@ def generate_case_file_route():
         batch_no=form_data.get('batch_no', ''),
         sample_quantity=form_data.get('sample_quantity', ''),
         packet_count=int(form_data.get('packet_count', 4)),
-        mfg_date=form_data.get('mfg_date', ''),
-        expiry_date=form_data.get('expiry_date', ''),
+        mfg_date=parse_date(form_data.get('mfg_date', '')),
+        expiry_date=parse_date(form_data.get('expiry_date', '')),
         other_food_articles=form_data.get('other_food_articles', ''),
         total_cost=form_data.get('total_cost', ''),
         cost_in_words=form_data.get('cost_in_words', ''),
         
         sample_code=form_data.get('sample_code', ''),
-        sample_submission_date=form_data.get('sample_submission_date', ''),
+        sample_submission_date=parse_date(form_data.get('sample_submission_date', '')),
         Lab_Registration_No=form_data.get('lab_registration_no', ''),  # canonical
-        do_receipt_date=form_data.get('do_receipt_date', ''),
+        do_receipt_date=parse_date(form_data.get('do_receipt_date', '')),
         
         is_misbranded=form_data.get('is_misbranded') == 'misbranded',
         is_substandard=form_data.get('is_substandard') == 'substandard',
         analyst_report_no=form_data.get('analyst_report_no', ''),
-        analyst_report_date=form_data.get('analyst_report_date', ''),
+        analyst_report_date=parse_date(form_data.get('analyst_report_date', '')),
         directive_letter_no=form_data.get('directive_letter_no', ''),
-        directive_letter_date=form_data.get('directive_letter_date', ''),
-        retailer_report_receive_date=form_data.get('retailer_report_receive_date', ''),
-        manufacturer_report_receive_date=form_data.get('manufacturer_report_receive_date', ''),
+        directive_letter_date=parse_date(form_data.get('directive_letter_date', '')),
+        retailer_report_receive_date=parse_date(form_data.get('retailer_report_receive_date', '')),
+        manufacturer_report_receive_date=parse_date(form_data.get('manufacturer_report_receive_date', '')),
         
         applicable_regulation=form_data.get('applicable_regulation', ''),
         applicable_clause=form_data.get('applicable_clause', ''),

@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import Sample, FSO
 from app.utils.lookup import lookup_fssai
 from app.utils.fso_data import get_all_fso_names
+from app.utils.filters import parse_date
 from app.sample.sample_utils import generate_sample_code
 from app.services.sheets_sync import sync_to_sheets
 
@@ -50,10 +51,14 @@ def list_samples():
         query = query.filter(Sample.fso_name == filter_fso)
     
     if filter_date_from:
-        query = query.filter(Sample.collection_date >= filter_date_from)
+        parsed_from = parse_date(filter_date_from)
+        if parsed_from:
+            query = query.filter(Sample.collection_date >= parsed_from)
     
     if filter_date_to:
-        query = query.filter(Sample.collection_date <= filter_date_to)
+        parsed_to = parse_date(filter_date_to)
+        if parsed_to:
+            query = query.filter(Sample.collection_date <= parsed_to)
     
     # Apply sorting
     if sort_by == 'collection_date':
@@ -168,8 +173,8 @@ def create_sample():
         sample_name=sample_name,
         sample_type=form_data.get('sample_type', '').strip() or None,
         fso_name=food_safety_officer_name,  # DB column: fso_name
-        collection_date=sample_draw_date,  # DB column: collection_date
-        submission_date=form_data.get('sample_submission_date', '').strip() or None,  # DB column: submission_date
+        collection_date=parse_date(sample_draw_date),  # DB column: collection_date
+        submission_date=parse_date(form_data.get('sample_submission_date', '').strip() or None),  # DB column: submission_date
         retailer_fssai=retailer_fssai_license or None,  # DB column: retailer_fssai
         retailer_name=retailer_person_name or None,  # DB column: retailer_name
         price=form_data.get('total_cost', '').strip() or None,  # DB column: price (canonical: total_cost)
@@ -227,8 +232,8 @@ def get_sample(sample_id):
         'sample_name': sample.sample_name,
         'sample_type': sample.sample_type,
         'fso_name': sample.fso_name,
-        'collection_date': sample.collection_date,
-        'submission_date': sample.submission_date,
+        'collection_date': sample.collection_date.isoformat() if sample.collection_date else None,
+        'submission_date': sample.submission_date.isoformat() if sample.submission_date else None,
         'retailer_fssai': sample.retailer_fssai,
         'retailer_name': sample.retailer_name,
         'price': sample.price,
@@ -267,9 +272,9 @@ def update_sample(sample_id):
             return jsonify({'error': f'FSO "{fso_name}" not found'}), 400
         sample.fso_name = fso_name
     if 'collection_date' in form_data:
-        sample.collection_date = form_data['collection_date'].strip()
+        sample.collection_date = parse_date(form_data['collection_date'].strip())
     if 'submission_date' in form_data:
-        sample.submission_date = form_data['submission_date'].strip() or None
+        sample.submission_date = parse_date(form_data['submission_date'].strip() or None)
     if 'retailer_fssai' in form_data:
         sample.retailer_fssai = form_data['retailer_fssai'].strip() or None
     if 'retailer_name' in form_data:

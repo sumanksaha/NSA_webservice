@@ -5,7 +5,10 @@ from flask import Blueprint, render_template, request, jsonify, send_file, curre
 from app.extensions import db
 from app.models import Adjudication, FboIssue
 from app.utils.lookup import lookup_ce, lookup_fssai
+from app.utils.filters import parse_date
 from app.utils.suggester import suggest_sections
+from app.inspection.audit import log_audit
+from app.models import PhotoEvidence
 from app.services.sheets_sync import sync_to_sheets
 import json
 from app.utils.pdf_utils import generate_pdf_from_html
@@ -117,11 +120,11 @@ def adjudication_to_dict(adj):
         'fssai_license': adj.fssai_license,
         'concerned_food': adj.concerned_food,
         'problem': adj.problem,
-        'first_inspection_date': adj.First_inspection_date,  # DB column: First_inspection_date
-        'compliance_deadline': adj.compliance_deadline,
-        'complaint_date': adj.Complaint_date,  # DB column: Complaint_date
-        'followup_inspection_date': adj.inspection_date,  # DB column: inspection_date (follow-up)
-        'authorization_date': adj.authorization_date,
+        'first_inspection_date': adj.First_inspection_date.isoformat() if adj.First_inspection_date else None,  # DB column: First_inspection_date
+        'compliance_deadline': adj.compliance_deadline.isoformat() if adj.compliance_deadline else None,
+        'complaint_date': adj.Complaint_date.isoformat() if adj.Complaint_date else None,  # DB column: Complaint_date
+        'followup_inspection_date': adj.inspection_date.isoformat() if adj.inspection_date else None,  # DB column: inspection_date (follow-up)
+        'authorization_date': adj.authorization_date.isoformat() if adj.authorization_date else None,
         'clean_premise': adj.clean_premise,
         'refrigerator_clean': adj.refrigerator_clean,
         'proper_attire': adj.proper_attire,
@@ -458,11 +461,11 @@ def generate_all():
         concerned_food=form_data.get('concerned_food', ''),
         problem=form_data.get('problem', ''),
         
-        First_inspection_date=form_data.get('first_inspection_date', ''),  # canonical
-        compliance_deadline=form_data.get('compliance_deadline', ''),
-        Complaint_date=form_data.get('complaint_date', ''),  # canonical
-        inspection_date=form_data.get('followup_inspection_date', ''),  # canonical -> DB column (follow-up)
-        authorization_date=form_data.get('authorization_date', ''),
+        First_inspection_date=parse_date(form_data.get('first_inspection_date', '')),  # canonical
+        compliance_deadline=parse_date(form_data.get('compliance_deadline', '')),
+        Complaint_date=parse_date(form_data.get('complaint_date', '')),  # canonical
+        inspection_date=parse_date(form_data.get('followup_inspection_date', '')),  # canonical -> DB column (follow-up)
+        authorization_date=parse_date(form_data.get('authorization_date', '')),
         
         # Checklist
         clean_premise=form_data.get('clean_premise', 'yes'),
@@ -497,8 +500,8 @@ def generate_all():
             inspection = Inspection.query.get(int(from_inspection))
             if inspection and not inspection.adjudication_id and not inspection.is_dismissed:
                 # Check if compliance_deadline has passed
-                today = date.today().isoformat()
-                if inspection.compliance_deadline < today:
+                today = datetime.utcnow()
+                if inspection.compliance_deadline and inspection.compliance_deadline < today:
                     inspection.adjudication_id = adj.id
                     db.session.commit()
         except Exception as e:

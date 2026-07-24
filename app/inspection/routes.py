@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import Inspection, FSO, Adjudication, PhotoEvidence
 from app.utils.lookup import lookup_fssai, lookup_ce
 from app.utils.fso_data import get_all_fso_names
+from app.utils.filters import parse_date
 from app.inspection.inspection_utils import generate_inspection_code, calculate_compliance_deadline
 from app.services.sheets_sync import sync_to_sheets
 from app.inspection.verification_service import verify_photo_location
@@ -51,10 +52,14 @@ def list_inspections():
         query = query.filter(Inspection.fso_name == filter_fso)
 
     if filter_date_from:
-        query = query.filter(Inspection.inspection_date >= filter_date_from)
+        parsed_from = parse_date(filter_date_from)
+        if parsed_from:
+            query = query.filter(Inspection.inspection_date >= parsed_from)
 
     if filter_date_to:
-        query = query.filter(Inspection.inspection_date <= filter_date_to)
+        parsed_to = parse_date(filter_date_to)
+        if parsed_to:
+            query = query.filter(Inspection.inspection_date <= parsed_to)
 
     # Apply sorting
     if sort_by == 'inspection_date':
@@ -175,7 +180,9 @@ def create_inspection():
     compliance_deadline = form_data.get('compliance_deadline', '').strip()
     if not compliance_deadline:
         # Auto-calculate if not provided
-        compliance_deadline = calculate_compliance_deadline(inspection_date)
+        compliance_deadline = calculate_compliance_deadline(parse_date(inspection_date))
+    else:
+        compliance_deadline = parse_date(compliance_deadline)
 
     # Get form fields
     fssai_license = form_data.get('fssai_license', '').strip() or None
@@ -196,7 +203,7 @@ def create_inspection():
         fbo_address=fbo_address,
         concerned_food=concerned_food,
         problem=problem,
-        inspection_date=inspection_date,
+        inspection_date=parse_date(inspection_date),
         compliance_deadline=compliance_deadline,
         is_dismissed=False,
         created_at=datetime.utcnow()
@@ -474,10 +481,12 @@ def pending_action():
     inspections = query.all()
     
     # Calculate days overdue for each inspection
+    today_date = datetime.utcnow()
     for inspection in inspections:
-        deadline = datetime.strptime(inspection.compliance_deadline, '%Y-%m-%d').date()
-        today_date = date.today()
-        inspection.days_overdue = (today_date - deadline).days
+        if inspection.compliance_deadline:
+            inspection.days_overdue = (today_date - inspection.compliance_deadline).days
+        else:
+            inspection.days_overdue = 0
     
     return render_template('inspection/pending_action.html',
                          inspections=inspections,

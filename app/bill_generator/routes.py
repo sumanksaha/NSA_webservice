@@ -2,6 +2,7 @@ import io
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 from app.extensions import db
 from app.models import Bill, FboIssue, Sample
+from app.utils.filters import parse_date
 from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
 from app.services.sheets_sync import sync_to_sheets
 import json
@@ -158,10 +159,10 @@ def generate_bill_route():
         No_of_enfbills=form_data.get('No_of_enfbills', ''),
         No_of_survbills=form_data.get('No_of_survbills', ''),
         TR_Value=form_data.get('TR_Value', ''),
-        TR_date=form_data.get('TR_date', ''),
-        Submission_date=form_data.get('Submission_date', ''),
-        start_date=start_date,
-        end_date=end_date
+        TR_date=parse_date(form_data.get('TR_date', '')),
+        Submission_date=parse_date(form_data.get('Submission_date', '')),
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date)
     )
     
     db.session.add(bill_record)

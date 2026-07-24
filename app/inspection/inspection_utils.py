@@ -4,74 +4,106 @@ inspection_utils.py
 Utilities for the Inspection module, including inspection_code generation.
 """
 
-import threading
+import time
+import random
 from datetime import datetime, timedelta
+from sqlalchemy import func, text
 from app.extensions import db
-from app.models import Inspection
+from app.models import Inspection, CodeSequence
 
-# Thread lock for race-safe inspection code generation
-_inspection_code_lock = threading.Lock()
+
+def _get_db_dialect() -> str:
+    """Return the current database dialect name (e.g. 'postgresql', 'sqlite')."""
+    engine = db.session.get_bind()
+    return engine.dialect.name
+
+
+def _acquire_advisory_lock(lock_key: int) -> None:
+    """
+    Acquire a PostgreSQL advisory transaction lock.
+
+    On non-PostgreSQL databases this is a no-op (the retry loop in
+    ``generate_inspection_code`` handles concurrency via the sequence table).
+    """
+    if _get_db_dialect() == 'postgresql':
+        db.session.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": lock_key},
+        )
 
 
 def generate_inspection_code() -> str:
     """
-    Generate an inspection code in the format INSP-YYYY-##### where ##### is zero-padded sequence per year.
-    
-    Uses a thread lock to ensure race-safe sequential writes for the same year.
-    For a single-writer app, this guards against duplicate codes on rapid submits.
-    
+    Generate an inspection code in the format INSP-YYYY-##### where #####
+    is zero-padded sequence per year.
+
+    Uses a dedicated ``code_sequence`` table with an atomic increment
+    inside a transaction so that concurrent workers (Gunicorn/uWSGI) never
+    obtain the same value.  On PostgreSQL an advisory lock provides
+    additional cross-process serialisation.  A retry loop with random
+    backoff handles any residual contention.
+
     Returns:
         str: Generated inspection code (e.g., 'INSP-2026-00001')
     """
-    with _inspection_code_lock:
-        year = datetime.utcnow().year
-        
-        # Get the maximum sequence number for this year
-        from sqlalchemy import func
-        
-        # Inspection codes are in format INSP-YYYY-#####
-        prefix = f"INSP-{year}-"
-        
-        # Query for max sequence number for this year
-        max_code = db.session.query(func.max(Inspection.inspection_code)).filter(
-            Inspection.inspection_code.like(f"{prefix}%")
-        ).scalar()
-        
-        if max_code:
-            # Extract the numeric part
-            try:
-                seq_num = int(max_code.split('-')[-1])
-                next_seq = seq_num + 1
-            except (ValueError, IndexError):
-                # If there are malformed codes, get the count instead
-                count = db.session.query(Inspection).filter(
-                    Inspection.inspection_code.like(f"{prefix}%")
-                ).count()
-                next_seq = count + 1
-        else:
-            # No inspections for this year yet - start from 1
-            next_seq = 1
-        
-        # Format with zero-padding to 5 digits
-        inspection_code = f"INSP-{year}-{next_seq:05d}"
-        
-        return inspection_code
+    year = datetime.utcnow().year
+    seq_key = f"inspection:{year}"
+    # Stable hash for advisory lock (PostgreSQL only)
+    lock_key = hash(seq_key) & 0x7FFFFFFF
+
+    max_retries = 10
+    for attempt in range(max_retries):
+        try:
+            # Acquire advisory lock (PostgreSQL only — no-op on SQLite)
+            _acquire_advisory_lock(lock_key)
+
+            # Atomically get-or-create the sequence row and increment it.
+            seq = CodeSequence.query.get(seq_key)
+            if seq is None:
+                seq = CodeSequence(key=seq_key, last_value=0)
+                db.session.add(seq)
+                db.session.flush()
+
+            next_value = seq.last_value + 1
+            seq.last_value = next_value
+
+            db.session.commit()
+
+            inspection_code = f"INSP-{year}-{next_value:05d}"
+            return inspection_code
+
+        except Exception:
+            db.session.rollback()
+            time.sleep(random.uniform(0.001, 0.01) * (attempt + 1))
+            continue
+
+    raise RuntimeError(
+        "Failed to generate unique inspection code after "
+        f"{max_retries} retries"
+    )
 
 
-def calculate_compliance_deadline(inspection_date_str: str) -> str:
+def calculate_compliance_deadline(inspection_date) -> datetime:
     """
     Calculate compliance deadline as inspection_date + 30 days.
-    
+
     Args:
-        inspection_date_str: Date string in ISO format (YYYY-MM-DD)
-    
+        inspection_date: A datetime object, a date object, or an ISO
+            date string (YYYY-MM-DD).
+
     Returns:
-        str: Date string in ISO format for the deadline
+        datetime: The deadline as a datetime object.
     """
-    try:
-        inspection_date = datetime.strptime(inspection_date_str, '%Y-%m-%d')
-        deadline = inspection_date + timedelta(days=30)
-        return deadline.strftime('%Y-%m-%d')
-    except (ValueError, TypeError):
-        # Return empty string if date is invalid
-        return ''
+    if isinstance(inspection_date, datetime):
+        base = inspection_date
+    elif hasattr(inspection_date, 'year'):  # date-like object
+        base = datetime.combine(inspection_date, datetime.min.time())
+    else:
+        # Try parsing as ISO string
+        try:
+            base = datetime.strptime(str(inspection_date), '%Y-%m-%d')
+        except (ValueError, TypeError):
+            return None
+
+    deadline = base + timedelta(days=30)
+    return deadline

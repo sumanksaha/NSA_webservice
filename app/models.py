@@ -7,8 +7,8 @@ class CaseFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer_name = db.Column(db.String(100), nullable=False)
-    authorization_date = db.Column(db.String(100), nullable=False)
-    inspection_date = db.Column(db.String(100), nullable=False)
+    authorization_date = db.Column(db.DateTime, nullable=False)
+    inspection_date = db.Column(db.DateTime, nullable=False)
     inspection_time = db.Column(db.String(100), nullable=False)
     
     # Link to Sample (optional FK - Step 5 addition)
@@ -31,27 +31,27 @@ class CaseFile(db.Model):
     batch_no = db.Column(db.String(100), nullable=False)
     sample_quantity = db.Column(db.String(100), nullable=False)
     packet_count = db.Column(db.Integer, nullable=False)
-    mfg_date = db.Column(db.String(100), nullable=False)
-    expiry_date = db.Column(db.String(100), nullable=False)
+    mfg_date = db.Column(db.DateTime, nullable=False)
+    expiry_date = db.Column(db.DateTime, nullable=False)
     other_food_articles = db.Column(db.String(500))
     total_cost = db.Column(db.String(50))
     cost_in_words = db.Column(db.String(200))
     
     # Sample details
     sample_code = db.Column(db.String(100), nullable=False)
-    sample_submission_date = db.Column(db.String(100), nullable=False)
+    sample_submission_date = db.Column(db.DateTime, nullable=False)
     Lab_Registration_No = db.Column(db.String(100), nullable=False)
-    do_receipt_date = db.Column(db.String(100), nullable=False)
+    do_receipt_date = db.Column(db.DateTime, nullable=False)
     
     # Results
     is_misbranded = db.Column(db.Boolean, default=False)
     is_substandard = db.Column(db.Boolean, default=False)
     analyst_report_no = db.Column(db.String(100), nullable=False)
-    analyst_report_date = db.Column(db.String(100), nullable=False)
+    analyst_report_date = db.Column(db.DateTime, nullable=False)
     directive_letter_no = db.Column(db.String(100), nullable=False)
-    directive_letter_date = db.Column(db.String(100), nullable=False)
-    retailer_report_receive_date = db.Column(db.String(100), nullable=False)
-    manufacturer_report_receive_date = db.Column(db.String(100), nullable=False)
+    directive_letter_date = db.Column(db.DateTime, nullable=False)
+    retailer_report_receive_date = db.Column(db.DateTime, nullable=False)
+    manufacturer_report_receive_date = db.Column(db.DateTime, nullable=False)
     
     applicable_regulation = db.Column(db.String(200))
     applicable_clause = db.Column(db.String(200))
@@ -91,11 +91,11 @@ class Adjudication(db.Model):
     problem = db.Column(db.Text)
     
     # Dates
-    First_inspection_date = db.Column(db.String(100), nullable=False)
-    compliance_deadline = db.Column(db.String(100), nullable=False)
-    Complaint_date = db.Column(db.String(100))
-    inspection_date = db.Column(db.String(100), nullable=False)
-    authorization_date = db.Column(db.String(100))
+    First_inspection_date = db.Column(db.DateTime, nullable=False)
+    compliance_deadline = db.Column(db.DateTime, nullable=False)
+    Complaint_date = db.Column(db.DateTime)
+    inspection_date = db.Column(db.DateTime, nullable=False)
+    authorization_date = db.Column(db.DateTime)
     
     # Checklist items (storing as string 'yes'/'no')
     clean_premise = db.Column(db.String(10), default='yes')
@@ -138,10 +138,10 @@ class Bill(db.Model):
     No_of_enfbills = db.Column(db.String(50), nullable=False)
     No_of_survbills = db.Column(db.String(50), nullable=False)
     TR_Value = db.Column(db.String(100), nullable=False)
-    TR_date = db.Column(db.String(100), nullable=False)
-    Submission_date = db.Column(db.String(100), nullable=False)
-    start_date = db.Column(db.String(100))
-    end_date = db.Column(db.String(100))
+    TR_date = db.Column(db.DateTime, nullable=False)
+    Submission_date = db.Column(db.DateTime, nullable=False)
+    start_date = db.Column(db.DateTime)
+    end_date = db.Column(db.DateTime)
     
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -186,7 +186,7 @@ class FboIssueAudit(db.Model):
     from_state = db.Column(db.String, nullable=True)
     to_state = db.Column(db.String, nullable=False)
     asserted_by = db.Column(db.String, nullable=False)
-    asserted_at = db.Column(db.String, nullable=False, default=datetime.utcnow().isoformat())
+    asserted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     note = db.Column(db.Text, nullable=True)
     
     __table_args__ = (
@@ -213,8 +213,8 @@ class Sample(db.Model):
     sample_name = db.Column(db.String(200), nullable=False)
     sample_type = db.Column(db.String(100), nullable=False)
     fso_name = db.Column(db.String(100), db.ForeignKey('fso.fso_name'), nullable=False)
-    collection_date = db.Column(db.String(100), nullable=False)
-    submission_date = db.Column(db.String(100), nullable=True)
+    collection_date = db.Column(db.DateTime, nullable=False)
+    submission_date = db.Column(db.DateTime, nullable=True)
     retailer_fssai = db.Column(db.String(50), nullable=True)
     retailer_name = db.Column(db.String(200), nullable=True)
     price = db.Column(db.String(50), nullable=True)
@@ -249,8 +249,8 @@ class Inspection(db.Model):
     fbo_address = db.Column(db.Text, nullable=True)
     concerned_food = db.Column(db.String(200), nullable=True)
     problem = db.Column(db.Text, nullable=True)
-    inspection_date = db.Column(db.String(100), nullable=False)
-    compliance_deadline = db.Column(db.String(100), nullable=False)
+    inspection_date = db.Column(db.DateTime, nullable=False)
+    compliance_deadline = db.Column(db.DateTime, nullable=False)
     is_dismissed = db.Column(db.Boolean, default=False)
     dismissed_by = db.Column(db.String(100), nullable=True)
     dismissed_at = db.Column(db.DateTime, nullable=True)
@@ -270,7 +270,7 @@ class PhotoEvidence(db.Model):
     __tablename__ = 'photo_evidence'
 
     image_id = db.Column(db.String, primary_key=True)
-    case_id = db.Column(db.String, db.ForeignKey('case_files.id'), nullable=True)
+    case_id = db.Column(db.Integer, db.ForeignKey('case_files.id'), nullable=True)
     inspection_id = db.Column(db.Integer, db.ForeignKey('inspection.id'), nullable=True)
     filepath = db.Column(db.String, nullable=False)
     raw_lat = db.Column(db.Float, nullable=False)
@@ -298,3 +298,20 @@ class AuditLog(db.Model):
     prev_hash = db.Column(db.String, nullable=True)
     curr_hash = db.Column(db.String, nullable=True)
     details_json = db.Column(db.Text, nullable=True)
+
+
+class CodeSequence(db.Model):
+    """
+    Dedicated sequence table for race-safe code generation across multiple
+    processes (Gunicorn/uWSGI workers). Each row holds a monotonically
+    increasing counter keyed by a string (e.g. 'sample:2026').
+
+    The counter is incremented atomically inside a transaction so that
+    concurrent workers never obtain the same value.  On PostgreSQL an
+    advisory lock provides additional cross-process serialisation; on
+    SQLite the database-level write lock plus a retry loop handles it.
+    """
+    __tablename__ = 'code_sequence'
+
+    key = db.Column(db.String(50), primary_key=True)
+    last_value = db.Column(db.Integer, nullable=False, default=0)
