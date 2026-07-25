@@ -114,7 +114,9 @@
                         {% endif %}
                     </td>
                     <td>
-                        <span class="photo-badge" data-inspection-id="{{ inspection.id }}">
+                        <span class="photo-badge"
+                              data-inspection-id="{{ inspection.id }}"
+                              data-adjudication-id="{{ inspection.adjudication_id or '' }}">
                             <i class="fa-solid fa-camera"></i>
                             <span class="photo-badge-count">0</span>
                         </span>
@@ -196,30 +198,91 @@
 
 {% block extra_js %}
 <script>
-// Fetch photo counts for all inspection badges on page load
+// Fetch photo counts for all inspection badges using InspectionPhoto (via adjudication_id)
 document.addEventListener('DOMContentLoaded', function() {
     const badges = document.querySelectorAll('.photo-badge');
     badges.forEach(function(badge) {
-        const inspectionId = badge.dataset.inspectionId;
-        if (inspectionId) {
-            fetch('/inspection/' + inspectionId + '/photos')
-                .then(function(response) { return response.json(); })
-                .then(function(photos) {
-                    const count = photos ? photos.length : 0;
-                    const countSpan = badge.querySelector('.photo-badge-count');
-                    countSpan.textContent = count;
-                    if (count > 0) {
-                        badge.classList.add('has-photos');
-                    } else {
-                        badge.classList.add('no-photos');
-                    }
-                })
-                .catch(function() {
-                    badge.classList.add('no-photos');
-                });
+        const adjId = badge.dataset.adjudicationId;
+        const inspId = badge.dataset.inspectionId;
+        var countSpan = badge.querySelector('.photo-badge-count');
+
+        if (!adjId) {
+            countSpan.textContent = '0';
+            badge.classList.add('no-photos');
+            return;
         }
+
+        fetch('/inspection/' + adjId + '/photos')
+            .then(function(r) { return r.json(); })
+            .then(function(photos) {
+                var count = photos ? photos.length : 0;
+                countSpan.textContent = count;
+                if (count > 0) {
+                    badge.classList.add('has-photos');
+                    badge.dataset.photoCount = count;
+                    badge.dataset.photos = JSON.stringify(photos);
+                    badge.style.cursor = 'pointer';
+                    badge.title = count + ' photo(s) — click to view';
+                    badge.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        showPhotoPopover(JSON.parse(this.dataset.photos), this);
+                    });
+                } else {
+                    badge.classList.add('no-photos');
+                }
+            })
+            .catch(function() {
+                countSpan.textContent = '0';
+                badge.classList.add('no-photos');
+            });
     });
 });
+
+// Click-to-view thumbnail popover
+function showPhotoPopover(photos, anchorEl) {
+    var existing = document.getElementById('photoPopover');
+    if (existing) existing.remove();
+
+    var popover = document.createElement('div');
+    popover.id = 'photoPopover';
+    popover.style.cssText = 'position:fixed;z-index:999;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-width:400px;max-height:300px;overflow-y:auto;';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'float:right;border:none;background:none;font-size:1.4rem;cursor:pointer;color:var(--accent-secondary);';
+    closeBtn.onclick = function() { popover.remove(); };
+    popover.appendChild(closeBtn);
+
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;';
+
+    photos.forEach(function(p) {
+        var a = document.createElement('a');
+        a.href = p.file_url;
+        a.target = '_blank';
+        a.title = p.caption || 'Photo evidence';
+        var img = document.createElement('img');
+        img.src = p.file_url;
+        img.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border);';
+        img.onerror = function() { this.style.display = 'none'; };
+        a.appendChild(img);
+        grid.appendChild(a);
+    });
+
+    popover.appendChild(grid);
+    document.body.appendChild(popover);
+
+    var rect = anchorEl.getBoundingClientRect();
+    popover.style.left = Math.min(rect.left, window.innerWidth - 420) + 'px';
+    popover.style.top = (rect.bottom + 8) + 'px';
+
+    document.addEventListener('click', function closeHandler(e) {
+        if (!popover.contains(e.target) && e.target !== anchorEl) {
+            popover.remove();
+            document.removeEventListener('click', closeHandler);
+        }
+    });
+}
 
 // Sort table by clicking headers
 function sortTable(column) {

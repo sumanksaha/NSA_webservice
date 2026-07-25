@@ -1,0 +1,67 @@
+# .editorconfig - Editor Configuration for Consistent Line Endings
+# https://editorconfig.org
+# For Python/FastAPI projects deployed on Linux
+# Generated: 2026
+
+# Use LF for all files by default (Linux-standard)
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Python files - strict LF, 4 spaces
+[*.py]
+indent_size = 4
+
+# Python configuration files
+[*.{ini,cfg,toml}]
+indent_size = 4
+
+# Shell scripts - strict LF, 4 spaces
+[*.{sh,bash,zsh,fish,csh,ksh}]
+indent_size = 4
+
+# YAML files - strict LF, 2 spaces
+[*.{yaml,yml}]
+indent_size = 2
+
+# JSON files - strict LF
+[*.{json,jsonc}]
+indent_size = 2
+
+# JavaScript/TypeScript files - strict LF, 2 spaces
+[*.{js,jsx,ts,tsx,vue}]
+indent_size = 2
+
+# Markdown files - allow line wrapping
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+# HTML/CSS files - 2 spaces
+[*.{html,htm,css,scss,sass,less,xml}]
+indent_size = 2
+
+# SQL files - 2 spaces
+[*.sql]
+indent_size = 2
+
+# Text files
+[*.txt]
+trim_trailing_whitespace = true
+
+# Batch files (Windows) - allow CRLF
+[*.{bat,cmd}]
+end_of_line = crlf
+insert_final_newline = true
+
+# PowerShell files (Windows) - allow CRLF
+[*.{ps1,psm1,psd1}]
+end_of_line = crlf
+insert_final_newline = true

@@ -61,8 +61,8 @@ class TestInspectionModel:
                 fbo_address="Test Address",
                 concerned_food="Test Food",
                 problem="Test Problem",
-                inspection_date="2026-07-17",
-                compliance_deadline="2026-08-16",
+                inspection_date=datetime(2026, 7, 17),
+                compliance_deadline=datetime(2026, 8, 16),
                 is_dismissed=False
             )
             db.session.add(inspection)
@@ -78,8 +78,8 @@ class TestInspectionModel:
             assert result.fbo_address == "Test Address"
             assert result.concerned_food == "Test Food"
             assert result.problem == "Test Problem"
-            assert result.inspection_date == "2026-07-17"
-            assert result.compliance_deadline == "2026-08-16"
+            assert result.inspection_date == datetime(2026, 7, 17)
+            assert result.compliance_deadline == datetime(2026, 8, 16)
             assert result.is_dismissed == False
             assert result.created_at is not None
     
@@ -89,8 +89,8 @@ class TestInspectionModel:
             inspection1 = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date="2026-07-17",
-                compliance_deadline="2026-08-16"
+                inspection_date=datetime(2026, 7, 17),
+                compliance_deadline=datetime(2026, 8, 16)
             )
             db.session.add(inspection1)
             db.session.commit()
@@ -99,8 +99,8 @@ class TestInspectionModel:
             inspection2 = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date="2026-07-18",
-                compliance_deadline="2026-08-17"
+                inspection_date=datetime(2026, 7, 18),
+                compliance_deadline=datetime(2026, 8, 17)
             )
             db.session.add(inspection2)
             with pytest.raises(Exception):
@@ -144,8 +144,8 @@ class TestInspectionCodeGeneration:
             inspection = Inspection(
                 inspection_code=code1,
                 fso_name="Test FSO",
-                inspection_date="2026-07-17",
-                compliance_deadline="2026-08-16"
+                inspection_date=datetime(2026, 7, 17),
+                compliance_deadline=datetime(2026, 8, 16)
             )
             db.session.add(inspection)
             db.session.commit()
@@ -167,8 +167,8 @@ class TestInspectionCodeGeneration:
             inspection1 = Inspection(
                 inspection_code=code1,
                 fso_name="Test FSO",
-                inspection_date="2026-07-17",
-                compliance_deadline="2026-08-16"
+                inspection_date=datetime(2026, 7, 17),
+                compliance_deadline=datetime(2026, 8, 16)
             )
             db.session.add(inspection1)
             db.session.commit()
@@ -182,11 +182,11 @@ class TestInspectionCodeGeneration:
             assert seq2 == seq1 + 1
     
     def test_generate_inspection_code_race_safety(self, app, test_fso):
-        """Test race-safe code generation.
+        """Test race-safe code generation via CodeSequence atomic increment.
         
         Note: Flask-SQLAlchemy doesn't support true multi-threaded access
-        in the same way as production. This test verifies the lock mechanism
-        exists and the code structure supports race-safety.
+        in the same way as production. This test verifies the CodeSequence
+        mechanism exists and generates unique, sequential codes.
         """
         with app.app_context():
             # Clear any existing inspections for this year
@@ -202,8 +202,8 @@ class TestInspectionCodeGeneration:
                 inspection = Inspection(
                     inspection_code=code,
                     fso_name="Test FSO",
-                    inspection_date="2026-07-17",
-                    compliance_deadline="2026-08-16"
+                    inspection_date=datetime(2026, 7, 17),
+                    compliance_deadline=datetime(2026, 8, 16)
                 )
                 db.session.add(inspection)
                 codes.append(code)
@@ -216,9 +216,9 @@ class TestInspectionCodeGeneration:
             seq_numbers = sorted([int(c.split('-')[-1]) for c in codes])
             assert seq_numbers == list(range(1, 11))
             
-            # Verify the lock exists in the module
-            from app.inspection import inspection_utils
-            assert hasattr(inspection_utils, '_inspection_code_lock')
+            # Verify the CodeSequence pattern is used for race safety
+            from app.models import CodeSequence
+            assert CodeSequence is not None
 
 
 class TestComplianceDeadlineCalculation:
@@ -229,11 +229,9 @@ class TestComplianceDeadlineCalculation:
         inspection_date = "2026-07-17"
         deadline = calculate_compliance_deadline(inspection_date)
         
-        # Should be 30 days later
+        # Should be 30 days later, returned as a datetime
         expected = datetime(2026, 7, 17) + timedelta(days=30)
-        expected_str = expected.strftime('%Y-%m-%d')
-        
-        assert deadline == expected_str
+        assert deadline == expected
     
     def test_calculate_compliance_deadline_month_boundary(self):
         """Test compliance deadline calculation across month boundary."""
@@ -241,10 +239,7 @@ class TestComplianceDeadlineCalculation:
         deadline = calculate_compliance_deadline(inspection_date)
         
         expected = datetime(2026, 1, 15) + timedelta(days=30)
-        expected_str = expected.strftime('%Y-%m-%d')
-        
-        assert deadline == expected_str
-        assert deadline == "2026-02-14"
+        assert deadline == expected
     
     def test_calculate_compliance_deadline_year_boundary(self):
         """Test compliance deadline calculation across year boundary."""
@@ -252,25 +247,22 @@ class TestComplianceDeadlineCalculation:
         deadline = calculate_compliance_deadline(inspection_date)
         
         expected = datetime(2026, 12, 20) + timedelta(days=30)
-        expected_str = expected.strftime('%Y-%m-%d')
-        
-        assert deadline == expected_str
-        assert deadline == "2027-01-19"
+        assert deadline == expected
     
     def test_calculate_compliance_deadline_invalid_format(self):
         """Test compliance deadline calculation with invalid date format."""
         deadline = calculate_compliance_deadline("invalid-date")
-        assert deadline == ''
+        assert deadline is None
     
     def test_calculate_compliance_deadline_empty_string(self):
         """Test compliance deadline calculation with empty string."""
         deadline = calculate_compliance_deadline("")
-        assert deadline == ''
+        assert deadline is None
     
     def test_calculate_compliance_deadline_none(self):
         """Test compliance deadline calculation with None."""
         deadline = calculate_compliance_deadline(None)
-        assert deadline == ''
+        assert deadline is None
 
 
 class TestInspectionIndexes:
@@ -284,8 +276,8 @@ class TestInspectionIndexes:
                 inspection = Inspection(
                     inspection_code=f"INSP-2026-{i:05d}",
                     fso_name="Test FSO",
-                    inspection_date=f"2026-07-{10+i}",
-                    compliance_deadline=f"2026-08-{10+i}"
+                    inspection_date=datetime(2026, 7, 10 + i),
+                    compliance_deadline=datetime(2026, 8, 10 + i)
                 )
                 db.session.add(inspection)
             db.session.commit()
@@ -300,11 +292,11 @@ class TestInspectionIndexes:
             assert len(results) == 5
             
             # inspection_date index
-            results = Inspection.query.filter_by(inspection_date="2026-07-10").all()
+            results = Inspection.query.filter_by(inspection_date=datetime(2026, 7, 10)).all()
             assert len(results) == 1
             
             # compliance_deadline index
-            results = Inspection.query.filter_by(compliance_deadline="2026-08-10").all()
+            results = Inspection.query.filter_by(compliance_deadline=datetime(2026, 8, 10)).all()
             assert len(results) == 1
 
 

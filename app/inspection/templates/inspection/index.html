@@ -50,6 +50,41 @@
                 <textarea id="problem" name="problem" placeholder="Describe the problem or violation found"></textarea>
             </div>
         </div>
+
+        <!-- Photo Evidence -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-camera"></i> Photo Evidence</h3>
+        </div>
+
+        {# Hidden field carries the current adjudication id when editing; empty for new records #}
+        <input type="hidden" id="adjudication_id" value="{{ adjudication_id or '' }}">
+
+        <div class="photo-evidence-section">
+            <div class="photo-input-wrapper" id="photoInputWrapper">
+                <div class="photo-dropzone" id="photoDropzone">
+                    <div class="dropzone-placeholder">
+                        <i class="fa-solid fa-camera" style="font-size:2.5rem;color:var(--border);"></i>
+                        <p style="margin:8px 0 4px;font-weight:500;">Add Photos</p>
+                        <p style="font-size:0.8rem;color:var(--text-body);">JPEG, PNG, WebP &middot; max 5 MB each</p>
+                    </div>
+                    <input type="file" id="photo-input"
+                           accept="image/*" capture="environment" multiple
+                           class="photo-file-input">
+                </div>
+                <div class="photo-disabled-overlay" id="photoDisabledOverlay" style="display:none;">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Save inspection first to enable photo upload</span>
+                </div>
+            </div>
+
+            <div class="photo-upload-queue" id="photoUploadQueue"></div>
+
+            <div class="photo-grid" id="photoGrid"></div>
+            <div class="photo-grid-empty" id="photoGridEmpty">
+                <i class="fa-solid fa-image" style="font-size:2rem;color:var(--border);"></i>
+                <p>No photos yet</p>
+            </div>
+        </div>
         
         <!-- FBO Information -->
         <div class="section-header">
@@ -119,7 +154,375 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+{{ super() }}
+<style>
+/* Photo Evidence section — matches FBO Information card styling */
+.photo-evidence-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.photo-input-wrapper {
+    position: relative;
+}
+
+.photo-dropzone {
+    position: relative;
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--bg-subtle);
+}
+.photo-dropzone:hover {
+    border-color: var(--accent-primary);
+    background: rgba(22,36,74,0.03);
+}
+.photo-dropzone.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    pointer-events: none;
+}
+.photo-file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.photo-file-input:disabled {
+    cursor: not-allowed;
+}
+
+.photo-disabled-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--accent-primary);
+    z-index: 2;
+    backdrop-filter: blur(2px);
+}
+
+/* Upload queue — per-file progress items */
+.photo-upload-queue {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.upload-queue-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+.upload-queue-item .filename {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+.upload-queue-item .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+.upload-queue-item .status-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+.upload-queue-item .status-icon.success {
+    color: #28a745;
+}
+.upload-queue-item .status-icon.error {
+    color: #dc3545;
+}
+.upload-queue-item .error-text {
+    color: #dc3545;
+    font-size: 0.8rem;
+    flex-basis: 100%;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Thumbnail grid */
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+.photo-grid-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 20px;
+    color: var(--text-body);
+    font-size: 0.85rem;
+    margin-top: 16px;
+}
+.photo-grid:not(:empty) + .photo-grid-empty {
+    display: none;
+}
+
+.photo-thumb-card {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg-card);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s;
+}
+.photo-thumb-card:hover {
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.photo-thumb-card img {
+    display: block;
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+}
+.photo-thumb-card .thumb-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: var(--text-body);
+    background: var(--bg-subtle);
+}
+.photo-thumb-card .delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-secondary);
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.photo-thumb-card .delete-btn:hover {
+    background: rgba(122,31,43,0.1);
+}
+.photo-thumb-card .delete-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<script>
+// ===================================================================
+// Photo Evidence (InspectionPhoto model, R2/B2 storage)
+// Uses the three routes added in inspection/routes.py:
+//   POST   /inspection/<adjudication_id>/photos
+//   DELETE /inspection/photos/<photo_id>
+//   GET    /inspection/<adjudication_id>/photos
+// ===================================================================
+
+(function() {
+    const ADJUDICATION_ID = document.getElementById('adjudication_id').value;
+    const photoInput = document.getElementById('photo-input');
+    const dropzone = document.getElementById('photoDropzone');
+    const overlay = document.getElementById('photoDisabledOverlay');
+    const grid = document.getElementById('photoGrid');
+    const queue = document.getElementById('photoUploadQueue');
+    const emptyMsg = document.getElementById('photoGridEmpty');
+
+    const hasId = Boolean(ADJUDICATION_ID);
+
+    // ── Enable / disable based on whether an adjudication id exists ──
+    if (!hasId) {
+        photoInput.disabled = true;
+        dropzone.classList.add('disabled');
+        overlay.style.display = 'flex';
+    } else {
+        // Load existing photos on page load
+        loadPhotos();
+    }
+
+    // ── Upload files on selection ──
+    photoInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        if (!files.length || !hasId) return;
+
+        files.forEach(function(file) {
+            uploadFile(file);
+        });
+
+        // Reset so the same file can be re-selected
+        photoInput.value = '';
+    });
+
+    function uploadFile(file) {
+        const item = document.createElement('div');
+        item.className = 'upload-queue-item';
+        item.innerHTML = '<div class="spinner"></div>'
+            + '<span class="filename">' + escapeHtml(file.name) + '</span>';
+        queue.appendChild(item);
+
+        const spinner = item.querySelector('.spinner');
+        const filenameSpan = item.querySelector('.filename');
+
+        const formData = new FormData();
+        formData.append('photo', file);
+
+        fetch('/inspection/' + ADJUDICATION_ID + '/photos', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) {
+            return r.json().then(function(data) {
+                if (r.ok) return data;
+                throw new Error(data.error || 'Upload failed');
+            });
+        })
+        .then(function(photo) {
+            spinner.remove();
+            var icon = document.createElement('span');
+            icon.className = 'status-icon success';
+            icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            item.insertBefore(icon, filenameSpan);
+
+            // Append thumbnail
+            appendThumbnail(photo.id, photo.file_url, photo.uploaded_at);
+
+            // Remove item from queue after a short delay
+            setTimeout(function() { item.remove(); }, 2000);
+        })
+        .catch(function(err) {
+            spinner.remove();
+            var icon = document.createElement('span');
+            icon.className = 'status-icon error';
+            icon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+            item.insertBefore(icon, filenameSpan);
+
+            var errText = document.createElement('span');
+            errText.className = 'error-text';
+            errText.textContent = err.message || 'Upload failed';
+            item.appendChild(errText);
+        });
+    }
+
+    function appendThumbnail(photoId, fileUrl, uploadedAt) {
+        // Hide empty message
+        emptyMsg.style.display = 'none';
+
+        var card = document.createElement('div');
+        card.className = 'photo-thumb-card';
+        card.dataset.photoId = photoId;
+
+        var img = document.createElement('img');
+        img.src = fileUrl;
+        img.loading = 'lazy';
+        img.alt = 'Photo evidence';
+        img.onerror = function() {
+            this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="110"><rect fill="%23eee" width="140" height="110"/><text fill="%23999" font-size="12" x="50%25" y="50%25" text-anchor="middle" dy=".3em">Broken</text></svg>';
+        };
+
+        var footer = document.createElement('div');
+        footer.className = 'thumb-footer';
+
+        var dateSpan = document.createElement('span');
+        dateSpan.textContent = uploadedAt ? new Date(uploadedAt).toLocaleDateString() : '';
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.title = 'Delete photo';
+        delBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+        delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            deletePhoto(photoId, card);
+        });
+
+        footer.appendChild(dateSpan);
+        footer.appendChild(delBtn);
+        card.appendChild(img);
+        card.appendChild(footer);
+        grid.appendChild(card);
+    }
+
+    function deletePhoto(photoId, cardEl) {
+        var delBtn = cardEl.querySelector('.delete-btn');
+        if (delBtn) delBtn.disabled = true;
+
+        fetch('/inspection/photos/' + photoId, {
+            method: 'DELETE'
+        })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) {
+                    throw new Error(d.error || 'Delete failed');
+                });
+            }
+            cardEl.remove();
+            // Show empty message if grid is now empty
+            if (grid.children.length === 0) {
+                emptyMsg.style.display = 'flex';
+            }
+        })
+        .catch(function(err) {
+            if (delBtn) delBtn.disabled = false;
+            // Inline error feedback on the card
+            var errEl = document.createElement('div');
+            errEl.style.cssText = 'padding:4px 10px;font-size:0.75rem;color:#dc3545;background:rgba(220,53,69,0.08);';
+            errEl.textContent = err.message || 'Delete failed';
+            cardEl.appendChild(errEl);
+        });
+    }
+
+    function loadPhotos() {
+        fetch('/inspection/' + ADJUDICATION_ID + '/photos')
+        .then(function(r) {
+            if (!r.ok) throw new Error('Failed to load photos');
+            return r.json();
+        })
+        .then(function(photos) {
+            if (!photos || !photos.length) return;
+            photos.forEach(function(p) {
+                appendThumbnail(p.id, p.file_url, p.uploaded_at);
+            });
+        })
+        .catch(function(err) {
+            // Silently ignore — photos are non-critical for the form
+            console.warn('Photo evidence load failed:', err);
+        });
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+})();
+</script>
+
 <script>
 // Track lookup sources for conflict detection
 let fssaiSource = null;

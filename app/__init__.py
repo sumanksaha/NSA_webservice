@@ -61,18 +61,20 @@ def create_app():
     
     # FSO sync on startup - import and run sync in app context
     # This ensures FSO names are available as soon as the app starts
-    from app.utils.fso_data import sync_fso_from_markdown
-    
-    with app.app_context():
-        with _fso_sync_lock:
-            try:
-                result = sync_fso_from_markdown()
-                if result.get('errors'):
-                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
-                else:
-                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
-            except Exception as e:
-                app.logger.error(f"FSO startup sync failed: {str(e)}")
+    # Can be skipped via SKIP_FSO_STARTUP_SYNC env var (e.g. for fresh-DB migrations)
+    if not os.environ.get('SKIP_FSO_STARTUP_SYNC'):
+        from app.utils.fso_data import sync_fso_from_markdown
+        
+        with app.app_context():
+            with _fso_sync_lock:
+                try:
+                    result = sync_fso_from_markdown()
+                    if result.get('errors'):
+                        app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
+                    else:
+                        app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
+                except Exception as e:
+                    app.logger.error(f"FSO startup sync failed: {str(e)}")
     
     # Redirect root to first tab (Sample -adjudication)
     @app.route('/')

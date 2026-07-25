@@ -46,9 +46,10 @@ class TestSampleToCaseFileLinkage:
             sample = Sample(
                 sample_code='TEST001',
                 sample_name='Test Sample',
+                sample_type='Food',
                 fso_name='Test Officer',
-                collection_date='2026-07-01',
-                submission_date='2026-07-02',
+                collection_date=datetime(2026, 7, 1),
+                submission_date=datetime(2026, 7, 2),
                 retailer_fssai='1234567890',
                 retailer_name='Test Retailer',
                 price='500'
@@ -65,8 +66,8 @@ class TestSampleToCaseFileLinkage:
             casefile = CaseFile(
                 case_number='TESTCASE001',
                 food_safety_officer_name='Test Officer',
-                authorization_date='2026-07-03',
-                inspection_date='2026-07-03',
+                authorization_date=datetime(2026, 7, 3),
+                inspection_date=datetime(2026, 7, 3),
                 inspection_time='10:00',
                 sample_id=created_sample.id,  # Link to sample
                 manufacturer_fssai='MFG123',
@@ -81,22 +82,22 @@ class TestSampleToCaseFileLinkage:
                 batch_no='BATCH001',
                 sample_quantity='1000g',
                 packet_count=4,
-                mfg_date='2026-06-01',
-                expiry_date='2026-08-01',
+                mfg_date=datetime(2026, 6, 1),
+                expiry_date=datetime(2026, 8, 1),
                 total_cost=created_sample.price,
                 cost_in_words='Rupees Five Hundred Only',
                 sample_code=created_sample.sample_code,
                 sample_submission_date=created_sample.submission_date,
                 Lab_Registration_No='WB/FOOD/2025/001',
-                do_receipt_date='2026-07-04',
+                do_receipt_date=datetime(2026, 7, 4),
                 is_misbranded=False,
                 is_substandard=False,
                 analyst_report_no='PK/378/2025-26',
-                analyst_report_date='2026-07-05',
+                analyst_report_date=datetime(2026, 7, 5),
                 directive_letter_no='H/FSSA/FSO/3054/2025-26',
-                directive_letter_date='2026-07-06',
-                retailer_report_receive_date='2026-07-07',
-                manufacturer_report_receive_date='2026-07-08',
+                directive_letter_date=datetime(2026, 7, 6),
+                retailer_report_receive_date=datetime(2026, 7, 7),
+                manufacturer_report_receive_date=datetime(2026, 7, 8),
                 applicable_regulation='Regulation No 5(9)',
                 applicable_clause='Clause (zf) of subsection 1 of section 3 of the FSSA,2006',
                 sample_name=created_sample.sample_name,
@@ -125,8 +126,8 @@ class TestSampleToCaseFileLinkage:
             casefile = CaseFile(
                 case_number='TESTCASE002',
                 food_safety_officer_name='Test Officer',
-                authorization_date='2026-07-03',
-                inspection_date='2026-07-03',
+                authorization_date=datetime(2026, 7, 3),
+                inspection_date=datetime(2026, 7, 3),
                 inspection_time='10:00',
                 sample_id=None,  # No sample link
                 manufacturer_fssai='MFG123',
@@ -141,22 +142,22 @@ class TestSampleToCaseFileLinkage:
                 batch_no='BATCH002',
                 sample_quantity='1000g',
                 packet_count=4,
-                mfg_date='2026-06-01',
-                expiry_date='2026-08-01',
+                mfg_date=datetime(2026, 6, 1),
+                expiry_date=datetime(2026, 8, 1),
                 total_cost='600',
                 cost_in_words='Rupees Six Hundred Only',
                 sample_code='MANUAL001',
-                sample_submission_date='2026-07-02',
+                sample_submission_date=datetime(2026, 7, 2),
                 Lab_Registration_No='WB/FOOD/2025/002',
-                do_receipt_date='2026-07-04',
+                do_receipt_date=datetime(2026, 7, 4),
                 is_misbranded=False,
                 is_substandard=False,
                 analyst_report_no='PK/379/2025-26',
-                analyst_report_date='2026-07-05',
+                analyst_report_date=datetime(2026, 7, 5),
                 directive_letter_no='H/FSSA/FSO/3055/2025-26',
-                directive_letter_date='2026-07-06',
-                retailer_report_receive_date='2026-07-07',
-                manufacturer_report_receive_date='2026-07-08',
+                directive_letter_date=datetime(2026, 7, 6),
+                retailer_report_receive_date=datetime(2026, 7, 7),
+                manufacturer_report_receive_date=datetime(2026, 7, 8),
                 applicable_regulation='Regulation No 5(9)',
                 applicable_clause='Clause (zf) of subsection 1 of section 3 of the FSSA,2006',
                 sample_name='Manual Sample',
@@ -182,7 +183,7 @@ class TestInspectionToAdjudicationLinkage:
         """Test full chain: create Inspection, age it to Pending, create Adjudication, verify linkage."""
         with test_client.application.app_context():
             # Create an inspection with a past compliance deadline (so it's in Pending Action)
-            past_date = date(2025, 1, 1).isoformat()  # Well in the past
+            past_date = date(2025, 1, 1)
             inspection = Inspection(
                 inspection_code='INSP001',
                 fso_name='Test Officer',
@@ -192,7 +193,7 @@ class TestInspectionToAdjudicationLinkage:
                 fbo_address='Test FBO Address',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                inspection_date='2025-01-01',
+                inspection_date=datetime(2025, 1, 1),
                 compliance_deadline=past_date,  # Past deadline
                 is_dismissed=False,
                 adjudication_id=None
@@ -202,7 +203,7 @@ class TestInspectionToAdjudicationLinkage:
             
             # Verify inspection is in Pending Action state
             pending_inspections = Inspection.query.filter(
-                Inspection.compliance_deadline < date.today().isoformat(),
+                Inspection.compliance_deadline < date.today(),
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -221,9 +222,9 @@ class TestInspectionToAdjudicationLinkage:
                 fssai_license='1234567890',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                First_inspection_date='2025-01-01',
+                First_inspection_date=datetime(2025, 1, 1),
                 compliance_deadline=past_date,
-                inspection_date='2025-01-01'
+                inspection_date=datetime(2025, 1, 1)
             )
             db.session.add(adjudication)
             db.session.commit()
@@ -238,7 +239,7 @@ class TestInspectionToAdjudicationLinkage:
             
             # Verify inspection no longer appears in Pending views
             pending_after_linking = Inspection.query.filter(
-                Inspection.compliance_deadline < date.today().isoformat(),
+                Inspection.compliance_deadline < date.today(),
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -261,9 +262,9 @@ class TestInspectionToAdjudicationLinkage:
                 fssai_license='1234567890',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                First_inspection_date='2025-01-01',
-                compliance_deadline='2025-01-01',
-                inspection_date='2025-01-01'
+                First_inspection_date=datetime(2025, 1, 1),
+                compliance_deadline=datetime(2025, 1, 1),
+                inspection_date=datetime(2025, 1, 1)
             )
             db.session.add(adjudication)
             db.session.commit()
@@ -278,8 +279,8 @@ class TestInspectionToAdjudicationLinkage:
                 fbo_address='Test FBO Address',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                inspection_date='2025-01-01',
-                compliance_deadline='2025-01-01',
+                inspection_date=datetime(2025, 1, 1),
+                compliance_deadline=datetime(2025, 1, 1),
                 is_dismissed=False,
                 adjudication_id=adjudication.id
             )
@@ -309,9 +310,10 @@ class TestFKIntegrity:
             sample = Sample(
                 sample_code='FKTEST001',
                 sample_name='FK Test Sample',
+                sample_type='Food',
                 fso_name='Test Officer',
-                collection_date='2026-07-01',
-                submission_date='2026-07-02',
+                collection_date=datetime(2026, 7, 1),
+                submission_date=datetime(2026, 7, 2),
                 retailer_fssai='1234567890',
                 retailer_name='FK Test Retailer',
                 price='500'
@@ -323,8 +325,8 @@ class TestFKIntegrity:
             casefile = CaseFile(
                 case_number='FKTESTCASE001',
                 food_safety_officer_name='Test Officer',
-                authorization_date='2026-07-03',
-                inspection_date='2026-07-03',
+                authorization_date=datetime(2026, 7, 3),
+                inspection_date=datetime(2026, 7, 3),
                 inspection_time='10:00',
                 sample_id=sample.id,
                 manufacturer_fssai='MFG123',
@@ -339,22 +341,22 @@ class TestFKIntegrity:
                 batch_no='BATCH001',
                 sample_quantity='1000g',
                 packet_count=4,
-                mfg_date='2026-06-01',
-                expiry_date='2026-08-01',
+                mfg_date=datetime(2026, 6, 1),
+                expiry_date=datetime(2026, 8, 1),
                 total_cost='500',
                 cost_in_words='Rupees Five Hundred Only',
                 sample_code='FKTEST001',
-                sample_submission_date='2026-07-02',
+                sample_submission_date=datetime(2026, 7, 2),
                 Lab_Registration_No='WB/FOOD/2025/001',
-                do_receipt_date='2026-07-04',
+                do_receipt_date=datetime(2026, 7, 4),
                 is_misbranded=False,
                 is_substandard=False,
                 analyst_report_no='PK/378/2025-26',
-                analyst_report_date='2026-07-05',
+                analyst_report_date=datetime(2026, 7, 5),
                 directive_letter_no='H/FSSA/FSO/3054/2025-26',
-                directive_letter_date='2026-07-06',
-                retailer_report_receive_date='2026-07-07',
-                manufacturer_report_receive_date='2026-07-08',
+                directive_letter_date=datetime(2026, 7, 6),
+                retailer_report_receive_date=datetime(2026, 7, 7),
+                manufacturer_report_receive_date=datetime(2026, 7, 8),
                 applicable_regulation='Regulation No 5(9)',
                 applicable_clause='Clause (zf) of subsection 1 of section 3 of the FSSA,2006',
                 sample_name='FK Test Sample',
@@ -404,9 +406,9 @@ class TestFKIntegrity:
                 fssai_license='1234567890',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                First_inspection_date='2025-01-01',
-                compliance_deadline='2025-01-01',
-                inspection_date='2025-01-01'
+                First_inspection_date=datetime(2025, 1, 1),
+                compliance_deadline=datetime(2025, 1, 1),
+                inspection_date=datetime(2025, 1, 1)
             )
             db.session.add(adjudication)
             db.session.commit()
@@ -421,8 +423,8 @@ class TestFKIntegrity:
                 fbo_address='Test FBO Address',
                 concerned_food='Test Food',
                 problem='Test Problem',
-                inspection_date='2025-01-01',
-                compliance_deadline='2025-01-01',
+                inspection_date=datetime(2025, 1, 1),
+                compliance_deadline=datetime(2025, 1, 1),
                 is_dismissed=False,
                 adjudication_id=adjudication.id
             )
@@ -455,9 +457,10 @@ class TestSampleLookupEndpoint:
             sample = Sample(
                 sample_code='LOOKUP001',
                 sample_name='Lookup Test Sample',
+                sample_type='Food',
                 fso_name='Test Officer',
-                collection_date='2026-07-01',
-                submission_date='2026-07-02',
+                collection_date=datetime(2026, 7, 1),
+                submission_date=datetime(2026, 7, 2),
                 retailer_fssai='1234567890',
                 retailer_name='Lookup Test Retailer',
                 price='750'
@@ -476,10 +479,10 @@ class TestSampleLookupEndpoint:
             assert data['id'] == sample.id
             assert data['sample_code'] == 'LOOKUP001'
             assert data['sample_name'] == 'Lookup Test Sample'
-            assert data['retailer_fssai'] == '1234567890'
-            assert data['retailer_name'] == 'Lookup Test Retailer'
-            assert data['submission_date'] == '2026-07-02'
-            assert data['price'] == '750'
+            assert data['retailer_fssai_license'] == '1234567890'
+            assert data['retailer_person_name'] == 'Lookup Test Retailer'
+            assert data['sample_submission_date'] == '2026-07-02'
+            assert data['total_cost'] == '750'
 
     def test_lookup_sample_not_found(self, test_client):
         """Test the /lookup_sample endpoint returns 404 for non-existent sample."""
@@ -509,8 +512,9 @@ class TestSampleListEndpoint:
                 sample = Sample(
                     sample_code=f'LIST{i:03d}',
                     sample_name=f'List Test Sample {i}',
+                    sample_type='Food',
                     fso_name='Test Officer',
-                    collection_date='2026-07-01'
+                    collection_date=datetime(2026, 7, 1)
                 )
                 db.session.add(sample)
             db.session.commit()

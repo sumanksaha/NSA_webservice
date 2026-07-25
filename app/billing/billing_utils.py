@@ -42,9 +42,17 @@ def compute_summary(samples):
     grand_total = 0.0
     
     for sample in samples:
-        sample_type = getattr(sample, 'sample_type', None)
+        if isinstance(sample, dict):
+            sample_type = sample.get('sample_type')
+            price_str = sample.get('price')
+        else:
+            sample_type = getattr(sample, 'sample_type', None)
+            price_str = getattr(sample, 'price', None)
         
-        price_str = getattr(sample, 'price', None)
+        # Normalize empty/None types to 'Other'
+        if not sample_type:
+            sample_type = 'Other'
+        
         price = format_price(price_str)
         
         if sample_type not in by_type:

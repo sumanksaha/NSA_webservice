@@ -155,11 +155,20 @@
 .warning { color: red; font-weight: bold; }
 </style>
 
+{% if adjudication.photos and adjudication.photos|length > 0 %}
 <section class="photo-evidence">
   <h3>Photographic Evidence</h3>
+  {% set embeds = adjudication.photo_embeds or [] %}
   {% for photo in adjudication.photos %}
+  {% set embed = embeds[loop.index0] if embeds and loop.index0 < embeds|length else None %}
   <div class="evidence-row">
-    <div class="photo-col"><img src="{{ photo.filepath }}"></div>
+    <div class="photo-col">
+      {% if embed and embed.data_uri %}
+      <img src="{{ embed.data_uri }}" alt="Photo evidence">
+      {% else %}
+      <p style="color:gray;font-style:italic;padding:20px 10px;">[Photo unavailable]</p>
+      {% endif %}
+    </div>
     <div class="detail-col">
       <p><strong>Image ID:</strong> {{ photo.image_id }}</p>
       <p><strong>Location:</strong> {{ photo.locality or "Unresolved" }}</p>
@@ -175,6 +184,7 @@
   </div>
   {% endfor %}
 </section>
+{% endif %}
 
     <ol class="justify" start="4">
         <li> The undersigned issued an instruction sheet to the FBO to address the

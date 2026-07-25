@@ -1,0 +1,174 @@
+# .gitattributes - Enterprise Line Ending Configuration
+# For Python/FastAPI projects deployed on Linux
+# Generated: 2026
+
+# =============================================================================
+# DEFAULT: Use LF for all text files (Linux-standard)
+# =============================================================================
+* text=auto eol=lf
+
+# =============================================================================
+# PYTHON FILES - CRITICAL: Always LF
+# Must be LF for Python to work correctly on Linux deployment
+# =============================================================================
+*.py text eol=lf diff=python
+*.pyc text eol=lf -diff
+*.pyo text eol=lf -diff
+*.pyd text eol=lf -diff
+
+# =============================================================================
+# SHELL SCRIPTS - CRITICAL: Always LF
+# Shell scripts must have LF for Linux/macOS compatibility
+# =============================================================================
+*.sh text eol=lf -diff
+*.bash text eol=lf -diff
+*.zsh text eol=lf -diff
+*.fish text eol=lf -diff
+*.csh text eol=lf -diff
+*.ksh text eol=lf -diff
+
+# =============================================================================
+# WINDOWS BATCH FILES - Keep CRLF
+# Windows-specific files that require CRLF to function
+# =============================================================================
+*.bat text eol=crlf -diff
+*.cmd text eol=crlf -diff
+
+# =============================================================================
+# POWERSHELL SCRIPTS - Windows-native, allow native line endings
+# =============================================================================
+*.ps1 text eol=crlf -diff
+*.psm1 text eol=crlf -diff
+*.psd1 text eol=crlf -diff
+
+# =============================================================================
+# CONFIGURATION FILES - LF
+# =============================================================================
+*.json text eol=lf -diff
+*.jsonc text eol=lf -diff
+*.yaml text eol=lf -diff
+*.yml text eol=lf -diff
+*.toml text eol=lf -diff
+*.ini text eol=lf -diff
+*.cfg text eol=lf -diff
+*.conf text eol=lf -diff
+*.config text eol=lf -diff
+
+# =============================================================================
+# MARKUP AND WEB FILES - LF
+# =============================================================================
+*.md text eol=lf -diff
+*.markdown text eol=lf -diff
+*.html text eol=lf -diff
+*.htm text eol=lf -diff
+*.css text eol=lf -diff
+*.scss text eol=lf -diff
+*.sass text eol=lf -diff
+*.less text eol=lf -diff
+*.js text eol=lf -diff
+*.jsx text eol=lf -diff
+*.ts text eol=lf -diff
+*.tsx text eol=lf -diff
+*.vue text eol=lf -diff
+*.xml text eol=lf -diff
+*.svg text eol=lf -diff
+
+# =============================================================================
+# DATA AND DATABASE FILES - LF
+# =============================================================================
+*.sql text eol=lf -diff
+*.csv text eol=lf -diff
+*.tsv text eol=lf -diff
+
+# =============================================================================
+# DOCUMENTATION - LF
+# =============================================================================
+*.txt text eol=lf -diff
+*.rst text eol=lf -diff
+*.tex text eol=lf -diff
+
+# =============================================================================
+# BUILD AND CI FILES - LF
+# =============================================================================
+*.xml text eol=lf -diff
+Dockerfile text eol=lf -diff
+docker-compose.yml text eol=lf -diff
+docker-compose.yaml text eol=lf -diff
+Makefile text eol=lf -diff
+Rakefile text eol=lf -diff
+Jenkinsfile text eol=lf -diff
+*.gradle text eol=lf -diff
+
+# =============================================================================
+# LICENSE AND LEGAL - LF
+# =============================================================================
+LICENSE text eol=lf -diff
+COPYING text eol=lf -diff
+
+# =============================================================================
+# BINARY FILES - Never modify line endings
+# =============================================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.pyc binary
+*.pyo binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+
+# =============================================================================
+# GIT LFS FILES
+# =============================================================================
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.tar.bz2 filter=lfs diff=lfs merge=lfs -text
+*.tar filter=lfs diff=lfs merge=lfs -text
+*.gz filter=lfs diff=lfs merge=lfs -text
+*.bz2 filter=lfs diff=lfs merge=lfs -text
+*.7z filter=lfs diff=lfs merge=lfs -text
+*.rar filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.doc filter=lfs diff=lfs merge=lfs -text
+*.docx filter=lfs diff=lfs merge=lfs -text
+*.xls filter=lfs diff=lfs merge=lfs -text
+*.xlsx filter=lfs diff=lfs merge=lfs -text
+*.ppt filter=lfs diff=lfs merge=lfs -text
+*.pptx filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.avi filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.whl filter=lfs diff=lfs merge=lfs -text
+*.egg filter=lfs diff=lfs merge=lfs -text
+*.jar filter=lfs diff=lfs merge=lfs -text
+*.war filter=lfs diff=lfs merge=lfs -text
+*.ear filter=lfs diff=lfs merge=lfs -text
+*.iso filter=lfs diff=lfs merge=lfs -text
+*.dmg filter=lfs diff=lfs merge=lfs -text
+
+# =============================================================================
+# ENSURE THESE FILES ARE ALWAYS LF (safety override)
+# =============================================================================
+# Force LF for common config files that might be missed above
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.editorconfig text eol=lf
+*.env.example text eol=lf

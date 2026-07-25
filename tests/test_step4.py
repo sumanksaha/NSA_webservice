@@ -58,8 +58,8 @@ class TestDerivedStateQueries:
             open1 = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=future_date.isoformat(),
+                inspection_date=today,
+                compliance_deadline=future_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -68,8 +68,8 @@ class TestDerivedStateQueries:
             pending = Inspection(
                 inspection_code="INSP-2026-00002",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -78,8 +78,8 @@ class TestDerivedStateQueries:
             dismissed = Inspection(
                 inspection_code="INSP-2026-00003",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
                 dismissed_at=datetime.utcnow(),
@@ -94,9 +94,9 @@ class TestDerivedStateQueries:
                 fbo_name="Test FBO",
                 fbo_address="Test Address",
                 fssai_license="12345",
-                First_inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
-                inspection_date=past_date.isoformat()
+                First_inspection_date=past_date,
+                compliance_deadline=past_date,
+                inspection_date=past_date
             )
             db.session.add(adj)
             db.session.commit()
@@ -104,8 +104,8 @@ class TestDerivedStateQueries:
             adjudicated = Inspection(
                 inspection_code="INSP-2026-00004",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=adj.id
             )
@@ -115,7 +115,7 @@ class TestDerivedStateQueries:
             
             # Query for Open Issues
             open_issues = Inspection.query.filter(
-                Inspection.compliance_deadline >= today.isoformat(),
+                Inspection.compliance_deadline >= today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -135,8 +135,8 @@ class TestDerivedStateQueries:
             open1 = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=future_date.isoformat(),
+                inspection_date=today,
+                compliance_deadline=future_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -145,8 +145,8 @@ class TestDerivedStateQueries:
             pending = Inspection(
                 inspection_code="INSP-2026-00002",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -155,8 +155,8 @@ class TestDerivedStateQueries:
             dismissed = Inspection(
                 inspection_code="INSP-2026-00003",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
                 dismissed_at=datetime.utcnow(),
@@ -171,9 +171,9 @@ class TestDerivedStateQueries:
                 fbo_name="Test FBO",
                 fbo_address="Test Address",
                 fssai_license="12345",
-                First_inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
-                inspection_date=past_date.isoformat()
+                First_inspection_date=past_date,
+                compliance_deadline=past_date,
+                inspection_date=past_date
             )
             db.session.add(adj)
             db.session.commit()
@@ -181,8 +181,8 @@ class TestDerivedStateQueries:
             adjudicated = Inspection(
                 inspection_code="INSP-2026-00004",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=adj.id
             )
@@ -192,7 +192,7 @@ class TestDerivedStateQueries:
             
             # Query for Pending Action
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -209,8 +209,8 @@ class TestDerivedStateQueries:
             today_deadline = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=today.isoformat(),
+                inspection_date=today,
+                compliance_deadline=today,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -220,8 +220,8 @@ class TestDerivedStateQueries:
             yesterday_deadline = Inspection(
                 inspection_code="INSP-2026-00002",
                 fso_name="Test FSO",
-                inspection_date=yesterday.isoformat(),
-                compliance_deadline=yesterday.isoformat(),
+                inspection_date=yesterday,
+                compliance_deadline=yesterday,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -231,8 +231,8 @@ class TestDerivedStateQueries:
             tomorrow_deadline = Inspection(
                 inspection_code="INSP-2026-00003",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=tomorrow.isoformat(),
+                inspection_date=today,
+                compliance_deadline=tomorrow,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -242,7 +242,7 @@ class TestDerivedStateQueries:
             
             # Query for Open Issues (>= today)
             open_issues = Inspection.query.filter(
-                Inspection.compliance_deadline >= today.isoformat(),
+                Inspection.compliance_deadline >= today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -255,7 +255,7 @@ class TestDerivedStateQueries:
             
             # Query for Pending Action (< today)
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -280,8 +280,8 @@ class TestDismissAction:
             inspection = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -310,8 +310,8 @@ class TestDismissAction:
             inspection = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -320,7 +320,7 @@ class TestDismissAction:
             
             # Verify it's in Pending Action
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -334,7 +334,7 @@ class TestDismissAction:
             
             # Verify it's no longer in Pending Action
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -344,14 +344,16 @@ class TestDismissAction:
         """Test that dismissing an Open Issue (deadline not passed) is not allowed."""
         with app.app_context():
             today = date.today()
+            today_dt = datetime.combine(today, datetime.min.time())
             future_date = today + timedelta(days=30)
+            future_date_dt = datetime.combine(future_date, datetime.min.time())
             
             # Create an Open Issue inspection
             inspection = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=future_date.isoformat(),
+                inspection_date=today,
+                compliance_deadline=future_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -359,13 +361,13 @@ class TestDismissAction:
             db.session.commit()
             
             # Verify it's an Open Issue (deadline >= today)
-            assert inspection.compliance_deadline >= today.isoformat()
+            assert inspection.compliance_deadline >= today_dt
             
             # Dismiss should not be allowed - this is a business rule
             # In the implementation, the route checks this
             # Here we just verify the condition
             is_pending_action = (
-                inspection.compliance_deadline < today.isoformat() and
+                inspection.compliance_deadline < today_dt and
                 inspection.is_dismissed == False and
                 inspection.adjudication_id is None
             )
@@ -389,9 +391,9 @@ class TestAdjudicationLinkage:
                 fbo_name="Test FBO",
                 fbo_address="Test Address",
                 fssai_license="12345",
-                First_inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
-                inspection_date=past_date.isoformat()
+                First_inspection_date=past_date,
+                compliance_deadline=past_date,
+                inspection_date=past_date
             )
             db.session.add(adj)
             db.session.commit()
@@ -400,8 +402,8 @@ class TestAdjudicationLinkage:
             inspection = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -410,7 +412,7 @@ class TestAdjudicationLinkage:
             
             # Verify it's in Pending Action
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -422,7 +424,7 @@ class TestAdjudicationLinkage:
             
             # Verify it's no longer in Pending Action
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -430,7 +432,7 @@ class TestAdjudicationLinkage:
             
             # Verify it's also not in Open Issues
             open_issues = Inspection.query.filter(
-                Inspection.compliance_deadline >= today.isoformat(),
+                Inspection.compliance_deadline >= today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
@@ -452,8 +454,8 @@ class TestAdjudicationLinkage:
                 fbo_address="Test FBO Address",
                 concerned_food="Test Food",
                 problem="Test Problem",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -493,36 +495,40 @@ class TestDaysOverdueCalculation:
         """Test that days overdue is calculated correctly."""
         with app.app_context():
             today = date.today()
+            today_dt = datetime.combine(today, datetime.min.time())
             
             # Deadline 5 days ago
             deadline_5 = today - timedelta(days=5)
+            deadline_5_dt = datetime.combine(deadline_5, datetime.min.time())
             inspection_5 = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=deadline_5.isoformat(),
-                compliance_deadline=deadline_5.isoformat(),
+                inspection_date=deadline_5,
+                compliance_deadline=deadline_5,
                 is_dismissed=False,
                 adjudication_id=None
             )
             
             # Deadline 10 days ago
             deadline_10 = today - timedelta(days=10)
+            deadline_10_dt = datetime.combine(deadline_10, datetime.min.time())
             inspection_10 = Inspection(
                 inspection_code="INSP-2026-00002",
                 fso_name="Test FSO",
-                inspection_date=deadline_10.isoformat(),
-                compliance_deadline=deadline_10.isoformat(),
+                inspection_date=deadline_10,
+                compliance_deadline=deadline_10,
                 is_dismissed=False,
                 adjudication_id=None
             )
             
             # Deadline yesterday
             deadline_1 = today - timedelta(days=1)
+            deadline_1_dt = datetime.combine(deadline_1, datetime.min.time())
             inspection_1 = Inspection(
                 inspection_code="INSP-2026-00003",
                 fso_name="Test FSO",
-                inspection_date=deadline_1.isoformat(),
-                compliance_deadline=deadline_1.isoformat(),
+                inspection_date=deadline_1,
+                compliance_deadline=deadline_1,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -532,13 +538,14 @@ class TestDaysOverdueCalculation:
             
             # Query and calculate days overdue
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today_dt,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()
             
             for inspection in pending_actions:
-                deadline = datetime.strptime(inspection.compliance_deadline, '%Y-%m-%d').date()
+                # compliance_deadline is already a datetime; extract .date() for comparison
+                deadline = inspection.compliance_deadline.date()
                 days_overdue = (today - deadline).days
                 inspection.days_overdue = days_overdue
             
@@ -565,8 +572,8 @@ class TestHistoryView:
             dismissed = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
                 dismissed_at=datetime.utcnow(),
@@ -597,9 +604,9 @@ class TestHistoryView:
                 fbo_name="Test FBO",
                 fbo_address="Test Address",
                 fssai_license="12345",
-                First_inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
-                inspection_date=past_date.isoformat()
+                First_inspection_date=past_date,
+                compliance_deadline=past_date,
+                inspection_date=past_date
             )
             db.session.add(adj)
             db.session.commit()
@@ -608,8 +615,8 @@ class TestHistoryView:
             adjudicated = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=adj.id
             )
@@ -635,8 +642,8 @@ class TestHistoryView:
             open_issue = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=today.isoformat(),
-                compliance_deadline=future_date.isoformat(),
+                inspection_date=today,
+                compliance_deadline=future_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -645,8 +652,8 @@ class TestHistoryView:
             pending = Inspection(
                 inspection_code="INSP-2026-00002",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=False,
                 adjudication_id=None
             )
@@ -682,9 +689,9 @@ class TestPrecedenceRules:
                 fbo_name="Test FBO",
                 fbo_address="Test Address",
                 fssai_license="12345",
-                First_inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
-                inspection_date=past_date.isoformat()
+                First_inspection_date=past_date,
+                compliance_deadline=past_date,
+                inspection_date=past_date
             )
             db.session.add(adj)
             db.session.commit()
@@ -694,8 +701,8 @@ class TestPrecedenceRules:
             inspection = Inspection(
                 inspection_code="INSP-2026-00001",
                 fso_name="Test FSO",
-                inspection_date=past_date.isoformat(),
-                compliance_deadline=past_date.isoformat(),
+                inspection_date=past_date,
+                compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
                 dismissed_at=datetime.utcnow(),
@@ -713,7 +720,7 @@ class TestPrecedenceRules:
             
             # Query for Pending Action (should NOT include it)
             pending_actions = Inspection.query.filter(
-                Inspection.compliance_deadline < today.isoformat(),
+                Inspection.compliance_deadline < today,
                 Inspection.is_dismissed == False,
                 Inspection.adjudication_id.is_(None)
             ).all()

@@ -1,0 +1,228 @@
+{
+  // =============================================================================
+  // VISUAL STUDIO CODE SETTINGS
+  // Enforce LF line endings and consistent formatting
+  // For Python/FastAPI projects deployed on Linux
+  // Generated: 2026
+  // =============================================================================
+
+  // =============================================================================
+  // LINE ENDING ENFORCEMENT
+  // =============================================================================
+  "files.eol": "\n",  // Always use LF globally
+
+  // =============================================================================
+  // EDITOR BEHAVIOR
+  // =============================================================================
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+  "files.autoSave": "off",
+
+  // =============================================================================
+  // ENCODING
+  // =============================================================================
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+
+  // =============================================================================
+  // GIT INTEGRATION
+  // =============================================================================
+  "git.autofetch": true,
+  "git.autorefresh": true,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.pruneOnFetch": true,
+
+  // =============================================================================
+  // PYTHON DEVELOPMENT
+  // =============================================================================
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": false,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=120",
+    "--target-version=py311"
+  ],
+  "python.foldImports": true,
+  "python.analysis.typeCheckingMode": "basic",
+
+  // =============================================================================
+  // AUTO-FORMATTING ON SAVE (CRITICAL FOR LINE ENDINGS)
+  // =============================================================================
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true,
+    "source.organizeImports": true
+  },
+
+  // =============================================================================
+  // EDITOR SETTINGS
+  // =============================================================================
+  "editor.rulers": [120],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.minimap.enabled": true,
+  "editor.glyphMargin": true,
+  "editor.lineNumbers": "on",
+  "editor.wordWrap": "off",
+  "editor.renderWhitespace": "selection",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "editor.suggest.showStatusBar": true,
+
+  // =============================================================================
+  // FILE ASSOCIATIONS (Additional help)
+  // =============================================================================
+  "files.associations": {
+    "*.requirements": "pip-requirements",
+    "Pipfile": "toml",
+    ".env*": "dotenv"
+  },
+
+  // =============================================================================
+  // EXCLUDE FILES FROM EXPLORER
+  // =============================================================================
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+
+  // =============================================================================
+  // FILE WATCHER EXCLUSIONS
+  // =============================================================================
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/__pycache__/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true
+  },
+
+  // =============================================================================
+  // SEARCH EXCLUSIONS
+  // =============================================================================
+  "search.exclude": {
+    "**/.git": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true
+  },
+
+  // =============================================================================
+  // GIT PATCH SETTINGS (Ensure LF in diffs)
+  // =============================================================================
+  "git.patchTarget": "workingDirectory",
+  "git.patchInlineWhitespace": true,
+
+  // =============================================================================
+  // TERMINAL SETTINGS
+  // =============================================================================
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.env.windows": {},
+  "terminal.integrated.inheritEnv": true,
+
+  // =============================================================================
+  // EXTENSION RECOMMENDATIONS (Auto-install suggestions)
+  // =============================================================================
+  "extensions.ignoreRecommendations": false,
+  "extensions.autoUpdate": true,
+
+  // =============================================================================
+  // MARKDOWN SETTINGS
+  // =============================================================================
+  "markdown.preview.breaks": true,
+  "markdownlint.config": {
+    "MD013": false,
+    "MD033": false
+  },
+
+  // =============================================================================
+  // YAML SETTINGS
+  // =============================================================================
+  "yaml.customTags": [
+    "!And",
+    "!If",
+    "!Not",
+    "!Equals",
+    "!Or",
+    "!FindInMap",
+    "!Ref",
+    "!Sub",
+    "!GetAtt",
+    "!GetAZs",
+    "!ImportValue",
+    "!Select",
+    "!Split",
+    "!Join",
+    "!Cidr"
+  ],
+  "yaml.format.indent": 2,
+  "yaml.format.preserveQuotes": true,
+  "yaml.format.singleQuote": false,
+
+  // =============================================================================
+  // JSON SETTINGS
+  // =============================================================================
+  "json.format.keepLines": false,
+  "json.format.maxPreserveNewLineTokens": 1,
+
+  // =============================================================================
+  // SQL SETTINGS
+  // =============================================================================
+  "sql-formatter.language": "postgresql",
+
+  // =============================================================================
+  // EDITOR: DISABLE AUTOMATIC LINE ENDING CONVERSION (Git handles this)
+  // =============================================================================
+  "editor.useTabStops": true,
+
+  // =============================================================================
+  // PREVENT ACCIDENTAL CRLF
+  // =============================================================================
+  "workbench.editor.languageDetection": true,
+
+  // =============================================================================
+  // GITHUB COPILOT (Optional)
+  // =============================================================================
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": false,
+    "scminput": false
+  },
+
+  // =============================================================================
+  // DIFF SETTINGS
+  // =============================================================================
+  "diffEditor.renderSideBySide": true,
+  "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.explorer.decorators.enabled": true,
+
+  // =============================================================================
+  // TELEMETRY (Enterprise: disable)
+  // =============================================================================
+  "telemetry.telemetryLevel": "off"
+}
