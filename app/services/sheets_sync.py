@@ -115,6 +115,13 @@ def _get_worksheet(module):
     return ws
 
 
+def _escape_formula(value):
+    """Prefix dangerous leading characters to prevent Google Sheets formula injection."""
+    if isinstance(value, str) and value and value[0] in ('=', '+', '-', '@'):
+        return "'" + value
+    return value
+
+
 def sync_to_sheets(module: str, row_dict: dict) -> bool:
     """
     Sync a row of data to the appropriate Google Sheet.
@@ -128,7 +135,7 @@ def sync_to_sheets(module: str, row_dict: dict) -> bool:
     """
     try:
         cols = SHEET_COLUMNS[module]
-        row = [row_dict.get(c, "") for c in cols]
+        row = [_escape_formula(row_dict.get(c, "")) for c in cols]
         ws = _get_worksheet(module)
         ws.append_row(row, value_input_option="USER_ENTERED")
         return True

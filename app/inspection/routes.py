@@ -7,7 +7,7 @@ Provides endpoints for Inspection CRUD operations and UI.
 from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from app.extensions import db
-from app.models import Inspection, FSO, Adjudication, PhotoEvidence
+from app.models import Inspection, FSO, Adjudication, PhotoEvidence, InspectionPhoto
 from app.utils.lookup import lookup_fssai, lookup_ce
 from app.utils.fso_data import get_all_fso_names
 from app.utils.filters import parse_date
@@ -16,6 +16,7 @@ from app.services.sheets_sync import sync_to_sheets
 from app.inspection.verification_service import verify_photo_location
 from app.inspection.image_processing import process_and_stamp_image
 from app.inspection.audit import log_audit
+from app.utils.storage import upload_photo, delete_photo
 import uuid
 import os
 from werkzeug.utils import secure_filename
@@ -311,12 +312,12 @@ def update_inspection(inspection_id):
     if 'problem' in form_data:
         inspection.problem = form_data['problem'].strip() or None
     if 'inspection_date' in form_data:
-        inspection.inspection_date = form_data['inspection_date'].strip()
+        inspection.inspection_date = parse_date(form_data['inspection_date'].strip())
         # Recalculate compliance deadline if inspection_date changes and compliance_deadline is not provided
         if 'compliance_deadline' not in form_data or not form_data.get('compliance_deadline', '').strip():
             inspection.compliance_deadline = calculate_compliance_deadline(inspection.inspection_date)
     if 'compliance_deadline' in form_data:
-        inspection.compliance_deadline = form_data['compliance_deadline'].strip()
+        inspection.compliance_deadline = parse_date(form_data['compliance_deadline'].strip())
 
     try:
         db.session.commit()
@@ -686,9 +687,9 @@ def inspection_detail(inspection_id):
                          fso_names=fso_names)
 
 
-@inspection_bp.route('/<int:inspection_id>/photos', methods=['GET'])
-def get_inspection_photos(inspection_id):
-    """Get all photos for an inspection (JSON)."""
+@inspection_bp.route('/<int:inspection_id>/photo-evidence', methods=['GET'])
+def get_inspection_photo_evidence(inspection_id):
+    """Get all PhotoEvidence records for an inspection (legacy model, JSON)."""
     inspection = Inspection.query.get(inspection_id)
     if not inspection:
         return jsonify({'error': f'Inspection with id {inspection_id} not found'}), 404
@@ -889,7 +890,16 @@ def upload_photo_evidence():
     log_audit("photo", image_id, "VERIFICATION_RUN", actor, result)
 
     # Process and stamp image
-    filepath = process_and_stamp_image(file, result["locality"], captured_at_str, result["verification_status"], image_id, str(inspection_id))
+    try:
+        filepath = process_and_stamp_image(file, result["locality"], captured_at_str, result["verification_status"], image_id, str(inspection_id))
+    except ValueError as exc:
+        # Clean up the DB row since processing failed
+        try:
+            db.session.delete(photo_evidence)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        return jsonify({'error': f'Image processing failed: {exc}'}), 400
 
     # Update PhotoEvidence row
     photo_evidence.locality = result["locality"]
@@ -912,3 +922,127 @@ def upload_photo_evidence():
         'image_id': image_id,
         'verification_status': result["verification_status"]
     }), 201
+
+
+# ============================================================================
+# Photo evidence CRUD (R2/B2 storage + InspectionPhoto model)
+# ============================================================================
+
+@inspection_bp.route('/<int:adjudication_id>/photos', methods=['POST'])
+def upload_adjudication_photo(adjudication_id):
+    """Upload a photo for an adjudication via R2/B2 storage."""
+    adjudication = Adjudication.query.get(adjudication_id)
+    if not adjudication:
+        return jsonify({'error': f'Adjudication with id {adjudication_id} not found'}), 404
+
+    if 'photo' not in request.files:
+        return jsonify({'error': 'No photo file provided. Use field name "photo".'}), 400
+
+    file = request.files['photo']
+    if not file.filename:
+        return jsonify({'error': 'No file selected.'}), 400
+
+    # TIER 1.1: Sanitize filename and validate extension server-side (defense in depth)
+    original_filename = file.filename
+    safe_filename = secure_filename(original_filename)
+    if not safe_filename:
+        return jsonify({'error': 'Invalid filename.'}), 400
+
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'webp', 'heic'}
+    ext = os.path.splitext(safe_filename)[1].lower().lstrip('.')
+    if ext not in allowed_extensions:
+        return jsonify({'error': f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}"}), 400
+
+    try:
+        file_url = upload_photo(file, adjudication_id, safe_filename)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception:
+        current_app.logger.exception(
+            f"Failed to upload photo for adjudication {adjudication_id}"
+        )
+        return jsonify({'error': 'Storage service unavailable.'}), 502
+
+    caption = request.form.get('caption', '').strip()
+
+    photo = InspectionPhoto(
+        adjudication_id=adjudication_id,
+        file_url=file_url,
+        caption=caption or None,
+    )
+    try:
+        db.session.add(photo)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        # Best-effort cleanup of the uploaded object
+        try:
+            delete_photo(file_url)
+        except Exception:
+            pass
+        current_app.logger.exception(
+            f"Failed to save InspectionPhoto for adjudication {adjudication_id}"
+        )
+        return jsonify({'error': 'Database error.'}), 500
+
+    return jsonify({
+        'id': photo.id,
+        'file_url': photo.file_url,
+        'caption': photo.caption,
+        'uploaded_at': photo.uploaded_at.isoformat() if photo.uploaded_at else None,
+    }), 201
+
+
+@inspection_bp.route('/photos/<int:photo_id>', methods=['DELETE'])
+def delete_adjudication_photo(photo_id):
+    """Delete a photo from storage and remove its DB record."""
+    photo = InspectionPhoto.query.get(photo_id)
+    if not photo:
+        return jsonify({'error': f'Photo with id {photo_id} not found'}), 404
+
+    # Delete from storage; log warning but do not block on failure
+    if not delete_photo(photo.file_url):
+        current_app.logger.warning(
+            "Storage delete returned False for photo %s (url=%s); proceeding with DB delete",
+            photo_id, photo.file_url,
+        )
+
+    try:
+        db.session.delete(photo)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception(
+            f"Failed to delete photo record {photo_id}"
+        )
+        return jsonify({'error': 'Database error.'}), 500
+
+    return '', 204
+
+
+@inspection_bp.route('/<int:adjudication_id>/photos', methods=['GET'])
+def list_adjudication_photos(adjudication_id):
+    """List all photos for an adjudication, ordered by upload time. Supports pagination."""
+    adjudication = Adjudication.query.get(adjudication_id)
+    if not adjudication:
+        return jsonify({'error': f'Adjudication with id {adjudication_id} not found'}), 404
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    per_page = min(per_page, 200)  # Cap max per_page
+
+    paginated = InspectionPhoto.query.filter_by(
+        adjudication_id=adjudication_id
+    ).order_by(InspectionPhoto.uploaded_at.asc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'items': [{
+            'id': p.id,
+            'file_url': p.file_url,
+            'caption': p.caption,
+            'uploaded_at': p.uploaded_at.isoformat() if p.uploaded_at else None,
+        } for p in paginated.items],
+        'page': paginated.page,
+        'per_page': paginated.per_page,
+        'total': paginated.total,
+    })

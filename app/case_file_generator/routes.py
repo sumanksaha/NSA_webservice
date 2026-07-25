@@ -299,17 +299,26 @@ def lookup_sample():
         'sample_name': sample.sample_name,
         'retailer_fssai_license': sample.retailer_fssai or '',  # canonical
         'retailer_person_name': sample.retailer_name or '',  # canonical
-        'sample_submission_date': sample.submission_date or '',  # canonical
+        'sample_submission_date': sample.submission_date.strftime('%Y-%m-%d') if sample.submission_date else '',  # canonical
         'total_cost': sample.price or ''  # canonical (DB column: price)
     })
 
 
 @case_file_generator_bp.route('/samples', methods=['GET'])
 def list_samples_for_datalist():
-    """List all samples for datalist dropdown (returns sample codes only)."""
-    samples = Sample.query.order_by(Sample.sample_code.desc()).all()
-    sample_codes = [sample.sample_code for sample in samples]
-    return jsonify({'sample_codes': sample_codes})
+    """List all samples for datalist dropdown (returns sample codes only). Supports pagination."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 100, type=int)
+    per_page = min(per_page, 500)  # Cap max per_page
+
+    paginated = Sample.query.order_by(Sample.sample_code.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    sample_codes = [sample.sample_code for sample in paginated.items]
+    return jsonify({
+        'sample_codes': sample_codes,
+        'page': paginated.page,
+        'per_page': paginated.per_page,
+        'total': paginated.total,
+    })
 
 
 @case_file_generator_bp.route('/generate_case_file', methods=['POST'])
@@ -325,6 +334,12 @@ def generate_case_file_route():
             # If sample_id is not a valid integer, ignore it
             pass
     
+    # Validate packet_count before constructing model
+    try:
+        packet_count = int(form_data.get('packet_count', 4))
+    except ValueError:
+        return jsonify({'error': 'packet_count must be a valid integer'}), 400
+
     # Save record to database - using canonical keys from Step 2
     case_file_record = CaseFile(
         case_number=form_data.get('case_number', ''),
@@ -347,7 +362,7 @@ def generate_case_file_route():
         product_name=form_data.get('product_name', ''),
         batch_no=form_data.get('batch_no', ''),
         sample_quantity=form_data.get('sample_quantity', ''),
-        packet_count=int(form_data.get('packet_count', 4)),
+        packet_count=packet_count,
         mfg_date=parse_date(form_data.get('mfg_date', '')),
         expiry_date=parse_date(form_data.get('expiry_date', '')),
         other_food_articles=form_data.get('other_food_articles', ''),
@@ -378,8 +393,20 @@ def generate_case_file_route():
     db.session.commit()
     
     # Try syncing to Google Sheets (new module-based sync)
+    _ALLOWED_SHEETS_COLUMNS = {
+        'case_number', 'food_safety_officer_name', 'authorization_date', 'inspection_date',
+        'inspection_time', 'sample_id', 'manufacturer_fssai', 'manufacturer_name',
+        'manufacturer_fbo_name', 'manufacturer_address', 'retailer_fssai', 'retailer_name',
+        'retailer_fbo_name', 'retailer_address', 'product_name', 'batch_no', 'sample_quantity',
+        'packet_count', 'mfg_date', 'expiry_date', 'other_food_articles', 'total_cost',
+        'cost_in_words', 'sample_code', 'sample_submission_date', 'Lab_Registration_No',
+        'do_receipt_date', 'is_misbranded', 'is_substandard', 'analyst_report_no',
+        'analyst_report_date', 'directive_letter_no', 'directive_letter_date',
+        'retailer_report_receive_date', 'manufacturer_report_receive_date',
+        'applicable_regulation', 'applicable_clause', 'sample_name', 'applicable_sections',
+    }
     try:
-        row_dict = {k: v for k, v in form_data.items() if k in case_file_record.__dict__}
+        row_dict = {k: v for k, v in form_data.items() if k in _ALLOWED_SHEETS_COLUMNS}
         row_dict['created_at'] = case_file_record.created_at.isoformat() if case_file_record.created_at else ""
         row_dict['applicable_sections'] = case_file_record.applicable_sections
         row_dict['sample_id'] = case_file_record.sample_id  # Step 5: Include sample_id in sync

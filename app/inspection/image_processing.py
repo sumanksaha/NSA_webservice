@@ -7,16 +7,24 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
     """
     Takes an uploaded image file object, processes it, and saves to disk.
     Returns the final filepath (str).
+    Raises ValueError with a clear message if processing fails.
     """
-    # Open the image
-    img = Image.open(image_file)
+    temp_path = None
+    try:
+        # Open the image
+        img = Image.open(image_file)
+    except Exception as exc:
+        raise ValueError(f"Failed to open image: {exc}") from exc
 
     # Resize if longer edge > 1600px
     max_size = 1600
     if max(img.size) > max_size:
         ratio = max_size / max(img.size)
         new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
-        img = img.resize(new_size, Image.LANCZOS)
+        try:
+            img = img.resize(new_size, Image.LANCZOS)
+        except Exception as exc:
+            raise ValueError(f"Failed to resize image: {exc}") from exc
 
     # Strip EXIF data
     if hasattr(img, '_getexif'):
@@ -46,13 +54,16 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
     # Use default font (TODO: replace with a better font if available in static assets)
     try:
         font = ImageFont.load_default()
-    except:
+    except Exception:
         font = ImageFont.load_default()
 
     # Calculate text position and draw
     text_y = img_height - banner_height + 10
     for line in text_lines:
-        draw.text((10, text_y), line, fill=(255, 255, 255, 255), font=font)
+        try:
+            draw.text((10, text_y), line, fill=(255, 255, 255, 255), font=font)
+        except Exception as exc:
+            raise ValueError(f"Failed to draw text on image: {exc}") from exc
         text_y += 20  # Move to the next line
 
     # Parse captured_at to get YYYY and MM
@@ -60,16 +71,28 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
         captured_datetime = datetime.fromisoformat(captured_at)
         year = captured_datetime.strftime("%Y")
         month = captured_datetime.strftime("%m")
-    except:
+    except Exception:
         year = "unknown"
         month = "unknown"
 
     # Create the directory path
     output_dir = os.path.join("photos", year, month, case_id)
-    os.makedirs(output_dir, exist_ok=True)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except Exception as exc:
+        raise ValueError(f"Failed to create output directory: {exc}") from exc
 
     # Save as WebP
     output_path = os.path.join(output_dir, f"{image_id}.webp")
-    img.save(output_path, format="WEBP", quality=78)
+    try:
+        img.save(output_path, format="WEBP", quality=78)
+    except Exception as exc:
+        # Clean up partial file if it was created
+        if os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except Exception:
+                pass
+        raise ValueError(f"Failed to save image: {exc}") from exc
 
     return output_path

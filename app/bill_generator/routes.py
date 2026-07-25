@@ -182,8 +182,15 @@ def generate_bill_route():
     except Exception as e:
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
         
-    # Render the PDF template
-    rendered_html = render_template('bill_generator/template.html', **form_data)
+    # Render the PDF template with explicit allowlist
+    _ALLOWED_TEMPLATE_VARS = {
+        'Name', 'EMP_ID', 'Designation', 'Enf_samp_No', 'Surv_samp_No',
+        'Total_bill', 'No_of_enfbills', 'No_of_survbills', 'TR_Value',
+        'TR_date', 'Submission_date', 'start_date', 'end_date',
+        'enforcement_price', 'surveillance_price',
+    }
+    template_vars = {k: form_data.get(k, '') for k in _ALLOWED_TEMPLATE_VARS}
+    rendered_html = render_template('bill_generator/template.html', **template_vars)
     
     # Compile in-memory PDF via BytesIO
     pdf_buffer = io.BytesIO()

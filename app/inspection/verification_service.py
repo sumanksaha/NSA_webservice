@@ -6,6 +6,7 @@ from .distance_verification import haversine_distance, get_or_geocode_fbo_locati
 def verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo) -> dict:
     """
     Runs all verification checks and returns a combined result.
+    Degrades gracefully if any external call times out or raises.
     """
     # Initialize result
     result = {
@@ -16,13 +17,32 @@ def verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo) -> dict:
         "flag_reasons": []
     }
 
-    # 1. Reverse geocode to get locality
-    geocode_result = reverse_geocode(raw_lat, raw_lng)
-    if geocode_result["error"] is None:
-        result["locality"] = geocode_result["locality"]
+    # 1. Reverse geocode to get locality (with per-call timeout)
+    try:
+        geocode_result = reverse_geocode(raw_lat, raw_lng)
+    except Exception as exc:
+        current_app = None
+        try:
+            from flask import current_app
+            current_app.logger.warning(f"reverse_geocode failed: {exc}")
+        except Exception:
+            pass
+        geocode_result = {"error": str(exc), "locality": None}
 
-    # 2. Geolocate IP address
-    ip_result = ip_geolocate(ip_address)
+    if geocode_result.get("error") is None:
+        result["locality"] = geocode_result.get("locality")
+
+    # 2. Geolocate IP address (with per-call timeout)
+    try:
+        ip_result = ip_geolocate(ip_address)
+    except Exception as exc:
+        try:
+            from flask import current_app
+            current_app.logger.warning(f"ip_geolocate failed: {exc}")
+        except Exception:
+            pass
+        ip_result = {"error": str(exc), "city": None, "region": None}
+
     ip_city = ip_result.get("city")
     ip_region = ip_result.get("region")
 
@@ -30,8 +50,16 @@ def verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo) -> dict:
     if result["locality"] is not None and ip_city is not None and ip_region is not None:
         result["ip_match"] = region_match(ip_city, ip_region, result["locality"])
 
-    # 4. Get FBO location
-    fbo_lat, fbo_lng = get_or_geocode_fbo_location(fbo)
+    # 4. Get FBO location (with per-call timeout)
+    try:
+        fbo_lat, fbo_lng = get_or_geocode_fbo_location(fbo)
+    except Exception as exc:
+        try:
+            from flask import current_app
+            current_app.logger.warning(f"get_or_geocode_fbo_location failed: {exc}")
+        except Exception:
+            pass
+        fbo_lat, fbo_lng = None, None
 
     # 5. Calculate distance to FBO if available
     if fbo_lat is not None and fbo_lng is not None:

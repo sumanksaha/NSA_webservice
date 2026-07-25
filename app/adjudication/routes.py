@@ -7,11 +7,11 @@ from app.models import Adjudication, FboIssue
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.filters import parse_date
 from app.utils.suggester import suggest_sections
-from app.inspection.audit import log_audit
+from app.services.audit import log_audit
 from app.models import PhotoEvidence
 from app.services.sheets_sync import sync_to_sheets
 import json
-from app.utils.pdf_utils import generate_pdf_from_html
+from app.utils.pdf_utils import generate_pdf_from_html, embed_photos_as_base64
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
     DERIVED_SECTIONS_DISPLAY,
@@ -208,7 +208,11 @@ def lookup_fbo_issues():
     
     if issue_id:
         # Specific issue lookup by ID
-        query = query.filter_by(id=int(issue_id))
+        try:
+            issue_id_int = int(issue_id)
+        except ValueError:
+            return jsonify({'error': 'issue_id must be an integer'}), 400
+        query = query.filter_by(id=issue_id_int)
     elif fbo_id:
         # Lookup all issues for this FBO
         query = query.filter_by(fbo_id=fbo_id)
@@ -393,7 +397,8 @@ def regenerate_adjudication_documents(case_id):
     
     # Add photos to context
     context['adjudication'] = {
-        'photos': final_photos
+        'photos': final_photos,
+        'photo_embeds': embed_photos_as_base64([p.filepath for p in final_photos]),
     }
     
     # Log adjudication order generation with photo evidence details
@@ -509,8 +514,19 @@ def generate_all():
             db.session.rollback()
     
     # Try syncing to Google Sheets (new module-based sync)
+    _ALLOWED_SHEETS_COLUMNS = {
+        'case_number', 'food_safety_officer', 'non_license', 'pre_authorization',
+        'complaint_lodged', 'ce_license_no', 'ce_trade_name', 'ce_proprietor',
+        'ce_address', 'ce_status', 'fbo_owner', 'fbo_name', 'fbo_address',
+        'fssai_license', 'concerned_food', 'problem', 'First_inspection_date',
+        'compliance_deadline', 'Complaint_date', 'inspection_date', 'authorization_date',
+        'clean_premise', 'refrigerator_clean', 'proper_attire', 'proper_covered_utensil',
+        'date_tag', 'veg_nonveg_separation', 'food_segregation', 'license_display',
+        'artificial_colour', 'Expired_item', 'Pest_report', 'Water_report',
+        'section_55', 'section_56', 'section_58', 'section_63', 'section_64',
+    }
     try:
-        row_dict = {k: v for k, v in form_data.items() if k in adj.__dict__}
+        row_dict = {k: v for k, v in form_data.items() if k in _ALLOWED_SHEETS_COLUMNS}
         row_dict['created_at'] = adj.created_at.isoformat() if adj.created_at else ""
         success = sync_to_sheets("non_sample", row_dict)
         if not success:
@@ -592,7 +608,8 @@ def generate_all():
     
     # Add photos to context
     context['adjudication'] = {
-        'photos': final_photos
+        'photos': final_photos,
+        'photo_embeds': embed_photos_as_base64([p.filepath for p in final_photos]),
     }
     
     # Log adjudication order generation with photo evidence details
@@ -609,7 +626,7 @@ def generate_all():
         ]
     else:
         if not form_data.get('authorization_date'):
-            return "authorization_date is required when Pre-Authorization Case is not checked.", 400
+            return jsonify({"error": "authorization_date is required when Pre-Authorization Case is not checked."}), 400
         templates_to_generate = [
             ("adjudication/template_nonsample_petition.html", "Petition")
         ]
