@@ -58,6 +58,9 @@ def upgrade():
     # 3. Fix FboIssue.created_at / updated_at type: String -> DateTime
     #    and add new columns (reg_lat, reg_lng, geocoded_at)
     # ========================================================================
+    # NOTE: add_column calls must be done OUTSIDE batch_alter_table on
+    # SQLite to avoid a CircularDependencyError in Alembic's topological
+    # sort when multiple nullable columns are added in one batch.
     with op.batch_alter_table('fbo_issue', schema=None) as batch_op:
         batch_op.alter_column('created_at',
             existing_type=sa.String(),
@@ -69,9 +72,9 @@ def upgrade():
             type_=sa.DateTime(),
             existing_nullable=False,
             server_default=sa.text('CURRENT_TIMESTAMP'))
-        batch_op.add_column(sa.Column('reg_lat', sa.Float(), nullable=True))
-        batch_op.add_column(sa.Column('reg_lng', sa.Float(), nullable=True))
-        batch_op.add_column(sa.Column('geocoded_at', sa.DateTime(), nullable=True))
+    op.add_column('fbo_issue', sa.Column('reg_lat', sa.Float(), nullable=True))
+    op.add_column('fbo_issue', sa.Column('reg_lng', sa.Float(), nullable=True))
+    op.add_column('fbo_issue', sa.Column('geocoded_at', sa.DateTime(), nullable=True))
 
     # ========================================================================
     # 4. Fix FboIssueAudit.asserted_at type: String -> DateTime

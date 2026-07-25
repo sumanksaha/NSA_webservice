@@ -12,4 +12,5 @@ num2words
 httpx
 gunicorn
 openpyxl
-
+pi-cache-optimizer
+boto3

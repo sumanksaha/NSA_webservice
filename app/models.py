@@ -131,6 +131,30 @@ class Adjudication(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
 
+    # Photo evidence (linked to R2/B2 storage via app.utils.storage)
+    photos = db.relationship(
+        'InspectionPhoto', backref='adjudication',
+        cascade='all, delete-orphan',
+    )
+
+
+class InspectionPhoto(db.Model):
+    __tablename__ = 'inspection_photos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    adjudication_id = db.Column(
+        db.Integer,
+        db.ForeignKey('adjudications.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    file_url = db.Column(db.String(500), nullable=False)
+    caption = db.Column(db.String(200))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('idx_inspection_photos_adjudication_id', 'adjudication_id'),
+    )
+
 
 class Bill(db.Model):
     __tablename__ = 'bills'

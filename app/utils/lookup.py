@@ -5,7 +5,12 @@ import re
 import json
 import httpx
 import time
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    # fcntl is Unix-only; on Windows file locking is skipped (single-process
+    # rate limiting still works via the timestamp file).
+    fcntl = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # app/utils is nested two levels deep from the workspace root
@@ -73,7 +78,8 @@ def lookup_ce(license_no: str):
     lock_fd = None
     try:
         lock_fd = open(_KMC_LOCK_PATH, 'w')
-        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        if fcntl:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
         try:
             with open(_KMC_LAST_REQUEST_TIME_PATH, 'r') as f:
@@ -93,7 +99,8 @@ def lookup_ce(license_no: str):
     finally:
         if lock_fd:
             try:
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                if fcntl:
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
                 lock_fd.close()
             except Exception:
                 pass
