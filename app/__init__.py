@@ -85,10 +85,15 @@ def create_app():
     # Import models so they're registered with SQLAlchemy metadata
     from app import models  # noqa: F401 — registers all models with db.metadata
     
-    # Temporarily disabled for Alembic migration generation
-    # with app.app_context():
-    #     db.create_all()
-        
+    # Fallback safeguard: if core tables are missing (e.g., fresh local DB
+    # without migrations applied), create them so startup sync doesn't fail.
+    with app.app_context():
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(db.get_engine(app))
+        if 'fso' not in inspector.get_table_names():
+            db.create_all()
+            app.logger.info('Created missing tables via db.create_all() fallback')
+    
     return app
 
 
