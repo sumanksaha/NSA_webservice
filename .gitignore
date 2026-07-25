@@ -14,3 +14,4 @@ __pycache__/
 
 # Local development test scripts (not part of core test suite)
 smoke_test.py
+nul
