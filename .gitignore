@@ -1,5 +1,6 @@
 # Google Sheets API Private Credentials
 instance/credentials.json
+credentials.json
 
 # Local Runtime SQLite Database (Active Instance Store)
 instance/app.db

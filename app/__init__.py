@@ -1,11 +1,18 @@
 import os
 import threading
+from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, url_for
+from flask import Flask, redirect, url_for, request
 from flask_migrate import Migrate
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from flask_login import current_user
 
 from app.extensions import db
+from app.extensions import talisman
+from app.extensions import csrf
+from app.extensions import login_manager
 
 _fso_sync_lock = threading.Lock()
 
@@ -18,6 +25,30 @@ def create_app():
 
     # Load environment variables from .env file before any config
     load_dotenv()
+
+    # ------------------------------------------------------------------
+    # Mandatory: SECRET_KEY — required for session signing, flash messages,
+    #             CSRF tokens, and any cryptographic signing in Flask.
+    # ------------------------------------------------------------------
+    # In production this MUST be a long, random value.  Generate one with:
+    #     python -c "import secrets; print(secrets.token_hex(32))"
+    # ------------------------------------------------------------------
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        if os.environ.get("RENDER"):
+            raise RuntimeError(
+                "SECRET_KEY environment variable is not set. "
+                "Generate a secure random key and add it to your Render dashboard "
+                "environment variables."
+            )
+        # In local development, use a fallback so the app can start without
+        # requiring every developer to create a .env file immediately.
+        secret_key = "dev-secret-key-do-not-use-in-production"
+        app.logger.warning(
+            "SECRET_KEY not set — using insecure fallback. "
+            "Set SECRET_KEY in your .env file for local development."
+        )
+    app.config["SECRET_KEY"] = secret_key
 
     # Ensure instance folder exists
     os.makedirs(app.instance_path, exist_ok=True)
@@ -48,14 +79,124 @@ def create_app():
     # Redis configuration (can be set via environment variable)
     app.config["REDIS_URL"] = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-    # Google Sheets configuration (can be set via environment variable)
+    # Google Sheets configuration (can be set via environment variables)
     app.config["SPREADSHEET_ID"] = os.environ.get("SPREADSHEET_ID")
+    app.config["GOOGLE_CREDENTIALS_JSON"] = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+
+    # ------------------------------------------------------------------
+    # Security headers & HTTPS enforcement via Flask-Talisman
+    # ------------------------------------------------------------------
+    # Render terminates TLS at the edge.  We use ProxyFix so Flask/Talisman
+    # trust the X-Forwarded-Proto header and don't create a redirect loop.
+    # ------------------------------------------------------------------
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+    is_production = bool(os.environ.get("RENDER")) or \
+        os.environ.get("APP_ENV", "").lower() in ("production", "prod") or \
+        os.environ.get("FLASK_ENV", "").lower() == "production"
+
+    csp = {
+        'default-src': ["'self'"],
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com',
+            'https://cdnjs.cloudflare.com',
+        ],
+        'font-src': [
+            "'self'",
+            'https://fonts.gstatic.com',
+            'https://cdnjs.cloudflare.com',
+        ],
+        'script-src': [
+            "'self'",
+            "'unsafe-inline'",
+        ],
+        'img-src': [
+            "'self'",
+            'data:',
+        ],
+        'connect-src': ["'self'"],
+        'frame-ancestors': ["'none'"],
+        'form-action': ["'self'"],
+        'base-uri': ["'self'"],
+    }
+
+    talisman.init_app(
+        app,
+        force_https=is_production,
+        force_https_permanent=is_production,
+        content_security_policy=csp,
+        content_security_policy_report_only=False,
+        content_security_policy_report_uri="/csp-report",
+        strict_transport_security=is_production,
+        strict_transport_security_max_age=31536000,
+        strict_transport_security_include_subdomains=is_production,
+        session_cookie_secure=is_production,
+        session_cookie_http_only=True,
+        session_cookie_samesite='Lax',
+    )
+
+    # ------------------------------------------------------------------
+    # Session cookie hardening (backstop / explicit config)
+    # ------------------------------------------------------------------
+    # These mirror what Talisman sets above but are repeated here so they
+    # are obvious in one place and work even if Talisman is removed later.
+    # ------------------------------------------------------------------
+    app.config["SESSION_COOKIE_SECURE"] = is_production
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+    app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+
+    # Initialize CSRF protection (uses SECRET_KEY set above)
+    csrf.init_app(app)
 
     # Initialize SQLAlchemy database
     db.init_app(app)
 
     # Initialize Flask-Migrate
     migrate = Migrate(app, db)
+
+    # ------------------------------------------------------------------
+    # Flask-Login: user_loader callback
+    # ------------------------------------------------------------------
+    from app.models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return User.query.get(int(user_id))
+        except (ValueError, TypeError):
+            return None
+
+    login_manager.init_app(app)
+
+    # ------------------------------------------------------------------
+    # Global login gate — every route requires authentication UNLESS it
+    # is one of the public endpoints listed below.
+    # ------------------------------------------------------------------
+    PUBLIC_ENDPOINTS = {
+        "auth.login",
+        "static",
+    }
+
+    @app.before_request
+    def set_audit_user():
+        """Store the current user ID on ``db.session.info`` so that audit
+        event hooks can read it without depending on the request context."""
+        try:
+            db.session.info["audit_user_id"] = (
+                current_user.get_id() if current_user.is_authenticated else None
+            )
+        except (RuntimeError, AttributeError):
+            db.session.info["audit_user_id"] = None
+
+    @app.before_request
+    def require_login():
+        if request.endpoint and request.endpoint not in PUBLIC_ENDPOINTS:
+            if not current_user.is_authenticated:
+                return redirect(url_for("auth.login", next=request.url))
 
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words
@@ -64,7 +205,18 @@ def create_app():
     app.jinja_env.filters["format_date"] = format_date_indian
     app.jinja_env.filters["format_date_indian"] = format_date_indian
 
-    # Register blueprints
+    # Flask-Login already exposes current_user in all templates,
+    # no need for a custom context_processor.
+
+    # ------------------------------------------------------------------
+    # Wire up SQLAlchemy audit event hooks for Adjudication, Bill, CaseFile
+    # ------------------------------------------------------------------
+    from app.audit_hooks import register_audit_hooks
+    register_audit_hooks()
+
+    # Register blueprints (auth first so login page is available)
+    from app.auth import auth_bp
+    from app.audit import audit_bp
     from app.adjudication.routes import adjudication_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
@@ -74,6 +226,7 @@ def create_app():
     from app.sample.routes import sample_bp
     from app.settings.routes import settings_bp
 
+    app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
     app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
@@ -82,6 +235,7 @@ def create_app():
     app.register_blueprint(billing_bp, url_prefix="/billing")
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(inspection_bp, url_prefix="/inspection")
+    app.register_blueprint(audit_bp, url_prefix="/admin")
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
