@@ -116,9 +116,13 @@ def create_app():
         return redirect(url_for("case_file_generator.index"))
 
     # Initialize Celery with Flask app context support
-    from celery_app import make_celery
-
-    app.celery = make_celery(app)
+    # Lazy import to avoid ModuleNotFoundError in deployment environments
+    try:
+        from celery_app import make_celery
+        app.celery = make_celery(app)
+    except ImportError:
+        # Celery not available (e.g., in minimal deployment)
+        app.celery = None
 
     return app
 
