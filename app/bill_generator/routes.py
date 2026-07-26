@@ -1,5 +1,4 @@
-import io
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app
+from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
 from app.models import Bill, FboIssue, Sample
 from app.utils.filters import parse_date
@@ -182,7 +181,7 @@ def generate_bill_route():
     except Exception as e:
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
         
-    # Render the PDF template with explicit allowlist
+    # Build template variables for synchronous PDF generation
     _ALLOWED_TEMPLATE_VARS = {
         'Name', 'EMP_ID', 'Designation', 'Enf_samp_No', 'Surv_samp_No',
         'Total_bill', 'No_of_enfbills', 'No_of_survbills', 'TR_Value',
@@ -190,23 +189,27 @@ def generate_bill_route():
         'enforcement_price', 'surveillance_price',
     }
     template_vars = {k: form_data.get(k, '') for k in _ALLOWED_TEMPLATE_VARS}
-    rendered_html = render_template('bill_generator/template.html', **template_vars)
     
-    # Compile in-memory PDF via BytesIO
-    pdf_buffer = io.BytesIO()
-    try:
-        from weasyprint import HTML
+    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
+    # Switch to .delay() once a persistent Celery worker is available.
+    from app.bill_generator.tasks import generate_bill_pdf
 
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        
-        filename = f"Inspection_Report_{bill_record.Name.replace(' ', '_')}.pdf"
-        return send_file(
-            pdf_buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/pdf"
-        )
-    except Exception as e:
-        print(f"Error compiling billing report to PDF: {e}")
-        return jsonify({"error": f"Failed to generate billing PDF: {str(e)}"}), 500
+    try:
+        result = generate_bill_pdf.apply(
+            kwargs=dict(bill_id=bill_record.id, template_vars=template_vars),
+        ).result
+    except Exception as exc:
+        current_app.logger.error("Bill PDF generation failed: %s", exc)
+        return jsonify({"error": f"Bill PDF generation failed: {exc}"}), 500
+
+    # Unwrap task error metadata for consistent HTTP error responses
+    if result.get("status") == "error":
+        error_msg = result.get("error", "PDF generation failed")
+        current_app.logger.error("Bill PDF generation returned error: %s", error_msg)
+        return jsonify({"error": error_msg}), 500
+
+    return jsonify({
+        "message": "Bill created; PDF generated",
+        "bill_id": bill_record.id,
+        "pdf_result": result,
+    }), 200

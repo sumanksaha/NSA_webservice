@@ -3,7 +3,7 @@ import math
 import time
 
 # Module-level variable for rate limiting
-_last_request_time = 0
+_last_request_time: float = 0.0
 
 
 def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

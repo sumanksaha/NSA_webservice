@@ -39,7 +39,7 @@ def _acquire_audit_lock(entity_id: str) -> None:
         )
 
 
-def compute_hash(prev_hash: str, entity_id: str, action: str,
+def compute_hash(prev_hash: str | None, entity_id: str, action: str,
                  timestamp: str, details_json: str) -> str:
     """
     Returns sha256 hex digest of:

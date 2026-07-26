@@ -1,3 +1,4 @@
+# type: ignore
 """
 Derived context helpers for document generation (STEP 4 of uniform-keys migration).
 

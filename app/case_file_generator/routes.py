@@ -1,7 +1,5 @@
-import io
-import zipfile
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app
 from app.extensions import db
 from app.models import CaseFile, Sample
 from app.utils.lookup import lookup_fssai
@@ -239,35 +237,31 @@ def regenerate_case_files(case_id):
     form_data = case_file_to_dict(case_file)
     case_data = process_form_data(form_data)
     
+    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
+    # Switch to .delay() once a persistent Celery worker is available.
+    from app.case_file_generator.tasks import generate_case_file_pdf
+
     try:
-        from weasyprint import HTML
-        petition_html = render_template('case_file_generator/petition.html', **case_data)
-        permission_html = render_template('case_file_generator/permission_letter.html', **case_data)
-        
-        petition_pdf = io.BytesIO()
-        HTML(string=petition_html).write_pdf(petition_pdf)
-        petition_pdf.seek(0)
-        
-        permission_pdf = io.BytesIO()
-        HTML(string=permission_html).write_pdf(permission_pdf)
-        permission_pdf.seek(0)
-        
-        zip_buffer = io.BytesIO()
-        case_number = case_data.get('case_number', 'unknown').replace('/', '_')
-        
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(f"Petition_{case_number}.pdf", petition_pdf.getvalue())
-            zf.writestr(f"Permission_Letter_{case_number}.pdf", permission_pdf.getvalue())
-        
-        zip_buffer.seek(0)
-        return send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=f"Case_Files_{case_number}_Regenerated.zip",
-            mimetype="application/zip"
+        result = generate_case_file_pdf.apply(
+            kwargs=dict(case_file_id=case_file.id, case_data=case_data),
+        ).result
+    except Exception as exc:
+        current_app.logger.error(
+            "Case file PDF regeneration failed: %s", exc
         )
-    except Exception as e:
-        return jsonify({"error": f"Failed to regenerate: {str(e)}"}), 500
+        return jsonify({"error": f"Case file PDF regeneration failed: {exc}"}), 500
+
+    # Unwrap task error metadata for consistent HTTP error responses
+    if result.get("status") == "error":
+        error_msg = result.get("error", "PDF regeneration failed")
+        current_app.logger.error("Case file PDF regeneration returned error: %s", error_msg)
+        return jsonify({"error": error_msg}), 500
+
+    return jsonify({
+        "message": "Case file PDF regenerated",
+        "case_file_id": case_file.id,
+        "pdf_result": result,
+    }), 200
 
 
 @case_file_generator_bp.route('/lookup_fssai', methods=['POST'])
@@ -416,41 +410,30 @@ def generate_case_file_route():
     except Exception as e:
         current_app.logger.warning(f"Case File: Sheets sync failed: {e}")
         
-    # Render templates and compile in-memory PDFs using WeasyPrint
+    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
+    # Switch to .delay() once a persistent Celery worker is available.
     case_data = process_form_data(form_data)
     
-    try:
-        from weasyprint import HTML
+    from app.case_file_generator.tasks import generate_case_file_pdf
 
-        petition_html = render_template('case_file_generator/petition.html', **case_data)
-        permission_html = render_template('case_file_generator/permission_letter.html', **case_data)
-        
-        # Write to in-memory buffers
-        petition_pdf = io.BytesIO()
-        HTML(string=petition_html).write_pdf(petition_pdf)
-        petition_pdf.seek(0)
-        
-        permission_pdf = io.BytesIO()
-        HTML(string=permission_html).write_pdf(permission_pdf)
-        permission_pdf.seek(0)
-        
-        # Package into in-memory ZIP file
-        zip_buffer = io.BytesIO()
-        case_number = case_data.get('case_number', 'unknown').replace('/', '_')
-        
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(f"Petition_{case_number}.pdf", petition_pdf.getvalue())
-            zf.writestr(f"Permission_Letter_{case_number}.pdf", permission_pdf.getvalue())
-            
-        zip_buffer.seek(0)
-        
-        return send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=f"Case_Files_{case_number}.zip",
-            mimetype="application/zip"
+    try:
+        result = generate_case_file_pdf.apply(
+            kwargs=dict(case_file_id=case_file_record.id, case_data=case_data),
+        ).result
+    except Exception as exc:
+        current_app.logger.error(
+            "Case file PDF generation failed: %s", exc
         )
-        
-    except Exception as e:
-        print(f"Error generating case files in memory: {e}")
-        return jsonify({"error": f"Failed to generate case files: {str(e)}"}), 500
+        return jsonify({"error": f"Case file PDF generation failed: {exc}"}), 500
+
+    # Unwrap task error metadata for consistent HTTP error responses
+    if result.get("status") == "error":
+        error_msg = result.get("error", "PDF generation failed")
+        current_app.logger.error("Case file PDF generation returned error: %s", error_msg)
+        return jsonify({"error": error_msg}), 500
+
+    return jsonify({
+        "message": "Case file created; PDF generated",
+        "case_file_id": case_file_record.id,
+        "pdf_result": result,
+    }), 200

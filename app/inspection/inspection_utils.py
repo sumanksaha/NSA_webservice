@@ -83,7 +83,7 @@ def generate_inspection_code() -> str:
     )
 
 
-def calculate_compliance_deadline(inspection_date) -> datetime:
+def calculate_compliance_deadline(inspection_date) -> datetime | None:
     """
     Calculate compliance deadline as inspection_date + 30 days.
 

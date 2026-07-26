@@ -2,7 +2,7 @@ import requests
 import time
 
 # Module-level variable for rate limiting
-_last_request_time = 0
+_last_request_time: float = 0.0
 
 
 def reverse_geocode(lat: float, lng: float) -> dict:

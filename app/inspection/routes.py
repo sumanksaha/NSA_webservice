@@ -24,6 +24,13 @@ from werkzeug.utils import secure_filename
 # Import the blueprint from __init__.py
 from app.inspection import inspection_bp
 
+# Lazy-load OCR task availability flag (graceful fallback if deps missing)
+try:
+    from app.inspection.tasks import run_ocr_extraction
+    _OCR_AVAILABLE = True
+except ImportError:
+    _OCR_AVAILABLE = False
+
 
 @inspection_bp.route('/')
 def index():
@@ -918,9 +925,21 @@ def upload_photo_evidence():
     # Log audit for photo saved
     log_audit("photo", image_id, "PHOTO_SAVED", actor, {"filepath": filepath})
 
+    # Trigger async OCR extraction on the stamped image
+    if _OCR_AVAILABLE:
+        try:
+            ocr_task = run_ocr_extraction.delay(file_path=filepath)
+            ocr_task_id = ocr_task.id
+        except Exception as exc:
+            current_app.logger.warning("Failed to enqueue OCR task: %s", exc)
+            ocr_task_id = None
+    else:
+        ocr_task_id = None
+
     return jsonify({
         'image_id': image_id,
-        'verification_status': result["verification_status"]
+        'verification_status': result["verification_status"],
+        'ocr_task_id': ocr_task_id
     }), 201
 
 

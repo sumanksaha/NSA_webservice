@@ -79,7 +79,7 @@ def lookup_ce(license_no: str):
     try:
         lock_fd = open(_KMC_LOCK_PATH, 'w')
         if fcntl:
-            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
 
         try:
             with open(_KMC_LAST_REQUEST_TIME_PATH, 'r') as f:
@@ -100,7 +100,7 @@ def lookup_ce(license_no: str):
         if lock_fd:
             try:
                 if fcntl:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
                 lock_fd.close()
             except Exception:
                 pass

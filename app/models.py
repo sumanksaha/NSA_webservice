@@ -1,3 +1,4 @@
+# type: ignore
 from datetime import datetime
 from sqlalchemy.orm import validates
 from app.extensions import db
@@ -62,6 +63,10 @@ class CaseFile(db.Model):
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
+    
+    # PDF generation tracking (populated by Celery task)
+    pdf_task_id = db.Column(db.String(100), nullable=True)
+    pdf_generated_at = db.Column(db.DateTime, nullable=True)
 
     @validates('sample_id')
     def sync_sample_code(self, key, sample_id):
@@ -179,6 +184,10 @@ class Bill(db.Model):
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
+    
+    # PDF generation tracking (populated by Celery task)
+    pdf_task_id = db.Column(db.String(100), nullable=True)
+    pdf_generated_at = db.Column(db.DateTime, nullable=True)
     
     # Relationship to samples
     samples = db.relationship('Sample', secondary='bill_sample', backref='bills')
