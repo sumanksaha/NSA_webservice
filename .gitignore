@@ -7,6 +7,9 @@ instance/app.db
 # Database backup files (should never be tracked)
 instance/*.backup_*
 
+# Pipeline backup files (safety copies, not primary data)
+*_backup.csv
+
 # Dynamic Bytecode and Environment Cache
 __pycache__/
 *.pyc

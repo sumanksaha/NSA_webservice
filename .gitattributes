@@ -1,12 +1,10 @@
 # .gitattributes - Enterprise Line Ending Configuration
 # For Python/FastAPI projects deployed on Linux
 # Generated: 2026
-
 # =============================================================================
 # DEFAULT: Use LF for all text files (Linux-standard)
 # =============================================================================
 * text=auto eol=lf
-
 # =============================================================================
 # PYTHON FILES - CRITICAL: Always LF
 # Must be LF for Python to work correctly on Linux deployment
@@ -15,7 +13,6 @@
 *.pyc text eol=lf -diff
 *.pyo text eol=lf -diff
 *.pyd text eol=lf -diff
-
 # =============================================================================
 # SHELL SCRIPTS - CRITICAL: Always LF
 # Shell scripts must have LF for Linux/macOS compatibility
@@ -26,21 +23,18 @@
 *.fish text eol=lf -diff
 *.csh text eol=lf -diff
 *.ksh text eol=lf -diff
-
 # =============================================================================
 # WINDOWS BATCH FILES - Keep CRLF
 # Windows-specific files that require CRLF to function
 # =============================================================================
 *.bat text eol=crlf -diff
 *.cmd text eol=crlf -diff
-
 # =============================================================================
 # POWERSHELL SCRIPTS - Windows-native, allow native line endings
 # =============================================================================
 *.ps1 text eol=crlf -diff
 *.psm1 text eol=crlf -diff
 *.psd1 text eol=crlf -diff
-
 # =============================================================================
 # CONFIGURATION FILES - LF
 # =============================================================================
@@ -53,7 +47,6 @@
 *.cfg text eol=lf -diff
 *.conf text eol=lf -diff
 *.config text eol=lf -diff
-
 # =============================================================================
 # MARKUP AND WEB FILES - LF
 # =============================================================================
@@ -72,21 +65,18 @@
 *.vue text eol=lf -diff
 *.xml text eol=lf -diff
 *.svg text eol=lf -diff
-
 # =============================================================================
 # DATA AND DATABASE FILES - LF
 # =============================================================================
 *.sql text eol=lf -diff
 *.csv text eol=lf -diff
 *.tsv text eol=lf -diff
-
 # =============================================================================
 # DOCUMENTATION - LF
 # =============================================================================
 *.txt text eol=lf -diff
 *.rst text eol=lf -diff
 *.tex text eol=lf -diff
-
 # =============================================================================
 # BUILD AND CI FILES - LF
 # =============================================================================
@@ -98,13 +88,11 @@ Makefile text eol=lf -diff
 Rakefile text eol=lf -diff
 Jenkinsfile text eol=lf -diff
 *.gradle text eol=lf -diff
-
 # =============================================================================
 # LICENSE AND LEGAL - LF
 # =============================================================================
 LICENSE text eol=lf -diff
 COPYING text eol=lf -diff
-
 # =============================================================================
 # BINARY FILES - Never modify line endings
 # =============================================================================
@@ -128,10 +116,14 @@ COPYING text eol=lf -diff
 *.db binary
 *.sqlite binary
 *.sqlite3 binary
-
 # =============================================================================
 # GIT LFS FILES
 # =============================================================================
+# Pipeline output CSV files (large) — override the general *.csv text rule above
+rejected_number_mismatch.csv filter=lfs diff=lfs merge=lfs -text
+extracted_with_exact_groups.csv filter=lfs diff=lfs merge=lfs -text
+fuzzy_candidates.csv filter=lfs diff=lfs merge=lfs -text
+review_priority.csv filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.tar.gz filter=lfs diff=lfs merge=lfs -text
 *.tar.bz2 filter=lfs diff=lfs merge=lfs -text
@@ -163,7 +155,6 @@ COPYING text eol=lf -diff
 *.ear filter=lfs diff=lfs merge=lfs -text
 *.iso filter=lfs diff=lfs merge=lfs -text
 *.dmg filter=lfs diff=lfs merge=lfs -text
-
 # =============================================================================
 # ENSURE THESE FILES ARE ALWAYS LF (safety override)
 # =============================================================================
