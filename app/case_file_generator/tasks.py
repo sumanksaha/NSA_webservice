@@ -21,7 +21,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-@celery.task(bind=True, max_retries=3)
 def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
     """
     Render Petition + Permission Letter PDFs from Jinja2 templates and
@@ -119,3 +118,8 @@ def _metadata(case_file_id, file_path, generated_at, status, error):
         "status": status,
         "error": error,
     }
+
+
+# Register as Celery task if celery is available
+if celery is not None:
+    generate_case_file_pdf = celery.task(bind=True, max_retries=3)(generate_case_file_pdf)

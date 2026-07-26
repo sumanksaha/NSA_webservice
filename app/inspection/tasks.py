@@ -12,7 +12,6 @@ except ImportError:
     celery = None
 
 
-@celery.task(bind=True, max_retries=3)
 def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
     """
     Perform zonal OCR on a scanned PDF or image file.
@@ -125,3 +124,8 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
     results["_ocr_errors"] = ocr_error_count
 
     return results
+
+
+# Register as Celery task if celery is available
+if celery is not None:
+    run_ocr_extraction = celery.task(bind=True, max_retries=3)(run_ocr_extraction)

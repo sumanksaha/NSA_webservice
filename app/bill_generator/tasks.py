@@ -19,7 +19,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-@celery.task(bind=True, max_retries=3)
 def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
     """
     Render a bill PDF from a Jinja2 template and save it to disk.
@@ -100,3 +99,8 @@ def _metadata(bill_id, file_path, generated_at, status, error):
         "status": status,
         "error": error,
     }
+
+
+# Register as Celery task if celery is available
+if celery is not None:
+    generate_bill_pdf = celery.task(bind=True, max_retries=3)(generate_bill_pdf)

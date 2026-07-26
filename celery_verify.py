@@ -774,18 +774,22 @@ else:
 # ===================================================================
 header("CHECK 7: Queue routing")
 
-try:
-    task_routes = global_celery.conf.get("task_routes", None) or {}
-    has_routes = bool(task_routes) and any(v for v in task_routes.values())
-    for tname, tobj in [("run_ocr_extraction", run_ocr_extraction),
-                        ("generate_bill_pdf", generate_bill_pdf),
-                        ("generate_case_file_pdf", generate_case_file_pdf)]:
-        q = getattr(tobj, "queue", "celery (default)")
-        record(tname, "queue_routing", OK,
-               f"Queue: {q} | task_routes={'yes' if has_routes else 'not configured (all default)'}")
-except Exception as e:
+if global_celery is None:
     for t in ["run_ocr_extraction", "generate_bill_pdf", "generate_case_file_pdf"]:
-        record(t, "queue_routing", FAIL_MARK, str(e)[:100])
+        record(t, "queue_routing", SKIP_MARK, "Celery not available (celery_app import failed)")
+else:
+    try:
+        task_routes = global_celery.conf.get("task_routes", None) or {}
+        has_routes = bool(task_routes) and any(v for v in task_routes.values())
+        for tname, tobj in [("run_ocr_extraction", run_ocr_extraction),
+                            ("generate_bill_pdf", generate_bill_pdf),
+                            ("generate_case_file_pdf", generate_case_file_pdf)]:
+            q = getattr(tobj, "queue", "celery (default)")
+            record(tname, "queue_routing", OK,
+                   f"Queue: {q} | task_routes={'yes' if has_routes else 'not configured (all default)'}")
+    except Exception as e:
+        for t in ["run_ocr_extraction", "generate_bill_pdf", "generate_case_file_pdf"]:
+            record(t, "queue_routing", FAIL_MARK, str(e)[:100])
 
 # ===================================================================
 # SUMMARY TABLE
