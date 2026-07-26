@@ -4,6 +4,7 @@ from app.extensions import db
 from app.models import CaseFile, Sample
 from app.utils.lookup import lookup_fssai
 from app.utils.filters import format_date_indian, parse_date
+from sqlalchemy.orm.exc import StaleDataError
 from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
@@ -384,7 +385,13 @@ def generate_case_file_route():
     )
     
     db.session.add(case_file_record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({
+            "error": "This case file was modified by another user. Please reload and try again."
+        }), 409
     
     # Try syncing to Google Sheets (new module-based sync)
     _ALLOWED_SHEETS_COLUMNS = {

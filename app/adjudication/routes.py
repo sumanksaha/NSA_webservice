@@ -11,6 +11,7 @@ from app.services.audit import log_audit
 from app.models import PhotoEvidence
 from app.services.sheets_sync import sync_to_sheets
 import json
+from sqlalchemy.orm.exc import StaleDataError
 from app.utils.pdf_utils import generate_pdf_from_html, embed_photos_as_base64
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
@@ -495,7 +496,13 @@ def generate_all():
     )
     
     db.session.add(adj)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({
+            "error": "This adjudication was modified by another user. Please reload and try again."
+        }), 409
     
     # Link back to inspection if this was created from one
     from_inspection = form_data.get('from_inspection')
@@ -508,7 +515,13 @@ def generate_all():
                 today = datetime.utcnow()
                 if inspection.compliance_deadline and inspection.compliance_deadline < today:
                     inspection.adjudication_id = adj.id
-                    db.session.commit()
+                    try:
+                        db.session.commit()
+                    except StaleDataError:
+                        db.session.rollback()
+                        current_app.logger.warning(
+                            f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}"
+                        )
         except Exception as e:
             current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
             db.session.rollback()

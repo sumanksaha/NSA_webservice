@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
 from app.models import Bill, FboIssue, Sample
 from app.utils.filters import parse_date
+from sqlalchemy.orm.exc import StaleDataError
 from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
 from app.services.sheets_sync import sync_to_sheets
 import json
@@ -165,7 +166,13 @@ def generate_bill_route():
     )
     
     db.session.add(bill_record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({
+            "error": "This bill was modified by another user. Please reload and try again."
+        }), 409
     
     # Mark samples as billed and link to bill
     actual_sample_ids = [s['sample_id'] for s in sample_data['samples']]

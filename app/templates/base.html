@@ -13,6 +13,9 @@
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- CSRF token for AJAX requests (injected by Flask-WTF) -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!-- Theme CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     
@@ -226,6 +229,16 @@
                     <i class="fa-solid fa-gear"></i> Settings
                 </a>
             </nav>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                {% if current_user.is_authenticated %}
+                <span style="font-size: 13px; color: var(--text-body);">
+                    <i class="fa-solid fa-user"></i> {{ current_user.username }}
+                </span>
+                <a href="{{ url_for('auth.logout') }}" class="tab-link" style="padding: 8px 14px; font-size: 13px;">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+                {% endif %}
+            </div>
         </div>
     </header>
 
@@ -237,6 +250,28 @@
         <p>&copy; 2026 Kolkata Municipal Corporation, Food Safety Department. All Rights Reserved. Built with <i class="fa-solid fa-heart" style="color: var(--accent-secondary);"></i> using Flask & WeasyPrint.</p>
     </footer>
     
+    <script>
+    // Auto-attach CSRF token (X-CSRFToken header) to every fetch() call
+    // that performs a state-changing request (POST / PUT / DELETE / PATCH).
+    // The token is read from the <meta name="csrf-token"> tag once at page load.
+    (function() {
+        var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (!csrfToken) return;
+        var token = csrfToken.getAttribute('content');
+        if (!token) return;
+
+        var originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            var method = (options.method || 'GET').toUpperCase();
+            if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(method) !== -1) {
+                options.headers = options.headers || {};
+                options.headers['X-CSRFToken'] = token;
+            }
+            return originalFetch.call(this, url, options);
+        };
+    })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

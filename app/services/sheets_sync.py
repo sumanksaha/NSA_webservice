@@ -59,13 +59,33 @@ _thread_local = threading.local()
 def _get_client():
     """
     Get a gspread client using service-account authentication.
-    Uses credentials from instance/credentials.json or GOOGLE_APPLICATION_CREDENTIALS.
+
+    Priority order:
+    1. GOOGLE_CREDENTIALS_JSON environment variable (raw JSON string)
+    2. instance/credentials.json file (local dev convenience)
+    3. GOOGLE_APPLICATION_CREDENTIALS environment variable (legacy / platform)
+    4. Default gspread service-account discovery (ADC)
     """
     cached = getattr(_thread_local, 'client', None)
     if cached is not None:
         return cached
 
-    # Try to get credentials from instance/credentials.json
+    # 1. Environment variable: GOOGLE_CREDENTIALS_JSON (raw JSON string)
+    creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON') or \
+                 os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    if creds_json:
+        try:
+            import json
+            creds_data = json.loads(creds_json)
+            client = gspread.service_account_from_dict(creds_data)
+            _thread_local.client = client
+            return client
+        except json.JSONDecodeError as e:
+            current_app.logger.error(f"GOOGLE_CREDENTIALS_JSON is not valid JSON: {e}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to authenticate with GOOGLE_CREDENTIALS_JSON: {e}")
+
+    # 2. Local file: instance/credentials.json (development convenience)
     creds_path = os.path.join(current_app.instance_path, 'credentials.json')
     if os.path.exists(creds_path):
         try:
@@ -74,20 +94,8 @@ def _get_client():
             return client
         except Exception as e:
             current_app.logger.error(f"Failed to load credentials from {creds_path}: {e}")
-    
-    # Fallback to environment variable
-    try:
-        import json
-        creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-        if creds_json:
-            creds_data = json.loads(creds_json)
-            client = gspread.service_account_from_dict(creds_data)
-            _thread_local.client = client
-            return client
-    except Exception as e:
-        current_app.logger.error(f"Failed to parse GOOGLE_APPLICATION_CREDENTIALS: {e}")
-    
-    # Fallback to default service account
+
+    # 3. Default service account discovery (ADC / well-known paths)
     try:
         client = gspread.service_account()
         _thread_local.client = client

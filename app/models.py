@@ -2,11 +2,17 @@
 from datetime import datetime
 from sqlalchemy.orm import validates
 from app.extensions import db
+from flask_login import current_user
 
 class CaseFile(db.Model):
     __tablename__ = 'case_files'
     
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__ = {
+        "version_id_col": version_id,
+    }
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer_name = db.Column(db.String(100), nullable=False)
     authorization_date = db.Column(db.DateTime, nullable=False)
@@ -81,6 +87,11 @@ class Adjudication(db.Model):
     __tablename__ = 'adjudications'
     
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__ = {
+        "version_id_col": version_id,
+    }
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer = db.Column(db.String(100), nullable=False)
     
@@ -165,6 +176,11 @@ class Bill(db.Model):
     __tablename__ = 'bills'
     
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__ = {
+        "version_id_col": version_id,
+    }
     Name = db.Column(db.String(100), nullable=False)
     EMP_ID = db.Column(db.String(50), nullable=False)
     Designation = db.Column(db.String(100), nullable=False, default="Food Safety Officer")
@@ -340,6 +356,61 @@ class AuditLog(db.Model):
     prev_hash = db.Column(db.String, nullable=True)
     curr_hash = db.Column(db.String, nullable=True)
     details_json = db.Column(db.Text, nullable=True)
+
+
+class User(db.Model):
+    __tablename__ = 'user'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Flask-Login protocol
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+
+class RecordAudit(db.Model):
+    """Record-changes and login-event audit log.
+
+    This is a separate table from the hash-chained `AuditLog` used by
+    the photo-evidence system.  This one tracks:
+      - INSERT / UPDATE / DELETE on Adjudication, Bill, CaseFile
+      - login_success / login_failed events
+    """
+    __tablename__ = 'record_audit'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
+    action = db.Column(db.String(20), nullable=False)  # create|update|delete|login_success|login_failed
+    record_type = db.Column(db.String(50), nullable=False, index=True)
+    record_id = db.Column(db.String(50), nullable=False, index=True)
+    changes = db.Column(db.Text, nullable=True)  # JSON string: {"field": {"old": ..., "new": ...}}
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+
+    # Relationship
+    user = db.relationship('User', backref='audit_logs', lazy='joined')
+
+    def __repr__(self):
+        return f"<RecordAudit {self.action} {self.record_type}#{self.record_id}>"
 
 
 class CodeSequence(db.Model):

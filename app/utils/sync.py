@@ -2,32 +2,40 @@ import os
 import json
 from datetime import datetime
 import gspread
+from sqlalchemy.orm.exc import StaleDataError
 from app.extensions import db
 
 def get_gspread_client():
     """
     Authenticate and get a gspread client.
-    Attempts to read from environment variable GOOGLE_SHEETS_CREDENTIALS_JSON first,
-    then checks instance/credentials.json or credentials.json.
+
+    Priority order:
+    1. GOOGLE_CREDENTIALS_JSON environment variable (raw JSON string)
+    2. GOOGLE_SHEETS_CREDENTIALS_JSON (legacy alias)
+    3. instance/credentials.json or credentials.json (local dev convenience)
+    4. Default gspread service-account discovery (ADC)
     """
-    # 1. Environment Variable
-    creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS_JSON")
+    # 1. Environment Variable (primary name)
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON") or \
+                 os.environ.get("GOOGLE_SHEETS_CREDENTIALS_JSON")
     if creds_json:
         try:
             creds_data = json.loads(creds_json)
             return gspread.service_account_from_dict(creds_data)
+        except json.JSONDecodeError as e:
+            print(f"GOOGLE_CREDENTIALS_JSON is not valid JSON: {e}")
         except Exception as e:
-            print(f"Error parsing GOOGLE_SHEETS_CREDENTIALS_JSON environment variable: {e}")
-            
-    # 2. Local Files
+            print(f"Error parsing GOOGLE_CREDENTIALS_JSON environment variable: {e}")
+
+    # 2. Local Files (development convenience)
     for path in ['instance/credentials.json', 'credentials.json']:
         if os.path.exists(path):
             try:
                 return gspread.service_account(filename=path)
             except Exception as e:
                 print(f"Error loading credentials from {path}: {e}")
-                
-    # 3. Default System Credentials
+
+    # 3. Default System Credentials (ADC)
     try:
         return gspread.service_account()
     except Exception as e:
@@ -102,7 +110,13 @@ def sync_to_sheets():
                 worksheet.append_row(row_data)
                 record.synced_at = now
                 
-            db.session.commit()
+            try:
+                db.session.commit()
+            except StaleDataError:
+                db.session.rollback()
+                print(f"Google Sheets Sync: Version conflict syncing '{tab_name}' — retry on next sync.")
+                success = False
+                continue
             print(f"Google Sheets Sync: Successfully synced {len(unsynced_records)} rows to '{tab_name}' tab.")
             
         except Exception as e:
