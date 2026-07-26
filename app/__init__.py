@@ -27,8 +27,18 @@ def create_app():
     database_url = os.environ.get("DATABASE_URL")
     if database_url:
         # Normalize postgres:// to postgresql:// for SQLAlchemy compatibility
+        # (Render still issues the old postgres:// scheme)
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
+        # Validate URL has a scheme (basic check for malformed URLs)
+        if not any(
+            database_url.startswith(proto)
+            for proto in ["postgresql://", "sqlite://", "mysql://", "mariadb://"]
+        ):
+            app.logger.warning(
+                f"DATABASE_URL malformed: '{database_url}' - falling back to SQLite"
+            )
+            database_url = f"sqlite:///{db_path}"
         app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     else:
         app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
@@ -119,6 +129,7 @@ def create_app():
     # Lazy import to avoid ModuleNotFoundError in deployment environments
     try:
         from celery_app import make_celery
+
         app.celery = make_celery(app)
     except ImportError:
         # Celery not available (e.g., in minimal deployment)
