@@ -1,0 +1,95 @@
+# =============================================================================
+# NSA Webservice — Docker Build Workflow (Placeholder)
+# =============================================================================
+# This workflow is a placeholder for future Docker image builds.
+# It will be activated once a Dockerfile is added to the repository.
+#
+# Status: 🔒 DISABLED — Enable by removing the `if: false` line
+#         and uncommenting the trigger branches.
+# =============================================================================
+
+name: Docker Build
+
+on:
+  # Enable these when Dockerfile is ready:
+  # push:
+  #   branches: [main, upgradation]
+  #   paths:
+  #     - 'Dockerfile'
+  #     - 'docker-compose*.yml'
+  #     - '.dockerignore'
+  #     - 'requirements.txt'
+  #     - 'app/**'
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - 'Dockerfile'
+  #     - 'docker-compose*.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Docker image tag"
+        required: true
+        default: "latest"
+        type: string
+
+jobs:
+  build:
+    # =========================================================================
+    # DISABLED: Remove 'if: false' when Dockerfile exists
+    # =========================================================================
+    if: false
+    name: Build Docker Image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: ⏳ Placeholder — Docker Build Not Yet Configured
+        run: |
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Docker Build Workflow"
+          echo "═══════════════════════════════════════════════════════"
+          echo ""
+          echo "  Status: 🔒 DISABLED (Placeholder)"
+          echo ""
+          echo "  This workflow will build and push Docker images"
+          echo "  once a Dockerfile is added to the repository."
+          echo ""
+          echo "  To enable:"
+          echo "    1. Create a Dockerfile at project root"
+          echo "    2. Remove 'if: false' from this workflow"
+          echo "    3. Configure Docker Hub / GHCR credentials as secrets"
+          echo ""
+          echo "  Planned image tags:"
+          echo "    - ghcr.io/sumanksaha/nsa-webservice:latest"
+          echo "    - ghcr.io/sumanksaha/nsa-webservice:\${{ github.sha }}"
+          echo "    - ghcr.io/sumanksaha/nsa-webservice:\${{ github.ref_name }}"
+          echo ""
+          echo "═══════════════════════════════════════════════════════"
+
+      # === Future steps (uncomment when Dockerfile exists) ===
+      #
+      # - name: Checkout repository
+      #   uses: actions/checkout@v4
+      #
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v3
+      #
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+      #
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     context: .
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: |
+      #       ghcr.io/sumanksaha/nsa-webservice:latest
+      #       ghcr.io/sumanksaha/nsa-webservice:${{ github.sha }}
+      #       ghcr.io/sumanksaha/nsa-webservice:${{ github.ref_name }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max

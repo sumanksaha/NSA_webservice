@@ -1,0 +1,98 @@
+# =============================================================================
+# NSA Webservice — Deployment Workflow (Placeholder)
+# =============================================================================
+# This workflow is a placeholder for future automated deployments.
+# It will be activated once the deployment infrastructure is defined.
+#
+# Status: 🔒 DISABLED — Enable by removing the `if: false` line
+#         and configuring deployment targets.
+# =============================================================================
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      ref:
+        description: "Git ref to deploy (branch, tag, or commit SHA)"
+        required: true
+        default: "upgradation"
+        type: string
+
+  # Enable when deployment is configured:
+  # push:
+  #   branches: [main]
+  #   tags:
+  #     - 'v*.*.*'
+
+jobs:
+  deploy:
+    # =========================================================================
+    # DISABLED: Remove 'if: false' when deployment infrastructure exists
+    # =========================================================================
+    if: false
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+      url: ${{ steps.deploy-url.outputs.url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: ⏳ Placeholder — Deployment Not Yet Configured
+        run: |
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Deployment Workflow"
+          echo "═══════════════════════════════════════════════════════"
+          echo ""
+          echo "  Status: 🔒 DISABLED (Placeholder)"
+          echo ""
+          echo "  This workflow will handle automated deployments"
+          echo "  once deployment infrastructure is configured."
+          echo ""
+          echo "  Target: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "  Ref:    ${{ github.event.inputs.ref || github.ref }}"
+          echo ""
+          echo "  To enable:"
+          echo "    1. Configure deployment target (Render, Fly.io, AWS, etc.)"
+          echo "    2. Add deployment secrets to GitHub Actions Secrets"
+          echo "    3. Remove 'if: false' from this workflow"
+          echo "    4. Optionally add deploy URL output step"
+          echo ""
+          echo "═══════════════════════════════════════════════════════"
+
+      # === Future deployment steps (example: Render blueprint deploy) ===
+      #
+      # - name: Deploy to Render
+      #   uses: johnbeynon/render-deploy-action@v0.0.8
+      #   with:
+      #     service-id: ${{ secrets.RENDER_SERVICE_ID }}
+      #     api-key: ${{ secrets.RENDER_API_KEY }}
+      #
+      # - name: Set deploy URL
+      #   id: deploy-url
+      #   run: |
+      #     echo "url=https://food-adjudication-portal.onrender.com" >> $GITHUB_OUTPUT
+
+      # === Health check ===
+      #
+      # - name: Verify deployment health
+      #   run: |
+      #     sleep 30
+      #     curl --fail --retry 5 --retry-delay 10 \
+      #       https://food-adjudication-portal.onrender.com/health \
+      #       || exit 1

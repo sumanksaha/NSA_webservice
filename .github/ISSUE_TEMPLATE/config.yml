@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/sumanksaha/NSA_webservice/blob/upgradation/README.md
+    about: Check the documentation before opening an issue
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/sumanksaha/NSA_webservice/blob/upgradation/SECURITY.md
+    about: Report security vulnerabilities to our security team — do not file a public issue
+  - name: 💬 GitHub Discussions
+    url: https://github.com/sumanksaha/NSA_webservice/discussions
+    about: General questions, ideas, and community discussions
