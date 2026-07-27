@@ -105,10 +105,11 @@ def lookup_ce(license_no: str):
             except Exception:
                 pass
     
+    # SSL context with SECLEVEL=1 for government certificate compatibility
+    # Note: check_hostname and verify_mode are intentionally NOT set to False/CERT_NONE
+    # to maintain MITM protection. SECLEVEL=1 relaxes cipher requirements for older certs.
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
 
     with httpx.Client(timeout=15, verify=ctx) as client:
         client.get(
@@ -126,7 +127,7 @@ def lookup_ce(license_no: str):
 
         raw_text = resp.text
         # KMC's endpoint returns JSON with unquoted keys — fix before parsing
-        fixed_text = re.sub(r'([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', raw_text)
+        fixed_text = re.sub(r'([,{])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', raw_text)
         try:
             data = json.loads(fixed_text)
         except json.JSONDecodeError as e:

@@ -15,3 +15,137 @@ __pycache__/
 # Local development test scripts (not part of core test suite)
 smoke_test.py
 nul
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv-win/
+Scripts/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking
+.dm/
+.pyre/
+
+# Logs
+*.log
+logs/
+log/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.envrc
+.envrc.default
+
+# Database
+instance/*.db
+instance/*.backup_*
+*.sqlite3
+*.sqlite
+
+# Neo4j (Windows Desktop)
+.neo4j/
+AppData/Local/Neo4j/
+Neo4j/
+neo4j-data/
+neo4j-logs/
+neo4j-plugins/
+neo4j-import/
+neo4j-transaction-log/
+
+# Qdrant (Cloud preferred, native if needed)
+/qdrant/
+/storage/
+/collections/
+
+# Redis (Windows alternatives)
+/redis/
+/redis.conf
+/dump.rdb
+/memurai/
+
+# Docker (Deployment artifacts only)
+docker-compose.override.yml
+
+# Generated files
+*.generated.*
+openapi.yaml
+docs/api/openapi.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+/tmp/
+/temp/
+*.tmp
+*.temp
+
+# Upload directories
+uploads/
+media/
+static/media/
+
+# Coverage reports
+coverage/
+.coverage
+htmlcov/
+
+# Build artifacts
+*.whl
+*.tar.gz
+dist/
+build/
