@@ -1,0 +1,66 @@
+# =============================================================================
+# NSA Legal Intelligence Platform — Project Configuration
+# =============================================================================
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel>=0.42.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "nsa-webservice"
+version = "1.0.1"
+description = "Food Safety Legal Intelligence Platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+keywords = ["food-safety", "inspection", "adjudication", "flask"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.mypy_cache
+  | \.venv
+  | venv
+  | migrations
+)/
+'''
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "B",  # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+follow_imports = "skip"
+files = "app/"
+
+[tool.bandit]
+exclude_dirs = ["tests", "migrations", ".venv", "venv"]
+skips = ["B101", "B311", "B324"]
