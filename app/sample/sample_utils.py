@@ -4,12 +4,14 @@ sample_utils.py
 Utilities for the Sample module, including sample_code generation.
 """
 
-import time
 import random
+import time
 from datetime import datetime
+
 from sqlalchemy import func, text
+
 from app.extensions import db
-from app.models import Sample, CodeSequence
+from app.models import CodeSequence, Sample
 
 
 def _get_db_dialect() -> str:

@@ -1,4 +1,5 @@
 import logging
+
 from .sections_data import SECTIONS, VALID_SECTION_IDS
 
 logger = logging.getLogger(__name__)

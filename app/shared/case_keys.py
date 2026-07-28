@@ -21,8 +21,7 @@ UI OWNERSHIP:
 - Adjudication: non-sample cases, section selection, legal proceedings
 """
 
-from typing import TypedDict, NotRequired
-
+from typing import NotRequired, TypedDict
 
 # =============================================================================
 # CANONICAL KEY CONSTANTS

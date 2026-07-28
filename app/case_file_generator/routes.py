@@ -1,26 +1,28 @@
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, current_app
+
+from flask import Blueprint, current_app, jsonify, render_template, request
+
 from app.extensions import db
 from app.models import CaseFile, Sample
-from app.utils.lookup import lookup_fssai
-from app.utils.filters import format_date_indian, parse_date
 from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
-    DERIVED_SECTIONS_DISPLAY,
     DERIVED_CASE_TRACK,
-    DERIVED_VIOLATIONS,
     DERIVED_SAME_ENTITY,
-    SAMPLE_IS_SUBSTANDARD,
-    SAMPLE_IS_MISBRANDED,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_VIOLATIONS,
     PARTY_MANUFACTURER_FSSAI,
     PARTY_RETAILER_FSSAI,
+    SAMPLE_IS_MISBRANDED,
+    SAMPLE_IS_SUBSTANDARD,
 )
 from app.shared.context_derivers import (
     derive_applicable_sections_from_case_file,
-    derive_sections_display,
     derive_same_entity,
+    derive_sections_display,
 )
+from app.utils.filters import format_date_indian, parse_date
+from app.utils.lookup import lookup_fssai
 
 case_file_generator_bp = Blueprint(
     'case_file_generator',

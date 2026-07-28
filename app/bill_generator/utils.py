@@ -4,8 +4,9 @@ Bill Generator Utilities
 Shared query helpers for bill generation and preview.
 """
 from datetime import datetime
-from app.models import Sample, BillSample
+
 from app.extensions import db
+from app.models import BillSample, Sample
 from app.utils.filters import parse_date
 
 

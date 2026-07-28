@@ -43,8 +43,8 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
         For non-transient errors (unsupported format, missing file).
     """
     # --- lazy imports so the module can be loaded without heavy deps ---
-    import os
     import logging
+    import os
 
     logger = logging.getLogger(__name__)
 

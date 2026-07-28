@@ -4,25 +4,38 @@ Inspection routes module.
 Provides endpoints for Inspection CRUD operations and UI.
 """
 
-from datetime import datetime, date
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
-from app.extensions import db
-from app.models import Inspection, FSO, Adjudication, PhotoEvidence, InspectionPhoto
-from app.utils.lookup import lookup_fssai, lookup_ce
-from app.utils.fso_data import get_all_fso_names
-from app.utils.filters import parse_date
-from app.inspection.inspection_utils import generate_inspection_code, calculate_compliance_deadline
-from app.services.sheets_sync import sync_to_sheets
-from app.inspection.verification_service import verify_photo_location
-from app.inspection.image_processing import process_and_stamp_image
-from app.inspection.audit import log_audit
-from app.utils.storage import upload_photo, delete_photo
-import uuid
 import os
+import uuid
+from datetime import date, datetime
+
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from werkzeug.utils import secure_filename
+
+from app.extensions import db
 
 # Import the blueprint from __init__.py
 from app.inspection import inspection_bp
+from app.inspection.audit import log_audit
+from app.inspection.image_processing import process_and_stamp_image
+from app.inspection.inspection_utils import (
+    calculate_compliance_deadline,
+    generate_inspection_code,
+)
+from app.inspection.verification_service import verify_photo_location
+from app.models import FSO, Adjudication, Inspection, InspectionPhoto, PhotoEvidence
+from app.services.sheets_sync import sync_to_sheets
+from app.utils.filters import parse_date
+from app.utils.fso_data import get_all_fso_names
+from app.utils.lookup import lookup_ce, lookup_fssai
+from app.utils.storage import delete_photo, upload_photo
 
 # Lazy-load OCR task availability flag (graceful fallback if deps missing)
 try:
@@ -722,7 +735,7 @@ def _extract_exif_gps(file_obj):
     Returns (lat, lng, accuracy) or (None, None, None) if unavailable.
     """
     try:
-        from PIL import Image, ExifTags
+        from PIL import ExifTags, Image
         img = Image.open(file_obj)
         exif = img.getexif()
         if not exif:
