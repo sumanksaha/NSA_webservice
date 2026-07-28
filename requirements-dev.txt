@@ -1,0 +1,21 @@
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+coverage>=7.0.0
+
+# Linting & Formatting
+ruff>=0.1.0
+black>=23.0.0
+isort>=5.12.0
+
+# Type checking
+mypy>=1.0.0
+types-all
+
+# Security
+bandit>=1.7.0
+safety>=2.0.0
+pip-audit>=2.0.0
+
+# Development tools
+pre-commit>=3.0.0

@@ -3,6 +3,23 @@ from datetime import datetime
 from sqlalchemy.orm import validates
 from app.extensions import db
 
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    fso_name = db.Column(db.String(100), db.ForeignKey('fso.fso_name'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_users_username', 'username'),
+        db.Index('idx_users_email', 'email'),
+    )
+
+
 class CaseFile(db.Model):
     __tablename__ = 'case_files'
     
