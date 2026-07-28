@@ -1,10 +1,12 @@
+import json
 import os
+import re
 import sqlite3
 import ssl
-import re
-import json
-import httpx
 import time
+
+import httpx
+
 try:
     import fcntl
 except ImportError:
@@ -14,7 +16,7 @@ except ImportError:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # app/utils is nested two levels deep from the workspace root
-WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', '..'))
+WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 DB_DIR = os.path.join(WORKSPACE_DIR, "db")
 LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
 REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
@@ -23,6 +25,7 @@ REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
 _KMC_LOCK_PATH = os.path.join(DB_DIR, ".kmc_lookup_lock")
 _KMC_LAST_REQUEST_TIME_PATH = os.path.join(DB_DIR, ".kmc_last_request_time")
+
 
 def lookup_fssai(license_no: str):
     """
@@ -35,10 +38,15 @@ def lookup_fssai(license_no: str):
         return None, "License/Registration number is required."
 
     prefix = license_no[0]
-    if prefix == '1':
+    if prefix == "1":
         db_path, table, col, source = LICENSE_DB_PATH, "license_records", "license_no", "license_data"
-    elif prefix == '2':
-        db_path, table, col, source = REGISTRATION_DB_PATH, "registration_records", "registration_no", "registration_data"
+    elif prefix == "2":
+        db_path, table, col, source = (
+            REGISTRATION_DB_PATH,
+            "registration_records",
+            "registration_no",
+            "registration_data",
+        )
     else:
         return None, "Unrecognized License/Registration number prefix (expected to start with 1 or 2)."
 
@@ -49,12 +57,11 @@ def lookup_fssai(license_no: str):
     try:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
-            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?",
-            (license_no,)
+            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?", (license_no,)
         ).fetchone()
     except Exception as e:
         print(f"FSSAI lookup query failed: {e}")
-        return None, f"Database error: {str(e)}"
+        return None, f"Database error: {e!s}"
     finally:
         conn.close()
 
@@ -77,13 +84,13 @@ def lookup_ce(license_no: str):
     """
     lock_fd = None
     try:
-        lock_fd = open(_KMC_LOCK_PATH, 'w')
+        lock_fd = open(_KMC_LOCK_PATH, "w")
         if fcntl:
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
 
         try:
-            with open(_KMC_LAST_REQUEST_TIME_PATH, 'r') as f:
-                last_time = float(f.read().strip() or '0')
+            with open(_KMC_LAST_REQUEST_TIME_PATH) as f:
+                last_time = float(f.read().strip() or "0")
         except (FileNotFoundError, ValueError):
             last_time = 0
 
@@ -94,7 +101,7 @@ def lookup_ce(license_no: str):
             time.sleep(sleep_time)
             current_time = time.time()
 
-        with open(_KMC_LAST_REQUEST_TIME_PATH, 'w') as f:
+        with open(_KMC_LAST_REQUEST_TIME_PATH, "w") as f:
             f.write(str(current_time))
     finally:
         if lock_fd:
@@ -104,16 +111,14 @@ def lookup_ce(license_no: str):
                 lock_fd.close()
             except Exception:
                 pass
-    
+
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
     with httpx.Client(timeout=15, verify=ctx) as client:
-        client.get(
-            "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp"
-        )
+        client.get("https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp")
         resp = client.post(
             "https://www.kmcgov.in/KMCPortal/LicenseInformationAction.do?passedParam=searchResult",
             data={"searchLicenseNo": license_no},
@@ -126,7 +131,7 @@ def lookup_ce(license_no: str):
 
         raw_text = resp.text
         # KMC's endpoint returns JSON with unquoted keys — fix before parsing
-        fixed_text = re.sub(r'([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', raw_text)
+        fixed_text = re.sub(r"([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", r'\1"\2":', raw_text)
         try:
             data = json.loads(fixed_text)
         except json.JSONDecodeError as e:
@@ -143,8 +148,4 @@ def lookup_ce(license_no: str):
         return None
 
     fee_heads = [{"section": r.get("sectionCode"), "amount": r.get("demandAmount")} for r in rows]
-    return {
-        "identity": identity,
-        "fee_heads": fee_heads,
-        "is_closed": bool(identity.get("licClosingDate"))
-    }
+    return {"identity": identity, "fee_heads": fee_heads, "is_closed": bool(identity.get("licClosingDate"))}

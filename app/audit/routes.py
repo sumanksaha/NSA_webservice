@@ -8,9 +8,9 @@ No editing capability — this is strictly a view.
 from flask import render_template, request
 from flask_login import login_required
 
+from app.audit import audit_bp
 from app.extensions import db
 from app.models import RecordAudit, User
-from app.audit import audit_bp
 
 
 @audit_bp.route("/audit-log")
@@ -35,11 +35,7 @@ def view_audit_log():
 
     # Distinct record types for filter dropdown
     distinct_types = [
-        row[0]
-        for row in db.session.query(RecordAudit.record_type)
-        .distinct()
-        .order_by(RecordAudit.record_type)
-        .all()
+        row[0] for row in db.session.query(RecordAudit.record_type).distinct().order_by(RecordAudit.record_type).all()
     ]
 
     # All users for filter dropdown

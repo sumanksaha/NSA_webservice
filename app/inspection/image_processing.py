@@ -1,9 +1,12 @@
-from PIL import Image, ImageDraw, ImageFont
 import os
 from datetime import datetime
 
+from PIL import Image, ImageDraw, ImageFont
 
-def process_and_stamp_image(image_file, locality: str, captured_at: str, verification_status: str, image_id: str, case_id: str) -> str:
+
+def process_and_stamp_image(
+    image_file, locality: str, captured_at: str, verification_status: str, image_id: str, case_id: str
+) -> str:
     """
     Takes an uploaded image file object, processes it, and saves to disk.
     Returns the final filepath (str).
@@ -27,8 +30,8 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
             raise ValueError(f"Failed to resize image: {exc}") from exc
 
     # Strip EXIF data
-    if hasattr(img, '_getexif'):
-        img.info.pop('exif', None)
+    if hasattr(img, "_getexif"):
+        img.info.pop("exif", None)
 
     # Create a drawing context
     draw = ImageDraw.Draw(img)
@@ -37,10 +40,7 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
     # Draw semi-transparent dark banner at the bottom
     banner_height = int(img_height * 0.15)
     banner_color = (0, 0, 0, 180)  # Semi-transparent black
-    draw.rectangle(
-        [(0, img_height - banner_height), (img_width, img_height)],
-        fill=banner_color
-    )
+    draw.rectangle([(0, img_height - banner_height), (img_width, img_height)], fill=banner_color)
 
     # Prepare text for the stamp
     text_lines = []

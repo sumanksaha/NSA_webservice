@@ -21,8 +21,7 @@ UI OWNERSHIP:
 - Adjudication: non-sample cases, section selection, legal proceedings
 """
 
-from typing import TypedDict, NotRequired
-
+from typing import TypedDict
 
 # =============================================================================
 # CANONICAL KEY CONSTANTS
@@ -278,14 +277,17 @@ CASE_FILE_NEW_TO_OLD = {v: k for k, v in CASE_FILE_OLD_TO_NEW.items()}
 # DERIVED FIELD SHAPES (TypedDict for documentation)
 # =============================================================================
 
+
 class ViolationDict(TypedDict):
     """Shape of a single violation entry in the derived violations list."""
+
     title: str
     observation: str  # lowercase observation text
 
 
 class ApplicableSectionsShape(TypedDict):
     """Shape for derived applicable_sections data."""
+
     sections: list[str]  # e.g., ["55", "56", "58"]
     display: str  # e.g., "55, 56 and 58"
 
@@ -298,16 +300,16 @@ class ApplicableSectionsShape(TypedDict):
 def sections_display(sections: list[str]) -> str:
     """
     Convert a list of section numbers to a human-readable display string.
-    
+
     Examples:
         ["55"] -> "55"
         ["55", "56"] -> "55 and 56"
         ["55", "56", "58"] -> "55, 56 and 58"
         ["55", "56", "58", "64"] -> "55, 56, 58 and 64"
-    
+
     Args:
         sections: List of section numbers as strings (e.g., ["55", "56", "58"])
-    
+
     Returns:
         Human-readable string for display in documents
     """
@@ -328,18 +330,18 @@ def resolve_case_track(
 ) -> str:
     """
     Determine the case track based on case characteristics.
-    
+
     Logic:
     - nonsample_licence: non_license cases (section 63 path)
     - sample: cases with sample analysis (sections 51, 52)
     - hygienic: default inspection path (sections 55, 56, 58, 64)
-    
+
     Args:
         non_license: True for non-licensed FBO cases
         pre_authorization: True for pre-authorization cases
         complaint_lodged: True when third-party complaint was lodged
         is_sample: True for sample-based cases (case file generator)
-    
+
     Returns:
         One of: "hygienic", "nonsample_licence", "sample"
     """
@@ -354,6 +356,7 @@ def resolve_case_track(
 # SECTION RESOLUTION HELPERS
 # =============================================================================
 
+
 def get_hygienic_sections() -> list[str]:
     """Return the canonical hygienic inspection section list."""
     return ["55", "56", "58"]
@@ -367,11 +370,11 @@ def get_nonsample_licence_sections() -> list[str]:
 def get_sample_sections(is_substandard: bool = True, is_misbranded: bool = True) -> list[str]:
     """
     Return sample-based sections based on analysis results.
-    
+
     Args:
         is_substandard: True if sample was found substandard
         is_misbranded: True if sample was found misbranded
-    
+
     Returns:
         List of applicable section numbers
     """

@@ -1,6 +1,7 @@
-import requests
 import math
 import time
+
+import requests
 
 # Module-level variable for rate limiting
 _last_request_time: float = 0.0
@@ -17,7 +18,7 @@ def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlng = lng2_rad - lng1_rad
-    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlng / 2)**2
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlng / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     # Earth's radius in meters
@@ -45,14 +46,8 @@ def geocode_fbo_address(address: str) -> dict:
 
     # Prepare the request
     url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        'q': address,
-        'format': 'json',
-        'limit': 1
-    }
-    headers = {
-        'User-Agent': 'NSA_webservice/1.0'
-    }
+    params = {"q": address, "format": "json", "limit": 1}
+    headers = {"User-Agent": "NSA_webservice/1.0"}
 
     try:
         response = requests.get(url, params=params, headers=headers, timeout=5)
@@ -60,37 +55,17 @@ def geocode_fbo_address(address: str) -> dict:
         data = response.json()
 
         if data:
-            lat = float(data[0].get('lat'))
-            lng = float(data[0].get('lon'))
-            return {
-                'lat': lat,
-                'lng': lng,
-                'error': None
-            }
+            lat = float(data[0].get("lat"))
+            lng = float(data[0].get("lon"))
+            return {"lat": lat, "lng": lng, "error": None}
         else:
-            return {
-                'lat': None,
-                'lng': None,
-                'error': 'No results found'
-            }
+            return {"lat": None, "lng": None, "error": "No results found"}
     except requests.exceptions.Timeout:
-        return {
-            'lat': None,
-            'lng': None,
-            'error': 'Request timed out'
-        }
+        return {"lat": None, "lng": None, "error": "Request timed out"}
     except requests.exceptions.RequestException as e:
-        return {
-            'lat': None,
-            'lng': None,
-            'error': f'Request failed: {str(e)}'
-        }
+        return {"lat": None, "lng": None, "error": f"Request failed: {e!s}"}
     except Exception as e:
-        return {
-            'lat': None,
-            'lng': None,
-            'error': f'Unexpected error: {str(e)}'
-        }
+        return {"lat": None, "lng": None, "error": f"Unexpected error: {e!s}"}
 
 
 def get_or_geocode_fbo_location(fbo) -> tuple:
@@ -105,7 +80,7 @@ def get_or_geocode_fbo_location(fbo) -> tuple:
 
     # Geocode the address
     result = geocode_fbo_address(fbo.address)
-    if result['error'] is None:
-        return (result['lat'], result['lng'])
+    if result["error"] is None:
+        return (result["lat"], result["lng"])
     else:
         return (None, None)

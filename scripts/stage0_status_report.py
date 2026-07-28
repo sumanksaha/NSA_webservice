@@ -4,18 +4,22 @@ Stage 0 Dedup Pipeline — Final Status Report
 Reads all pipeline output files and generates a comprehensive
 verification report of the dedup state.
 """
-import pandas as pd
-from collections import defaultdict
-import os
+
 import datetime
+import os
+
+import pandas as pd
 
 # ============================================================================
 # 1. LOAD ALL DATA
 # ============================================================================
 report_lines = []
+
+
 def log(line=""):
     report_lines.append(str(line))
     print(str(line))
+
 
 # Header
 log("=" * 72)
@@ -60,14 +64,16 @@ log(f"    Average multi-group size:                      {records_in_multi / max
 
 # Largest groups
 top5 = group_sizes.head(5)
-log(f"\n  Top 5 largest groups:")
+log("\n  Top 5 largest groups:")
 for gid, size in top5.items():
     sample = source[source["dedup_group_id"] == gid]["fbo_id"].head(3).tolist()
     log(f"    {gid}: {size:>5,} members — e.g. {sample}")
 
 # Source coverage
 source_pin_coverage = source["raw_address"].str.contains(r"KOL-\d{6}|\b\d{6}\b", na=False).sum()
-log(f"\n  Source records with PIN detectable:              {source_pin_coverage:>8,}  ({100 * source_pin_coverage / len(source):.1f}%)")
+log(
+    f"\n  Source records with PIN detectable:              {source_pin_coverage:>8,}  ({100 * source_pin_coverage / len(source):.1f}%)"
+)
 
 # ============================================================================
 # 3. SECTION 2 — HIGH-CONFIDENCE AUTO-MERGE
@@ -90,11 +96,16 @@ if len(assignments) > 0:
 
     # Cluster size distribution from assignments
     assign_group_sizes = assignments["dedup_group_id"].value_counts()
-    log(f"\n  Merged cluster size distribution:")
-    for size_bucket, label in [(1, "size 1 (should be 0)"), (2, "size 2 (simple pairs)"),
-                                 (3, "size 3-5"), (6, "size 6-10"),
-                                 (11, "size 11-20"), (21, "size 21-50"),
-                                 (51, "size 51+")]:
+    log("\n  Merged cluster size distribution:")
+    for size_bucket, label in [
+        (1, "size 1 (should be 0)"),
+        (2, "size 2 (simple pairs)"),
+        (3, "size 3-5"),
+        (6, "size 6-10"),
+        (11, "size 11-20"),
+        (21, "size 21-50"),
+        (51, "size 51+"),
+    ]:
         if size_bucket == 1:
             count = (assign_group_sizes == 1).sum()
         elif size_bucket == 2:
@@ -131,18 +142,22 @@ log(f"  Rejection rate:                                  {100 * len(rejected) / 
 hn1_coverage = rejected["house_number_1"].notna().sum()
 hn2_coverage = rejected["house_number_2"].notna().sum()
 both_hn = (rejected["house_number_1"].notna() & rejected["house_number_2"].notna()).sum()
-log(f"\n  House number extraction (rejected set):")
+log("\n  House number extraction (rejected set):")
 log(f"    Both sides have house numbers:                 {both_hn:>8,}  ({100 * both_hn / max(len(rejected), 1):.1f}%)")
-log(f"    Address_1 has house number:                    {hn1_coverage:>8,}  ({100 * hn1_coverage / max(len(rejected), 1):.1f}%)")
-log(f"    Address_2 has house number:                    {hn2_coverage:>8,}  ({100 * hn2_coverage / max(len(rejected), 1):.1f}%)")
+log(
+    f"    Address_1 has house number:                    {hn1_coverage:>8,}  ({100 * hn1_coverage / max(len(rejected), 1):.1f}%)"
+)
+log(
+    f"    Address_2 has house number:                    {hn2_coverage:>8,}  ({100 * hn2_coverage / max(len(rejected), 1):.1f}%)"
+)
 
 # Score distribution for rejected
 score_buckets = [90, 93, 95, 97, 99, 101]
-log(f"\n  Similarity score distribution (rejected):")
+log("\n  Similarity score distribution (rejected):")
 for i in range(len(score_buckets) - 1):
     lo, hi = score_buckets[i], score_buckets[i + 1]
     count = ((rejected["similarity_score"] >= lo) & (rejected["similarity_score"] < hi)).sum()
-    log(f"    {lo}-{hi-1 if hi < 101 else 100}: {count:>8,}  ({100 * count / max(len(rejected), 1):.1f}%)")
+    log(f"    {lo}-{hi - 1 if hi < 101 else 100}: {count:>8,}  ({100 * count / max(len(rejected), 1):.1f}%)")
 
 # ============================================================================
 # 5. SECTION 4 — AMBIGUOUS QUEUE TRIAGE
@@ -153,22 +168,26 @@ log("  SECTION 4: AMBIGUOUS QUEUE TRIAGE (Task C)")
 log("-" * 72)
 
 log(f"  Total ambiguous pairs:                           {len(fuzzy):>8,}")
-log(f"    Locality match (review_priority.csv):          {len(review_priority):>8,}  ({100 * len(review_priority) / max(len(fuzzy), 1):.1f}%)")
-log(f"    No locality match (review_low_priority.csv):   {len(review_low):>8,}  ({100 * len(review_low) / max(len(fuzzy), 1):.1f}%)")
+log(
+    f"    Locality match (review_priority.csv):          {len(review_priority):>8,}  ({100 * len(review_priority) / max(len(fuzzy), 1):.1f}%)"
+)
+log(
+    f"    No locality match (review_low_priority.csv):   {len(review_low):>8,}  ({100 * len(review_low) / max(len(fuzzy), 1):.1f}%)"
+)
 
 # Block key breakdown for remaining pairs
 block_types = fuzzy["block_key"].str.extract(r"^(\w+)_", expand=False)
-log(f"\n  Block key type breakdown:")
+log("\n  Block key type breakdown:")
 if block_types.notna().any():
     for bt, count in block_types.value_counts().head(10).items():
         log(f"    {bt}: {count:>8,}  ({100 * count / max(len(fuzzy), 1):.1f}%)")
 
 # Score distribution for remaining pairs
-log(f"\n  Similarity score distribution (remaining):")
+log("\n  Similarity score distribution (remaining):")
 for i in range(len(score_buckets) - 1):
     lo, hi = score_buckets[i], score_buckets[i + 1]
     count = ((fuzzy["similarity_score"] >= lo) & (fuzzy["similarity_score"] < hi)).sum()
-    log(f"    {lo}-{hi-1 if hi < 101 else 100}: {count:>8,}  ({100 * count / max(len(fuzzy), 1):.1f}%)")
+    log(f"    {lo}-{hi - 1 if hi < 101 else 100}: {count:>8,}  ({100 * count / max(len(fuzzy), 1):.1f}%)")
 
 # ============================================================================
 # 6. SECTION 5 — END-TO-END PIPELINE BALANCE
@@ -178,27 +197,34 @@ log("-" * 72)
 log("  SECTION 5: END-TO-END PIPELINE BALANCE")
 log("-" * 72)
 
-total_unique_fbo = source['fbo_id'].nunique()
+total_unique_fbo = source["fbo_id"].nunique()
 log(f"  Total unique FBOs entering pipeline:              {total_unique_fbo:>8,}")
 
 # Count unique fbo_ids across all pair files
-pair_fbo_ids = set(fuzzy["fbo_id_1"]) | set(fuzzy["fbo_id_2"]) | \
-               set(rejected["fbo_id_1"]) | set(rejected["fbo_id_2"])
-log(f"  Unique fbo_ids appearing in any pair:            {len(pair_fbo_ids):>8,}  ({100 * len(pair_fbo_ids) / max(total_unique_fbo, 1):.1f}%)")
+pair_fbo_ids = set(fuzzy["fbo_id_1"]) | set(fuzzy["fbo_id_2"]) | set(rejected["fbo_id_1"]) | set(rejected["fbo_id_2"])
+log(
+    f"  Unique fbo_ids appearing in any pair:            {len(pair_fbo_ids):>8,}  ({100 * len(pair_fbo_ids) / max(total_unique_fbo, 1):.1f}%)"
+)
 fbo_not_in_pairs = total_unique_fbo - len(pair_fbo_ids)
-log(f"  fbo_ids with NO fuzzy match (score < 90):        {fbo_not_in_pairs:>8,}  ({100 * fbo_not_in_pairs / max(total_unique_fbo, 1):.1f}%)")
+log(
+    f"  fbo_ids with NO fuzzy match (score < 90):        {fbo_not_in_pairs:>8,}  ({100 * fbo_not_in_pairs / max(total_unique_fbo, 1):.1f}%)"
+)
 
 # Merged vs pending
 if len(assignments) > 0:
     merged_fbo_count = assignments["fbo_id"].nunique()
     pending_fbo_count = len(pair_fbo_ids) - merged_fbo_count
-    log(f"\n  fbo_ids ALREADY MERGED (auto-merge):            {merged_fbo_count:>8,}  ({100 * merged_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)")
-    log(f"  fbo_ids PENDING human review:                   {pending_fbo_count:>8,}  ({100 * pending_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)")
+    log(
+        f"\n  fbo_ids ALREADY MERGED (auto-merge):            {merged_fbo_count:>8,}  ({100 * merged_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)"
+    )
+    log(
+        f"  fbo_ids PENDING human review:                   {pending_fbo_count:>8,}  ({100 * pending_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)"
+    )
 
 # Reduction from original pairs
 current_total = len(rejected) + len(fuzzy)
 log(f"\n  Total pairs processed by filter:                   {current_total:>8,}")
-log(f"    (Original cdist: ~235,455; 17,196 crash-recovery dupes removed)")
+log("    (Original cdist: ~235,455; 17,196 crash-recovery dupes removed)")
 log(f"  After house-number filter (rejected):            -{len(rejected):>8,}")
 log(f"  Remaining for review:                            {len(fuzzy):>8,}")
 
@@ -223,10 +249,7 @@ multi = (fbo_group_count > 1).sum()
 log(f"  fbo_ids in multiple groups:                      {multi:>8,}  {'PASS' if multi == 0 else 'FAIL'}")
 
 # Cross-file pair overlap
-both = pd.concat([
-    fuzzy[["fbo_id_1", "fbo_id_2"]].assign(src="f"),
-    rejected[["fbo_id_1", "fbo_id_2"]].assign(src="r")
-])
+both = pd.concat([fuzzy[["fbo_id_1", "fbo_id_2"]].assign(src="f"), rejected[["fbo_id_1", "fbo_id_2"]].assign(src="r")])
 overlap = both.duplicated(subset=["fbo_id_1", "fbo_id_2"], keep=False).sum()
 log(f"  Cross-file pair overlap (fuzzy x rejected):      {overlap // 2:>8,}  {'PASS' if overlap == 0 else 'WARN'}")
 
@@ -258,5 +281,5 @@ report_text = "\n".join(report_lines)
 with open("stage0_status_report.txt", "w", encoding="utf-8") as f:
     f.write(report_text)
 
-log(f"\n  Report saved to: stage0_status_report.txt")
+log("\n  Report saved to: stage0_status_report.txt")
 log(f"  Lines: {len(report_lines):,}")

@@ -55,9 +55,7 @@ def verify_photo_location(
 
     # 3. Check IP match - convert to str for region_match
     if result["locality"] is not None and ip_city is not None and ip_region is not None:
-        result["ip_match"] = region_match(
-            str(ip_city), str(ip_region), str(result["locality"])
-        )
+        result["ip_match"] = region_match(str(ip_city), str(ip_region), str(result["locality"]))
 
     # 4. Get FBO location (with per-call timeout)
     try:
@@ -74,9 +72,7 @@ def verify_photo_location(
 
     # 5. Calculate distance to FBO if available
     if fbo_lat is not None and fbo_lng is not None:
-        result["distance_to_fbo_m"] = haversine_distance(
-            raw_lat, raw_lng, fbo_lat, fbo_lng
-        )
+        result["distance_to_fbo_m"] = haversine_distance(raw_lat, raw_lng, fbo_lat, fbo_lng)
 
     # 6. Check flag conditions
     if accuracy is not None and accuracy > 100:

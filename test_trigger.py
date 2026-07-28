@@ -1,7 +1,7 @@
 import sqlite3
 import time
 
-db_path = 'C:\\github\\NSA_webservice\\instance\\app.db'
+db_path = "C:\\github\\NSA_webservice\\instance\\app.db"
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 

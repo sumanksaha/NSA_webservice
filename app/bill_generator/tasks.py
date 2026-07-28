@@ -5,9 +5,9 @@ Produces a bill PDF via WeasyPrint, saves it to disk, and returns
 metadata (file path, record ID, timestamp) — never raw PDF bytes.
 """
 
-import os
 import io
 import logging
+import os
 from datetime import datetime
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments
@@ -43,15 +43,14 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
 
     # ---- Render HTML (permanent failure on error) ----
     try:
-        rendered_html = render_template(
-            "bill_generator/template.html", **template_vars
-        )
+        rendered_html = render_template("bill_generator/template.html", **template_vars)
     except Exception as exc:
-        logger.error(
-            "Template render failed for bill %s: %s", bill_id, exc
-        )
+        logger.error("Template render failed for bill %s: %s", bill_id, exc)
         return _metadata(
-            bill_id, None, generated_at, "error",
+            bill_id,
+            None,
+            generated_at,
+            "error",
             f"Template render failed: {exc}",
         )
 
@@ -62,11 +61,12 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
         pdf_buffer.seek(0)
         pdf_bytes = pdf_buffer.getvalue()
     except Exception as exc:
-        logger.error(
-            "WeasyPrint failed for bill %s: %s", bill_id, exc
-        )
+        logger.error("WeasyPrint failed for bill %s: %s", bill_id, exc)
         return _metadata(
-            bill_id, None, generated_at, "error",
+            bill_id,
+            None,
+            generated_at,
+            "error",
             f"WeasyPrint failed: {exc}",
         )
 
@@ -81,7 +81,7 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
             f.write(pdf_bytes)
 
         logger.info("Bill PDF saved: %s", file_path)
-    except (IOError, OSError) as exc:
+    except OSError as exc:
         logger.warning("I/O error saving bill PDF: %s", exc)
         raise self.retry(exc=exc, countdown=60)
     except Exception as exc:

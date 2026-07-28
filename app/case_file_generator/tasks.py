@@ -6,10 +6,10 @@ file, packages them as a ZIP archive on disk, and returns metadata
 (file path, record ID, timestamp) — never raw PDF/ZIP bytes.
 """
 
-import os
 import io
-import zipfile
 import logging
+import os
+import zipfile
 from datetime import datetime
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments
@@ -46,19 +46,19 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
 
     # ---- Render both templates (permanent failure on error) ----
     try:
-        petition_html = render_template(
-            "case_file_generator/petition.html", **case_data
-        )
-        permission_html = render_template(
-            "case_file_generator/permission_letter.html", **case_data
-        )
+        petition_html = render_template("case_file_generator/petition.html", **case_data)
+        permission_html = render_template("case_file_generator/permission_letter.html", **case_data)
     except Exception as exc:
         logger.error(
             "Template render failed for case_file %s: %s",
-            case_file_id, exc,
+            case_file_id,
+            exc,
         )
         return _metadata(
-            case_file_id, None, generated_at, "error",
+            case_file_id,
+            None,
+            generated_at,
+            "error",
             f"Template render failed: {exc}",
         )
 
@@ -72,35 +72,32 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
         HTML(string=permission_html).write_pdf(permission_pdf)
         permission_pdf.seek(0)
     except Exception as exc:
-        logger.error(
-            "WeasyPrint failed for case_file %s: %s", case_file_id, exc
-        )
+        logger.error("WeasyPrint failed for case_file %s: %s", case_file_id, exc)
         return _metadata(
-            case_file_id, None, generated_at, "error",
+            case_file_id,
+            None,
+            generated_at,
+            "error",
             f"WeasyPrint failed: {exc}",
         )
 
     # ---- Write ZIP to disk (transient I/O → retry) ----
     try:
-        case_number = case_data.get("case_number", str(case_file_id)).replace(
-            "/", "_"
-        )
+        case_number = case_data.get("case_number", str(case_file_id)).replace("/", "_")
         date_prefix = generated_at.strftime("%Y/%m")
         rel_dir = os.path.join("pdfs", "case_files", date_prefix)
         os.makedirs(rel_dir, exist_ok=True)
 
         zip_path = os.path.join(rel_dir, f"case_{case_file_id}.zip")
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(
-                f"Petition_{case_number}.pdf", petition_pdf.getvalue()
-            )
+            zf.writestr(f"Petition_{case_number}.pdf", petition_pdf.getvalue())
             zf.writestr(
                 f"Permission_Letter_{case_number}.pdf",
                 permission_pdf.getvalue(),
             )
 
         logger.info("Case file ZIP saved: %s", zip_path)
-    except (IOError, OSError) as exc:
+    except OSError as exc:
         logger.warning("I/O error saving case file ZIP: %s", exc)
         raise self.retry(exc=exc, countdown=60)
     except Exception as exc:

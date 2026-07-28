@@ -1,14 +1,14 @@
+import glob
 import os
 import sqlite3
-import glob
 
 print("=== ALEMBIC MIGRATION FILES (in order) ===")
-migration_files = sorted(glob.glob('C:\\github\\NSA_webservice\\migrations\\versions\\*.py'))
+migration_files = sorted(glob.glob("C:\\github\\NSA_webservice\\migrations\\versions\\*.py"))
 for f in migration_files:
     print(f"  {os.path.basename(f)}")
 
 print("\n=== ACTUAL TABLES IN DATABASE ===")
-db_path = os.path.join('C:\\github\\NSA_webservice\\instance', 'app.db')
+db_path = os.path.join("C:\\github\\NSA_webservice\\instance", "app.db")
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -28,7 +28,7 @@ else:
 conn.close()
 
 print("\n=== CHECKING FOR case_files TABLE ===")
-if 'case_files' in tables:
+if "case_files" in tables:
     print("  case_files EXISTS in database")
 else:
     print("  case_files MISSING from database")

@@ -1,7 +1,7 @@
 import sqlite3
 
-db_path = 'C:\\github\\NSA_webservice\\instance\\app.db'
-backup_path = 'C:\\github\\NSA_webservice\\instance\\app.db.backup_20260716_184718'
+db_path = "C:\\github\\NSA_webservice\\instance\\app.db"
+backup_path = "C:\\github\\NSA_webservice\\instance\\app.db.backup_20260716_184718"
 
 print("=== TABLES IN MAIN DB ===")
 conn = sqlite3.connect(db_path)

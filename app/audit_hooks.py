@@ -23,22 +23,21 @@ Design notes (performance):
 import json
 from datetime import datetime
 
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import Session
-from sqlalchemy.event import listen
 from flask import request
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.event import listen
+from sqlalchemy.orm import Session
 
 from app.extensions import db
 from app.models import RecordAudit
-
 
 # ---------------------------------------------------------------------------
 # Sensitive / internal columns to exclude from change diffs
 # ---------------------------------------------------------------------------
 _EXCLUDED_COLUMNS = frozenset({
-    "synced_at",          # set automatically by sync, not user-driven
-    "pdf_task_id",        # Celery task tracking, not a meaningful record change
-    "pdf_generated_at",   # same as above
+    "synced_at",  # set automatically by sync, not user-driven
+    "pdf_task_id",  # Celery task tracking, not a meaningful record change
+    "pdf_generated_at",  # same as above
 })
 
 
@@ -86,6 +85,7 @@ def _record_audit(action, record_type, record_id, changes=None):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _changed_column_names(target):
     """Yield column names that are not in the exclusion set."""
     for col in target.__table__.columns:
@@ -112,6 +112,7 @@ def _safe_value(val):
 # Change-capture helpers  (called per target inside after_flush)
 # ---------------------------------------------------------------------------
 
+
 def _capture_insert(target):
     """Build a changes dict for a newly inserted record."""
     changes = {}
@@ -130,8 +131,7 @@ def _capture_update(target):
     for attr_name in _changed_column_names(target):
         history = getattr(insp.attrs, attr_name).history
         if history.has_changes():
-            old = history.deleted[0] if history.deleted else \
-                  history.unchanged[0] if history.unchanged else None
+            old = history.deleted[0] if history.deleted else history.unchanged[0] if history.unchanged else None
             new = history.added[0] if history.added else None
             if old is None and new is None:
                 continue
@@ -146,6 +146,7 @@ def _capture_update(target):
 # Session-level after_flush handler
 # ---------------------------------------------------------------------------
 
+
 def _after_flush(session: Session, flush_context):
     """Inspect flushed objects and emit audit entries for audited models.
 
@@ -157,6 +158,7 @@ def _after_flush(session: Session, flush_context):
         return
 
     from app.models import Adjudication, Bill, CaseFile
+
     _AUDITED_MODEL_TYPES = (Adjudication, Bill, CaseFile)
 
     # Inserts

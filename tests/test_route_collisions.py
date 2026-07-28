@@ -12,6 +12,7 @@ from collections import Counter
 def test_no_duplicate_routes():
     """Every (method, path) pair must be unique across the entire app."""
     from app import create_app
+
     app = create_app()
 
     rules = []

@@ -47,7 +47,7 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
         logger.warning(f"FSO list file not found: {path}")
         return []
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         text = f.read()
 
     # Extract list items (lines starting with - ) and strip whitespace and bullet
@@ -76,9 +76,7 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
         else:
             # Other non-list lines (not header, not bullet) - skip with warning
             if line.strip():
-                logger.warning(
-                    f"FSO list: skipping non-list line {line_number}: '{line}'"
-                )
+                logger.warning(f"FSO list: skipping non-list line {line_number}: '{line}'")
 
     return names
 
@@ -163,9 +161,7 @@ def sync_fso_from_markdown(path: str = FSO_MD_PATH) -> dict:
 
     try:
         db.session.commit()
-        logger.info(
-            f"FSO sync: inserted {inserted}, updated {updated}, skipped {skipped}"
-        )
+        logger.info(f"FSO sync: inserted {inserted}, updated {updated}, skipped {skipped}")
     except Exception as e:
         db.session.rollback()
         logger.error(f"FSO sync: database commit error: {e!s}")
@@ -189,14 +185,6 @@ def get_all_fso_names() -> list:
     except Exception as e:
         logger.error(f"Error fetching FSO names: {e!s}")
         return []
-
-
-def sync_fso_manually():
-    """
-    Manual trigger for FSO sync. Called from route.
-    Returns the sync result.
-    """
-    return sync_fso_from_markdown()
 
 
 # Auto-sync on module import (happens during app startup)

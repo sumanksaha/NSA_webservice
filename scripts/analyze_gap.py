@@ -3,6 +3,7 @@ Task A: Reconcile the 17,196 pair discrepancy between:
 - Original cdist checkpoint: 235,455 pairs
 - Current filter_house_number.py output: 218,259 pairs (36,478 + 181,781)
 """
+
 import pandas as pd
 
 df_fuzzy = pd.read_csv("fuzzy_candidates.csv")
@@ -29,8 +30,9 @@ try:
     unusable = pd.read_csv("unusable_no_address.csv")
     print(f"[1] Upstream exclusion (unusable_no_address.csv):  {len(unusable)} rows")
     if len(unusable) > 0:
-        ids_in_pairs = set(df_fuzzy["fbo_id_1"]) | set(df_fuzzy["fbo_id_2"]) | \
-                       set(df_rej["fbo_id_1"]) | set(df_rej["fbo_id_2"])
+        ids_in_pairs = (
+            set(df_fuzzy["fbo_id_1"]) | set(df_fuzzy["fbo_id_2"]) | set(df_rej["fbo_id_1"]) | set(df_rej["fbo_id_2"])
+        )
         unusable_ids = set(unusable["fbo_id"]) if "fbo_id" in unusable.columns else set()
         overlap = ids_in_pairs & unusable_ids
         print(f"    fbo_ids from unusable that also appear in pairs: {len(overlap)}")
@@ -107,13 +109,13 @@ print("  The 218,259 final count is the CORRECT deduplicated count.")
 print("  The 235,455 was inflated by the crash-recovery artifact.")
 print()
 print("--- SUMMARY ---")
-print(f"  Cause:              Crash-recovery artifact (not a bug)")
-print(f"  Upstream exclusion: 0 pairs excluded")
-print(f"  Block-key overlap:  0 pairs duplicated")
-print(f"  Silent script drop: 0 pairs dropped")
-print(f"  Pairs 'lost' to     17,196 pairs that were in both stale fuzzy")
-print(f"    crash recovery:   and new reject, got deduped, and the single")
-print(f"                      copy was classified as REJECT.")
+print("  Cause:              Crash-recovery artifact (not a bug)")
+print("  Upstream exclusion: 0 pairs excluded")
+print("  Block-key overlap:  0 pairs duplicated")
+print("  Silent script drop: 0 pairs dropped")
+print("  Pairs 'lost' to     17,196 pairs that were in both stale fuzzy")
+print("    crash recovery:   and new reject, got deduped, and the single")
+print("                      copy was classified as REJECT.")
 print()
 print("  BOTTOM LINE: The current 218,259 pair set is clean and correct.")
 print("  No action needed. Proceed to Task B.")

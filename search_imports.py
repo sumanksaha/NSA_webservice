@@ -1,26 +1,25 @@
 import os
-import re
 
-search_terms = ['case_file_generator', 'bill_generator', 'adjudication']
+search_terms = ["case_file_generator", "bill_generator", "adjudication"]
 results = []
 
-for root, dirs, files in os.walk('.'):
+for root, dirs, files in os.walk("."):
     # Skip .git and __pycache__
-    dirs[:] = [d for d in dirs if d not in ['.git', '__pycache__', 'instance']]
+    dirs[:] = [d for d in dirs if d not in [".git", "__pycache__", "instance"]]
     for file in files:
-        if file.endswith('.py'):
+        if file.endswith(".py"):
             filepath = os.path.join(root, file)
             try:
-                with open(filepath, 'r', encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     content = f.read()
                     for term in search_terms:
                         if term in content:
                             # Find line numbers
-                            lines = content.split('\n')
+                            lines = content.split("\n")
                             for i, line in enumerate(lines, 1):
-                                if term in line and ('import' in line or 'from' in line):
+                                if term in line and ("import" in line or "from" in line):
                                     results.append((filepath, i, line.strip()))
-            except Exception as e:
+            except Exception:
                 pass
 
 if results:

@@ -20,7 +20,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
     Raises FileNotFoundError if the markdown file is missing, and
     ValueError if no sections could be parsed (e.g. wrong file / bad format).
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         text = f.read()
 
     # Split on level-1 headers (# Section NN), keeping the header attached
@@ -35,8 +35,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
 
     if not sections:
         raise ValueError(
-            f"No sections parsed from '{path}'. Check the file exists and "
-            f"uses '# Section NN' level-1 headers."
+            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers."
         )
 
     return sections

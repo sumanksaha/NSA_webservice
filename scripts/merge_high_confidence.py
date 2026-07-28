@@ -6,8 +6,10 @@ Input:  fuzzy_candidates.csv  (36,478 rows, with high_confidence flag)
 Output: dedup_group_assignments.csv  (mapping fbo_id -> new dedup_group_id)
         merged_summary_report.txt    (group counts, large clusters)
 """
-import pandas as pd
+
 from collections import defaultdict
+
+import pandas as pd
 
 # ============================================================================
 # 1. LOAD DATA
@@ -28,11 +30,13 @@ print("\nBuilding union-find connected components...")
 parent = {}
 rank = {}
 
+
 def find(x):
     """Find with path compression."""
     if parent[x] != x:
         parent[x] = find(parent[x])
     return parent[x]
+
 
 def union(x, y):
     """Union by rank."""
@@ -46,6 +50,7 @@ def union(x, y):
     else:
         parent[ry] = rx
         rank[rx] += 1
+
 
 # Collect all unique fbo_ids
 all_ids = set()
@@ -98,9 +103,9 @@ print()
 
 if large_clusters:
     print(f"  {'Size':<6} {'Members':<20} {'Group ID':<12}")
-    print(f"  {'-'*40}")
+    print(f"  {'-' * 40}")
     for i, cluster in enumerate(large_clusters[:10]):  # Top 10
-        gid = f"g_fuzzy_{i+1}"
+        gid = f"g_fuzzy_{i + 1}"
         print(f"  {len(cluster):<6} {str(cluster[0])[:18]:<20} {gid:<12}")
     if len(large_clusters) > 10:
         print(f"  ... and {len(large_clusters) - 10} more large clusters")
@@ -108,7 +113,7 @@ else:
     print("  No large clusters (>5 members) found. Good.")
 
 # Show distribution summary
-print(f"\n  Cluster size distribution:")
+print("\n  Cluster size distribution:")
 size_counts = defaultdict(int)
 for c in sorted_components:
     size_counts[len(c)] += 1
@@ -183,23 +188,25 @@ with open("merged_summary_report.txt", "w") as f:
     f.write(f"Connected components (dedup groups): {len(sorted_components):,}\n")
     f.write(f"  - Multi-fbo clusters (2+ members): {sum(1 for c in sorted_components if len(c) >= 2):,}\n")
     f.write(f"  - Singletons: {sum(1 for c in sorted_components if len(c) == 1):,}\n\n")
-    
+
     f.write("Cluster size distribution:\n")
     for size in sorted(size_counts.keys()):
         f.write(f"  Size {size}: {size_counts[size]:,} clusters\n")
-    
+
     f.write(f"\nLarge clusters (>5 members): {len(large_clusters):,}\n")
     if large_clusters:
         f.write("\nTop 20 largest clusters:\n")
         f.write(f"  {'Rank':<6} {'Size':<8} {'FBO IDs':<30}\n")
-        f.write(f"  {'-'*44}\n")
+        f.write(f"  {'-' * 44}\n")
         for i, cluster in enumerate(large_clusters[:20]):
-            f.write(f"  {i+1:<6} {len(cluster):<8} {', '.join(str(x) for x in cluster[:5])}{'...' if len(cluster) > 5 else ''}\n")
-    
+            f.write(
+                f"  {i + 1:<6} {len(cluster):<8} {', '.join(str(x) for x in cluster[:5])}{'...' if len(cluster) > 5 else ''}\n"
+            )
+
     f.write(f"\nNew group ID range: g{max_existing + 1} - g{new_group_id_counter - 1}\n")
     f.write(f"Total new groups created: {new_group_id_counter - max_existing - 1}\n")
 
-print(f"[OK] Saved merged_summary_report.txt")
+print("[OK] Saved merged_summary_report.txt")
 
 # ============================================================================
 # 7. FINAL REPORT (console)
@@ -214,7 +221,7 @@ print(f"  New dedup groups created:             {new_group_id_counter - max_exis
 print(f"  Largest cluster size:                 {len(sorted_components[0]) if sorted_components else 0:>8,}")
 print(f"  Clusters >5 members:                  {len(large_clusters):>8,}")
 print(f"  Total pairs remaining for Task C:     {len(df_fuzzy[df_fuzzy['high_confidence'] == False]):>8,}")
-ambiguous_count = (~df_fuzzy['high_confidence']).sum()
+ambiguous_count = (~df_fuzzy["high_confidence"]).sum()
 print(f"    (ambiguous queue - no house number): {ambiguous_count:,}")
 
 print("\n" + "=" * 70)

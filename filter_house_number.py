@@ -19,7 +19,6 @@ Fixes over previous version:
 import os
 import re
 import warnings
-from typing import Optional
 
 import pandas as pd
 
@@ -36,8 +35,7 @@ fuzzy_file = "fuzzy_candidates.csv"
 rejected_file = "rejected_number_mismatch.csv"
 
 # Load current fuzzy candidates
-base_cols = ["fbo_id_1", "fbo_id_2", "raw_address_1", "raw_address_2",
-             "similarity_score", "block_key"]
+base_cols = ["fbo_id_1", "fbo_id_2", "raw_address_1", "raw_address_2", "similarity_score", "block_key"]
 
 df_fuzzy = pd.read_csv(fuzzy_file, usecols=base_cols)
 print(f"\nLoaded {len(df_fuzzy):,} pairs from {fuzzy_file}")
@@ -68,7 +66,7 @@ print(f"Total candidate pairs to process: {len(df):,}")
 print("\nExtracting house numbers from addresses...")
 
 
-def extract_house_number(address: str) -> Optional[str]:
+def extract_house_number(address: str) -> str | None:
     """
     Extract the leading house/premises number from a Kolkata address.
 
@@ -115,11 +113,11 @@ def extract_house_number(address: str) -> Optional[str]:
     # group requires a leading digit (the hyphen prevents a match).
     # ------------------------------------------------------------------
     keyword_patterns = [
-        r'(?:HOUSE\s+NO\.?|NO\.?)\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)',
-        r'PLOT\s*(?:NO\.?)?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)',
-        r'PREMISES\s*(?:NO\.?)?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)',
-        r'HOLDING\s+NO\.?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)',
-        r'HOLDER\s+NO\.?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)',
+        r"(?:HOUSE\s+NO\.?|NO\.?)\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)",
+        r"PLOT\s*(?:NO\.?)?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)",
+        r"PREMISES\s*(?:NO\.?)?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)",
+        r"HOLDING\s+NO\.?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)",
+        r"HOLDER\s+NO\.?\s*(\d[\dA-Za-z]*(?:/\d[\dA-Za-z]*)*)",
     ]
 
     for pattern in keyword_patterns:
@@ -183,7 +181,7 @@ mask_keep = df["classification"].isin(["keep", "match"])
 df_review = df[mask_keep].copy()
 
 # Add high_confidence column for pairs where house numbers matched exactly
-df_review["high_confidence"] = (df_review["classification"] == "match")
+df_review["high_confidence"] = df_review["classification"] == "match"
 
 # Output columns: base + house numbers + confidence flag (so reviewers can verify)
 review_cols = base_cols + ["house_number_1", "house_number_2", "high_confidence"]
@@ -204,14 +202,10 @@ print("RESULTS")
 print("=" * 80)
 
 print(f"\nTotal pairs processed: {total:,}")
-print(f"  Moved to rejected_number_mismatch.csv: {rejected:,} "
-      f"({100 * rejected / total:.1f}%)")
-print(f"  Remaining for human review: {review:,} "
-      f"({100 * review / total:.1f}%)")
-print(f"    +-- High-confidence (house # match): {matched:,} "
-      f"({100 * matched / total:.1f}%)")
-print(f"    +-- No house # on one/both sides:    {kept_no_hn:,} "
-      f"({100 * kept_no_hn / total:.1f}%)")
+print(f"  Moved to rejected_number_mismatch.csv: {rejected:,} ({100 * rejected / total:.1f}%)")
+print(f"  Remaining for human review: {review:,} ({100 * review / total:.1f}%)")
+print(f"    +-- High-confidence (house # match): {matched:,} ({100 * matched / total:.1f}%)")
+print(f"    +-- No house # on one/both sides:    {kept_no_hn:,} ({100 * kept_no_hn / total:.1f}%)")
 
 # Coverage stats
 with_hn1 = int(df["house_number_1"].notna().sum())
@@ -219,36 +213,32 @@ with_hn2 = int(df["house_number_2"].notna().sum())
 with_both = int((df["house_number_1"].notna() & df["house_number_2"].notna()).sum())
 with_neither = int((df["house_number_1"].isna() & df["house_number_2"].isna()).sum())
 
-print(f"\nHouse number extraction coverage:")
-print(f"  Address_1 has house number: {with_hn1:,} "
-      f"({100 * with_hn1 / total:.1f}%)")
-print(f"  Address_2 has house number: {with_hn2:,} "
-      f"({100 * with_hn2 / total:.1f}%)")
-print(f"  Both have house numbers:    {with_both:,} "
-      f"({100 * with_both / total:.1f}%)")
-print(f"  Neither has house number:   {with_neither:,} "
-      f"({100 * with_neither / total:.1f}%)")
+print("\nHouse number extraction coverage:")
+print(f"  Address_1 has house number: {with_hn1:,} ({100 * with_hn1 / total:.1f}%)")
+print(f"  Address_2 has house number: {with_hn2:,} ({100 * with_hn2 / total:.1f}%)")
+print(f"  Both have house numbers:    {with_both:,} ({100 * with_both / total:.1f}%)")
+print(f"  Neither has house number:   {with_neither:,} ({100 * with_neither / total:.1f}%)")
 
 # Show samples
 if rejected > 0:
-    print(f"\nSample rejected pairs (first 5):")
+    print("\nSample rejected pairs (first 5):")
     for _, row in df_rejected.head(5).iterrows():
-        print(f"  {row['similarity_score']} | "
-              f"#{row['house_number_1']} vs #{row['house_number_2']} | "
-              f"{str(row['raw_address_1'])[:55]}...")
+        print(
+            f"  {row['similarity_score']} | "
+            f"#{row['house_number_1']} vs #{row['house_number_2']} | "
+            f"{str(row['raw_address_1'])[:55]}..."
+        )
         print(f"    {str(row['raw_address_2'])[:55]}...")
 
 if matched > 0:
     matched_sample = df[df["classification"] == "match"].head(5)
-    print(f"\nSample high-confidence matches (first 5):")
+    print("\nSample high-confidence matches (first 5):")
     for _, row in matched_sample.iterrows():
-        print(f"  {row['similarity_score']} | "
-              f"#{row['house_number_1']} | "
-              f"{str(row['raw_address_1'])[:55]}...")
+        print(f"  {row['similarity_score']} | #{row['house_number_1']} | {str(row['raw_address_1'])[:55]}...")
         print(f"    {str(row['raw_address_2'])[:55]}...")
 
 hc_label = "(+high_confidence flag)" if matched > 0 else ""
-print(f"\n[OK] Output files:")
+print("\n[OK] Output files:")
 print(f"  - {fuzzy_file} ({review:,} rows) {hc_label}")
 print(f"  - {rejected_file} ({rejected:,} rows)")
 

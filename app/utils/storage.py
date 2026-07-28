@@ -19,10 +19,10 @@ are missing, a clear ``RuntimeError`` is raised only when ``upload_photo`` or
 ``delete_photo`` is actually called, so application startup is never blocked.
 """
 
-import os
 import logging
+import os
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
-from urllib.parse import urlparse, unquote
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +35,15 @@ _client = None
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-ALLOWED_EXTENSIONS = frozenset({'.jpg', '.jpeg', '.png', '.webp', '.heic'})
+ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".heic"})
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 _CONTENT_TYPES = {
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-    '.webp': 'image/webp',
-    '.heic': 'image/heic',
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
 }
 
 
@@ -66,16 +66,16 @@ def _get_client():
     import boto3
     from botocore.config import Config
 
-    access_key = os.environ.get('R2_ACCESS_KEY')
-    secret_key = os.environ.get('R2_SECRET_KEY')
-    bucket = os.environ.get('R2_BUCKET')
-    endpoint = os.environ.get('R2_ENDPOINT')
+    access_key = os.environ.get("R2_ACCESS_KEY")
+    secret_key = os.environ.get("R2_SECRET_KEY")
+    bucket = os.environ.get("R2_BUCKET")
+    endpoint = os.environ.get("R2_ENDPOINT")
 
     _required = [
-        ('R2_ACCESS_KEY', access_key),
-        ('R2_SECRET_KEY', secret_key),
-        ('R2_BUCKET', bucket),
-        ('R2_ENDPOINT', endpoint),
+        ("R2_ACCESS_KEY", access_key),
+        ("R2_SECRET_KEY", secret_key),
+        ("R2_BUCKET", bucket),
+        ("R2_ENDPOINT", endpoint),
     ]
     missing = [name for name, val in _required if not val]
     if missing:
@@ -89,28 +89,29 @@ def _get_client():
     # botocore built-in retry config: 2 total attempts (1 initial + 1 retry)
     # on transient errors (throttling, 5xx, connection resets).
     config = Config(
-        retries={'max_attempts': 2, 'mode': 'standard'},
-        s3={'addressing_style': 'path'},
+        retries={"max_attempts": 2, "mode": "standard"},
+        s3={"addressing_style": "path"},
     )
 
     _client = boto3.client(
-        's3',
+        "s3",
         endpoint_url=endpoint,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         config=config,
-        region_name=os.environ.get('R2_REGION', 'auto'),
+        region_name=os.environ.get("R2_REGION", "auto"),
     )
     logger.info(
         "R2 storage client initialised (bucket=%s, endpoint=%s)",
-        bucket, endpoint,
+        bucket,
+        endpoint,
     )
     return _client
 
 
 def _get_bucket():
     """Return the configured bucket name or raise RuntimeError."""
-    bucket = os.environ.get('R2_BUCKET')
+    bucket = os.environ.get("R2_BUCKET")
     if not bucket:
         raise RuntimeError("R2_BUCKET environment variable is not set.")
     return bucket
@@ -124,11 +125,11 @@ def _build_url(key):
     bucket), the URL is ``{R2_PUBLIC_BASE_URL}/{key}``.  Otherwise it is
     constructed from the endpoint and bucket: ``{R2_ENDPOINT}/{R2_BUCKET}/{key}``.
     """
-    public_base = os.environ.get('R2_PUBLIC_BASE_URL')
+    public_base = os.environ.get("R2_PUBLIC_BASE_URL")
     if public_base:
         return f"{public_base.rstrip('/')}/{key}"
-    endpoint = os.environ.get('R2_ENDPOINT', '')
-    bucket = os.environ.get('R2_BUCKET', '')
+    endpoint = os.environ.get("R2_ENDPOINT", "")
+    bucket = os.environ.get("R2_BUCKET", "")
     return f"{endpoint.rstrip('/')}/{bucket}/{key}"
 
 
@@ -140,17 +141,17 @@ def _extract_key(file_url):
     URLs (``{endpoint}/{bucket}/key``).
     """
     parsed = urlparse(file_url)
-    path = unquote(parsed.path).lstrip('/')
-    bucket = os.environ.get('R2_BUCKET', '')
+    path = unquote(parsed.path).lstrip("/")
+    bucket = os.environ.get("R2_BUCKET", "")
     # Strip a leading bucket-name segment that appears in path-style URLs.
     if bucket and path.startswith(f"{bucket}/"):
-        path = path[len(bucket) + 1:]
+        path = path[len(bucket) + 1 :]
     return path
 
 
 def _get_content_type(ext):
     """Map a file extension to its MIME content type."""
-    return _CONTENT_TYPES.get(ext.lower(), 'application/octet-stream')
+    return _CONTENT_TYPES.get(ext.lower(), "application/octet-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -184,8 +185,7 @@ def upload_photo(file_obj, adjudication_id, filename):
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(
-            f"Unsupported file extension '{ext}'. "
-            f"Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            f"Unsupported file extension '{ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
     # --- Size validation via seek/tell ---------------------------------------
@@ -197,10 +197,7 @@ def upload_photo(file_obj, adjudication_id, filename):
         raise ValueError(f"Unable to determine file size: {exc}") from exc
 
     if size > MAX_FILE_SIZE:
-        raise ValueError(
-            f"File size {size} bytes exceeds the maximum allowed size of "
-            f"{MAX_FILE_SIZE} bytes (5 MB)."
-        )
+        raise ValueError(f"File size {size} bytes exceeds the maximum allowed size of {MAX_FILE_SIZE} bytes (5 MB).")
 
     # --- Collision-safe object key ------------------------------------------
     key = f"inspections/{adjudication_id}/{uuid4().hex}{ext}"
@@ -221,9 +218,7 @@ def upload_photo(file_obj, adjudication_id, filename):
         raise
 
     url = _build_url(key)
-    logger.info(
-        "Uploaded photo (key=%s, size=%d bytes) -> %s", key, size, url
-    )
+    logger.info("Uploaded photo (key=%s, size=%d bytes) -> %s", key, size, url)
     return url
 
 
@@ -260,17 +255,13 @@ def delete_photo(file_url):
         logger.info("Deleted photo (key=%s)", key)
         return True
     except ClientError as exc:
-        error_code = exc.response.get('Error', {}).get('Code', '')
+        error_code = exc.response.get("Error", {}).get("Code", "")
         # NoSuchKey / 404 – the object is already gone, which is the desired
         # end-state, so treat it as success rather than raising.
-        if error_code in ('NoSuchKey', '404'):
-            logger.info(
-                "delete_photo: object already absent (key=%s)", key
-            )
+        if error_code in ("NoSuchKey", "404"):
+            logger.info("delete_photo: object already absent (key=%s)", key)
             return True
-        logger.error(
-            "delete_photo: failed to delete object (key=%s): %s", key, exc
-        )
+        logger.error("delete_photo: failed to delete object (key=%s): %s", key, exc)
         return False
     except Exception:
         logger.exception("delete_photo: unexpected error (key=%s)", key)
@@ -280,15 +271,16 @@ def delete_photo(file_url):
 # ---------------------------------------------------------------------------
 # Smoke test
 # ---------------------------------------------------------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Verify credentials end-to-end: upload a tiny in-memory image, then
     # delete it.  Run with:  python -m app.utils.storage
     from io import BytesIO
+
     from PIL import Image
 
     print("=== R2 Storage Smoke Test ===")
 
-    required = ['R2_ACCESS_KEY', 'R2_SECRET_KEY', 'R2_BUCKET', 'R2_ENDPOINT']
+    required = ["R2_ACCESS_KEY", "R2_SECRET_KEY", "R2_BUCKET", "R2_ENDPOINT"]
     missing = [v for v in required if not os.environ.get(v)]
     if missing:
         print(f"SKIP: Missing environment variable(s): {', '.join(missing)}")
@@ -296,13 +288,13 @@ if __name__ == '__main__':
         raise SystemExit(0)
 
     # Create a tiny 1×1 red PNG entirely in memory.
-    img = Image.new('RGB', (1, 1), color=(255, 0, 0))
+    img = Image.new("RGB", (1, 1), color=(255, 0, 0))
     buf = BytesIO()
-    img.save(buf, format='PNG')
+    img.save(buf, format="PNG")
     buf.seek(0)
 
     test_adjudication_id = 0
-    test_filename = 'smoke_test.png'
+    test_filename = "smoke_test.png"
 
     # --- Upload ---------------------------------------------------------------
     try:

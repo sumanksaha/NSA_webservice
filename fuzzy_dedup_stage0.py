@@ -7,7 +7,7 @@ Using rapidfuzz for efficient batch fuzzy matching
 import re
 import time
 import warnings
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -60,7 +60,7 @@ print(
 
 
 # Extract PIN and Ward from raw_address
-def extract_pin(address: str) -> Optional[str]:
+def extract_pin(address: str) -> str | None:
     """Extract 6-digit PIN from address"""
     if pd.isna(address):
         return None
@@ -73,7 +73,7 @@ def extract_pin(address: str) -> Optional[str]:
     return None
 
 
-def extract_ward(address: str) -> Optional[str]:
+def extract_ward(address: str) -> str | None:
     """Extract ward number from address"""
     if pd.isna(address):
         return None
@@ -109,9 +109,7 @@ print(f"  Total records: {total_records:,}")
 print(f"  Records with PIN: {with_pin:,} ({100 * with_pin / total_records:.1f}%)")
 print(f"  Records with WARD: {with_ward:,} ({100 * with_ward / total_records:.1f}%)")
 print(f"  Records with BOTH: {with_both:,} ({100 * with_both / total_records:.1f}%)")
-print(
-    f"  Records with NEITHER: {with_neither:,} ({100 * with_neither / total_records:.1f}%)"
-)
+print(f"  Records with NEITHER: {with_neither:,} ({100 * with_neither / total_records:.1f}%)")
 
 # CRITICAL CHECK: If >10% lack both PIN and ward, STOP
 coverage_gap_pct = 100 * with_neither / total_records if total_records > 0 else 0
@@ -131,7 +129,7 @@ print("=" * 80)
 
 
 # Create blocking key: PIN preferred, ward as secondary
-def create_blocking_key(row: pd.Series) -> Optional[str]:
+def create_blocking_key(row: pd.Series) -> str | None:
     pin_val = row.get("pin")
     ward_val = row.get("ward")
     if pd.notna(pin_val) and pin_val:
@@ -145,7 +143,8 @@ df_single["block_key"] = df_single.apply(create_blocking_key, axis=1)
 
 # Group by block key
 blocks = (
-    df_single.groupby("block_key")
+    df_single
+    .groupby("block_key")
     .agg({"fbo_id": list, "raw_address": list, "pin": "first", "ward": "first"})
     .reset_index()
 )
@@ -179,7 +178,7 @@ print("STEP 4: FUZZY COMPARE - BATCHED")
 print("=" * 80)
 
 # Prepare results storage
-fuzzy_candidates: List[Dict[str, Any]] = []
+fuzzy_candidates: list[dict[str, Any]] = []
 
 # Track progress
 total_comparisons = 0
@@ -188,9 +187,7 @@ start_time = time.time()
 progress_interval = 10
 
 # Sort blocks by size (largest first for better progress visibility)
-blocks_sorted = blocks.sort_values(
-    "block_key", key=lambda x: [len(ids) for ids in x], ascending=False
-)
+blocks_sorted = blocks.sort_values("block_key", key=lambda x: [len(ids) for ids in x], ascending=False)
 total_blocks = len(blocks_sorted)
 
 print(f"Processing {total_blocks:,} blocks...")
@@ -199,8 +196,8 @@ print("Using rapidfuzz.process.cdist for batched similarity computation")
 blocks_processed = 0
 
 for block_idx, (_, block) in enumerate(blocks_sorted.iterrows()):
-    fbo_ids: List[str] = block["fbo_id"]
-    addresses: List[str] = block["raw_address"]
+    fbo_ids: list[str] = block["fbo_id"]
+    addresses: list[str] = block["raw_address"]
     n = len(fbo_ids)
 
     if n < 2:
@@ -208,25 +205,21 @@ for block_idx, (_, block) in enumerate(blocks_sorted.iterrows()):
         continue
 
     # Batched cdist call - compute full similarity matrix at once
-    similarity_matrix = process.cdist(
-        addresses, addresses, scorer=fuzz.token_sort_ratio
-    )
+    similarity_matrix = process.cdist(addresses, addresses, scorer=fuzz.token_sort_ratio)
 
     # Extract upper triangle pairs (i < j, excluding self-matches) with score >= 90
     for i in range(n):
         for j in range(i + 1, n):
             score = similarity_matrix[i, j]
             if score >= 90:
-                fuzzy_candidates.append(
-                    {
-                        "fbo_id_1": fbo_ids[i],
-                        "fbo_id_2": fbo_ids[j],
-                        "raw_address_1": addresses[i],
-                        "raw_address_2": addresses[j],
-                        "similarity_score": round(float(score), 2),
-                        "block_key": block["block_key"],
-                    }
-                )
+                fuzzy_candidates.append({
+                    "fbo_id_1": fbo_ids[i],
+                    "fbo_id_2": fbo_ids[j],
+                    "raw_address_1": addresses[i],
+                    "raw_address_2": addresses[j],
+                    "similarity_score": round(float(score), 2),
+                    "block_key": block["block_key"],
+                })
                 total_candidate_pairs += 1
 
     # Count comparisons (n*(n-1)/2 for each block)

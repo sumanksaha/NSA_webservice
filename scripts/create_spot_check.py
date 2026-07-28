@@ -5,8 +5,9 @@ Step 1: Isolate high-confidence subset (12,036 pairs)
 Step 2: Draw 5% random sample (~600 pairs) -> spot_check_sample.csv
 Step 3: STOP for human sign-off
 """
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 np.random.seed(42)  # reproducible sample
 
@@ -30,10 +31,13 @@ sample["house_number_2"] = sample["house_number_2"].fillna("N/A")
 
 # Write spot_check_sample.csv with formatted columns
 output_cols = [
-    "fbo_id_1", "fbo_id_2",
-    "house_number_1", "house_number_2",
+    "fbo_id_1",
+    "fbo_id_2",
+    "house_number_1",
+    "house_number_2",
     "similarity_score",
-    "raw_address_1", "raw_address_2",
+    "raw_address_1",
+    "raw_address_2",
     "block_key",
 ]
 
@@ -43,7 +47,7 @@ print("=" * 70)
 print("SPOT CHECK SAMPLE GENERATED")
 print("=" * 70)
 print()
-print(f"  File: spot_check_sample.csv")
+print("  File: spot_check_sample.csv")
 print(f"  Pairs: {len(sample):,}")
 print(f"  Columns: {', '.join(output_cols)}")
 print()
@@ -52,7 +56,7 @@ print()
 print("First 10 entries for quick eyeballing:")
 print("-" * 70)
 for i, (_, row) in enumerate(sample.head(10).iterrows()):
-    print(f"\n  [{i+1}] Score: {row['similarity_score']}  |  Block: {row['block_key']}")
+    print(f"\n  [{i + 1}] Score: {row['similarity_score']}  |  Block: {row['block_key']}")
     print(f"      #{row['house_number_1']}  |  {str(row['raw_address_1'])[:75]}...")
     print(f"      #{row['house_number_2']}  |  {str(row['raw_address_2'])[:75]}...")
 print()

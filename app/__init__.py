@@ -1,18 +1,13 @@
 import os
 import threading
-from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, url_for, request
+from flask import Flask, redirect, request, url_for
+from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from flask_login import current_user
-
-from app.extensions import db
-from app.extensions import talisman
-from app.extensions import csrf
-from app.extensions import login_manager
+from app.extensions import csrf, db, login_manager, talisman
 
 _fso_sync_lock = threading.Lock()
 
@@ -45,8 +40,7 @@ def create_app():
         # requiring every developer to create a .env file immediately.
         secret_key = "dev-secret-key-do-not-use-in-production"
         app.logger.warning(
-            "SECRET_KEY not set — using insecure fallback. "
-            "Set SECRET_KEY in your .env file for local development."
+            "SECRET_KEY not set — using insecure fallback. Set SECRET_KEY in your .env file for local development."
         )
     app.config["SECRET_KEY"] = secret_key
 
@@ -63,12 +57,9 @@ def create_app():
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         # Validate URL has a scheme (basic check for malformed URLs)
         if not any(
-            database_url.startswith(proto)
-            for proto in ["postgresql://", "sqlite://", "mysql://", "mariadb://"]
+            database_url.startswith(proto) for proto in ["postgresql://", "sqlite://", "mysql://", "mariadb://"]
         ):
-            app.logger.warning(
-                f"DATABASE_URL malformed: '{database_url}' - falling back to SQLite"
-            )
+            app.logger.warning(f"DATABASE_URL malformed: '{database_url}' - falling back to SQLite")
             database_url = f"sqlite:///{db_path}"
         app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     else:
@@ -91,35 +82,37 @@ def create_app():
     # ------------------------------------------------------------------
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
-    is_production = bool(os.environ.get("RENDER")) or \
-        os.environ.get("APP_ENV", "").lower() in ("production", "prod") or \
-        os.environ.get("FLASK_ENV", "").lower() == "production"
+    is_production = (
+        bool(os.environ.get("RENDER"))
+        or os.environ.get("APP_ENV", "").lower() in ("production", "prod")
+        or os.environ.get("FLASK_ENV", "").lower() == "production"
+    )
 
     csp = {
-        'default-src': ["'self'"],
-        'style-src': [
+        "default-src": ["'self'"],
+        "style-src": [
             "'self'",
             "'unsafe-inline'",
-            'https://fonts.googleapis.com',
-            'https://cdnjs.cloudflare.com',
+            "https://fonts.googleapis.com",
+            "https://cdnjs.cloudflare.com",
         ],
-        'font-src': [
+        "font-src": [
             "'self'",
-            'https://fonts.gstatic.com',
-            'https://cdnjs.cloudflare.com',
+            "https://fonts.gstatic.com",
+            "https://cdnjs.cloudflare.com",
         ],
-        'script-src': [
+        "script-src": [
             "'self'",
             "'unsafe-inline'",
         ],
-        'img-src': [
+        "img-src": [
             "'self'",
-            'data:',
+            "data:",
         ],
-        'connect-src': ["'self'"],
-        'frame-ancestors': ["'none'"],
-        'form-action': ["'self'"],
-        'base-uri': ["'self'"],
+        "connect-src": ["'self'"],
+        "frame-ancestors": ["'none'"],
+        "form-action": ["'self'"],
+        "base-uri": ["'self'"],
     }
 
     talisman.init_app(
@@ -134,20 +127,8 @@ def create_app():
         strict_transport_security_include_subdomains=is_production,
         session_cookie_secure=is_production,
         session_cookie_http_only=True,
-        session_cookie_samesite='Lax',
+        session_cookie_samesite="Lax",
     )
-
-    # ------------------------------------------------------------------
-    # Session cookie hardening (backstop / explicit config)
-    # ------------------------------------------------------------------
-    # These mirror what Talisman sets above but are repeated here so they
-    # are obvious in one place and work even if Talisman is removed later.
-    # ------------------------------------------------------------------
-    app.config["SESSION_COOKIE_SECURE"] = is_production
-    app.config["SESSION_COOKIE_HTTPONLY"] = True
-    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
-    app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
     # Initialize CSRF protection (uses SECRET_KEY set above)
     csrf.init_app(app)
@@ -186,9 +167,7 @@ def create_app():
         """Store the current user ID on ``db.session.info`` so that audit
         event hooks can read it without depending on the request context."""
         try:
-            db.session.info["audit_user_id"] = (
-                current_user.get_id() if current_user.is_authenticated else None
-            )
+            db.session.info["audit_user_id"] = current_user.get_id() if current_user.is_authenticated else None
         except (RuntimeError, AttributeError):
             db.session.info["audit_user_id"] = None
 
@@ -212,12 +191,13 @@ def create_app():
     # Wire up SQLAlchemy audit event hooks for Adjudication, Bill, CaseFile
     # ------------------------------------------------------------------
     from app.audit_hooks import register_audit_hooks
+
     register_audit_hooks()
 
     # Register blueprints (auth first so login page is available)
-    from app.auth import auth_bp
-    from app.audit import audit_bp
     from app.adjudication.routes import adjudication_bp
+    from app.audit import audit_bp
+    from app.auth import auth_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp
@@ -239,7 +219,7 @@ def create_app():
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
-    from app import models  # noqa: F401 — registers all models with db.metadata
+    from app import models
 
     # Fallback safeguard: if core tables are missing (e.g., fresh local DB
     # without migrations applied), create them so startup sync doesn't fail.
@@ -259,20 +239,15 @@ def create_app():
     if not os.environ.get("SKIP_FSO_STARTUP_SYNC"):
         from app.utils.fso_data import sync_fso_from_markdown
 
-        with app.app_context():
-            with _fso_sync_lock:
-                try:
-                    result = sync_fso_from_markdown()
-                    if result.get("errors"):
-                        app.logger.warning(
-                            f"FSO startup sync completed with warnings: {result['errors']}"
-                        )
-                    else:
-                        app.logger.info(
-                            f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated"
-                        )
-                except Exception as e:
-                    app.logger.error(f"FSO startup sync failed: {e!s}")
+        with app.app_context(), _fso_sync_lock:
+            try:
+                result = sync_fso_from_markdown()
+                if result.get("errors"):
+                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
+                else:
+                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
+            except Exception as e:
+                app.logger.error(f"FSO startup sync failed: {e!s}")
 
     # Redirect root to first tab (Sample -adjudication)
     @app.route("/")

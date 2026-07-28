@@ -4,12 +4,14 @@ sample_utils.py
 Utilities for the Sample module, including sample_code generation.
 """
 
-import time
 import random
+import time
 from datetime import datetime
-from sqlalchemy import func, text
+
+from sqlalchemy import text
+
 from app.extensions import db
-from app.models import Sample, CodeSequence
+from app.models import CodeSequence
 
 
 def _get_db_dialect() -> str:
@@ -25,7 +27,7 @@ def _acquire_advisory_lock(lock_key: int) -> None:
     On non-PostgreSQL databases this is a no-op (the retry loop in
     ``generate_sample_code`` handles concurrency via the sequence table).
     """
-    if _get_db_dialect() == 'postgresql':
+    if _get_db_dialect() == "postgresql":
         db.session.execute(
             text("SELECT pg_advisory_xact_lock(:key)"),
             {"key": lock_key},
@@ -82,7 +84,4 @@ def generate_sample_code() -> str:
             time.sleep(random.uniform(0.001, 0.01) * (attempt + 1))
             continue
 
-    raise RuntimeError(
-        "Failed to generate unique sample code after "
-        f"{max_retries} retries"
-    )
+    raise RuntimeError(f"Failed to generate unique sample code after {max_retries} retries")

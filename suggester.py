@@ -8,17 +8,26 @@ No external LLM dependencies — all logic is deterministic and runs locally.
 
 import logging
 
-from sections_data import SECTIONS, VALID_SECTION_IDS
-
 logger = logging.getLogger(__name__)
 
 # Fields that are case metadata, not checklist items
 _NON_CHECKLIST_FIELDS = {
-    "food_safety_officer", "case_number", "fbo_owner", "fbo_name",
-    "fbo_address", "fssai_license", "concerned_food", "complaint_lodged",
-    "problem", "non_license", "pre_authorization",
-    "First_inspection_date", "compliance_deadline",
-    "Complaint_date", "inspection_date", "authorization_date",
+    "food_safety_officer",
+    "case_number",
+    "fbo_owner",
+    "fbo_name",
+    "fbo_address",
+    "fssai_license",
+    "concerned_food",
+    "complaint_lodged",
+    "problem",
+    "non_license",
+    "pre_authorization",
+    "First_inspection_date",
+    "compliance_deadline",
+    "Complaint_date",
+    "inspection_date",
+    "authorization_date",
 }
 
 # Checklist items indicating unhygienic/unsanitary conditions -> Sec 56
@@ -55,10 +64,7 @@ def _is_non_license(form_data: dict) -> bool:
 
 
 def _detect_section_56_from_checklist(form_data: dict) -> tuple[bool, str]:
-    violations = [
-        desc for field, desc in _HYGIENE_CHECKLIST_ITEMS.items()
-        if form_data.get(field) == "no"
-    ]
+    violations = [desc for field, desc in _HYGIENE_CHECKLIST_ITEMS.items() if form_data.get(field) == "no"]
     if not violations:
         return False, ""
     summary = "; ".join(violations[:2])
@@ -68,10 +74,7 @@ def _detect_section_56_from_checklist(form_data: dict) -> tuple[bool, str]:
 
 
 def _detect_section_55_from_checklist(form_data: dict) -> tuple[bool, str]:
-    violations = [
-        desc for field, desc in _DIRECTION_COMPLIANCE_ITEMS.items()
-        if form_data.get(field) == "no"
-    ]
+    violations = [desc for field, desc in _DIRECTION_COMPLIANCE_ITEMS.items() if form_data.get(field) == "no"]
     if form_data.get("artificial_colour") == "yes":
         violations.append("Artificial colours used despite standing directions.")
     if not violations:
@@ -98,9 +101,7 @@ def suggest_sections(form_data: dict) -> dict:
     if _is_non_license(form_data):
         return {
             "sections": ["63"],
-            "reasoning": {
-                "63": "FBO is non-licensed/unregistered — Section 63 applies exclusively."
-            },
+            "reasoning": {"63": "FBO is non-licensed/unregistered — Section 63 applies exclusively."},
         }
 
     # Rule 2: Section 55 from direction compliance failures

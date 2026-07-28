@@ -2,20 +2,21 @@
 PDF generation utilities with graceful WeasyPrint handling.
 """
 
-import os
+import base64
 import io
 import logging
-import base64
+import os
+
 import requests
 
 logger = logging.getLogger(__name__)
 
 # Environment variable to disable PDF generation (useful for local development without GTK)
-PDF_GENERATION_ENABLED = os.environ.get('DISABLE_PDF_GENERATION', 'false').lower() != 'true'
+PDF_GENERATION_ENABLED = os.environ.get("DISABLE_PDF_GENERATION", "false").lower() != "true"
 
 # If R2_PUBLIC_BASE_URL or R2_ENDPOINT are set we assume public URLs;
 # set PDF_USE_DIRECT_URLS=true to skip base64 embedding entirely.
-_PDF_USE_DIRECT_URLS = os.environ.get('PDF_USE_DIRECT_URLS', 'false').lower() == 'true'
+_PDF_USE_DIRECT_URLS = os.environ.get("PDF_USE_DIRECT_URLS", "false").lower() == "true"
 
 
 def import_weasyprint():
@@ -28,6 +29,7 @@ def import_weasyprint():
 
     try:
         from weasyprint import HTML
+
         return HTML
     except (ImportError, OSError) as e:
         logger.warning(f"WeasyPrint import failed: {e}")
@@ -73,42 +75,42 @@ def embed_photos_as_base64(photo_urls):
 
     for path in photo_urls:
         if not path:
-            results.append({'url': path, 'error': 'empty path'})
+            results.append({"url": path, "error": "empty path"})
             continue
 
         if _PDF_USE_DIRECT_URLS:
-            results.append({'url': path, 'data_uri': path})
+            results.append({"url": path, "data_uri": path})
             continue
 
         try:
-            if path.startswith(('http://', 'https://')):
+            if path.startswith(("http://", "https://")):
                 # Remote URL — fetch over HTTP
                 resp = requests.get(path, timeout=10)
                 resp.raise_for_status()
-                content_type = resp.headers.get('Content-Type', 'image/jpeg')
+                content_type = resp.headers.get("Content-Type", "image/jpeg")
                 raw_bytes = resp.content
             else:
                 # Local filesystem path — read directly
                 if not os.path.exists(path):
                     raise FileNotFoundError(f"Local file not found: {path}")
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     raw_bytes = f.read()
                 # Guess content type from extension
                 ext = os.path.splitext(path)[1].lower()
                 content_type = {
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.png': 'image/png',
-                    '.webp': 'image/webp',
-                }.get(ext, 'image/jpeg')
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".png": "image/png",
+                    ".webp": "image/webp",
+                }.get(ext, "image/jpeg")
 
-            b64 = base64.b64encode(raw_bytes).decode('ascii')
+            b64 = base64.b64encode(raw_bytes).decode("ascii")
             results.append({
-                'url': path,
-                'data_uri': f"data:{content_type};base64,{b64}",
+                "url": path,
+                "data_uri": f"data:{content_type};base64,{b64}",
             })
         except Exception as exc:
             logger.warning("Failed to embed photo for PDF: %s — %s", path, exc)
-            results.append({'url': path, 'error': str(exc)})
+            results.append({"url": path, "error": str(exc)})
 
     return results

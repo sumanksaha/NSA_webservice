@@ -4,6 +4,7 @@ high-confidence pairs, leaving only the 24,442 ambiguous pairs.
 
 Also updates review_priority.csv and review_low_priority.csv to match.
 """
+
 import pandas as pd
 
 print("=" * 70)
@@ -30,7 +31,6 @@ print(f"\n[OK] Updated fuzzy_candidates.csv ({len(ambig):,} rows)")
 
 # 4. Also update review_priority.csv and review_low_priority.csv
 #    (re-generate them from the cleaned fuzzy_candidates to stay in sync)
-from collections import OrderedDict
 import re
 
 # Load the cleaned file for review generation
@@ -38,30 +38,117 @@ df_clean = pd.read_csv("fuzzy_candidates.csv")
 
 # Recompute locality_match using the same logic as triage_ambiguous.py
 GENERIC_TOKENS = {
-    "KOLKATA", "KOL", "CALCUTTA", "WEST", "BENGAL", "WB", "W.B.",
-    "MUNICIPAL", "CORPORATION", "MUNICIPALITY", "CITY", "TOWN",
-    "BOROUGH", "WARD", "PIN", "PINCODE", "POSTAL", "ZIP",
-    "STREET", "ROAD", "LANE", "AVENUE", "DRIVE", "CIRCUS", "ROW",
-    "SQUARE", "PLACE", "COURT", "CRESCENT", "GARDENS", "PARK",
-    "BRIDGE", "FLYOVER", "OVERBRIDGE",
-    "GROUND", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH",
-    "FLOOR", "FLOORS", "BASEMENT", "TOP", "UPPER", "LOWER",
-    "FLAT", "ROOM", "SHOP", "STALL", "UNIT", "OFFICE", "CHAMBER",
-    "BLDG", "BUILDING", "BLOCK", "TOWER", "WING", "PHASE",
-    "HOUSE", "HOLDING", "PLOT", "PREMISES",
-    "NO", "NUMBER", "NUM", "#",
-    "NEAR", "OPP", "OPPOSITE", "BESIDE", "BEHIND", "BETWEEN",
-    "EAST", "WEST", "NORTH", "SOUTH", "EASTERN", "WESTERN",
-    "NORTHERN", "SOUTHERN",
-    "NEW", "OLD", "GREATER",
-    "ST", "RD", "LN", "APT", "APPT", "DEPT", "DEPT.",
-    "C/O", "CARE", "OF",
-    "KMC", "KMDA",
-    "THE", "AND", "&", "AT", "BY", "FOR", "TO", "IN", "ON",
-    "A", "AN", "OF", "VIA",
+    "KOLKATA",
+    "KOL",
+    "CALCUTTA",
+    "WEST",
+    "BENGAL",
+    "WB",
+    "W.B.",
+    "MUNICIPAL",
+    "CORPORATION",
+    "MUNICIPALITY",
+    "CITY",
+    "TOWN",
+    "BOROUGH",
+    "WARD",
+    "PIN",
+    "PINCODE",
+    "POSTAL",
+    "ZIP",
+    "STREET",
+    "ROAD",
+    "LANE",
+    "AVENUE",
+    "DRIVE",
+    "CIRCUS",
+    "ROW",
+    "SQUARE",
+    "PLACE",
+    "COURT",
+    "CRESCENT",
+    "GARDENS",
+    "PARK",
+    "BRIDGE",
+    "FLYOVER",
+    "OVERBRIDGE",
+    "GROUND",
+    "FIRST",
+    "SECOND",
+    "THIRD",
+    "FOURTH",
+    "FIFTH",
+    "FLOOR",
+    "FLOORS",
+    "BASEMENT",
+    "TOP",
+    "UPPER",
+    "LOWER",
+    "FLAT",
+    "ROOM",
+    "SHOP",
+    "STALL",
+    "UNIT",
+    "OFFICE",
+    "CHAMBER",
+    "BLDG",
+    "BUILDING",
+    "BLOCK",
+    "TOWER",
+    "WING",
+    "PHASE",
+    "HOUSE",
+    "HOLDING",
+    "PLOT",
+    "PREMISES",
+    "NO",
+    "NUMBER",
+    "NUM",
+    "#",
+    "NEAR",
+    "OPP",
+    "OPPOSITE",
+    "BESIDE",
+    "BEHIND",
+    "BETWEEN",
+    "EAST",
+    "NORTH",
+    "SOUTH",
+    "EASTERN",
+    "WESTERN",
+    "NORTHERN",
+    "SOUTHERN",
+    "NEW",
+    "OLD",
+    "GREATER",
+    "ST",
+    "RD",
+    "LN",
+    "APT",
+    "APPT",
+    "DEPT",
+    "DEPT.",
+    "C/O",
+    "CARE",
+    "OF",
+    "KMC",
+    "KMDA",
+    "THE",
+    "AND",
+    "&",
+    "AT",
+    "BY",
+    "FOR",
+    "TO",
+    "IN",
+    "ON",
+    "A",
+    "AN",
+    "VIA",
 }
 
 NUM_PATTERN = re.compile(r"^\d")
+
 
 def extract_tokens(addr):
     if pd.isna(addr) or not str(addr).strip():
@@ -75,30 +162,34 @@ def extract_tokens(addr):
         result.add(t)
     return result
 
+
 print("\nRecomputing locality_match for updated review files...")
 df_clean["locality_match"] = df_clean.apply(
-    lambda r: bool(extract_tokens(r["raw_address_1"]) & extract_tokens(r["raw_address_2"])),
-    axis=1
+    lambda r: bool(extract_tokens(r["raw_address_1"]) & extract_tokens(r["raw_address_2"])), axis=1
 )
 
-sorted_df = df_clean.sort_values(
-    by=["block_key", "locality_match"],
-    ascending=[True, False]
-).reset_index(drop=True)
+sorted_df = df_clean.sort_values(by=["block_key", "locality_match"], ascending=[True, False]).reset_index(drop=True)
 
 priority = sorted_df[sorted_df["locality_match"] == True].copy()
 low_priority = sorted_df[sorted_df["locality_match"] == False].copy()
 
 output_cols = [
-    "fbo_id_1", "fbo_id_2", "raw_address_1", "raw_address_2",
-    "similarity_score", "block_key", "house_number_1", "house_number_2",
-    "high_confidence", "locality_match"
+    "fbo_id_1",
+    "fbo_id_2",
+    "raw_address_1",
+    "raw_address_2",
+    "similarity_score",
+    "block_key",
+    "house_number_1",
+    "house_number_2",
+    "high_confidence",
+    "locality_match",
 ]
 
 priority[output_cols].to_csv("review_priority.csv", index=False)
 low_priority[output_cols].to_csv("review_low_priority.csv", index=False)
 
-print(f"\nUpdated review files:")
+print("\nUpdated review files:")
 print(f"  review_priority.csv:     {len(priority):,} rows (locality_match True)")
 print(f"  review_low_priority.csv: {len(low_priority):,} rows (no locality match)")
 print(f"  Total:                   {len(priority) + len(low_priority):,} rows")

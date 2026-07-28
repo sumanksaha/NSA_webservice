@@ -1,14 +1,13 @@
-from urllib.parse import urlparse
 from datetime import datetime
+from urllib.parse import urlparse
 
-from flask import render_template, redirect, url_for, request, flash, session
+from flask import flash, redirect, render_template, request, session, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash
-from flask_login import login_user, logout_user, login_required, current_user
 
-from app.extensions import db
-from app.models import User, RecordAudit
 from app.auth import auth_bp
-import json
+from app.extensions import db
+from app.models import RecordAudit, User
 
 
 def _is_safe_redirect_url(target):

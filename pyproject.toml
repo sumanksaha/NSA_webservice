@@ -116,7 +116,6 @@ select = [
 ]
 ignore = [
     "E501",   # Line too long (handled by Black)
-    "W503",   # Line break before binary operator (conflicts with Black)
     "E402",   # Module import not at top of file (needed for Flask app factory)
     "S101",   # Use of assert (allowed in tests)
     "B008",   # Do not perform function calls in argument defaults (Flask pattern)

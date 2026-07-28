@@ -10,24 +10,26 @@ This script requires a running Flask app context to access the database.
 It works with both SQLite and PostgreSQL.
 """
 
-import sys
 import getpass
 import os
+import sys
 
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Load .env before anything else
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Skip FSO sync and other startup noise during script execution
 os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
 
+from werkzeug.security import generate_password_hash
+
 from app import create_app
 from app.extensions import db
 from app.models import User
-from werkzeug.security import generate_password_hash
 
 
 def main():

@@ -1,32 +1,37 @@
 import os
 import sys
-os.chdir('C:\\github\\NSA_webservice')
-sys.path.insert(0, 'C:\\github\\NSA_webservice')
 
-from app import create_app
-from flask_migrate import Migrate
+os.chdir("C:\\github\\NSA_webservice")
+sys.path.insert(0, "C:\\github\\NSA_webservice")
+
 import sqlite3
 
+from flask_migrate import Migrate
+
+from app import create_app
+
 app = create_app()
-migrate = Migrate(app, app.extensions['db'])
+migrate = Migrate(app, app.extensions["db"])
 
 # Get alembic version info
-from alembic.config import Config
-from alembic import command
-from io import StringIO
 import contextlib
+from io import StringIO
 
-alembic_cfg = Config('migrations/alembic.ini')
-alembic_cfg.set_main_option('script_location', 'migrations')
+from alembic import command
+from alembic.config import Config
+
+alembic_cfg = Config("migrations/alembic.ini")
+alembic_cfg.set_main_option("script_location", "migrations")
 
 print("=== ALEMBIC MIGRATION FILES (in order) ===")
 import glob
-migration_files = sorted(glob.glob('migrations/versions/*.py'))
+
+migration_files = sorted(glob.glob("migrations/versions/*.py"))
 for f in migration_files:
     print(f"  {os.path.basename(f)}")
 
 print("\n=== ACTUAL TABLES IN DATABASE ===")
-db_path = os.path.join('C:\\github\\NSA_webservice\\instance', 'app.db')
+db_path = os.path.join("C:\\github\\NSA_webservice\\instance", "app.db")
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -46,7 +51,7 @@ else:
 conn.close()
 
 print("\n=== CHECKING FOR case_files TABLE ===")
-if 'case_files' in tables:
+if "case_files" in tables:
     print("  case_files EXISTS in database")
 else:
     print("  case_files MISSING from database")

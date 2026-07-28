@@ -1,7 +1,7 @@
-import sqlite3
 import os
+import sqlite3
 
-db_path = os.path.join('instance', 'app.db')
+db_path = os.path.join("instance", "app.db")
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 

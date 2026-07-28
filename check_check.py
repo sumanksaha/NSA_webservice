@@ -1,7 +1,7 @@
-import sqlite3
 import os
+import sqlite3
 
-db_path = os.path.join('C:\\github\\NSA_webservice\\instance', 'app.db')
+db_path = os.path.join("C:\\github\\NSA_webservice\\instance", "app.db")
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
@@ -17,7 +17,7 @@ if create_sql:
         print("PASS: sample_type has CHECK constraint")
     else:
         print("FAIL: sample_type missing CHECK constraint")
-        
+
 # Also check the constraints
 cursor.execute("PRAGMA table_info(sample)")
 columns = cursor.fetchall()

@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 audit_bp = Blueprint(
-    'audit',
+    "audit",
     __name__,
-    template_folder='templates',
+    template_folder="templates",
 )

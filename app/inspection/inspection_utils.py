@@ -4,12 +4,14 @@ inspection_utils.py
 Utilities for the Inspection module, including inspection_code generation.
 """
 
-import time
 import random
+import time
 from datetime import datetime, timedelta
-from sqlalchemy import func, text
+
+from sqlalchemy import text
+
 from app.extensions import db
-from app.models import Inspection, CodeSequence
+from app.models import CodeSequence
 
 
 def _get_db_dialect() -> str:
@@ -25,7 +27,7 @@ def _acquire_advisory_lock(lock_key: int) -> None:
     On non-PostgreSQL databases this is a no-op (the retry loop in
     ``generate_inspection_code`` handles concurrency via the sequence table).
     """
-    if _get_db_dialect() == 'postgresql':
+    if _get_db_dialect() == "postgresql":
         db.session.execute(
             text("SELECT pg_advisory_xact_lock(:key)"),
             {"key": lock_key},
@@ -77,10 +79,7 @@ def generate_inspection_code() -> str:
             time.sleep(random.uniform(0.001, 0.01) * (attempt + 1))
             continue
 
-    raise RuntimeError(
-        "Failed to generate unique inspection code after "
-        f"{max_retries} retries"
-    )
+    raise RuntimeError(f"Failed to generate unique inspection code after {max_retries} retries")
 
 
 def calculate_compliance_deadline(inspection_date) -> datetime | None:
@@ -96,12 +95,12 @@ def calculate_compliance_deadline(inspection_date) -> datetime | None:
     """
     if isinstance(inspection_date, datetime):
         base = inspection_date
-    elif hasattr(inspection_date, 'year'):  # date-like object
+    elif hasattr(inspection_date, "year"):  # date-like object
         base = datetime.combine(inspection_date, datetime.min.time())
     else:
         # Try parsing as ISO string
         try:
-            base = datetime.strptime(str(inspection_date), '%Y-%m-%d')
+            base = datetime.strptime(str(inspection_date), "%Y-%m-%d")
         except (ValueError, TypeError):
             return None
 

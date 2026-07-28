@@ -1,0 +1,38 @@
+# Pre-commit configuration for NSA Webservice
+# Uses the system-installed ruff (from requirements-dev.txt) so pre-commit,
+# terminal, and CI all run the same version.
+# See: https://pre-commit.com
+#
+# Install hooks:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run on all files:
+#   pre-commit run --all-files
+#
+# Run on staged files only (default):
+#   pre-commit run
+#
+# Skip hooks for a single commit:
+#   git commit -m "msg" --no-verify
+
+repos:
+  - repo: local
+    hooks:
+      # ─── Ruff lint ───────────────────────────────────────────────────
+      - id: ruff-check
+        name: ruff check
+        description: "Lint Python files — catches unused imports, undefined names, etc."
+        entry: python -m ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: false
+
+      # ─── Ruff format ─────────────────────────────────────────────────
+      - id: ruff-format
+        name: ruff format
+        description: "Format Python files using ruff."
+        entry: python -m ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: false

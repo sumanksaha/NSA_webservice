@@ -5,12 +5,14 @@ Extracted from ``app/inspection/audit.py`` so that multiple blueprints
 blueprint-to-blueprint coupling.
 """
 
+import hashlib
+import json
 from datetime import datetime
+
 from sqlalchemy import text
+
 from app.extensions import db
 from app.models import AuditLog
-import json
-import hashlib
 
 
 def _get_db_dialect() -> str:
@@ -31,7 +33,7 @@ def _acquire_audit_lock(entity_id: str) -> None:
     but we additionally wrap the read-compute-insert in a single
     transaction to minimise the race window.
     """
-    if _get_db_dialect() == 'postgresql':
+    if _get_db_dialect() == "postgresql":
         lock_key = hash(entity_id) & 0x7FFFFFFF
         db.session.execute(
             text("SELECT pg_advisory_xact_lock(:key)"),
@@ -39,14 +41,13 @@ def _acquire_audit_lock(entity_id: str) -> None:
         )
 
 
-def compute_hash(prev_hash: str | None, entity_id: str, action: str,
-                 timestamp: str, details_json: str) -> str:
+def compute_hash(prev_hash: str | None, entity_id: str, action: str, timestamp: str, details_json: str) -> str:
     """
     Returns sha256 hex digest of:
     (prev_hash or "") + entity_id + action + timestamp + details_json
     """
     input_str = (prev_hash or "") + entity_id + action + timestamp + details_json
-    return hashlib.sha256(input_str.encode('utf-8')).hexdigest()
+    return hashlib.sha256(input_str.encode("utf-8")).hexdigest()
 
 
 def verify_audit_chain(entity_id: str) -> bool:
@@ -58,8 +59,7 @@ def verify_audit_chain(entity_id: str) -> bool:
     Returns ``True`` if every hash matches, ``False`` on any mismatch.
     Returns ``True`` for an empty chain.
     """
-    audit_logs = AuditLog.query.filter_by(entity_id=entity_id) \
-        .order_by(AuditLog.id.asc()).all()
+    audit_logs = AuditLog.query.filter_by(entity_id=entity_id).order_by(AuditLog.id.asc()).all()
 
     if not audit_logs:
         return True
@@ -79,8 +79,7 @@ def verify_audit_chain(entity_id: str) -> bool:
     return True
 
 
-def log_audit(entity_type: str, entity_id: str, action: str,
-              actor: str, details: dict) -> None:
+def log_audit(entity_type: str, entity_id: str, action: str, actor: str, details: dict) -> None:
     """
     Insert a row into the ``AuditLog`` table with hash chaining.
 
@@ -98,12 +97,10 @@ def log_audit(entity_type: str, entity_id: str, action: str,
     try:
         _acquire_audit_lock(entity_id)
 
-        prev = AuditLog.query.filter_by(entity_id=entity_id) \
-            .order_by(AuditLog.id.desc()).first()
+        prev = AuditLog.query.filter_by(entity_id=entity_id).order_by(AuditLog.id.desc()).first()
         prev_hash = prev.curr_hash if prev else None
 
-        curr_hash = compute_hash(prev_hash, entity_id, action,
-                                 timestamp_str, details_json)
+        curr_hash = compute_hash(prev_hash, entity_id, action, timestamp_str, details_json)
 
         entry = AuditLog(
             entity_type=entity_type,

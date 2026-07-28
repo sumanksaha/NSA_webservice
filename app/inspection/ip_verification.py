@@ -1,5 +1,6 @@
-import requests
 import re
+
+import requests
 
 
 def ip_geolocate(ip_address: str) -> dict:
@@ -8,55 +9,29 @@ def ip_geolocate(ip_address: str) -> dict:
     Returns: {"region": str or None, "city": str or None, "error": str or None}
     """
     # Handle localhost/private IPs
-    private_ip_pattern = re.compile(r'^(127\.0\.0\.1|192\.168\.|10\.)')
+    private_ip_pattern = re.compile(r"^(127\.0\.0\.1|192\.168\.|10\.)")
     if private_ip_pattern.match(ip_address):
-        return {
-            'region': None,
-            'city': None,
-            'error': 'private_ip'
-        }
+        return {"region": None, "city": None, "error": "private_ip"}
 
     # Prepare the request
     url = f"http://ip-api.com/json/{ip_address}"
-    params = {
-        'fields': 'status,region,city,message'
-    }
+    params = {"fields": "status,region,city,message"}
 
     try:
         response = requests.get(url, params=params, timeout=5)
         response.raise_for_status()
         data = response.json()
 
-        if data.get('status') == 'success':
-            return {
-                'region': data.get('region'),
-                'city': data.get('city'),
-                'error': None
-            }
+        if data.get("status") == "success":
+            return {"region": data.get("region"), "city": data.get("city"), "error": None}
         else:
-            return {
-                'region': None,
-                'city': None,
-                'error': data.get('message', 'Unknown error')
-            }
+            return {"region": None, "city": None, "error": data.get("message", "Unknown error")}
     except requests.exceptions.Timeout:
-        return {
-            'region': None,
-            'city': None,
-            'error': 'Request timed out'
-        }
+        return {"region": None, "city": None, "error": "Request timed out"}
     except requests.exceptions.RequestException as e:
-        return {
-            'region': None,
-            'city': None,
-            'error': f'Request failed: {str(e)}'
-        }
+        return {"region": None, "city": None, "error": f"Request failed: {e!s}"}
     except Exception as e:
-        return {
-            'region': None,
-            'city': None,
-            'error': f'Unexpected error: {str(e)}'
-        }
+        return {"region": None, "city": None, "error": f"Unexpected error: {e!s}"}
 
 
 def region_match(ip_city: str, ip_region: str, geocoded_locality: str) -> bool:

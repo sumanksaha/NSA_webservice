@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 auth_bp = Blueprint(
-    'auth',
+    "auth",
     __name__,
-    template_folder='templates',
+    template_folder="templates",
 )

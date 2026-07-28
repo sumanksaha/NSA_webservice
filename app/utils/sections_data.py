@@ -14,7 +14,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
     if not os.path.exists(path):
         raise FileNotFoundError(f"FSS sections file not found at: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         text = f.read()
 
     chunks = re.split(r"\n(?=# Section \d+)", text)
@@ -27,8 +27,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
 
     if not sections:
         raise ValueError(
-            f"No sections parsed from '{path}'. Check the file exists and "
-            f"uses '# Section NN' level-1 headers."
+            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers."
         )
 
     return sections
