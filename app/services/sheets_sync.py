@@ -1,7 +1,8 @@
 import os
 import threading
-from flask import current_app
+
 import gspread
+from flask import current_app
 
 # Module-level config dicts
 WORKSHEET_MAP = {

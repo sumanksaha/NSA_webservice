@@ -19,10 +19,10 @@ are missing, a clear ``RuntimeError`` is raised only when ``upload_photo`` or
 ``delete_photo`` is actually called, so application startup is never blocked.
 """
 
-import os
 import logging
+import os
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
-from urllib.parse import urlparse, unquote
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +284,7 @@ if __name__ == '__main__':
     # Verify credentials end-to-end: upload a tiny in-memory image, then
     # delete it.  Run with:  python -m app.utils.storage
     from io import BytesIO
+
     from PIL import Image
 
     print("=== R2 Storage Smoke Test ===")

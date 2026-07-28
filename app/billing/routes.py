@@ -5,16 +5,20 @@ Provides billing summary and export functionality for Sample data.
 """
 
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, send_file
-from app.extensions import db
-from app.models import Sample
-from app.utils.fso_data import get_all_fso_names
-from app.utils.filters import parse_date
-from app.billing.billing_utils import compute_summary, generate_excel_report, format_price
+
+from flask import Blueprint, jsonify, render_template, request, send_file
 
 # Import the blueprint from __init__.py
 from app.billing import billing_bp
-
+from app.billing.billing_utils import (
+    compute_summary,
+    format_price,
+    generate_excel_report,
+)
+from app.extensions import db
+from app.models import Sample
+from app.utils.filters import parse_date
+from app.utils.fso_data import get_all_fso_names
 
 # Sample types: enforcement or surveillance only
 SAMPLE_TYPES = ['enforcement', 'surveillance']

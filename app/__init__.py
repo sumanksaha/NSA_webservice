@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask, redirect, url_for
 from flask_migrate import Migrate
 
-from app.extensions import db
+from app.extensions import csrf, db, login_manager, talisman
 
 _fso_sync_lock = threading.Lock()
 
@@ -54,6 +54,13 @@ def create_app():
     # Initialize SQLAlchemy database
     db.init_app(app)
 
+    # Initialize security extensions
+    csrf.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
+    login_manager.login_message = "Please log in to access this page."
+    talisman.init_app(app, force_https=False)
+
     # Initialize Flask-Migrate
     migrate = Migrate(app, db)
 
@@ -66,6 +73,7 @@ def create_app():
 
     # Register blueprints
     from app.adjudication.routes import adjudication_bp
+    from app.auth.routes import auth_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp
@@ -82,6 +90,7 @@ def create_app():
     app.register_blueprint(billing_bp, url_prefix="/billing")
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(inspection_bp, url_prefix="/inspection")
+    app.register_blueprint(auth_bp, url_prefix="/auth")
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata

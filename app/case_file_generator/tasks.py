@@ -6,10 +6,10 @@ file, packages them as a ZIP archive on disk, and returns metadata
 (file path, record ID, timestamp) — never raw PDF/ZIP bytes.
 """
 
-import os
 import io
-import zipfile
 import logging
+import os
+import zipfile
 from datetime import datetime
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments

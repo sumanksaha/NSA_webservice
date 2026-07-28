@@ -2,10 +2,11 @@
 PDF generation utilities with graceful WeasyPrint handling.
 """
 
-import os
+import base64
 import io
 import logging
-import base64
+import os
+
 import requests
 
 logger = logging.getLogger(__name__)

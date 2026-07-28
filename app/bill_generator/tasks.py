@@ -5,9 +5,9 @@ Produces a bill PDF via WeasyPrint, saves it to disk, and returns
 metadata (file path, record ID, timestamp) — never raw PDF bytes.
 """
 
-import os
 import io
 import logging
+import os
 from datetime import datetime
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments

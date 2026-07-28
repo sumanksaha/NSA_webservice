@@ -5,18 +5,27 @@ Provides endpoints for Sample CRUD operations and UI.
 """
 
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
+
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+
 from app.extensions import db
-from app.models import Sample, FSO
-from app.utils.lookup import lookup_fssai
-from app.utils.fso_data import get_all_fso_names
-from app.utils.filters import parse_date
-from app.sample.sample_utils import generate_sample_code
-from app.services.sheets_sync import sync_to_sheets
+from app.models import FSO, Sample
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
-
+from app.sample.sample_utils import generate_sample_code
+from app.services.sheets_sync import sync_to_sheets
+from app.utils.filters import parse_date
+from app.utils.fso_data import get_all_fso_names
+from app.utils.lookup import lookup_fssai
 
 # Sample types: enforcement or surveillance only
 SAMPLE_TYPES = ['enforcement', 'surveillance']

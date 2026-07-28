@@ -1,8 +1,11 @@
-import os
 import json
+import os
 from datetime import datetime
+
 import gspread
+
 from app.extensions import db
+
 
 def get_gspread_client():
     """
@@ -45,8 +48,9 @@ def sync_to_sheets():
         print("Google Sheets Sync: Failed to obtain authenticated gspread client. Skipping sync.")
         return False
         
-    from app.models import CaseFile, Adjudication, Bill
     from flask import current_app
+
+    from app.models import Adjudication, Bill, CaseFile
     
     # Get Spreadsheet ID
     spreadsheet_id = current_app.config.get('SPREADSHEET_ID') or os.environ.get('SPREADSHEET_ID')

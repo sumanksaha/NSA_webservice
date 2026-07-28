@@ -5,10 +5,10 @@ Provides administrative routes including FSO sync.
 """
 
 from flask import Blueprint, jsonify, render_template
-from app.utils.fso_data import sync_fso_from_markdown, get_all_fso_names
 
 # Import the blueprint from __init__.py
 from app.settings import settings_bp
+from app.utils.fso_data import get_all_fso_names, sync_fso_from_markdown
 
 
 @settings_bp.route('/')

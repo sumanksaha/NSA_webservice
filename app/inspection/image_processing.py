@@ -1,6 +1,7 @@
-from PIL import Image, ImageDraw, ImageFont
 import os
 from datetime import datetime
+
+from PIL import Image, ImageDraw, ImageFont
 
 
 def process_and_stamp_image(image_file, locality: str, captured_at: str, verification_status: str, image_id: str, case_id: str) -> str:
