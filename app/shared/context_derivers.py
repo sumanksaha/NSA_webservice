@@ -12,28 +12,28 @@ This module provides pure functions to derive the following context fields:
 All functions are pure (no side effects, same input -> same output).
 """
 
-from typing import TypedDict, Optional
+from typing import Optional, TypedDict
+
 from app.shared.case_keys import (
-    SECTION_KEYS,
+    DERIVED_APPLICABLE_SECTIONS,
+    DERIVED_CASE_TRACK,
+    DERIVED_SAME_ENTITY,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_VIOLATIONS,
+    PARTY_MANUFACTURER_FSSAI,
+    PARTY_RETAILER_FSSAI,
+    SAMPLE_IS_MISBRANDED,
+    SAMPLE_IS_SUBSTANDARD,
     SECTION_55,
     SECTION_56,
     SECTION_58,
     SECTION_63,
     SECTION_64,
-    SAMPLE_IS_SUBSTANDARD,
-    SAMPLE_IS_MISBRANDED,
+    SECTION_KEYS,
+    SHARED_COMPLAINT_LODGED,
     SHARED_NON_LICENSE,
     SHARED_PRE_AUTHORIZATION,
-    SHARED_COMPLAINT_LODGED,
-    PARTY_MANUFACTURER_FSSAI,
-    PARTY_RETAILER_FSSAI,
-    DERIVED_APPLICABLE_SECTIONS,
-    DERIVED_SECTIONS_DISPLAY,
-    DERIVED_CASE_TRACK,
-    DERIVED_VIOLATIONS,
-    DERIVED_SAME_ENTITY,
 )
-
 
 # =============================================================================
 # VIOLATION DEFINITION (from adjudication RULES)

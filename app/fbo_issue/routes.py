@@ -1,6 +1,8 @@
-from datetime import datetime
 import json
-from flask import Blueprint, request, jsonify
+from datetime import datetime
+
+from flask import Blueprint, jsonify, request
+
 from app.extensions import db
 from app.models import FboIssue, FboIssueAudit
 from app.utils.lookup import lookup_fssai

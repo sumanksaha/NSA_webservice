@@ -1,9 +1,10 @@
 import io
 import re
 from datetime import datetime
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+
 from flask import current_app
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 
 def format_price(price_str):

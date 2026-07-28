@@ -4,12 +4,14 @@ inspection_utils.py
 Utilities for the Inspection module, including inspection_code generation.
 """
 
-import time
 import random
+import time
 from datetime import datetime, timedelta
+
 from sqlalchemy import func, text
+
 from app.extensions import db
-from app.models import Inspection, CodeSequence
+from app.models import CodeSequence, Inspection
 
 
 def _get_db_dialect() -> str:

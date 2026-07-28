@@ -1,6 +1,7 @@
-import requests
 import math
 import time
+
+import requests
 
 # Module-level variable for rate limiting
 _last_request_time: float = 0.0

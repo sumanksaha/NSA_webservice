@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask, redirect, url_for
 from flask_migrate import Migrate
 
-from app.extensions import db, csrf, login_manager, talisman
+from app.extensions import csrf, db, login_manager, talisman
 
 _fso_sync_lock = threading.Lock()
 
@@ -57,8 +57,8 @@ def create_app():
     # Initialize security extensions
     csrf.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_view = "auth.login"
+    login_manager.login_message = "Please log in to access this page."
     talisman.init_app(app, force_https=False)
 
     # Initialize Flask-Migrate
@@ -73,6 +73,7 @@ def create_app():
 
     # Register blueprints
     from app.adjudication.routes import adjudication_bp
+    from app.auth.routes import auth_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp
@@ -80,7 +81,6 @@ def create_app():
     from app.inspection.routes import inspection_bp
     from app.sample.routes import sample_bp
     from app.settings.routes import settings_bp
-    from app.auth.routes import auth_bp
 
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")

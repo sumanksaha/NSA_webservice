@@ -5,12 +5,14 @@ Extracted from ``app/inspection/audit.py`` so that multiple blueprints
 blueprint-to-blueprint coupling.
 """
 
+import hashlib
+import json
 from datetime import datetime
+
 from sqlalchemy import text
+
 from app.extensions import db
 from app.models import AuditLog
-import json
-import hashlib
 
 
 def _get_db_dialect() -> str:

@@ -1,38 +1,39 @@
 import io
-import zipfile
-from datetime import datetime, date
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app
-from app.extensions import db
-from app.models import Adjudication, FboIssue
-from app.utils.lookup import lookup_ce, lookup_fssai
-from app.utils.filters import parse_date
-from app.utils.suggester import suggest_sections
-from app.services.audit import log_audit
-from app.models import PhotoEvidence
-from app.services.sheets_sync import sync_to_sheets
 import json
-from app.utils.pdf_utils import generate_pdf_from_html, embed_photos_as_base64
+import zipfile
+from datetime import date, datetime
+
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+
+from app.extensions import db
+from app.models import Adjudication, FboIssue, PhotoEvidence
+from app.services.audit import log_audit
+from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
-    DERIVED_SECTIONS_DISPLAY,
     DERIVED_CASE_TRACK,
-    DERIVED_VIOLATIONS,
     DERIVED_SAME_ENTITY,
+    DERIVED_SECTIONS_DISPLAY,
+    DERIVED_VIOLATIONS,
     SECTION_55,
     SECTION_56,
     SECTION_58,
     SECTION_63,
     SECTION_64,
+    SHARED_COMPLAINT_LODGED,
     SHARED_NON_LICENSE,
     SHARED_PRE_AUTHORIZATION,
-    SHARED_COMPLAINT_LODGED,
 )
 from app.shared.context_derivers import (
     derive_applicable_sections_from_adjudication,
-    derive_sections_display,
     derive_case_track,
+    derive_sections_display,
     derive_violations,
 )
+from app.utils.filters import parse_date
+from app.utils.lookup import lookup_ce, lookup_fssai
+from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html
+from app.utils.suggester import suggest_sections
 
 adjudication_bp = Blueprint(
     'adjudication',

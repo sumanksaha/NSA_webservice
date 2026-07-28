@@ -1,5 +1,6 @@
-import requests
 import re
+
+import requests
 
 
 def ip_geolocate(ip_address: str) -> dict:

@@ -26,4 +26,3 @@ def make_celery(app: Flask) -> Celery:
 
     celery.Task = ContextTask
     return celery
-
