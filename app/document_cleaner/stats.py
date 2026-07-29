@@ -1,5 +1,4 @@
-"""
-Batch statistics aggregator for the Legal Document Cleaning Pipeline.
+"""Batch statistics aggregator for the Legal Document Cleaning Pipeline.
 
 Uses pandas to collect, aggregate, and export cleaning statistics
 across large batches of documents.
@@ -72,7 +71,7 @@ class CleaningStats:
             return "No documents processed."
 
         df = self.to_dataframe()
-        desc = df.describe()
+        df.describe()
 
         lines = [
             "═══ Batch Cleaning Statistics ═══",

@@ -1,3 +1,4 @@
+import contextlib
 import os
 from datetime import datetime
 
@@ -5,14 +6,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def process_and_stamp_image(
-    image_file, locality: str, captured_at: str, verification_status: str, image_id: str, case_id: str
+    image_file,
+    locality: str,
+    captured_at: str,
+    verification_status: str,
+    image_id: str,
+    case_id: str,
 ) -> str:
-    """
-    Takes an uploaded image file object, processes it, and saves to disk.
+    """Takes an uploaded image file object, processes it, and saves to disk.
     Returns the final filepath (str).
     Raises ValueError with a clear message if processing fails.
     """
-    temp_path = None
     try:
         # Open the image
         img = Image.open(image_file)
@@ -47,7 +51,7 @@ def process_and_stamp_image(
     if verification_status == "FLAG":
         text_lines.append("⚠ UNVERIFIED — Manual Review Required")
     else:
-        text_lines.append(locality if locality else "Unknown Location")
+        text_lines.append(locality or "Unknown Location")
         text_lines.append(captured_at)
         text_lines.append(f"Status: {verification_status}")
 
@@ -89,10 +93,8 @@ def process_and_stamp_image(
     except Exception as exc:
         # Clean up partial file if it was created
         if os.path.exists(output_path):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(output_path)
-            except Exception:
-                pass
         raise ValueError(f"Failed to save image: {exc}") from exc
 
     return output_path

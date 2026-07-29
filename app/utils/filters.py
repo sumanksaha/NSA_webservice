@@ -4,8 +4,7 @@ from num2words import num2words
 
 
 def parse_date(date_val):
-    """
-    Parse a date value into a datetime object.
+    """Parse a date value into a datetime object.
 
     Accepts:
       - datetime objects (returned as-is)
@@ -15,6 +14,7 @@ def parse_date(date_val):
 
     Returns:
         datetime or None if the value cannot be parsed.
+
     """
     if date_val is None or date_val == "":
         return None
@@ -33,8 +33,7 @@ def parse_date(date_val):
 
 
 def to_words(number):
-    """
-    Jinja filter to convert a number (integer or float) to Indian currency word representation.
+    """Jinja filter to convert a number (integer or float) to Indian currency word representation.
     e.g., 6025.55 -> 'Six thousand, twenty-five and fifty-five hundredths' or equivalent.
     """
     if number is None or number == "":
@@ -47,24 +46,22 @@ def to_words(number):
 
         if val.is_integer():
             return num2words(int(val), lang="en_IN").capitalize()
-        else:
-            # Separate rupees and paise if needed
-            parts = number_str.split(".")
-            rupees = int(parts[0])
-            paise = int(parts[1][:2]) if len(parts) > 1 else 0
+        # Separate rupees and paise if needed
+        parts = number_str.split(".")
+        rupees = int(parts[0])
+        paise = int(parts[1][:2]) if len(parts) > 1 else 0
 
-            rupees_words = num2words(rupees, lang="en_IN").capitalize()
-            if paise > 0:
-                paise_words = num2words(paise, lang="en_IN")
-                return f"{rupees_words} and {paise_words} Paise"
-            return rupees_words
+        rupees_words = num2words(rupees, lang="en_IN").capitalize()
+        if paise > 0:
+            paise_words = num2words(paise, lang="en_IN")
+            return f"{rupees_words} and {paise_words} Paise"
+        return rupees_words
     except (ValueError, TypeError):
         return str(number) if number else ""
 
 
 def format_date_indian(date_val):
-    """
-    Jinja filter to convert a date string (YYYY-MM-DD, DD/MM/YYYY, etc.) or datetime object
+    """Jinja filter to convert a date string (YYYY-MM-DD, DD/MM/YYYY, etc.) or datetime object
     to Indian DD-MM-YYYY format (e.g. '15-05-2026').
     """
     if not date_val:

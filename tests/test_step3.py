@@ -1,6 +1,4 @@
-"""
-Tests for Step 3: Inspection model + entry UI
-"""
+"""Tests for Step 3: Inspection model + entry UI"""
 
 import os
 import sys
@@ -80,7 +78,7 @@ class TestInspectionModel:
             assert result.problem == "Test Problem"
             assert result.inspection_date == datetime(2026, 7, 17)
             assert result.compliance_deadline == datetime(2026, 8, 16)
-            assert result.is_dismissed == False
+            assert not result.is_dismissed
             assert result.created_at is not None
 
     def test_inspection_code_unique(self, app, test_fso):
@@ -338,7 +336,7 @@ class TestDualLookupConflict:
         ce_address = ce_data["fbo_address"]
 
         has_conflict = (fssai_name != ce_name) or (fssai_address != ce_address)
-        assert has_conflict == False
+        assert not has_conflict
 
         # Scenario 2: Conflict - different names
         fssai_data2 = {"fbo_name": "FBO A", "fbo_address": "Address A"}
@@ -347,7 +345,7 @@ class TestDualLookupConflict:
         has_conflict2 = (fssai_data2["fbo_name"] != ce_data2["fbo_name"]) or (
             fssai_data2["fbo_address"] != ce_data2["fbo_address"]
         )
-        assert has_conflict2 == True
+        assert has_conflict2
 
         # Scenario 3: Conflict - different addresses
         fssai_data3 = {"fbo_name": "FBO A", "fbo_address": "Address A"}
@@ -356,11 +354,9 @@ class TestDualLookupConflict:
         has_conflict3 = (fssai_data3["fbo_name"] != ce_data3["fbo_name"]) or (
             fssai_data3["fbo_address"] != ce_data3["fbo_address"]
         )
-        assert has_conflict3 == True
+        assert has_conflict3
 
         # Scenario 4: No conflict - only one source has data
-        fssai_data4 = {"fbo_name": "FBO A", "fbo_address": "Address A"}
-        ce_data4 = None
 
         has_conflict4 = False  # No conflict if only one source
-        assert has_conflict4 == False
+        assert not has_conflict4

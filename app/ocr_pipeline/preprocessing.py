@@ -1,5 +1,4 @@
-"""
-Image Preprocessing Pipeline for Legal Document OCR.
+"""Image Preprocessing Pipeline for Legal Document OCR.
 
 Applies a configurable sequence of OpenCV operations to improve OCR
 accuracy on scanned or photographed legal documents.
@@ -18,7 +17,7 @@ Pipeline steps (in order):
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +32,7 @@ _DEFAULT_DPI = 300
 _MAX_DIMENSION = 4000
 
 
-class PreprocessingStep(str, Enum):
+class PreprocessingStep(StrEnum):
     """Identifiers for each preprocessing step — tracked in OCRResult."""
 
     GRAYSCALE = "grayscale"
@@ -105,6 +104,7 @@ class ImagePreprocessor:
 
         Returns:
             Tuple of ``(processed_image, applied_step_names)``.
+
         """
         try:
             import cv2
@@ -130,7 +130,11 @@ class ImagePreprocessor:
                         img = cv2.fastNlMeansDenoising(img, h=10, templateWindowSize=7, searchWindowSize=21)
                     else:
                         img = cv2.fastNlMeansDenoisingColored(
-                            img, h=10, hColor=10, templateWindowSize=7, searchWindowSize=21
+                            img,
+                            h=10,
+                            hColor=10,
+                            templateWindowSize=7,
+                            searchWindowSize=21,
                         )
                     applied.append(step.value)
 
@@ -139,10 +143,7 @@ class ImagePreprocessor:
                     applied.append(step.value)
 
                 elif step == PreprocessingStep.THRESHOLD:
-                    if len(img.shape) == 3:
-                        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-                    else:
-                        gray = img
+                    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) if len(img.shape) == 3 else img
                     img = cv2.adaptiveThreshold(
                         gray,
                         255,
@@ -156,10 +157,10 @@ class ImagePreprocessor:
                 elif step == PreprocessingStep.CONTRAST:
                     if len(img.shape) == 3:
                         lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
-                        l, a, b = cv2.split(lab)
+                        lightness, a, b = cv2.split(lab)
                         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-                        l = clahe.apply(l)
-                        lab = cv2.merge([l, a, b])
+                        lightness = clahe.apply(lightness)
+                        lab = cv2.merge([lightness, a, b])
                         img = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
                     else:
                         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
@@ -187,10 +188,7 @@ class ImagePreprocessor:
     @staticmethod
     def _deskew(image: np.ndarray, cv2) -> np.ndarray:
         """Correct skew/rotation in a document image."""
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        else:
-            gray = image
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) if len(image.shape) == 3 else image
 
         gray = cv2.bitwise_not(gray)
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -228,10 +226,7 @@ class ImagePreprocessor:
             import cv2
             import pytesseract
 
-            if len(image.shape) == 3:
-                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            else:
-                gray = image
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) if len(image.shape) == 3 else image
 
             osd = pytesseract.image_to_osd(gray, output_type=pytesseract.Output.DICT)
             angle = osd.get("rotate", 0)

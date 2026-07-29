@@ -1,5 +1,8 @@
 # type: ignore
+from __future__ import annotations
+
 from datetime import datetime
+from typing import ClassVar
 
 from flask_login import UserMixin
 from sqlalchemy.orm import validates
@@ -13,7 +16,7 @@ class CaseFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     version_id = db.Column(db.Integer, nullable=False, default=1)
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict] = {
         "version_id_col": version_id,
     }
     case_number = db.Column(db.String(100), nullable=False)
@@ -92,7 +95,7 @@ class Adjudication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     version_id = db.Column(db.Integer, nullable=False, default=1)
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict] = {
         "version_id_col": version_id,
     }
     case_number = db.Column(db.String(100), nullable=False)
@@ -180,7 +183,7 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     version_id = db.Column(db.Integer, nullable=False, default=1)
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict] = {
         "version_id_col": version_id,
     }
     Name = db.Column(db.String(100), nullable=False)
@@ -231,7 +234,8 @@ class FboIssue(db.Model):
     __table_args__ = (
         db.CheckConstraint("source_type IN ('inspection','sample')", name="ck_source_type"),
         db.CheckConstraint(
-            "state IN ('open','permission_pending','permission_granted','closed','dismissed')", name="ck_state"
+            "state IN ('open','permission_pending','permission_granted','closed','dismissed')",
+            name="ck_state",
         ),
         db.CheckConstraint("NOT (source_type = 'sample' AND state = 'dismissed')", name="ck_sample_not_dismissed"),
         db.CheckConstraint("source_type = 'sample' OR manufacturer_fbo_id IS NULL", name="ck_sample_or_null_mfg"),
@@ -402,8 +406,7 @@ class RecordAudit(db.Model):
 
 
 class CodeSequence(db.Model):
-    """
-    Dedicated sequence table for race-safe code generation across multiple
+    """Dedicated sequence table for race-safe code generation across multiple
     processes (Gunicorn/uWSGI workers). Each row holds a monotonically
     increasing counter keyed by a string (e.g. 'sample:2026').
 

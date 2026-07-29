@@ -33,7 +33,7 @@ def app_with_temp_db():
     with app.app_context():
         db.create_all()
 
-    yield app
+    return app
 
 
 @pytest.fixture
@@ -536,7 +536,7 @@ def app_with_all_blueprints():
     with app.app_context():
         db.create_all()
 
-    yield app
+    return app
 
 
 @pytest.fixture
@@ -586,7 +586,7 @@ class TestAdjudicationFboIssueIntegration:
         }
         resp = integration_client.post("/fbo-issue/new", data=json.dumps(data), content_type="application/json")
         assert resp.status_code == 201
-        issue_id = resp.get_json()["issue_id"]
+        resp.get_json()["issue_id"]
 
         # Lookup issues by fbo_id via adjudication endpoint
         resp = integration_client.get("/adjudication/lookup_fbo_issues?fbo_id=200000000000999")
@@ -704,7 +704,7 @@ class TestBillGeneratorFboIssueIntegration:
         }
         resp = integration_client.post("/fbo-issue/new", data=json.dumps(data), content_type="application/json")
         assert resp.status_code == 201
-        issue_id = resp.get_json()["issue_id"]
+        resp.get_json()["issue_id"]
 
         # Lookup issues by fbo_id via bill_generator endpoint
         resp = integration_client.get("/bill_generator/lookup_fbo_issues?fbo_id=200000000000666")
@@ -833,7 +833,9 @@ class TestIntegrationEndToEnd:
             "detail_json": {"checklist": ["clean_premise", "refrigerator_clean", "Pest_report"]},
         }
         create_resp = integration_client.post(
-            "/fbo-issue/new", data=json.dumps(fbo_data), content_type="application/json"
+            "/fbo-issue/new",
+            data=json.dumps(fbo_data),
+            content_type="application/json",
         )
         assert create_resp.status_code == 201
         issue_id = create_resp.get_json()["issue_id"]

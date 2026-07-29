@@ -1,5 +1,4 @@
-"""
-PDF-generation tasks for the Bill Generator blueprint.
+"""PDF-generation tasks for the Bill Generator blueprint.
 
 Produces a bill PDF via WeasyPrint, saves it to disk, and returns
 metadata (file path, record ID, timestamp) — never raw PDF bytes.
@@ -20,8 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
-    """
-    Render a bill PDF from a Jinja2 template and save it to disk.
+    """Render a bill PDF from a Jinja2 template and save it to disk.
 
     Returns a metadata dict (not the PDF bytes):
 
@@ -83,10 +81,10 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
         logger.info("Bill PDF saved: %s", file_path)
     except OSError as exc:
         logger.warning("I/O error saving bill PDF: %s", exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
     except Exception as exc:
         logger.warning("Transient error saving bill PDF: %s", exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
     return _metadata(bill_id, file_path, generated_at, "ok", None)
 

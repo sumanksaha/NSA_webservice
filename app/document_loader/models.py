@@ -1,5 +1,4 @@
-"""
-Pydantic models for the Legal Document Loader output schema.
+"""Pydantic models for the Legal Document Loader output schema.
 
 All models use ``frozen=True`` (immutable) for hashability and thread-safety,
 and ``slots=True`` for reduced memory footprint at scale.

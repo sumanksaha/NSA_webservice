@@ -1,5 +1,4 @@
-"""
-Tests for PDF photo embedding and inspection photo route collision fixes.
+"""Tests for PDF photo embedding and inspection photo route collision fixes.
 
 Covers:
 - Route collision regression guard for inspection photo endpoints
@@ -146,7 +145,7 @@ class TestEmbedPhotosAsBase64:
         assert "not found" in result[0]["error"].lower()
         mock_logger.warning.assert_called()
 
-    @patch("os.path.exists", side_effect=lambda p: True if p == "/tmp/valid.jpg" else False)
+    @patch("os.path.exists", side_effect=lambda p: p == "/tmp/valid.jpg")
     @patch("builtins.open", new_callable=mock_open, read_data=b"valid-bytes")
     @patch("app.utils.pdf_utils.requests.get")
     def test_mixed_batch_url_plus_missing_local(self, mock_get, mock_file, mock_exists):
@@ -183,8 +182,7 @@ class TestPdfRenderWithEmbeddedPhotos:
     """Smoke-test PDF generation with various photo configurations."""
 
     def _build_mock_adjudication(self, photos_meta):
-        """
-        Build a mock Adjudication object with photo evidence.
+        """Build a mock Adjudication object with photo evidence.
 
         photos_meta: list of dicts with keys:
             - image_id: str
@@ -252,7 +250,6 @@ class TestPdfRenderWithEmbeddedPhotos:
     @patch("app.utils.pdf_utils.requests.get")
     def test_zero_photos_render_succeeds(self, mock_get, app):
         """PDF generation with 0 photos should succeed without errors."""
-
         adj = self._build_mock_adjudication([])
         with app.app_context():
             with patch("app.adjudication.routes.Adjudication.query.get_or_404", return_value=adj):
@@ -300,7 +297,7 @@ class TestPdfRenderWithEmbeddedPhotos:
         assert decoded == b"local-photo-bytes"
         mock_get.assert_not_called()
 
-    @patch("os.path.exists", side_effect=lambda p: True if p == "/tmp/ok.jpg" else False)
+    @patch("os.path.exists", side_effect=lambda p: p == "/tmp/ok.jpg")
     @patch("builtins.open", new_callable=mock_open, read_data=b"ok-bytes")
     @patch("app.utils.pdf_utils.requests.get")
     def test_mixed_batch_only_valid_embedded(self, mock_get, mock_file, mock_exists):

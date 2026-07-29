@@ -25,8 +25,7 @@ case_file_generator_bp = Blueprint("case_file_generator", __name__, template_fol
 
 
 def get_applicable_sections(form_data: dict) -> list:
-    """
-    Determine applicable FSS Act sections based on analysis result.
+    """Determine applicable FSS Act sections based on analysis result.
 
     Rules:
     - Substandard sample -> Section 51
@@ -35,6 +34,7 @@ def get_applicable_sections(form_data: dict) -> list:
 
     Returns:
         list: Sorted list of section numbers as strings (e.g., ['51'], ['52'], ['51', '52'])
+
     """
     sections = []
     is_misbranded = form_data.get("is_misbranded") == "misbranded"
@@ -49,9 +49,7 @@ def get_applicable_sections(form_data: dict) -> list:
 
 
 def process_form_data(form_data):
-    """
-    Process form data and prepare case_data dictionary for template rendering and model saving.
-    """
+    """Process form data and prepare case_data dictionary for template rendering and model saving."""
     date_fields = [
         "authorization_date",
         "inspection_date",
@@ -77,7 +75,7 @@ def process_form_data(form_data):
             try:
                 dt = datetime.strptime(value, "%Y-%m-%d")
                 case_data[key] = dt.strftime("%d/%m/%Y")
-            except:
+            except ValueError:
                 case_data[key] = value
         else:
             case_data[key] = value
@@ -135,15 +133,14 @@ def process_form_data(form_data):
             from app.utils.filters import to_words
 
             case_data["cost_in_words"] = to_words(total_cost) + " Only"
-        except:
+        except Exception:
             case_data["cost_in_words"] = ""
 
     return case_data
 
 
 def case_file_to_dict(case_file):
-    """
-    Convert a CaseFile model instance to a dictionary for JSON serialization.
+    """Convert a CaseFile model instance to a dictionary for JSON serialization.
     This includes all fields needed for form pre-population and document regeneration.
     Map DB columns to canonical keys for Step 3.
     """
@@ -330,12 +327,11 @@ def generate_case_file_route():
 
     # Handle sample_id linkage (Step 5)
     sample_id = None
+    import contextlib
+
     if form_data.get("sample_id"):
-        try:
+        with contextlib.suppress(ValueError):
             sample_id = int(form_data["sample_id"])
-        except ValueError:
-            # If sample_id is not a valid integer, ignore it
-            pass
 
     # Validate packet_count before constructing model
     try:
@@ -349,7 +345,7 @@ def generate_case_file_route():
         food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
         authorization_date=parse_date(form_data.get("authorization_date", "")),
         inspection_date=parse_date(
-            form_data.get("sample_draw_date", "")
+            form_data.get("sample_draw_date", ""),
         ),  # canonical: sample_draw_date -> DB column inspection_date
         inspection_time=form_data.get("sample_draw_time", ""),  # canonical
         sample_id=sample_id,  # Step 5: Link to Sample
@@ -396,7 +392,7 @@ def generate_case_file_route():
         return jsonify({"error": "This case file was modified by another user. Please reload and try again."}), 409
 
     # Try syncing to Google Sheets (new module-based sync)
-    _ALLOWED_SHEETS_COLUMNS = {
+    allowed_sheets_columns = {
         "case_number",
         "food_safety_officer_name",
         "authorization_date",
@@ -438,7 +434,7 @@ def generate_case_file_route():
         "applicable_sections",
     }
     try:
-        row_dict = {k: v for k, v in form_data.items() if k in _ALLOWED_SHEETS_COLUMNS}
+        row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
         row_dict["created_at"] = case_file_record.created_at.isoformat() if case_file_record.created_at else ""
         row_dict["applicable_sections"] = case_file_record.applicable_sections
         row_dict["sample_id"] = case_file_record.sample_id  # Step 5: Include sample_id in sync

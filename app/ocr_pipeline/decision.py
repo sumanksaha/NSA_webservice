@@ -1,5 +1,4 @@
-"""
-OCR Decision Engine — determines whether a PDF page has selectable text
+"""OCR Decision Engine — determines whether a PDF page has selectable text
 or requires OCR.
 
 Strategy:
@@ -54,6 +53,7 @@ class OCRDecisionEngine:
             A tuple of ``(needs_ocr, extracted_text_or_empty, partial_result)``.
             If ``needs_ocr`` is False, ``extracted_text`` contains the page text.
             ``partial_result`` contains whatever metadata was gathered.
+
         """
         try:
             import fitz

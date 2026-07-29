@@ -1,5 +1,4 @@
-"""
-Billing routes module.
+"""Billing routes module.
 
 Provides billing summary and export functionality for Sample data.
 """

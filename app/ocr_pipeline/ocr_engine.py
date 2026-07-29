@@ -1,5 +1,4 @@
-"""
-OCR Engine — primary PaddleOCR with Tesseract fallback.
+"""OCR Engine — primary PaddleOCR with Tesseract fallback.
 
 Supports:
 - English, Hindi (hi), Bengali (bn)
@@ -70,6 +69,7 @@ class OCREngine:
         Returns:
             Tuple of ``(text, confidence, engine_name, language)``.
             ``engine_name`` is ``"paddle"``, ``"tesseract"``, or ``"none"``.
+
         """
         # Strategy 1: PaddleOCR (GPU-capable, supports Hindi/Bengali)
         text, confidence = self._try_paddle(image)
@@ -99,7 +99,7 @@ class OCREngine:
 
         try:
             if self._paddle is None:
-                paddle_langs = [self._to_paddle_lang(l) for l in self._languages]
+                paddle_langs = [self._to_paddle_lang(lang) for lang in self._languages]
                 # Deduplicate while preserving order
                 paddle_langs = list(dict.fromkeys(paddle_langs))
 
@@ -130,7 +130,7 @@ class OCREngine:
             confidences = []
             for line in result[0]:
                 if len(line) >= 2:
-                    bbox, (text, conf) = line[0], line[1]
+                    _bbox, (text, conf) = line[0], line[1]
                     if conf is not None and conf >= _MIN_CONFIDENCE:
                         texts.append(text)
                         confidences.append(conf)
@@ -160,7 +160,7 @@ class OCREngine:
 
         try:
             # Build language parameter string
-            tesseract_langs = "+".join(self._to_tesseract_lang(l) for l in self._languages)
+            tesseract_langs = "+".join(self._to_tesseract_lang(lang) for lang in self._languages)
 
             # Run OCR with detailed output for confidence
             data = pytesseract.image_to_data(

@@ -1,5 +1,4 @@
-"""
-Document loader factory — dispatches to the correct loader implementation
+"""Document loader factory — dispatches to the correct loader implementation
 based on the source file extension.
 
 Extend by adding new entries to ``EXTENSION_MAP``.
@@ -69,6 +68,7 @@ class DocumentLoaderFactory:
         Raises:
             FileNotFoundError: If the file does not exist.
             ValueError: If the file extension is unsupported.
+
         """
         path = Path(file_path)
         if not path.is_file():
@@ -98,6 +98,6 @@ class DocumentLoaderFactory:
         loader_cls = EXTENSION_MAP.get(ext)
         if loader_cls is None:
             raise ValueError(
-                f"Unsupported file extension '{ext}' for '{path.name}'. Supported: {', '.join(sorted(EXTENSION_MAP))}"
+                f"Unsupported file extension '{ext}' for '{path.name}'. Supported: {', '.join(sorted(EXTENSION_MAP))}",
             )
         return loader_cls

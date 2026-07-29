@@ -1,5 +1,4 @@
-"""
-sections_data.py
+"""sections_data.py
 
 Loads the FSS Act section reference text (Sections 55, 56, 58, 63, 64) from a
 markdown file and exposes it as a dict keyed by section number. Used by
@@ -13,8 +12,7 @@ SECTION_MD_PATH = "fss_sections.md"
 
 
 def load_sections(path: str = SECTION_MD_PATH) -> dict:
-    """
-    Parses a markdown file structured with level-1 headers of the form
+    """Parses a markdown file structured with level-1 headers of the form
     '# Section NN' into a dict: {"55": "full section text...", ...}.
 
     Raises FileNotFoundError if the markdown file is missing, and
@@ -35,7 +33,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
 
     if not sections:
         raise ValueError(
-            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers."
+            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers.",
         )
 
     return sections

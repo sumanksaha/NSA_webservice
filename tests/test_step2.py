@@ -1,6 +1,4 @@
-"""
-Tests for Step 2: Billing module for Sample data
-"""
+"""Tests for Step 2: Billing module for Sample data"""
 
 import os
 import sys
@@ -180,7 +178,7 @@ class TestExcelExport:
                     "fso_name": "FSO1",
                     "collection_date": "2026-07-17",
                     "price": "100.00",
-                }
+                },
             ]
 
             summary = compute_summary(samples)
@@ -201,8 +199,11 @@ class TestExcelExport:
             samples = []
             summary = {"by_type": {}, "grand_total": 0, "total_count": 0}
 
-            excel_file, filename = generate_excel_report(
-                samples, summary, start_date="2026-07-01", end_date="2026-07-31"
+            _excel_file, filename = generate_excel_report(
+                samples,
+                summary,
+                start_date="2026-07-01",
+                end_date="2026-07-31",
             )
 
             assert "2026-07-01" in filename
@@ -241,7 +242,7 @@ class TestExcelExport:
 
             summary = compute_summary(samples)
 
-            excel_file, filename = generate_excel_report(samples, summary)
+            excel_file, _filename = generate_excel_report(samples, summary)
 
             # Load the Excel file and verify structure
             wb = openpyxl.load_workbook(excel_file)
@@ -330,7 +331,8 @@ class TestBillingFilters:
 
             # All samples
             all_samples = Sample.query.filter(
-                Sample.collection_date >= datetime(2026, 7, 17), Sample.collection_date <= datetime(2026, 7, 18)
+                Sample.collection_date >= datetime(2026, 7, 17),
+                Sample.collection_date <= datetime(2026, 7, 18),
             ).all()
             summary = compute_summary(all_samples)
             assert summary["total_count"] == 2
@@ -429,8 +431,7 @@ class TestGroupingCorrectness:
     """Tests for grouping/sum correctness as specified in requirements."""
 
     def test_grouping_and_sum_correctness(self, app):
-        """
-        Test that grouping and sum calculations are correct.
+        """Test that grouping and sum calculations are correct.
 
         Fixture dataset:
         - 3 sample types: Food, Water, Oil

@@ -1,6 +1,4 @@
-"""
-Tests for Bill Generator module
-"""
+"""Tests for Bill Generator module"""
 
 import os
 import sys
@@ -188,8 +186,8 @@ class TestBillGeneratorUtils:
             # Verify samples are marked as billed
             s1 = Sample.query.get(sample1.id)
             s2 = Sample.query.get(sample2.id)
-            assert s1.billed == True
-            assert s2.billed == True
+            assert s1.billed
+            assert s2.billed
 
             # Verify junction table entries
             bill_samples = BillSample.query.filter_by(bill_id=bill.id).all()
@@ -330,7 +328,7 @@ class TestGenerateBillRoute:
             assert bill.end_date == datetime(2026, 1, 16)
             # Samples should still be marked as billed
             samples = Sample.query.all()
-            assert all(s.billed == True for s in samples)
+            assert all(s.billed for s in samples)
             return  # Skip PDF assertions; WeasyPrint not available
 
         assert response.status_code == 200
@@ -347,7 +345,7 @@ class TestGenerateBillRoute:
 
         # Check samples are marked as billed
         samples = Sample.query.all()
-        assert all(s.billed == True for s in samples)
+        assert all(s.billed for s in samples)
 
         # Check second preview returns empty (samples now billed)
         response2 = test_client.get("/bill/preview?start=2026-01-15&end=2026-01-16")

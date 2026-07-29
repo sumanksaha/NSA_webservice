@@ -1,5 +1,4 @@
-"""
-Pydantic models for the OCR Pipeline output schema.
+"""Pydantic models for the OCR Pipeline output schema.
 
 Each page produces an ``OCRResult`` that includes the extracted text,
 confidence scores, language detection, and detected objects (tables,
@@ -8,12 +7,12 @@ stamps, signatures, watermarks).
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ObjectType(str, Enum):
+class ObjectType(StrEnum):
     """Types of objects that can be detected on a page."""
 
     TABLE = "table"

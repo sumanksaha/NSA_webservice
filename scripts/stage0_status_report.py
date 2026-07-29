@@ -1,5 +1,4 @@
-"""
-Stage 0 Dedup Pipeline — Final Status Report
+"""Stage 0 Dedup Pipeline — Final Status Report
 
 Reads all pipeline output files and generates a comprehensive
 verification report of the dedup state.
@@ -18,7 +17,6 @@ report_lines = []
 
 def log(line=""):
     report_lines.append(str(line))
-    print(str(line))
 
 
 # Header
@@ -72,7 +70,7 @@ for gid, size in top5.items():
 # Source coverage
 source_pin_coverage = source["raw_address"].str.contains(r"KOL-\d{6}|\b\d{6}\b", na=False).sum()
 log(
-    f"\n  Source records with PIN detectable:              {source_pin_coverage:>8,}  ({100 * source_pin_coverage / len(source):.1f}%)"
+    f"\n  Source records with PIN detectable:              {source_pin_coverage:>8,}  ({100 * source_pin_coverage / len(source):.1f}%)",
 )
 
 # ============================================================================
@@ -145,10 +143,10 @@ both_hn = (rejected["house_number_1"].notna() & rejected["house_number_2"].notna
 log("\n  House number extraction (rejected set):")
 log(f"    Both sides have house numbers:                 {both_hn:>8,}  ({100 * both_hn / max(len(rejected), 1):.1f}%)")
 log(
-    f"    Address_1 has house number:                    {hn1_coverage:>8,}  ({100 * hn1_coverage / max(len(rejected), 1):.1f}%)"
+    f"    Address_1 has house number:                    {hn1_coverage:>8,}  ({100 * hn1_coverage / max(len(rejected), 1):.1f}%)",
 )
 log(
-    f"    Address_2 has house number:                    {hn2_coverage:>8,}  ({100 * hn2_coverage / max(len(rejected), 1):.1f}%)"
+    f"    Address_2 has house number:                    {hn2_coverage:>8,}  ({100 * hn2_coverage / max(len(rejected), 1):.1f}%)",
 )
 
 # Score distribution for rejected
@@ -169,10 +167,10 @@ log("-" * 72)
 
 log(f"  Total ambiguous pairs:                           {len(fuzzy):>8,}")
 log(
-    f"    Locality match (review_priority.csv):          {len(review_priority):>8,}  ({100 * len(review_priority) / max(len(fuzzy), 1):.1f}%)"
+    f"    Locality match (review_priority.csv):          {len(review_priority):>8,}  ({100 * len(review_priority) / max(len(fuzzy), 1):.1f}%)",
 )
 log(
-    f"    No locality match (review_low_priority.csv):   {len(review_low):>8,}  ({100 * len(review_low) / max(len(fuzzy), 1):.1f}%)"
+    f"    No locality match (review_low_priority.csv):   {len(review_low):>8,}  ({100 * len(review_low) / max(len(fuzzy), 1):.1f}%)",
 )
 
 # Block key breakdown for remaining pairs
@@ -203,11 +201,11 @@ log(f"  Total unique FBOs entering pipeline:              {total_unique_fbo:>8,}
 # Count unique fbo_ids across all pair files
 pair_fbo_ids = set(fuzzy["fbo_id_1"]) | set(fuzzy["fbo_id_2"]) | set(rejected["fbo_id_1"]) | set(rejected["fbo_id_2"])
 log(
-    f"  Unique fbo_ids appearing in any pair:            {len(pair_fbo_ids):>8,}  ({100 * len(pair_fbo_ids) / max(total_unique_fbo, 1):.1f}%)"
+    f"  Unique fbo_ids appearing in any pair:            {len(pair_fbo_ids):>8,}  ({100 * len(pair_fbo_ids) / max(total_unique_fbo, 1):.1f}%)",
 )
 fbo_not_in_pairs = total_unique_fbo - len(pair_fbo_ids)
 log(
-    f"  fbo_ids with NO fuzzy match (score < 90):        {fbo_not_in_pairs:>8,}  ({100 * fbo_not_in_pairs / max(total_unique_fbo, 1):.1f}%)"
+    f"  fbo_ids with NO fuzzy match (score < 90):        {fbo_not_in_pairs:>8,}  ({100 * fbo_not_in_pairs / max(total_unique_fbo, 1):.1f}%)",
 )
 
 # Merged vs pending
@@ -215,10 +213,10 @@ if len(assignments) > 0:
     merged_fbo_count = assignments["fbo_id"].nunique()
     pending_fbo_count = len(pair_fbo_ids) - merged_fbo_count
     log(
-        f"\n  fbo_ids ALREADY MERGED (auto-merge):            {merged_fbo_count:>8,}  ({100 * merged_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)"
+        f"\n  fbo_ids ALREADY MERGED (auto-merge):            {merged_fbo_count:>8,}  ({100 * merged_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)",
     )
     log(
-        f"  fbo_ids PENDING human review:                   {pending_fbo_count:>8,}  ({100 * pending_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)"
+        f"  fbo_ids PENDING human review:                   {pending_fbo_count:>8,}  ({100 * pending_fbo_count / max(len(pair_fbo_ids), 1):.1f}% of pairs)",
     )
 
 # Reduction from original pairs

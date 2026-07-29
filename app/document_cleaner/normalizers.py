@@ -1,5 +1,4 @@
-"""
-Normalization operations for the Legal Document Cleaning Pipeline.
+"""Normalization operations for the Legal Document Cleaning Pipeline.
 
 Each function takes ``(text: str) -> str`` and returns normalized text.
 Functions operate on the full text string (not line-by-line) for efficiency.
@@ -190,8 +189,7 @@ def normalize_hyphens(text: str) -> str:
         best_score = rapidfuzz.fuzz.partial_ratio(joined, joined)  # baseline 100
         for known in _COMMON_WORDS:
             score = rapidfuzz.fuzz.ratio(joined.lower(), known)
-            if score > best_score:
-                best_score = score
+            best_score = max(best_score, score)
         # Accept if score is high enough, or if it's a simple concatenation
         if best_score > 85:
             return joined

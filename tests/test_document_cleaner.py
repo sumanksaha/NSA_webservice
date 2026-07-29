@@ -1,5 +1,4 @@
-"""
-Comprehensive tests for the Legal Document Cleaning Pipeline.
+"""Comprehensive tests for the Legal Document Cleaning Pipeline.
 
 Covers:
 - Model validation
@@ -144,7 +143,7 @@ class TestRemovers:
 
     def test_remove_duplicate_lines_preserves_nonconsecutive(self):
         lines = ["A", "B", "A", "C"]
-        kept, items = remove_duplicate_lines(lines)
+        kept, _items = remove_duplicate_lines(lines)
         assert kept == lines  # no consecutive duplicates
 
     def test_remove_ocr_artifacts(self):
@@ -163,7 +162,7 @@ class TestRemovers:
 
     def test_remove_headers_footers_too_short(self):
         lines = ["Only", "a", "few", "lines"]
-        kept, items = remove_headers_footers(lines)
+        _kept, items = remove_headers_footers(lines)
         assert len(items) == 0
 
     def test_remove_running_titles_protects_preserved_lines(self):
@@ -192,7 +191,7 @@ class TestRemovers:
 
     def test_remove_running_titles_unique(self):
         lines = ["Unique Title", "Content", "Different Title"]
-        kept, items = remove_running_titles(lines)
+        _kept, items = remove_running_titles(lines)
         assert len(items) == 0
 
 

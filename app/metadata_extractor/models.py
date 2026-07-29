@@ -1,5 +1,4 @@
-"""
-Pydantic models for the Legal Metadata Extraction Engine output.
+"""Pydantic models for the Legal Metadata Extraction Engine output.
 
 Each metadata field has an associated confidence score, and the overall
 ``LegalMetadata`` result carries an aggregate confidence.

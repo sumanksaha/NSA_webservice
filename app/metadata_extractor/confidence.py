@@ -1,5 +1,4 @@
-"""
-Confidence scoring engine for the Legal Metadata Extraction Engine.
+"""Confidence scoring engine for the Legal Metadata Extraction Engine.
 
 Computes per-field and overall confidence based on:
 - Extraction method (regex > NER > heuristic > default)
@@ -40,6 +39,7 @@ def score_field(
 
     Returns:
         A :class:`FieldConfidence` with the adjusted score.
+
     """
     base = _METHOD_BASE.get(method, 0.3)
 

@@ -1,6 +1,5 @@
 # type: ignore
-"""
-Derived context helpers for document generation (STEP 4 of uniform-keys migration).
+"""Derived context helpers for document generation (STEP 4 of uniform-keys migration).
 
 This module provides pure functions to derive the following context fields:
 - applicable_sections: list[str] - e.g., ["55", "56", "58"]
@@ -68,8 +67,7 @@ def derive_applicable_sections_from_case_file(
     is_substandard: bool = False,
     is_misbranded: bool = False,
 ) -> list[str]:
-    """
-    Derive applicable sections for case file (sample-based) cases.
+    """Derive applicable sections for case file (sample-based) cases.
 
     Sample cases use sections 51 (substandard) and 52 (misbranded).
 
@@ -79,6 +77,7 @@ def derive_applicable_sections_from_case_file(
 
     Returns:
         List of section numbers as strings (e.g., ["51", "52"])
+
     """
     sections = []
     if is_substandard:
@@ -95,8 +94,7 @@ def derive_applicable_sections_from_adjudication(
     section_63: bool = False,
     section_64: bool = False,
 ) -> list[str]:
-    """
-    Derive applicable sections from adjudication form checkboxes.
+    """Derive applicable sections from adjudication form checkboxes.
 
     Scans all section checkbox fields and returns the enabled ones.
     The checkbox values should be boolean or 'yes'/'no' strings.
@@ -110,6 +108,7 @@ def derive_applicable_sections_from_adjudication(
 
     Returns:
         List of section numbers as strings (e.g., ["55", "56", "58"])
+
     """
     sections = []
 
@@ -136,8 +135,7 @@ def derive_applicable_sections_from_adjudication(
 
 
 def derive_applicable_sections_from_form_data(form_data: dict) -> list[str]:
-    """
-    Derive applicable sections by detecting the case type from form data.
+    """Derive applicable sections by detecting the case type from form data.
 
     This is a unified function that works for both case file and adjudication
     by examining the available fields.
@@ -150,6 +148,7 @@ def derive_applicable_sections_from_form_data(form_data: dict) -> list[str]:
 
     Returns:
         List of section numbers as strings
+
     """
     # Check if this is a sample/case file case
     is_substandard = form_data.get(SAMPLE_IS_SUBSTANDARD, False)
@@ -179,8 +178,7 @@ def derive_applicable_sections_from_form_data(form_data: dict) -> list[str]:
 
 
 def derive_sections_display(applicable_sections: list[str]) -> str:
-    """
-    Convert a list of section numbers to a human-readable display string.
+    """Convert a list of section numbers to a human-readable display string.
 
     Examples:
         ["55"] -> "55"
@@ -193,6 +191,7 @@ def derive_sections_display(applicable_sections: list[str]) -> str:
 
     Returns:
         Human-readable string for display in documents
+
     """
     if not applicable_sections:
         return ""
@@ -209,8 +208,7 @@ def derive_case_track(
     complaint_lodged: bool = False,
     is_sample: bool = False,
 ) -> str:
-    """
-    Determine the case track based on case characteristics.
+    """Determine the case track based on case characteristics.
 
     Logic:
     - "sample": cases with sample analysis (sections 51, 52) - is_sample=True
@@ -225,6 +223,7 @@ def derive_case_track(
 
     Returns:
         One of: "hygienic", "nonsample_licence", "sample"
+
     """
 
     # Normalize boolean inputs
@@ -244,8 +243,7 @@ def derive_case_track(
 
 
 def derive_violations(form_data: dict) -> list[dict[str, str]]:
-    """
-    Derive violations list for adjudication cases.
+    """Derive violations list for adjudication cases.
 
     Scans checklist fields and builds a list of violation dicts with
     'title' and 'observation' keys (note: 'Observation' in templates,
@@ -260,6 +258,7 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
     Returns:
         List of violation dicts, each with 'title' and 'observation' keys.
         Empty list if no violations found.
+
     """
     violations = []
 
@@ -301,8 +300,7 @@ def derive_same_entity(
     manufacturer_fssai: str | None = None,
     retailer_fssai: str | None = None,
 ) -> bool:
-    """
-    Determine if manufacturer and retailer are the same entity.
+    """Determine if manufacturer and retailer are the same entity.
 
     This is derived by comparing FSSAI license numbers. If they match,
     the manufacturer and retailer are considered the same entity.
@@ -313,6 +311,7 @@ def derive_same_entity(
 
     Returns:
         True if both are provided and match, False otherwise
+
     """
     if not manufacturer_fssai or not retailer_fssai:
         return False
@@ -325,8 +324,7 @@ def derive_same_entity(
 
 
 def derive_case_file_context(form_data: dict) -> dict:
-    """
-    Derive all context fields for case file generator.
+    """Derive all context fields for case file generator.
 
     This is a convenience function that derives all the required fields
     for case file document generation.
@@ -341,6 +339,7 @@ def derive_case_file_context(form_data: dict) -> dict:
         - case_track: str
         - same_entity: bool
         - violations: [] (empty for sample cases)
+
     """
 
     # Normalize sample analysis flags
@@ -379,8 +378,7 @@ def derive_case_file_context(form_data: dict) -> dict:
 
 
 def derive_adjudication_context(form_data: dict) -> dict:
-    """
-    Derive all context fields for adjudication.
+    """Derive all context fields for adjudication.
 
     This is a convenience function that derives all the required fields
     for adjudication document generation.
@@ -395,6 +393,7 @@ def derive_adjudication_context(form_data: dict) -> dict:
         - case_track: str
         - violations: list[dict]
         - same_entity: False (adjudication doesn't use this)
+
     """
     # Get section checkboxes
     section_55 = form_data.get(SECTION_55)
@@ -440,15 +439,15 @@ __all__ = [
     # Constants
     "CHECKLIST_RULES",
     "SPECIAL_VIOLATION_RULES",
+    "derive_adjudication_context",
+    "derive_applicable_sections_from_adjudication",
     # Individual derivations
     "derive_applicable_sections_from_case_file",
-    "derive_applicable_sections_from_adjudication",
     "derive_applicable_sections_from_form_data",
-    "derive_sections_display",
-    "derive_case_track",
-    "derive_violations",
-    "derive_same_entity",
     # Full context derivations
     "derive_case_file_context",
-    "derive_adjudication_context",
+    "derive_case_track",
+    "derive_same_entity",
+    "derive_sections_display",
+    "derive_violations",
 ]

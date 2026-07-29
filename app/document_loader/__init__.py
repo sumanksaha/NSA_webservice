@@ -1,5 +1,4 @@
-"""
-Legal Document Loader — production-grade document ingestion for NSA Webservice.
+"""Legal Document Loader — production-grade document ingestion for NSA Webservice.
 
 Supports PDF, Microsoft Word (.docx), and plain text (.txt) files with
 page-boundary preservation, metadata extraction, batch processing, and

@@ -23,5 +23,5 @@ with app.app_context():
 
         # Get current head
         command.current(alembic_cfg, verbose=True)
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
+        pass

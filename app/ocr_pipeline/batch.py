@@ -1,5 +1,4 @@
-"""
-Batch OCR Processor — designed for large-scale legal document OCR.
+"""Batch OCR Processor — designed for large-scale legal document OCR.
 
 Features:
 - Processes PDFs page-by-page with automatic OCR decision making.
@@ -107,6 +106,7 @@ class OCRBatchProcessor:
         use_gpu: Whether to attempt GPU acceleration.
         dpi: DPI for PDF page rendering.
         enable_detection: Whether to run object detection.
+
     """
 
     def __init__(
@@ -268,7 +268,10 @@ class OCRBatchProcessor:
         progress.close()
         summary.total_duration_seconds = time.monotonic() - start_time
         logger.info(
-            "OCR batch complete: %s (%d pages, %.1f/s)", output_path, summary.total_pages, summary.throughput_per_second
+            "OCR batch complete: %s (%d pages, %.1f/s)",
+            output_path,
+            summary.total_pages,
+            summary.throughput_per_second,
         )
         return summary
 

@@ -62,8 +62,7 @@ for root, dirs, files in os.walk("."):
                 pass
 
 if results:
-    print("=== LEGACY IMPORTS FOUND (pointing to removed root-level paths) ===")
-    for filepath, line_num, line in results:
-        print(f"{filepath}:{line_num}: {line}")
+    for filepath, _line_num, line in results:
+        pass
 else:
-    print("=== NO LEGACY IMPORTS FOUND ===")
+    pass

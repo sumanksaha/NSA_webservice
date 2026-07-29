@@ -15,15 +15,12 @@ with app.app_context():
         # Stamp to the latest migration (add_fso_sample_inspection_tables)
         # This tells Alembic the DB is at that state
         stamp(revision="add_fso_sample_inspection_tables")
-        print("Database stamped successfully to add_fso_sample_inspection_tables")
 
         # Now run upgrade for remaining migrations
         from flask_migrate import upgrade
 
         upgrade(revision="add_bill_sample_fields")
-        print("Upgrade to add_bill_sample_fields completed successfully")
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
         import traceback
 
         traceback.print_exc()

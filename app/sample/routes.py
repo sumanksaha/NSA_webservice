@@ -1,5 +1,4 @@
-"""
-Sample routes module.
+"""Sample routes module.
 
 Provides endpoints for Sample CRUD operations and UI.
 """
@@ -66,10 +65,7 @@ def list_samples():
         else:
             query = query.order_by(Sample.collection_date.desc())
     elif sort_by == "fso_name":
-        if sort_order == "asc":
-            query = query.order_by(FSO.fso_name.asc())
-        else:
-            query = query.order_by(FSO.fso_name.desc())
+        query = query.order_by(FSO.fso_name.asc()) if sort_order == "asc" else query.order_by(FSO.fso_name.desc())
     elif sort_by == "sample_code":
         if sort_order == "asc":
             query = query.order_by(Sample.sample_code.asc())
@@ -176,7 +172,7 @@ def create_sample():
         fso_name=food_safety_officer_name,  # DB column: fso_name
         collection_date=parse_date(sample_draw_date),  # DB column: collection_date
         submission_date=parse_date(
-            form_data.get("sample_submission_date", "").strip() or None
+            form_data.get("sample_submission_date", "").strip() or None,
         ),  # DB column: submission_date
         retailer_fssai=retailer_fssai_license or None,  # DB column: retailer_fssai
         retailer_name=retailer_person_name or None,  # DB column: retailer_name
@@ -265,7 +261,7 @@ def update_sample(sample_id):
             return jsonify({"error": "sample_type cannot be empty"}), 400
         if sample_type_val not in ["enforcement", "surveillance"]:
             return jsonify({
-                "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"
+                "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
             }), 400
         sample.sample_type = sample_type_val
 

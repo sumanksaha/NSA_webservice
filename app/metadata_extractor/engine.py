@@ -1,5 +1,4 @@
-"""
-Hybrid Legal Metadata Extraction Engine.
+"""Hybrid Legal Metadata Extraction Engine.
 
 Orchestrates:
 1. Regex-based extraction (primary, fast, high precision)
@@ -82,6 +81,7 @@ class LegalMetadataEngine:
 
         Returns:
             A :class:`LegalMetadata` with all fields populated.
+
         """
         if not text or not text.strip():
             return self._empty_result()
@@ -117,11 +117,10 @@ class LegalMetadataEngine:
             if merged:
                 # Pick the best candidate (highest confidence)
                 best = max(merged, key=lambda x: x[1])
-                value, raw_conf, method, detail = best
+                value, _raw_conf, method, _detail = best
             else:
                 value = ""
                 method = "default"
-                detail = "no_extraction"
 
             # Compute adjusted confidence
             field_values[field_name] = score_field(
@@ -143,17 +142,20 @@ class LegalMetadataEngine:
             authority=field_values.get("authority", FieldConfidence(value="", score=0.0, method="default")),
             gazette_number=field_values.get("gazette_number", FieldConfidence(value="", score=0.0, method="default")),
             notification_number=field_values.get(
-                "notification_number", FieldConfidence(value="", score=0.0, method="default")
+                "notification_number",
+                FieldConfidence(value="", score=0.0, method="default"),
             ),
             language=field_values.get("language", FieldConfidence(value="english", score=0.5, method="default")),
             jurisdiction=field_values.get("jurisdiction", FieldConfidence(value="India", score=0.6, method="default")),
             state=field_values.get("state", FieldConfidence(value="", score=0.0, method="default")),
             country=field_values.get("country", FieldConfidence(value="India", score=0.6, method="default")),
             document_type=field_values.get(
-                "document_type", FieldConfidence(value="Notification", score=0.5, method="default")
+                "document_type",
+                FieldConfidence(value="Notification", score=0.5, method="default"),
             ),
             amendment_status=field_values.get(
-                "amendment_status", FieldConfidence(value="Original", score=0.5, method="default")
+                "amendment_status",
+                FieldConfidence(value="Original", score=0.5, method="default"),
             ),
             effective_date=field_values.get("effective_date", FieldConfidence(value="", score=0.0, method="default")),
         )
@@ -183,7 +185,10 @@ class LegalMetadataEngine:
     @staticmethod
     def _empty_result() -> LegalMetadata:
         """Return an empty result with default values."""
-        default = lambda v="", s=0.0, m="default": FieldConfidence(value=v, score=s, method=m)
+
+        def default(v="", s=0.0, m="default"):
+            return FieldConfidence(value=v, score=s, method=m)
+
         return LegalMetadata(
             title=default(),
             version=default("Latest", 0.3),

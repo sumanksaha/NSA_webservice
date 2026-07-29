@@ -1,5 +1,4 @@
-"""
-SQLAlchemy event listeners that log INSERT / UPDATE / DELETE on the
+"""SQLAlchemy event listeners that log INSERT / UPDATE / DELETE on the
 three business-record models to the ``RecordAudit`` table.
 
 Models instrumented:
@@ -159,24 +158,24 @@ def _after_flush(session: Session, flush_context):
 
     from app.models import Adjudication, Bill, CaseFile
 
-    _AUDITED_MODEL_TYPES = (Adjudication, Bill, CaseFile)
+    audited_model_types = (Adjudication, Bill, CaseFile)
 
     # Inserts
     for target in session.new:
-        if isinstance(target, _AUDITED_MODEL_TYPES):
+        if isinstance(target, audited_model_types):
             changes = _capture_insert(target)
             _record_audit("create", type(target).__name__, target.id, changes)
 
     # Updates
     for target in session.dirty:
-        if isinstance(target, _AUDITED_MODEL_TYPES):
+        if isinstance(target, audited_model_types):
             changes = _capture_update(target)
             if changes:  # only log if something actually changed
                 _record_audit("update", type(target).__name__, target.id, changes)
 
     # Deletes
     for target in session.deleted:
-        if isinstance(target, _AUDITED_MODEL_TYPES):
+        if isinstance(target, audited_model_types):
             _record_audit("delete", type(target).__name__, target.id)
 
 

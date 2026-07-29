@@ -7,8 +7,7 @@ SECTION_MD_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "fss_sectio
 
 
 def load_sections(path: str = SECTION_MD_PATH) -> dict:
-    """
-    Parses a markdown file structured with level-1 headers of the form
+    """Parses a markdown file structured with level-1 headers of the form
     '# Section NN' into a dict: {"55": "full section text...", ...}.
     """
     if not os.path.exists(path):
@@ -27,7 +26,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
 
     if not sections:
         raise ValueError(
-            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers."
+            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers.",
         )
 
     return sections

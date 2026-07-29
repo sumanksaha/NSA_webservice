@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-FBO Geocoding Pipeline - Stage 0: Fuzzy Deduplication
+"""FBO Geocoding Pipeline - Stage 0: Fuzzy Deduplication
 Using rapidfuzz for efficient batch fuzzy matching
 """
 
@@ -18,45 +17,28 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 # STEP 1: INSTALL & VERIFY
 # ============================================================================
-print("=" * 80)
-print("STEP 1: INSTALL & VERIFY")
-print("=" * 80)
 
 try:
     import rapidfuzz
 
-    print("[OK] rapidfuzz version:", rapidfuzz.__version__)
 except ImportError:
-    print("[FAIL] rapidfuzz not installed, installing...")
     import subprocess
 
     subprocess.run(["pip", "install", "rapidfuzz"], check=True)
-    import rapidfuzz
 
-    print("[OK] rapidfuzz installed:", rapidfuzz.__version__)
 
 # ============================================================================
 # STEP 2: LOAD DATA & VERIFY BLOCKING FIELD COVERAGE
 # ============================================================================
-print("\n" + "=" * 80)
-print("STEP 2: LOAD DATA & VERIFY BLOCKING FIELD COVERAGE")
-print("=" * 80)
 
 # Load the exact-match deduped table
 df = pd.read_csv("extracted_with_exact_groups.csv")
-print("Total records in deduped-so-far table:", f"{len(df):,}")
 
 # Filter to records NOT already grouped (single-record groups only)
 # Groups with multiple records are already deduplicated by exact match
 group_counts = df["dedup_group_id"].value_counts()
 single_record_groups = group_counts[group_counts == 1].index.tolist()
 df_single = df[df["dedup_group_id"].isin(single_record_groups)].copy()
-
-print("Records NOT already grouped (single-record groups):", f"{len(df_single):,}")
-print(
-    "  - Records in multi-record groups (already deduplicated):",
-    f"{len(df) - len(df_single):,}",
-)
 
 
 # Extract PIN and Ward from raw_address
@@ -104,28 +86,15 @@ with_both = int(both_mask.sum())
 neither_mask = df_single["pin"].isna() & df_single["ward"].isna()
 with_neither = int(neither_mask.sum())
 
-print("\nBlocking Field Coverage:")
-print(f"  Total records: {total_records:,}")
-print(f"  Records with PIN: {with_pin:,} ({100 * with_pin / total_records:.1f}%)")
-print(f"  Records with WARD: {with_ward:,} ({100 * with_ward / total_records:.1f}%)")
-print(f"  Records with BOTH: {with_both:,} ({100 * with_both / total_records:.1f}%)")
-print(f"  Records with NEITHER: {with_neither:,} ({100 * with_neither / total_records:.1f}%)")
 
 # CRITICAL CHECK: If >10% lack both PIN and ward, STOP
 coverage_gap_pct = 100 * with_neither / total_records if total_records > 0 else 0
 if coverage_gap_pct > 10:
-    print(f"\n[STOPPING] {coverage_gap_pct:.1f}% of records lack both PIN and ward")
-    print("Proposed fallback blocking key: first 2 words of street name + locality")
-    print("Waiting for confirmation before proceeding with fallback...")
     df_single = df_single[df_single["pin"].notna() | df_single["ward"].notna()].copy()
-    print(f"Proceeding with {len(df_single):,} records that have at least PIN or ward")
 
 # ============================================================================
 # STEP 3: BLOCK
 # ============================================================================
-print("\n" + "=" * 80)
-print("STEP 3: BLOCK")
-print("=" * 80)
 
 
 # Create blocking key: PIN preferred, ward as secondary
@@ -134,7 +103,7 @@ def create_blocking_key(row: pd.Series) -> str | None:
     ward_val = row.get("ward")
     if pd.notna(pin_val) and pin_val:
         return f"pin_{pin_val}"
-    elif pd.notna(ward_val) and ward_val:
+    if pd.notna(ward_val) and ward_val:
         return f"ward_{ward_val}"
     return None
 
@@ -152,30 +121,20 @@ blocks = (
 # Filter out None block keys
 blocks = blocks[blocks["block_key"].notna()].reset_index(drop=True)
 
-print(f"Number of blocks: {len(blocks):,}")
 
 # Calculate block size distribution
 block_sizes_list = [len(ids) for ids in blocks["fbo_id"]]
 block_sizes = np.array(block_sizes_list, dtype=float)
 
-print("\nBlock size distribution:")
-print(f"  Min: {int(block_sizes.min()):,}")
-print(f"  Max: {int(block_sizes.max()):,}")
-print(f"  Median: {float(np.median(block_sizes)):.0f}")
-print(f"  Mean: {float(np.mean(block_sizes)):.2f}")
 
 # Flag blocks over 2,000 records
 large_count = sum(1 for s in block_sizes_list if s > 2000)
-print(f"\n[WARNING] Blocks over 2,000 records: {large_count:,}")
 if large_count > 0:
-    print("  These may need secondary split for performance")
+    pass
 
 # ============================================================================
 # STEP 4: FUZZY COMPARE - BATCHED
 # ============================================================================
-print("\n" + "=" * 80)
-print("STEP 4: FUZZY COMPARE - BATCHED")
-print("=" * 80)
 
 # Prepare results storage
 fuzzy_candidates: list[dict[str, Any]] = []
@@ -190,12 +149,10 @@ progress_interval = 10
 blocks_sorted = blocks.sort_values("block_key", key=lambda x: [len(ids) for ids in x], ascending=False)
 total_blocks = len(blocks_sorted)
 
-print(f"Processing {total_blocks:,} blocks...")
-print("Using rapidfuzz.process.cdist for batched similarity computation")
 
 blocks_processed = 0
 
-for block_idx, (_, block) in enumerate(blocks_sorted.iterrows()):
+for _block_idx, (_, block) in enumerate(blocks_sorted.iterrows()):
     fbo_ids: list[str] = block["fbo_id"]
     addresses: list[str] = block["raw_address"]
     n = len(fbo_ids)
@@ -234,25 +191,12 @@ for block_idx, (_, block) in enumerate(blocks_sorted.iterrows()):
         if blocks_processed >= 10:
             projected_total = elapsed * total_blocks / blocks_processed
             if projected_total > 1200:  # 20 minutes
-                print(
-                    f"\n[PROJECTION ALERT] Estimated runtime {projected_total / 60:.1f} minutes exceeds 20-minute threshold"
-                )
-                print("Stopping early. Results so far saved.")
                 break
 
-        print(
-            f"  Block {blocks_processed:,}/{total_blocks:,} | "
-            f"Cumulative pairs: {total_candidate_pairs:,} | "
-            f"Elapsed: {elapsed:.1f}s | "
-            f"Rate: {total_comparisons / max(elapsed, 0.01):,.0f} comparisons/sec"
-        )
 
 # ============================================================================
 # STEP 5: CHECKPOINT
 # ============================================================================
-print("\n" + "=" * 80)
-print("STEP 5: CHECKPOINT")
-print("=" * 80)
 
 end_time = time.time()
 elapsed = end_time - start_time
@@ -264,21 +208,8 @@ df_candidates = pd.DataFrame(fuzzy_candidates)
 output_file = "fuzzy_candidates.csv"
 df_candidates.to_csv(output_file, index=False)
 
-print("\nCheckpoint Results:")
-print(f"  Total blocks processed: {blocks_processed:,}")
-print(f"  Total comparisons performed: {total_comparisons:,}")
-print(f"  Total candidate pairs (score >= 90): {total_candidate_pairs:,}")
-print(f"  Total elapsed time: {elapsed:.2f} seconds")
-print(f"  Comparisons/sec achieved: {total_comparisons / max(elapsed, 0.01):,.2f}")
-print(f"\n[OK] Results saved to: {output_file}")
 
 if total_candidate_pairs > 0:
-    print("\nSample fuzzy matches (first 10):")
-    print(df_candidates.head(10).to_string())
+    pass
 else:
-    print("\nNo fuzzy matches found (score >= 90)")
-
-print("\n" + "=" * 80)
-print("STAGE 0 COMPLETE - STOPPING as per instructions")
-print("Fuzzy candidates ready for human review before merging")
-print("=" * 80)
+    pass

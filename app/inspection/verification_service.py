@@ -6,10 +6,13 @@ from .ip_verification import ip_geolocate, region_match
 
 
 def verify_photo_location(
-    raw_lat: float, raw_lng: float, accuracy: float | None, ip_address: str, fbo: Any
+    raw_lat: float,
+    raw_lng: float,
+    accuracy: float | None,
+    ip_address: str,
+    fbo: Any,
 ) -> dict[str, Any]:
-    """
-    Runs all verification checks and returns a combined result.
+    """Runs all verification checks and returns a combined result.
     Degrades gracefully if any external call times out or raises.
     """
     # Initialize result with proper type annotation

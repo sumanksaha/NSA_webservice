@@ -1,5 +1,4 @@
-"""
-Legal Metadata Extraction Engine — hybrid regex + NER extractor for
+"""Legal Metadata Extraction Engine — hybrid regex + NER extractor for
 Indian legal documents.  Supports Acts, Rules, Regulations, Notifications,
 Gazettes, Bills, and Judgments.
 

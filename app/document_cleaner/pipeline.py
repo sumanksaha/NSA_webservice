@@ -1,5 +1,4 @@
-"""
-Pipeline orchestrator for the Legal Document Cleaning Pipeline.
+"""Pipeline orchestrator for the Legal Document Cleaning Pipeline.
 
 Chains together removal and normalization operations in a config-driven
 sequence. Produces a ``CleanedDocument`` with cleaned text and report.
@@ -10,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from app.document_cleaner.config import PRESETS
-from app.document_cleaner.models import CleanedDocument, CleaningConfig, CleaningReport
+from app.document_cleaner.models import CleanedDocument, CleaningConfig, CleaningReport, RemovedItem
 from app.document_cleaner.normalizers import NORMALIZER_REGISTRY, normalize_linebreaks
 from app.document_cleaner.removers import (
     remove_blank_pages,
@@ -45,6 +44,7 @@ class DocumentCleaner:
             config: A ``CleaningConfig`` instance, a preset string name
                 (``"aggressive"``, ``"conservative"``, ``"ocr"``), or ``None``
                 to use the aggressive preset.
+
         """
         if config is None:
             self.config = PRESETS["aggressive"]
@@ -68,6 +68,7 @@ class DocumentCleaner:
 
         Returns:
             A ``CleanedDocument`` with the cleaned text and a cleaning report.
+
         """
         if not text:
             return CleanedDocument(

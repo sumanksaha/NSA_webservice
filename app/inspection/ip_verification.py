@@ -4,8 +4,7 @@ import requests
 
 
 def ip_geolocate(ip_address: str) -> dict:
-    """
-    Calls ip-api.com (free tier) to geolocate an IP address.
+    """Calls ip-api.com (free tier) to geolocate an IP address.
     Returns: {"region": str or None, "city": str or None, "error": str or None}
     """
     # Handle localhost/private IPs
@@ -24,8 +23,7 @@ def ip_geolocate(ip_address: str) -> dict:
 
         if data.get("status") == "success":
             return {"region": data.get("region"), "city": data.get("city"), "error": None}
-        else:
-            return {"region": None, "city": None, "error": data.get("message", "Unknown error")}
+        return {"region": None, "city": None, "error": data.get("message", "Unknown error")}
     except requests.exceptions.Timeout:
         return {"region": None, "city": None, "error": "Request timed out"}
     except requests.exceptions.RequestException as e:
@@ -35,8 +33,7 @@ def ip_geolocate(ip_address: str) -> dict:
 
 
 def region_match(ip_city: str, ip_region: str, geocoded_locality: str) -> bool:
-    """
-    Compares IP-based city/region against the reverse-geocoded locality
+    """Compares IP-based city/region against the reverse-geocoded locality
     using simple case-insensitive substring matching.
     Returns True if any overlap found, False otherwise.
     Returns False if any input is None.

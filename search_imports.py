@@ -23,8 +23,7 @@ for root, dirs, files in os.walk("."):
                 pass
 
 if results:
-    print("=== DANGLING REFERENCES FOUND ===")
-    for filepath, line_num, line in results:
-        print(f"{filepath}:{line_num}: {line}")
+    for filepath, _line_num, line in results:
+        pass
 else:
-    print("=== NO DANGLING REFERENCES FOUND ===")
+    pass

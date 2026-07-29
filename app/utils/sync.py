@@ -9,8 +9,7 @@ from app.extensions import db
 
 
 def get_gspread_client():
-    """
-    Authenticate and get a gspread client.
+    """Authenticate and get a gspread client.
 
     Priority order:
     1. GOOGLE_CREDENTIALS_JSON environment variable (raw JSON string)
@@ -24,36 +23,33 @@ def get_gspread_client():
         try:
             creds_data = json.loads(creds_json)
             return gspread.service_account_from_dict(creds_data)
-        except json.JSONDecodeError as e:
-            print(f"GOOGLE_CREDENTIALS_JSON is not valid JSON: {e}")
-        except Exception as e:
-            print(f"Error parsing GOOGLE_CREDENTIALS_JSON environment variable: {e}")
+        except json.JSONDecodeError:
+            pass
+        except Exception:
+            pass
 
     # 2. Local Files (development convenience)
     for path in ["instance/credentials.json", "credentials.json"]:
         if os.path.exists(path):
             try:
                 return gspread.service_account(filename=path)
-            except Exception as e:
-                print(f"Error loading credentials from {path}: {e}")
+            except Exception:
+                pass
 
     # 3. Default System Credentials (ADC)
     try:
         return gspread.service_account()
-    except Exception as e:
-        print(f"gspread could not find local configuration or valid credentials. Details: {e}")
+    except Exception:
         return None
 
 
 def sync_to_sheets():
-    """
-    Synchronizes newly created unsynced database records to Google Sheets.
+    """Synchronizes newly created unsynced database records to Google Sheets.
     Finds records where synced_at is null, appends them to the spreadsheet tabs,
     and updates synced_at to the current timestamp.
     """
     client = get_gspread_client()
     if not client:
-        print("Google Sheets Sync: Failed to obtain authenticated gspread client. Skipping sync.")
         return False
 
     from flask import current_app
@@ -63,13 +59,11 @@ def sync_to_sheets():
     # Get Spreadsheet ID
     spreadsheet_id = current_app.config.get("SPREADSHEET_ID") or os.environ.get("SPREADSHEET_ID")
     if not spreadsheet_id:
-        print("Google Sheets Sync: SPREADSHEET_ID is not configured. Skipping sync.")
         return False
 
     try:
         sh = client.open_by_key(spreadsheet_id)
-    except Exception as e:
-        print(f"Google Sheets Sync: Error opening spreadsheet '{spreadsheet_id}': {e}")
+    except Exception:
         return False
 
     sync_configs = [(CaseFile, "case_files"), (Adjudication, "adjudications"), (Bill, "bills")]
@@ -114,14 +108,11 @@ def sync_to_sheets():
                 db.session.commit()
             except StaleDataError:
                 db.session.rollback()
-                print(f"Google Sheets Sync: Version conflict syncing '{tab_name}' — retry on next sync.")
                 success = False
                 continue
-            print(f"Google Sheets Sync: Successfully synced {len(unsynced_records)} rows to '{tab_name}' tab.")
 
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            print(f"Google Sheets Sync: Error syncing '{tab_name}': {e}")
             success = False
 
     return success

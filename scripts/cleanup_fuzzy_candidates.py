@@ -1,5 +1,4 @@
-"""
-Clean up fuzzy_candidates.csv by removing the 12,036 already-merged
+"""Clean up fuzzy_candidates.csv by removing the 12,036 already-merged
 high-confidence pairs, leaving only the 24,442 ambiguous pairs.
 
 Also updates review_priority.csv and review_low_priority.csv to match.
@@ -7,27 +6,18 @@ Also updates review_priority.csv and review_low_priority.csv to match.
 
 import pandas as pd
 
-print("=" * 70)
-print("CLEANING UP FUZZY_CANDIDATES.CSV")
-print("=" * 70)
-
 # 1. Load and backup
 df = pd.read_csv("fuzzy_candidates.csv")
-print(f"\nLoaded {len(df):,} rows from fuzzy_candidates.csv")
 
 # Create backup
 df.to_csv("fuzzy_candidates_backup.csv", index=False)
-print(f"Backup saved: fuzzy_candidates_backup.csv ({len(df):,} rows)")
 
 # 2. Filter out high-confidence pairs
 hc_count = df["high_confidence"].sum()
-ambig = df[df["high_confidence"] == False].copy()
-print(f"\nHigh-confidence pairs removed: {hc_count:,}")
-print(f"Ambiguous pairs remaining:     {len(ambig):,}")
+ambig = df[not df["high_confidence"]].copy()
 
 # 3. Save cleaned file
 ambig.to_csv("fuzzy_candidates.csv", index=False)
-print(f"\n[OK] Updated fuzzy_candidates.csv ({len(ambig):,} rows)")
 
 # 4. Also update review_priority.csv and review_low_priority.csv
 #    (re-generate them from the cleaned fuzzy_candidates to stay in sync)
@@ -163,15 +153,15 @@ def extract_tokens(addr):
     return result
 
 
-print("\nRecomputing locality_match for updated review files...")
 df_clean["locality_match"] = df_clean.apply(
-    lambda r: bool(extract_tokens(r["raw_address_1"]) & extract_tokens(r["raw_address_2"])), axis=1
+    lambda r: bool(extract_tokens(r["raw_address_1"]) & extract_tokens(r["raw_address_2"])),
+    axis=1,
 )
 
 sorted_df = df_clean.sort_values(by=["block_key", "locality_match"], ascending=[True, False]).reset_index(drop=True)
 
-priority = sorted_df[sorted_df["locality_match"] == True].copy()
-low_priority = sorted_df[sorted_df["locality_match"] == False].copy()
+priority = sorted_df[sorted_df["locality_match"]].copy()
+low_priority = sorted_df[not sorted_df["locality_match"]].copy()
 
 output_cols = [
     "fbo_id_1",
@@ -188,18 +178,3 @@ output_cols = [
 
 priority[output_cols].to_csv("review_priority.csv", index=False)
 low_priority[output_cols].to_csv("review_low_priority.csv", index=False)
-
-print("\nUpdated review files:")
-print(f"  review_priority.csv:     {len(priority):,} rows (locality_match True)")
-print(f"  review_low_priority.csv: {len(low_priority):,} rows (no locality match)")
-print(f"  Total:                   {len(priority) + len(low_priority):,} rows")
-
-print("\n" + "=" * 70)
-print("CLEANUP COMPLETE")
-print("=" * 70)
-print(f"\n  fuzzy_candidates_backup.csv:     {len(df):,} rows (full backup)")
-print(f"  fuzzy_candidates.csv (clean):    {len(ambig):,} rows (24,442 ambiguous only)")
-print(f"  review_priority.csv:             {len(priority):,} rows")
-print(f"  review_low_priority.csv:         {len(low_priority):,} rows")
-print()
-print(f"  Removed {hc_count:,} already-merged HC pairs from review queue.")

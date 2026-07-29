@@ -1,5 +1,4 @@
-"""
-Abstract base extractor and concrete field extractors.
+"""Abstract base extractor and concrete field extractors.
 
 Each extractor implements ``extract(text)``, returning a list of
 ``(value, confidence, method, detail)`` tuples ordered by confidence.
@@ -239,7 +238,7 @@ class DocumentTypeExtractor(BaseExtractor):
     def extract(self, text: str) -> list[Extraction]:
         results: list[Extraction] = []
         for name, pattern, doc_type in rx.DOCUMENT_TYPE_PATTERNS:
-            for match in pattern.finditer(text):
+            for _match in pattern.finditer(text):
                 results.append((doc_type, 0.90, "regex", name))
         if not results:
             results.append(("Notification", 0.50, "heuristic", "default_type"))
@@ -254,7 +253,7 @@ class AmendmentExtractor(BaseExtractor):
     def extract(self, text: str) -> list[Extraction]:
         results: list[Extraction] = []
         for name, pattern, status in rx.AMENDMENT_PATTERNS:
-            for match in pattern.finditer(text):
+            for _match in pattern.finditer(text):
                 results.append((status, 0.90, "regex", name))
         if not results:
             results.append(("Original", 0.50, "heuristic", "default_status"))

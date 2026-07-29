@@ -1,5 +1,4 @@
-"""
-Configuration presets for the Legal Document Cleaning Pipeline.
+"""Configuration presets for the Legal Document Cleaning Pipeline.
 
 Provides pre-built ``CleaningConfig`` instances for common use cases:
 - ``AGGRESSIVE`` — strip everything non-essential

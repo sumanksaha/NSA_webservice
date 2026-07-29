@@ -1,5 +1,4 @@
-"""
-Batch document processor — designed for 100,000+ documents.
+"""Batch document processor — designed for 100,000+ documents.
 
 Features:
 - Scans an input directory recursively for supported file types.
@@ -109,6 +108,7 @@ class BatchProcessor:
             Defaults to all supported extensions.
         max_page_chars: Optional character limit per page.
         jsonl_batch_size: Flush output file after this many documents.
+
     """
 
     def __init__(
@@ -143,6 +143,7 @@ class BatchProcessor:
 
         Returns:
             A :class:`BatchSummary` with aggregate statistics.
+
         """
         files = self._collect_files()
         if not files:

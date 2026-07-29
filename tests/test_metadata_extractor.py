@@ -1,5 +1,4 @@
-"""
-Tests for the Legal Metadata Extraction Engine module.
+"""Tests for the Legal Metadata Extraction Engine module.
 
 Covers:
 - Model validation (LegalMetadata, FieldConfidence)
@@ -136,7 +135,9 @@ class TestModels:
         assert fc.method == "regex"
 
     def test_legal_metadata_minimal(self):
-        default = lambda v="", s=0.0, m="default": FieldConfidence(value=v, score=s, method=m)
+        def default(v="", s=0.0, m="default"):
+            return FieldConfidence(value=v, score=s, method=m)
+
         meta = LegalMetadata(
             title=default("Act", 0.8),
             version=default(),
@@ -157,7 +158,9 @@ class TestModels:
         assert meta.overall_confidence > 0
 
     def test_legal_metadata_flat_dict(self):
-        default = lambda v="x", s=0.7, m="regex": FieldConfidence(value=v, score=s, method=m)
+        def default(v="x", s=0.7, m="regex"):
+            return FieldConfidence(value=v, score=s, method=m)
+
         meta = LegalMetadata(
             title=default("Test Act", 0.95),
             version=default(),
@@ -251,7 +254,7 @@ class TestExtractors:
         results = ex.extract(_FSSAI_AMENDMENT_SAMPLE)
         assert len(results) > 0
         # Should contain "Amended" or similar
-        statuses = {r[0] for r in results}
+        {r[0] for r in results}
 
     def test_jurisdiction_extractor(self):
         ex = JurisdictionExtractor()

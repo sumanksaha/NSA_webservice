@@ -1,5 +1,4 @@
-"""
-Cross-field validation rules for the Legal Metadata Extraction Engine.
+"""Cross-field validation rules for the Legal Metadata Extraction Engine.
 
 Validates extracted fields for internal consistency:
 - Date format coherence
@@ -50,15 +49,14 @@ class Validator:
         """Boost if authority appears in or near the title."""
         title = fields.get("title", FieldConfidence(value="", score=0.0, method="default"))
         authority = fields.get("authority", FieldConfidence(value="", score=0.0, method="default"))
-        if title.value and authority.value:
-            # Check if authority name appears within 500 chars of title
-            if authority.value.split()[-1] in title.value.upper():
-                fields["authority"] = FieldConfidence(
-                    value=authority.value,
-                    score=min(1.0, authority.score + 0.08),
-                    method=authority.method,
-                    detail=f"{authority.detail}; validated_by_title",
-                )
+        # Check if authority name appears within 500 chars of title
+        if title.value and authority.value and authority.value.split()[-1] in title.value.upper():
+            fields["authority"] = FieldConfidence(
+                value=authority.value,
+                score=min(1.0, authority.score + 0.08),
+                method=authority.method,
+                detail=f"{authority.detail}; validated_by_title",
+            )
 
     @staticmethod
     def _validate_date_coherence(fields: dict[str, FieldConfidence]) -> None:
@@ -69,14 +67,13 @@ class Validator:
             # Extract years
             date_years = re.findall(r"\b(20|19)\d{2}\b", date_val.value)
             eff_years = re.findall(r"\b(20|19)\d{2}\b", eff_date.value)
-            if date_years and eff_years:
-                if int(eff_years[0]) >= int(date_years[0]):
-                    fields["effective_date"] = FieldConfidence(
-                        value=eff_date.value,
-                        score=min(1.0, eff_date.score + 0.05),
-                        method=eff_date.method,
-                        detail=f"{eff_date.detail}; date_coherent",
-                    )
+            if date_years and eff_years and int(eff_years[0]) >= int(date_years[0]):
+                fields["effective_date"] = FieldConfidence(
+                    value=eff_date.value,
+                    score=min(1.0, eff_date.score + 0.05),
+                    method=eff_date.method,
+                    detail=f"{eff_date.detail}; date_coherent",
+                )
 
     @staticmethod
     def _validate_jurisdiction_hierarchy(fields: dict[str, FieldConfidence]) -> None:

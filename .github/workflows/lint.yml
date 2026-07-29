@@ -31,7 +31,6 @@ jobs:
 
   ruff-format:
     runs-on: ubuntu-latest
-    continue-on-error: true  # Non-blocking — codebase has legacy format issues
 
     steps:
       - name: Checkout repository

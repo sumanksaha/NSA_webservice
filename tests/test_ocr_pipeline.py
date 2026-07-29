@@ -1,5 +1,4 @@
-"""
-Tests for the Enterprise OCR Pipeline module.
+"""Tests for the Enterprise OCR Pipeline module.
 
 Tests cover:
 - Model validation (OCRResult, DetectedObject, PageDetectionResult)
@@ -72,7 +71,7 @@ def empty_pdf(tmp_path: Path) -> Path:
         import fitz
 
         doc = fitz.open()
-        page = doc.new_page()  # Blank page — no text inserted
+        doc.new_page()  # Blank page — no text inserted
         doc.save(str(path))
         doc.close()
     except ImportError:
@@ -185,18 +184,18 @@ class TestDecisionEngine:
             assert needs_ocr is True
 
     def test_decision_on_empty_pdf(self, empty_pdf: Path):
-        needs_ocr, text, result = OCRDecisionEngine.evaluate(empty_pdf, 1)
+        needs_ocr, text, _result = OCRDecisionEngine.evaluate(empty_pdf, 1)
         # Empty/blank page should need OCR
         assert needs_ocr is True
         assert text == ""
 
     def test_decision_out_of_range_page(self, text_pdf: Path):
-        needs_ocr, text, result = OCRDecisionEngine.evaluate(text_pdf, 999)
+        needs_ocr, _text, result = OCRDecisionEngine.evaluate(text_pdf, 999)
         assert needs_ocr is True
         assert "out of range" in (result.error or "")
 
     def test_decision_missing_file(self):
-        needs_ocr, text, result = OCRDecisionEngine.evaluate("/nonexistent.pdf", 1)
+        needs_ocr, _text, result = OCRDecisionEngine.evaluate("/nonexistent.pdf", 1)
         assert needs_ocr is True
         assert result.error is not None
 
@@ -235,7 +234,7 @@ class TestImagePreprocessor:
 
     def test_deskew_no_skew(self, sample_image: np.ndarray):
         preprocessor = ImagePreprocessor()
-        processed, steps = preprocessor.process(sample_image, steps=[PreprocessingStep.DESKEW])
+        processed, _steps = preprocessor.process(sample_image, steps=[PreprocessingStep.DESKEW])
         assert processed is not None
         # No skew in synthetic image, so step may or may not be applied
 

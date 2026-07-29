@@ -34,13 +34,13 @@ def create_app():
             raise RuntimeError(
                 "SECRET_KEY environment variable is not set. "
                 "Generate a secure random key and add it to your Render dashboard "
-                "environment variables."
+                "environment variables.",
             )
         # In local development, use a fallback so the app can start without
         # requiring every developer to create a .env file immediately.
         secret_key = "dev-secret-key-do-not-use-in-production"
         app.logger.warning(
-            "SECRET_KEY not set — using insecure fallback. Set SECRET_KEY in your .env file for local development."
+            "SECRET_KEY not set — using insecure fallback. Set SECRET_KEY in your .env file for local development.",
         )
     app.config["SECRET_KEY"] = secret_key
 
@@ -137,7 +137,7 @@ def create_app():
     db.init_app(app)
 
     # Initialize Flask-Migrate
-    migrate = Migrate(app, db)
+    Migrate(app, db)
 
     # ------------------------------------------------------------------
     # Flask-Login: user_loader callback
@@ -157,7 +157,7 @@ def create_app():
     # Global login gate — every route requires authentication UNLESS it
     # is one of the public endpoints listed below.
     # ------------------------------------------------------------------
-    PUBLIC_ENDPOINTS = {
+    public_endpoints = {
         "auth.login",
         "static",
         # Lookup endpoints - public for form prefill/autocomplete
@@ -175,7 +175,8 @@ def create_app():
     @app.before_request
     def set_audit_user():
         """Store the current user ID on ``db.session.info`` so that audit
-        event hooks can read it without depending on the request context."""
+        event hooks can read it without depending on the request context.
+        """
         try:
             db.session.info["audit_user_id"] = current_user.get_id() if current_user.is_authenticated else None
         except (RuntimeError, AttributeError):
@@ -183,9 +184,8 @@ def create_app():
 
     @app.before_request
     def require_login():
-        if request.endpoint and request.endpoint not in PUBLIC_ENDPOINTS:
-            if not current_user.is_authenticated:
-                return redirect(url_for("auth.login", next=request.url))
+        if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
+            return redirect(url_for("auth.login", next=request.url))
 
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words

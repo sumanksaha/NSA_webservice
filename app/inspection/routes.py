@@ -1,9 +1,9 @@
-"""
-Inspection routes module.
+"""Inspection routes module.
 
 Provides endpoints for Inspection CRUD operations and UI.
 """
 
+import contextlib
 import os
 import uuid
 from datetime import date, datetime
@@ -36,8 +36,7 @@ except ImportError:
 
 
 def _apply_inspection_sorting(query, sort_by, sort_order):
-    """
-    Apply common sorting to an Inspection query joined with FSO.
+    """Apply common sorting to an Inspection query joined with FSO.
 
     Args:
         query: SQLAlchemy query with Inspection joined to FSO.
@@ -46,6 +45,7 @@ def _apply_inspection_sorting(query, sort_by, sort_order):
 
     Returns:
         Sorted query.
+
     """
     # Order clause mapping for sort_by values
     order_map = {
@@ -111,10 +111,7 @@ def list_inspections():
         else:
             query = query.order_by(Inspection.compliance_deadline.desc())
     elif sort_by == "fso_name":
-        if sort_order == "asc":
-            query = query.order_by(FSO.fso_name.asc())
-        else:
-            query = query.order_by(FSO.fso_name.desc())
+        query = query.order_by(FSO.fso_name.asc()) if sort_order == "asc" else query.order_by(FSO.fso_name.desc())
     elif sort_by == "inspection_code":
         if sort_order == "asc":
             query = query.order_by(Inspection.inspection_code.asc())
@@ -421,7 +418,9 @@ def open_issues():
     filter_fso = request.args.get("fso_name")
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
-        Inspection.compliance_deadline >= today, Inspection.is_dismissed == False, Inspection.adjudication_id.is_(None)
+        Inspection.compliance_deadline >= today,
+        not Inspection.is_dismissed,
+        Inspection.adjudication_id.is_(None),
     )
 
     if filter_fso:
@@ -449,7 +448,9 @@ def pending_action():
     filter_fso = request.args.get("fso_name")
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
-        Inspection.compliance_deadline < today, Inspection.is_dismissed == False, Inspection.adjudication_id.is_(None)
+        Inspection.compliance_deadline < today,
+        not Inspection.is_dismissed,
+        Inspection.adjudication_id.is_(None),
     )
 
     if filter_fso:
@@ -485,12 +486,12 @@ def history():
     filter_type = request.args.get("type", "all")  # 'all', 'dismissed', 'adjudicated'
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
-        (Inspection.is_dismissed == True) | (Inspection.adjudication_id.isnot(None))
+        (Inspection.is_dismissed) | (Inspection.adjudication_id.isnot(None)),
     )
 
     # Apply type filter
     if filter_type == "dismissed":
-        query = query.filter(Inspection.is_dismissed == True)
+        query = query.filter(Inspection.is_dismissed)
     elif filter_type == "adjudicated":
         query = query.filter(Inspection.adjudication_id.isnot(None))
 
@@ -659,8 +660,7 @@ def get_inspection_photo_evidence(inspection_id):
 
 
 def _extract_exif_gps(file_obj):
-    """
-    Attempt to extract GPS latitude, longitude, and altitude/accuracy from image EXIF.
+    """Attempt to extract GPS latitude, longitude, and altitude/accuracy from image EXIF.
     Returns (lat, lng, accuracy) or (None, None, None) if unavailable.
     """
     try:
@@ -840,7 +840,12 @@ def upload_photo_evidence():
     # Process and stamp image
     try:
         filepath = process_and_stamp_image(
-            file, result["locality"], captured_at_str, result["verification_status"], image_id, str(inspection_id)
+            file,
+            result["locality"],
+            captured_at_str,
+            result["verification_status"],
+            image_id,
+            str(inspection_id),
         )
     except ValueError as exc:
         # Clean up the DB row since processing failed
@@ -915,7 +920,7 @@ def upload_adjudication_photo(adjudication_id):
     ext = os.path.splitext(safe_filename)[1].lower().lstrip(".")
     if ext not in allowed_extensions:
         return jsonify({
-            "error": f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}"
+            "error": f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}",
         }), 400
 
     try:
@@ -939,10 +944,8 @@ def upload_adjudication_photo(adjudication_id):
     except Exception:
         db.session.rollback()
         # Best-effort cleanup of the uploaded object
-        try:
+        with contextlib.suppress(Exception):
             delete_photo(file_url)
-        except Exception:
-            pass
         current_app.logger.exception(f"Failed to save InspectionPhoto for adjudication {adjudication_id}")
         return jsonify({"error": "Database error."}), 500
 

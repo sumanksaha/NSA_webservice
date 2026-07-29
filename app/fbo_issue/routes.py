@@ -31,8 +31,7 @@ SOURCE_TYPE_DISALLOWED_TARGETS = {
 
 
 def is_valid_transition(source_type: str, from_state: str, to_state: str) -> bool:
-    """
-    Check whether a state transition is valid given both the general
+    """Check whether a state transition is valid given both the general
     state machine and the source-type-specific constraints.
 
     Args:
@@ -42,6 +41,7 @@ def is_valid_transition(source_type: str, from_state: str, to_state: str) -> boo
 
     Returns:
         bool: True if the transition is allowed, False otherwise.
+
     """
     # General state machine check
     valid_targets = VALID_TRANSITIONS.get(from_state, [])
@@ -50,10 +50,7 @@ def is_valid_transition(source_type: str, from_state: str, to_state: str) -> boo
 
     # Source-type-specific check (mirrors DB CHECK constraints)
     disallowed = SOURCE_TYPE_DISALLOWED_TARGETS.get(source_type, set())
-    if to_state in disallowed:
-        return False
-
-    return True
+    return to_state not in disallowed
 
 
 # Sample-specific fields required in detail_json
@@ -64,8 +61,7 @@ INSPECTION_REQUIRED_FIELDS = {"checklist"}
 
 
 def validate_detail_json(source_type, detail_json):
-    """
-    Validate that detail_json contains the required fields for the given source_type.
+    """Validate that detail_json contains the required fields for the given source_type.
     Returns (is_valid, error_message)
     """
     if detail_json is None:
@@ -87,7 +83,7 @@ def validate_detail_json(source_type, detail_json):
             return False, f"Missing required fields for sample: {sorted(missing)}"
         return True, None
 
-    elif source_type == "inspection":
+    if source_type == "inspection":
         missing = INSPECTION_REQUIRED_FIELDS - set(detail.keys())
         if missing:
             return False, f"Missing required fields for inspection: {sorted(missing)}"
@@ -98,8 +94,7 @@ def validate_detail_json(source_type, detail_json):
 
 @fbo_issue_bp.route("/new", methods=["POST"])
 def create_issue():
-    """
-    Create a new FBO issue.
+    """Create a new FBO issue.
     Required fields: source_type, fbo_id, fso_name
     Optional: manufacturer_fbo_id (only valid for sample source_type), fbo_name
     """
@@ -130,7 +125,7 @@ def create_issue():
 
     # Validate manufacturer_fbo_id: if provided for sample, it must be a valid FBO ID
     if source_type == "sample" and manufacturer_fbo_id:
-        mfg_result, mfg_error = lookup_fssai(manufacturer_fbo_id)
+        _mfg_result, mfg_error = lookup_fssai(manufacturer_fbo_id)
         if mfg_error:
             return jsonify({"error": f"Invalid manufacturer_fbo_id: {mfg_error}"}), 400
 
@@ -194,8 +189,7 @@ def create_issue():
 
 @fbo_issue_bp.route("/<int:issue_id>/transition", methods=["POST"])
 def transition_issue(issue_id):
-    """
-    Transition an FBO issue to a new state.
+    """Transition an FBO issue to a new state.
     Required fields: to_state, asserted_by
     Optional: note
     """
@@ -213,7 +207,7 @@ def transition_issue(issue_id):
         return jsonify({"error": "asserted_by is required"}), 400
     if to_state not in ("open", "permission_pending", "permission_granted", "closed", "dismissed"):
         return jsonify({
-            "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'"
+            "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'",
         }), 400
 
     # Get current issue
@@ -229,12 +223,12 @@ def transition_issue(issue_id):
         if to_state in disallowed:
             return jsonify({
                 "error": f"Cannot transition {issue.source_type}-sourced issue to {to_state} state "
-                f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)"
+                f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)",
             }), 400
         valid_targets = VALID_TRANSITIONS.get(from_state, [])
         return jsonify({
             "error": f"Invalid state transition: {from_state} -> {to_state}. "
-            f"Valid transitions from {from_state}: {valid_targets}"
+            f"Valid transitions from {from_state}: {valid_targets}",
         }), 400
 
     # Start transaction
@@ -272,9 +266,7 @@ def transition_issue(issue_id):
 
 @fbo_issue_bp.route("/<int:issue_id>", methods=["GET"])
 def get_issue(issue_id):
-    """
-    Get full details of an FBO issue including its audit history.
-    """
+    """Get full details of an FBO issue including its audit history."""
     issue = db.session.get(FboIssue, issue_id)
     if not issue:
         return jsonify({"error": f"FBO issue with id {issue_id} not found"}), 404
@@ -319,8 +311,7 @@ def get_issue(issue_id):
 
 @fbo_issue_bp.route("/", methods=["GET"])
 def list_issues():
-    """
-    List FBO issues with optional filtering by fbo_id or state.
+    """List FBO issues with optional filtering by fbo_id or state.
     Query params: fbo_id, state
     """
     fbo_id = request.args.get("fbo_id")

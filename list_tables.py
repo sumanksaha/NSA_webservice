@@ -9,8 +9,7 @@ cursor = conn.cursor()
 # List all tables
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 tables = cursor.fetchall()
-print("Existing tables:")
-for t in tables:
-    print(f"  {t[0]}")
+for _t in tables:
+    pass
 
 conn.close()

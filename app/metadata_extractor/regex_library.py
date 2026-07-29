@@ -1,5 +1,4 @@
-"""
-Comprehensive regex pattern library for Indian legal document metadata extraction.
+"""Comprehensive regex pattern library for Indian legal document metadata extraction.
 
 Organised by field. Each pattern is a pre-compiled ``re.Pattern`` with a
 descriptive name, so the extraction engine can report *which* pattern matched
@@ -36,7 +35,7 @@ TITLE_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "short_title_act",
         _p(
-            r"(?:THE\s+)?([A-Z][A-Z\s&,]+(?:ACT|REGULATION|RULE|ORDER|NOTIFICATION|BILL|CODE|SCHEME|POLICY))\s*,\s*\d{4}"
+            r"(?:THE\s+)?([A-Z][A-Z\s&,]+(?:ACT|REGULATION|RULE|ORDER|NOTIFICATION|BILL|CODE|SCHEME|POLICY))\s*,\s*\d{4}",
         ),
     ),
     # "Food Safety and Standards (Amendment) Act, 2020"
@@ -411,7 +410,7 @@ COUNTRY_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "other_common",
         _p(
-            r"\b(?:UNITED\s+STATES|UNITED\s+KINGDOM|CANADA|AUSTRALIA|BANGLADESH|PAKISTAN|SRI\s+LANKA|NEPAL|BHUTAN|MYANMAR)\b"
+            r"\b(?:UNITED\s+STATES|UNITED\s+KINGDOM|CANADA|AUSTRALIA|BANGLADESH|PAKISTAN|SRI\s+LANKA|NEPAL|BHUTAN|MYANMAR)\b",
         ),
     ),
 ]

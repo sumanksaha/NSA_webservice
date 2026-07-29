@@ -1,5 +1,4 @@
-"""
-Step 5 Integration Tests - Full Pipeline Testing
+"""Step 5 Integration Tests - Full Pipeline Testing
 
 Tests the complete Sample/Inspection pipeline integration:
 - Sample → CaseFile linkage
@@ -207,7 +206,7 @@ class TestInspectionToAdjudicationLinkage:
             # Verify inspection is in Pending Action state
             pending_inspections = Inspection.query.filter(
                 Inspection.compliance_deadline < date.today(),
-                Inspection.is_dismissed == False,
+                not Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(pending_inspections) >= 1
@@ -243,7 +242,7 @@ class TestInspectionToAdjudicationLinkage:
             # Verify inspection no longer appears in Pending views
             pending_after_linking = Inspection.query.filter(
                 Inspection.compliance_deadline < date.today(),
-                Inspection.is_dismissed == False,
+                not Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             # The inspection should no longer be in pending (since it has adjudication_id)

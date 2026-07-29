@@ -95,24 +95,36 @@ def upgrade():
     # 4. Convert date columns from String(100) to DateTime
     #    Tables: sample, inspection, case_files, adjudications, bills
     # ========================================================================
-    conn = op.get_bind()
+    op.get_bind()
 
     # --- sample table ---
     with op.batch_alter_table("sample", schema=None) as batch_op:
         batch_op.alter_column(
-            "collection_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "collection_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "submission_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=True
+            "submission_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=True,
         )
 
     # --- inspection table ---
     with op.batch_alter_table("inspection", schema=None) as batch_op:
         batch_op.alter_column(
-            "inspection_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "inspection_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "compliance_deadline", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "compliance_deadline",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
 
     # --- case_files table ---
@@ -131,40 +143,70 @@ def upgrade():
     with op.batch_alter_table("case_files", schema=None) as batch_op:
         for col in case_file_date_cols:
             batch_op.alter_column(
-                col, existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+                col,
+                existing_type=sa.String(length=100),
+                type_=sa.DateTime(),
+                existing_nullable=False,
             )
 
     # --- adjudications table ---
     with op.batch_alter_table("adjudications", schema=None) as batch_op:
         batch_op.alter_column(
-            "First_inspection_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "First_inspection_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "compliance_deadline", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "compliance_deadline",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "Complaint_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=True
+            "Complaint_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=True,
         )
         batch_op.alter_column(
-            "inspection_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "inspection_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "authorization_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=True
+            "authorization_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=True,
         )
 
     # --- bills table ---
     with op.batch_alter_table("bills", schema=None) as batch_op:
         batch_op.alter_column(
-            "TR_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "TR_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "Submission_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=False
+            "Submission_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=False,
         )
         batch_op.alter_column(
-            "start_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=True
+            "start_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=True,
         )
         batch_op.alter_column(
-            "end_date", existing_type=sa.String(length=100), type_=sa.DateTime(), existing_nullable=True
+            "end_date",
+            existing_type=sa.String(length=100),
+            type_=sa.DateTime(),
+            existing_nullable=True,
         )
 
 

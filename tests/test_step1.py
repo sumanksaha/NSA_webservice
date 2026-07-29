@@ -1,6 +1,4 @@
-"""
-Tests for Step 1: FSO master (markdown-synced) + Sample model/UI
-"""
+"""Tests for Step 1: FSO master (markdown-synced) + Sample model/UI"""
 
 import os
 import sys
@@ -119,7 +117,7 @@ class TestFSOMarkdownSync:
             db.session.commit()
 
             # Third sync - should still have the manually added FSO
-            result3 = sync_fso_from_markdown()
+            sync_fso_from_markdown()
             count3 = FSO.query.count()
 
             # Should still have 22 (21 from file + 1 manual)
@@ -264,7 +262,7 @@ class TestRetailerLookup:
     def test_lookup_fssai_returns_tuple(self, app):
         """Test that lookup_fssai returns (result, error) tuple."""
         result, error = lookup_fssai("")
-        assert isinstance(result, type(None))
+        assert result is None
         assert isinstance(error, str)
 
 

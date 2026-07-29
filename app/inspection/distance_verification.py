@@ -29,8 +29,7 @@ def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
 
 
 def geocode_fbo_address(address: str) -> dict:
-    """
-    Calls Nominatim forward-geocoding for a given address string.
+    """Calls Nominatim forward-geocoding for a given address string.
     Returns {"lat": float or None, "lng": float or None, "error": str or None}
     """
     global _last_request_time
@@ -58,8 +57,7 @@ def geocode_fbo_address(address: str) -> dict:
             lat = float(data[0].get("lat"))
             lng = float(data[0].get("lon"))
             return {"lat": lat, "lng": lng, "error": None}
-        else:
-            return {"lat": None, "lng": None, "error": "No results found"}
+        return {"lat": None, "lng": None, "error": "No results found"}
     except requests.exceptions.Timeout:
         return {"lat": None, "lng": None, "error": "Request timed out"}
     except requests.exceptions.RequestException as e:
@@ -69,8 +67,7 @@ def geocode_fbo_address(address: str) -> dict:
 
 
 def get_or_geocode_fbo_location(fbo) -> tuple:
-    """
-    Takes an FBO object (has .reg_lat, .reg_lng, .geocoded_at, .address).
+    """Takes an FBO object (has .reg_lat, .reg_lng, .geocoded_at, .address).
     If reg_lat/reg_lng already set, return (reg_lat, reg_lng) immediately.
     If not set: call geocode_fbo_address(fbo.address), then return the result.
     Return (None, None) if geocoding fails.
@@ -82,5 +79,4 @@ def get_or_geocode_fbo_location(fbo) -> tuple:
     result = geocode_fbo_address(fbo.address)
     if result["error"] is None:
         return (result["lat"], result["lng"])
-    else:
-        return (None, None)
+    return (None, None)

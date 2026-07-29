@@ -151,8 +151,7 @@ _thread_local = threading.local()
 
 
 def _get_client():
-    """
-    Get a gspread client using service-account authentication.
+    """Get a gspread client using service-account authentication.
 
     Priority order:
     1. GOOGLE_CREDENTIALS_JSON environment variable (raw JSON string)
@@ -226,8 +225,7 @@ def _escape_formula(value):
 
 
 def sync_to_sheets(module: str, row_dict: dict) -> bool:
-    """
-    Sync a row of data to the appropriate Google Sheet.
+    """Sync a row of data to the appropriate Google Sheet.
 
     Args:
         module: One of 'non_sample', 'sample', or 'billing'
@@ -235,6 +233,7 @@ def sync_to_sheets(module: str, row_dict: dict) -> bool:
 
     Returns:
         bool: True if sync succeeded, False otherwise
+
     """
     try:
         cols = SHEET_COLUMNS[module]

@@ -19,8 +19,7 @@ def index():
 
 @bill_generator_bp.route("/lookup_fbo_issues", methods=["GET"])
 def lookup_fbo_issues():
-    """
-    Lookup FBO issues by fbo_id to provide pre-fill options for bill generation.
+    """Lookup FBO issues by fbo_id to provide pre-fill options for bill generation.
     Returns open and permission_granted issues that can be used to pre-fill bill forms.
     Query params: fbo_id (required), issue_id (optional - specific issue lookup)
     """
@@ -102,8 +101,7 @@ def lookup_fbo_issues():
 
 @bill_generator_bp.route("/bill/preview", methods=["GET"])
 def bill_preview():
-    """
-    Preview bill for a date range.
+    """Preview bill for a date range.
     Query params: start, end (ISO date strings YYYY-MM-DD)
     """
     start = request.args.get("start")
@@ -183,7 +181,7 @@ def generate_bill_route():
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
 
     # Build template variables for synchronous PDF generation
-    _ALLOWED_TEMPLATE_VARS = {
+    allowed_template_vars = {
         "Name",
         "EMP_ID",
         "Designation",
@@ -200,7 +198,7 @@ def generate_bill_route():
         "enforcement_price",
         "surveillance_price",
     }
-    template_vars = {k: form_data.get(k, "") for k in _ALLOWED_TEMPLATE_VARS}
+    template_vars = {k: form_data.get(k, "") for k in allowed_template_vars}
 
     # Reverted to synchronous execution (.apply()) — no worker currently deployed.
     # Switch to .delay() once a persistent Celery worker is available.

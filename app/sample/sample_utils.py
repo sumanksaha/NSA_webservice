@@ -1,5 +1,4 @@
-"""
-sample_utils.py
+"""sample_utils.py
 
 Utilities for the Sample module, including sample_code generation.
 """
@@ -21,8 +20,7 @@ def _get_db_dialect() -> str:
 
 
 def _acquire_advisory_lock(lock_key: int) -> None:
-    """
-    Acquire a PostgreSQL advisory transaction lock.
+    """Acquire a PostgreSQL advisory transaction lock.
 
     On non-PostgreSQL databases this is a no-op (the retry loop in
     ``generate_sample_code`` handles concurrency via the sequence table).
@@ -35,8 +33,7 @@ def _acquire_advisory_lock(lock_key: int) -> None:
 
 
 def generate_sample_code() -> str:
-    """
-    Generate a sample code in the format SKS-YYYY-##### where ##### is
+    """Generate a sample code in the format SKS-YYYY-##### where ##### is
     zero-padded sequence per year.
 
     Uses a dedicated ``code_sequence`` table with an atomic increment
@@ -47,6 +44,7 @@ def generate_sample_code() -> str:
 
     Returns:
         str: Generated sample code (e.g., 'SKS-2026-00001')
+
     """
     year = datetime.utcnow().year
     seq_key = f"sample:{year}"

@@ -1,5 +1,4 @@
-"""
-TASK C — TRIAGE THE AMBIGUOUS QUEUE (no house number on one/both sides)
+"""TASK C — TRIAGE THE AMBIGUOUS QUEUE (no house number on one/both sides)
 
 Input:  fuzzy_candidates.csv  (high_confidence == False subset, 24,442 pairs)
 Output: review_priority.csv      (locality_match True)
@@ -13,13 +12,9 @@ import pandas as pd
 # ============================================================================
 # 1. LOAD THE AMBIGUOUS SUBSET
 # ============================================================================
-print("=" * 70)
-print("TASK C: TRIAGE THE AMBIGUOUS QUEUE")
-print("=" * 70)
 
 df_fuzzy = pd.read_csv("fuzzy_candidates.csv")
-ambig = df_fuzzy[df_fuzzy["high_confidence"] == False].copy()
-print(f"\nLoaded {len(ambig):,} ambiguous pairs (no house number on >=1 side)")
+ambig = df_fuzzy[not df_fuzzy["high_confidence"]].copy()
 
 # ============================================================================
 # 2. BUILD LOCALITY/STOP-LIST
@@ -128,7 +123,6 @@ GENERIC_TOKENS = {
     "OF",
     "KMC",
     "KMDA",
-    "KMC",
     # Very short or meaningless alone
     "THE",
     "AND",
@@ -150,7 +144,8 @@ NUMERIC_PATTERN = re.compile(r"^\d")
 
 def extract_distinctive_tokens(address: str) -> set:
     """Extract distinctive locality/landmark tokens from an address,
-    excluding generic address tokens and pure numbers."""
+    excluding generic address tokens and pure numbers.
+    """
     if pd.isna(address) or not str(address).strip():
         return set()
 
@@ -177,7 +172,6 @@ def extract_distinctive_tokens(address: str) -> set:
 # ============================================================================
 # 3. COMPUTE LOCALITY MATCH
 # ============================================================================
-print("\nComputing locality_match for each pair...")
 
 
 def has_locality_match(row) -> bool:
@@ -196,27 +190,22 @@ ambig["locality_match"] = ambig.apply(has_locality_match, axis=1)
 
 match_count = ambig["locality_match"].sum()
 no_match_count = (~ambig["locality_match"]).sum()
-print(f"  Locality match FOUND:  {match_count:>8,} ({100 * match_count / len(ambig):.1f}%)")
-print(f"  No locality match:     {no_match_count:>8,} ({100 * no_match_count / len(ambig):.1f}%)")
 
 # ============================================================================
 # 4. SORT BY block_key, THEN locality_match (True first)
 # ============================================================================
-print("\nSorting by block_key (PIN), then locality_match (True first within each block)...")
 
 # Sort: block_key alpha, then locality_match descending (True=1 before False=0)
 ambig_sorted = ambig.sort_values(by=["block_key", "locality_match"], ascending=[True, False]).reset_index(drop=True)
 
 # Verify sort
-print(f"  Sorted {len(ambig_sorted):,} rows")
 
 # ============================================================================
 # 5. SPLIT INTO TWO FILES
 # ============================================================================
-print("\nSplitting into priority files...")
 
-priority = ambig_sorted[ambig_sorted["locality_match"] == True].copy()
-low_priority = ambig_sorted[ambig_sorted["locality_match"] == False].copy()
+priority = ambig_sorted[ambig_sorted["locality_match"]].copy()
+low_priority = ambig_sorted[not ambig_sorted["locality_match"]].copy()
 
 # Columns to output (all from fuzzy_candidates.csv)
 output_cols = [
@@ -235,16 +224,10 @@ output_cols = [
 priority[output_cols].to_csv("review_priority.csv", index=False)
 low_priority[output_cols].to_csv("review_low_priority.csv", index=False)
 
-print(f"  -> review_priority.csv:     {len(priority):>8,} rows (locality_match True)")
-print(f"  -> review_low_priority.csv: {len(low_priority):>8,} rows (no locality match)")
-print(f"  -> Total:                   {len(priority) + len(low_priority):>8,} rows")
 
 # ============================================================================
 # 6. SPOT-CHECK: first 20 rows grouped by block_key
 # ============================================================================
-print("\n" + "=" * 70)
-print("SPOT-CHECK: First 20 rows (grouped by block_key)")
-print("=" * 70)
 
 printed = 0
 current_block = None
@@ -254,62 +237,29 @@ for _, row in ambig_sorted.iterrows():
 
     if row["block_key"] != current_block:
         current_block = row["block_key"]
-        print(f"\n  --- Block: {current_block} ---")
 
     a1 = str(row["raw_address_1"])[:55]
     a2 = str(row["raw_address_2"])[:55]
     lm = "Y" if row["locality_match"] else "N"
-    print(f"  [{lm}] {row['similarity_score']} | {a1}...")
-    print(f"       {a2}...")
     printed += 1
 
 # Show total remaining after the spot-check
 remaining = len(ambig_sorted) - printed
 if remaining > 0:
-    print(f"\n  ... and {remaining:,} more rows")
+    pass
 
 # ============================================================================
 # 7. FINAL REPORT
 # ============================================================================
-print("\n" + "=" * 70)
-print("TASK C COMPLETE - RESULTS SUMMARY")
-print("=" * 70)
 
-print(f"\n  Total ambiguous pairs processed:       {len(ambig):>8,}")
-print(f"    -> review_priority.csv:              {len(priority):>8,}")
-print(f"    -> review_low_priority.csv:          {len(low_priority):>8,}")
-print()
-print(f"  Locality match rate: {100 * match_count / len(ambig):.1f}%")
-print()
 
 # Show sample distinctive tokens from matched pairs for transparency
 if match_count > 0:
     sample_matches = priority.head(10)
-    print("  Sample distinctive tokens that triggered locality_match:")
     seen_tokens = set()
     for _, row in sample_matches.iterrows():
         t1 = extract_distinctive_tokens(row["raw_address_1"])
         t2 = extract_distinctive_tokens(row["raw_address_2"])
         shared = (t1 & t2) - seen_tokens
         if shared:
-            print(f"    {', '.join(sorted(shared))}")
             seen_tokens |= shared
-print(f"    (showing first {len(seen_tokens)} unique tokens found)")
-
-print("\n  Output files:")
-print(f"    - review_priority.csv     ({len(priority):,} rows) - higher-confidence, REVIEW FIRST")
-print(f"    - review_low_priority.csv ({len(low_priority):,} rows) - lower-confidence, reviewed later")
-
-print("\n" + "=" * 70)
-print("STAGE 0 DEDUP PIPELINE STATUS")
-print("=" * 70)
-print("""
-  Step 1: Exact-match dedup        -> extracted_with_exact_groups.csv  [DONE]
-  Step 2: Fuzzy cdist               -> fuzzy_candidates.csv (orig)     [DONE]
-  Step 3: House-number filter       -> rejected_number_mismatch.csv    [DONE]
-  Step 4: High-confidence auto-merge -> 4,164 groups created           [DONE]
-  Step 5: Ambiguous queue triage    -> review_priority/low_priority    [DONE]
-""")
-print("=" * 70)
-print("READY FOR HUMAN REVIEW")
-print("=" * 70)

@@ -1,5 +1,4 @@
-"""
-Comprehensive unit tests for the Legal Document Loader module.
+"""Comprehensive unit tests for the Legal Document Loader module.
 
 Tests cover:
 - Model validation (DocumentResult, PageResult, FileMetadata)

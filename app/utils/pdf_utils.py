@@ -1,6 +1,4 @@
-"""
-PDF generation utilities with graceful WeasyPrint handling.
-"""
+"""PDF generation utilities with graceful WeasyPrint handling."""
 
 import base64
 import io
@@ -20,8 +18,7 @@ _PDF_USE_DIRECT_URLS = os.environ.get("PDF_USE_DIRECT_URLS", "false").lower() ==
 
 
 def import_weasyprint():
-    """
-    Import WeasyPrint with graceful error handling.
+    """Import WeasyPrint with graceful error handling.
     Returns None if WeasyPrint cannot be imported (e.g., missing system dependencies).
     """
     if not PDF_GENERATION_ENABLED:
@@ -38,17 +35,16 @@ def import_weasyprint():
 
 
 def generate_pdf_from_html(html_content):
-    """
-    Generate PDF from HTML string using WeasyPrint.
+    """Generate PDF from HTML string using WeasyPrint.
     Returns (pdf_bytes, error_message) tuple.
     """
-    HTML = import_weasyprint()
-    if HTML is None:
+    html_cls = import_weasyprint()
+    if html_cls is None:
         return None, "PDF generation disabled or WeasyPrint not available"
 
     try:
         pdf_buffer = io.BytesIO()
-        HTML(string=html_content).write_pdf(pdf_buffer)
+        html_cls(string=html_content).write_pdf(pdf_buffer)
         pdf_buffer.seek(0)
         return pdf_buffer.getvalue(), None
     except Exception as e:
@@ -57,8 +53,7 @@ def generate_pdf_from_html(html_content):
 
 
 def embed_photos_as_base64(photo_urls):
-    """
-    Fetch photo images from storage URLs and return base64 data URIs
+    """Fetch photo images from storage URLs and return base64 data URIs
     that WeasyPrint can embed in PDFs, even when URLs are not publicly
     accessible (e.g. signed R2 URLs behind a firewall).
 
@@ -70,6 +65,7 @@ def embed_photos_as_base64(photo_urls):
     Returns:
         list[dict]: each entry is ``{"url": str, "data_uri": str}`` on
         success, or ``{"url": str, "error": str}`` on failure.
+
     """
     results = []
 

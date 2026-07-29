@@ -1,3 +1,4 @@
+import contextlib
 import io
 import re
 
@@ -6,8 +7,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 
 def format_price(price_str):
-    """
-    Format a price string to a float, handling various formats.
+    """Format a price string to a float, handling various formats.
     Returns float or 0.0 if parsing fails.
     """
     if not price_str:
@@ -24,8 +24,7 @@ def format_price(price_str):
 
 
 def compute_summary(samples):
-    """
-    Compute summary statistics from a list of sample records.
+    """Compute summary statistics from a list of sample records.
 
     Args:
         samples: List of Sample objects or dicts with keys: sample_type, price
@@ -35,6 +34,7 @@ def compute_summary(samples):
         - by_type: dict {sample_type: {count, total_price}}
         - grand_total: float
         - total_count: int
+
     """
     by_type = {}
     total_count = 0
@@ -67,8 +67,7 @@ def compute_summary(samples):
 
 
 def generate_excel_report(samples, summary, start_date=None, end_date=None):
-    """
-    Generate an Excel workbook with two sheets: Samples and Summary.
+    """Generate an Excel workbook with two sheets: Samples and Summary.
 
     Args:
         samples: List of Sample objects (query results)
@@ -78,6 +77,7 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
 
     Returns:
         tuple: (Excel file bytes, filename)
+
     """
     wb = Workbook()
 
@@ -106,7 +106,10 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal="center")
         cell.border = Border(
-            top=Side(style="thin"), bottom=Side(style="thin"), left=Side(style="thin"), right=Side(style="thin")
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+            left=Side(style="thin"),
+            right=Side(style="thin"),
         )
         cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
 
@@ -128,18 +131,18 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
             cell = ws_samples.cell(row=row_num, column=col_num, value=str(value) if value else "")
             cell.alignment = Alignment(horizontal="left")
             cell.border = Border(
-                top=Side(style="thin"), bottom=Side(style="thin"), left=Side(style="thin"), right=Side(style="thin")
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+                left=Side(style="thin"),
+                right=Side(style="thin"),
             )
 
     # Auto-adjust column widths for Samples sheet
     for col in ws_samples.columns:
         max_length = 0
         for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
+            with contextlib.suppress(BaseException):
+                max_length = max(max_length, len(str(cell.value)))
         adjusted_width = (max_length + 2) * 1.2
         ws_samples.column_dimensions[col[0].column_letter].width = adjusted_width
 
@@ -173,7 +176,10 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal="center")
         cell.border = Border(
-            top=Side(style="thin"), bottom=Side(style="thin"), left=Side(style="thin"), right=Side(style="thin")
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+            left=Side(style="thin"),
+            right=Side(style="thin"),
         )
         cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
 
@@ -188,7 +194,10 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
             cell = ws_summary.cell(row=row_num, column=col_num, value=value)
             cell.alignment = Alignment(horizontal="left" if isinstance(value, str) else "right")
             cell.border = Border(
-                top=Side(style="thin"), bottom=Side(style="thin"), left=Side(style="thin"), right=Side(style="thin")
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+                left=Side(style="thin"),
+                right=Side(style="thin"),
             )
             # Format price with 2 decimal places
             if col_num == 3 and isinstance(value, (int, float)):
@@ -209,7 +218,10 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
         cell = ws_summary.cell(row=grand_total_row, column=col_num)
         cell.alignment = Alignment(horizontal="right" if col_num > 1 else "left")
         cell.border = Border(
-            top=Side(style="thin"), bottom=Side(style="double"), left=Side(style="thin"), right=Side(style="thin")
+            top=Side(style="thin"),
+            bottom=Side(style="double"),
+            left=Side(style="thin"),
+            right=Side(style="thin"),
         )
         if col_num == 3:
             cell.number_format = "#,##0.00"
@@ -218,11 +230,8 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
     for col in ws_summary.columns:
         max_length = 0
         for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
+            with contextlib.suppress(BaseException):
+                max_length = max(max_length, len(str(cell.value)))
         adjusted_width = (max_length + 2) * 1.2
         ws_summary.column_dimensions[col[0].column_letter].width = adjusted_width
 

@@ -1,5 +1,4 @@
-"""
-High-performance Legal Document Cleaning Pipeline.
+"""High-performance Legal Document Cleaning Pipeline.
 
 Usage::
 

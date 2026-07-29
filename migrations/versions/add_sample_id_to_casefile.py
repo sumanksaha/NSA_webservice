@@ -1,5 +1,4 @@
-"""
-Add sample_id FK to case_files table
+"""Add sample_id FK to case_files table
 
 This migration adds a nullable foreign key from case_files to sample,
 enabling CaseFile-Sample linkage (Step 5).

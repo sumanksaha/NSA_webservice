@@ -1,5 +1,4 @@
-"""
-PDF document loader.
+"""PDF document loader.
 
 Uses **pdfplumber** as the primary extraction engine (best text layout
 preservation for legal documents). Falls back to **PyMuPDF (fitz)** for
@@ -59,7 +58,7 @@ class PDFLoader(BaseLoader):
                 page=1,
                 text=f"[ERROR: Could not extract text from {self._path.name}. "
                 f"The file may be encrypted, damaged, or image-only without OCR.]",
-            )
+            ),
         ]
 
     def _try_pdfplumber(self) -> list[PageResult] | None:

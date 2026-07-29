@@ -1,5 +1,4 @@
-"""
-Bill Generator Utilities
+"""Bill Generator Utilities
 
 Shared query helpers for bill generation and preview.
 """
@@ -10,8 +9,7 @@ from app.utils.filters import parse_date
 
 
 def get_billable_samples(start_date, end_date):
-    """
-    Get billable samples for a date range, split by type.
+    """Get billable samples for a date range, split by type.
 
     Args:
         start_date: ISO date string (YYYY-MM-DD)
@@ -24,6 +22,7 @@ def get_billable_samples(start_date, end_date):
         - surveillance_no: int
         - surveillance_price: float
         - samples: list of dicts with si_no, sample_code, sample_name, retailer_name, price, type
+
     """
     # Parse date strings to datetime objects for proper range comparison
     parsed_start = parse_date(start_date)
@@ -33,7 +32,7 @@ def get_billable_samples(start_date, end_date):
     query = Sample.query.filter(
         Sample.collection_date >= parsed_start,
         Sample.collection_date <= parsed_end,
-        Sample.billed == False,
+        not Sample.billed,
         Sample.sample_type.in_(["enforcement", "surveillance"]),
     ).order_by(Sample.collection_date)
 
@@ -78,12 +77,12 @@ def get_billable_samples(start_date, end_date):
 
 
 def mark_samples_as_billed(sample_ids, bill_id):
-    """
-    Mark samples as billed and link them to the bill.
+    """Mark samples as billed and link them to the bill.
 
     Args:
         sample_ids: list of sample IDs to mark
         bill_id: the bill ID to link samples to
+
     """
     if not sample_ids or not bill_id:
         return

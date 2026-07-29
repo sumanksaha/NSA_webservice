@@ -1,5 +1,4 @@
-"""
-suggester.py
+"""suggester.py
 
 Rule-based suggester that recommends applicable FSS Act sections
 (55, 56, 58, 63, 64) based on inspection checklist results and case flags.
@@ -86,8 +85,7 @@ def _detect_section_55_from_checklist(form_data: dict) -> tuple[bool, str]:
 
 
 def suggest_sections(form_data: dict) -> dict:
-    """
-    Rule-based section suggestion.
+    """Rule-based section suggestion.
     Rules:
       1. Non-licensed FBO -> Section 63 only.
       2. Licensed FBO -> Section 55 if checklist shows direction non-compliance.

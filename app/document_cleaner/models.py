@@ -1,5 +1,4 @@
-"""
-Pydantic models for the Legal Document Cleaning Pipeline.
+"""Pydantic models for the Legal Document Cleaning Pipeline.
 
 Includes:
 - ``CleaningConfig`` — config-driven rule flags

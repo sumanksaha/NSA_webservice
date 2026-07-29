@@ -1,5 +1,4 @@
-"""
-Abstract base class for all document loaders.
+"""Abstract base class for all document loaders.
 
 Every concrete loader (PDF, DOCX, TXT) implements the ``load()`` method
 which returns a :class:`DocumentResult`.
@@ -63,6 +62,7 @@ class BaseLoader(ABC):
 
         Returns:
             A list of :class:`PageResult` objects ordered by page number.
+
         """
 
     @abstractmethod
@@ -71,6 +71,7 @@ class BaseLoader(ABC):
 
         Returns:
             A :class:`FileMetadata` instance.
+
         """
 
     # ------------------------------------------------------------------

@@ -1,5 +1,4 @@
-"""
-Celery integration for the application.
+"""Celery integration for the application.
 
 Exports two things:
 - ``celery`` — a bare Celery instance that can be safely imported by
@@ -24,8 +23,7 @@ celery = Celery(
 
 
 def make_celery(app):
-    """
-    Configure the global ``celery`` instance from the Flask app.
+    """Configure the global ``celery`` instance from the Flask app.
 
     Sets broker and backend to ``app.config['REDIS_URL']``, merges Flask
     app config into Celery config, and installs a ``ContextTask`` subclass

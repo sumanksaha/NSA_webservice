@@ -21,14 +21,11 @@ with app.app_context():
 
         # Stamp to the migration before ours
         stamp(revision="add_fso_sample_inspection_tables")
-        print("[OK] Database stamped to add_fso_sample_inspection_tables")
 
         # Now run upgrade for our migration
         upgrade(revision="add_bill_sample_fields")
-        print("[OK] Upgrade to add_bill_sample_fields completed")
 
-    except Exception as e:
-        print(f"[FAIL] Error: {e}")
+    except Exception:
         import traceback
 
         traceback.print_exc()

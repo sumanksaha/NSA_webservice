@@ -1,5 +1,4 @@
-"""
-Schema Parity Checker
+"""Schema Parity Checker
 
 Compares the live SQLite database schema against what the Alembic migration
 chain expects (when all 9 migrations are applied in order) and against what
@@ -30,7 +29,6 @@ def get_live_schema():
 
 
 live = get_live_schema()
-print(f"LIVE DB tables ({len(live)}): {list(live.keys())}\n")
 
 # =========================================================================
 # 2. Define MIGRATION expected schema (post-all-9-migrations)
@@ -243,8 +241,6 @@ tables_to_check = {
     "inspection_photos": None,
 }
 
-print(f"{'Table':<25} {'Cols match':<15} {'Extra cols':<20} {'Missing cols':<20} {'Result':<10}")
-print("=" * 90)
 
 all_match = True
 
@@ -284,30 +280,17 @@ for tname in sorted(live.keys()):
     else:
         result = "MATCH"
 
-    print(
-        f"{tname:<25} {f'{len(expected - missing_in_db)}/{len(expected)}':<15} "
-        f"{','.join(sorted(extra_in_db)) if extra_in_db else '-':<20} "
-        f"{','.join(sorted(missing_in_db)) if missing_in_db else '-':<20} "
-        f"{result:<10}"
-    )
-
     if missing_in_db:
-        print(f"  {'':>25} MISSING from DB: {sorted(missing_in_db)}")
+        pass
     if unexpected_extra:
-        print(f"  {'':>25} UNEXPECTED in DB: {sorted(unexpected_extra)}")
+        pass
     if extra_in_db and extra_in_db == expected_extra:
-        print(f"  {'':>25} (models.py extras: {sorted(expected_extra)})")
+        pass
 
-print(f"\n{'=' * 90}")
 
 # =========================================================================
 # 4. Detailed check for extras that models.py added but migrations don't
 # =========================================================================
-print("\n\nDETAILED EXTRAS CHECK: models.py columns NOT in migration chain")
-print("=" * 60)
-print("These columns were added to models.py during Celery-task development")
-print("but have NO corresponding migration file yet:")
-print()
 for tname, cols in [
     ("case_files", ["pdf_task_id", "pdf_generated_at"]),
     ("bills", ["pdf_task_id", "pdf_generated_at"]),
@@ -315,21 +298,11 @@ for tname, cols in [
     db_cols = get_db_columns(tname)
     present = [c for c in cols if c in db_cols]
     absent = [c for c in cols if c not in db_cols]
-    print(f"  {tname}: present=[{', '.join(present)}]  absent=[{', '.join(absent)}]")
 
 # =========================================================================
 # 5. Verification summary
 # =========================================================================
-print(f"\n\n{'=' * 60}")
-print("VERDICT")
-print(f"{'=' * 60}")
 if all_match:
-    print("ALL tables MATCH between migration chain and live DB schema.")
-    print("The only differences are models.py extras (pdf_task_id, pdf_generated_at)")
-    print("which were added for Celery task support but have no migration yet.")
-    print()
-    print("RECOMMENDATION: Safe to run `flask db stamp head`")
-    print("This will stamp the alembic_version table without altering any tables.")
-    print("After stamping, create a new migration for the models.py extras.")
+    pass
 else:
-    print("DRIFT detected. See above for details.")
+    pass

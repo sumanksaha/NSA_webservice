@@ -1,5 +1,4 @@
-"""
-PDF-generation tasks for the Case File Generator blueprint.
+"""PDF-generation tasks for the Case File Generator blueprint.
 
 Produces a Petition PDF and a Permission Letter PDF for a single case
 file, packages them as a ZIP archive on disk, and returns metadata
@@ -22,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
-    """
-    Render Petition + Permission Letter PDFs from Jinja2 templates and
+    """Render Petition + Permission Letter PDFs from Jinja2 templates and
     save them as a ZIP archive on disk.
 
     Returns a metadata dict (not the ZIP bytes):
@@ -99,10 +97,10 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
         logger.info("Case file ZIP saved: %s", zip_path)
     except OSError as exc:
         logger.warning("I/O error saving case file ZIP: %s", exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
     except Exception as exc:
         logger.warning("Transient error saving case file ZIP: %s", exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
     return _metadata(case_file_id, zip_path, generated_at, "ok", None)
 

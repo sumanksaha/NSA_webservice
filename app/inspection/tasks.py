@@ -1,5 +1,4 @@
-"""
-OCR tasks for the Inspection blueprint.
+"""OCR tasks for the Inspection blueprint.
 
 Provides a Celery task that performs zonal OCR on scanned documents
 and photos attached to inspection records.
@@ -12,9 +11,8 @@ except ImportError:
     celery = None
 
 
-def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
-    """
-    Perform zonal OCR on a scanned PDF or image file.
+def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
+    """Perform zonal OCR on a scanned PDF or image file.
 
     Converts PDF pages to images (via ``pdf2image``) or processes image
     files directly, then uses ``pytesseract`` to extract text.  If
@@ -41,6 +39,7 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
         For transient errors (file I/O, resource contention).
     ValueError
         For non-transient errors (unsupported format, missing file).
+
     """
     # --- lazy imports so the module can be loaded without heavy deps ---
     import logging
@@ -79,14 +78,14 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
     except OSError as exc:
         # File I/O errors are typically transient (e.g. NFS glitch)
         logger.warning("Transient I/O error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
     except ValueError:
         # Non-transient — let it propagate
         raise
     except Exception as exc:
         # Transient: network mount, lock contention, etc.
         logger.warning("Transient error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
     import pytesseract
 
@@ -110,7 +109,7 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
             # Retry only for recognised transient conditions
             if any(term in err_str for term in ("timeout", "temporary", "eagain")):
                 logger.warning("Transient OCR error on page %d: %s", page_num, exc)
-                raise self.retry(exc=exc, countdown=60)
+                raise self.retry(exc=exc, countdown=60) from exc
             # Otherwise record the failure and continue with remaining pages
             logger.error("Non-transient OCR error on page %d: %s", page_num, exc)
             results[f"p{page_num}_error"] = str(exc)

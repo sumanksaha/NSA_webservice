@@ -1,5 +1,4 @@
-"""
-inspection_utils.py
+"""inspection_utils.py
 
 Utilities for the Inspection module, including inspection_code generation.
 """
@@ -21,8 +20,7 @@ def _get_db_dialect() -> str:
 
 
 def _acquire_advisory_lock(lock_key: int) -> None:
-    """
-    Acquire a PostgreSQL advisory transaction lock.
+    """Acquire a PostgreSQL advisory transaction lock.
 
     On non-PostgreSQL databases this is a no-op (the retry loop in
     ``generate_inspection_code`` handles concurrency via the sequence table).
@@ -35,8 +33,7 @@ def _acquire_advisory_lock(lock_key: int) -> None:
 
 
 def generate_inspection_code() -> str:
-    """
-    Generate an inspection code in the format INSP-YYYY-##### where #####
+    """Generate an inspection code in the format INSP-YYYY-##### where #####
     is zero-padded sequence per year.
 
     Uses a dedicated ``code_sequence`` table with an atomic increment
@@ -47,6 +44,7 @@ def generate_inspection_code() -> str:
 
     Returns:
         str: Generated inspection code (e.g., 'INSP-2026-00001')
+
     """
     year = datetime.utcnow().year
     seq_key = f"inspection:{year}"
@@ -83,8 +81,7 @@ def generate_inspection_code() -> str:
 
 
 def calculate_compliance_deadline(inspection_date) -> datetime | None:
-    """
-    Calculate compliance deadline as inspection_date + 30 days.
+    """Calculate compliance deadline as inspection_date + 30 days.
 
     Args:
         inspection_date: A datetime object, a date object, or an ISO
@@ -92,6 +89,7 @@ def calculate_compliance_deadline(inspection_date) -> datetime | None:
 
     Returns:
         datetime: The deadline as a datetime object.
+
     """
     if isinstance(inspection_date, datetime):
         base = inspection_date

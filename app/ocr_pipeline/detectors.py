@@ -1,5 +1,4 @@
-"""
-Document Object Detectors — identifies tables, stamps/seals, signatures,
+"""Document Object Detectors — identifies tables, stamps/seals, signatures,
 and watermarks in document images using OpenCV contour analysis and
 morphological operations.
 
@@ -44,6 +43,7 @@ class PageDetector:
 
         Returns:
             A :class:`PageDetectionResult` with all detections.
+
         """
         import cv2
 
@@ -135,7 +135,7 @@ class PageDetector:
                     type=ObjectType.TABLE,
                     confidence=confidence,
                     bbox=[float(x), float(y), float(x + cw), float(y + ch)],
-                )
+                ),
             )
 
         return detected
@@ -152,6 +152,7 @@ class PageDetector:
         Args:
             bgr: Original BGR color image (needed for color-based detection).
             gray: Grayscale version (needed for HoughCircles).
+
         """
         import cv2
 
@@ -190,7 +191,7 @@ class PageDetector:
                         type=ObjectType.STAMP,
                         confidence=confidence,
                         bbox=[float(x), float(y), float(x + cw), float(y + ch)],
-                    )
+                    ),
                 )
 
         # ---- Strategy 2: HoughCircles on grayscale (catches non-color stamps) ----
@@ -214,7 +215,7 @@ class PageDetector:
                             type=ObjectType.STAMP,
                             confidence=conf,
                             bbox=[float(x - r), float(y - r), float(x + r), float(y + r)],
-                        )
+                        ),
                     )
         except Exception:
             pass
@@ -228,7 +229,8 @@ class PageDetector:
     @staticmethod
     def _detect_signatures(gray: np.ndarray) -> list[DetectedObject]:
         """Detect signatures by looking for cursive/handwritten text regions
-        with distinctive stroke characteristics."""
+        with distinctive stroke characteristics.
+        """
         import cv2
 
         detected: list[DetectedObject] = []
@@ -263,7 +265,7 @@ class PageDetector:
                         type=ObjectType.SIGNATURE,
                         confidence=confidence,
                         bbox=[float(x), float(y), float(x + cw), float(y + ch)],
-                    )
+                    ),
                 )
 
         return detected
@@ -275,7 +277,8 @@ class PageDetector:
     @staticmethod
     def _detect_watermarks(gray: np.ndarray) -> list[DetectedObject]:
         """Detect watermarks by finding semi-transparent, repetitive patterns
-        or text that is lighter than the surrounding area."""
+        or text that is lighter than the surrounding area.
+        """
         import cv2
 
         detected: list[DetectedObject] = []
@@ -283,7 +286,7 @@ class PageDetector:
         # Watermarks are often lighter than the background
         # Invert and threshold to capture faint text
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        _, binary = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)
+        _, _binary = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)
 
         # Watermarks often have low contrast — detect using edge detection
         edges = cv2.Canny(blurred, 50, 150)
@@ -310,7 +313,7 @@ class PageDetector:
                         type=ObjectType.WATERMARK,
                         confidence=confidence,
                         bbox=[float(x), float(y), float(x + cw), float(y + ch)],
-                    )
+                    ),
                 )
 
         return detected

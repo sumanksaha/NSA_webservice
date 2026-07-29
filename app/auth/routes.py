@@ -11,8 +11,7 @@ from app.models import RecordAudit, User
 
 
 def _is_safe_redirect_url(target):
-    """
-    Validate that a redirect URL is safe — only relative paths are accepted.
+    """Validate that a redirect URL is safe — only relative paths are accepted.
     Prevents open-redirect attacks that forward to external domains.
     """
     if not target:

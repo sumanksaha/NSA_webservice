@@ -1,5 +1,4 @@
-"""
-Enterprise-grade OCR Pipeline for Legal Documents.
+"""Enterprise-grade OCR Pipeline for Legal Documents.
 
 Automatically detects whether a PDF page has selectable text and routes
 to direct extraction or the full OCR pipeline (PaddleOCR → Tesseract).

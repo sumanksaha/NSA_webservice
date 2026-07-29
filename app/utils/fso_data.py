@@ -1,5 +1,4 @@
-"""
-fso_data.py
+"""fso_data.py
 
 Loads the FSO (Food Safety Officer) list from a markdown file and exposes
 a list of FSO names. Also provides sync functionality to upsert names into
@@ -25,8 +24,7 @@ FSO_MD_PATH = os.path.join(WORKSPACE_DIR, "fso_list.md")
 
 
 def load_fso_names(path: str = FSO_MD_PATH) -> list:
-    """
-    Parses a markdown file with a list of FSO names.
+    """Parses a markdown file with a list of FSO names.
     Expected format:
     # FSO List
 
@@ -73,17 +71,15 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
         elif line.startswith("-") and len(line) > 1:
             # Malformed line: starts with - but no space
             logger.warning(f"FSO list: skipping malformed line {line_number}: '{line}'")
-        else:
-            # Other non-list lines (not header, not bullet) - skip with warning
-            if line.strip():
-                logger.warning(f"FSO list: skipping non-list line {line_number}: '{line}'")
+        # Other non-list lines (not header, not bullet) - skip with warning
+        elif line.strip():
+            logger.warning(f"FSO list: skipping non-list line {line_number}: '{line}'")
 
     return names
 
 
 def sync_fso_from_markdown(path: str = FSO_MD_PATH) -> dict:
-    """
-    Reads FSO names from the markdown file and upserts them into the fso table.
+    """Reads FSO names from the markdown file and upserts them into the fso table.
 
     Sync is ADDITIVE ONLY — existing FSO rows are never deleted, even if removed from markdown.
     This preserves FK integrity on historical records that reference FSO names.
@@ -176,9 +172,7 @@ def sync_fso_from_markdown(path: str = FSO_MD_PATH) -> dict:
 
 
 def get_all_fso_names() -> list:
-    """
-    Returns a list of all FSO names from the database, sorted alphabetically.
-    """
+    """Returns a list of all FSO names from the database, sorted alphabetically."""
     try:
         fsos = FSO.query.order_by(FSO.fso_name.asc()).all()
         return [fso.fso_name for fso in fsos]

@@ -1,5 +1,4 @@
-"""
-Removal operations for the Legal Document Cleaning Pipeline.
+"""Removal operations for the Legal Document Cleaning Pipeline.
 
 Each function takes ``(lines: list[str]) -> tuple[list[str], list[RemovedItem]]``
 and returns the cleaned lines plus a list of removal records.
@@ -40,7 +39,7 @@ _WATERMARK_PATTERNS = re.compile(
 # OCR artifact patterns — keep all printable ASCII + Indian scripts + common unicode punctuation
 # Build the allowed character set explicitly to avoid escaping issues.
 _ALLOWED_OCR = set(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,;:!?()[]{}'\"-\\/\\@#$%&*+<=>^_`|~\n–—"
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,;:!?()[]{}'\"-\\/\\@#$%&*+<=>^_`|~\n\u2013\u2014",
 )
 # Add Indian script Unicode ranges
 _OCR_ALLOWED_RANGES = [
@@ -65,7 +64,7 @@ _OCR_GARBAGE_PATTERN = "[^" + "".join(sorted(_ALLOWED_OCR)) + "]"
 _OCR_GARBAGE = re.compile(_OCR_GARBAGE_PATTERN)
 
 # Lines that look like page boundary markers
-_PAGE_BOUNDARY = re.compile(r"^\s*[-–—]+\s*$")
+_PAGE_BOUNDARY = re.compile(r"^\s*[-\u2013\u2014]+\s*$")
 
 # Common header/footer pattern: repeated short line appearing at same position
 _HEADER_FOOTER_SHORT = re.compile(r"^.{3,80}$")
@@ -112,8 +111,8 @@ def remove_page_numbers(lines: list[str]) -> tuple[list[str], list[RemovedItem]]
                 category="page_number",
                 snippet=removed[0][:120],
                 count=len(removed),
-                chars_saved=sum(len(l) + 1 for l in removed),
-            )
+                chars_saved=sum(len(line) + 1 for line in removed),
+            ),
         ]
     return kept, []
 
@@ -133,8 +132,8 @@ def remove_watermark_text(lines: list[str]) -> tuple[list[str], list[RemovedItem
                 category="watermark_text",
                 snippet=removed[0][:120],
                 count=len(removed),
-                chars_saved=sum(len(l) + 1 for l in removed),
-            )
+                chars_saved=sum(len(line) + 1 for line in removed),
+            ),
         ]
     return kept, []
 
@@ -155,7 +154,7 @@ def remove_blank_pages(lines: list[str]) -> tuple[list[str], list[RemovedItem]]:
                 snippet="<blank lines>",
                 count=removed_count,
                 chars_saved=removed_count,
-            )
+            ),
         ]
     return non_blank, []
 
@@ -178,8 +177,8 @@ def remove_duplicate_lines(lines: list[str]) -> tuple[list[str], list[RemovedIte
                 category="duplicate_line",
                 snippet=removed[0][:120],
                 count=len(removed),
-                chars_saved=sum(len(l) + 1 for l in removed),
-            )
+                chars_saved=sum(len(line) + 1 for line in removed),
+            ),
         ]
     return kept, []
 
@@ -196,7 +195,7 @@ def remove_ocr_artifacts(text: str) -> tuple[str, list[RemovedItem]]:
                 snippet="<non-printable/garbage chars>",
                 count=chars_removed,
                 chars_saved=chars_removed,
-            )
+            ),
         ]
     return cleaned, []
 
@@ -252,8 +251,8 @@ def remove_headers_footers(
                 category="header_footer",
                 snippet=removed[0][:120],
                 count=len(removed),
-                chars_saved=sum(len(l) + 1 for l in removed),
-            )
+                chars_saved=sum(len(line) + 1 for line in removed),
+            ),
         ]
     return kept, []
 
@@ -286,8 +285,8 @@ def remove_running_titles(lines: list[str]) -> tuple[list[str], list[RemovedItem
                 category="running_title",
                 snippet=removed[0][:120],
                 count=len(removed),
-                chars_saved=sum(len(l) + 1 for l in removed),
-            )
+                chars_saved=sum(len(line) + 1 for line in removed),
+            ),
         ]
     return kept, []
 
@@ -300,7 +299,4 @@ def remove_running_titles(lines: list[str]) -> tuple[list[str], list[RemovedItem
 def _should_preserve(line: str) -> bool:
     """Check if a line matches any preservation pattern."""
     stripped = line.strip()
-    for pat in _PRESERVE_PATTERNS:
-        if pat.search(stripped):
-            return True
-    return False
+    return any(pat.search(stripped) for pat in _PRESERVE_PATTERNS)

@@ -1,5 +1,4 @@
-"""
-Plain text (.txt) document loader.
+"""Plain text (.txt) document loader.
 
 Detects encoding using chardet (or cchardet if available), falls back
 to UTF-8/ISO-8859-1, and presents the entire file as a single "page".

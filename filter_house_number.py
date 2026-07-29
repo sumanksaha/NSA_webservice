@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-STEP 4.5: House-Number Disambiguation Filter
+"""STEP 4.5: House-Number Disambiguation Filter
 
 For every fuzzy candidate pair (score >= 90, from fuzzy_dedup_stage0.py):
 1. Extract leading house/premises number from each raw_address
@@ -27,9 +26,6 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 # Load & merge all candidate pairs
 # ============================================================================
-print("=" * 80)
-print("STEP 4.5: HOUSE-NUMBER DISAMBIGUATION FILTER")
-print("=" * 80)
 
 fuzzy_file = "fuzzy_candidates.csv"
 rejected_file = "rejected_number_mismatch.csv"
@@ -38,37 +34,31 @@ rejected_file = "rejected_number_mismatch.csv"
 base_cols = ["fbo_id_1", "fbo_id_2", "raw_address_1", "raw_address_2", "similarity_score", "block_key"]
 
 df_fuzzy = pd.read_csv(fuzzy_file, usecols=base_cols)
-print(f"\nLoaded {len(df_fuzzy):,} pairs from {fuzzy_file}")
 
 # If a previously-rejected file exists, merge it back so we re-process everything
 # (the previous run had extraction bugs we need to correct)
 if os.path.exists(rejected_file):
     try:
         df_rejected = pd.read_csv(rejected_file, usecols=base_cols)
-        print(f"Merged back {len(df_rejected):,} pairs from {rejected_file}")
         df = pd.concat([df_fuzzy, df_rejected], ignore_index=True)
         # Drop duplicate pairs if any exist (shouldn't, but be safe)
         before = len(df)
         df = df.drop_duplicates(subset=["fbo_id_1", "fbo_id_2"])
         if len(df) < before:
-            print(f"  Removed {before - len(df)} duplicate pairs")
-    except Exception as e:
-        print(f"  Could not read {rejected_file}: {e}")
+            pass
+    except Exception:
         df = df_fuzzy
 else:
     df = df_fuzzy
 
-print(f"Total candidate pairs to process: {len(df):,}")
 
 # ============================================================================
 # House number extraction
 # ============================================================================
-print("\nExtracting house numbers from addresses...")
 
 
 def extract_house_number(address: str) -> str | None:
-    """
-    Extract the leading house/premises number from a Kolkata address.
+    """Extract the leading house/premises number from a Kolkata address.
 
     Strategy (in priority order):
     1. First numeric token at the very start of the address string
@@ -85,6 +75,7 @@ def extract_house_number(address: str) -> str | None:
       "20/5B ARMENIAN STREET ..."    -> "20/5B"
       "T-16, OMDA RAJA LANE ..."     -> None     (no leading digit)
       "WARD NO -42, BOROUGH ..."     -> None     (ward-only, no real house number)
+
     """
     if pd.isna(address) or not str(address).strip():
         return None
@@ -137,15 +128,13 @@ df["house_number_2"] = df["raw_address_2"].apply(extract_house_number)
 # ============================================================================
 # Classification logic
 # ============================================================================
-print("Classifying pairs...")
 
 
 def classify_pair(row) -> str:
-    """
-    Returns one of:
-      "reject"  -> house numbers differ -> move to rejected_number_mismatch.csv
-      "match"   -> house numbers match  -> keep, flag as high-confidence
-      "keep"    -> one or both have no house number -> keep as-is
+    """Returns one of:
+    "reject"  -> house numbers differ -> move to rejected_number_mismatch.csv
+    "match"   -> house numbers match  -> keep, flag as high-confidence
+    "keep"    -> one or both have no house number -> keep as-is
     """
     hn1 = row["house_number_1"]
     hn2 = row["house_number_2"]
@@ -167,14 +156,12 @@ df["classification"] = df.apply(classify_pair, axis=1)
 # ============================================================================
 # Split into output files
 # ============================================================================
-print("\nSplitting candidates into output files...")
 
 # --- Rejected pairs (house number mismatch) ---
 mask_reject = df["classification"] == "reject"
 df_rejected = df[mask_reject].copy()
-rejected_cols = base_cols + ["house_number_1", "house_number_2"]
+rejected_cols = [*base_cols, "house_number_1", "house_number_2"]
 df_rejected[rejected_cols].to_csv(rejected_file, index=False)
-print(f"  >> {rejected_file}: {len(df_rejected):,} rows (house number mismatch)")
 
 # --- Pairs for human review ---
 mask_keep = df["classification"].isin(["keep", "match"])
@@ -184,9 +171,8 @@ df_review = df[mask_keep].copy()
 df_review["high_confidence"] = df_review["classification"] == "match"
 
 # Output columns: base + house numbers + confidence flag (so reviewers can verify)
-review_cols = base_cols + ["house_number_1", "house_number_2", "high_confidence"]
+review_cols = [*base_cols, "house_number_1", "house_number_2", "high_confidence"]
 df_review[review_cols].to_csv(fuzzy_file, index=False)
-print(f"  >> {fuzzy_file}: {len(df_review):,} rows (for human review)")
 
 # ============================================================================
 # Report
@@ -197,15 +183,6 @@ review = len(df_review)
 matched = int((df["classification"] == "match").sum())
 kept_no_hn = int((df["classification"] == "keep").sum())
 
-print("\n" + "=" * 80)
-print("RESULTS")
-print("=" * 80)
-
-print(f"\nTotal pairs processed: {total:,}")
-print(f"  Moved to rejected_number_mismatch.csv: {rejected:,} ({100 * rejected / total:.1f}%)")
-print(f"  Remaining for human review: {review:,} ({100 * review / total:.1f}%)")
-print(f"    +-- High-confidence (house # match): {matched:,} ({100 * matched / total:.1f}%)")
-print(f"    +-- No house # on one/both sides:    {kept_no_hn:,} ({100 * kept_no_hn / total:.1f}%)")
 
 # Coverage stats
 with_hn1 = int(df["house_number_1"].notna().sum())
@@ -213,35 +190,15 @@ with_hn2 = int(df["house_number_2"].notna().sum())
 with_both = int((df["house_number_1"].notna() & df["house_number_2"].notna()).sum())
 with_neither = int((df["house_number_1"].isna() & df["house_number_2"].isna()).sum())
 
-print("\nHouse number extraction coverage:")
-print(f"  Address_1 has house number: {with_hn1:,} ({100 * with_hn1 / total:.1f}%)")
-print(f"  Address_2 has house number: {with_hn2:,} ({100 * with_hn2 / total:.1f}%)")
-print(f"  Both have house numbers:    {with_both:,} ({100 * with_both / total:.1f}%)")
-print(f"  Neither has house number:   {with_neither:,} ({100 * with_neither / total:.1f}%)")
 
 # Show samples
 if rejected > 0:
-    print("\nSample rejected pairs (first 5):")
-    for _, row in df_rejected.head(5).iterrows():
-        print(
-            f"  {row['similarity_score']} | "
-            f"#{row['house_number_1']} vs #{row['house_number_2']} | "
-            f"{str(row['raw_address_1'])[:55]}..."
-        )
-        print(f"    {str(row['raw_address_2'])[:55]}...")
+    for _, _row in df_rejected.head(5).iterrows():
+        pass
 
 if matched > 0:
     matched_sample = df[df["classification"] == "match"].head(5)
-    print("\nSample high-confidence matches (first 5):")
-    for _, row in matched_sample.iterrows():
-        print(f"  {row['similarity_score']} | #{row['house_number_1']} | {str(row['raw_address_1'])[:55]}...")
-        print(f"    {str(row['raw_address_2'])[:55]}...")
+    for _, _row in matched_sample.iterrows():
+        pass
 
 hc_label = "(+high_confidence flag)" if matched > 0 else ""
-print("\n[OK] Output files:")
-print(f"  - {fuzzy_file} ({review:,} rows) {hc_label}")
-print(f"  - {rejected_file} ({rejected:,} rows)")
-
-print("\n" + "=" * 80)
-print("STEP 4.5 COMPLETE")
-print("=" * 80)

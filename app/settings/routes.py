@@ -1,5 +1,4 @@
-"""
-Settings routes module.
+"""Settings routes module.
 
 Provides administrative routes including FSO sync.
 """

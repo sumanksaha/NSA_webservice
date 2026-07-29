@@ -1,5 +1,4 @@
-"""
-One-off script to create an initial admin user.
+"""One-off script to create an initial admin user.
 
 Usage:
     python scripts/create_user.py <username>
@@ -34,22 +33,18 @@ from app.models import User
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python scripts/create_user.py <username>")
         sys.exit(1)
 
     username = sys.argv[1].strip()
     if not username:
-        print("Error: Username cannot be empty.")
         sys.exit(1)
 
     password = getpass.getpass("Password: ")
     if not password:
-        print("Error: Password cannot be empty.")
         sys.exit(1)
 
     confirm = getpass.getpass("Confirm password: ")
     if password != confirm:
-        print("Error: Passwords do not match.")
         sys.exit(1)
 
     app = create_app()
@@ -57,7 +52,6 @@ def main():
         # Check if user already exists
         existing = User.query.filter_by(username=username).first()
         if existing:
-            print(f"Error: User '{username}' already exists.")
             sys.exit(1)
 
         user = User(
@@ -66,8 +60,6 @@ def main():
         )
         db.session.add(user)
         db.session.commit()
-
-        print(f"User '{username}' created successfully (ID: {user.id}).")
 
 
 if __name__ == "__main__":

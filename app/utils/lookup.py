@@ -31,8 +31,7 @@ _KMC_LAST_REQUEST_TIME_PATH = os.path.join(DB_DIR, ".kmc_last_request_time")
 
 
 def lookup_fssai(license_no: str):
-    """
-    Look up an FSSAI License/Registration number.
+    """Look up an FSSAI License/Registration number.
     Numbers starting with '1' are Registration-category FBOs -> license_records in license_data.db.
     Numbers starting with '2' are License-category FBOs -> registration_records in registration_data.db.
     Returns a dict with companyName/fullAddress/expiryDate/source, or None if not found/error.
@@ -60,7 +59,8 @@ def lookup_fssai(license_no: str):
     try:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
-            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?", (license_no,)
+            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?",
+            (license_no,),
         ).fetchone()
     except Exception as e:
         logger.error("FSSAI lookup query failed: %s", e)
@@ -80,8 +80,7 @@ def lookup_fssai(license_no: str):
 
 
 def lookup_ce(license_no: str):
-    """
-    Fetches Trade License details from KMC portal.
+    """Fetches Trade License details from KMC portal.
     Implements cross-process rate limiting: minimum 40 seconds between consecutive requests.
     Uses file locking to coordinate across multiple workers/processes.
     """

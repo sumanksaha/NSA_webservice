@@ -69,7 +69,7 @@ def upgrade():
             created_at      DATETIME,
             synced_at       DATETIME
         )
-    """)
+    """),
     )
 
     # ── adjudications ───────────────────────────────────────────────────
@@ -118,7 +118,7 @@ def upgrade():
             created_at          DATETIME,
             synced_at           DATETIME
         )
-    """)
+    """),
     )
 
     # ── bills ───────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ def upgrade():
             created_at          DATETIME,
             synced_at           DATETIME
         )
-    """)
+    """),
     )
 
     # ── photo_evidence ──────────────────────────────────────────────────
@@ -167,7 +167,7 @@ def upgrade():
             verification_status VARCHAR DEFAULT 'PENDING',
             stamped             BOOLEAN DEFAULT 0
         )
-    """)
+    """),
     )
 
     # ── audit_log ───────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ def upgrade():
             curr_hash       VARCHAR,
             details_json    TEXT
         )
-    """)
+    """),
     )
 
 

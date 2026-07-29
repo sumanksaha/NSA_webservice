@@ -7,8 +7,7 @@ _last_request_time: float = 0.0
 
 
 def reverse_geocode(lat: float, lng: float) -> dict:
-    """
-    Calls Nominatim (OpenStreetMap) reverse geocoding API.
+    """Calls Nominatim (OpenStreetMap) reverse geocoding API.
     Returns: {"locality": str or None, "raw_response": dict or None, "error": str or None}
     """
     global _last_request_time

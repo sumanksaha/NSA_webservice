@@ -69,8 +69,7 @@ RULES = {
 
 
 def adjudication_to_dict(adj):
-    """
-    Convert an Adjudication model instance to a dictionary for JSON serialization.
+    """Convert an Adjudication model instance to a dictionary for JSON serialization.
     This includes all fields needed for form pre-population and document regeneration.
     Map DB columns to canonical keys for Step 3.
     """
@@ -158,8 +157,7 @@ def lookup_ce_route():
         return jsonify({"error": "License number is required."}), 400
     try:
         result = lookup_ce(license_no)
-    except Exception as e:
-        print(f"KMC portal request failed: {e}")
+    except Exception:
         return jsonify({"error": "Could not reach KMC portal. Try again."}), 502
     if not result:
         return jsonify({"error": "License not found."}), 404
@@ -179,8 +177,7 @@ def lookup_fssai_route():
 
 @adjudication_bp.route("/lookup_fbo_issues", methods=["GET"])
 def lookup_fbo_issues():
-    """
-    Lookup FBO issues by fbo_id to provide pre-fill options for adjudication cases.
+    """Lookup FBO issues by fbo_id to provide pre-fill options for adjudication cases.
     Returns open and permission_granted issues that can be used to pre-fill adjudication forms.
     Query params: fbo_id (required), issue_id (optional - specific issue lookup)
     """
@@ -421,7 +418,7 @@ def regenerate_adjudication_documents(case_id):
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return jsonify({
-                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."
+                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
             }), 500
 
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
@@ -512,14 +509,14 @@ def generate_all():
                     except StaleDataError:
                         db.session.rollback()
                         current_app.logger.warning(
-                            f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}"
+                            f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}",
                         )
         except Exception as e:
             current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
             db.session.rollback()
 
     # Try syncing to Google Sheets (new module-based sync)
-    _ALLOWED_SHEETS_COLUMNS = {
+    allowed_sheets_columns = {
         "case_number",
         "food_safety_officer",
         "non_license",
@@ -560,7 +557,7 @@ def generate_all():
         "section_64",
     }
     try:
-        row_dict = {k: v for k, v in form_data.items() if k in _ALLOWED_SHEETS_COLUMNS}
+        row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
         row_dict["created_at"] = adj.created_at.isoformat() if adj.created_at else ""
         success = sync_to_sheets("non_sample", row_dict)
         if not success:
@@ -680,7 +677,7 @@ def generate_all():
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return jsonify({
-                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."
+                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
             }), 500
 
     # Zip the outputs in memory
@@ -694,5 +691,8 @@ def generate_all():
     zip_buffer.seek(0)
 
     return send_file(
-        zip_buffer, as_attachment=True, download_name=f"{zip_prefix}_Final.zip", mimetype="application/zip"
+        zip_buffer,
+        as_attachment=True,
+        download_name=f"{zip_prefix}_Final.zip",
+        mimetype="application/zip",
     )

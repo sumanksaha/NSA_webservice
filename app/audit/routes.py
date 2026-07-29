@@ -1,5 +1,4 @@
-"""
-Read-only admin route to view recent ``RecordAudit`` entries.
+"""Read-only admin route to view recent ``RecordAudit`` entries.
 
 Paginated, filterable by ``record_type`` and ``user_id``.
 No editing capability — this is strictly a view.

@@ -1,5 +1,4 @@
-"""
-Microsoft Word (.docx) document loader.
+"""Microsoft Word (.docx) document loader.
 
 Uses **python-docx** to extract paragraphs. Since DOCX files don't have
 inherent page boundaries, we approximate them by:
@@ -53,7 +52,7 @@ class DOCXLoader(BaseLoader):
                 PageResult(
                     page=1,
                     text="[ERROR: python-docx library is not available. Install with: pip install python-docx]",
-                )
+                ),
             ]
 
         try:
@@ -65,7 +64,7 @@ class DOCXLoader(BaseLoader):
                 PageResult(
                     page=1,
                     text=f"[ERROR: Could not read {self._path.name}. The file may be corrupted. Details: {exc}]",
-                )
+                ),
             ]
 
     def _build_pages(self, doc) -> list[PageResult]:

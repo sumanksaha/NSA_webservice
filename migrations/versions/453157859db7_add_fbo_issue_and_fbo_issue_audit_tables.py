@@ -35,7 +35,8 @@ def upgrade():
         sa.CheckConstraint("source_type = 'sample' OR manufacturer_fbo_id IS NULL", name="ck_sample_or_null_mfg"),
         sa.CheckConstraint("source_type IN ('inspection','sample')", name="ck_source_type"),
         sa.CheckConstraint(
-            "state IN ('open','permission_pending','permission_granted','closed','dismissed')", name="ck_state"
+            "state IN ('open','permission_pending','permission_granted','closed','dismissed')",
+            name="ck_state",
         ),
         sa.PrimaryKeyConstraint("id"),
     )

@@ -1,5 +1,4 @@
-"""
-Named Entity Recognition integration using spaCy.
+"""Named Entity Recognition integration using spaCy.
 
 Serves as a complementary extraction method — when regex patterns are
 uncertain or miss fields, NER provides alternative candidates with
@@ -38,6 +37,7 @@ class NERExtractor:
         Returns:
             Dict mapping label (e.g. ``ORG``, ``DATE``, ``GPE``, ``LAW``)
             to a list of ``(text, confidence)`` tuples.
+
         """
         nlp = self._get_nlp()
         if nlp is None:

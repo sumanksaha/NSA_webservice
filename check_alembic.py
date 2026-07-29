@@ -23,54 +23,46 @@ from alembic.config import Config
 alembic_cfg = Config("migrations/alembic.ini")
 alembic_cfg.set_main_option("script_location", "migrations")
 
-print("=== ALEMBIC MIGRATION FILES (in order) ===")
 import glob
 
 migration_files = sorted(glob.glob("migrations/versions/*.py"))
 for f in migration_files:
-    print(f"  {os.path.basename(f)}")
+    pass
 
-print("\n=== ACTUAL TABLES IN DATABASE ===")
 db_path = os.path.join("C:\\github\\NSA_webservice\\instance", "app.db")
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 tables = [t[0] for t in cursor.fetchall()]
-for t in tables:
-    print(f"  {t}")
+for _t in tables:
+    pass
 
-print("\n=== ALEMBIC VERSION TABLE ===")
 cursor.execute("SELECT * FROM alembic_version")
 versions = cursor.fetchall()
 if versions:
-    for v in versions:
-        print(f"  {v}")
+    for _v in versions:
+        pass
 else:
-    print("  (empty - no migrations applied)")
+    pass
 
 conn.close()
 
-print("\n=== CHECKING FOR case_files TABLE ===")
 if "case_files" in tables:
-    print("  case_files EXISTS in database")
+    pass
 else:
-    print("  case_files MISSING from database")
+    pass
 
 # Try to get current and heads
-print("\n=== ALEMBIC CURRENT ===")
 try:
     with contextlib.redirect_stdout(StringIO()) as f:
         command.current(alembic_cfg)
     output = f.getvalue()
-    print(output if output else "  (no output or error)")
-except Exception as e:
-    print(f"  Error: {e}")
+except Exception:
+    pass
 
-print("\n=== ALEMBIC HEADS ===")
 try:
     with contextlib.redirect_stdout(StringIO()) as f:
         command.heads(alembic_cfg, verbose=True)
     output = f.getvalue()
-    print(output if output else "  (no output or error)")
-except Exception as e:
-    print(f"  Error: {e}")
+except Exception:
+    pass

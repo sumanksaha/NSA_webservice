@@ -11,8 +11,5 @@ app = create_app()
 
 with app.app_context():
     before = db.session.query(FSO).count()
-    print("Before sync:", before)
     result = sync_fso_from_markdown()
-    print("Sync result:", result)
     after = db.session.query(FSO).count()
-    print("After sync:", after)

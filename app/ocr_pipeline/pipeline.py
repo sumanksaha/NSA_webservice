@@ -1,5 +1,4 @@
-"""
-OCR Pipeline Orchestrator — the main entry point that:
+"""OCR Pipeline Orchestrator — the main entry point that:
 1. Evaluates whether a PDF page has selectable text.
 2. If YES: extracts text directly (no OCR).
 3. If NO: runs the full OCR pipeline (preprocessing → detection → OCR).
@@ -13,7 +12,7 @@ from pathlib import Path
 
 from app.ocr_pipeline.decision import OCRDecisionEngine
 from app.ocr_pipeline.detectors import PageDetector
-from app.ocr_pipeline.models import OCRResult
+from app.ocr_pipeline.models import OCRResult, PageDetectionResult
 from app.ocr_pipeline.ocr_engine import OCREngine
 from app.ocr_pipeline.preprocessing import ImagePreprocessor
 
@@ -66,6 +65,7 @@ class OCRPipeline:
 
         Returns:
             An :class:`OCRResult` with extracted text and metadata.
+
         """
         try:
             # Step 1: Evaluate whether OCR is needed
@@ -124,6 +124,7 @@ class OCRPipeline:
 
         Returns:
             A list of :class:`OCRResult` objects, one per page.
+
         """
         try:
             import fitz

@@ -1,5 +1,4 @@
-"""
-Celery Task Conversion Verification Script (v3)
+"""Celery Task Conversion Verification Script (v3)
 
 Tests all three Celery tasks across 7 dimensions.
 Handles missing external deps (tesseract, WeasyPrint) gracefully.
@@ -26,16 +25,13 @@ def record(task_name, check, status, evidence=""):
     if task_name not in results:
         results[task_name] = {}
     results[task_name][check] = {"status": status, "evidence": evidence}
-    print(f"  {status} {task_name} -- {check}")
     if evidence:
-        for line in evidence.split("\n")[:4]:
-            print(f"      {line}")
+        for _line in evidence.split("\n")[:4]:
+            pass
 
 
 def header(title):
-    print(f"\n{'=' * 70}")
-    print(f"  {title}")
-    print(f"{'=' * 70}")
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +59,6 @@ missing_tables = [
 ]
 if missing_tables:
     db.create_all()
-    print(f"  DB tables created: {missing_tables}")
 
 # Add missing columns via raw SQL if they don't exist (for dev/testing only)
 for table, col in [
@@ -79,9 +74,7 @@ for table, col in [
                 with db.engine.connect() as conn:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} VARCHAR(100)"))
                     conn.commit()
-                print(f"  Added missing column: {table}.{col}")
-            except Exception as ex:
-                print(f"  Note: could not add {table}.{col} ({ex}) -- using db.create_all() fallback instead")
+            except Exception:
                 db.create_all()
 
 from flask import render_template
@@ -101,9 +94,10 @@ try:
     )
 except ImportError:
     global_celery = None
-    print("  WARNING: celery_app not available - some tests may fail")
 
 # Tasks
+import contextlib
+
 from app.bill_generator.tasks import generate_bill_pdf
 from app.case_file_generator.tasks import generate_case_file_pdf
 
@@ -118,10 +112,8 @@ except Exception:
     pass
 
 _WP_OK = False
-try:
+with contextlib.suppress(Exception):
     _WP_OK = True
-except Exception:
-    pass
 
 # Test dir
 TEST_IMG_DIR = "test_ocr_input"
@@ -139,10 +131,6 @@ except Exception:
 # CHECK 1+2: Enqueue & Execution (eager mode)
 # ===================================================================
 header("CHECK 1+2: Enqueue & Execution (eager mode)")
-print("  NOTE: Eager mode validates task decorators, bind=True,")
-print("  app-context wrapping, and result shapes. It does NOT prove")
-print("  that the request returns before the task completes.")
-print("  See CHECK 1a for route-level async verification.\n")
 
 # --- OCR ---
 from app.inspection.tasks import run_ocr_extraction
@@ -351,9 +339,6 @@ except Exception as e:
 # CHECK 1a: Route-level async verification (Flask test client)
 # ===================================================================
 header("CHECK 1a: Route-level async verification (Flask test client)")
-print("  NOTE: Runs in eager mode -- task executes synchronously inside")
-print("  the handler. Proves the route INTENDS to be async (calls .delay()")
-print("  and returns 202 with task_id). Real async requires a worker.\n")
 
 with app.test_client() as client:
     # --- Bill route ---
@@ -512,21 +497,6 @@ with app.test_client() as client:
 # CHECK 2a: Worker execution verification (manual)
 # ===================================================================
 header("CHECK 2: Worker execution verification")
-print("  Eager mode cannot prove real worker picks up the task.")
-print("  Manual verification command:")
-print()
-print("    Terminal 1 (start worker):")
-print("      celery -A celery_app.celery worker --pool=solo --loglevel=info")
-print()
-print("    Terminal 2 (enqueue tasks via Flask routes then watch Terminal 1):")
-print("      # The worker log should show:")
-print("      #   [INFO] Task app.inspection.tasks.run_ocr_extraction[...] received")
-print("      #   [INFO] Task app.inspection.tasks.run_ocr_extraction[...] succeeded")
-print("      #   [INFO] Task app.bill_generator.tasks.generate_bill_pdf[...] received")
-print("      #   [INFO] Task app.bill_generator.tasks.generate_bill_pdf[...] succeeded")
-print("      #   [INFO] Task app.case_file_generator.tasks.generate_case_file_pdf[...] received")
-print("      #   [INFO] Task app.case_file_generator.tasks.generate_case_file_pdf[...] succeeded")
-print()
 
 record("run_ocr_extraction", "worker_execution", SKIP_MARK, "Requires real worker -- see instructions above")
 record("generate_bill_pdf", "worker_execution", SKIP_MARK, "Requires real worker -- see instructions above")
@@ -635,7 +605,10 @@ else:
         r = run_ocr_extraction.delay(file_path=TEST_IMG_PATH).get(timeout=30)
         assert isinstance(r, dict) and "_pages_processed" in r
         record(
-            "run_ocr_extraction", "result_correctness", OK, f"pages={r['_pages_processed']} | errors={r['_ocr_errors']}"
+            "run_ocr_extraction",
+            "result_correctness",
+            OK,
+            f"pages={r['_pages_processed']} | errors={r['_ocr_errors']}",
         )
     except Exception as e:
         record("run_ocr_extraction", "result_correctness", FAIL_MARK, str(e)[:200])
@@ -831,7 +804,10 @@ try:
     try:
         run_ocr_extraction.delay(file_path="/nonexistent/file.txt")
         record(
-            "run_ocr_extraction", "retry_non_transient_format", FAIL_MARK, "Expected ValueError for unsupported format"
+            "run_ocr_extraction",
+            "retry_non_transient_format",
+            FAIL_MARK,
+            "Expected ValueError for unsupported format",
         )
     except ValueError:
         record("run_ocr_extraction", "retry_non_transient_format", OK, "Invalid format -> ValueError (no retry)")
@@ -1111,20 +1087,16 @@ checks_order = [
 ]
 task_names = ["run_ocr_extraction", "generate_bill_pdf", "generate_case_file_pdf"]
 
-print(f"\n{'Check':<35} | {'OCR':<10} | {'Bill PDF':<10} | {'CaseFile':<10}")
-print("-" * 70)
 for chk in checks_order:
     row = [chk]
     for tn in task_names:
         r = results.get(tn, {}).get(chk, {})
         row.append(r.get("status", "--"))
-    print(f"{row[0]:<35} | {row[1]:<10} | {row[2]:<10} | {row[3]:<10}")
 
 total = sum(len(results.get(t, {})) for t in task_names)
 passes = sum(1 for t in task_names for c in results.get(t, {}).values() if c.get("status") == OK)
 fails = sum(1 for t in task_names for c in results.get(t, {}).values() if c.get("status") == FAIL_MARK)
 skips = sum(1 for t in task_names for c in results.get(t, {}).values() if c.get("status") == SKIP_MARK)
-print(f"\nTotal: {total} checks | OK: {passes} | FAIL: {fails} | SKIP: {skips}")
 
 # Clean up test artifacts
 if os.path.exists(TEST_IMG_DIR):

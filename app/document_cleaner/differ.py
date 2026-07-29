@@ -1,5 +1,4 @@
-"""
-Before/after differ module for the Legal Document Cleaning Pipeline.
+"""Before/after differ module for the Legal Document Cleaning Pipeline.
 
 Produces a structured diff report showing what lines were removed or changed
 during the cleaning process.
@@ -36,6 +35,7 @@ class DocumentDiffer:
             - ``lines_changed``: number of lines with modifications
             - ``lines_unchanged``: number of lines identical in both
             - ``diff_blocks``: list of diff hunk dicts for display
+
         """
         orig_lines = original.splitlines()
         clean_lines = cleaned.splitlines()
