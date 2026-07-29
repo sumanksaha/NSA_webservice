@@ -5,9 +5,10 @@ Input:  fuzzy_candidates.csv  (high_confidence == False subset, 24,442 pairs)
 Output: review_priority.csv      (locality_match True)
         review_low_priority.csv  (locality_match False)
 """
+
 import re
+
 import pandas as pd
-from collections import OrderedDict
 
 # ============================================================================
 # 1. LOAD THE AMBIGUOUS SUBSET
@@ -26,50 +27,138 @@ print(f"\nLoaded {len(ambig):,} ambiguous pairs (no house number on >=1 side)")
 # Tokens that are ALWAYS generic and should never count as a locality match
 GENERIC_TOKENS = {
     # Geographic
-    "KOLKATA", "KOL", "CALCUTTA", "WEST", "BENGAL", "WB", "W.B.",
-    "MUNICIPAL", "CORPORATION", "MUNICIPALITY", "CITY", "TOWN",
-    "BOROUGH", "WARD", "PIN", "PINCODE", "POSTAL", "ZIP",
+    "KOLKATA",
+    "KOL",
+    "CALCUTTA",
+    "WEST",
+    "BENGAL",
+    "WB",
+    "W.B.",
+    "MUNICIPAL",
+    "CORPORATION",
+    "MUNICIPALITY",
+    "CITY",
+    "TOWN",
+    "BOROUGH",
+    "WARD",
+    "PIN",
+    "PINCODE",
+    "POSTAL",
+    "ZIP",
     # Street suffixes
-    "STREET", "ROAD", "LANE", "AVENUE", "DRIVE", "CIRCUS", "ROW",
-    "SQUARE", "PLACE", "COURT", "CRESCENT", "GARDENS", "PARK",
-    "BRIDGE", "FLYOVER", "OVERBRIDGE",
+    "STREET",
+    "ROAD",
+    "LANE",
+    "AVENUE",
+    "DRIVE",
+    "CIRCUS",
+    "ROW",
+    "SQUARE",
+    "PLACE",
+    "COURT",
+    "CRESCENT",
+    "GARDENS",
+    "PARK",
+    "BRIDGE",
+    "FLYOVER",
+    "OVERBRIDGE",
     # Building / unit indicators
-    "GROUND", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH",
-    "FLOOR", "FLOORS", "BASEMENT", "TOP", "UPPER", "LOWER",
-    "FLAT", "ROOM", "SHOP", "STALL", "UNIT", "OFFICE", "CHAMBER",
-    "BLDG", "BUILDING", "BLOCK", "TOWER", "WING", "PHASE",
-    "HOUSE", "HOLDING", "PLOT", "PREMISES",
+    "GROUND",
+    "FIRST",
+    "SECOND",
+    "THIRD",
+    "FOURTH",
+    "FIFTH",
+    "FLOOR",
+    "FLOORS",
+    "BASEMENT",
+    "TOP",
+    "UPPER",
+    "LOWER",
+    "FLAT",
+    "ROOM",
+    "SHOP",
+    "STALL",
+    "UNIT",
+    "OFFICE",
+    "CHAMBER",
+    "BLDG",
+    "BUILDING",
+    "BLOCK",
+    "TOWER",
+    "WING",
+    "PHASE",
+    "HOUSE",
+    "HOLDING",
+    "PLOT",
+    "PREMISES",
     # Number / designation markers
-    "NO", "NUMBER", "NUM", "#",
+    "NO",
+    "NUMBER",
+    "NUM",
+    "#",
     # Directional / filler
-    "NEAR", "OPP", "OPPOSITE", "BESIDE", "BEHIND", "BETWEEN",
-    "EAST", "WEST", "NORTH", "SOUTH", "EASTERN", "WESTERN",
-    "NORTHERN", "SOUTHERN",
+    "NEAR",
+    "OPP",
+    "OPPOSITE",
+    "BESIDE",
+    "BEHIND",
+    "BETWEEN",
+    "EAST",
+    "NORTH",
+    "SOUTH",
+    "EASTERN",
+    "WESTERN",
+    "NORTHERN",
+    "SOUTHERN",
     # Age/era descriptors (too generic for locality matching)
-    "NEW", "OLD", "GREATER", 
+    "NEW",
+    "OLD",
+    "GREATER",
     # Common abbreviations
-    "ST", "RD", "LN", "APT", "APPT", "DEPT", "DEPT.",
-    "C/O", "CARE", "OF",
-    "KMC", "KMDA", "KMC",
+    "ST",
+    "RD",
+    "LN",
+    "APT",
+    "APPT",
+    "DEPT",
+    "DEPT.",
+    "C/O",
+    "CARE",
+    "OF",
+    "KMC",
+    "KMDA",
+    "KMC",
     # Very short or meaningless alone
-    "THE", "AND", "&", "AT", "BY", "FOR", "TO", "IN", "ON",
-    "A", "AN", "OF", "VIA",
+    "THE",
+    "AND",
+    "&",
+    "AT",
+    "BY",
+    "FOR",
+    "TO",
+    "IN",
+    "ON",
+    "A",
+    "AN",
+    "VIA",
 }
 
 # Tokens that are numeric-only or start with a digit (PIN codes, house numbers)
 NUMERIC_PATTERN = re.compile(r"^\d")
+
 
 def extract_distinctive_tokens(address: str) -> set:
     """Extract distinctive locality/landmark tokens from an address,
     excluding generic address tokens and pure numbers."""
     if pd.isna(address) or not str(address).strip():
         return set()
-    
+
     addr = str(address).upper()
-    
+
     # Split by whitespace and common punctuation
     tokens = re.split(r"[\s,./\-()]+", addr)
-    
+
     distinctive = set()
     for token in tokens:
         token = token.strip(" '\"")
@@ -79,9 +168,9 @@ def extract_distinctive_tokens(address: str) -> set:
             continue
         if token in GENERIC_TOKENS:  # skip generic tokens
             continue
-        
+
         distinctive.add(token)
-    
+
     return distinctive
 
 
@@ -90,16 +179,18 @@ def extract_distinctive_tokens(address: str) -> set:
 # ============================================================================
 print("\nComputing locality_match for each pair...")
 
+
 def has_locality_match(row) -> bool:
     tokens_1 = extract_distinctive_tokens(row["raw_address_1"])
     tokens_2 = extract_distinctive_tokens(row["raw_address_2"])
-    
+
     if not tokens_1 or not tokens_2:
         return False
-    
+
     # Check for any shared distinctive token
     shared = tokens_1 & tokens_2
     return len(shared) > 0
+
 
 ambig["locality_match"] = ambig.apply(has_locality_match, axis=1)
 
@@ -114,10 +205,7 @@ print(f"  No locality match:     {no_match_count:>8,} ({100 * no_match_count / l
 print("\nSorting by block_key (PIN), then locality_match (True first within each block)...")
 
 # Sort: block_key alpha, then locality_match descending (True=1 before False=0)
-ambig_sorted = ambig.sort_values(
-    by=["block_key", "locality_match"],
-    ascending=[True, False]
-).reset_index(drop=True)
+ambig_sorted = ambig.sort_values(by=["block_key", "locality_match"], ascending=[True, False]).reset_index(drop=True)
 
 # Verify sort
 print(f"  Sorted {len(ambig_sorted):,} rows")
@@ -132,9 +220,16 @@ low_priority = ambig_sorted[ambig_sorted["locality_match"] == False].copy()
 
 # Columns to output (all from fuzzy_candidates.csv)
 output_cols = [
-    "fbo_id_1", "fbo_id_2", "raw_address_1", "raw_address_2",
-    "similarity_score", "block_key", "house_number_1", "house_number_2",
-    "high_confidence", "locality_match"
+    "fbo_id_1",
+    "fbo_id_2",
+    "raw_address_1",
+    "raw_address_2",
+    "similarity_score",
+    "block_key",
+    "house_number_1",
+    "house_number_2",
+    "high_confidence",
+    "locality_match",
 ]
 
 priority[output_cols].to_csv("review_priority.csv", index=False)
@@ -156,11 +251,11 @@ current_block = None
 for _, row in ambig_sorted.iterrows():
     if printed >= 20:
         break
-    
+
     if row["block_key"] != current_block:
         current_block = row["block_key"]
         print(f"\n  --- Block: {current_block} ---")
-    
+
     a1 = str(row["raw_address_1"])[:55]
     a2 = str(row["raw_address_2"])[:55]
     lm = "Y" if row["locality_match"] else "N"
@@ -199,10 +294,11 @@ if match_count > 0:
         if shared:
             print(f"    {', '.join(sorted(shared))}")
             seen_tokens |= shared
-    print(f"    (showing first {len(seen_tokens)} unique tokens found)")
+print(f"    (showing first {len(seen_tokens)} unique tokens found)")
 
-print(f"\n  Output files:")    print(f"    - review_priority.csv     ({len(priority):,} rows) - higher-confidence, REVIEW FIRST")
-    print(f"    - review_low_priority.csv ({len(low_priority):,} rows) - lower-confidence, reviewed later")
+print("\n  Output files:")
+print(f"    - review_priority.csv     ({len(priority):,} rows) - higher-confidence, REVIEW FIRST")
+print(f"    - review_low_priority.csv ({len(low_priority):,} rows) - lower-confidence, reviewed later")
 
 print("\n" + "=" * 70)
 print("STAGE 0 DEDUP PIPELINE STATUS")

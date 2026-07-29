@@ -160,6 +160,16 @@ def create_app():
     PUBLIC_ENDPOINTS = {
         "auth.login",
         "static",
+        # Lookup endpoints - public for form prefill/autocomplete
+        "case_file_generator.lookup_sample",
+        "case_file_generator.list_samples_for_datalist",
+        "adjudication.lookup_ce_route",
+        "adjudication.lookup_fssai_route",
+        "inspection.lookup_ce_route",
+        "inspection.lookup_fssai_route",
+        "sample.lookup_retailer",
+        "bill_generator.lookup_fbo_issues",
+        "adjudication.lookup_fbo_issues",
     }
 
     @app.before_request
@@ -197,7 +207,7 @@ def create_app():
     # Register blueprints (auth first so login page is available)
     from app.adjudication.routes import adjudication_bp
     from app.audit import audit_bp
-    from app.auth import auth_bp
+    from app.auth.routes import auth_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp

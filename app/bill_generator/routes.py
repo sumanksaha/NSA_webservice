@@ -1,6 +1,6 @@
 import json
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
@@ -120,7 +120,7 @@ def bill_preview():
         result = get_billable_samples(start, end)
         return jsonify(result), 200
     except Exception as e:
-        current_app.logger.error(f"Bill preview error: {e}")
+        current_app.logger.error("Bill preview error: %s", e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -215,7 +215,12 @@ def generate_bill_route():
         return jsonify({"error": f"Bill PDF generation failed: {exc}"}), 500
 
     # Unwrap task error metadata for consistent HTTP error responses
-    if result.get("status") == "error":
+    # ponytail: handle case where result might be an exception object (e.g., OSError from WeasyPrint import)
+    if isinstance(result, Exception):
+        current_app.logger.error("Bill PDF generation returned exception: %s", result)
+        return jsonify({"error": f"Bill PDF generation failed: {result}"}), 500
+
+    if isinstance(result, dict) and result.get("status") == "error":
         error_msg = result.get("error", "PDF generation failed")
         current_app.logger.error("Bill PDF generation returned error: %s", error_msg)
         return jsonify({"error": error_msg}), 500

@@ -160,9 +160,9 @@ graph TD
 
 ```python
 csp = {
-    'default-src': ["'self'"],
-    'script-src': ["'self'", "'unsafe-inline'"],
-    'style-src': ["'self'", "'unsafe-inline'"],
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "'unsafe-inline'"],
+    "style-src": ["'self'", "'unsafe-inline'"],
 }
 ```
 
@@ -177,6 +177,7 @@ PUBLIC_ENDPOINTS = {
     "auth.login",
     "static",
 }
+
 
 @app.before_request
 def require_login():

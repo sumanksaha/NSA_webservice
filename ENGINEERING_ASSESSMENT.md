@@ -498,15 +498,15 @@ The system currently has **no AI integration**. All operations are rule-based an
 #### Recommended Changes:
 ```python
 # Current (BAD):
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 
 # Recommended (GOOD):
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user:pass@localhost/nsa'
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 20,
-    'max_overflow': 10,
-    'pool_pre_ping': True,
-    'pool_recycle': 3600
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://user:pass@localhost/nsa"
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 20,
+    "max_overflow": 10,
+    "pool_pre_ping": True,
+    "pool_recycle": 3600,
 }
 ```
 
@@ -577,20 +577,20 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 ```python
 # Redis-based caching
 CACHE_CONFIG = {
-    'CACHE_TYPE': 'RedisCache',
-    'CACHE_REDIS_URL': 'redis://localhost:6379/0',
-    'CACHE_DEFAULT_TIMEOUT': 300,  # 5 minutes
-    'CACHE_KEY_PREFIX': 'nsa_'
+    "CACHE_TYPE": "RedisCache",
+    "CACHE_REDIS_URL": "redis://localhost:6379/0",
+    "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes
+    "CACHE_KEY_PREFIX": "nsa_",
 }
 
-# Cache decorators
-@cache.cached(timeout=3600, key_prefix='fso_names')
-def get_all_fso_names():
-    ...
 
-@cache.cached(timeout=86400, key_prefix='template_')
-def get_compiled_template(template_name):
-    ...
+# Cache decorators
+@cache.cached(timeout=3600, key_prefix="fso_names")
+def get_all_fso_names(): ...
+
+
+@cache.cached(timeout=86400, key_prefix="template_")
+def get_compiled_template(template_name): ...
 ```
 
 ### 4.5 Memory Analysis
@@ -614,15 +614,15 @@ def get_compiled_template(template_name):
 ```python
 # Gunicorn configuration
 gunicorn_config = {
-    'workers': 4,
-    'worker_class': 'gthread',  # or 'gevent' for async
-    'threads': 2,
-    'max_requests': 1000,  # Recycle workers after 1000 requests
-    'max_requests_jitter': 50,
-    'timeout': 30,  # Request timeout
-    'worker_connections': 1000,
-    'limit_request_fields': 32000,
-    'limit_request_field_size': 0
+    "workers": 4,
+    "worker_class": "gthread",  # or 'gevent' for async
+    "threads": 2,
+    "max_requests": 1000,  # Recycle workers after 1000 requests
+    "max_requests_jitter": 50,
+    "timeout": 30,  # Request timeout
+    "worker_connections": 1000,
+    "limit_request_fields": 32000,
+    "limit_request_field_size": 0,
 }
 ```
 
@@ -1109,17 +1109,16 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 
 # PostgreSQL configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 
-    'postgresql://nsa_user:nsa_password@localhost:5432/nsa_production'
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", "postgresql://nsa_user:nsa_password@localhost:5432/nsa_production"
 )
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 20,
-    'max_overflow': 10,
-    'pool_pre_ping': True,
-    'pool_recycle': 3600,
-    'pool_timeout': 30,
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 20,
+    "max_overflow": 10,
+    "pool_pre_ping": True,
+    "pool_recycle": 3600,
+    "pool_timeout": 30,
 }
 ```
 
@@ -1134,13 +1133,14 @@ from flask_caching import Cache
 
 cache = Cache()
 
+
 def init_cache(app):
     cache_config = {
-        'CACHE_TYPE': 'RedisCache',
-        'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'redis://localhost:6379/0'),
-        'CACHE_DEFAULT_TIMEOUT': 300,
-        'CACHE_KEY_PREFIX': 'nsa_',
-        'CACHE_REDIS_DB': 0,
+        "CACHE_TYPE": "RedisCache",
+        "CACHE_REDIS_URL": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+        "CACHE_DEFAULT_TIMEOUT": 300,
+        "CACHE_KEY_PREFIX": "nsa_",
+        "CACHE_REDIS_DB": 0,
     }
     cache.init_app(app, config=cache_config)
     return cache
@@ -1154,15 +1154,17 @@ from celery import Celery
 from app.extensions import db
 
 celery = Celery(
-    'nsa_tasks',
-    broker=os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/1'),
-    backend=os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/2')
+    "nsa_tasks",
+    broker=os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/1"),
+    backend=os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/2"),
 )
+
 
 @celery.task(bind=True, max_retries=3)
 def sync_to_sheets_async(self, module, row_dict):
     try:
         from app.services.sheets_sync import sync_to_sheets
+
         return sync_to_sheets(module, row_dict)
     except Exception as e:
         self.retry(exc=e, countdown=60)
@@ -1173,7 +1175,7 @@ def sync_to_sheets_async(self, module, row_dict):
 ```python
 # gunicorn.conf.py
 workers = 4
-worker_class = 'gthread'
+worker_class = "gthread"
 threads = 2
 max_requests = 1000
 max_requests_jitter = 50
@@ -1183,7 +1185,7 @@ limit_request_fields = 32000
 limit_request_field_size = 0
 
 # For PDF generation workers
-worker_class = 'gevent'
+worker_class = "gevent"
 workers = 2  # Separate pool for heavy operations
 ```
 

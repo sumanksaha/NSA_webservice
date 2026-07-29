@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -6,6 +7,8 @@ import ssl
 import time
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 try:
     import fcntl
@@ -60,7 +63,7 @@ def lookup_fssai(license_no: str):
             f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?", (license_no,)
         ).fetchone()
     except Exception as e:
-        print(f"FSSAI lookup query failed: {e}")
+        logger.error("FSSAI lookup query failed: %s", e)
         return None, f"Database error: {e!s}"
     finally:
         conn.close()
@@ -84,38 +87,37 @@ def lookup_ce(license_no: str):
     """
     lock_fd = None
     try:
-        lock_fd = open(_KMC_LOCK_PATH, "w")
-        if fcntl:
-            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+        with open(_KMC_LOCK_PATH, "w") as lock_fd:
+            if fcntl:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
 
-        try:
-            with open(_KMC_LAST_REQUEST_TIME_PATH) as f:
-                last_time = float(f.read().strip() or "0")
-        except (FileNotFoundError, ValueError):
-            last_time = 0
+            try:
+                with open(_KMC_LAST_REQUEST_TIME_PATH) as f:
+                    last_time = float(f.read().strip() or "0")
+            except (FileNotFoundError, ValueError):
+                last_time = 0
 
-        current_time = time.time()
-        elapsed = current_time - last_time
-        if elapsed < _KMC_RATE_LIMIT_SECONDS:
-            sleep_time = _KMC_RATE_LIMIT_SECONDS - elapsed
-            time.sleep(sleep_time)
             current_time = time.time()
+            elapsed = current_time - last_time
+            if elapsed < _KMC_RATE_LIMIT_SECONDS:
+                sleep_time = _KMC_RATE_LIMIT_SECONDS - elapsed
+                time.sleep(sleep_time)
+                current_time = time.time()
 
-        with open(_KMC_LAST_REQUEST_TIME_PATH, "w") as f:
-            f.write(str(current_time))
+            with open(_KMC_LAST_REQUEST_TIME_PATH, "w") as f:
+                f.write(str(current_time))
     finally:
         if lock_fd:
             try:
                 if fcntl:
                     fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
-                lock_fd.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to release file lock: %s", e)
 
+    # ponytail: TLS verification enabled for security
+    # KMC portal certificate is valid (signed by Sectigo)
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
 
     with httpx.Client(timeout=15, verify=ctx) as client:
         client.get("https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp")
@@ -135,7 +137,7 @@ def lookup_ce(license_no: str):
         try:
             data = json.loads(fixed_text)
         except json.JSONDecodeError as e:
-            print(f"KMC JSON repair failed: {e}")
+            logger.error("KMC JSON repair failed: %s", e)
             return None
 
     if not data.get("success"):
