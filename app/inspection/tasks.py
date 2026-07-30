@@ -43,17 +43,16 @@ def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
     """
     # --- lazy imports so the module can be loaded without heavy deps ---
     import logging
-    import os
+    from pathlib import Path
 
     logger = logging.getLogger(__name__)
 
     # Validate file exists before doing any work
-    if not os.path.isfile(file_path):
+    if not Path(file_path).is_file():
         raise ValueError(f"File not found: {file_path}")
 
     # Determine file type by extension
-    _, ext = os.path.splitext(file_path)
-    ext = ext.lower()
+    ext = Path(file_path).suffix.lower()
 
     is_pdf = ext == ".pdf"
     supported_images = {".jpg", ".jpeg", ".png", ".webp", ".tiff", ".bmp"}

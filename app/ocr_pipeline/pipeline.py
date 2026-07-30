@@ -92,7 +92,7 @@ class OCRPipeline:
 
             # Step 4: Object detection (tables, stamps, signatures, watermarks)
             # Step 4: Object detection (tables, stamps, signatures, watermarks)
-            detection = PageDetector.detect_all(image) if self._enable_detection else PageDetectionResult()
+            detection = PageDetector.detect_all(image) if self._enable_detection else PageDetectionResult()  # type: ignore[call-arg]
 
             # Step 5: Run OCR
             text, confidence, engine_name, language = self._ocr_engine.recognize(processed_image)

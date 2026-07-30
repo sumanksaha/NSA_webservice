@@ -1,5 +1,6 @@
 import os
 import threading
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, redirect, request, url_for
@@ -48,7 +49,7 @@ def create_app():
     os.makedirs(app.instance_path, exist_ok=True)
 
     # Database configuration - PostgreSQL primary, SQLite fallback
-    db_path = os.path.join(app.instance_path, "app.db")
+    db_path = Path(app.instance_path) / "app.db"
     database_url = os.environ.get("DATABASE_URL")
     if database_url:
         # Normalize postgres:// to postgresql:// for SQLAlchemy compatibility

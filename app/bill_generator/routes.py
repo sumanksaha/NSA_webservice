@@ -223,8 +223,11 @@ def generate_bill_route():
         current_app.logger.error("Bill PDF generation returned error: %s", error_msg)
         return jsonify({"error": error_msg}), 500
 
-    return jsonify({
-        "message": "Bill created; PDF generated",
-        "bill_id": bill_record.id,
-        "pdf_result": result,
-    }), 200
+    return (
+        jsonify({
+            "message": "Bill created; PDF generated",
+            "bill_id": bill_record.id,
+            "pdf_result": result,
+        }),
+        200,
+    )

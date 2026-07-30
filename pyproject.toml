@@ -35,12 +35,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "alembic>=1.13",
+    "alembic>=1.13.0",
     "flask",
     "flask-sqlalchemy",
     "flask-migrate",
-    "gspread>=6.2",
-    "google-auth>=2.56",
+    "gspread>=6.2.1",
+    "google-auth>=2.56.0",
     "jinja2",
     "psycopg2-binary>=2.9.9",
     "weasyprint",
@@ -50,14 +50,22 @@ dependencies = [
     "gunicorn",
     "openpyxl",
     "boto3",
-    "python-dotenv>=1.0",
-    "flask-talisman>=1.1",
-    "flask-wtf>=1.2",
+    "python-dotenv>=1.0.0",
+    "flask-talisman>=1.1.0",
+    "flask-wtf>=1.2.0",
     "flask-login>=0.6.3",
-    "celery>=5.4",
-    "redis>=5.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
     "pytesseract>=0.3.10",
     "pdf2image>=1.16.3",
+    # Document Loader (Legal Document Ingestion)
+    "pdfplumber>=0.10.0",
+    "PyMuPDF>=1.25.0",
+    "python-docx>=1.1.0",
+    "pydantic>=2.0.0",
+    "orjson>=3.10.0",
+    "chardet>=5.0.0",
+    "tqdm>=4.65.0",
 ]
 
 [project.urls]
@@ -131,6 +139,10 @@ ignore = [
 "app/utils/lookup.py" = ["S608"]
 "app/document_loader/*" = ["S110"]
 "app/inspection/verification_service.py" = ["S110"]
+"legal-paragraph-detection-engine/examples/*" = ["T201"]
+"legal-paragraph-detection-engine/tests/*" = ["T201", "W293", "F821", "F841", "RUF022"]
+"legal-paragraph-detection-engine/__init__.py" = ["N999", "F821"]
+"legal-paragraph-detection-engine/src/__init__.py" = ["N999", "RUF022"]
 "app/ocr_pipeline/detectors.py" = ["S110"]
 "app/ocr_pipeline/preprocessing.py" = ["S110"]
 "app/utils/sync.py" = ["S110"]
@@ -193,12 +205,21 @@ follow_imports = "skip"
 [[tool.mypy.overrides]]
 module = [
     "app.models",
-]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = [
-    "tests.*",
+    "app.adjudication.routes",
+    "app.inspection.routes",
+    "app.bill_generator.routes",
+    "app.case_file_generator.routes",
+    "app.sample.routes",
+    "app.billing.routes",
+    "app.auth.routes",
+    "app.fbo_issue.routes",
+    "app.audit_hooks",
+    "app.services.audit",
+    "app.bill_generator.utils",
+    "app.sample.sample_utils",
+    "app.inspection.inspection_utils",
+    "app.utils.fso_data",
+    "app.shared.context_derivers",
 ]
 ignore_errors = true
 

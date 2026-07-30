@@ -5,7 +5,7 @@ verification report of the dedup state.
 """
 
 import datetime
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -35,8 +35,8 @@ try:
 except FileNotFoundError:
     assignments = pd.DataFrame()
 
-review_priority = pd.read_csv("review_priority.csv") if os.path.exists("review_priority.csv") else pd.DataFrame()
-review_low = pd.read_csv("review_low_priority.csv") if os.path.exists("review_low_priority.csv") else pd.DataFrame()
+review_priority = pd.read_csv("review_priority.csv") if Path("review_priority.csv").exists() else pd.DataFrame()
+review_low = pd.read_csv("review_low_priority.csv") if Path("review_low_priority.csv").exists() else pd.DataFrame()
 
 # ============================================================================
 # 2. SECTION 1 — SOURCE DATA & DEDUP GROUPS

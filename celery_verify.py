@@ -8,6 +8,7 @@ Uses route-level Flask test client for end-to-end verification.
 import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 
 # ASCII markers for Windows terminal compatibility
 OK = "[OK]"
@@ -117,7 +118,7 @@ with contextlib.suppress(Exception):
 
 # Test dir
 TEST_IMG_DIR = "test_ocr_input"
-TEST_IMG_PATH = os.path.join(TEST_IMG_DIR, "test_card.png")
+TEST_IMG_PATH = Path(TEST_IMG_DIR) / "test_card.png"
 
 # Ensure FSO exists for FK refs
 try:
@@ -218,7 +219,7 @@ try:
         r = task.get(timeout=60)
         s = OK if r["status"] == "ok" else FAIL_MARK
         record("generate_bill_pdf", "enqueue+execution", s, f"task_id={task.id} | status={r['status']}")
-        if r.get("file_path") and os.path.exists(r["file_path"]):
+        if r.get("file_path") and Path(r["file_path"]).exists():
             os.remove(r["file_path"])
         db.session.delete(bill)
         db.session.commit()
@@ -327,7 +328,7 @@ try:
         r = task.get(timeout=60)
         s = OK if r["status"] == "ok" else FAIL_MARK
         record("generate_case_file_pdf", "enqueue+execution", s, f"task_id={task.id} | status={r['status']}")
-        if r.get("file_path") and os.path.exists(r["file_path"]):
+        if r.get("file_path") and Path(r["file_path"]).exists():
             os.remove(r["file_path"])
         db.session.delete(cf)
         db.session.commit()
@@ -670,7 +671,7 @@ else:
         assert r["status"] == "ok"
         assert r["file_path"] is not None
         assert "pdf_bytes" not in r, "RAW BYTES LEAKED in result!"
-        assert os.path.exists(r["file_path"])
+        assert Path(r["file_path"]).exists()
         with open(r["file_path"], "rb") as f:
             assert f.read(5) == b"%PDF-"
 
@@ -678,7 +679,7 @@ else:
             "generate_bill_pdf",
             "result_correctness",
             OK,
-            f"Meta-only | file={r['file_path']} | size={os.path.getsize(r['file_path'])}B | PDF valid",
+            f"Meta-only | file={r['file_path']} | size={Path(r['file_path']).stat().st_size}B | PDF valid",
         )
         os.remove(r["file_path"])
         db.session.delete(bill)
@@ -1099,7 +1100,7 @@ fails = sum(1 for t in task_names for c in results.get(t, {}).values() if c.get(
 skips = sum(1 for t in task_names for c in results.get(t, {}).values() if c.get("status") == SKIP_MARK)
 
 # Clean up test artifacts
-if os.path.exists(TEST_IMG_DIR):
+if Path(TEST_IMG_DIR).exists():
     shutil.rmtree(TEST_IMG_DIR, ignore_errors=True)
 db.session.remove()
 ctx.pop()

@@ -1,6 +1,7 @@
 import contextlib
 import os
 from datetime import datetime
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -80,21 +81,21 @@ def process_and_stamp_image(
         month = "unknown"
 
     # Create the directory path
-    output_dir = os.path.join("photos", year, month, case_id)
+    output_dir = Path("photos") / year / month / case_id
     try:
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(str(output_dir), exist_ok=True)
     except Exception as exc:
         raise ValueError(f"Failed to create output directory: {exc}") from exc
 
     # Save as WebP
-    output_path = os.path.join(output_dir, f"{image_id}.webp")
+    output_path = output_dir / f"{image_id}.webp"
     try:
         img.save(output_path, format="WEBP", quality=78)
     except Exception as exc:
         # Clean up partial file if it was created
-        if os.path.exists(output_path):
+        if output_path.exists():
             with contextlib.suppress(Exception):
-                os.remove(output_path)
+                os.remove(str(output_path))
         raise ValueError(f"Failed to save image: {exc}") from exc
 
-    return output_path
+    return str(output_path)

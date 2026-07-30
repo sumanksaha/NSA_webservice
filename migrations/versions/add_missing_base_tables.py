@@ -12,7 +12,6 @@ Create Date: 2026-07-25
 from alembic import op
 import sqlalchemy as sa
 
-
 revision = "add_missing_base_tables"
 down_revision = "7e5a0f6c9561"
 branch_labels = None

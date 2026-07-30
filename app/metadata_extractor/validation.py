@@ -47,8 +47,8 @@ class Validator:
     @staticmethod
     def _validate_title_authority(fields: dict[str, FieldConfidence]) -> None:
         """Boost if authority appears in or near the title."""
-        title = fields.get("title", FieldConfidence(value="", score=0.0, method="default"))
-        authority = fields.get("authority", FieldConfidence(value="", score=0.0, method="default"))
+        title = fields.get("title", FieldConfidence(value="", score=0.0, method="default", detail=None))
+        authority = fields.get("authority", FieldConfidence(value="", score=0.0, method="default", detail=None))
         # Check if authority name appears within 500 chars of title
         if title.value and authority.value and authority.value.split()[-1] in title.value.upper():
             fields["authority"] = FieldConfidence(
@@ -61,8 +61,8 @@ class Validator:
     @staticmethod
     def _validate_date_coherence(fields: dict[str, FieldConfidence]) -> None:
         """Ensure effective_date >= date (if both present)."""
-        date_val = fields.get("date", FieldConfidence(value="", score=0.0, method="default"))
-        eff_date = fields.get("effective_date", FieldConfidence(value="", score=0.0, method="default"))
+        date_val = fields.get("date", FieldConfidence(value="", score=0.0, method="default", detail=None))
+        eff_date = fields.get("effective_date", FieldConfidence(value="", score=0.0, method="default", detail=None))
         if date_val.value and eff_date.value:
             # Extract years
             date_years = re.findall(r"\b(20|19)\d{2}\b", date_val.value)
@@ -78,9 +78,9 @@ class Validator:
     @staticmethod
     def _validate_jurisdiction_hierarchy(fields: dict[str, FieldConfidence]) -> None:
         """Ensure state and country are consistent with jurisdiction."""
-        jur = fields.get("jurisdiction", FieldConfidence(value="", score=0.0, method="default"))
-        state = fields.get("state", FieldConfidence(value="", score=0.0, method="default"))
-        country = fields.get("country", FieldConfidence(value="India", score=0.6, method="default"))
+        jur = fields.get("jurisdiction", FieldConfidence(value="", score=0.0, method="default", detail=None))
+        state = fields.get("state", FieldConfidence(value="", score=0.0, method="default", detail=None))
+        country = fields.get("country", FieldConfidence(value="India", score=0.6, method="default", detail=None))
 
         # If jurisdiction mentions a specific state, boost state
         if jur.value and state.value and jur.value.upper() in state.value.upper():
@@ -106,7 +106,7 @@ class Validator:
         text: str,
     ) -> None:
         """Validate detected language matches actual Unicode script in text."""
-        lang = fields.get("language", FieldConfidence(value="english", score=0.5, method="default"))
+        lang = fields.get("language", FieldConfidence(value="english", score=0.5, method="default", detail=None))
         if not text or not lang.value:
             return
 
@@ -134,8 +134,8 @@ class Validator:
     @staticmethod
     def _validate_document_type_authority(fields: dict[str, FieldConfidence]) -> None:
         """Validate document type against known authority."""
-        doc_type = fields.get("document_type", FieldConfidence(value="", score=0.0, method="default"))
-        authority = fields.get("authority", FieldConfidence(value="", score=0.0, method="default"))
+        doc_type = fields.get("document_type", FieldConfidence(value="", score=0.0, method="default", detail=None))
+        authority = fields.get("authority", FieldConfidence(value="", score=0.0, method="default", detail=None))
 
         if not doc_type.value or not authority.value:
             return

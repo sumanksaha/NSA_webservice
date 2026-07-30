@@ -21,7 +21,7 @@ __all__ = [
 class FileMetadata(BaseModel):
     """Metadata extracted from the source file."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     file_size_bytes: int = Field(ge=0, description="File size in bytes")
     created_at: datetime | None = Field(None, description="File creation timestamp")
@@ -33,7 +33,7 @@ class FileMetadata(BaseModel):
 class PageResult(BaseModel):
     """A single page with its 1-based number and extracted text."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     page: int = Field(ge=1, description="1-based page number")
     text: str = Field(default="", description="Extracted text content for this page")
@@ -42,7 +42,7 @@ class PageResult(BaseModel):
 class DocumentResult(BaseModel):
     """Unified output structure for any loaded legal document."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     document_id: str = Field(
         default_factory=lambda: uuid.uuid4().hex,

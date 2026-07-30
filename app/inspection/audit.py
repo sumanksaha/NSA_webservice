@@ -5,4 +5,4 @@ Kept here for backward compatibility — ``inspection/routes.py`` imports
 """
 
 # flake8: noqa: F401
-from app.services.audit import compute_hash, log_audit, verify_audit_chain
+from app.services.audit import compute_hash, log_audit

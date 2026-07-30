@@ -12,9 +12,10 @@ It works with both SQLite and PostgreSQL.
 import getpass
 import os
 import sys
+from pathlib import Path
 
 # Ensure the project root is on sys.path so that "from app" imports work.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Load .env before anything else
 from dotenv import load_dotenv

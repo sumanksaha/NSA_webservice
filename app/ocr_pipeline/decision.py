@@ -75,12 +75,7 @@ class OCRDecisionEngine:
             # ---- Method 2: Check for text blocks (more reliable) ----
             text_blocks = page.get_text("blocks")
             has_text_blocks = (
-                any(
-                    block[6] == 0
-                    for block in text_blocks  # block[6] == 0 means text block
-                )
-                if text_blocks
-                else False
+                any(block[6] == 0 for block in text_blocks) if text_blocks else False  # block[6] == 0 means text block
             )
 
             # ---- Method 3: Check for characters directly ----

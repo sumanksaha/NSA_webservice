@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class FieldConfidence(BaseModel):
     """Confidence score for a single extracted field."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     value: str = Field(description="Extracted value")
     score: float = Field(ge=0.0, le=1.0, description="Confidence score 0-1")
@@ -25,7 +25,7 @@ class FieldConfidence(BaseModel):
 class LegalMetadata(BaseModel):
     """Metadata extracted from a legal document."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     # Mandatory fields
     title: FieldConfidence = Field(description="Document title / short title")

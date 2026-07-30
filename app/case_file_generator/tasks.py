@@ -10,6 +10,7 @@ import logging
 import os
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments
 try:
@@ -83,11 +84,11 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
     try:
         case_number = case_data.get("case_number", str(case_file_id)).replace("/", "_")
         date_prefix = generated_at.strftime("%Y/%m")
-        rel_dir = os.path.join("pdfs", "case_files", date_prefix)
-        os.makedirs(rel_dir, exist_ok=True)
+        rel_dir = Path("pdfs") / "case_files" / date_prefix
+        os.makedirs(str(rel_dir), exist_ok=True)
 
-        zip_path = os.path.join(rel_dir, f"case_{case_file_id}.zip")
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zip_path = rel_dir / f"case_{case_file_id}.zip"
+        with zipfile.ZipFile(str(zip_path), "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(f"Petition_{case_number}.pdf", petition_pdf.getvalue())
             zf.writestr(
                 f"Permission_Letter_{case_number}.pdf",
@@ -102,10 +103,16 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
         logger.warning("Transient error saving case file ZIP: %s", exc)
         raise self.retry(exc=exc, countdown=60) from exc
 
-    return _metadata(case_file_id, zip_path, generated_at, "ok", None)
+    return _metadata(case_file_id, str(zip_path), generated_at, "ok", None)
 
 
-def _metadata(case_file_id, file_path, generated_at, status, error):
+def _metadata(
+    case_file_id: int,
+    file_path: str | None,
+    generated_at: datetime,
+    status: str,
+    error: str | None,
+) -> dict[str, str | int | None]:
     return {
         "case_file_id": case_file_id,
         "file_path": file_path,

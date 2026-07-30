@@ -7,6 +7,7 @@ import contextlib
 import os
 import uuid
 from datetime import date, datetime
+from pathlib import Path
 
 from flask import current_app, jsonify, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
@@ -278,11 +279,14 @@ def create_inspection():
         except Exception as e:
             current_app.logger.warning(f"Inspection Sheets sync failed: {e}")
 
-        return jsonify({
-            "message": "Inspection created successfully",
-            "inspection_id": inspection.id,
-            "inspection_code": inspection.inspection_code,
-        }), 201
+        return (
+            jsonify({
+                "message": "Inspection created successfully",
+                "inspection_id": inspection.id,
+                "inspection_code": inspection.inspection_code,
+            }),
+            201,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to create inspection: {e!s}"}), 500
@@ -540,11 +544,14 @@ def dismiss_inspection(inspection_id):
 
     try:
         db.session.commit()
-        return jsonify({
-            "message": "Inspection dismissed successfully",
-            "inspection_id": inspection.id,
-            "inspection_code": inspection.inspection_code,
-        }), 200
+        return (
+            jsonify({
+                "message": "Inspection dismissed successfully",
+                "inspection_id": inspection.id,
+                "inspection_code": inspection.inspection_code,
+            }),
+            200,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to dismiss inspection: {e!s}"}), 500
@@ -612,11 +619,14 @@ def link_adjudication(inspection_id, adjudication_id):
 
     try:
         db.session.commit()
-        return jsonify({
-            "message": "Inspection linked to adjudication successfully",
-            "inspection_id": inspection.id,
-            "adjudication_id": adjudication.id,
-        }), 200
+        return (
+            jsonify({
+                "message": "Inspection linked to adjudication successfully",
+                "inspection_id": inspection.id,
+                "adjudication_id": adjudication.id,
+            }),
+            200,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to link inspection to adjudication: {e!s}"}), 500
@@ -798,10 +808,10 @@ def upload_photo_evidence():
 
     # Save uploaded file temporarily
     filename = secure_filename(file.filename)
-    temp_dir = os.path.join(current_app.instance_path, "temp_uploads")
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_path = os.path.join(temp_dir, f"{image_id}_{filename}")
-    file.save(temp_path)
+    temp_dir = Path(current_app.instance_path) / "temp_uploads"
+    os.makedirs(str(temp_dir), exist_ok=True)
+    temp_path = temp_dir / f"{image_id}_{filename}"
+    file.save(str(temp_path))
 
     # Insert PhotoEvidence row with inspection_id
     photo_evidence = PhotoEvidence(
@@ -823,8 +833,8 @@ def upload_photo_evidence():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        if temp_path.exists():
+            os.remove(str(temp_path))
         return jsonify({"error": f"Failed to save photo evidence: {e!s}"}), 500
 
     # Log audit for upload received
@@ -884,11 +894,14 @@ def upload_photo_evidence():
     else:
         ocr_task_id = None
 
-    return jsonify({
-        "image_id": image_id,
-        "verification_status": result["verification_status"],
-        "ocr_task_id": ocr_task_id,
-    }), 201
+    return (
+        jsonify({
+            "image_id": image_id,
+            "verification_status": result["verification_status"],
+            "ocr_task_id": ocr_task_id,
+        }),
+        201,
+    )
 
 
 # ============================================================================
@@ -917,11 +930,14 @@ def upload_adjudication_photo(adjudication_id):
         return jsonify({"error": "Invalid filename."}), 400
 
     allowed_extensions = {"jpg", "jpeg", "png", "webp", "heic"}
-    ext = os.path.splitext(safe_filename)[1].lower().lstrip(".")
+    ext = Path(safe_filename).suffix.lower().lstrip(".")
     if ext not in allowed_extensions:
-        return jsonify({
-            "error": f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}",
-        }), 400
+        return (
+            jsonify({
+                "error": f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}",
+            }),
+            400,
+        )
 
     try:
         file_url = upload_photo(file, adjudication_id, safe_filename)
@@ -949,12 +965,15 @@ def upload_adjudication_photo(adjudication_id):
         current_app.logger.exception(f"Failed to save InspectionPhoto for adjudication {adjudication_id}")
         return jsonify({"error": "Database error."}), 500
 
-    return jsonify({
-        "id": photo.id,
-        "file_url": photo.file_url,
-        "caption": photo.caption,
-        "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
-    }), 201
+    return (
+        jsonify({
+            "id": photo.id,
+            "file_url": photo.file_url,
+            "caption": photo.caption,
+            "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
+        }),
+        201,
+    )
 
 
 @inspection_bp.route("/photos/<int:photo_id>", methods=["DELETE"])

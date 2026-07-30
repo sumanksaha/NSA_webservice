@@ -52,11 +52,9 @@ class NERExtractor:
         results: dict[str, list[tuple[str, float]]] = {}
         for ent in doc.ents:
             label = ent.label_
-            if label not in results:
-                results[label] = []
             # spaCy doesn't expose per-entity confidence, use heuristic
             confidence = min(0.85, len(ent.text) / 100.0) if ent.text else 0.5
-            results[label].append((ent.text.strip(), confidence))
+            results.setdefault(label, []).append((ent.text.strip(), confidence))
 
         return results
 

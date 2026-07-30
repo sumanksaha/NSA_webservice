@@ -1,15 +1,18 @@
 import json
 import logging
-import os
 import re
 import sqlite3
 import ssl
 import time
+from pathlib import Path
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
+from typing import Any
+
+fcntl: Any
 try:
     import fcntl
 except ImportError:
@@ -17,17 +20,17 @@ except ImportError:
     # rate limiting still works via the timestamp file).
     fcntl = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).parent.resolve()
 # app/utils is nested two levels deep from the workspace root
-WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-DB_DIR = os.path.join(WORKSPACE_DIR, "db")
-LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
-REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
+WORKSPACE_DIR = (Path(__file__).parent.parent.parent).resolve()
+DB_DIR = WORKSPACE_DIR / "db"
+LICENSE_DB_PATH = DB_DIR / "license_data.db"
+REGISTRATION_DB_PATH = DB_DIR / "registration_data.db"
 
 # Rate limiting for KMC CE lookup (govt website - 40 second gap required)
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
-_KMC_LOCK_PATH = os.path.join(DB_DIR, ".kmc_lookup_lock")
-_KMC_LAST_REQUEST_TIME_PATH = os.path.join(DB_DIR, ".kmc_last_request_time")
+_KMC_LOCK_PATH = DB_DIR / ".kmc_lookup_lock"
+_KMC_LAST_REQUEST_TIME_PATH = DB_DIR / ".kmc_last_request_time"
 
 
 def lookup_fssai(license_no: str):
@@ -52,8 +55,8 @@ def lookup_fssai(license_no: str):
     else:
         return None, "Unrecognized License/Registration number prefix (expected to start with 1 or 2)."
 
-    if not os.path.exists(db_path):
-        return None, f"Lookup database not found: {os.path.basename(db_path)}."
+    if not Path(db_path).exists():
+        return None, f"Lookup database not found: {Path(db_path).name}."
 
     conn = sqlite3.connect(db_path)
     try:
@@ -88,7 +91,7 @@ def lookup_ce(license_no: str):
     try:
         with open(_KMC_LOCK_PATH, "w") as lock_fd:
             if fcntl:
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
             try:
                 with open(_KMC_LAST_REQUEST_TIME_PATH) as f:
@@ -109,7 +112,7 @@ def lookup_ce(license_no: str):
         if lock_fd:
             try:
                 if fcntl:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
             except Exception as e:
                 logger.warning("Failed to release file lock: %s", e)
 

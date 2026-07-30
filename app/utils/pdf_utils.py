@@ -4,6 +4,7 @@ import base64
 import io
 import logging
 import os
+from pathlib import Path
 
 import requests
 
@@ -87,12 +88,12 @@ def embed_photos_as_base64(photo_urls):
                 raw_bytes = resp.content
             else:
                 # Local filesystem path — read directly
-                if not os.path.exists(path):
+                if not Path(path).exists():
                     raise FileNotFoundError(f"Local file not found: {path}")
                 with open(path, "rb") as f:
                     raw_bytes = f.read()
                 # Guess content type from extension
-                ext = os.path.splitext(path)[1].lower()
+                ext = Path(path).suffix.lower()
                 content_type = {
                     ".jpg": "image/jpeg",
                     ".jpeg": "image/jpeg",

@@ -14,7 +14,6 @@ Create Date: 2026-07-19 00:00:00.000000
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = "add_bill_sample_fields"
 down_revision = "add_fso_sample_inspection_tables"

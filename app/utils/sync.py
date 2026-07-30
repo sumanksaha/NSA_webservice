@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 import gspread
 from sqlalchemy.orm.exc import StaleDataError
@@ -30,7 +31,7 @@ def get_gspread_client():
 
     # 2. Local Files (development convenience)
     for path in ["instance/credentials.json", "credentials.json"]:
-        if os.path.exists(path):
+        if Path(path).exists():
             try:
                 return gspread.service_account(filename=path)
             except Exception:

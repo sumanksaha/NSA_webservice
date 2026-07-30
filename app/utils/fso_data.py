@@ -9,7 +9,7 @@ Sync is ADDITIVE ONLY — never delete existing FSO rows even if removed from ma
 """
 
 import logging
-import os
+from pathlib import Path
 
 from sqlalchemy import inspect
 
@@ -18,12 +18,12 @@ from app.models import FSO
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-FSO_MD_PATH = os.path.join(WORKSPACE_DIR, "fso_list.md")
+BASE_DIR = Path(__file__).parent.resolve()
+WORKSPACE_DIR = (Path(__file__).parent.parent.parent).resolve()
+FSO_MD_PATH = WORKSPACE_DIR / "fso_list.md"
 
 
-def load_fso_names(path: str = FSO_MD_PATH) -> list:
+def load_fso_names(path: str | Path = FSO_MD_PATH) -> list:
     """Parses a markdown file with a list of FSO names.
     Expected format:
     # FSO List
@@ -41,7 +41,7 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
     - Empty lines: skipped
     - Lines with only '-': skipped
     """
-    if not os.path.exists(path):
+    if not Path(path).exists():
         logger.warning(f"FSO list file not found: {path}")
         return []
 
@@ -78,7 +78,7 @@ def load_fso_names(path: str = FSO_MD_PATH) -> list:
     return names
 
 
-def sync_fso_from_markdown(path: str = FSO_MD_PATH) -> dict:
+def sync_fso_from_markdown(path: str | Path = FSO_MD_PATH) -> dict:
     """Reads FSO names from the markdown file and upserts them into the fso table.
 
     Sync is ADDITIVE ONLY — existing FSO rows are never deleted, even if removed from markdown.

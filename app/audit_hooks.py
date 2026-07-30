@@ -146,7 +146,7 @@ def _capture_update(target):
 # ---------------------------------------------------------------------------
 
 
-def _after_flush(session: Session, flush_context):
+def _after_flush(session: Session, _flush_context):
     """Inspect flushed objects and emit audit entries for audited models.
 
     This fires *after* the flush is complete, so that ``session.add()``

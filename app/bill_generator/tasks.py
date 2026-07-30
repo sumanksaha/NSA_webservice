@@ -8,6 +8,7 @@ import io
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments
 try:
@@ -71,11 +72,11 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
     # ---- Write to disk (transient I/O → retry) ----
     try:
         date_prefix = generated_at.strftime("%Y/%m")
-        rel_dir = os.path.join("pdfs", "bills", date_prefix)
-        os.makedirs(rel_dir, exist_ok=True)
+        rel_dir = Path("pdfs") / "bills" / date_prefix
+        os.makedirs(str(rel_dir), exist_ok=True)
 
-        file_path = os.path.join(rel_dir, f"bill_{bill_id}.pdf")
-        with open(file_path, "wb") as f:
+        file_path = rel_dir / f"bill_{bill_id}.pdf"
+        with open(str(file_path), "wb") as f:
             f.write(pdf_bytes)
 
         logger.info("Bill PDF saved: %s", file_path)
@@ -86,10 +87,16 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
         logger.warning("Transient error saving bill PDF: %s", exc)
         raise self.retry(exc=exc, countdown=60) from exc
 
-    return _metadata(bill_id, file_path, generated_at, "ok", None)
+    return _metadata(bill_id, str(file_path), generated_at, "ok", None)
 
 
-def _metadata(bill_id, file_path, generated_at, status, error):
+def _metadata(
+    bill_id: int,
+    file_path: str | None,
+    generated_at: datetime,
+    status: str,
+    error: str | None,
+) -> dict[str, str | int | None]:
     return {
         "bill_id": bill_id,
         "file_path": file_path,

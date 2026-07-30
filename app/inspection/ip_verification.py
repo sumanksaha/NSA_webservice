@@ -36,11 +36,7 @@ def region_match(ip_city: str, ip_region: str, geocoded_locality: str) -> bool:
     """Compares IP-based city/region against the reverse-geocoded locality
     using simple case-insensitive substring matching.
     Returns True if any overlap found, False otherwise.
-    Returns False if any input is None.
     """
-    if ip_city is None or ip_region is None or geocoded_locality is None:
-        return False
-
     # Case-insensitive substring matching
     geocoded_locality_lower = geocoded_locality.lower()
     ip_city_lower = ip_city.lower()

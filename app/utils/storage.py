@@ -20,6 +20,7 @@ are missing, a clear ``RuntimeError`` is raised only when ``upload_photo`` or
 
 import logging
 import os
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
@@ -178,7 +179,7 @@ def upload_photo(file_obj, adjudication_id, filename):
         If the file extension is not allowed or the file exceeds 5 MB.
 
     """
-    ext = os.path.splitext(filename)[1].lower()
+    ext = Path(filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(
             f"Unsupported file extension '{ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}",

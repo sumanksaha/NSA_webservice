@@ -91,14 +91,14 @@ def adjudication_to_dict(adj):
         "fssai_license": adj.fssai_license,
         "concerned_food": adj.concerned_food,
         "problem": adj.problem,
-        "first_inspection_date": adj.First_inspection_date.isoformat()
-        if adj.First_inspection_date
-        else None,  # DB column: First_inspection_date
+        "first_inspection_date": (
+            adj.First_inspection_date.isoformat() if adj.First_inspection_date else None
+        ),  # DB column: First_inspection_date
         "compliance_deadline": adj.compliance_deadline.isoformat() if adj.compliance_deadline else None,
         "complaint_date": adj.Complaint_date.isoformat() if adj.Complaint_date else None,  # DB column: Complaint_date
-        "followup_inspection_date": adj.inspection_date.isoformat()
-        if adj.inspection_date
-        else None,  # DB column: inspection_date (follow-up)
+        "followup_inspection_date": (
+            adj.inspection_date.isoformat() if adj.inspection_date else None
+        ),  # DB column: inspection_date (follow-up)
         "authorization_date": adj.authorization_date.isoformat() if adj.authorization_date else None,
         "clean_premise": adj.clean_premise,
         "refrigerator_clean": adj.refrigerator_clean,
@@ -417,9 +417,12 @@ def regenerate_adjudication_documents(case_id):
             outputs.append((f"{prefix}.pdf", pdf_bytes))
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
-            return jsonify({
-                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-            }), 500
+            return (
+                jsonify({
+                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                }),
+                500,
+            )
 
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zip_buffer = io.BytesIO()
@@ -676,9 +679,12 @@ def generate_all():
             outputs.append((f"{prefix}.pdf", pdf_bytes))
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
-            return jsonify({
-                "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-            }), 500
+            return (
+                jsonify({
+                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                }),
+                500,
+            )
 
     # Zip the outputs in memory
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"

@@ -9,7 +9,6 @@ Create Date: 2026-07-16 19:00:28.463554
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = "453157859db7"
 down_revision = "add_missing_base_tables"

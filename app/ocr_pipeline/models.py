@@ -24,7 +24,7 @@ class ObjectType(StrEnum):
 class DetectedObject(BaseModel):
     """An object detected on a document page (table, stamp, signature, watermark)."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     type: ObjectType = Field(description="Type of detected object")
     confidence: float = Field(ge=0.0, le=1.0, description="Detection confidence score")
@@ -38,7 +38,7 @@ class DetectedObject(BaseModel):
 class PageDetectionResult(BaseModel):
     """Results of object detection on a single page."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     objects: list[DetectedObject] = Field(default_factory=list, description="Detected objects")
     has_table: bool = Field(False, description="Whether a table was detected")
@@ -51,7 +51,7 @@ class PageDetectionResult(BaseModel):
 class OCRResult(BaseModel):
     """Result of processing a single page through the OCR pipeline."""
 
-    model_config = ConfigDict(frozen=True, slots=True)
+    model_config = ConfigDict(frozen=True, slots=True)  # type: ignore[typeddict-unknown-key]
 
     page: int = Field(ge=1, description="1-based page number")
     ocr_used: bool = Field(description="Whether OCR was required (False = direct text extraction)")
@@ -61,7 +61,7 @@ class OCRResult(BaseModel):
     ocr_engine: str | None = Field(default=None, description="Which OCR engine was used (paddle/tesseract/none)")
     preprocessing_steps: list[str] = Field(default_factory=list, description="Image preprocessing steps applied")
     detection: PageDetectionResult = Field(
-        default_factory=PageDetectionResult,
+        default_factory=lambda: PageDetectionResult(),  # type: ignore[call-arg]
         description="Results of object detection on this page",
     )
     error: str | None = Field(default=None, description="Error message if processing failed")

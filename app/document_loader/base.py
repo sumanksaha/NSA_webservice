@@ -32,8 +32,9 @@ class BaseLoader(ABC):
     # Mapping from file extension to human-readable type — override in subclasses.
     FILE_TYPE: str = ""
 
-    def __init__(self, file_path: str | Path) -> None:
+    def __init__(self, file_path: str | Path, max_page_chars: int | None = None) -> None:
         self._path = Path(file_path)
+        self._max_page_chars = max_page_chars
         if not self._path.is_file():
             raise FileNotFoundError(f"Document not found: {self._path}")
 

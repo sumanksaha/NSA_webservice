@@ -174,13 +174,16 @@ def create_issue():
 
         db.session.commit()
 
-        return jsonify({
-            "message": "FBO issue created successfully",
-            "issue_id": new_issue.id,
-            "fbo_id": new_issue.fbo_id,
-            "state": new_issue.state,
-            "created_at": new_issue.created_at.isoformat() if new_issue.created_at else None,
-        }), 201
+        return (
+            jsonify({
+                "message": "FBO issue created successfully",
+                "issue_id": new_issue.id,
+                "fbo_id": new_issue.fbo_id,
+                "state": new_issue.state,
+                "created_at": new_issue.created_at.isoformat() if new_issue.created_at else None,
+            }),
+            201,
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -206,9 +209,12 @@ def transition_issue(issue_id):
     if not asserted_by:
         return jsonify({"error": "asserted_by is required"}), 400
     if to_state not in ("open", "permission_pending", "permission_granted", "closed", "dismissed"):
-        return jsonify({
-            "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'",
-        }), 400
+        return (
+            jsonify({
+                "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'",
+            }),
+            400,
+        )
 
     # Get current issue
     issue = db.session.get(FboIssue, issue_id)
@@ -221,15 +227,21 @@ def transition_issue(issue_id):
     if not is_valid_transition(issue.source_type, from_state, to_state):
         disallowed = SOURCE_TYPE_DISALLOWED_TARGETS.get(issue.source_type, set())
         if to_state in disallowed:
-            return jsonify({
-                "error": f"Cannot transition {issue.source_type}-sourced issue to {to_state} state "
-                f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)",
-            }), 400
+            return (
+                jsonify({
+                    "error": f"Cannot transition {issue.source_type}-sourced issue to {to_state} state "
+                    f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)",
+                }),
+                400,
+            )
         valid_targets = VALID_TRANSITIONS.get(from_state, [])
-        return jsonify({
-            "error": f"Invalid state transition: {from_state} -> {to_state}. "
-            f"Valid transitions from {from_state}: {valid_targets}",
-        }), 400
+        return (
+            jsonify({
+                "error": f"Invalid state transition: {from_state} -> {to_state}. "
+                f"Valid transitions from {from_state}: {valid_targets}",
+            }),
+            400,
+        )
 
     # Start transaction
     try:
@@ -251,13 +263,16 @@ def transition_issue(issue_id):
 
         db.session.commit()
 
-        return jsonify({
-            "message": "State transition successful",
-            "issue_id": issue.id,
-            "from_state": from_state,
-            "to_state": to_state,
-            "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
-        }), 200
+        return (
+            jsonify({
+                "message": "State transition successful",
+                "issue_id": issue.id,
+                "from_state": from_state,
+                "to_state": to_state,
+                "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            }),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -294,19 +309,22 @@ def get_issue(issue_id):
             "note": audit.note,
         })
 
-    return jsonify({
-        "id": issue.id,
-        "fbo_id": issue.fbo_id,
-        "manufacturer_fbo_id": issue.manufacturer_fbo_id,
-        "fbo_name": issue.fbo_name,
-        "source_type": issue.source_type,
-        "state": issue.state,
-        "fso_name": issue.fso_name,
-        "created_at": issue.created_at.isoformat() if issue.created_at else None,
-        "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
-        "detail": detail,
-        "audit_history": audits,
-    }), 200
+    return (
+        jsonify({
+            "id": issue.id,
+            "fbo_id": issue.fbo_id,
+            "manufacturer_fbo_id": issue.manufacturer_fbo_id,
+            "fbo_name": issue.fbo_name,
+            "source_type": issue.source_type,
+            "state": issue.state,
+            "fso_name": issue.fso_name,
+            "created_at": issue.created_at.isoformat() if issue.created_at else None,
+            "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            "detail": detail,
+            "audit_history": audits,
+        }),
+        200,
+    )
 
 
 @fbo_issue_bp.route("/", methods=["GET"])

@@ -54,8 +54,7 @@ def compute_summary(samples):
 
         price = format_price(price_str)
 
-        if sample_type not in by_type:
-            by_type[sample_type] = {"count": 0, "total_price": 0.0}
+        by_type.setdefault(sample_type, {"count": 0, "total_price": 0.0})
 
         by_type[sample_type]["count"] += 1
         by_type[sample_type]["total_price"] += price

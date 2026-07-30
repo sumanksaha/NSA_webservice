@@ -1,5 +1,6 @@
 import os
 import threading
+from pathlib import Path
 
 import gspread
 from flask import current_app
@@ -179,8 +180,8 @@ def _get_client():
             current_app.logger.error(f"Failed to authenticate with GOOGLE_CREDENTIALS_JSON: {e}")
 
     # 2. Local file: instance/credentials.json (development convenience)
-    creds_path = os.path.join(current_app.instance_path, "credentials.json")
-    if os.path.exists(creds_path):
+    creds_path = Path(current_app.instance_path) / "credentials.json"
+    if creds_path.exists():
         try:
             client = gspread.service_account(filename=creds_path)
             _thread_local.client = client

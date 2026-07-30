@@ -208,11 +208,14 @@ def create_sample():
         except Exception as e:
             current_app.logger.warning(f"Sample Sheets sync failed: {e}")
 
-        return jsonify({
-            "message": "Sample created successfully",
-            "sample_id": sample.id,
-            "sample_code": sample.sample_code,
-        }), 201
+        return (
+            jsonify({
+                "message": "Sample created successfully",
+                "sample_id": sample.id,
+                "sample_code": sample.sample_code,
+            }),
+            201,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to create sample: {e!s}"}), 500
@@ -260,9 +263,12 @@ def update_sample(sample_id):
         if not sample_type_val:
             return jsonify({"error": "sample_type cannot be empty"}), 400
         if sample_type_val not in ["enforcement", "surveillance"]:
-            return jsonify({
-                "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
-            }), 400
+            return (
+                jsonify({
+                    "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
+                }),
+                400,
+            )
         sample.sample_type = sample_type_val
 
     if "fso_name" in form_data:

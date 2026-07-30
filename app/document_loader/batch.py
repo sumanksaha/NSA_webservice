@@ -43,7 +43,7 @@ try:
     import orjson
 
     def _fast_dumps(obj: dict) -> str:
-        return orjson.dumps(obj).decode("utf-8")
+        return orjson.dumps(obj).decode("utf-8")  # type: ignore[no-any-return]
 
 except ImportError:
     import json
@@ -125,7 +125,7 @@ class BatchProcessor:
         self._output_dir = Path(output_dir)
         self._workers = workers
         self._recursive = recursive
-        self._extensions = extensions or DocumentLoaderFactory.supported_extensions()
+        self._extensions = set(extensions) if extensions else set(DocumentLoaderFactory.supported_extensions())
         self._max_page_chars = max_page_chars
         self._jsonl_batch_size = jsonl_batch_size
 

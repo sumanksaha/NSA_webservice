@@ -10,7 +10,6 @@ from alembic import op
 import sqlalchemy as sa
 from datetime import datetime
 
-
 # revision identifiers, used by Alembic.
 revision = "fix_schema_datetime_fk"
 down_revision = "add_fso_sample_inspection_tables"

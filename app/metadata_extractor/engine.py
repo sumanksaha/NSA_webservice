@@ -136,28 +136,42 @@ class LegalMetadataEngine:
 
         # Step 5: Build final result
         return LegalMetadata(
-            title=field_values.get("title", FieldConfidence(value="", score=0.0, method="default")),
-            version=field_values.get("version", FieldConfidence(value="Latest", score=0.3, method="default")),
-            date=field_values.get("date", FieldConfidence(value="", score=0.0, method="default")),
-            authority=field_values.get("authority", FieldConfidence(value="", score=0.0, method="default")),
-            gazette_number=field_values.get("gazette_number", FieldConfidence(value="", score=0.0, method="default")),
+            title=field_values.get("title", FieldConfidence(value="", score=0.0, method="default", detail=None)),
+            version=field_values.get(
+                "version", FieldConfidence(value="Latest", score=0.3, method="default", detail=None)
+            ),
+            date=field_values.get("date", FieldConfidence(value="", score=0.0, method="default", detail=None)),
+            authority=field_values.get(
+                "authority", FieldConfidence(value="", score=0.0, method="default", detail=None)
+            ),
+            gazette_number=field_values.get(
+                "gazette_number", FieldConfidence(value="", score=0.0, method="default", detail=None)
+            ),
             notification_number=field_values.get(
                 "notification_number",
-                FieldConfidence(value="", score=0.0, method="default"),
+                FieldConfidence(value="", score=0.0, method="default", detail=None),
             ),
-            language=field_values.get("language", FieldConfidence(value="english", score=0.5, method="default")),
-            jurisdiction=field_values.get("jurisdiction", FieldConfidence(value="India", score=0.6, method="default")),
-            state=field_values.get("state", FieldConfidence(value="", score=0.0, method="default")),
-            country=field_values.get("country", FieldConfidence(value="India", score=0.6, method="default")),
+            language=field_values.get(
+                "language", FieldConfidence(value="english", score=0.5, method="default", detail=None)
+            ),
+            jurisdiction=field_values.get(
+                "jurisdiction", FieldConfidence(value="India", score=0.6, method="default", detail=None)
+            ),
+            state=field_values.get("state", FieldConfidence(value="", score=0.0, method="default", detail=None)),
+            country=field_values.get(
+                "country", FieldConfidence(value="India", score=0.6, method="default", detail=None)
+            ),
             document_type=field_values.get(
                 "document_type",
-                FieldConfidence(value="Notification", score=0.5, method="default"),
+                FieldConfidence(value="Notification", score=0.5, method="default", detail=None),
             ),
             amendment_status=field_values.get(
                 "amendment_status",
-                FieldConfidence(value="Original", score=0.5, method="default"),
+                FieldConfidence(value="Original", score=0.5, method="default", detail=None),
             ),
-            effective_date=field_values.get("effective_date", FieldConfidence(value="", score=0.0, method="default")),
+            effective_date=field_values.get(
+                "effective_date", FieldConfidence(value="", score=0.0, method="default", detail=None)
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -177,9 +191,7 @@ class LegalMetadataEngine:
         for label, items in entities.items():
             target = mapping.get(label)
             if target:
-                if target not in results:
-                    results[target] = []
-                results[target].extend(items)
+                results.setdefault(target, []).extend(items)
         return results
 
     @staticmethod
@@ -187,7 +199,7 @@ class LegalMetadataEngine:
         """Return an empty result with default values."""
 
         def default(v="", s=0.0, m="default"):
-            return FieldConfidence(value=v, score=s, method=m)
+            return FieldConfidence(value=v, score=s, method=m, detail=None)
 
         return LegalMetadata(
             title=default(),

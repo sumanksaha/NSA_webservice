@@ -149,9 +149,9 @@ def case_file_to_dict(case_file):
         "case_number": case_file.case_number,
         "food_safety_officer_name": case_file.food_safety_officer_name,
         "authorization_date": case_file.authorization_date.isoformat() if case_file.authorization_date else None,
-        "sample_draw_date": case_file.inspection_date.isoformat()
-        if case_file.inspection_date
-        else None,  # DB column: inspection_date -> canonical
+        "sample_draw_date": (
+            case_file.inspection_date.isoformat() if case_file.inspection_date else None
+        ),  # DB column: inspection_date -> canonical
         "sample_draw_time": case_file.inspection_time,  # DB column: inspection_time -> canonical
         "sample_id": case_file.sample_id,  # Step 5: Link to Sample
         "manufacturer_fssai_license": case_file.manufacturer_fssai,  # DB column -> canonical
@@ -172,9 +172,9 @@ def case_file_to_dict(case_file):
         "total_cost": case_file.total_cost,
         "cost_in_words": case_file.cost_in_words,
         "sample_code": case_file.sample_code,
-        "sample_submission_date": case_file.sample_submission_date.isoformat()
-        if case_file.sample_submission_date
-        else None,
+        "sample_submission_date": (
+            case_file.sample_submission_date.isoformat() if case_file.sample_submission_date else None
+        ),
         "lab_registration_no": case_file.Lab_Registration_No,  # DB column -> canonical
         "do_receipt_date": case_file.do_receipt_date.isoformat() if case_file.do_receipt_date else None,
         "is_misbranded": "misbranded" if case_file.is_misbranded else "",
@@ -182,15 +182,17 @@ def case_file_to_dict(case_file):
         "analyst_report_no": case_file.analyst_report_no,
         "analyst_report_date": case_file.analyst_report_date.isoformat() if case_file.analyst_report_date else None,
         "directive_letter_no": case_file.directive_letter_no,
-        "directive_letter_date": case_file.directive_letter_date.isoformat()
-        if case_file.directive_letter_date
-        else None,
-        "retailer_report_receive_date": case_file.retailer_report_receive_date.isoformat()
-        if case_file.retailer_report_receive_date
-        else None,
-        "manufacturer_report_receive_date": case_file.manufacturer_report_receive_date.isoformat()
-        if case_file.manufacturer_report_receive_date
-        else None,
+        "directive_letter_date": (
+            case_file.directive_letter_date.isoformat() if case_file.directive_letter_date else None
+        ),
+        "retailer_report_receive_date": (
+            case_file.retailer_report_receive_date.isoformat() if case_file.retailer_report_receive_date else None
+        ),
+        "manufacturer_report_receive_date": (
+            case_file.manufacturer_report_receive_date.isoformat()
+            if case_file.manufacturer_report_receive_date
+            else None
+        ),
         "applicable_regulation": case_file.applicable_regulation,
         "applicable_clause": case_file.applicable_clause,
         "sample_name": case_file.sample_name,
@@ -261,11 +263,14 @@ def regenerate_case_files(case_id):
         current_app.logger.error("Case file PDF regeneration returned error: %s", error_msg)
         return jsonify({"error": error_msg}), 500
 
-    return jsonify({
-        "message": "Case file PDF regenerated",
-        "case_file_id": case_file.id,
-        "pdf_result": result,
-    }), 200
+    return (
+        jsonify({
+            "message": "Case file PDF regenerated",
+            "case_file_id": case_file.id,
+            "pdf_result": result,
+        }),
+        200,
+    )
 
 
 @case_file_generator_bp.route("/lookup_fssai", methods=["POST"])
@@ -297,9 +302,9 @@ def lookup_sample():
         "sample_name": sample.sample_name,
         "retailer_fssai_license": sample.retailer_fssai or "",  # canonical
         "retailer_person_name": sample.retailer_name or "",  # canonical
-        "sample_submission_date": sample.submission_date.strftime("%Y-%m-%d")
-        if sample.submission_date
-        else "",  # canonical
+        "sample_submission_date": (
+            sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""
+        ),  # canonical
         "total_cost": sample.price or "",  # canonical (DB column: price)
     })
 
@@ -464,8 +469,11 @@ def generate_case_file_route():
         current_app.logger.error("Case file PDF generation returned error: %s", error_msg)
         return jsonify({"error": error_msg}), 500
 
-    return jsonify({
-        "message": "Case file created; PDF generated",
-        "case_file_id": case_file_record.id,
-        "pdf_result": result,
-    }), 200
+    return (
+        jsonify({
+            "message": "Case file created; PDF generated",
+            "case_file_id": case_file_record.id,
+            "pdf_result": result,
+        }),
+        200,
+    )
