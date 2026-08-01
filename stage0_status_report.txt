@@ -1,0 +1,107 @@
+========================================================================
+  STAGE 0 DEDUP PIPELINE — FINAL STATUS REPORT
+  Generated: 2026-07-26 14:20:33
+========================================================================
+
+------------------------------------------------------------------------
+  SECTION 1: SOURCE DATA & DEDUP GROUPS
+------------------------------------------------------------------------
+  Total records in extracted_with_exact_groups.csv:    80,052
+  Total dedup groups:                                67,682
+    Single-record groups:                            59,742  (59,742 records)
+    Multi-record groups:                              7,940  (20,310 records)
+    Average multi-group size:                           2.6 records
+
+  Top 5 largest groups:
+    g74466:    58 members — e.g. [22820036000018, 22820036000028, 22820036000080]
+    g74467:    54 members — e.g. [22820041000219, 22821041000061, 22821041000748]
+    g74468:    44 members — e.g. [22821036000443, 22821036000384, 22821036000748]
+    g74469:    41 members — e.g. [22820036000282, 22821036000073, 22821036000088]
+    g74470:    40 members — e.g. [22820037000108, 12820019000848, 12818019003327]
+
+  Source records with PIN detectable:                79,983  (99.9%)
+
+------------------------------------------------------------------------
+  SECTION 2: HIGH-CONFIDENCE AUTO-MERGE (Task B)
+------------------------------------------------------------------------
+  Pairs auto-merged (house # match):                12,036
+  Unique FBOs merged:                               10,947
+  New dedup groups created:                          4,164
+  New group ID range:                             g74466 — g78629
+
+  Merged cluster size distribution:
+    size 1 (should be 0)                  0
+    size 2 (simple pairs)             3,160
+    size 3-5                            840
+    size 6-10                           121
+    size 11-20                           28
+    size 21-50                           13
+    size 51+                              2
+
+------------------------------------------------------------------------
+  SECTION 3: HOUSE-NUMBER DISAMBIGUATION FILTER (Step 4.5)
+------------------------------------------------------------------------
+  Pairs REJECTED (house # mismatch):               181,781
+  Pairs RETAINED for review:                        24,442
+  Total pairs processed:                            206,223
+  Rejection rate:                                    88.1%
+
+  House number extraction (rejected set):
+    Both sides have house numbers:                  181,781  (100.0%)
+    Address_1 has house number:                     181,781  (100.0%)
+    Address_2 has house number:                     181,781  (100.0%)
+
+  Similarity score distribution (rejected):
+    90-92:  114,438  (63.0%)
+    93-94:   29,182  (16.1%)
+    95-96:   23,349  (12.8%)
+    97-98:   14,038  (7.7%)
+    99-100:      774  (0.4%)
+
+------------------------------------------------------------------------
+  SECTION 4: AMBIGUOUS QUEUE TRIAGE (Task C)
+------------------------------------------------------------------------
+  Total ambiguous pairs:                             24,442
+    Locality match (review_priority.csv):            23,511  (96.2%)
+    No locality match (review_low_priority.csv):        931  (3.8%)
+
+  Block key type breakdown:
+    pin:   24,442  (100.0%)
+
+  Similarity score distribution (remaining):
+    90-92:   15,857  (64.9%)
+    93-94:    4,925  (20.1%)
+    95-96:    2,332  (9.5%)
+    97-98:    1,146  (4.7%)
+    99-100:      182  (0.7%)
+
+------------------------------------------------------------------------
+  SECTION 5: END-TO-END PIPELINE BALANCE
+------------------------------------------------------------------------
+  Total unique FBOs entering pipeline:                80,052
+  Unique fbo_ids appearing in any pair:              40,346  (50.4%)
+  fbo_ids with NO fuzzy match (score < 90):          39,706  (49.6%)
+
+  fbo_ids ALREADY MERGED (auto-merge):              10,947  (27.1% of pairs)
+  fbo_ids PENDING human review:                     29,399  (72.9% of pairs)
+
+  Total pairs processed by filter:                    206,223
+    (Original cdist: ~235,455; 17,196 crash-recovery dupes removed)
+  After house-number filter (rejected):            - 181,781
+  Remaining for review:                              24,442
+
+  Current dedup groups:                              67,682
+  Single-record groups (still to dedup):             59,742
+  Multi-record groups (already deduped):              7,940
+
+------------------------------------------------------------------------
+  SECTION 6: DATA INTEGRITY CHECKS
+------------------------------------------------------------------------
+  fbo_ids in multiple groups:                             0  PASS
+  Cross-file pair overlap (fuzzy x rejected):             0  PASS
+  Group ID format violations:                             0  PASS
+  Pair file fbo_ids missing from source:                  0  PASS
+
+========================================================================
+  END OF REPORT
+========================================================================

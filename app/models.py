@@ -1,32 +1,24 @@
 # type: ignore
-from datetime import datetime
+from __future__ import annotations
 
+from datetime import datetime
+from typing import ClassVar
+
+from flask_login import UserMixin
 from sqlalchemy.orm import validates
 
 from app.extensions import db
-
-
-class User(db.Model):
-    __tablename__ = "users"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
-    fso_name = db.Column(db.String(100), db.ForeignKey("fso.fso_name"), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (
-        db.Index("idx_users_username", "username"),
-        db.Index("idx_users_email", "email"),
-    )
 
 
 class CaseFile(db.Model):
     __tablename__ = "case_files"
 
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__: ClassVar[dict] = {
+        "version_id_col": version_id,
+    }
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer_name = db.Column(db.String(100), nullable=False)
     authorization_date = db.Column(db.DateTime, nullable=False)
@@ -34,9 +26,7 @@ class CaseFile(db.Model):
     inspection_time = db.Column(db.String(100), nullable=False)
 
     # Link to Sample (optional FK - Step 5 addition)
-    sample_id = db.Column(
-        db.Integer, db.ForeignKey("sample.id", ondelete="SET NULL"), nullable=True
-    )
+    sample_id = db.Column(db.Integer, db.ForeignKey("sample.id", ondelete="SET NULL"), nullable=True)
 
     # Manufacturer details
     manufacturer_fssai = db.Column(db.String(50), nullable=False)
@@ -103,6 +93,11 @@ class Adjudication(db.Model):
     __tablename__ = "adjudications"
 
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__: ClassVar[dict] = {
+        "version_id_col": version_id,
+    }
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer = db.Column(db.String(100), nullable=False)
 
@@ -179,15 +174,18 @@ class InspectionPhoto(db.Model):
     caption = db.Column(db.String(200))
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (
-        db.Index("idx_inspection_photos_adjudication_id", "adjudication_id"),
-    )
+    __table_args__ = (db.Index("idx_inspection_photos_adjudication_id", "adjudication_id"),)
 
 
 class Bill(db.Model):
     __tablename__ = "bills"
 
     id = db.Column(db.Integer, primary_key=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__: ClassVar[dict] = {
+        "version_id_col": version_id,
+    }
     Name = db.Column(db.String(100), nullable=False)
     EMP_ID = db.Column(db.String(50), nullable=False)
     Designation = db.Column(
@@ -242,21 +240,13 @@ class FboIssue(db.Model):
     geocoded_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
-        db.CheckConstraint(
-            "source_type IN ('inspection','sample')", name="ck_source_type"
-        ),
+        db.CheckConstraint("source_type IN ('inspection','sample')", name="ck_source_type"),
         db.CheckConstraint(
             "state IN ('open','permission_pending','permission_granted','closed','dismissed')",
             name="ck_state",
         ),
-        db.CheckConstraint(
-            "NOT (source_type = 'sample' AND state = 'dismissed')",
-            name="ck_sample_not_dismissed",
-        ),
-        db.CheckConstraint(
-            "source_type = 'sample' OR manufacturer_fbo_id IS NULL",
-            name="ck_sample_or_null_mfg",
-        ),
+        db.CheckConstraint("NOT (source_type = 'sample' AND state = 'dismissed')", name="ck_sample_not_dismissed"),
+        db.CheckConstraint("source_type = 'sample' OR manufacturer_fbo_id IS NULL", name="ck_sample_or_null_mfg"),
         db.Index("idx_fbo_issue_fbo_id", "fbo_id"),
         db.Index("idx_fbo_issue_state", "state"),
     )
@@ -334,11 +324,7 @@ class Inspection(db.Model):
     is_dismissed = db.Column(db.Boolean, default=False)
     dismissed_by = db.Column(db.String(100), nullable=True)
     dismissed_at = db.Column(db.DateTime, nullable=True)
-    adjudication_id = db.Column(
-        db.Integer,
-        db.ForeignKey("adjudications.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
 
@@ -384,9 +370,51 @@ class AuditLog(db.Model):
     details_json = db.Column(db.Text, nullable=True)
 
 
-class CodeSequence(db.Model):
+class User(db.Model, UserMixin):
+    __tablename__ = "user"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def get_id(self):
+        return str(self.id)
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+
+class RecordAudit(db.Model):
+    """Record-changes and login-event audit log.
+
+    This is a separate table from the hash-chained `AuditLog` used by
+    the photo-evidence system.  This one tracks:
+      - INSERT / UPDATE / DELETE on Adjudication, Bill, CaseFile
+      - login_success / login_failed events
     """
-    Dedicated sequence table for race-safe code generation across multiple
+
+    __tablename__ = "record_audit"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = db.Column(db.String(20), nullable=False)  # create|update|delete|login_success|login_failed
+    record_type = db.Column(db.String(50), nullable=False, index=True)
+    record_id = db.Column(db.String(50), nullable=False, index=True)
+    changes = db.Column(db.Text, nullable=True)  # JSON string: {"field": {"old": ..., "new": ...}}
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+
+    # Relationship
+    user = db.relationship("User", backref="audit_logs", lazy="joined")
+
+    def __repr__(self):
+        return f"<RecordAudit {self.action} {self.record_type}#{self.record_id}>"
+
+
+class CodeSequence(db.Model):
+    """Dedicated sequence table for race-safe code generation across multiple
     processes (Gunicorn/uWSGI workers). Each row holds a monotonically
     increasing counter keyed by a string (e.g. 'sample:2026').
 

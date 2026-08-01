@@ -1,23 +1,18 @@
-alembic>=1.13.0
-flask
-flask-sqlalchemy
-flask-migrate
-gspread==6.2.1
-google-auth==2.56.0
-jinja2
-psycopg2-binary>=2.9.9
-weasyprint
-python-multipart
-num2words
-httpx
-gunicorn
-openpyxl
-boto3
-python-dotenv>=1.0.0
-flask-talisman>=1.1.0
-flask-wtf>=1.2.0
-flask-login>=0.6.3
-celery>=5.4.0
-redis>=5.0.0
-pytesseract>=0.3.10
-pdf2image>=1.16.3
+# =============================================================================
+# NSA Webservice — Runtime Dependencies
+# =============================================================================
+# This file is kept for reference/CI convenience.
+# The single source of truth for runtime dependencies is pyproject.toml
+# under [project.dependencies].
+#
+# To install runtime deps:
+#   pip install -e .
+#
+# To install dev deps as well:
+#   pip install -e ".[dev]"   (once dev extras are configured)
+#   -- or --
+#   pip install -r requirements-dev.txt
+#
+# Last synced: July 2026
+# =============================================================================
+-e .

@@ -13,6 +13,7 @@
     </div>
 
     <form action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
+        {{ csrf_token() }}
         <!-- Date Range Filter for Preview -->
         <div class="section-header">
             <h3><i class="fa-solid fa-calendar-alt"></i> Date Range Filter</h3>

@@ -1,5 +1,4 @@
-"""
-Uniform keys contract for NSA_webservice migration.
+"""Uniform keys contract for NSA_webservice migration.
 
 This module defines the canonical key naming contract for all case-related data
 across the four separate UIs: Inspection, Sample, Case File Generator, and Adjudication.
@@ -21,7 +20,7 @@ UI OWNERSHIP:
 - Adjudication: non-sample cases, section selection, legal proceedings
 """
 
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 # =============================================================================
 # CANONICAL KEY CONSTANTS
@@ -277,14 +276,17 @@ CASE_FILE_NEW_TO_OLD = {v: k for k, v in CASE_FILE_OLD_TO_NEW.items()}
 # DERIVED FIELD SHAPES (TypedDict for documentation)
 # =============================================================================
 
+
 class ViolationDict(TypedDict):
     """Shape of a single violation entry in the derived violations list."""
+
     title: str
     observation: str  # lowercase observation text
 
 
 class ApplicableSectionsShape(TypedDict):
     """Shape for derived applicable_sections data."""
+
     sections: list[str]  # e.g., ["55", "56", "58"]
     display: str  # e.g., "55, 56 and 58"
 
@@ -295,20 +297,20 @@ class ApplicableSectionsShape(TypedDict):
 
 
 def sections_display(sections: list[str]) -> str:
-    """
-    Convert a list of section numbers to a human-readable display string.
-    
+    """Convert a list of section numbers to a human-readable display string.
+
     Examples:
         ["55"] -> "55"
         ["55", "56"] -> "55 and 56"
         ["55", "56", "58"] -> "55, 56 and 58"
         ["55", "56", "58", "64"] -> "55, 56, 58 and 64"
-    
+
     Args:
         sections: List of section numbers as strings (e.g., ["55", "56", "58"])
-    
+
     Returns:
         Human-readable string for display in documents
+
     """
     if not sections:
         return ""
@@ -325,22 +327,22 @@ def resolve_case_track(
     complaint_lodged: bool = False,
     is_sample: bool = False,
 ) -> str:
-    """
-    Determine the case track based on case characteristics.
-    
+    """Determine the case track based on case characteristics.
+
     Logic:
     - nonsample_licence: non_license cases (section 63 path)
     - sample: cases with sample analysis (sections 51, 52)
     - hygienic: default inspection path (sections 55, 56, 58, 64)
-    
+
     Args:
         non_license: True for non-licensed FBO cases
         pre_authorization: True for pre-authorization cases
         complaint_lodged: True when third-party complaint was lodged
         is_sample: True for sample-based cases (case file generator)
-    
+
     Returns:
         One of: "hygienic", "nonsample_licence", "sample"
+
     """
     if is_sample:
         return "sample"
@@ -353,6 +355,7 @@ def resolve_case_track(
 # SECTION RESOLUTION HELPERS
 # =============================================================================
 
+
 def get_hygienic_sections() -> list[str]:
     """Return the canonical hygienic inspection section list."""
     return ["55", "56", "58"]
@@ -364,15 +367,15 @@ def get_nonsample_licence_sections() -> list[str]:
 
 
 def get_sample_sections(is_substandard: bool = True, is_misbranded: bool = True) -> list[str]:
-    """
-    Return sample-based sections based on analysis results.
-    
+    """Return sample-based sections based on analysis results.
+
     Args:
         is_substandard: True if sample was found substandard
         is_misbranded: True if sample was found misbranded
-    
+
     Returns:
         List of applicable section numbers
+
     """
     sections = []
     if is_substandard:
@@ -387,65 +390,66 @@ def get_sample_sections(is_substandard: bool = True, is_misbranded: bool = True)
 # =============================================================================
 
 __all__ = [
-    # Canonical key constants - Shared
-    "SHARED_FSO_NAME",
-    "SHARED_FBO_OWNER",
-    "SHARED_FBO_NAME",
-    "SHARED_FBO_ADDRESS",
-    "SHARED_FSSAI_LICENSE",
-    "SHARED_CASE_NUMBER",
-    "SHARED_AUTHORIZATION_DATE",
-    "SHARED_COMPLIANCE_DEADLINE",
-    "SHARED_CONCERNED_FOOD",
-    "SHARED_PROBLEM",
-    "SHARED_COMPLAINT_LODGED",
-    "SHARED_NON_LICENSE",
-    "SHARED_PRE_AUTHORIZATION",
-    "SHARED_FROM_INSPECTION",
-    # Canonical key constants - Dates
-    "DATE_INSPECTION",
+    "ADJUDICATION_NEW_TO_OLD",
+    "ADJUDICATION_OLD_TO_NEW",
+    "CASE_FILE_NEW_TO_OLD",
+    "CASE_FILE_OLD_TO_NEW",
+    "DATE_ANALYST_REPORT",
+    "DATE_COMPLAINT",
+    "DATE_DIRECTIVE_LETTER",
+    "DATE_DO_RECEIPT",
     "DATE_FIRST_INSPECTION",
     "DATE_FOLLOWUP_INSPECTION",
-    "DATE_COMPLAINT",
+    # Canonical key constants - Dates
+    "DATE_INSPECTION",
+    "DATE_MANUFACTURER_REPORT_RECEIVE",
+    "DATE_RETAILER_REPORT_RECEIVE",
     "DATE_SAMPLE_DRAW",
     "DATE_SAMPLE_DRAW_TIME",
     "DATE_SAMPLE_SUBMISSION",
-    "DATE_DO_RECEIPT",
-    "DATE_ANALYST_REPORT",
-    "DATE_DIRECTIVE_LETTER",
-    "DATE_RETAILER_REPORT_RECEIVE",
-    "DATE_MANUFACTURER_REPORT_RECEIVE",
+    # Canonical key constants - Derived
+    "DERIVED_APPLICABLE_SECTIONS",
+    "DERIVED_CASE_TRACK",
+    "DERIVED_DOCUMENT_ROLE",
+    "DERIVED_SAME_ENTITY",
+    "DERIVED_SECTIONS_DISPLAY",
+    "DERIVED_VIOLATIONS",
+    "INSPECTION_NEW_TO_OLD",
+    # Mappings
+    "INSPECTION_OLD_TO_NEW",
+    "LAB_ANALYST_REPORT_NO",
+    "LAB_DIRECTIVE_LETTER_NO",
+    "LAB_REGISTRATION_NO",
+    "PARTY_MANUFACTURER_ADDRESS",
+    "PARTY_MANUFACTURER_FSSAI",
     # Canonical key constants - Parties
     "PARTY_MANUFACTURER_PERSON_NAME",
     "PARTY_MANUFACTURER_TRADE_NAME",
-    "PARTY_MANUFACTURER_ADDRESS",
-    "PARTY_MANUFACTURER_FSSAI",
-    "PARTY_RETAILER_PERSON_NAME",
-    "PARTY_RETAILER_TRADE_NAME",
     "PARTY_RETAILER_ADDRESS",
     "PARTY_RETAILER_FSSAI",
+    "PARTY_RETAILER_PERSON_NAME",
+    "PARTY_RETAILER_TRADE_NAME",
     "PARTY_SAME_ENTITY",
+    "SAMPLE_APPLICABLE_CLAUSE",
+    "SAMPLE_APPLICABLE_REGULATION",
+    "SAMPLE_BATCH_NO",
+    "SAMPLE_CODE",
+    "SAMPLE_COST_IN_WORDS",
+    "SAMPLE_EXPIRY_DATE",
     # Canonical key constants - Sample/Lab
     "SAMPLE_ID",
-    "SAMPLE_CODE",
-    "SAMPLE_NAME",
-    "SAMPLE_TYPE",
-    "SAMPLE_PRODUCT_NAME",
-    "SAMPLE_BATCH_NO",
-    "SAMPLE_QUANTITY",
-    "SAMPLE_PACKET_COUNT",
-    "SAMPLE_MFG_DATE",
-    "SAMPLE_EXPIRY_DATE",
-    "SAMPLE_TOTAL_COST",
-    "SAMPLE_COST_IN_WORDS",
-    "SAMPLE_OTHER_FOOD_ARTICLES",
-    "LAB_REGISTRATION_NO",
-    "LAB_ANALYST_REPORT_NO",
-    "LAB_DIRECTIVE_LETTER_NO",
-    "SAMPLE_APPLICABLE_REGULATION",
-    "SAMPLE_APPLICABLE_CLAUSE",
-    "SAMPLE_IS_SUBSTANDARD",
     "SAMPLE_IS_MISBRANDED",
+    "SAMPLE_IS_SUBSTANDARD",
+    "SAMPLE_MFG_DATE",
+    "SAMPLE_NAME",
+    "SAMPLE_NEW_TO_OLD",
+    "SAMPLE_OLD_TO_NEW",
+    "SAMPLE_OTHER_FOOD_ARTICLES",
+    "SAMPLE_PACKET_COUNT",
+    "SAMPLE_PRODUCT_NAME",
+    "SAMPLE_QUANTITY",
+    "SAMPLE_TOTAL_COST",
+    "SAMPLE_TYPE",
     # Canonical key constants - Sections
     "SECTION_55",
     "SECTION_56",
@@ -453,29 +457,28 @@ __all__ = [
     "SECTION_63",
     "SECTION_64",
     "SECTION_KEYS",
-    # Canonical key constants - Derived
-    "DERIVED_APPLICABLE_SECTIONS",
-    "DERIVED_SECTIONS_DISPLAY",
-    "DERIVED_CASE_TRACK",
-    "DERIVED_VIOLATIONS",
-    "DERIVED_SAME_ENTITY",
-    "DERIVED_DOCUMENT_ROLE",
-    # Mappings
-    "INSPECTION_OLD_TO_NEW",
-    "INSPECTION_NEW_TO_OLD",
-    "SAMPLE_OLD_TO_NEW",
-    "SAMPLE_NEW_TO_OLD",
-    "ADJUDICATION_OLD_TO_NEW",
-    "ADJUDICATION_NEW_TO_OLD",
-    "CASE_FILE_OLD_TO_NEW",
-    "CASE_FILE_NEW_TO_OLD",
+    "SHARED_AUTHORIZATION_DATE",
+    "SHARED_CASE_NUMBER",
+    "SHARED_COMPLAINT_LODGED",
+    "SHARED_COMPLIANCE_DEADLINE",
+    "SHARED_CONCERNED_FOOD",
+    "SHARED_FBO_ADDRESS",
+    "SHARED_FBO_NAME",
+    "SHARED_FBO_OWNER",
+    "SHARED_FROM_INSPECTION",
+    # Canonical key constants - Shared
+    "SHARED_FSO_NAME",
+    "SHARED_FSSAI_LICENSE",
+    "SHARED_NON_LICENSE",
+    "SHARED_PRE_AUTHORIZATION",
+    "SHARED_PROBLEM",
+    "ApplicableSectionsShape",
     # TypedDict shapes
     "ViolationDict",
-    "ApplicableSectionsShape",
-    # Helper functions
-    "sections_display",
-    "resolve_case_track",
     "get_hygienic_sections",
     "get_nonsample_licence_sections",
     "get_sample_sections",
+    "resolve_case_track",
+    # Helper functions
+    "sections_display",
 ]

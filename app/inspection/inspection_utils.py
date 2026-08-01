@@ -1,5 +1,4 @@
-"""
-inspection_utils.py
+"""inspection_utils.py
 
 Utilities for the Inspection module, including inspection_code generation.
 """
@@ -8,10 +7,10 @@ import random
 import time
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, text
+from sqlalchemy import text
 
 from app.extensions import db
-from app.models import CodeSequence, Inspection
+from app.models import CodeSequence
 
 
 def _get_db_dialect() -> str:
@@ -21,13 +20,12 @@ def _get_db_dialect() -> str:
 
 
 def _acquire_advisory_lock(lock_key: int) -> None:
-    """
-    Acquire a PostgreSQL advisory transaction lock.
+    """Acquire a PostgreSQL advisory transaction lock.
 
     On non-PostgreSQL databases this is a no-op (the retry loop in
     ``generate_inspection_code`` handles concurrency via the sequence table).
     """
-    if _get_db_dialect() == 'postgresql':
+    if _get_db_dialect() == "postgresql":
         db.session.execute(
             text("SELECT pg_advisory_xact_lock(:key)"),
             {"key": lock_key},
@@ -35,8 +33,7 @@ def _acquire_advisory_lock(lock_key: int) -> None:
 
 
 def generate_inspection_code() -> str:
-    """
-    Generate an inspection code in the format INSP-YYYY-##### where #####
+    """Generate an inspection code in the format INSP-YYYY-##### where #####
     is zero-padded sequence per year.
 
     Uses a dedicated ``code_sequence`` table with an atomic increment
@@ -47,6 +44,7 @@ def generate_inspection_code() -> str:
 
     Returns:
         str: Generated inspection code (e.g., 'INSP-2026-00001')
+
     """
     year = datetime.utcnow().year
     seq_key = f"inspection:{year}"
@@ -79,15 +77,11 @@ def generate_inspection_code() -> str:
             time.sleep(random.uniform(0.001, 0.01) * (attempt + 1))
             continue
 
-    raise RuntimeError(
-        "Failed to generate unique inspection code after "
-        f"{max_retries} retries"
-    )
+    raise RuntimeError(f"Failed to generate unique inspection code after {max_retries} retries")
 
 
 def calculate_compliance_deadline(inspection_date) -> datetime | None:
-    """
-    Calculate compliance deadline as inspection_date + 30 days.
+    """Calculate compliance deadline as inspection_date + 30 days.
 
     Args:
         inspection_date: A datetime object, a date object, or an ISO
@@ -95,15 +89,16 @@ def calculate_compliance_deadline(inspection_date) -> datetime | None:
 
     Returns:
         datetime: The deadline as a datetime object.
+
     """
     if isinstance(inspection_date, datetime):
         base = inspection_date
-    elif hasattr(inspection_date, 'year'):  # date-like object
+    elif hasattr(inspection_date, "year"):  # date-like object
         base = datetime.combine(inspection_date, datetime.min.time())
     else:
         # Try parsing as ISO string
         try:
-            base = datetime.strptime(str(inspection_date), '%Y-%m-%d')
+            base = datetime.strptime(str(inspection_date), "%Y-%m-%d")
         except (ValueError, TypeError):
             return None
 

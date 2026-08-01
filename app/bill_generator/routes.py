@@ -1,16 +1,15 @@
 import json
 
 from flask import Blueprint, current_app, jsonify, render_template, request
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
 from app.extensions import db
-from app.models import Bill, FboIssue, Sample
+from app.models import Bill, FboIssue
 from app.services.sheets_sync import sync_to_sheets
 from app.utils.filters import parse_date
 
-bill_generator_bp = Blueprint(
-    "bill_generator", __name__, template_folder="templates", static_folder="static"
-)
+bill_generator_bp = Blueprint("bill_generator", __name__, template_folder="templates", static_folder="static")
 
 
 @bill_generator_bp.route("/")
@@ -20,8 +19,7 @@ def index():
 
 @bill_generator_bp.route("/lookup_fbo_issues", methods=["GET"])
 def lookup_fbo_issues():
-    """
-    Lookup FBO issues by fbo_id to provide pre-fill options for bill generation.
+    """Lookup FBO issues by fbo_id to provide pre-fill options for bill generation.
     Returns open and permission_granted issues that can be used to pre-fill bill forms.
     Query params: fbo_id (required), issue_id (optional - specific issue lookup)
     """
@@ -79,9 +77,7 @@ def lookup_fbo_issues():
             }
             # If there's a manufacturer, they might be the bill recipient
             if issue.manufacturer_fbo_id:
-                prefill_data["prefill"]["manufacturer_fbo_id"] = (
-                    issue.manufacturer_fbo_id
-                )
+                prefill_data["prefill"]["manufacturer_fbo_id"] = issue.manufacturer_fbo_id
         elif issue.source_type == "inspection" and detail:
             # For inspection issues, pre-fill with general info
             prefill_data["prefill"] = {
@@ -105,8 +101,7 @@ def lookup_fbo_issues():
 
 @bill_generator_bp.route("/bill/preview", methods=["GET"])
 def bill_preview():
-    """
-    Preview bill for a date range.
+    """Preview bill for a date range.
     Query params: start, end (ISO date strings YYYY-MM-DD)
     """
     start = request.args.get("start")
@@ -123,7 +118,7 @@ def bill_preview():
         result = get_billable_samples(start, end)
         return jsonify(result), 200
     except Exception as e:
-        current_app.logger.error(f"Bill preview error: {e}")
+        current_app.logger.error("Bill preview error: %s", e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -165,7 +160,11 @@ def generate_bill_route():
     )
 
     db.session.add(bill_record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "This bill was modified by another user. Please reload and try again."}), 409
 
     # Mark samples as billed and link to bill
     actual_sample_ids = [s["sample_id"] for s in sample_data["samples"]]
@@ -174,9 +173,7 @@ def generate_bill_route():
     # Try syncing to Google Sheets (new module-based sync)
     try:
         row_dict = {k: v for k, v in form_data.items() if k in bill_record.__dict__}
-        row_dict["created_at"] = (
-            bill_record.created_at.isoformat() if bill_record.created_at else ""
-        )
+        row_dict["created_at"] = bill_record.created_at.isoformat() if bill_record.created_at else ""
         success = sync_to_sheets("billing", row_dict)
         if not success:
             current_app.logger.warning(
@@ -186,7 +183,7 @@ def generate_bill_route():
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
 
     # Build template variables for synchronous PDF generation
-    _ALLOWED_TEMPLATE_VARS = {
+    allowed_template_vars = {
         "Name",
         "EMP_ID",
         "Designation",
@@ -203,7 +200,7 @@ def generate_bill_route():
         "enforcement_price",
         "surveillance_price",
     }
-    template_vars = {k: form_data.get(k, "") for k in _ALLOWED_TEMPLATE_VARS}
+    template_vars = {k: form_data.get(k, "") for k in allowed_template_vars}
 
     # Reverted to synchronous execution (.apply()) — no worker currently deployed.
     # Switch to .delay() once a persistent Celery worker is available.
@@ -218,15 +215,21 @@ def generate_bill_route():
         return jsonify({"error": f"Bill PDF generation failed: {exc}"}), 500
 
     # Unwrap task error metadata for consistent HTTP error responses
-    if result.get("status") == "error":
+    # ponytail: handle case where result might be an exception object (e.g., OSError from WeasyPrint import)
+    if isinstance(result, Exception):
+        current_app.logger.error("Bill PDF generation returned exception: %s", result)
+        return jsonify({"error": f"Bill PDF generation failed: {result}"}), 500
+
+    if isinstance(result, dict) and result.get("status") == "error":
         error_msg = result.get("error", "PDF generation failed")
         current_app.logger.error("Bill PDF generation returned error: %s", error_msg)
         return jsonify({"error": error_msg}), 500
 
-    return jsonify(
-        {
+    return (
+        jsonify({
             "message": "Bill created; PDF generated",
             "bill_id": bill_record.id,
             "pdf_result": result,
-        }
-    ), 200
+        }),
+        200,
+    )

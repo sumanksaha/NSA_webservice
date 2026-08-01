@@ -1,20 +1,19 @@
-import os
 import re
+from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).parent.resolve()
 # fss_sections.md is in the workspace root, two levels up from app/utils/
-SECTION_MD_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "fss_sections.md"))
+SECTION_MD_PATH = (Path(__file__).parent.parent.parent / "fss_sections.md").resolve()
 
 
-def load_sections(path: str = SECTION_MD_PATH) -> dict:
-    """
-    Parses a markdown file structured with level-1 headers of the form
+def load_sections(path: str | Path = SECTION_MD_PATH) -> dict:
+    """Parses a markdown file structured with level-1 headers of the form
     '# Section NN' into a dict: {"55": "full section text...", ...}.
     """
-    if not os.path.exists(path):
+    if not Path(path).exists():
         raise FileNotFoundError(f"FSS sections file not found at: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         text = f.read()
 
     chunks = re.split(r"\n(?=# Section \d+)", text)
@@ -27,8 +26,7 @@ def load_sections(path: str = SECTION_MD_PATH) -> dict:
 
     if not sections:
         raise ValueError(
-            f"No sections parsed from '{path}'. Check the file exists and "
-            f"uses '# Section NN' level-1 headers."
+            f"No sections parsed from '{path}'. Check the file exists and uses '# Section NN' level-1 headers.",
         )
 
     return sections

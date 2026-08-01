@@ -85,6 +85,7 @@
     </div>
 
     <form method="post" action="{{ url_for('adjudication.generate_all') }}">
+        {{ csrf_token() }}
         <!-- Hidden field to track source inspection -->
         {% if prefill and prefill.from_inspection %}
         <input type="hidden" name="from_inspection" value="{{ prefill.from_inspection }}">

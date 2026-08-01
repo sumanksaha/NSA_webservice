@@ -8,12 +8,12 @@ Revision ID: add_missing_base_tables
 Revises: 7e5a0f6c9561
 Create Date: 2026-07-25
 """
+
 from alembic import op
 import sqlalchemy as sa
 
-
-revision = 'add_missing_base_tables'
-down_revision = '7e5a0f6c9561'
+revision = "add_missing_base_tables"
+down_revision = "7e5a0f6c9561"
 branch_labels = None
 depends_on = None
 
@@ -22,7 +22,8 @@ def upgrade():
     conn = op.get_bind()
 
     # ── case_files ──────────────────────────────────────────────────────
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         CREATE TABLE IF NOT EXISTS case_files (
             id              INTEGER NOT NULL PRIMARY KEY,
             case_number     VARCHAR(100) NOT NULL,
@@ -67,10 +68,12 @@ def upgrade():
             created_at      DATETIME,
             synced_at       DATETIME
         )
-    """))
+    """),
+    )
 
     # ── adjudications ───────────────────────────────────────────────────
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         CREATE TABLE IF NOT EXISTS adjudications (
             id                  INTEGER NOT NULL PRIMARY KEY,
             case_number         VARCHAR(100) NOT NULL,
@@ -114,10 +117,12 @@ def upgrade():
             created_at          DATETIME,
             synced_at           DATETIME
         )
-    """))
+    """),
+    )
 
     # ── bills ───────────────────────────────────────────────────────────
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         CREATE TABLE IF NOT EXISTS bills (
             id                  INTEGER NOT NULL PRIMARY KEY,
             Name                VARCHAR(100) NOT NULL,
@@ -138,10 +143,12 @@ def upgrade():
             created_at          DATETIME,
             synced_at           DATETIME
         )
-    """))
+    """),
+    )
 
     # ── photo_evidence ──────────────────────────────────────────────────
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         CREATE TABLE IF NOT EXISTS photo_evidence (
             image_id            VARCHAR NOT NULL PRIMARY KEY,
             case_id             INTEGER,
@@ -159,10 +166,12 @@ def upgrade():
             verification_status VARCHAR DEFAULT 'PENDING',
             stamped             BOOLEAN DEFAULT 0
         )
-    """))
+    """),
+    )
 
     # ── audit_log ───────────────────────────────────────────────────────
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         CREATE TABLE IF NOT EXISTS audit_log (
             id              INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             entity_type     VARCHAR NOT NULL,
@@ -174,7 +183,8 @@ def upgrade():
             curr_hash       VARCHAR,
             details_json    TEXT
         )
-    """))
+    """),
+    )
 
 
 def downgrade():

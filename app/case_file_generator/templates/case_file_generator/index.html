@@ -53,6 +53,7 @@
     </div>
     
     <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
+        {{ csrf_token() }}
         <!-- Case Information -->
         <div class="section-header">
             <h3><i class="fa-solid fa-circle-info"></i> Case Information</h3>

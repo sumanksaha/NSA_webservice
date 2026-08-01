@@ -1,5 +1,4 @@
-"""
-OCR tasks for the Inspection blueprint.
+"""OCR tasks for the Inspection blueprint.
 
 Provides a Celery task that performs zonal OCR on scanned documents
 and photos attached to inspection records.
@@ -12,9 +11,8 @@ except ImportError:
     celery = None
 
 
-def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
-    """
-    Perform zonal OCR on a scanned PDF or image file.
+def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
+    """Perform zonal OCR on a scanned PDF or image file.
 
     Converts PDF pages to images (via ``pdf2image``) or processes image
     files directly, then uses ``pytesseract`` to extract text.  If
@@ -41,30 +39,27 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
         For transient errors (file I/O, resource contention).
     ValueError
         For non-transient errors (unsupported format, missing file).
+
     """
     # --- lazy imports so the module can be loaded without heavy deps ---
     import logging
-    import os
+    from pathlib import Path
 
     logger = logging.getLogger(__name__)
 
     # Validate file exists before doing any work
-    if not os.path.isfile(file_path):
+    if not Path(file_path).is_file():
         raise ValueError(f"File not found: {file_path}")
 
     # Determine file type by extension
-    _, ext = os.path.splitext(file_path)
-    ext = ext.lower()
+    ext = Path(file_path).suffix.lower()
 
     is_pdf = ext == ".pdf"
     supported_images = {".jpg", ".jpeg", ".png", ".webp", ".tiff", ".bmp"}
 
     if not is_pdf and ext not in supported_images:
         # Non-transient — don't retry
-        raise ValueError(
-            f"Unsupported file format '{ext}'. "
-            f"Supported: PDF, {', '.join(sorted(supported_images))}"
-        )
+        raise ValueError(f"Unsupported file format '{ext}'. Supported: PDF, {', '.join(sorted(supported_images))}")
 
     pages = []  # list of PIL Image objects
 
@@ -79,17 +74,17 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
             from PIL import Image
 
             pages = [Image.open(file_path)]
-    except (IOError, OSError) as exc:
+    except OSError as exc:
         # File I/O errors are typically transient (e.g. NFS glitch)
         logger.warning("Transient I/O error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
     except ValueError:
         # Non-transient — let it propagate
         raise
     except Exception as exc:
         # Transient: network mount, lock contention, etc.
         logger.warning("Transient error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
     import pytesseract
 
@@ -112,10 +107,8 @@ def run_ocr_extraction(self, file_path: str, zones: dict = None) -> dict:
             err_str = str(exc).lower()
             # Retry only for recognised transient conditions
             if any(term in err_str for term in ("timeout", "temporary", "eagain")):
-                logger.warning(
-                    "Transient OCR error on page %d: %s", page_num, exc
-                )
-                raise self.retry(exc=exc, countdown=60)
+                logger.warning("Transient OCR error on page %d: %s", page_num, exc)
+                raise self.retry(exc=exc, countdown=60) from exc
             # Otherwise record the failure and continue with remaining pages
             logger.error("Non-transient OCR error on page %d: %s", page_num, exc)
             results[f"p{page_num}_error"] = str(exc)

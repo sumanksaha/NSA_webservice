@@ -17,8 +17,30 @@ services:
         fromDatabase:
           name: nsa-webservice-db
           property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
       - key: SPREADSHEET_ID
         sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: R2_REGION
+        value: auto
+      - key: DISABLE_PDF_GENERATION
+        value: "false"
+      - key: PDF_USE_DIRECT_URLS
+        value: "false"
 
 databases:
   - name: nsa-webservice-db

@@ -1,16 +1,25 @@
+import contextlib
 import os
 from datetime import datetime
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-def process_and_stamp_image(image_file, locality: str, captured_at: str, verification_status: str, image_id: str, case_id: str) -> str:
-    """
-    Takes an uploaded image file object, processes it, and saves to disk.
+def process_and_stamp_image(
+    image_file,
+    locality: str,
+    captured_at: str,
+    verification_status: str,
+    image_id: str,
+    case_id: str,
+) -> str:
+    """Takes an uploaded image file object, processes it, and saves to disk.
     Returns the final filepath (str).
     Raises ValueError with a clear message if processing fails.
     """
-    temp_path = None
     try:
         # Open the image
         img = Image.open(image_file)
@@ -28,8 +37,8 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
             raise ValueError(f"Failed to resize image: {exc}") from exc
 
     # Strip EXIF data
-    if hasattr(img, '_getexif'):
-        img.info.pop('exif', None)
+    if hasattr(img, "_getexif"):
+        img.info.pop("exif", None)
 
     # Create a drawing context
     draw = ImageDraw.Draw(img)
@@ -38,17 +47,14 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
     # Draw semi-transparent dark banner at the bottom
     banner_height = int(img_height * 0.15)
     banner_color = (0, 0, 0, 180)  # Semi-transparent black
-    draw.rectangle(
-        [(0, img_height - banner_height), (img_width, img_height)],
-        fill=banner_color
-    )
+    draw.rectangle([(0, img_height - banner_height), (img_width, img_height)], fill=banner_color)
 
     # Prepare text for the stamp
     text_lines = []
     if verification_status == "FLAG":
         text_lines.append("⚠ UNVERIFIED — Manual Review Required")
     else:
-        text_lines.append(locality if locality else "Unknown Location")
+        text_lines.append(locality or "Unknown Location")
         text_lines.append(captured_at)
         text_lines.append(f"Status: {verification_status}")
 
@@ -77,23 +83,21 @@ def process_and_stamp_image(image_file, locality: str, captured_at: str, verific
         month = "unknown"
 
     # Create the directory path
-    output_dir = os.path.join("photos", year, month, case_id)
+    output_dir = Path("photos") / year / month / case_id
     try:
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(str(output_dir), exist_ok=True)
     except Exception as exc:
         raise ValueError(f"Failed to create output directory: {exc}") from exc
 
     # Save as WebP
-    output_path = os.path.join(output_dir, f"{image_id}.webp")
+    output_path = output_dir / f"{image_id}.webp"
     try:
         img.save(output_path, format="WEBP", quality=78)
     except Exception as exc:
         # Clean up partial file if it was created
-        if os.path.exists(output_path):
-            try:
-                os.remove(output_path)
-            except Exception:
-                pass
+        if output_path.exists():
+            with contextlib.suppress(Exception):
+                os.remove(str(output_path))
         raise ValueError(f"Failed to save image: {exc}") from exc
 
-    return output_path
+    return str(output_path)

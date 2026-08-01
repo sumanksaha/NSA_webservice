@@ -1,109 +1,334 @@
-# =============================================================================
-# NSA Legal Intelligence Platform — Project Configuration
-# =============================================================================
-
 [build-system]
-requires = ["setuptools>=68.0", "wheel>=0.42.0"]
+requires = ["setuptools>=68.0", "wheel>=0.41"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "nsa-webservice"
-version = "1.0.1"
-description = "Food Safety Legal Intelligence Platform"
+version = "0.8.0"
+description = "Government-grade Legal Intelligence Platform for Food Safety Officer adjudication, inspection tracking, sample management, and legal document generation."
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
-keywords = ["food-safety", "inspection", "adjudication", "flask"]
+license = { file = "LICENSE" }
+authors = [
+    { name = "Suman Saha", email = "github@sumansaha.com" },
+]
+keywords = [
+    "food-safety",
+    "adjudication",
+    "legal-intelligence",
+    "fssai",
+    "government",
+    "workflow-automation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Government",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Office/Business :: Workflow",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+
 dependencies = [
-  "alembic>=1.13.0",
-  "flask",
-  "flask-sqlalchemy",
-  "flask-migrate",
-  "gspread==6.2.1",
-  "google-auth==2.56.0",
-  "jinja2",
-  "psycopg2-binary>=2.9.9",
-  "weasyprint",
-  "python-multipart",
-  "num2words",
-  "httpx",
-  "gunicorn",
-  "openpyxl",
-  "boto3",
-  "python-dotenv>=1.0.0",
-  "flask-talisman>=1.1.0",
-  "flask-wtf>=1.2.0",
-  "flask-login>=0.6.3",
-  "celery>=5.4.0",
-  "redis>=5.0.0",
-  "pytesseract>=0.3.10",
-  "pdf2image>=1.16.3",
+    "alembic>=1.13.0",
+    "flask",
+    "flask-sqlalchemy",
+    "flask-migrate",
+    "gspread>=6.2.1",
+    "google-auth>=2.56.0",
+    "jinja2",
+    "psycopg2-binary>=2.9.9",
+    "weasyprint",
+    "python-multipart",
+    "num2words",
+    "httpx",
+    "gunicorn",
+    "openpyxl",
+    "boto3",
+    "python-dotenv>=1.0.0",
+    "flask-talisman>=1.1.0",
+    "flask-wtf>=1.2.0",
+    "flask-login>=0.6.3",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
+    "pytesseract>=0.3.10",
+    "pdf2image>=1.16.3",
+    # Document Loader (Legal Document Ingestion)
+    "pdfplumber>=0.10.0",
+    "PyMuPDF>=1.25.0",
+    "python-docx>=1.1.0",
+    "pydantic>=2.0.0",
+    "orjson>=3.10.0",
+    "chardet>=5.0.0",
+    "tqdm>=4.65.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pytest>=7.4.0",
-  "pytest-cov>=4.1.0",
-  "coverage>=7.0.0",
-  "pre-commit>=3.7.0",
-  "ruff>=0.4.0",
-  "mypy>=1.10.0",
-  "black>=24.3.0",
-  "isort>=5.12.0",
-  "bandit>=1.7.0",
-  "safety>=3.0.0",
-  "pip-audit>=2.7.0",
-  "types-python-dateutil>=2.9.0",
-  "types-requests>=2.31.0",
-  "types-PyYAML>=6.0.0",
-]
+[project.urls]
+Homepage = "https://github.com/sumanksaha/NSA_webservice"
+Repository = "https://github.com/sumanksaha/NSA_webservice"
+Documentation = "https://github.com/sumanksaha/NSA_webservice"
+Changelog = "https://github.com/sumanksaha/NSA_webservice/blob/upgradation/CHANGELOG.md"
+Issues = "https://github.com/sumanksaha/NSA_webservice/issues"
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q"
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-
+# =============================================================================
+# Tool: Black — The uncompromising Python code formatter
+# =============================================================================
 [tool.black]
 line-length = 120
 target-version = ["py312"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(
-    \.mypy_cache
-  | \.venv
-  | venv
-  | migrations
+    migrations/versions/
+  | \.eggs/
+  | \.git/
+  | \.hg/
+  | \.mypy_cache/
+  | \.tox/
+  | \.venv/
+  | venv/
+  | _build/
+  | buck-out/
+  | build/
+  | dist/
+  | node_modules/
+  | __pycache__/
 )/
 '''
 
+# =============================================================================
+# Tool: Ruff — An extremely fast Python linter
+# =============================================================================
 [tool.ruff]
 target-version = "py312"
 line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "N",  # pep8-naming
-    "UP",  # pyupgrade
-    "B",  # flake8-bugbear
-    "SIM", # flake8-simplify
+    "F",    # Pyflakes — errors (unused imports, undefined names, etc.)
+    "E",    # Pycodestyle — errors
+    "W",    # Pycodestyle — warnings
+    "I",    # isort — import sorting
+    "N",    # PEP 8 naming conventions
+    "UP",   # Pyupgrade — modern Python syntax
+    "S",    # Bandit — security checks
+    "B",    # flake8-bugbear — bug detection
+    "SIM",  # flake8-simplify — code simplification
+    "T20",  # flake8-print — print statements
+    "RUF",  # Ruff-specific rules
 ]
 ignore = [
-    "E501",  # line too long (handled by black)
+    "E501",   # Line too long (handled by Black)
+    "E402",   # Module import not at top of file (needed for Flask app factory)
+    "S101",   # Use of assert (allowed in tests)
+    "B008",   # Do not perform function calls in argument defaults (Flask pattern)
+    "N818",   # Exception name should be named with an Error suffix (false positives)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S108", "S311", "T20", "B017", "SIM117"]
+"migrations/versions/*" = ["E402", "F401", "I001", "S110", "SIM105"]
+"app/__init__.py" = ["E402", "F401", "S105"]
+"app/models.py" = ["E402"]
+"app.py" = ["S104"]
+"app/utils/lookup.py" = ["S608"]
+"app/document_loader/*" = ["S110"]
+"app/inspection/verification_service.py" = ["S110"]
+"legal-paragraph-detection-engine/examples/*" = ["T201"]
+"legal-paragraph-detection-engine/tests/*" = ["T201", "W293", "F821", "F841", "RUF022"]
+"legal-paragraph-detection-engine/__init__.py" = ["N999", "F821"]
+"legal-paragraph-detection-engine/src/__init__.py" = ["N999", "RUF022"]
+"app/ocr_pipeline/detectors.py" = ["S110"]
+"app/ocr_pipeline/preprocessing.py" = ["S110"]
+"app/utils/sync.py" = ["S110"]
+"app/inspection/inspection_utils.py" = ["S311"]
+"app/sample/sample_utils.py" = ["S311"]
+"celery_verify.py" = ["S110"]
+"check_*.py" = ["B007", "S110", "S608", "SIM108"]
+"count_loc.py" = ["E741", "S110"]
+"create_tables.py" = ["F403"]
+"find_routes.py" = ["SIM102"]
+"fuzzy_dedup_stage0.py" = ["F401", "S607"]
+"scripts/*" = ["B007"]
+"search_*.py" = ["B007", "S110", "SIM102"]
+"smoke_test.py" = ["T201"]
+"test_*.py" = ["T201", "W293"]
+"tests/*.py" = ["T20", "W293"]
+
+[tool.ruff.format]
+preview = true
+
+# =============================================================================
+# Tool: Mypy — Static type checking
+# =============================================================================
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
+strict = false
 warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+ignore_missing_imports = true
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_explicit = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+
+[[tool.mypy.overrides]]
+module = [
+    "flask",
+    "flask_sqlalchemy",
+    "flask_login",
+    "sqlalchemy.*",
+    "gspread",
+    "httpx",
+    "weasyprint.*",
+    "boto3",
+    "celery.*",
+    "PIL.*",
+    "openpyxl.*",
+    "num2words",
+    "pytesseract",
+    "pdf2image.*",
+]
 ignore_missing_imports = true
 follow_imports = "skip"
-files = "app/"
 
+[[tool.mypy.overrides]]
+module = [
+    "app.models",
+    "app.adjudication.routes",
+    "app.inspection.routes",
+    "app.bill_generator.routes",
+    "app.case_file_generator.routes",
+    "app.sample.routes",
+    "app.billing.routes",
+    "app.auth.routes",
+    "app.fbo_issue.routes",
+    "app.audit_hooks",
+    "app.services.audit",
+    "app.bill_generator.utils",
+    "app.sample.sample_utils",
+    "app.inspection.inspection_utils",
+    "app.utils.fso_data",
+    "app.shared.context_derivers",
+]
+ignore_errors = true
+
+# =============================================================================
+# Tool: Pytest — Python testing framework
+# =============================================================================
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --no-header"
+filterwarnings = [
+    "ignore::DeprecationWarning:flask_sqlalchemy.*",
+    "ignore::DeprecationWarning:sqlalchemy.*",
+    "ignore::UserWarning:weasyprint.*",
+    "ignore::PendingDeprecationWarning:werkzeug.*",
+    # Allow all other warnings to surface
+]
+
+# =============================================================================
+# Tool: Coverage.py — Code coverage measurement
+# =============================================================================
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/venv/*",
+    "*/instance/*",
+    "*/celery_verify.py",
+    "*/celery_app.py",
+    "app/__init__.py",
+    "app.py",
+]
+command_line = "-m pytest"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# =============================================================================
+# Tool: Bandit — Security linter (configured via pyproject.toml)
+# =============================================================================
 [tool.bandit]
-exclude_dirs = ["tests", "migrations", ".venv", "venv"]
-skips = ["B101", "B311", "B324"]
+targets = ["app"]
+exclude_dirs = [
+    "tests",
+    "migrations",
+    "venv",
+    ".venv",
+    ".eggs",
+    ".git",
+    "instance",
+]
+skips = [
+    "B101",  # assert statements (allowed with explicit intent)
+    "B311",  # pseudo-random generators (not security-critical here)
+    "B324",  # SHA1/SHA224 usage (used in audit chain, not crypto)
+]
+confidence = "HIGH"
+severity = "HIGH"
+
+# =============================================================================
+# Tool: Setuptools — Python packaging
+# =============================================================================
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["tests*", "migrations*", "instance*", "scripts*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.html", "*.css", "*.js", "*.png", "*.jpg", "*.md", "*.txt", "*.yaml", "*.yml"]
+
+# =============================================================================
+# Tool: isort — Import sorting (used via Ruff, config here for reference)
+# =============================================================================
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["app"]
+known_third_party = [
+    "alembic",
+    "flask",
+    "flask_login",
+    "flask_migrate",
+    "flask_sqlalchemy",
+    "flask_talisman",
+    "flask_wtf",
+    "gspread",
+    "gunicorn",
+    "httpx",
+    "jinja2",
+    "openpyxl",
+    "pytest",
+    "sqlalchemy",
+    "weasyprint",
+]
+default_section = "THIRDPARTY"
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]

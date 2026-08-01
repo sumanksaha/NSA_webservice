@@ -1,0 +1,105 @@
+# =============================================================================
+# .ai/ignore.txt — Paths that should NEVER be indexed by an AI coding agent.
+# One glob per line. Lines beginning with '#' are comments.
+# Patterns follow gitignore / glob syntax.
+# =============================================================================
+
+# --- Version control & CI artifacts ---
+.git
+.github/workflows/artifacts
+.github
+.gitlab
+
+# --- Python caches & environments ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.venv/
+venv/
+env/
+.venv.bak/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# --- Build / packaging artifacts ---
+build/
+dist/
+.eggs/
+*.manifest
+*.spec
+
+# --- Test / coverage artifacts ---
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+
+# --- Runtime & logs ---
+logs/
+*.log
+tmp/
+temp/
+.cache/
+.cache/
+
+# --- Instance / local runtime data ---
+instance/
+instance/app.db
+instance/*.backup_*
+instance/credentials.json
+
+# --- Generated data outputs (large CSVs, JSON exports from pipelines) ---
+output/
+*.csv
+*.json
+generated/
+
+# --- Binary assets (images, photos, PDFs used as evidence) ---
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+*.pdf
+*.docx
+*.doc
+*.zip
+*.tar
+*.gz
+
+# --- ML / large model artifacts ---
+models/
+model_checkpoints/
+*.pt
+*.bin
+*.gguf
+*.safetensors
+*.h5
+*.onnx
+
+# --- Legal engine specific generated/ignored ---
+legal_paragraph_detection_engine/output/
+legal_paragraph_detection_engine/.mypy_cache/
+legal_paragraph_detection_engine/benchmarks/
+legal_paragraph_detection_engine/config/
+legal_paragraph_detection_engine/examples/
+legal_paragraph_detection_engine/examples/indian_legal_texts/
+legal_paragraph_detection_engine/examples/output_samples/
+
+# --- Datasets / large reference data ---
+datasets/
+data/
+large_pdfs/
+
+# --- Miscellaneous stray root artifacts ---
+nul
+c
+merged_summary_report.txt
+stage0_status_report.txt

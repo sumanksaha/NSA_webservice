@@ -4,8 +4,7 @@ from num2words import num2words
 
 
 def parse_date(date_val):
-    """
-    Parse a date value into a datetime object.
+    """Parse a date value into a datetime object.
 
     Accepts:
       - datetime objects (returned as-is)
@@ -15,12 +14,13 @@ def parse_date(date_val):
 
     Returns:
         datetime or None if the value cannot be parsed.
+
     """
-    if date_val is None or date_val == '':
+    if date_val is None or date_val == "":
         return None
     if isinstance(date_val, datetime):
         return date_val
-    if hasattr(date_val, 'year') and not isinstance(date_val, str):
+    if hasattr(date_val, "year") and not isinstance(date_val, str):
         # date-like object (not a string)
         return datetime.combine(date_val, datetime.min.time())
     date_str = str(date_val).strip()
@@ -33,38 +33,35 @@ def parse_date(date_val):
 
 
 def to_words(number):
-    """
-    Jinja filter to convert a number (integer or float) to Indian currency word representation.
+    """Jinja filter to convert a number (integer or float) to Indian currency word representation.
     e.g., 6025.55 -> 'Six thousand, twenty-five and fifty-five hundredths' or equivalent.
     """
-    if number is None or number == '':
+    if number is None or number == "":
         return ""
-    
+
     try:
         # Sanitize input: strip commas, spaces, currency symbols before converting
-        number_str = str(number).replace(',', '').replace(' ', '').replace('₹', '').strip()
+        number_str = str(number).replace(",", "").replace(" ", "").replace("₹", "").strip()
         val = float(number_str)
-        
-        if val.is_integer():
-            return num2words(int(val), lang='en_IN').capitalize()
-        else:
-            # Separate rupees and paise if needed
-            parts = number_str.split('.')
-            rupees = int(parts[0])
-            paise = int(parts[1][:2]) if len(parts) > 1 else 0
 
-            rupees_words = num2words(rupees, lang='en_IN').capitalize()
-            if paise > 0:
-                paise_words = num2words(paise, lang='en_IN')
-                return f"{rupees_words} and {paise_words} Paise"
-            return rupees_words
+        if val.is_integer():
+            return num2words(int(val), lang="en_IN").capitalize()
+        # Separate rupees and paise if needed
+        parts = number_str.split(".")
+        rupees = int(parts[0])
+        paise = int(parts[1][:2]) if len(parts) > 1 else 0
+
+        rupees_words = num2words(rupees, lang="en_IN").capitalize()
+        if paise > 0:
+            paise_words = num2words(paise, lang="en_IN")
+            return f"{rupees_words} and {paise_words} Paise"
+        return rupees_words
     except (ValueError, TypeError):
         return str(number) if number else ""
 
 
 def format_date_indian(date_val):
-    """
-    Jinja filter to convert a date string (YYYY-MM-DD, DD/MM/YYYY, etc.) or datetime object
+    """Jinja filter to convert a date string (YYYY-MM-DD, DD/MM/YYYY, etc.) or datetime object
     to Indian DD-MM-YYYY format (e.g. '15-05-2026').
     """
     if not date_val:

@@ -1,34 +1,59 @@
+# Pre-commit configuration for NSA Webservice
+# Uses the system-installed ruff (from requirements-dev.txt) so pre-commit,
+# terminal, and CI all run the same version.
+# See: https://pre-commit.com
+#
+# Install hooks:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run on all files:
+#   pre-commit run --all-files
+#
+# Run on staged files only (default):
+#   pre-commit run
+#
+# Skip hooks for a single commit:
+#   git commit -m "msg" --no-verify
+
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+  - repo: local
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-toml
-      - id: check-json
-      - id: check-added-large-files
-      - id: check-case-conflict
-      - id: check-merge-conflict
-      - id: debug-statements
+      # ─── Ruff lint ───────────────────────────────────────────────────
+      - id: ruff-check
+        name: ruff check
+        description: "Lint Python files — catches unused imports, undefined names, etc."
+        entry: python -m ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: false
 
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
-    hooks:
-      - id: black
-        language_version: python3.12
+      # ─── Ruff format ─────────────────────────────────────────────────
+      - id: ruff-format
+        name: ruff format
+        description: "Format Python files using ruff."
+        entry: python -m ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: false
 
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.4.2
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
-    hooks:
+      # ─── Mypy type checking ──────────────────────────────────────────
       - id: mypy
-        additional_dependencies:
-          - types-python-dateutil
-          - types-requests
-          - types-PyYAML
+        name: mypy
+        description: "Static type checking — fails on any type error in app/."
+        entry: python -m mypy app/
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+        pass_filenames: false
+
+      # ─── Pytest test suite ───────────────────────────────────────────
+      # Note: runs the full suite (~228 tests, ~2 min) on every Python commit.
+      - id: pytest
+        name: pytest
+        description: "Run the full test suite — fails on any failing test."
+        entry: python -m pytest tests/ -q --no-header
+        language: system
+        types_or: [python]
+        require_serial: true
+        pass_filenames: false

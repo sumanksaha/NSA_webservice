@@ -4,8 +4,8 @@ from flask_talisman import Talisman
 from flask_wtf.csrf import CSRFProtect
 
 db = SQLAlchemy()
+talisman = Talisman()
 csrf = CSRFProtect()
 login_manager = LoginManager()
-talisman = Talisman()
-
-__all__ = ["csrf", "db", "login_manager", "talisman"]
+login_manager.login_view = "auth.login"
+login_manager.login_message = "Please log in to access this page."

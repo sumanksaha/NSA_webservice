@@ -1,12 +1,18 @@
 import json
-import os
+import logging
 import re
 import sqlite3
 import ssl
 import time
+from pathlib import Path
 
 import httpx
 
+logger = logging.getLogger(__name__)
+
+from typing import Any
+
+fcntl: Any
 try:
     import fcntl
 except ImportError:
@@ -14,21 +20,21 @@ except ImportError:
     # rate limiting still works via the timestamp file).
     fcntl = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).parent.resolve()
 # app/utils is nested two levels deep from the workspace root
-WORKSPACE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', '..'))
-DB_DIR = os.path.join(WORKSPACE_DIR, "db")
-LICENSE_DB_PATH = os.path.join(DB_DIR, "license_data.db")
-REGISTRATION_DB_PATH = os.path.join(DB_DIR, "registration_data.db")
+WORKSPACE_DIR = (Path(__file__).parent.parent.parent).resolve()
+DB_DIR = WORKSPACE_DIR / "db"
+LICENSE_DB_PATH = DB_DIR / "license_data.db"
+REGISTRATION_DB_PATH = DB_DIR / "registration_data.db"
 
 # Rate limiting for KMC CE lookup (govt website - 40 second gap required)
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
-_KMC_LOCK_PATH = os.path.join(DB_DIR, ".kmc_lookup_lock")
-_KMC_LAST_REQUEST_TIME_PATH = os.path.join(DB_DIR, ".kmc_last_request_time")
+_KMC_LOCK_PATH = DB_DIR / ".kmc_lookup_lock"
+_KMC_LAST_REQUEST_TIME_PATH = DB_DIR / ".kmc_last_request_time"
+
 
 def lookup_fssai(license_no: str):
-    """
-    Look up an FSSAI License/Registration number.
+    """Look up an FSSAI License/Registration number.
     Numbers starting with '1' are Registration-category FBOs -> license_records in license_data.db.
     Numbers starting with '2' are License-category FBOs -> registration_records in registration_data.db.
     Returns a dict with companyName/fullAddress/expiryDate/source, or None if not found/error.
@@ -37,26 +43,31 @@ def lookup_fssai(license_no: str):
         return None, "License/Registration number is required."
 
     prefix = license_no[0]
-    if prefix == '1':
+    if prefix == "1":
         db_path, table, col, source = LICENSE_DB_PATH, "license_records", "license_no", "license_data"
-    elif prefix == '2':
-        db_path, table, col, source = REGISTRATION_DB_PATH, "registration_records", "registration_no", "registration_data"
+    elif prefix == "2":
+        db_path, table, col, source = (
+            REGISTRATION_DB_PATH,
+            "registration_records",
+            "registration_no",
+            "registration_data",
+        )
     else:
         return None, "Unrecognized License/Registration number prefix (expected to start with 1 or 2)."
 
-    if not os.path.exists(db_path):
-        return None, f"Lookup database not found: {os.path.basename(db_path)}."
+    if not Path(db_path).exists():
+        return None, f"Lookup database not found: {Path(db_path).name}."
 
     conn = sqlite3.connect(db_path)
     try:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?",
-            (license_no,)
+            (license_no,),
         ).fetchone()
     except Exception as e:
-        print(f"FSSAI lookup query failed: {e}")
-        return None, f"Database error: {str(e)}"
+        logger.error("FSSAI lookup query failed: %s", e)
+        return None, f"Database error: {e!s}"
     finally:
         conn.close()
 
@@ -72,51 +83,46 @@ def lookup_fssai(license_no: str):
 
 
 def lookup_ce(license_no: str):
-    """
-    Fetches Trade License details from KMC portal.
+    """Fetches Trade License details from KMC portal.
     Implements cross-process rate limiting: minimum 40 seconds between consecutive requests.
     Uses file locking to coordinate across multiple workers/processes.
     """
     lock_fd = None
     try:
-        lock_fd = open(_KMC_LOCK_PATH, 'w')
-        if fcntl:
-            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+        with open(_KMC_LOCK_PATH, "w") as lock_fd:
+            if fcntl:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
-        try:
-            with open(_KMC_LAST_REQUEST_TIME_PATH, 'r') as f:
-                last_time = float(f.read().strip() or '0')
-        except (FileNotFoundError, ValueError):
-            last_time = 0
+            try:
+                with open(_KMC_LAST_REQUEST_TIME_PATH) as f:
+                    last_time = float(f.read().strip() or "0")
+            except (FileNotFoundError, ValueError):
+                last_time = 0
 
-        current_time = time.time()
-        elapsed = current_time - last_time
-        if elapsed < _KMC_RATE_LIMIT_SECONDS:
-            sleep_time = _KMC_RATE_LIMIT_SECONDS - elapsed
-            time.sleep(sleep_time)
             current_time = time.time()
+            elapsed = current_time - last_time
+            if elapsed < _KMC_RATE_LIMIT_SECONDS:
+                sleep_time = _KMC_RATE_LIMIT_SECONDS - elapsed
+                time.sleep(sleep_time)
+                current_time = time.time()
 
-        with open(_KMC_LAST_REQUEST_TIME_PATH, 'w') as f:
-            f.write(str(current_time))
+            with open(_KMC_LAST_REQUEST_TIME_PATH, "w") as f:
+                f.write(str(current_time))
     finally:
         if lock_fd:
             try:
                 if fcntl:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
-                lock_fd.close()
-            except Exception:
-                pass
-    
-    # SSL context with SECLEVEL=1 for government certificate compatibility
-    # Note: check_hostname and verify_mode are intentionally NOT set to False/CERT_NONE
-    # to maintain MITM protection. SECLEVEL=1 relaxes cipher requirements for older certs.
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+            except Exception as e:
+                logger.warning("Failed to release file lock: %s", e)
+
+    # ponytail: TLS verification enabled for security
+    # KMC portal certificate is valid (signed by Sectigo)
     ctx = ssl.create_default_context()
     ctx.set_ciphers("DEFAULT@SECLEVEL=1")
 
     with httpx.Client(timeout=15, verify=ctx) as client:
-        client.get(
-            "https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp"
-        )
+        client.get("https://www.kmcgov.in/KMCPortal/jsp/TradeLicenseInformation.jsp")
         resp = client.post(
             "https://www.kmcgov.in/KMCPortal/LicenseInformationAction.do?passedParam=searchResult",
             data={"searchLicenseNo": license_no},
@@ -129,11 +135,11 @@ def lookup_ce(license_no: str):
 
         raw_text = resp.text
         # KMC's endpoint returns JSON with unquoted keys — fix before parsing
-        fixed_text = re.sub(r'([,{])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', raw_text)
+        fixed_text = re.sub(r"([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", r'\1"\2":', raw_text)
         try:
             data = json.loads(fixed_text)
         except json.JSONDecodeError as e:
-            print(f"KMC JSON repair failed: {e}")
+            logger.error("KMC JSON repair failed: %s", e)
             return None
 
     if not data.get("success"):
@@ -146,8 +152,4 @@ def lookup_ce(license_no: str):
         return None
 
     fee_heads = [{"section": r.get("sectionCode"), "amount": r.get("demandAmount")} for r in rows]
-    return {
-        "identity": identity,
-        "fee_heads": fee_heads,
-        "is_closed": bool(identity.get("licClosingDate"))
-    }
+    return {"identity": identity, "fee_heads": fee_heads, "is_closed": bool(identity.get("licClosingDate"))}
