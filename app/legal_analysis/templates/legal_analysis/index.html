@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Legal Text Analysis — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="glass-card-header">
+        <h2><i class="fa-solid fa-scale-balanced"></i> Legal Text Analysis</h2>
+        <p style="color: var(--text-body); font-size: 13px; margin-top: 4px;">
+            Paste a legal document (Act, Notification, Rules) and get a structured breakdown of
+            sections, clauses, citations and confidence scores — powered by the
+            Legal Paragraph Detection Engine.
+        </p>
+    </div>
+
+    <form id="analyze-form">
+        <label for="text" style="font-weight: 600; font-size: 14px;">Legal document text</label>
+        <textarea id="text" name="text" rows="14" required
+            style="width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--border);
+                   border-radius: var(--radius); font-family: var(--font-heading);
+                   font-size: 14px; line-height: 1.6; background: var(--bg-subtle); color: var(--text-primary);"
+            placeholder="Paste legal text here, e.g.:
+
+Section 3. Definitions. In this Act, unless the context otherwise requires,
+3(1) \"food\" means any substance, whether processed, semi-processed or raw...
+3(1)(a) includes drinks, chewing gum and any substance used in manufacture."></textarea>
+
+        <div style="display: flex; gap: 12px; margin-top: 14px; align-items: center;">
+            <button type="submit" id="analyze-btn" class="tab-link active" style="border: none; cursor: pointer;">
+                <i class="fa-solid fa-magnifying-glass"></i> Analyze
+            </button>
+            <button type="button" id="sample-btn" class="tab-link" style="border: 1px solid var(--border); cursor: pointer;">
+                <i class="fa-solid fa-file-lines"></i> Load sample
+            </button>
+            <span id="status" style="font-size: 13px; color: var(--text-body);"></span>
+        </div>
+    </form>
+</div>
+
+<div id="results" style="display: none;">
+    <div class="glass-card" id="summary-card">
+        <div class="glass-card-header">
+            <h2><i class="fa-solid fa-chart-simple"></i> Summary</h2>
+        </div>
+        <div id="summary-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;"></div>
+    </div>
+
+    <div class="glass-card">
+        <div class="glass-card-header">
+            <h2><i class="fa-solid fa-list-ol"></i> Paragraphs <span id="para-count" style="font-size: 14px; color: var(--text-body);"></span></h2>
+        </div>
+        <div id="paragraphs" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+</div>
+
+<div class="glass-card" id="error-card" style="display: none;">
+    <div class="glass-card-header">
+        <h2 style="color: #c0392b;"><i class="fa-solid fa-triangle-exclamation"></i> Error</h2>
+    </div>
+    <p id="error-msg" style="font-size: 14px;"></p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var SAMPLE = "The Food Safety and Standards Act, 2006\n\n" +
+        "Section 3. Definitions. In this Act, unless the context otherwise requires,\n" +
+        "3(1) \"food\" means any substance, whether processed, semi-processed or raw, which is intended for human consumption\n" +
+        "3(1)(a) includes drinks, chewing gum and any substance which has been used in the manufacture, preparation or treatment of food\n" +
+        "3(1)(b) does not include any medicine as defined in the Drugs and Cosmetics Act, 1940\n\n" +
+        "Section 5. The Food Safety and Standards Authority of India is hereby established for the purposes of this Act.\n\n" +
+        "Section 26. Duties of the Food Safety Officer. The Food Safety Officer shall inspect the premises of every Food Business Operator at least once in a year.\n\n" +
+        "Provided that nothing in this section shall apply to a cottage industry.";
+
+    var form = document.getElementById('analyze-form');
+    var textarea = document.getElementById('text');
+    var status = document.getElementById('status');
+    var results = document.getElementById('results');
+    var errorCard = document.getElementById('error-card');
+    var errorMsg = document.getElementById('error-msg');
+
+    document.getElementById('sample-btn').addEventListener('click', function () {
+        textarea.value = SAMPLE;
+        status.textContent = 'Sample loaded. Click Analyze.';
+    });
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    function renderSummary(summary) {
+        var stats = [
+            ['Paragraphs', summary.total_paragraphs],
+            ['Sections', summary.sections.length],
+            ['Citations', summary.total_citations],
+            ['Avg confidence', summary.avg_confidence],
+            ['Meet threshold', summary.meets_threshold + ' / ' + summary.total_paragraphs]
+        ];
+        var html = '';
+        stats.forEach(function (pair) {
+            html += '<div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">' +
+                '<div style="font-size: 12px; color: var(--text-body); text-transform: uppercase; letter-spacing: 0.5px;">' + esc(pair[0]) + '</div>' +
+                '<div style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">' + esc(pair[1]) + '</div></div>';
+        });
+        if (summary.sections.length) {
+            html += '<div style="grid-column: 1 / -1; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">' +
+                '<div style="font-size: 12px; color: var(--text-body); text-transform: uppercase; letter-spacing: 0.5px;">Sections found</div>' +
+                '<div style="font-size: 14px; color: var(--text-primary); margin-top: 4px;">' + esc(summary.sections.join(', ')) + '</div></div>';
+        }
+        document.getElementById('summary-stats').innerHTML = html;
+    }
+
+    function typeBadge(paragraph_type) {
+        var labels = {
+            'section': 'Section', 'subsection': 'Sub-section', 'subsubsection': 'Sub-sub-section',
+            'clause': 'Clause', 'subclause': 'Sub-clause', 'explanation': 'Explanation',
+            'note': 'Note', 'proviso': 'Proviso', 'schedule': 'Schedule', 'table': 'Table',
+            'paragraph': 'Paragraph', 'header': 'Header', 'footer': 'Footer', 'title': 'Title'
+        };
+        return (labels[paragraph_type] || paragraph_type || 'unknown');
+    }
+
+    function renderParagraphs(paragraphs) {
+        var container = document.getElementById('paragraphs');
+        document.getElementById('para-count').textContent = '(' + paragraphs.length + ')';
+        var html = '';
+        paragraphs.forEach(function (p, i) {
+            var depth = p.hierarchy_depth || 1;
+            var indent = Math.min((depth - 1) * 22, 110);
+            var scores = p.confidence_scores || {};
+            var overall = scores.overall || 0;
+            var pct = Math.round(overall * 100);
+            var citations = p.citations || [];
+            var citationHtml = '';
+            if (citations.length) {
+                citationHtml = '<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">' +
+                    citations.map(function (c) {
+                        return '<span style="background: var(--accent-primary); color: white; border-radius: 4px; padding: 2px 8px; font-size: 11px;">' +
+                            esc(c.type) + ': ' + esc(c.reference) + '</span>';
+                    }).join('') + '</div>';
+            }
+            var typeCls = p.meets_confidence_threshold
+                ? 'background: var(--accent-primary); color: white;'
+                : 'background: var(--bg-subtle); color: var(--text-body); border: 1px solid var(--border);';
+
+            html += '<div style="margin-left: ' + indent + 'px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-card);">' +
+                '<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">' +
+                '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                '<span style="' + typeCls + ' border-radius: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">' + esc(typeBadge(p.paragraph_type)) + '</span>' +
+                (p.section ? '<span style="font-size: 12px; color: var(--text-body);"><i class="fa-solid fa-hashtag"></i> ' + esc(p.section) + '</span>' : '') +
+                (p.clause ? '<span style="font-size: 12px; color: var(--text-body);">Clause ' + esc(p.clause) + '</span>' : '') +
+                '</div>' +
+                '<div style="display: flex; align-items: center; gap: 8px;">' +
+                '<div style="width: 80px; height: 6px; background: var(--bg-subtle); border-radius: 3px; overflow: hidden;"><div style="width: ' + pct + '%; height: 100%; background: var(--accent-primary);"></div></div>' +
+                '<span style="font-size: 12px; color: var(--text-body);">' + pct + '%</span>' +
+                '<span style="font-size: 11px; color: var(--text-body);">' + (p.word_count || 0) + ' words</span>' +
+                '</div></div>' +
+                '<div style="margin-top: 8px; font-size: 14px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">' + esc(p.text) + '</div>' +
+                citationHtml + '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var text = textarea.value.trim();
+        if (!text) {
+            status.textContent = 'Please enter some text first.';
+            return;
+        }
+        var btn = document.getElementById('analyze-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing…';
+        status.textContent = 'Processing…';
+        errorCard.style.display = 'none';
+        results.style.display = 'none';
+
+        fetch('{{ url_for("legal_analysis.analyze") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: text})
+        }).then(function (resp) {
+            return resp.json().then(function (data) { return {ok: resp.ok, data: data}; });
+        }).then(function (out) {
+            if (!out.ok) {
+                errorMsg.textContent = out.data.error || 'Unknown error';
+                errorCard.style.display = 'block';
+                return;
+            }
+            renderSummary(out.data.summary);
+            renderParagraphs(out.data.paragraphs);
+            results.style.display = 'block';
+        }).catch(function () {
+            errorMsg.textContent = 'Request failed — please try again.';
+            errorCard.style.display = 'block';
+        }).finally(function () {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Analyze';
+            status.textContent = '';
+        });
+    });
+})();
+</script>
+{% endblock %}

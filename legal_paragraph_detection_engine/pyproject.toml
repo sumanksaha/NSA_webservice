@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel>=0.41"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "legal-paragraph-detection-engine"
+# Keep in sync with __version__ in legal_paragraph_detection_engine/__init__.py
+version = "1.0.0"
+description = "Rule-based detection of paragraphs, sections, clauses and citations in Indian legal documents."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+keywords = ["legal", "paragraph", "nlp", "indian-law", "document-parsing"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Legal Industry",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/sumanksaha/NSA_webservice"
+
+# The engine directory itself is the top-level package
+# ``legal_paragraph_detection_engine``; ``src`` and its children are
+# subpackages (T-42: standalone-installable without the web app).
+[tool.setuptools]
+package-dir = { "legal_paragraph_detection_engine" = "." }
+packages = [
+  "legal_paragraph_detection_engine",
+  "legal_paragraph_detection_engine.src",
+  "legal_paragraph_detection_engine.src.core",
+  "legal_paragraph_detection_engine.src.parsers",
+  "legal_paragraph_detection_engine.src.storage",
+  "legal_paragraph_detection_engine.src.utils",
+]
+# conftest.py lives under tests/ (not a listed package), so it never ships.
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --no-header"
