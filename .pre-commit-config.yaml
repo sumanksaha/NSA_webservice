@@ -36,3 +36,24 @@ repos:
         language: system
         types_or: [python, pyi]
         require_serial: false
+
+      # ─── Mypy type checking ──────────────────────────────────────────
+      - id: mypy
+        name: mypy
+        description: "Static type checking — fails on any type error in app/."
+        entry: python -m mypy app/
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+        pass_filenames: false
+
+      # ─── Pytest test suite ───────────────────────────────────────────
+      # Note: runs the full suite (~228 tests, ~2 min) on every Python commit.
+      - id: pytest
+        name: pytest
+        description: "Run the full test suite — fails on any failing test."
+        entry: python -m pytest tests/ -q --no-header
+        language: system
+        types_or: [python]
+        require_serial: true
+        pass_filenames: false

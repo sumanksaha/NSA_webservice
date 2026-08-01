@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Document Editor — {{ case_number }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}">
+<style>
+.editor-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.editor-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.doc-type-selector {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-body);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.split-view {
+    display: flex;
+    gap: 16px;
+    height: 70vh;
+}
+
+.editor-pane {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-pane .pane-header {
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#ql-editor-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.preview-pane {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-pane .pane-header {
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#preview {
+    flex: 1;
+    border: none;
+    width: 100%;
+    background: #fff;
+}
+
+.action-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .split-view {
+        flex-direction: column;
+        height: auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-page">
+    <div class="editor-header">
+        <h2><i class="fa-solid fa-file-word"></i> Document Editor — Case {{ case_number }}</h2>
+
+        <select id="docTypeSelector" class="doc-type-selector">
+            <option value="petition">Petition</option>
+            <option value="permission">Permission Letter</option>
+        </select>
+    </div>
+
+    <div class="split-view">
+        <div class="editor-pane">
+            <div class="pane-header">
+                <i class="fa-solid fa-pen"></i> Editor
+            </div>
+            <div id="editor"></div>
+        </div>
+
+        <div class="preview-pane">
+            <div class="pane-header">
+                <i class="fa-solid fa-eye"></i> Live Preview
+            </div>
+            <iframe id="preview" sandbox="allow-same-origin" title="Document Preview"></iframe>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button type="button" id="saveBtn" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> Save as PDF
+        </button>
+    </div>
+</div>
+
+{# Hidden divs to safely pass server-rendered HTML to JS #}
+<div id="petition-data" style="display: none;">{{ petition_html | safe }}</div>
+<div id="permission-data" style="display: none;">{{ permission_html | safe }}</div>
+
+<script>
+    window.CASE_ID = {{ case_id }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
+<script src="{{ url_for('static', filename='js/document_viewer/editor.js') }}"></script>
+{% endblock %}

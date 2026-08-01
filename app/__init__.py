@@ -1,6 +1,8 @@
 import os
+import secrets
 import threading
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from flask import Flask, redirect, request, url_for
@@ -16,8 +18,14 @@ _fso_sync_lock = threading.Lock()
 celery = None
 
 
+class App(Flask):
+    """Flask app subclass with a typed ``celery`` attribute."""
+
+    celery: Any = None
+
+
 def create_app():
-    app = Flask(__name__)
+    app = App(__name__)
 
     # Load environment variables from .env file before any config
     load_dotenv()
@@ -39,14 +47,17 @@ def create_app():
             )
         # In local development, use a fallback so the app can start without
         # requiring every developer to create a .env file immediately.
-        secret_key = "dev-secret-key-do-not-use-in-production"
+        secret_key = secrets.token_hex(32)
         app.logger.warning(
             "SECRET_KEY not set — using insecure fallback. Set SECRET_KEY in your .env file for local development.",
         )
     app.config["SECRET_KEY"] = secret_key
 
     # Ensure instance folder exists
-    os.makedirs(app.instance_path, exist_ok=True)
+    try:
+        os.makedirs(app.instance_path, exist_ok=True)
+    except OSError:
+        app.logger.warning(f"Could not create instance directory: {app.instance_path}")
 
     # Database configuration - PostgreSQL primary, SQLite fallback
     db_path = Path(app.instance_path) / "app.db"
@@ -214,18 +225,22 @@ def create_app():
     from app.case_file_generator.routes import case_file_generator_bp
     from app.fbo_issue.routes import fbo_issue_bp
     from app.inspection.routes import inspection_bp
+    from app.legal_analysis import legal_analysis_bp
     from app.sample.routes import sample_bp
     from app.settings.routes import settings_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
+    from app.document_viewer import document_viewer_bp
+    app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
     app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
     app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
     app.register_blueprint(sample_bp, url_prefix="/sample")
     app.register_blueprint(billing_bp, url_prefix="/billing")
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(inspection_bp, url_prefix="/inspection")
+    app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
     app.register_blueprint(audit_bp, url_prefix="/admin")
 
     # Initialize database tables (models must be imported first)
@@ -253,10 +268,10 @@ def create_app():
         with app.app_context(), _fso_sync_lock:
             try:
                 result = sync_fso_from_markdown()
-                if result.get("errors"):
-                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
+                if result.errors:
+                    app.logger.warning(f"FSO startup sync completed with warnings: {result.errors}")
                 else:
-                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
+                    app.logger.info(f"FSO startup sync: {result.inserted} inserted, {result.updated} updated")
             except Exception as e:
                 app.logger.error(f"FSO startup sync failed: {e!s}")
 
