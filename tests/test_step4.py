@@ -115,7 +115,7 @@ class TestDerivedStateQueries:
             # Query for Open Issues
             open_issues = Inspection.query.filter(
                 Inspection.compliance_deadline >= today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
@@ -192,7 +192,7 @@ class TestDerivedStateQueries:
             # Query for Pending Action
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
@@ -242,7 +242,7 @@ class TestDerivedStateQueries:
             # Query for Open Issues (>= today)
             open_issues = Inspection.query.filter(
                 Inspection.compliance_deadline >= today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
@@ -255,7 +255,7 @@ class TestDerivedStateQueries:
             # Query for Pending Action (< today)
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
@@ -320,7 +320,7 @@ class TestDismissAction:
             # Verify it's in Pending Action
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(pending_actions) == 1
@@ -334,7 +334,7 @@ class TestDismissAction:
             # Verify it's no longer in Pending Action
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(pending_actions) == 0
@@ -412,7 +412,7 @@ class TestAdjudicationLinkage:
             # Verify it's in Pending Action
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(pending_actions) == 1
@@ -424,7 +424,7 @@ class TestAdjudicationLinkage:
             # Verify it's no longer in Pending Action
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(pending_actions) == 0
@@ -432,7 +432,7 @@ class TestAdjudicationLinkage:
             # Verify it's also not in Open Issues
             open_issues = Inspection.query.filter(
                 Inspection.compliance_deadline >= today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
             assert len(open_issues) == 0
@@ -538,7 +538,7 @@ class TestDaysOverdueCalculation:
             # Query and calculate days overdue
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today_dt,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
@@ -720,7 +720,7 @@ class TestPrecedenceRules:
             # Query for Pending Action (should NOT include it)
             pending_actions = Inspection.query.filter(
                 Inspection.compliance_deadline < today,
-                not Inspection.is_dismissed,
+                ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 

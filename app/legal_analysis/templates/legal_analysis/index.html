@@ -3,10 +3,10 @@
 {% block title %}Legal Text Analysis — NSA WebService{% endblock %}
 
 {% block content %}
-<div class="glass-card">
-    <div class="glass-card-header">
+<div class="card">
+    <div class="card-header">
         <h2><i class="fa-solid fa-scale-balanced"></i> Legal Text Analysis</h2>
-        <p style="color: var(--text-body); font-size: 13px; margin-top: 4px;">
+        <p class="form-hint">
             Paste a legal document (Act, Notification, Rules) and get a structured breakdown of
             sections, clauses, citations and confidence scores — powered by the
             Legal Paragraph Detection Engine.
@@ -14,50 +14,50 @@
     </div>
 
     <form id="analyze-form">
-        <label for="text" style="font-weight: 600; font-size: 14px;">Legal document text</label>
-        <textarea id="text" name="text" rows="14" required
-            style="width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--border);
-                   border-radius: var(--radius); font-family: var(--font-heading);
-                   font-size: 14px; line-height: 1.6; background: var(--bg-subtle); color: var(--text-primary);"
-            placeholder="Paste legal text here, e.g.:
+        <label for="text" class="form-label">Legal document text</label>
+        <textarea id="text" name="text" class="form-textarea" rows="14" required
+                placeholder="Paste legal text here, e.g.:
 
 Section 3. Definitions. In this Act, unless the context otherwise requires,
-3(1) \"food\" means any substance, whether processed, semi-processed or raw...
+3(1) &quot;food&quot; means any substance, whether processed, semi-processed or raw...
 3(1)(a) includes drinks, chewing gum and any substance used in manufacture."></textarea>
 
-        <div style="display: flex; gap: 12px; margin-top: 14px; align-items: center;">
-            <button type="submit" id="analyze-btn" class="tab-link active" style="border: none; cursor: pointer;">
-                <i class="fa-solid fa-magnifying-glass"></i> Analyze
-            </button>
-            <button type="button" id="sample-btn" class="tab-link" style="border: 1px solid var(--border); cursor: pointer;">
-                <i class="fa-solid fa-file-lines"></i> Load sample
-            </button>
-            <span id="status" style="font-size: 13px; color: var(--text-body);"></span>
+        <div class="flex-between--wrap mt--md">
+            <div class="btn-group">
+                <button type="submit" id="analyze-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-magnifying-glass"></i> <span class="btn-label">Analyze</span>
+                </button>
+                <button type="button" id="sample-btn" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-file-lines"></i> Load sample
+                </button>
+            </div>
+            <span id="status" class="form-hint"></span>
         </div>
     </form>
 </div>
 
-<div id="results" style="display: none;">
-    <div class="glass-card" id="summary-card">
-        <div class="glass-card-header">
+<div id="results" class="mt--lg" style="display: none;">
+    <div class="card" id="summary-card">
+        <div class="card-header">
             <h2><i class="fa-solid fa-chart-simple"></i> Summary</h2>
         </div>
-        <div id="summary-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;"></div>
+        <div id="summary-stats" class="grid--auto" style="gap: 1rem;">
+        </div>
     </div>
 
-    <div class="glass-card">
-        <div class="glass-card-header">
-            <h2><i class="fa-solid fa-list-ol"></i> Paragraphs <span id="para-count" style="font-size: 14px; color: var(--text-body);"></span></h2>
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-list-ol"></i> Paragraphs <span id="para-count" class="text--muted"></span></h2>
         </div>
-        <div id="paragraphs" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="paragraphs" class="mt--md"></div>
     </div>
 </div>
 
-<div class="glass-card" id="error-card" style="display: none;">
-    <div class="glass-card-header">
-        <h2 style="color: #c0392b;"><i class="fa-solid fa-triangle-exclamation"></i> Error</h2>
+<div class="card text--error" id="error-card" style="display: none;">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-triangle-exclamation"></i> Error</h2>
     </div>
-    <p id="error-msg" style="font-size: 14px;"></p>
+    <p id="error-msg" class="form-hint"></p>
 </div>
 {% endblock %}
 
@@ -92,6 +92,8 @@ Section 3. Definitions. In this Act, unless the context otherwise requires,
     }
 
     function renderSummary(summary) {
+        var container = document.getElementById('summary-stats');
+        container.innerHTML = '';
         var stats = [
             ['Paragraphs', summary.total_paragraphs],
             ['Sections', summary.sections.length],
@@ -99,18 +101,23 @@ Section 3. Definitions. In this Act, unless the context otherwise requires,
             ['Avg confidence', summary.avg_confidence],
             ['Meet threshold', summary.meets_threshold + ' / ' + summary.total_paragraphs]
         ];
-        var html = '';
         stats.forEach(function (pair) {
-            html += '<div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">' +
-                '<div style="font-size: 12px; color: var(--text-body); text-transform: uppercase; letter-spacing: 0.5px;">' + esc(pair[0]) + '</div>' +
-                '<div style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">' + esc(pair[1]) + '</div></div>';
+            var div = document.createElement('div');
+            div.className = 'card card-sm';
+            div.innerHTML =
+                '<div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">' + esc(pair[0]) + '</div>' +
+                '<div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">' + esc(pair[1]) + '</div>';
+            container.appendChild(div);
         });
         if (summary.sections.length) {
-            html += '<div style="grid-column: 1 / -1; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">' +
-                '<div style="font-size: 12px; color: var(--text-body); text-transform: uppercase; letter-spacing: 0.5px;">Sections found</div>' +
-                '<div style="font-size: 14px; color: var(--text-primary); margin-top: 4px;">' + esc(summary.sections.join(', ')) + '</div></div>';
+            var secDiv = document.createElement('div');
+            secDiv.className = 'card card-sm';
+            secDiv.style.cssText = 'grid-column: 1 / -1;';
+            secDiv.innerHTML =
+                '<div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">Sections found</div>' +
+                '<div style="font-size: 0.9375rem; color: var(--text-primary); margin-top: 0.25rem;">' + esc(summary.sections.join(', ')) + '</div>';
+            container.appendChild(secDiv);
         }
-        document.getElementById('summary-stats').innerHTML = html;
     }
 
     function typeBadge(paragraph_type) {
@@ -126,42 +133,49 @@ Section 3. Definitions. In this Act, unless the context otherwise requires,
     function renderParagraphs(paragraphs) {
         var container = document.getElementById('paragraphs');
         document.getElementById('para-count').textContent = '(' + paragraphs.length + ')';
-        var html = '';
-        paragraphs.forEach(function (p, i) {
+        container.innerHTML = '';
+        paragraphs.forEach(function (p) {
             var depth = p.hierarchy_depth || 1;
             var indent = Math.min((depth - 1) * 22, 110);
             var scores = p.confidence_scores || {};
             var overall = scores.overall || 0;
             var pct = Math.round(overall * 100);
             var citations = p.citations || [];
-            var citationHtml = '';
-            if (citations.length) {
-                citationHtml = '<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">' +
-                    citations.map(function (c) {
-                        return '<span style="background: var(--accent-primary); color: white; border-radius: 4px; padding: 2px 8px; font-size: 11px;">' +
-                            esc(c.type) + ': ' + esc(c.reference) + '</span>';
-                    }).join('') + '</div>';
-            }
+
+            var div = document.createElement('div');
+            div.className = 'card';
+            div.style.marginLeft = indent + 'px';
+
             var typeCls = p.meets_confidence_threshold
                 ? 'background: var(--accent-primary); color: white;'
                 : 'background: var(--bg-subtle); color: var(--text-body); border: 1px solid var(--border);';
 
-            html += '<div style="margin-left: ' + indent + 'px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-card);">' +
-                '<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">' +
-                '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
-                '<span style="' + typeCls + ' border-radius: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">' + esc(typeBadge(p.paragraph_type)) + '</span>' +
-                (p.section ? '<span style="font-size: 12px; color: var(--text-body);"><i class="fa-solid fa-hashtag"></i> ' + esc(p.section) + '</span>' : '') +
-                (p.clause ? '<span style="font-size: 12px; color: var(--text-body);">Clause ' + esc(p.clause) + '</span>' : '') +
+            var citationHtml = '';
+            if (citations.length) {
+                citationHtml = '<div class="mt--sm" style="display: flex; flex-wrap: wrap; gap: 0.375rem;">';
+                citations.forEach(function (c) {
+                    citationHtml += '<span style="background: var(--accent-primary); color: white; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem;">'
+                        + esc(c.type) + ': ' + esc(c.reference) + '</span>';
+                });
+                citationHtml += '</div>';
+            }
+
+            div.innerHTML =
+                '<div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">' +
+                '<div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">' +
+                '<span style="' + typeCls + '; border-radius: 4px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">' + esc(typeBadge(p.paragraph_type)) + '</span>' +
+                (p.section ? '<span class="text--muted" style="font-size: 0.875rem;"><i class="fa-solid fa-hashtag"></i> ' + esc(p.section) + '</span>' : '') +
+                (p.clause ? '<span class="text--muted" style="font-size: 0.875rem;">Clause ' + esc(p.clause) + '</span>' : '') +
                 '</div>' +
-                '<div style="display: flex; align-items: center; gap: 8px;">' +
+                '<div style="display: flex; align-items: center; gap: 0.75rem;">' +
                 '<div style="width: 80px; height: 6px; background: var(--bg-subtle); border-radius: 3px; overflow: hidden;"><div style="width: ' + pct + '%; height: 100%; background: var(--accent-primary);"></div></div>' +
-                '<span style="font-size: 12px; color: var(--text-body);">' + pct + '%</span>' +
-                '<span style="font-size: 11px; color: var(--text-body);">' + (p.word_count || 0) + ' words</span>' +
+                '<span class="text--muted" style="font-size: 0.8125rem;">' + pct + '%</span>' +
+                '<span class="text--muted" style="font-size: 0.75rem;">' + (p.word_count || 0) + ' words</span>' +
                 '</div></div>' +
-                '<div style="margin-top: 8px; font-size: 14px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">' + esc(p.text) + '</div>' +
-                citationHtml + '</div>';
+                '<div class="mt--sm" style="font-size: 1rem; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap;">' + esc(p.text) + '</div>' +
+                citationHtml;
+            container.appendChild(div);
         });
-        container.innerHTML = html;
     }
 
     form.addEventListener('submit', function (e) {
@@ -198,7 +212,7 @@ Section 3. Definitions. In this Act, unless the context otherwise requires,
             errorCard.style.display = 'block';
         }).finally(function () {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Analyze';
+            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> <span class="btn-label">Analyze</span>';
             status.textContent = '';
         });
     });

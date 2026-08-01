@@ -32,7 +32,7 @@ def get_billable_samples(start_date, end_date):
     query = Sample.query.filter(
         Sample.collection_date >= parsed_start,
         Sample.collection_date <= parsed_end,
-        not Sample.billed,
+        ~Sample.billed,
         Sample.sample_type.in_(["enforcement", "surveillance"]),
     ).order_by(Sample.collection_date)
 

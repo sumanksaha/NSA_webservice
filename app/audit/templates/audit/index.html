@@ -6,18 +6,16 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-clipboard-list"></i> Audit Log</h2>
-        <p style="color: var(--text-body); font-size: 0.9rem; margin-top: 5px;">
-            Read-only record of changes to adjudications, bills, case files, and login events.
-        </p>
+        <p class="form-hint">Read-only record of changes to adjudications, bills, case files, and login events.</p>
     </div>
 
     <!-- Filter Panel -->
-    <div class="filter-panel" style="margin-bottom: 20px;">
+    <div class="filter-panel">
         <form method="get" action="{{ url_for('audit.view_audit_log') }}" id="filterForm">
-            <div class="filter-row" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+            <div class="filter-row filter-row--2">
                 <div class="filter-group">
                     <label for="record_type">Record Type</label>
-                    <select id="record_type" name="record_type">
+                    <select id="record_type" name="record_type" class="form-select">
                         <option value="">-- All --</option>
                         {% for t in distinct_types %}
                         <option value="{{ t }}" {% if current_record_type == t %}selected{% endif %}>{{ t }}</option>
@@ -26,87 +24,90 @@
                 </div>
                 <div class="filter-group">
                     <label for="user_id">User</label>
-                    <select id="user_id" name="user_id">
+                    <select id="user_id" name="user_id" class="form-select">
                         <option value="">-- All --</option>
                         {% for u in users %}
                         <option value="{{ u.id }}" {% if current_user_id == u.id %}selected{% endif %}>{{ u.username }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="filter-group" style="display: flex; align-items: flex-end; gap: 10px;">
-                    <button type="submit" class="btn btn-secondary">
-                        <i class="fa-solid fa-filter"></i> Apply
-                    </button>
-                    <a href="{{ url_for('audit.view_audit_log') }}" class="btn btn-secondary">
-                        <i class="fa-solid fa-times"></i> Clear
-                    </a>
+                <div class="filter-group">
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-filter"></i> Apply
+                        </button>
+                        <a href="{{ url_for('audit.view_audit_log') }}" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-times"></i> Clear
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>
     </div>
 
     <!-- Audit Log Table -->
-    <div style="overflow-x: auto;">
-        <table class="audit-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+    <div class="table-container">
+        <table class="data-table audit-table">
             <thead>
-                <tr style="background: var(--bg-subtle); border-bottom: 2px solid var(--border);">
-                    <th style="padding: 10px 8px; text-align: left;">ID</th>
-                    <th style="padding: 10px 8px; text-align: left;">Timestamp</th>
-                    <th style="padding: 10px 8px; text-align: left;">User</th>
-                    <th style="padding: 10px 8px; text-align: left;">Action</th>
-                    <th style="padding: 10px 8px; text-align: left;">Record Type</th>
-                    <th style="padding: 10px 8px; text-align: left;">Record ID</th>
-                    <th style="padding: 10px 8px; text-align: left;">Changes</th>
-                    <th style="padding: 10px 8px; text-align: left;">IP</th>
+                <tr>
+                    <th>ID</th>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Record Type</th>
+                    <th>Record ID</th>
+                    <th>Changes</th>
+                    <th>IP</th>
                 </tr>
             </thead>
             <tbody>
                 {% for entry in entries %}
-                <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 8px;">{{ entry.id }}</td>
-                    <td style="padding: 8px; white-space: nowrap;">{{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                    <td style="padding: 8px;">
+                <tr>
+                    <td>{{ entry.id }}</td>
+                    <td class="text--nowrap">{{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
                         {% if entry.user %}
                             {{ entry.user.username }}
                         {% else %}
-                            <em style="color: var(--text-body);">system</em>
+                            <em class="text--muted">system</em>
                         {% endif %}
                     </td>
-                    <td style="padding: 8px;">
+                    <td>
                         {% if entry.action == 'create' %}
-                        <span style="color: var(--color-success, #28a745);"><i class="fa-solid fa-plus"></i> Create</span>
+                            <span class="status-badge status-badge--success"><i class="fa-solid fa-plus"></i> Create</span>
                         {% elif entry.action == 'update' %}
-                        <span style="color: var(--color-warning, #ffc107);"><i class="fa-solid fa-pen"></i> Update</span>
+                            <span class="status-badge status-badge--warning"><i class="fa-solid fa-pen"></i> Update</span>
                         {% elif entry.action == 'delete' %}
-                        <span style="color: var(--color-error, #dc3545);"><i class="fa-solid fa-trash"></i> Delete</span>
+                            <span class="status-badge status-badge--error"><i class="fa-solid fa-trash"></i> Delete</span>
                         {% elif entry.action == 'login_success' %}
-                        <span style="color: var(--color-success, #28a745);"><i class="fa-solid fa-right-to-bracket"></i> Login OK</span>
+                            <span class="status-badge status-badge--success"><i class="fa-solid fa-right-to-bracket"></i> Login OK</span>
                         {% elif entry.action == 'login_failed' %}
-                        <span style="color: var(--color-error, #dc3545);"><i class="fa-solid fa-xmark"></i> Login Fail</span>
+                            <span class="status-badge status-badge--error"><i class="fa-solid fa-xmark"></i> Login Fail</span>
                         {% else %}
-                        {{ entry.action }}
+                            {{ entry.action }}
                         {% endif %}
                     </td>
-                    <td style="padding: 8px;">{{ entry.record_type }}</td>
-                    <td style="padding: 8px;">{{ entry.record_id }}</td>
-                    <td style="padding: 8px; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                    <td>{{ entry.record_type }}</td>
+                    <td>{{ entry.record_id }}</td>
+                    <td class="cell--monospace" style="max-width: 300px;">
                         {% if entry.changes %}
-                        <details>
-                            <summary style="cursor: pointer; color: var(--accent-primary);">View changes</summary>
-                            <pre style="font-size: 0.75rem; background: var(--bg-subtle); padding: 8px; border-radius: 4px; margin-top: 5px; overflow-x: auto; white-space: pre-wrap;">{{ entry.changes }}</pre>
-                        </details>
+                            <details>
+                                <summary class="text--primary" style="cursor: pointer;">View changes</summary>
+                                <pre class="code-block">{{ entry.changes }}</pre>
+                            </details>
                         {% else %}
-                        <em style="color: var(--text-body);">—</em>
+                            <em class="text--muted">—</em>
                         {% endif %}
                     </td>
-                    <td style="padding: 8px; font-family: monospace; font-size: 0.75rem;">{{ entry.ip_address or '—' }}</td>
+                    <td class="cell--monospace">{{ entry.ip_address or '—' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-body);">
-                        <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 10px; color: var(--border);"></i>
-                        <br>
-                        No audit log entries found.
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-inbox"></i>
+                            <p>No audit log entries found.</p>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -116,29 +117,29 @@
 
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <div class="pagination" style="margin-top: 20px; text-align: center;">
+    <div class="pagination mt--md">
         {% if pagination.has_prev %}
         <a href="{{ url_for('audit.view_audit_log', page=pagination.prev_num, record_type=current_record_type, user_id=current_user_id) }}"
-           class="btn btn-secondary btn-small">
+           class="btn btn-secondary btn-sm">
             <i class="fa-solid fa-chevron-left"></i> Previous
         </a>
         {% endif %}
 
-        <span style="margin: 0 15px; color: var(--text-body);">
+        <span class="form-hint">
             Page {{ pagination.page }} of {{ pagination.pages }}
         </span>
 
         {% if pagination.has_next %}
         <a href="{{ url_for('audit.view_audit_log', page=pagination.next_num, record_type=current_record_type, user_id=current_user_id) }}"
-           class="btn btn-secondary btn-small">
+           class="btn btn-secondary btn-sm">
             Next <i class="fa-solid fa-chevron-right"></i>
         </a>
         {% endif %}
     </div>
     {% endif %}
 
-    <div style="margin-top: 15px; text-align: center; color: var(--text-body); font-size: 0.85rem;">
+    <p class="text--center form-hint mb--sm">
         Showing {{ pagination.items|length }} of {{ pagination.total }} entries
-    </div>
+    </p>
 </div>
 {% endblock %}

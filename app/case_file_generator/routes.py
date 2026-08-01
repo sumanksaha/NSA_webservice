@@ -238,6 +238,21 @@ def get_case_by_number(case_number):
     return jsonify(case_file_to_dict(case_file))
 
 
+@case_file_generator_bp.route("/<int:case_id>/editor", methods=["GET"])
+def edit_case_file(case_id):
+    """Render the Quill document editor, pre-filled with a case file's documents."""
+    case_file = CaseFile.query.get_or_404(case_id)
+    from app.document_viewer.renderer import render_case_file_document
+
+    return render_template(
+        "document_viewer/editor.html",
+        case_number=case_file.case_number,
+        case_id=case_file.id,
+        petition_html=render_case_file_document(case_id, "petition"),
+        permission_html=render_case_file_document(case_id, "permission"),
+    )
+
+
 @case_file_generator_bp.route("/regenerate/<int:case_id>", methods=["GET"])
 def regenerate_case_files(case_id):
     """Regenerate both Petition and Permission Letter from an existing case."""

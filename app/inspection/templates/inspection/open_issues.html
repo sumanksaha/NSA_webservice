@@ -6,39 +6,39 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-clock"></i> Open Issues</h2>
-        <p style="margin-top: 10px; color: var(--text-body); font-size: 0.9rem;">
-            Inspections with compliance deadline not yet passed, not dismissed, and not linked to adjudication
-        </p>
+        <p class="form-hint">Inspections with compliance deadline not yet passed, not dismissed, and not linked to adjudication</p>
     </div>
-    
+
     <!-- Filter Panel -->
     <div class="filter-panel">
         <form method="get" action="{{ url_for('inspection.open_issues') }}" id="filterForm">
-            <div class="filter-row">
+            <div class="filter-row filter-row--2">
                 <div class="filter-group">
                     <label for="filter_fso">Filter by FSO</label>
-                    <select id="filter_fso" name="fso_name">
+                    <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
                         <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="filter-group" style="display: flex; align-items: flex-end; gap: 10px;">
-                    <button type="submit" class="btn btn-secondary">
-                        <i class="fa-solid fa-filter"></i> Apply Filters
-                    </button>
-                    <a href="{{ url_for('inspection.open_issues') }}" class="btn btn-secondary">
-                        <i class="fa-solid fa-times"></i> Clear
-                    </a>
+                <div class="filter-group">
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-filter"></i> Apply Filters
+                        </button>
+                        <a href="{{ url_for('inspection.open_issues') }}" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-times"></i> Clear
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>
     </div>
-    
+
     <!-- Inspection Table -->
-    <div style="overflow-x: auto;">
-        <table class="inspection-list-table">
+    <div class="table-container">
+        <table class="data-table inspection-list-table">
             <thead>
                 <tr>
                     <th onclick="sortTable('inspection_code')">
@@ -100,7 +100,7 @@
                         {% set today = datetime.datetime.now().date() %}
                         {% set deadline_date = datetime.datetime.strptime(deadline, '%Y-%m-%d').date() %}
                         {% set days = (deadline_date - today).days if deadline_date > today else 0 %}
-                        <span style="color: var(--color-success, #28a745); font-weight: 600;">
+                        <span class="text--success" style="font-weight: 600;">
                             {{ days }} day{{ 's' if days != 1 else '' }}
                         </span>
                     </td>
@@ -111,34 +111,37 @@
                         </span>
                     </td>
                     <td>
-                        <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}" 
-                           class="btn btn-small btn-secondary" title="View">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        <a href="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}" 
-                           class="btn btn-small btn-secondary" title="Edit">
-                            <i class="fa-solid fa-edit"></i>
-                        </a>
+                        <div class="btn-group">
+                            <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
+                               class="btn btn-secondary btn-sm" title="View">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}"
+                               class="btn btn-secondary btn-sm" title="Edit">
+                                <i class="fa-solid fa-edit"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px;">
-                        <i class="fa-solid fa-check-circle" style="font-size: 3rem; color: var(--color-success, #28a745); margin-bottom: 10px;"></i>
-                        <br>
-                        No open issues found
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <p>No open issues found</p>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    
-    <div style="margin-top: 20px; text-align: center; color: var(--text-body); font-size: 0.9rem;">
+
+    <p class="text--center mb--md">
         Showing {{ inspections|length }} open issues
-    </div>
-    
-    <div style="margin-top: 30px; text-align: center; display: flex; gap: 15px; justify-content: center;">
+    </p>
+
+    <div class="flex-between--wrap">
         <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">
             <i class="fa-solid fa-plus"></i> Add New Inspection
         </a>
@@ -183,17 +186,15 @@ document.addEventListener('DOMContentLoaded', function() {
 function sortTable(column) {
     let sortBy = column;
     let sortOrder = 'asc';
-    
-    // Get current sort from URL or default
+
     const urlParams = new URLSearchParams(window.location.search);
     const currentSortBy = urlParams.get('sort_by') || 'compliance_deadline';
     const currentSortOrder = urlParams.get('sort_order') || 'asc';
-    
+
     if (currentSortBy === column) {
         sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
     }
-    
-    // Build URL with new sort parameters
+
     urlParams.set('sort_by', sortBy);
     urlParams.set('sort_order', sortOrder);
     window.location.search = urlParams.toString();

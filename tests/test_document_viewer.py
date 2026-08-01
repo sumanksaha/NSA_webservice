@@ -19,6 +19,7 @@ Phase 3 tests:
 - POST /save without CSRF token returns 400
 - POST /save writes edited HTML to instance/saved/
 """
+
 from datetime import datetime
 
 import pytest
@@ -241,26 +242,20 @@ class TestEditorStaticAssets:
 
     def test_quill_css_is_served(self, test_client):
         """GET /static/vendor/quill/quill.snow.css returns 200."""
-        resp = test_client.get(
-            "/static/vendor/quill/quill.snow.css", follow_redirects=False
-        )
+        resp = test_client.get("/static/vendor/quill/quill.snow.css", follow_redirects=False)
         assert resp.status_code == 200
         assert "Quill" in resp.data.decode("utf-8")
 
     def test_quill_js_is_served(self, test_client):
         """GET /static/vendor/quill/quill.js returns 200."""
-        resp = test_client.get(
-            "/static/vendor/quill/quill.js", follow_redirects=False
-        )
+        resp = test_client.get("/static/vendor/quill/quill.js", follow_redirects=False)
         assert resp.status_code == 200
         js = resp.data.decode("utf-8")
         assert "Quill" in js
 
     def test_editor_js_is_served(self, test_client):
         """GET /static/js/document_viewer/editor.js returns 200."""
-        resp = test_client.get(
-            "/static/js/document_viewer/editor.js", follow_redirects=False
-        )
+        resp = test_client.get("/static/js/document_viewer/editor.js", follow_redirects=False)
         assert resp.status_code == 200
         js = resp.data.decode("utf-8")
         assert "Quill" in js

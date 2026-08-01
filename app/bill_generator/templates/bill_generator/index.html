@@ -2,10 +2,6 @@
 
 {% block title %}Billing Reimbursement Generator{% endblock %}
 
-{% block extra_css %}
-/* Billing Form Styles - now using theme.css classes */
-{% endblock %}
-
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -18,38 +14,41 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-calendar-alt"></i> Date Range Filter</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="start_date">Start Date</label>
-                <input type="date" id="start_date" name="start_date">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-input">
             </div>
             <div class="form-group">
-                <label for="end_date">End Date</label>
-                <input type="date" id="end_date" name="end_date">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-input">
             </div>
-            <div class="form-group" style="display: flex; align-items: flex-end;">
-                <button type="button" id="preview-btn" class="btn btn-secondary" style="padding: 12px 24px;">
-                    <i class="fa-solid fa-eye"></i> Preview
-                </button>
-                <span id="preview-error" style="color: red; margin-left: 10px; font-size: 14px;"></span>
+            <div class="form-group">
+                <div class="btn-group">
+                    <button type="button" id="preview-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-eye"></i> Preview
+                    </button>
+                    <span id="preview-error" class="text--error"></span>
+                </div>
             </div>
         </div>
+
         <!-- Officer & Identification Details -->
         <div class="section-header">
             <h3><i class="fa-solid fa-user-tie"></i> FSO details</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--3">
             <div class="form-group">
-                <label for="Name">Officer Name</label>
-                <input type="text" id="Name" name="Name" required value="" placeholder="Enter FSO / officer name">
+                <label for="Name" class="form-label">Officer Name <span class="required"></span></label>
+                <input type="text" id="Name" name="Name" class="form-input" required value="" placeholder="Enter FSO / officer name">
             </div>
             <div class="form-group">
-                <label for="EMP_ID">Employee ID</label>
-                <input type="text" id="EMP_ID" name="EMP_ID" required value="81276" placeholder="Enter Employee ID">
+                <label for="EMP_ID" class="form-label">Employee ID <span class="required"></span></label>
+                <input type="text" id="EMP_ID" name="EMP_ID" class="form-input" required value="81276" placeholder="Enter Employee ID">
             </div>
             <div class="form-group">
-                <label for="Designation">Designation</label>
-                <input type="text" id="Designation" name="Designation" required value="Food Safety Officer" placeholder="e.g. Food Safety Officer">
+                <label for="Designation" class="form-label">Designation <span class="required"></span></label>
+                <input type="text" id="Designation" name="Designation" class="form-input" required value="Food Safety Officer" placeholder="e.g. Food Safety Officer">
             </div>
         </div>
 
@@ -57,38 +56,38 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-vials"></i> Sample & Bill Summary</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--5">
             <div class="form-group">
-                <label for="Enf_samp_No">Enforcement Sample Count</label>
-                <input type="number" id="Enf_samp_No" name="Enf_samp_No" required value="8" min="0" placeholder="e.g., 8">
+                <label for="Enf_samp_No" class="form-label">Enforcement Sample Count <span class="required"></span></label>
+                <input type="number" id="Enf_samp_No" name="Enf_samp_No" class="form-input" required value="8" min="0" placeholder="e.g., 8">
             </div>
             <div class="form-group">
-                <label for="Enf_samp_Price">Enforcement Price</label>
-                <input type="text" id="Enf_samp_Price" name="Enf_samp_Price" readonly placeholder="0.00">
+                <label for="Enf_samp_Price" class="form-label">Enforcement Price</label>
+                <input type="text" id="Enf_samp_Price" name="Enf_samp_Price" class="form-input" readonly placeholder="0.00">
             </div>
             <div class="form-group">
-                <label for="Surv_samp_No">Surveillance Sample Count</label>
-                <input type="number" id="Surv_samp_No" name="Surv_samp_No" required value="7" min="0" placeholder="e.g., 7">
+                <label for="Surv_samp_No" class="form-label">Surveillance Sample Count <span class="required"></span></label>
+                <input type="number" id="Surv_samp_No" name="Surv_samp_No" class="form-input" required value="7" min="0" placeholder="e.g., 7">
             </div>
             <div class="form-group">
-                <label for="Surv_samp_Price">Surveillance Price</label>
-                <input type="text" id="Surv_samp_Price" name="Surv_samp_Price" readonly placeholder="0.00">
+                <label for="Surv_samp_Price" class="form-label">Surveillance Price</label>
+                <input type="text" id="Surv_samp_Price" name="Surv_samp_Price" class="form-input" readonly placeholder="0.00">
             </div>
             <div class="form-group">
-                <label for="Total_bill">Total Bill Amount (Rs.)</label>
-                <input type="text" id="Total_bill" name="Total_bill" required value="6025.55" placeholder="e.g., 6025.55" readonly>
+                <label for="Total_bill" class="form-label">Total Bill Amount (Rs.)</label>
+                <input type="text" id="Total_bill" name="Total_bill" class="form-input" required value="6025.55" placeholder="e.g., 6025.55" readonly>
             </div>
         </div>
         <div id="preview-container"></div>
 
-        <div class="form-row">
+        <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="No_of_enfbills">Number of Enforcement Bills</label>
-                <input type="text" id="No_of_enfbills" name="No_of_enfbills" required value="3" placeholder="e.g., 3">
+                <label for="No_of_enfbills" class="form-label">Number of Enforcement Bills <span class="required"></span></label>
+                <input type="text" id="No_of_enfbills" name="No_of_enfbills" class="form-input" required value="3" placeholder="e.g., 3">
             </div>
             <div class="form-group">
-                <label for="No_of_survbills">Number of Surveillance Bills</label>
-                <input type="text" id="No_of_survbills" name="No_of_survbills" required value="1" placeholder="e.g., 1">
+                <label for="No_of_survbills" class="form-label">Number of Surveillance Bills <span class="required"></span></label>
+                <input type="text" id="No_of_survbills" name="No_of_survbills" class="form-input" required value="1" placeholder="e.g., 1">
             </div>
         </div>
 
@@ -96,23 +95,23 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-file-invoice-dollar"></i> Sanction & T.R Details</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--3">
             <div class="form-group">
-                <label for="TR_Value">T.R / Allotment Order No</label>
-                <input type="text" id="TR_Value" name="TR_Value" required value="912" placeholder="e.g., 912">
+                <label for="TR_Value" class="form-label">T.R / Allotment Order No <span class="required"></span></label>
+                <input type="text" id="TR_Value" name="TR_Value" class="form-input" required value="912" placeholder="e.g., 912">
             </div>
             <div class="form-group">
-                <label for="TR_date">T.R / Allotment Date</label>
-                <input type="date" id="TR_date" name="TR_date" required>
+                <label for="TR_date" class="form-label">T.R / Allotment Date <span class="required"></span></label>
+                <input type="date" id="TR_date" name="TR_date" class="form-input" required>
             </div>
             <div class="form-group">
-                <label for="Submission_date">Submission Date</label>
-                <input type="date" id="Submission_date" name="Submission_date" required>
+                <label for="Submission_date" class="form-label">Submission Date <span class="required"></span></label>
+                <input type="date" id="Submission_date" name="Submission_date" class="form-input" required>
             </div>
         </div>
 
-        <div style="text-align: center; margin-top: 40px;">
-            <button type="submit" class="btn btn-primary" style="padding: 16px 40px; font-size: 16px;">
+        <div class="actions-centered">
+            <button type="submit" class="btn btn-primary btn-lg">
                 <i class="fa-solid fa-file-pdf"></i> Generate & Stream Reimbursement PDF
             </button>
         </div>
@@ -122,131 +121,89 @@
 
 {% block extra_js %}
 <script>
-    // Autofill today's date for submission if empty
-    document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date().toISOString().split('T')[0];
-        const trDateInput = document.getElementById('TR_date');
-        const subDateInput = document.getElementById('Submission_date');
-        
-        if (!trDateInput.value) {
-            trDateInput.value = '2026-05-15'; // default matching old sample
-        }
-        if (!subDateInput.value) {
-            subDateInput.value = today;
-        }
-    });
+// Autofill today's date for submission if empty
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    const trDateInput = document.getElementById('TR_date');
+    const subDateInput = document.getElementById('Submission_date');
 
-    // Preview button handler
-    document.getElementById('preview-btn').addEventListener('click', function() {
-        const startDate = document.getElementById('start_date').value;
-        const endDate = document.getElementById('end_date').value;
-        const errorSpan = document.getElementById('preview-error');
-        
-        // Reset error
-        errorSpan.textContent = '';
-        
-        // Validate
-        if (!startDate || !endDate) {
-            errorSpan.textContent = 'Please select both start and end dates.';
-            return;
-        }
-        
-        if (endDate < startDate) {
-            errorSpan.textContent = 'End date must be >= start date.';
-            return;
-        }
-        
-        // Fetch preview
-        fetch(`/bill/preview?start=${startDate}&end=${endDate}`)
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.error || 'Preview failed'); });
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Map response to fields
-                document.getElementById('Enf_samp_No').value = data.enforcement_no || 0;
-                document.getElementById('Enf_samp_Price').value = (data.enforcement_price || 0).toFixed(2);
-                document.getElementById('Surv_samp_No').value = data.surveillance_no || 0;
-                document.getElementById('Surv_samp_Price').value = (data.surveillance_price || 0).toFixed(2);
-                document.getElementById('Total_bill').value = ((data.enforcement_price || 0) + (data.surveillance_price || 0)).toFixed(2);
+    if (!trDateInput.value) {
+        trDateInput.value = '2026-05-15';
+    }
+    if (!subDateInput.value) {
+        subDateInput.value = today;
+    }
+});
 
-                // Build sample table
-                const container = document.getElementById('preview-container');
-                container.innerHTML = '';
-                
-                if (data.samples && data.samples.length > 0) {
-                    const table = document.createElement('table');
-                    table.style.width = '100%';
-                    table.style.marginTop = '20px';
-                    table.style.borderCollapse = 'collapse';
-                    
-                    // Header
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    ['SI No', 'Sample Code', 'Sample Name', 'Retailer', 'Price', 'Type'].forEach(text => {
-                        const th = document.createElement('th');
-                        th.textContent = text;
-                        th.style.border = '1px solid #ddd';
-                        th.style.padding = '8px';
-                        th.style.textAlign = 'left';
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-                    
-                    // Body
-                    const tbody = document.createElement('tbody');
-                    data.samples.forEach(sample => {
-                        const row = document.createElement('tr');
-                        
-                        const siNoCell = document.createElement('td');
-                        siNoCell.textContent = sample.si_no;
-                        siNoCell.style.border = '1px solid #ddd';
-                        siNoCell.style.padding = '8px';
-                        
-                        const codeCell = document.createElement('td');
-                        codeCell.textContent = sample.sample_code || '';
-                        codeCell.style.border = '1px solid #ddd';
-                        codeCell.style.padding = '8px';
-                        
-                        const nameCell = document.createElement('td');
-                        nameCell.textContent = sample.sample_name || '';
-                        nameCell.style.border = '1px solid #ddd';
-                        nameCell.style.padding = '8px';
-                        
-                        const retailerCell = document.createElement('td');
-                        retailerCell.textContent = sample.retailer_name || '';
-                        retailerCell.style.border = '1px solid #ddd';
-                        retailerCell.style.padding = '8px';
-                        
-                        const priceCell = document.createElement('td');
-                        priceCell.textContent = (parseFloat(sample.price) || 0).toFixed(2);
-                        priceCell.style.border = '1px solid #ddd';
-                        priceCell.style.padding = '8px';
-                        
-                        const typeCell = document.createElement('td');
-                        typeCell.textContent = sample.type || '';
-                        typeCell.style.border = '1px solid #ddd';
-                        typeCell.style.padding = '8px';
-                        
-                        row.appendChild(siNoCell);
-                        row.appendChild(codeCell);
-                        row.appendChild(nameCell);
-                        row.appendChild(retailerCell);
-                        row.appendChild(priceCell);
-                        row.appendChild(typeCell);
-                        tbody.appendChild(row);
-                    });
-                    table.appendChild(tbody);
-                    container.appendChild(table);
-                }
-            })
-            .catch(err => {
-                errorSpan.textContent = err.message;
-                console.error('Preview error:', err);
-            });
-    });
+// Preview button handler
+document.getElementById('preview-btn').addEventListener('click', function() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    const errorSpan = document.getElementById('preview-error');
+
+    errorSpan.textContent = '';
+
+    if (!startDate || !endDate) {
+        errorSpan.textContent = 'Please select both start and end dates.';
+        return;
+    }
+
+    if (endDate < startDate) {
+        errorSpan.textContent = 'End date must be >= start date.';
+        return;
+    }
+
+    fetch('/bill/preview?start=' + startDate + '&end=' + endDate)
+        .then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) { throw new Error(err.error || 'Preview failed'); });
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            document.getElementById('Enf_samp_No').value = data.enforcement_no || 0;
+            document.getElementById('Enf_samp_Price').value = (data.enforcement_price || 0).toFixed(2);
+            document.getElementById('Surv_samp_No').value = data.surveillance_no || 0;
+            document.getElementById('Surv_samp_Price').value = (data.surveillance_price || 0).toFixed(2);
+            document.getElementById('Total_bill').value = ((data.enforcement_price || 0) + (data.surveillance_price || 0)).toFixed(2);
+
+            const container = document.getElementById('preview-container');
+            container.innerHTML = '';
+
+            if (data.samples && data.samples.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'data-table samples-table';
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                ['SI No', 'Sample Code', 'Sample Name', 'Retailer', 'Price', 'Type'].forEach(function(text) {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                data.samples.forEach(function(sample) {
+                    const row = document.createElement('tr');
+                    row.innerHTML =
+                        '<td>' + (sample.si_no || '') + '</td>' +
+                        '<td>' + (sample.sample_code || '') + '</td>' +
+                        '<td>' + (sample.sample_name || '') + '</td>' +
+                        '<td>' + (sample.retailer_name || '') + '</td>' +
+                        '<td class="cell--right cell--monospace">' + (parseFloat(sample.price) || 0).toFixed(2) + '</td>' +
+                        '<td>' + (sample.type || '') + '</td>';
+                    tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+        })
+        .catch(function(err) {
+            errorSpan.textContent = err.message;
+            console.error('Preview error:', err);
+        });
+});
 </script>
 {% endblock %}

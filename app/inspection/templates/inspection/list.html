@@ -7,14 +7,14 @@
     <div class="card-header">
         <h2><i class="fa-solid fa-list"></i> Inspection List</h2>
     </div>
-    
+
     <!-- Filter Panel -->
     <div class="filter-panel">
         <form method="get" action="{{ url_for('inspection.list_inspections') }}" id="filterForm">
-            <div class="filter-row">
+            <div class="filter-row filter-row--3">
                 <div class="filter-group">
                     <label for="filter_fso">Filter by FSO</label>
-                    <select id="filter_fso" name="fso_name">
+                    <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
                         <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
@@ -23,29 +23,31 @@
                 </div>
                 <div class="filter-group">
                     <label for="filter_date_from">From Date</label>
-                    <input type="date" id="filter_date_from" name="inspection_date_from" 
+                    <input type="date" id="filter_date_from" name="inspection_date_from" class="form-input"
                            value="{{ filter_date_from or '' }}">
                 </div>
                 <div class="filter-group">
                     <label for="filter_date_to">To Date</label>
-                    <input type="date" id="filter_date_to" name="inspection_date_to" 
+                    <input type="date" id="filter_date_to" name="inspection_date_to" class="form-input"
                            value="{{ filter_date_to or '' }}">
                 </div>
-                <div class="filter-group" style="display: flex; align-items: flex-end; gap: 10px;">
-                    <button type="submit" class="btn btn-secondary">
-                        <i class="fa-solid fa-filter"></i> Apply Filters
-                    </button>
-                    <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
-                        <i class="fa-solid fa-times"></i> Clear
-                    </a>
+                <div class="filter-group">
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-filter"></i> Apply Filters
+                        </button>
+                        <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-times"></i> Clear
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>
     </div>
-    
+
     <!-- Inspection Table -->
-    <div style="overflow-x: auto;">
-        <table class="inspection-list-table">
+    <div class="table-container">
+        <table class="data-table inspection-list-table">
             <thead>
                 <tr>
                     <th onclick="sortTable('inspection_code')">
@@ -104,11 +106,11 @@
                     <td>{{ inspection.compliance_deadline }}</td>
                     <td>
                         {% if inspection.is_dismissed %}
-                            <span style="color: var(--color-error, #dc3545);">
+                            <span class="status-badge status-badge--error">
                                 <i class="fa-solid fa-circle-xmark"></i> Yes
                             </span>
                         {% else %}
-                            <span style="color: var(--color-success, #28a745);">
+                            <span class="status-badge status-badge--success">
                                 <i class="fa-solid fa-circle-check"></i> No
                             </span>
                         {% endif %}
@@ -122,64 +124,69 @@
                         </span>
                     </td>
                     <td>
-                        <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}" 
-                           class="btn btn-small btn-secondary" title="View">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        <a href="#" onclick="editInspection({{ inspection.id }})" 
-                           class="btn btn-small btn-secondary" title="Edit">
-                            <i class="fa-solid fa-edit"></i>
-                        </a>
-                        <a href="#" onclick="confirmDelete({{ inspection.id }})" 
-                           class="btn btn-small btn-secondary" title="Delete" style="color: var(--color-error, #dc3545);">
-                            <i class="fa-solid fa-trash"></i>
-                        </a>
+                        <div class="btn-group">
+                            <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
+                               class="btn btn-secondary btn-sm" title="View">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            <a href="#" onclick="editInspection({{ inspection.id }})"
+                               class="btn btn-secondary btn-sm" title="Edit">
+                                <i class="fa-solid fa-edit"></i>
+                            </a>
+                            <a href="#" onclick="confirmDelete({{ inspection.id }})"
+                               class="btn btn-secondary btn-sm" title="Delete">
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px;">
-                        <i class="fa-solid fa-inbox" style="font-size: 3rem; color: var(--border); margin-bottom: 10px;"></i>
-                        <br>
-                        No inspections found
+                    <td colspan="8" class="text--center">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-inbox"></i>
+                            <p>No inspections found</p>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    
+
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
     <div class="pagination">
         {% if pagination.has_prev %}
-        <a href="{{ url_for('inspection.list_inspections', page=pagination.prev_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}">
-            <i class="fa-solid fa-chevron-left"></i>
+        <a href="{{ url_for('inspection.list_inspections', page=pagination.prev_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+           class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-chevron-left"></i> Previous
         </a>
         {% endif %}
-        
+
         {% for page_num in pagination.iter_pages() %}
             {% if page_num %}
-            <a href="{{ url_for('inspection.list_inspections', page=page_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}" 
-               class="{% if page_num == pagination.page %}active{% endif %}">{{ page_num }}</a>
+            <a href="{{ url_for('inspection.list_inspections', page=page_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+               class="btn btn-secondary btn-sm {% if page_num == pagination.page %}active{% endif %}">{{ page_num }}</a>
             {% else %}
-            <span>...</span>
+            <span class="btn btn-secondary btn-sm">…</span>
             {% endif %}
         {% endfor %}
-        
+
         {% if pagination.has_next %}
-        <a href="{{ url_for('inspection.list_inspections', page=pagination.next_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}">
-            <i class="fa-solid fa-chevron-right"></i>
+        <a href="{{ url_for('inspection.list_inspections', page=pagination.next_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+           class="btn btn-secondary btn-sm">
+            Next <i class="fa-solid fa-chevron-right"></i>
         </a>
         {% endif %}
     </div>
     {% endif %}
-    
-    <div style="margin-top: 20px; text-align: center; color: var(--text-body); font-size: 0.9rem;">
+
+    <p class="text--center mb--md">
         Showing {{ inspections|length }} of {{ pagination.total }} inspections
-    </div>
-    
-    <div style="margin-top: 30px; text-align: center; display: flex; gap: 15px; justify-content: center;">
+    </p>
+
+    <div class="flex-between--wrap">
         <a href="{{ url_for('inspection.index') }}" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i> Add New Inspection
         </a>
@@ -203,11 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const badges = document.querySelectorAll('.photo-badge');
     badges.forEach(function(badge) {
         const adjId = badge.dataset.adjudicationId;
-        const inspId = badge.dataset.inspectionId;
-        var countSpan = badge.querySelector('.photo-badge-count');
-
         if (!adjId) {
-            countSpan.textContent = '0';
             badge.classList.add('no-photos');
             return;
         }
@@ -216,6 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(r) { return r.json(); })
             .then(function(photos) {
                 var count = photos ? photos.length : 0;
+                var countSpan = badge.querySelector('.photo-badge-count');
                 countSpan.textContent = count;
                 if (count > 0) {
                     badge.classList.add('has-photos');
@@ -227,12 +231,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         e.preventDefault();
                         showPhotoPopover(JSON.parse(this.dataset.photos), this);
                     });
-                } else {
-                    badge.classList.add('no-photos');
                 }
             })
             .catch(function() {
-                countSpan.textContent = '0';
                 badge.classList.add('no-photos');
             });
     });
@@ -245,7 +246,7 @@ function showPhotoPopover(photos, anchorEl) {
 
     var popover = document.createElement('div');
     popover.id = 'photoPopover';
-    popover.style.cssText = 'position:fixed;z-index:999;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-width:400px;max-height:300px;overflow-y:auto;';
+    popover.style.cssText = 'position:fixed;z-index:999;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-width:400px;max-height:300px;overflow-y:auto;';
 
     var closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
@@ -288,46 +289,41 @@ function showPhotoPopover(photos, anchorEl) {
 function sortTable(column) {
     let sortBy = column;
     let sortOrder = 'asc';
-    
-    // Get current sort from URL or default
+
     const urlParams = new URLSearchParams(window.location.search);
     const currentSortBy = urlParams.get('sort_by') || 'inspection_date';
     const currentSortOrder = urlParams.get('sort_order') || 'desc';
-    
+
     if (currentSortBy === column) {
         sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
     }
-    
-    // Build URL with new sort parameters
+
     urlParams.set('sort_by', sortBy);
     urlParams.set('sort_order', sortOrder);
     window.location.search = urlParams.toString();
 }
 
-// Edit inspection (placeholder function)
 function editInspection(inspectionId) {
-    alert(`Edit inspection ${inspectionId} - redirect to edit page`);
-    // In a real implementation: window.location.href = `/inspection/${inspectionId}/edit`;
+    alert('Edit inspection ' + inspectionId + ' - redirect to edit page');
 }
 
-// Confirm delete
 function confirmDelete(inspectionId) {
-    if (confirm(`Are you sure you want to delete inspection ${inspectionId}? This cannot be undone.`)) {
-        fetch(`/inspection/${inspectionId}`, {
+    if (confirm('Are you sure you want to delete inspection ' + inspectionId + '? This cannot be undone.')) {
+        fetch('/inspection/' + inspectionId, {
             method: 'DELETE'
-        }).then(response => {
+        }).then(function(response) {
             if (response.ok) {
                 alert('Inspection deleted successfully');
                 window.location.reload();
             } else {
                 return response.json();
             }
-        }).then(data => {
+        }).then(function(data) {
             if (data) {
-                alert(`Error: ${data.error || 'Failed to delete inspection'}`);
+                alert('Error: ' + (data.error || 'Failed to delete inspection'));
             }
-        }).catch(error => {
-            alert(`Error: ${error.message}`);
+        }).catch(function(error) {
+            alert('Error: ' + error.message);
         });
     }
 }

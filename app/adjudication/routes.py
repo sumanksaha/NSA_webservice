@@ -304,6 +304,21 @@ def get_adjudication_case_by_number(case_number):
     return jsonify(adjudication_to_dict(adj))
 
 
+@adjudication_bp.route("/<int:case_id>/editor", methods=["GET"])
+def edit_adjudication(case_id):
+    """Render the Quill document editor, pre-filled with an adjudication's documents."""
+    adj = Adjudication.query.get_or_404(case_id)
+    from app.document_viewer.renderer import render_adjudication_document
+
+    return render_template(
+        "document_viewer/editor.html",
+        case_number=adj.case_number,
+        case_id=adj.id,
+        petition_html=render_adjudication_document(case_id, "petition"),
+        permission_html=render_adjudication_document(case_id, "permission"),
+    )
+
+
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
 def regenerate_adjudication_documents(case_id):
     """Regenerate documents from an existing adjudication case."""

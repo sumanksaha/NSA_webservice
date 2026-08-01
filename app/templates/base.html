@@ -4,237 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NSA Adjudication & Billing Suite{% endblock %}</title>
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Georgia&family=Merriweather&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- CSRF token for AJAX requests (injected by Flask-WTF) -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Theme CSS -->
+    <!-- Theme CSS (single source of truth for all styles) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
-    
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
 
-        body {
-            font-family: var(--font-body);
-            background-color: var(--bg-page);
-            color: var(--text-body);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Header & Navigation */
-        header {
-            background-color: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow-card);
-        }
-
-        .nav-container {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 0 20px;
-            height: 70px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: var(--text-primary);
-        }
-
-        .logo-icon {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            color: white;
-        }
-
-        .logo-text {
-            font-family: var(--font-heading);
-            font-weight: 700;
-            font-size: 22px;
-            letter-spacing: -0.5px;
-            color: var(--text-primary);
-        }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            background: var(--bg-subtle);
-            border: 1px solid var(--border);
-            padding: 6px;
-            border-radius: 8px;
-        }
-
-        .tab-link {
-            font-family: var(--font-body);
-            text-decoration: none;
-            color: var(--text-body);
-            font-weight: 600;
-            font-size: 14px;
-            padding: 10px 20px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .tab-link:hover {
-            color: var(--accent-primary);
-            background-color: var(--bg-card);
-        }
-
-        .tab-link.active {
-            color: white;
-            background: var(--accent-primary);
-            box-shadow: 0 2px 8px rgba(22, 36, 74, 0.2);
-        }
-
-        /* Main Workspace */
-        main {
-            flex: 1;
-            max-width: 960px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        /* Footer */
-        footer {
-            background-color: var(--bg-card);
-            border-top: 1px solid var(--border);
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-body);
-            margin-top: auto;
-        }
-
-        footer a {
-            color: var(--accent-primary);
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* Card compatibility */
-        .glass-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 24px;
-            box-shadow: var(--shadow-card);
-            margin-bottom: 20px;
-        }
-
-        .glass-card-header {
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .glass-card-header h2 {
-            font-family: var(--font-heading);
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .nav-container {
-                flex-direction: column;
-                height: auto;
-                padding: 15px 20px;
-                gap: 15px;
-            }
-            main {
-                padding: 20px 15px;
-            }
-        }
-        
-
-        {% block extra_css %}{% endblock %}
-    </style>
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
     <header>
-        <div class="nav-container">
+        <div class="nav-container nav-container--desktop">
+
             <a href="/" class="logo">
                 <div class="logo-icon">
                     <i class="fa-solid fa-shield-halved"></i>
                 </div>
                 <div class="logo-text">NSA WebService</div>
             </a>
-            
-            <nav class="tabs">
-                <a href="{{ url_for('case_file_generator.index') }}" 
-                   class="tab-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}">
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
+
+            <nav class="nav-tabs" id="navList">
+                <a href="{{ url_for('case_file_generator.index') }}"
+                   class="nav-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}">
                     <i class="fa-solid fa-folder-open"></i> Sample -adjudication
                 </a>
-                <a href="{{ url_for('sample.index') }}" 
-                   class="tab-link {% if request.blueprint == 'sample' %}active{% endif %}">
+                <a href="{{ url_for('sample.index') }}"
+                   class="nav-link {% if request.blueprint == 'sample' %}active{% endif %}">
                     <i class="fa-solid fa-vial"></i> Sample
                 </a>
-                <a href="{{ url_for('inspection.index') }}" 
-                   class="tab-link {% if request.blueprint == 'inspection' %}active{% endif %}">
+                <a href="{{ url_for('inspection.index') }}"
+                   class="nav-link {% if request.blueprint == 'inspection' %}active{% endif %}">
                     <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
                 </a>
-                <a href="{{ url_for('billing.index') }}" 
-                   class="tab-link {% if request.blueprint == 'billing' %}active{% endif %}">
+                <a href="{{ url_for('billing.index') }}"
+                   class="nav-link {% if request.blueprint == 'billing' %}active{% endif %}">
                     <i class="fa-solid fa-file-invoice-dollar"></i> Billing
                 </a>
-                <a href="{{ url_for('adjudication.index') }}" 
-                   class="tab-link {% if request.blueprint == 'adjudication' %}active{% endif %}">
+                <a href="{{ url_for('adjudication.index') }}"
+                   class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}">
                     <i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication
                 </a>
-                <a href="{{ url_for('bill_generator.index') }}" 
-                   class="tab-link {% if request.blueprint == 'bill_generator' %}active{% endif %}">
+                <a href="{{ url_for('bill_generator.index') }}"
+                   class="nav-link {% if request.blueprint == 'bill_generator' %}active{% endif %}">
                     <i class="fa-solid fa-receipt"></i> Bill Generator
                 </a>
-                <a href="{{ url_for('settings.index') }}" 
-                   class="tab-link {% if request.blueprint == 'settings' %}active{% endif %}">
+                <a href="{{ url_for('settings.index') }}"
+                   class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}">
                     <i class="fa-solid fa-gear"></i> Settings
                 </a>
             </nav>
-            <div style="display: flex; align-items: center; gap: 10px;">
+
+            <div class="nav-user">
                 {% if current_user.is_authenticated %}
-                <span style="font-size: 13px; color: var(--text-body);">
+                <span class="user-name">
                     <i class="fa-solid fa-user"></i> {{ current_user.username }}
                 </span>
-                <a href="{{ url_for('auth.logout') }}" class="tab-link" style="padding: 8px 14px; font-size: 13px;">
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </a>
                 {% endif %}
@@ -242,36 +82,68 @@
         </div>
     </header>
 
-    <main>
+    <div class="nav-overlay" id="navOverlay"></div>
+
+    <main class="layout-container">
         {% block content %}{% endblock %}
     </main>
 
     <footer>
-        <p>&copy; 2026 Kolkata Municipal Corporation, Food Safety Department. All Rights Reserved. Built with <i class="fa-solid fa-heart" style="color: var(--accent-secondary);"></i> using Flask & WeasyPrint.</p>
+        <p>&copy; 2026 Kolkata Municipal Corporation, Food Safety Department. All Rights Reserved. Built with <i class="fa-solid fa-heart heart"></i> using Flask & WeasyPrint.</p>
     </footer>
-    
-    <script>
-    // Auto-attach CSRF token (X-CSRFToken header) to every fetch() call
-    // that performs a state-changing request (POST / PUT / DELETE / PATCH).
-    // The token is read from the <meta name="csrf-token"> tag once at page load.
-    (function() {
-        var csrfToken = document.querySelector('meta[name="csrf-token"]');
-        if (!csrfToken) return;
-        var token = csrfToken.getAttribute('content');
-        if (!token) return;
 
-        var originalFetch = window.fetch;
-        window.fetch = function(url, options) {
-            options = options || {};
-            var method = (options.method || 'GET').toUpperCase();
-            if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(method) !== -1) {
-                options.headers = options.headers || {};
-                options.headers['X-CSRFToken'] = token;
+    <script>
+        // Hamburger menu toggle for mobile
+        (function() {
+            var toggle = document.getElementById('navToggle');
+            var navList = document.getElementById('navList');
+            var overlay = document.getElementById('navOverlay');
+
+            function toggleNav(open) {
+                var isOpening = typeof open === 'boolean' ? open : !navList.classList.contains('show');
+                navList.classList.toggle('show', isOpening);
+                overlay.classList.toggle('show', isOpening);
+                toggle.setAttribute('aria-expanded', isOpening);
             }
-            return originalFetch.call(this, url, options);
-        };
-    })();
+
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleNav();
+            });
+
+            overlay.addEventListener('click', function() {
+                toggleNav(false);
+            });
+
+            // Close nav on resize if desktop
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 768) {
+                    toggleNav(false);
+                }
+            });
+        })();
+
+        // Auto-attach CSRF token (X-CSRFToken header) to every fetch() call
+        // that performs a state-changing request (POST / PUT / DELETE / PATCH).
+        (function() {
+            var csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken) return;
+            var token = csrfToken.getAttribute('content');
+            if (!token) return;
+
+            var originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                options = options || {};
+                var method = (options.method || 'GET').toUpperCase();
+                if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(method) !== -1) {
+                    options.headers = options.headers || {};
+                    options.headers['X-CSRFToken'] = token;
+                }
+                return originalFetch.call(this, url, options);
+            };
+        })();
     </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

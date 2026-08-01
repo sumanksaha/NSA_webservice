@@ -88,7 +88,7 @@ def embed_photos_as_base64(photo_urls):
                 raw_bytes = resp.content
             else:
                 # Local filesystem path — read directly
-                if not Path(path).exists():
+                if not os.path.exists(path):
                     raise FileNotFoundError(f"Local file not found: {path}")
                 with open(path, "rb") as f:
                     raw_bytes = f.read()

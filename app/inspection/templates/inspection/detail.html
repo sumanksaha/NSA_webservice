@@ -4,10 +4,9 @@
 
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div class="card-header flex-between--wrap">
         <h2><i class="fa-solid fa-file-lines"></i> Inspection Detail</h2>
-        <span style="font-size: 1rem; color: var(--accent-primary); font-weight: 600;">
-            {{ inspection.inspection_code }}
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600;">            {{ inspection.inspection_code }}
         </span>
     </div>
 
@@ -16,7 +15,7 @@
         <h3><i class="fa-solid fa-circle-info"></i> Inspection Information</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 0 20px 0;">
+    <div class="grid--2">
         <div class="detail-field">
             <label>Food Safety Officer</label>
             <span class="detail-value">{{ inspection.fso_name }}</span>
@@ -33,11 +32,17 @@
             <label>Status</label>
             <span class="detail-value">
                 {% if inspection.is_dismissed %}
-                    <span style="color: var(--color-error, #dc3545);"><i class="fa-solid fa-circle-xmark"></i> Dismissed</span>
+                    <span class="status-badge status-badge--error">
+                        <i class="fa-solid fa-circle-xmark"></i> Dismissed
+                    </span>
                 {% elif inspection.adjudication_id %}
-                    <span style="color: var(--color-success, #28a745);"><i class="fa-solid fa-scale-balanced"></i> Adjudicated</span>
+                    <span class="status-badge status-badge--success">
+                        <i class="fa-solid fa-scale-balanced"></i> Adjudicated
+                    </span>
                 {% else %}
-                    <span style="color: var(--color-warning, #ffc107);"><i class="fa-solid fa-clock"></i> Active</span>
+                    <span class="status-badge status-badge--warning">
+                        <i class="fa-solid fa-clock"></i> Active
+                    </span>
                 {% endif %}
             </span>
         </div>
@@ -47,7 +52,7 @@
         <h3><i class="fa-solid fa-building"></i> FBO Information</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 0 20px 0;">
+    <div class="grid--2">
         <div class="detail-field">
             <label>FSSAI License</label>
             <span class="detail-value">{{ inspection.fssai_license or 'N/A' }}</span>
@@ -75,15 +80,13 @@
     </div>
 
     <!-- Photo Evidence Section -->
-    <div class="section-header" style="margin-top: 10px;">
+    <div class="section-header">
         <h3><i class="fa-solid fa-camera"></i> Photo Evidence</h3>
-        <p style="color: var(--text-body); font-size: 0.85rem; margin-top: 5px;">
-            Capture or upload photos for this inspection. GPS location will be collected automatically for verification.
-        </p>
+        <p class="form-hint">Capture or upload photos for this inspection. GPS location will be collected automatically for verification.</p>
     </div>
 
     <!-- Photo Upload Area -->
-    <div class="photo-upload-section">
+    <div class="card bg--subtle">
         <!-- Hidden fields for photo metadata -->
         <input type="hidden" id="photo_inspection_id" value="{{ inspection.id }}">
         <input type="hidden" id="photo_lat" value="">
@@ -95,8 +98,8 @@
         <div class="photo-dropzone" id="photoDropzone" onclick="document.getElementById('photoInput').click()">
             <div class="dropzone-content" id="dropzoneContent">
                 <i class="fa-solid fa-camera" style="font-size: 3rem; color: var(--accent-primary);"></i>
-                <p style="font-size: 1.1rem; font-weight: 500; margin: 10px 0 5px;">Capture or Select Photo</p>
-                <p style="font-size: 0.85rem; color: var(--text-body);">Tap to use camera or choose from gallery</p>
+                <p class="form-label" style="margin: 10px 0 5px; font-weight: 500;">Capture or Select Photo</p>
+                <p class="form-hint">Tap to use camera or choose from gallery</p>
             </div>
             <div class="dropzone-preview" id="dropzonePreview" style="display: none;">
                 <img id="photoPreview" src="" alt="Photo preview">
@@ -134,24 +137,23 @@
         </div>
 
         <!-- Upload progress -->
-        <div id="uploadProgress" style="display: none; margin-top: 15px;">
+        <div id="uploadProgress" class="mt--sm" style="display: none;">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-            <p id="progressText" style="font-size: 0.85rem; color: var(--text-body); margin-top: 5px;">Uploading...</p>
+            <p id="progressText" class="form-hint mt--xs">Uploading...</p>
         </div>
 
         <!-- Upload error message -->
-        <div id="uploadError" style="display: none; margin-top: 15px; padding: 12px; background: rgba(220, 53, 69, 0.1); border-radius: 6px; border-left: 3px solid var(--color-error, #dc3545); color: var(--color-error, #dc3545); font-size: 0.9rem;">
+        <div id="uploadError" class="mt--sm" style="display: none;">
         </div>
     </div>
 
     <!-- Photo Gallery -->
-    <div class="photo-gallery-section">
-        <h4 style="margin-bottom: 15px; color: var(--text-primary);">
-            <i class="fa-solid fa-images"></i> Uploaded Photos
+    <div class="card bg--subtle" style="margin-top: 1.25rem;">
+        <h3 class="mb--sm"><i class="fa-solid fa-images"></i> Uploaded Photos
             <span class="photo-count" id="photoCount">({{ photos|length }})</span>
-        </h4>
+        </h3>
 
         {% if photos %}
         <div class="photo-grid" id="photoGrid">
@@ -179,14 +181,14 @@
         </div>
         {% else %}
         <div class="empty-gallery" id="emptyGallery">
-            <i class="fa-solid fa-image" style="font-size: 3rem; color: var(--border);"></i>
-            <p style="color: var(--text-body); margin-top: 10px;">No photos uploaded yet</p>
+            <i class="fa-solid fa-image" style="font-size: 2.5rem; color: var(--border);"></i>
+            <p>No photos uploaded yet</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Action Buttons -->
-    <div style="margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap;">
+    <div class="flex-between--wrap mt--lg">
         <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> Back to List
         </a>
@@ -220,7 +222,6 @@
 let selectedFile = null;
 let gpsPosition = null;
 
-// DOM elements
 const dropzone = document.getElementById('photoDropzone');
 const photoInput = document.getElementById('photoInput');
 const dropzoneContent = document.getElementById('dropzoneContent');
@@ -235,7 +236,6 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const uploadError = document.getElementById('uploadError');
 
-// Handle file selection
 photoInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -244,11 +244,10 @@ photoInput.addEventListener('change', function(e) {
     getGPSPosition();
 });
 
-// Handle drag-and-drop
 dropzone.addEventListener('dragover', function(e) {
     e.preventDefault();
     this.style.borderColor = 'var(--accent-primary)';
-    this.style.backgroundColor = 'rgba(22, 36, 74, 0.05)';
+    this.style.backgroundColor = 'rgba(22, 36, 74, 0.03)';
 });
 
 dropzone.addEventListener('dragleave', function(e) {
@@ -276,13 +275,12 @@ function showPreview(file) {
         dropzoneContent.style.display = 'none';
         dropzonePreview.style.display = 'block';
         previewStatus.textContent = 'Photo selected - ready to upload';
-        previewStatus.style.color = 'var(--color-success, #28a745)';
+        previewStatus.style.color = 'var(--color-success)';
     };
     reader.readAsDataURL(file);
 }
 
 function getGPSPosition() {
-    // Show metadata section
     photoMeta.style.display = 'block';
     document.getElementById('metaLocation').textContent = 'Getting GPS position...';
     document.getElementById('metaAccuracy').textContent = '...';
@@ -301,10 +299,9 @@ function getGPSPosition() {
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
 
-            document.getElementById('metaLocation').textContent = `${lat.toFixed(6)}°N, ${lng.toFixed(6)}°E`;
-            document.getElementById('metaAccuracy').textContent = `±${accuracy.toFixed(1)}m`;
+            document.getElementById('metaLocation').textContent = lat.toFixed(6) + '°N, ' + lng.toFixed(6) + '°E';
+            document.getElementById('metaAccuracy').textContent = '±' + accuracy.toFixed(1) + 'm';
 
-            // Store in hidden fields
             document.getElementById('photo_lat').value = lat;
             document.getElementById('photo_lng').value = lng;
             document.getElementById('photo_accuracy').value = accuracy;
@@ -328,7 +325,6 @@ function getGPSPosition() {
                     msg += error.message;
             }
             document.getElementById('metaLocation').textContent = msg;
-            // Still allow upload without GPS
             showPhotoActions();
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -372,7 +368,6 @@ function uploadPhoto() {
         return;
     }
 
-    // Disable upload button and show progress
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
     uploadProgress.style.display = 'block';
@@ -406,13 +401,11 @@ function uploadPhoto() {
     .then(function(data) {
         progressFill.style.width = '100%';
         progressText.textContent = 'Photo uploaded successfully!';
-        progressText.style.color = 'var(--color-success, #28a745)';
+        progressText.style.color = 'var(--color-success)';
 
-        // Show success preview status
         previewStatus.textContent = '✓ Uploaded successfully';
-        previewStatus.style.color = 'var(--color-success, #28a745)';
+        previewStatus.style.color = 'var(--color-success)';
 
-        // Reload the photo gallery after a short delay
         setTimeout(function() {
             window.location.reload();
         }, 1500);
@@ -427,6 +420,7 @@ function uploadPhoto() {
 
 function showError(message) {
     uploadError.style.display = 'block';
+    uploadError.className = 'info-box info-box--error';
     uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
 }
 
@@ -436,22 +430,22 @@ function showError(message) {
 function openLightbox(src, locality, status, capturedAt) {
     document.getElementById('lightboxImage').src = src;
     document.getElementById('lightboxLocation').textContent = locality;
-    
+
     let statusText = status;
     let statusColor = 'var(--text-body)';
     if (status === 'PASS') {
-        statusText = '✅ Verified (PASS)';
-        statusColor = 'var(--color-success, #28a745)';
+        statusText = 'Verified (PASS)';
+        statusColor = 'var(--color-success)';
     } else if (status === 'FLAG') {
-        statusText = '⚠️ Flagged (FLAG)';
-        statusColor = 'var(--color-error, #dc3545)';
+        statusText = 'Flagged (FLAG)';
+        statusColor = 'var(--color-error)';
     } else {
-        statusText = '⏳ Pending';
-        statusColor = 'var(--color-warning, #ffc107)';
+        statusText = 'Pending';
+        statusColor = 'var(--color-warning)';
     }
     document.getElementById('lightboxStatus').innerHTML = '<span style="color: ' + statusColor + '">' + statusText + '</span>';
     document.getElementById('lightboxCapturedAt').textContent = capturedAt;
-    
+
     document.getElementById('lightboxModal').style.display = 'flex';
 }
 
@@ -459,272 +453,16 @@ function closeLightbox() {
     document.getElementById('lightboxModal').style.display = 'none';
 }
 
-// Close lightbox on click outside image
 document.getElementById('lightboxModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeLightbox();
     }
 });
 
-// Close lightbox on ESC key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeLightbox();
     }
 });
 </script>
-{% endblock %}
-
-{% block extra_css %}
-{{ super() }}
-<style>
-/* Detail page field styles */
-.detail-field {
-    padding: 10px 15px;
-    background: var(--bg-subtle);
-    border-radius: 6px;
-    border: 1px solid var(--border);
-}
-.detail-field label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--text-body);
-    margin-bottom: 4px;
-    font-weight: 500;
-}
-.detail-field .detail-value {
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    font-weight: 500;
-}
-
-/* Photo Upload Section */
-.photo-upload-section {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-.photo-dropzone {
-    border: 2px dashed var(--border);
-    border-radius: 10px;
-    padding: 40px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background: transparent;
-    min-height: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-.photo-dropzone:hover {
-    border-color: var(--accent-primary);
-    background: rgba(22, 36, 74, 0.03);
-}
-.dropzone-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.dropzone-preview {
-    position: relative;
-    max-width: 400px;
-    margin: 0 auto;
-}
-.dropzone-preview img {
-    max-width: 100%;
-    max-height: 300px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-.preview-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0,0,0,0.6);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 0 0 8px 8px;
-    font-size: 0.85rem;
-}
-
-/* Photo Metadata */
-.photo-meta {
-    margin-top: 15px;
-    padding: 12px;
-    background: var(--bg-subtle);
-    border-radius: 6px;
-    border-left: 3px solid var(--accent-primary);
-}
-.meta-row {
-    margin-bottom: 5px;
-    font-size: 0.9rem;
-}
-.meta-row:last-child {
-    margin-bottom: 0;
-}
-.meta-label {
-    font-weight: 500;
-    color: var(--text-body);
-    margin-right: 8px;
-}
-.meta-value {
-    color: var(--text-primary);
-}
-
-/* Photo Actions */
-.photo-actions {
-    margin-top: 15px;
-    display: flex;
-    gap: 10px;
-}
-
-/* Progress Bar */
-.progress-bar {
-    width: 100%;
-    height: 8px;
-    background: var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-.progress-fill {
-    height: 100%;
-    background: var(--accent-primary);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-    width: 0%;
-}
-
-/* Photo Gallery */
-.photo-gallery-section {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    margin-top: 10px;
-}
-.photo-count {
-    font-weight: 400;
-    font-size: 0.9rem;
-    color: var(--text-body);
-}
-.photo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 15px;
-}
-.photo-card {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.photo-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.photo-thumb {
-    width: 100%;
-    height: 150px;
-    overflow: hidden;
-    background: #f5f5f5;
-}
-.photo-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.photo-info {
-    padding: 8px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-}
-.photo-status {
-    font-weight: 500;
-}
-.status-pass {
-    color: var(--color-success, #28a745);
-}
-.status-flag {
-    color: var(--color-error, #dc3545);
-}
-.status-pending {
-    color: var(--color-warning, #ffc107);
-}
-.photo-locality {
-    color: var(--text-body);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.empty-gallery {
-    text-align: center;
-    padding: 40px 20px;
-}
-
-/* Lightbox Modal */
-.lightbox-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.85);
-    z-index: 9999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-}
-.lightbox-close {
-    position: absolute;
-    top: 20px;
-    right: 30px;
-    font-size: 2.5rem;
-    color: white;
-    cursor: pointer;
-    opacity: 0.8;
-    transition: opacity 0.2s;
-}
-.lightbox-close:hover {
-    opacity: 1;
-}
-.lightbox-content {
-    max-width: 90%;
-    max-height: 90%;
-    text-align: center;
-}
-.lightbox-content img {
-    max-width: 100%;
-    max-height: 70vh;
-    border-radius: 8px;
-    border: 2px solid rgba(255,255,255,0.2);
-}
-.lightbox-details {
-    background: rgba(0,0,0,0.6);
-    color: white;
-    padding: 15px 20px;
-    border-radius: 8px;
-    margin-top: 15px;
-    text-align: left;
-    font-size: 0.9rem;
-}
-.lightbox-details p {
-    margin-bottom: 5px;
-}
-.lightbox-details p:last-child {
-    margin-bottom: 0;
-}
-.lightbox-details strong {
-    color: rgba(255,255,255,0.7);
-}
-</style>
 {% endblock %}

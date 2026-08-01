@@ -423,7 +423,7 @@ def open_issues():
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
         Inspection.compliance_deadline >= today,
-        not Inspection.is_dismissed,
+        ~Inspection.is_dismissed,
         Inspection.adjudication_id.is_(None),
     )
 
@@ -453,7 +453,7 @@ def pending_action():
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
         Inspection.compliance_deadline < today,
-        not Inspection.is_dismissed,
+        ~Inspection.is_dismissed,
         Inspection.adjudication_id.is_(None),
     )
 
