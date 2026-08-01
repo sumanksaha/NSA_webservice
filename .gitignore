@@ -1,155 +1,340 @@
-# Google Sheets API Private Credentials
-instance/credentials.json
-credentials.json
-
-# Local Runtime SQLite Database (Active Instance Store)
-instance/app.db
-
-# Database backup files (should never be tracked)
-instance/*.backup_*
-
-# Pipeline backup files (safety copies, not primary data)
-*_backup.csv
-
-# Dynamic Bytecode and Environment Cache
-__pycache__/
-*.pyc
-.env
-
-# Local development test scripts (not part of core test suite)
-smoke_test.py
-nul
-
 # =============================================================================
+# NSA Webservice — .gitignore
+# Comprehensive ignore rules for Python/FastAPI project targeting PostgreSQL,
+# Neo4j, Qdrant, Redis, deployed via Docker on Render.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
 # Python
-# =============================================================================
+# ---------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
+*.pyo
+*.pyd
 *.egg
+*.egg-info/
+dist/
+build/
+*.egg-info/
+.eggs/
+*.so
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.cover
+*.py,cover
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+perf.data*
+*.prof
 
-# Virtual environments
+# ---------------------------------------------------------------------------
+# Virtual Environments
+# ---------------------------------------------------------------------------
 venv/
 .venv/
 env/
-ENV/
-env.bak/
-venv.bak/
-.venv-win/
-Scripts/
+.env/
+.venv_*/
+env_*/
+virtualenv/
+virtualenv_*/
+ve/
+.ve/
 
-# IDE
-.idea/
+# ---------------------------------------------------------------------------
+# IDE / Editors
+# ---------------------------------------------------------------------------
+
+# VSCode
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+out/
+
+# Cursor
+.cursor/
+.cursorrules
+
+# Vim
 *.swp
 *.swo
 *~
-.project
-.pydevproject
-.settings/
+*.un~
+Session.vim
+.netrwhist
 
-# Testing
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------------------------------------------------------
+# Windows
+# ---------------------------------------------------------------------------
+*.dll
+*.dylib
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_preview.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.msi
+*.msix
+*.msm
+*.msp
+
+# ---------------------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+docker-compose.override.yml
+.env.docker
+.docker/
+!docker/
+docker-compose.override.yml
+Dockerfile.dev
+*.dockerfile
+
+# ---------------------------------------------------------------------------
+# Database & Infrastructure
+# ---------------------------------------------------------------------------
+
+# Neo4j
+.graphdb/
+neo4j-data/
+data/neo4j/
+plugins/
+logs/neo4j/
+import/
+certificates/
+
+# Qdrant
+qdrant_data/
+storage/qdrant/
+.qdrant/
+qdrant-*.db
+
+# Redis
+dump.rdb
+appendonly.aof
+redis-data/
+*.redis
+
+# PostgreSQL
+pg_data/
+pgdata/
+postgres-data/
+data/postgresql/
+
+# Local databases
+instance/*.db
+instance/*.db.backup_*
+instance/*.sqlite
+*.sqlite
+*.sqlite3
+
+# ---------------------------------------------------------------------------
+# Coverage Reports
+# ---------------------------------------------------------------------------
+coverage/
 coverage.xml
-*.cover
-.hypothesis/
+.coverage
+.coverage.*
+.coverage-*
+.coverage_html/
+htmlcov/
+cov_html/
+.coverage.*.*
+nosetests.xml
 
-# Type checking
-.dm/
-.pyre/
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+.cache/
 
+# ---------------------------------------------------------------------------
 # Logs
+# ---------------------------------------------------------------------------
 *.log
+*.log.*
 logs/
 log/
+*.journal
+journal/
+syslog
+*.out
+*.err
+*.stackdump
 
-# Environment files
+# ---------------------------------------------------------------------------
+# Temporary Files
+# ---------------------------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.tmp/
+*.bak
+*.backup
+*.old
+*.orig
+instance/temp_uploads/
+
+# ---------------------------------------------------------------------------
+# Generated Reports & Documents
+# ---------------------------------------------------------------------------
+reports/
+output/
+generated/
+downloads/
+exports/
+*.pdf
+!app/**/templates/**/*.html  # Keep template files
+*.xlsx
+!app/**/*.py  # Keep Python files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+
+# ---------------------------------------------------------------------------
+# Secrets & Credentials
+# ---------------------------------------------------------------------------
 .env
 .env.local
 .env.*.local
-.envrc
-.envrc.default
+.env.production
+.env.development
+.env.staging
+*.env
+credentials.json
+instance/credentials.json
+service-account.json
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+secrets/
+secret/
+.credential*
+*.credential
+*.credentials
+auth.json
+oauth*.json
+google-*.json
+*.secret
+*.token
+service_account*.json
+client_secret*.json
+*.private.key
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
 
-# Database
-instance/*.db
-instance/*.backup_*
-*.sqlite3
-*.sqlite
+# ---------------------------------------------------------------------------
+# Node.js (for frontend tooling if added later)
+# ---------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+static/dist/
+static/assets/
 
-# Neo4j (Windows Desktop)
-.neo4j/
-AppData/Local/Neo4j/
-Neo4j/
-neo4j-data/
-neo4j-logs/
-neo4j-plugins/
-neo4j-import/
-neo4j-transaction-log/
+# ---------------------------------------------------------------------------
+# Machine Learning / AI
+# ---------------------------------------------------------------------------
+*.model
+*.pkl
+*.h5
+*.hdf5
+*.pb
+embeddings/
+vector-store/
+models/
+!app/models.py  # Keep our SQLAlchemy models
+weights/
+checkpoints/
 
-# Qdrant (Cloud preferred, native if needed)
-/qdrant/
-/storage/
-/collections/
+# ---------------------------------------------------------------------------
+# Celery / Task Queue
+# ---------------------------------------------------------------------------
+celerybeat-schedule*
+celerybeat.pid
+celeryd.pid
+*.celery
 
-# Redis (Windows alternatives)
-/redis/
-/redis.conf
-/dump.rdb
-/memurai/
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+.pytest_cache/
+tests/.cache/
+test-reports/
+junit/
+*.junit
+test-results/
 
-# Docker (Deployment artifacts only)
-docker-compose.override.yml
-
-# Generated files
-*.generated.*
-openapi.yaml
-docs/api/openapi.yaml
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-$RECYCLE.BIN/
-
-# Temporary files
-/tmp/
-/temp/
-*.tmp
-*.temp
-
-# Upload directories
-uploads/
-media/
-static/media/
-
-# Coverage reports
-coverage/
-.coverage
-htmlcov/
-
-# Build artifacts
-*.whl
-*.tar.gz
-dist/
-build/
+# ---------------------------------------------------------------------------
+# Project-specific
+# ---------------------------------------------------------------------------
+instance/instance/
+*.backup_*
+*_backup.csv
+smoke_test.py
+nul
+*.db
+instance/app.db
+instance/app.db.backup_*
+piolium/tmp/
