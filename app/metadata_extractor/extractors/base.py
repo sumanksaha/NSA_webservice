@@ -151,7 +151,7 @@ class LanguageExtractor(BaseExtractor):
                 script_counts[name] = count
 
         if script_counts:
-            primary = max(script_counts, key=script_counts.get)
+            primary = max(script_counts, key=lambda k: script_counts[k])
             ratio = script_counts[primary] / total_alpha
             conf = min(0.95, ratio)
             results.append((primary, conf, "heuristic", f"unicode_script:{primary}={script_counts[primary]}"))

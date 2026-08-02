@@ -8,8 +8,9 @@
         <h2><i class="fa-solid fa-receipt"></i> Billing & Reimbursement Portal</h2>
     </div>
 
-    <form action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
+    <form id="billForm" action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
         {{ csrf_token() }}
+        <div id="bill-task-status" class="info-box" style="display: none;"></div>
         <!-- Date Range Filter for Preview -->
         <div class="section-header">
             <h3><i class="fa-solid fa-calendar-alt"></i> Date Range Filter</h3>
@@ -111,7 +112,7 @@
         </div>
 
         <div class="actions-centered">
-            <button type="submit" class="btn btn-primary btn-lg">
+            <button type="submit" id="billSubmitBtn" class="btn btn-primary btn-lg">
                 <i class="fa-solid fa-file-pdf"></i> Generate & Stream Reimbursement PDF
             </button>
         </div>
@@ -120,6 +121,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
 // Autofill today's date for submission if empty
 document.addEventListener('DOMContentLoaded', function() {
@@ -133,6 +135,46 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!subDateInput.value) {
         subDateInput.value = today;
     }
+});
+
+// Asynchronous bill generation: submit via fetch(), poll the QStash task,
+// then show a download link for the generated PDF.
+document.getElementById('billForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = this;
+    var statusBox = document.getElementById('bill-task-status');
+    var submitBtn = document.getElementById('billSubmitBtn');
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating…';
+    statusBox.style.display = 'block';
+    statusBox.className = 'info-box';
+    statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating bill and generating PDF…';
+
+    TaskPoll.submitAndPoll(form, function(outcome) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Generate & Stream Reimbursement PDF';
+
+        if (outcome.status === 'error') {
+            statusBox.className = 'info-box info-box--error';
+            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                (outcome.error || 'Bill generation failed.') + ' — the bill may still have been created.';
+            return;
+        }
+
+        var result = outcome.result || {};
+        if (result.pdf_result && result.pdf_result.status === 'error') {
+            statusBox.className = 'info-box info-box--error';
+            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                (result.pdf_result.error || 'PDF generation failed.');
+            return;
+        }
+
+        var filePath = result.pdf_result ? result.pdf_result.file_path : result.file_path;
+        statusBox.className = 'info-box info-box--success';
+        statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Bill #' + result.bill_id +
+            ' created. ' + TaskPoll.downloadLink({ file_path: filePath }, 'Download Bill PDF');
+    });
 });
 
 // Preview button handler

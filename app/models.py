@@ -1,4 +1,3 @@
-# type: ignore
 from __future__ import annotations
 
 from datetime import datetime
@@ -188,17 +187,11 @@ class Bill(db.Model):
     }
     Name = db.Column(db.String(100), nullable=False)
     EMP_ID = db.Column(db.String(50), nullable=False)
-    Designation = db.Column(
-        db.String(100), nullable=False, default="Food Safety Officer"
-    )
+    Designation = db.Column(db.String(100), nullable=False, default="Food Safety Officer")
     Enf_samp_No = db.Column(db.Integer, nullable=False, default=0)
     Surv_samp_No = db.Column(db.Integer, nullable=False, default=0)
-    enforcement_price = db.Column(
-        db.Numeric(precision=10, scale=2), nullable=False, default=0.00
-    )
-    surveillance_price = db.Column(
-        db.Numeric(precision=10, scale=2), nullable=False, default=0.00
-    )
+    enforcement_price = db.Column(db.Numeric(precision=10, scale=2), nullable=False, default=0.00)
+    surveillance_price = db.Column(db.Numeric(precision=10, scale=2), nullable=False, default=0.00)
     Total_bill = db.Column(db.Float, nullable=False, default=0.0)
     No_of_enfbills = db.Column(db.Integer, nullable=False, default=0)
     No_of_survbills = db.Column(db.Integer, nullable=False, default=0)
@@ -231,9 +224,7 @@ class FboIssue(db.Model):
     state = db.Column(db.String, nullable=False, default="open")
     fso_name = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     detail_json = db.Column(db.Text, nullable=True)
     reg_lat = db.Column(db.Float, nullable=True)
     reg_lng = db.Column(db.Float, nullable=True)

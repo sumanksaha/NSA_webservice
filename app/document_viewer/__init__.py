@@ -3,6 +3,7 @@
 Provides shared rendering helpers for previewing and editing legal documents
 (Petition and Permission Letter) in the browser via Quill rich-text editor.
 """
+
 from flask import Blueprint
 
 document_viewer_bp = Blueprint(

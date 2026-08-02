@@ -260,17 +260,32 @@ def regenerate_case_files(case_id):
     form_data = case_file_to_dict(case_file)
     case_data = process_form_data(form_data)
 
-    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
-    # Switch to .delay() once a persistent Celery worker is available.
-    from app.case_file_generator.tasks import generate_case_file_pdf
+    # Dispatch PDF regeneration via QStash (async) with a synchronous .apply()
+    # fallback when QStash is not configured — no worker required on free tier.
+    from app.utils.qstash_client import make_dedup_key, publish_task
 
+    payload = {"case_file_id": case_file.id, "case_data": case_data}
     try:
-        result = generate_case_file_pdf.apply(
-            kwargs=dict(case_file_id=case_file.id, case_data=case_data),
-        ).result
+        dispatched = publish_task(
+            "generate_case_file_pdf",
+            payload=payload,
+            dedup_key=make_dedup_key("generate_case_file_pdf", case_file.id, payload),
+        )
     except Exception as exc:
-        current_app.logger.error("Case file PDF regeneration failed: %s", exc)
+        current_app.logger.error("Case file PDF dispatch failed: %s", exc)
         return jsonify({"error": f"Case file PDF regeneration failed: {exc}"}), 500
+
+    if dispatched["mode"] == "async":
+        return (
+            jsonify({
+                "message": "Case file PDF regeneration queued",
+                "case_file_id": case_file.id,
+                "task_id": dispatched["message_id"],
+            }),
+            202,
+        )
+
+    result = dispatched["result"]
 
     # Unwrap task error metadata for consistent HTTP error responses
     if result.get("status") == "error":
@@ -464,19 +479,33 @@ def generate_case_file_route():
     except Exception as e:
         current_app.logger.warning(f"Case File: Sheets sync failed: {e}")
 
-    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
-    # Switch to .delay() once a persistent Celery worker is available.
+    # Dispatch PDF generation via QStash (async) with a synchronous .apply()
+    # fallback when QStash is not configured — no worker required on free tier.
+    from app.utils.qstash_client import make_dedup_key, publish_task
+
     case_data = process_form_data(form_data)
-
-    from app.case_file_generator.tasks import generate_case_file_pdf
-
+    payload = {"case_file_id": case_file_record.id, "case_data": case_data}
     try:
-        result = generate_case_file_pdf.apply(
-            kwargs=dict(case_file_id=case_file_record.id, case_data=case_data),
-        ).result
+        dispatched = publish_task(
+            "generate_case_file_pdf",
+            payload=payload,
+            dedup_key=make_dedup_key("generate_case_file_pdf", case_file_record.id, payload),
+        )
     except Exception as exc:
-        current_app.logger.error("Case file PDF generation failed: %s", exc)
+        current_app.logger.error("Case file PDF dispatch failed: %s", exc)
         return jsonify({"error": f"Case file PDF generation failed: {exc}"}), 500
+
+    if dispatched["mode"] == "async":
+        return (
+            jsonify({
+                "message": "Case file created; PDF generation queued",
+                "case_file_id": case_file_record.id,
+                "task_id": dispatched["message_id"],
+            }),
+            202,
+        )
+
+    result = dispatched["result"]
 
     # Unwrap task error metadata for consistent HTTP error responses
     if result.get("status") == "error":

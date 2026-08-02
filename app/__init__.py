@@ -200,6 +200,8 @@ def create_app():
         "sample.lookup_retailer",
         "bill_generator.lookup_fbo_issues",
         "adjudication.lookup_fbo_issues",
+        # QStash webhook — authenticated by Upstash-Signature, not session
+        "tasks_webhook.run_task",
     }
 
     @app.before_request
@@ -246,11 +248,13 @@ def create_app():
     from app.legal_analysis import legal_analysis_bp
     from app.sample.routes import sample_bp
     from app.settings.routes import settings_bp
+    from app.tasks_webhook import tasks_webhook_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
     from app.document_viewer import document_viewer_bp
+
     app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
     app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
     app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
@@ -260,6 +264,7 @@ def create_app():
     app.register_blueprint(inspection_bp, url_prefix="/inspection")
     app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
     app.register_blueprint(audit_bp, url_prefix="/admin")
+    app.register_blueprint(tasks_webhook_bp)
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata

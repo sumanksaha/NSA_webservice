@@ -27,11 +27,13 @@ from app.utils.fso_data import get_all_fso_names
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.storage import delete_photo, upload_photo
 
-# Lazy-load OCR task availability flag (graceful fallback if deps missing)
+# Lazy-load OCR task availability flag (graceful fallback if deps missing).
+# The module attribute is a celery Task instance (always callable when the
+# import succeeds), so callable() doubles as a sanity check on the attribute.
 try:
-    from app.inspection.tasks import run_ocr_extraction
+    from app.inspection.tasks import run_ocr_extraction as _run_ocr_extraction
 
-    _OCR_AVAILABLE = True
+    _OCR_AVAILABLE = callable(_run_ocr_extraction)
 except ImportError:
     _OCR_AVAILABLE = False
 
@@ -883,22 +885,44 @@ def upload_photo_evidence():
     # Log audit for photo saved
     log_audit("photo", image_id, "PHOTO_SAVED", actor, {"filepath": filepath})
 
-    # Trigger async OCR extraction on the stamped image
+    # Dispatch OCR via QStash (async) with a synchronous .apply() fallback
+    # when QStash is not configured — no worker required on free tier.
+    # NOTE: the payload is a LOCAL file path (stamped image). Async delivery
+    # executes on the same instance, but on Render's free tier the disk is
+    # ephemeral — a redeploy/restart (or a late QStash retry) can lose the
+    # file, so OCR over async mode assumes the instance hasn't been recycled.
+    ocr_result = None
+    ocr_task_id = None
     if _OCR_AVAILABLE:
+        from app.utils.qstash_client import make_dedup_key, publish_task
+
+        payload = {"file_path": filepath}
         try:
-            ocr_task = run_ocr_extraction.delay(file_path=filepath)
-            ocr_task_id = ocr_task.id
+            dispatched = publish_task(
+                "run_ocr_extraction",
+                payload=payload,
+                dedup_key=make_dedup_key("run_ocr_extraction", image_id, payload),
+            )
         except Exception as exc:
-            current_app.logger.warning("Failed to enqueue OCR task: %s", exc)
-            ocr_task_id = None
-    else:
-        ocr_task_id = None
+            current_app.logger.warning("OCR dispatch failed: %s", exc)
+        else:
+            if dispatched["mode"] == "async":
+                ocr_task_id = dispatched["message_id"]
+            else:
+                # Eager .apply() captures task exceptions (e.g. ValueError for
+                # a missing/unsupported file) INTO the result — unwrap so a raw
+                # Exception never reaches jsonify (would 500 on serialization).
+                ocr_result = dispatched["result"]
+                if isinstance(ocr_result, Exception):
+                    current_app.logger.warning("OCR extraction returned exception: %s", ocr_result)
+                    ocr_result = None
 
     return (
         jsonify({
             "image_id": image_id,
             "verification_status": result["verification_status"],
             "ocr_task_id": ocr_task_id,
+            "ocr_result": ocr_result,
         }),
         201,
     )

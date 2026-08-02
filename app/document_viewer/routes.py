@@ -10,6 +10,7 @@ The GET editor page routes remain in ``case_file_generator`` and
 and ``/adjudication/<id>/editor`` respectively), since they depend on
 blueprint-specific context.  The save endpoint is shared.
 """
+
 import io
 from datetime import datetime
 from pathlib import Path
@@ -88,17 +89,11 @@ def save_document(case_id: int):
     # --- Generate PDF from edited HTML ---
     pdf_bytes, pdf_error = generate_pdf_from_html(html_content)
     if pdf_bytes is None:
-        current_app.logger.error(
-            "PDF generation failed for case %s: %s", case_id, pdf_error
-        )
+        current_app.logger.error("PDF generation failed for case %s: %s", case_id, pdf_error)
         return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 500
 
     # --- Audit log ---
-    actor = (
-        current_user.username
-        if current_user.is_authenticated and current_user.is_active
-        else "anonymous"
-    )
+    actor = current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
     try:
         log_audit(
             entity_type=case_type,
@@ -151,4 +146,3 @@ def get_saved_document(case_id: int, doc_type: str):
         return jsonify({"error": "Could not read saved document"}), 500
 
     return Response(html_content, mimetype="text/html")
-

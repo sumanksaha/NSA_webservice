@@ -35,7 +35,7 @@ try:
     import orjson
 
     def _fast_dumps(obj: dict) -> str:
-        return orjson.dumps(obj).decode("utf-8")
+        return str(orjson.dumps(obj).decode("utf-8"))
 
 except ImportError:
     import json

@@ -166,7 +166,7 @@ class PageDetector:
         upper_red1 = np.array([10, 255, 255])
         lower_red2 = np.array([170, 70, 50])
         upper_red2 = np.array([180, 255, 255])
-        red_mask = cv2.inRange(hsv, lower_red1, upper_red1) | cv2.inRange(hsv, lower_red2, upper_red2)
+        red_mask = cv2.bitwise_or(cv2.inRange(hsv, lower_red1, upper_red1), cv2.inRange(hsv, lower_red2, upper_red2))
 
         # Blue color range (some stamps/seals are blue)
         lower_blue = np.array([100, 70, 50])
@@ -174,7 +174,7 @@ class PageDetector:
         blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
         combined_mask = cv2.bitwise_or(red_mask, blue_mask)
-        combined_mask = cv2.dilate(combined_mask, None, iterations=2)
+        combined_mask = cv2.dilate(combined_mask, np.ones((3, 3), np.uint8), iterations=2)
 
         contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import cast
 
 import numpy as np
 
@@ -117,11 +118,11 @@ class OCREngine:
                     use_gpu=self._use_gpu,
                     show_log=False,
                 )
-                self._gpu_available = self._paddle.use_gpu
+                self._gpu_available = cast("PaddleOCR", self._paddle).use_gpu
                 if self._use_gpu and not self._gpu_available:
                     logger.warning("GPU requested but not available — PaddleOCR running on CPU")
 
-            result = self._paddle.ocr(image, cls=True)
+            result = cast("PaddleOCR", self._paddle).ocr(image, cls=True)
 
             if not result or not result[0]:
                 return "", 0.0

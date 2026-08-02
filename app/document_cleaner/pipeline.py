@@ -49,10 +49,11 @@ class DocumentCleaner:
         if config is None:
             self.config = PRESETS["aggressive"]
         elif isinstance(config, str):
-            self.config = PRESETS.get(config.lower())
-            if self.config is None:
+            preset: CleaningConfig | None = PRESETS.get(config.lower())
+            if preset is None:
                 msg = f"Unknown preset: {config}. Available: {list(PRESETS)}"
                 raise ValueError(msg)
+            self.config = preset
         else:
             self.config = config
 

@@ -147,6 +147,11 @@
         <!-- Upload error message -->
         <div id="uploadError" class="mt--sm" style="display: none;">
         </div>
+
+        <!-- OCR status (shown while async OCR runs, then the extracted text) -->
+        <div id="ocrStatus" class="mt--sm" style="display: none;">
+            <div class="info-box" id="ocrStatusBox"></div>
+        </div>
     </div>
 
     <!-- Photo Gallery -->
@@ -215,6 +220,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
 // ===================================================================
 // Photo Upload Logic
@@ -406,9 +412,40 @@ function uploadPhoto() {
         previewStatus.textContent = '✓ Uploaded successfully';
         previewStatus.style.color = 'var(--color-success)';
 
-        setTimeout(function() {
-            window.location.reload();
-        }, 1500);
+        // If OCR was queued asynchronously (QStash), poll until it completes
+        // and show the extracted text; otherwise reload to refresh the gallery.
+        if (data.ocr_task_id) {
+            var ocrWrapper = document.getElementById('ocrStatus');
+            var ocrBox = document.getElementById('ocrStatusBox');
+            ocrWrapper.style.display = 'block';
+            ocrBox.className = 'info-box';
+            ocrBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> OCR in progress — extracting text from the photo…';
+
+            TaskPoll.pollStatus(data.ocr_task_id, function(outcome) {
+                if (outcome.status === 'error') {
+                    ocrBox.className = 'info-box info-box--error';
+                    ocrBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> OCR failed: ' +
+                        (outcome.error || 'unknown error');
+                } else {
+                    ocrBox.className = 'info-box info-box--success';
+                    ocrBox.innerHTML = '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                        formatOcrResult(outcome.result || {});
+                }
+                setTimeout(function() { window.location.reload(); }, 2500);
+            });
+        } else if (data.ocr_result) {
+            var ocrBox2 = document.getElementById('ocrStatusBox');
+            var ocrWrapper2 = document.getElementById('ocrStatus');
+            ocrWrapper2.style.display = 'block';
+            ocrBox2.className = 'info-box info-box--success';
+            ocrBox2.innerHTML = '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                formatOcrResult(data.ocr_result);
+            setTimeout(function() { window.location.reload(); }, 2500);
+        } else {
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        }
     })
     .catch(function(error) {
         uploadProgress.style.display = 'none';
@@ -422,6 +459,31 @@ function showError(message) {
     uploadError.style.display = 'block';
     uploadError.className = 'info-box info-box--error';
     uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
+}
+
+// Format the OCR extraction result dict (e.g. {p1: "text", _pages_processed: 1})
+// into a short readable summary. Ignores underscore-prefixed metadata keys.
+function formatOcrResult(result) {
+    var keys = Object.keys(result || {}).filter(function(k) {
+        return k.charAt(0) !== '_';
+    });
+    if (keys.length === 0) {
+        return 'No text extracted from this photo.';
+    }
+    var parts = keys.map(function(k) {
+        var text = String(result[k] || '').trim();
+        if (text.length > 120) {
+            text = text.slice(0, 120) + '…';
+        }
+        return '<div><code>[' + k + ']</code> ' + escapeHtml(text) + '</div>';
+    });
+    return '<div class="ocr-text">' + parts.join('') + '</div>';
+}
+
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // ===================================================================

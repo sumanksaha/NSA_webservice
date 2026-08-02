@@ -19,8 +19,18 @@ from app.utils.filters import format_date_indian, to_words
 
 
 @pytest.fixture
-def app():
+def app(monkeypatch):
     """Create and configure a test Flask app."""
+    # Force synchronous task execution: unit tests must not hit the real
+    # QStash queue or publish test messages to the production webhook.
+    for key in (
+        "QSTASH_TOKEN",
+        "QSTASH_CURRENT_SIGNING_KEY",
+        "QSTASH_NEXT_SIGNING_KEY",
+        "PUBLIC_BASE_URL",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
     app = Flask(__name__)
 
     # Use in-memory database for tests

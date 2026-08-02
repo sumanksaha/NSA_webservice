@@ -176,9 +176,7 @@ def generate_bill_route():
         row_dict["created_at"] = bill_record.created_at.isoformat() if bill_record.created_at else ""
         success = sync_to_sheets("billing", row_dict)
         if not success:
-            current_app.logger.warning(
-                "Bill Generator: Sheets sync returned False - sync failed but not blocking"
-            )
+            current_app.logger.warning("Bill Generator: Sheets sync returned False - sync failed but not blocking")
     except Exception as e:
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
 
@@ -202,17 +200,32 @@ def generate_bill_route():
     }
     template_vars = {k: form_data.get(k, "") for k in allowed_template_vars}
 
-    # Reverted to synchronous execution (.apply()) — no worker currently deployed.
-    # Switch to .delay() once a persistent Celery worker is available.
-    from app.bill_generator.tasks import generate_bill_pdf
+    # Dispatch PDF generation via QStash (async) with a synchronous .apply()
+    # fallback when QStash is not configured — no worker required on free tier.
+    from app.utils.qstash_client import make_dedup_key, publish_task
 
+    payload = {"bill_id": bill_record.id, "template_vars": template_vars}
     try:
-        result = generate_bill_pdf.apply(
-            kwargs=dict(bill_id=bill_record.id, template_vars=template_vars),
-        ).result
+        dispatched = publish_task(
+            "generate_bill_pdf",
+            payload=payload,
+            dedup_key=make_dedup_key("generate_bill_pdf", bill_record.id, payload),
+        )
     except Exception as exc:
-        current_app.logger.error("Bill PDF generation failed: %s", exc)
+        current_app.logger.error("Bill PDF dispatch failed: %s", exc)
         return jsonify({"error": f"Bill PDF generation failed: {exc}"}), 500
+
+    if dispatched["mode"] == "async":
+        return (
+            jsonify({
+                "message": "Bill created; PDF generation queued",
+                "bill_id": bill_record.id,
+                "task_id": dispatched["message_id"],
+            }),
+            202,
+        )
+
+    result = dispatched["result"]
 
     # Unwrap task error metadata for consistent HTTP error responses
     # ponytail: handle case where result might be an exception object (e.g., OSError from WeasyPrint import)

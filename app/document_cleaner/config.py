@@ -11,7 +11,7 @@ from __future__ import annotations
 from app.document_cleaner.models import CleaningConfig
 
 PRESETS = {
-    "aggressive": CleaningConfig(
+    "aggressive": CleaningConfig(  # type: ignore[call-arg]
         remove_headers=True,
         remove_footers=True,
         remove_page_numbers=True,
@@ -29,7 +29,7 @@ PRESETS = {
         normalize_bullets=True,
         normalize_encoding=True,
     ),
-    "conservative": CleaningConfig(
+    "conservative": CleaningConfig(  # type: ignore[call-arg]
         remove_headers=True,
         remove_footers=True,
         remove_page_numbers=True,
@@ -47,7 +47,7 @@ PRESETS = {
         normalize_bullets=False,
         normalize_encoding=True,
     ),
-    "ocr": CleaningConfig(
+    "ocr": CleaningConfig(  # type: ignore[call-arg]
         remove_headers=True,
         remove_footers=True,
         remove_page_numbers=True,

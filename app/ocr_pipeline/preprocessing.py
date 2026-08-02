@@ -217,7 +217,7 @@ class ImagePreprocessor:
             borderMode=cv2.BORDER_REPLICATE,
         )
         logger.debug("Deskew applied: %.2f degrees", angle)
-        return rotated
+        return np.asarray(rotated)
 
     @staticmethod
     def _correct_orientation(image: np.ndarray) -> np.ndarray:

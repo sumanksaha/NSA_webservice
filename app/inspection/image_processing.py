@@ -5,8 +5,6 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from PIL import Image, ImageDraw, ImageFont
-
 
 def process_and_stamp_image(
     image_file,

@@ -1,4 +1,3 @@
-# type: ignore
 """Derived context helpers for document generation (STEP 4 of uniform-keys migration).
 
 This module provides pure functions to derive the following context fields:

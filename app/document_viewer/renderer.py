@@ -5,6 +5,7 @@ to HTML string" logic that is currently duplicated inline in
 ``generate_case_file_route()``, ``generate_case_file_pdf()`` (case_file_generator),
 and ``generate_all()`` / ``regenerate_adjudication_documents()`` (adjudication).
 """
+
 from datetime import datetime
 
 from flask import render_template
@@ -51,7 +52,7 @@ def render_case_file_document(case_id: int, doc_type: str) -> str:
     else:
         template = "case_file_generator/permission_letter.html"
 
-    return render_template(template, **case_data)
+    return str(render_template(template, **case_data))
 
 
 def build_adjudication_context(form_data: dict) -> dict:
@@ -119,11 +120,7 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     context = build_adjudication_context(form_data)
 
     # Photo Evidence Integration -- all photos for this case
-    all_photos = (
-        PhotoEvidence.query.filter_by(case_id=adj.id)
-        .order_by(PhotoEvidence.captured_at.asc())
-        .all()
-    )
+    all_photos = PhotoEvidence.query.filter_by(case_id=adj.id).order_by(PhotoEvidence.captured_at.asc()).all()
 
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
 
@@ -137,4 +134,4 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     else:
         template = "adjudication/Legal_NonsampleAdjudication_Template.html"
 
-    return render_template(template, **context)
+    return str(render_template(template, **context))

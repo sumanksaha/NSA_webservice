@@ -47,6 +47,16 @@ services:
         value: "false"
       - key: PDF_USE_DIRECT_URLS
         value: "false"
+      # Upstash QStash — serverless task queue (no background worker needed
+      # on free tier). Webhook delivers tasks to PUBLIC_BASE_URL/tasks/run/*
+      - key: QSTASH_TOKEN
+        sync: false
+      - key: QSTASH_CURRENT_SIGNING_KEY
+        sync: false
+      - key: QSTASH_NEXT_SIGNING_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
 
   # ---------------------------------------------------------------------------
   # Celery background worker — consumes PDF-generation & OCR tasks from the

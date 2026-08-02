@@ -181,8 +181,8 @@ def normalize_hyphens(text: str) -> str:
     """
 
     def _rejoin(match: re.Match) -> str:
-        prefix = match.group(1)
-        suffix = match.group(2)
+        prefix: str = match.group(1)
+        suffix: str = match.group(2)
         joined = prefix + suffix
         # Use rapidfuzz fuzzy matching to validate the joined word
         # If the joined word has high similarity to a known word, accept it
@@ -207,7 +207,7 @@ def normalize_quotes(text: str) -> str:
     """Replace curly/smart quotes with straight ASCII equivalents."""
 
     def _replace_quote(match: re.Match) -> str:
-        ch = match.group(0)
+        ch: str = match.group(0)
         return _CURLY_QUOTES.get(ch, ch)
 
     return _CURLY_QUOTE_RE.sub(_replace_quote, text)
@@ -217,7 +217,7 @@ def normalize_bullets(text: str) -> str:
     """Normalize bullet characters to standard ASCII."""
 
     def _replace_bullet(match: re.Match) -> str:
-        ch = match.group(0)
+        ch: str = match.group(0)
         return _BULLET_MAP.get(ch, ch)
 
     return _BULLET_RE.sub(_replace_bullet, text)
