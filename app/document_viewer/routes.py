@@ -1,4 +1,4 @@
-"""Routes for the document viewer: auto-save + save-to-PDF endpoints.
+"""Routes for the document viewer: auto-save, save-to-PDF, image upload, Markdown export.
 
 Phase 3: ``/save/<case_id>`` accepts edited HTML (and optional Quill Delta),
 validates the case exists, writes the HTML (+ Delta) to the instance folder,
@@ -14,6 +14,11 @@ Delta storage: Both ``/save`` and ``/autosave`` persist the Quill Delta as a
 ``.delta`` file alongside the ``.html`` file. The ``/saved`` endpoint returns
 JSON ``{"html": "...", "delta": {...}|null}`` for lossless round-trip restore.
 
+Phase 2: ``/upload_image`` accepts a multipart image and stores it under
+``instance/editor_images/``; ``/image/<filename>`` serves it back (path-
+traversal safe); ``/export_markdown`` converts the editor Delta (or HTML)
+to Markdown for download.
+
 The GET editor page routes remain in ``case_file_generator`` and
 ``adjudication`` blueprints (at ``/case_file_generator/<id>/editor``
 and ``/adjudication/<id>/editor`` respectively), since they depend on
@@ -22,20 +27,33 @@ blueprint-specific context.  The save endpoint is shared.
 
 import io
 import json
+import mimetypes
+import os
+import re
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 from flask import (
     current_app,
     jsonify,
     request,
     send_file,
+    url_for,
 )
 from flask_login import current_user
 
 from app.document_viewer import document_viewer_bp
+from app.document_viewer.markdown_export import delta_to_markdown, html_to_markdown
 from app.services.audit import log_audit
 from app.utils.pdf_utils import generate_pdf_from_html
+
+# ---------------------------------------------------------------------------
+# Editor image upload (Phase 2) — stored under instance/editor_images/
+# ---------------------------------------------------------------------------
+_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp"})
+_MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+_IMAGE_DIR_NAME = "editor_images"
 
 # --- Shared helpers ---
 
@@ -201,6 +219,115 @@ def save_document(case_id: int):
         as_attachment=True,
         download_name=pdf_filename,
     )
+
+
+@document_viewer_bp.route("/upload_image", methods=["POST"])
+def upload_image():
+    """Accept an image upload from the Quill editor and return a serveable URL.
+
+    Multipart form field: ``image`` (the file).  Validates the extension and
+    size before writing, stores the file under ``instance/editor_images/``
+    with a random name, and returns ``{"url": ...}`` for insertion into the
+    document via ``quill.insertEmbed``.
+
+    Returns 201 with JSON on success, or 400 with an error message.
+    """
+    upload_file = request.files.get("image") or request.files.get("file")
+    if upload_file is None or not upload_file.filename:
+        return jsonify({"error": "No image file provided"}), 400
+
+    ext = Path(upload_file.filename).suffix.lower()
+    if ext not in _IMAGE_EXTENSIONS:
+        allowed = ", ".join(sorted(e.lstrip(".") for e in _IMAGE_EXTENSIONS))
+        return jsonify({"error": f"Unsupported image type. Allowed: {allowed}"}), 400
+
+    # Reject oversized uploads BEFORE writing to disk.
+    try:
+        upload_file.seek(0, os.SEEK_END)
+        file_size = upload_file.tell()
+        upload_file.seek(0)
+    except (AttributeError, OSError, ValueError) as exc:
+        return jsonify({"error": f"Unable to determine file size: {exc}"}), 400
+    if file_size > _MAX_IMAGE_SIZE:
+        return jsonify({"error": "Image exceeds the 5 MB size limit."}), 400
+
+    # Validate the payload is a decodable image (rejects polyglot/HTML files
+    # renamed with an image extension). PIL is already a project dependency.
+    try:
+        from PIL import Image as PILImage
+
+        upload_file.seek(0)
+        with PILImage.open(upload_file) as pil_img:
+            pil_img.verify()
+        upload_file.seek(0)
+    except Exception as exc:
+        return jsonify({"error": f"File is not a valid image: {exc}"}), 400
+
+    images_dir = Path(current_app.instance_path) / _IMAGE_DIR_NAME
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_name = f"{uuid4().hex}{ext}"
+    try:
+        upload_file.save(str(images_dir / stored_name))
+    except OSError as exc:
+        return jsonify({"error": f"Could not store image: {exc}"}), 500
+
+    url = url_for("document_viewer.editor_image", filename=stored_name)
+    return jsonify({"status": "ok", "url": url}), 201
+
+
+@document_viewer_bp.route("/image/<path:filename>")
+def editor_image(filename: str):
+    """Serve an uploaded editor image (path-traversal safe).
+
+    Only files stored in ``instance/editor_images/`` with our generated
+    (hex-name) format are served; the basename is used so ``../`` segments
+    can never escape the directory.
+    """
+    images_dir = Path(current_app.instance_path) / _IMAGE_DIR_NAME
+    safe_name = Path(filename).name
+    stem = safe_name.rsplit(".", 1)[0] if "." in safe_name else safe_name
+    # Reject anything that is not a generated hex name + allowed extension.
+    if not (re.fullmatch(r"[0-9a-f]{32}", stem) and Path(safe_name).suffix.lower() in _IMAGE_EXTENSIONS):
+        return jsonify({"error": "Image not found"}), 404
+
+    path = images_dir / safe_name
+    if not path.is_file():
+        return jsonify({"error": "Image not found"}), 404
+
+    mimetype = mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+    return send_file(path, mimetype=mimetype)
+
+
+@document_viewer_bp.route("/export_markdown", methods=["POST"])
+def export_markdown():
+    """Convert the current editor content to Markdown (Phase 2).
+
+    Body (JSON): ``{"delta": {...}, "html": "..."}`` — Delta is preferred
+    (lossless); HTML is used as a fallback when Delta is absent.
+
+    Returns 200 with JSON ``{"markdown": "...", "filename": "..."}``.
+    """
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    delta = payload.get("delta")
+    html = payload.get("html") or ""
+
+    if delta:
+        markdown = delta_to_markdown(delta)
+    elif html.strip():
+        markdown = html_to_markdown(html)
+    else:
+        return jsonify({"error": "No document content provided"}), 400
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return jsonify({
+        "status": "ok",
+        "markdown": markdown,
+        "filename": f"document_{timestamp}.md",
+    })
 
 
 @document_viewer_bp.route("/saved/<int:case_id>/<doc_type>", methods=["GET"])

@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var docTypeSelector = document.getElementById("docTypeSelector");
     var previewFrameEl = document.getElementById("preview");
     var saveBtn = document.getElementById("saveBtn");
+    var exportMarkdownBtn = document.getElementById("exportMarkdownBtn");
     var autosaveStatus = document.getElementById("autosaveStatus");
 
     // --- Server-rendered HTML (passed via Jinja2 as |safe) ---
@@ -34,6 +35,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Track whether an autosave is in-flight
     var autosaveInProgress = false;
+
+    // Hidden file input used by the toolbar image button
+    var imageInput = null;
 
     // -----------------------------------------------------------------------
     // Debounce utility
@@ -208,6 +212,7 @@ document.addEventListener("DOMContentLoaded", function () {
             ["blockquote"],
             [{ align: [] }],
             [{ table: [[], [], false]] }],
+            ["image", "link"],
         ];
 
         quill = new Quill("#editor", {
@@ -219,12 +224,125 @@ document.addEventListener("DOMContentLoaded", function () {
             placeholder: "Loading document...",
         });
 
+        // Override the default image handler: upload to the server and
+        // insert the returned URL instead of embedding a base64 data URI.
+        quill.getModule("toolbar").addHandler("image", handleImageToolbar);
+
         var content = getActiveHtml();
         quill.clipboard.dangerouslyPasteHTML(content);
 
         // Set up live preview + debounced auto-save
         quill.on("text-change", updatePreview);
         quill.on("text-change", debouncedAutoSave);
+    }
+
+    /**
+     * Open a file picker and upload the selected image to the server.
+     * On success the returned URL is embedded into the document at the
+     * current selection point (Phase 2: image upload handler).
+     */
+    function handleImageToolbar() {
+        if (!imageInput) {
+            imageInput = document.createElement("input");
+            imageInput.type = "file";
+            imageInput.accept = "image/*";
+            imageInput.style.display = "none";
+            imageInput.addEventListener("change", function () {
+                var file = imageInput.files && imageInput.files[0];
+                imageInput.value = "";
+                if (file) {
+                    uploadEditorImage(file);
+                }
+            });
+            document.body.appendChild(imageInput);
+        }
+        imageInput.click();
+    }
+
+    /**
+     * Upload an image file to /document_viewer/upload_image and insert the
+     * returned URL into the editor at the current cursor position.
+     */
+    function uploadEditorImage(file) {
+        var formData = new FormData();
+        formData.append("image", file);
+        var csrfToken = document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content");
+
+        fetch("/document_viewer/upload_image", {
+            method: "POST",
+            headers: { "X-CSRFToken": csrfToken },
+            body: formData,
+        })
+            .then(function (resp) {
+                return resp.json().then(function (data) {
+                    if (!resp.ok) {
+                        throw new Error(data.error || "Image upload failed");
+                    }
+                    return data;
+                });
+            })
+            .then(function (data) {
+                var range = quill.getSelection(true);
+                if (!range) range = { index: quill.getLength() - 1, length: 0 };
+                quill.insertEmbed(range.index, "image", data.url, "user");
+                quill.setSelection(range.index + 1, 0, "user");
+                updatePreview();
+            })
+            .catch(function (err) {
+                console.error("Image upload error:", err);
+                alert(err.message || "Image upload failed");
+            });
+    }
+
+    /**
+     * Export the current document as Markdown (Phase 2).
+     * Sends the Quill Delta to /document_viewer/export_markdown and downloads
+     * the returned .md file.
+     */
+    function exportMarkdown() {
+        if (!quill) return;
+        var delta = quill.getContents().toJSON();
+        var html = quill.root.innerHTML;
+        var docType = docTypeSelector ? docTypeSelector.value : "petition";
+        var csrfToken = document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content");
+
+        fetch("/document_viewer/export_markdown", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({ delta: delta, html: html, doc_type: docType }),
+        })
+            .then(function (resp) {
+                return resp.json().then(function (data) {
+                    if (!resp.ok) {
+                        throw new Error(data.error || "Markdown export failed");
+                    }
+                    return data;
+                });
+            })
+            .then(function (data) {
+                var blob = new Blob([data.markdown], {
+                    type: "text/markdown;charset=utf-8",
+                });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = data.filename || "document.md";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(function (err) {
+                console.error("Markdown export error:", err);
+                alert(err.message || "Markdown export failed");
+            });
     }
 
     /**
@@ -300,6 +418,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (saveBtn) {
         saveBtn.addEventListener("click", saveToPdf);
+    }
+
+    if (exportMarkdownBtn) {
+        exportMarkdownBtn.addEventListener("click", exportMarkdown);
     }
 
     // Expose for testing / debugging

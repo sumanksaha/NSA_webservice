@@ -192,20 +192,20 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Rich text | Quill 2.x with Snow theme | app/static/vendor/quill/ |
 | Tables | Quill table module | editor.js |
 | Lists | Bulleted/numbered list toolbar | editor.js |
-| Images | Toolbar has image option, no upload handler | editor.js |
+| Images | ✅ Image toolbar button + server upload handler | editor.js, document_viewer/routes.py |
 | Hyperlinks | Toolbar includes link module | editor.js |
 | Custom legal blocks | Via Jinja2 template variables | Templates |
 | Track formatting | Quill Delta stored alongside HTML (.delta files) | editor.js |
 | Store as HTML | HTML stored in instance/saved/ | document_viewer/routes.py |
 | Store as Quill Delta | ✅ Stored alongside HTML | document_viewer/routes.py |
-| Store as Markdown | Not stored | Would need quill-delta-to-markdown |
+| Store as Markdown | ✅ Export endpoint + Delta→Markdown converter | markdown_export.py, routes.py |
 
 **TODO:**
-1. [ ] Wire up image upload handler in Quill editor
+1. [x] Wire up image upload handler in Quill editor — **done (Phase 2)**
 2. [x] Store Quill Delta — **done (commit ee3db9a)**
-3. [ ] Add Markdown export option
+3. [x] Add Markdown export option — **done (Phase 2)**
 
-**Files to edit:** app/static/js/document_viewer/editor.js, app/models.py, migrations/versions/new_saved_documents_table.py
+**Files to edit:** app/static/js/document_viewer/editor.js, app/document_viewer/routes.py, app/document_viewer/markdown_export.py — ✅ complete; 27 tests in tests/test_document_viewer_phase2.py
 
 ### Phase 3 — Local Database (Partially Implemented - Server-side)
 
@@ -673,6 +673,7 @@ Flask backend exposes REST APIs for all features.
 |---|---|---|---|
 | 1 | Phase 0 | ✅ Architecture decision: keep Flask templates (no new React frontend) | — |
 | 2 | Phase 1 | ✅ Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
+| 2b | Phase 2 | ✅ Rich editor completion: image upload + Markdown export | editor.js, markdown_export.py, routes.py |
 | 3 | Phase 3 | ✅ Settings + Annexure + Evidence + Version models | models.py, migrations/ |
 | 4 | Phase 3 | ✅ SQLite FTS5 search index + API | app/search/ |
 | 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
@@ -700,7 +701,7 @@ Flask backend exposes REST APIs for all features.
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
-3. **Quill editor already integrated** - supports rich text, tables, lists, links. HTML + Delta stored in `instance/saved/`. Supports Phase 2; only image upload remains.
+3. **Quill editor already integrated** - supports rich text, tables, lists, links, images (server upload) + Delta. HTML + Delta stored in `instance/saved/`; Markdown export available. Phase 2 complete.
 
 4. **Domain model well-normalized** - CaseFile (sample-based) vs Adjudication (non-sample) split. `shared/case_keys.py` establishes canonical key contract across 4 UIs.
 
