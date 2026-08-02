@@ -67,6 +67,10 @@
                    class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}">
                     <i class="fa-solid fa-gear"></i> Settings
                 </a>
+                <a href="{{ url_for('search.index') }}"
+                   class="nav-link {% if request.blueprint == 'search' %}active{% endif %}">
+                    <i class="fa-solid fa-magnifying-glass"></i> Search
+                </a>
             </nav>
 
             <div class="nav-user">

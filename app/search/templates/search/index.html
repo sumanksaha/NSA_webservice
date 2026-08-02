@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-magnifying-glass"></i> Search Cases & Evidence</h2>
+    </div>
+
+    <div class="search-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="searchBox" class="form-label">Search terms</label>
+                <input type="text" id="searchBox" class="form-input"
+                       placeholder="Enter keywords (e.g. manufacturer name, product, case number)">
+            </div>
+            <div class="form-group">
+                <label for="typeFilter" class="form-label">Filter by type</label>
+                <select id="typeFilter" class="form-input">
+                    <option value="">All</option>
+                    {% for et in entity_types %}
+                    <option value="{{ et }}">
+                        {{ et.replace('_', ' ') }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group form-group--action">
+                <button id="searchBtn" class="btn btn-primary">
+                    <i class="fa-solid fa-magnifying-glass"></i> Search
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="searchResults" class="search-results">
+        <p class="form-hint">Enter search terms and click Search.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var searchBox = document.getElementById('searchBox');
+    var typeFilter = document.getElementById('typeFilter');
+    var searchBtn = document.getElementById('searchBtn');
+    var resultsDiv = document.getElementById('searchResults');
+
+    function renderResults(data) {
+        if (!data.results || data.results.length === 0) {
+            resultsDiv.innerHTML = '<p class="form-hint">No results found for "' +
+                (data.query || '') + '".</p>';
+            return;
+        }
+
+        var html = '<div class="search-results-count">' +
+            data.total + ' result(s) for "' + data.query + '"</div>' +
+            '<div class="search-results-list">';
+
+        data.results.forEach(function(r) {
+            var link = '#';
+            if (r.entity_type === 'case_file') {
+                link = '/case_file_generator/' + r.entity_id + '/editor';
+            } else if (r.entity_type === 'adjudication') {
+                link = '/adjudication/' + r.entity_id + '/editor';
+            }
+
+            var typeLabel = r.entity_type.replace(/_/g, ' ');
+
+            html += '<div class="search-result-item">' +
+                '<a href="' + link + '" class="search-result-link">' +
+                '<span class="search-result-type">' + typeLabel + '</span>' +
+                '<span class="search-result-title">' + (r.title || '') + '</span>' +
+                '<span class="search-result-snippet">' + (r.snippet || '') + '</span>' +
+                '</a></div>';
+        });
+
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    }
+
+    async function doSearch() {
+        var q = searchBox.value.trim();
+        if (!q) {
+            resultsDiv.innerHTML = '<p class="form-hint">Please enter search terms.</p>';
+            return;
+        }
+
+        var params = new URLSearchParams();
+        params.set('q', q);
+        if (typeFilter.value) {
+            params.set('type', typeFilter.value);
+        }
+
+        resultsDiv.innerHTML = '<p class="form-hint"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</p>';
+
+        try {
+            var resp = await fetch('/search/api?' + params.toString(), {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) {
+                resultsDiv.innerHTML = '<p class="form-hint error">Search error: ' + resp.status + '</p>';
+                return;
+            }
+            var data = await resp.json();
+            renderResults(data);
+        } catch (err) {
+            resultsDiv.innerHTML = '<p class="form-hint error">Search failed: ' + err.message + '</p>';
+        }
+    }
+
+    searchBtn.addEventListener('click', doSearch);
+    searchBox.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            doSearch();
+        }
+    });
+})();
+</script>
+{% endblock %}

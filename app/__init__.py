@@ -316,6 +316,13 @@ def create_app():
 
     register_audit_hooks()
 
+    # ------------------------------------------------------------------
+    # Wire up SQLite FTS5 search event hooks (auto-index on CRUD)
+    # ------------------------------------------------------------------
+    from app.search.indexer import register_search_hooks
+
+    register_search_hooks()
+
     # Register blueprints (auth first so login page is available)
     from app.adjudication.routes import adjudication_bp
     from app.audit import audit_bp
@@ -327,6 +334,7 @@ def create_app():
     from app.inspection.routes import inspection_bp
     from app.legal_analysis import legal_analysis_bp
     from app.sample.routes import sample_bp
+    from app.search import search_bp
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
 
@@ -345,6 +353,7 @@ def create_app():
     app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
     app.register_blueprint(audit_bp, url_prefix="/admin")
     app.register_blueprint(tasks_webhook_bp)
+    app.register_blueprint(search_bp, url_prefix="/search")
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
@@ -382,6 +391,13 @@ def create_app():
                         "`flask db upgrade` may replay the full chain next deploy.",
                         exc,
                     )
+
+        # Create FTS5 search virtual table on SQLite (no-op on PostgreSQL).
+        # This runs unconditionally so the table exists even on a pre-existing
+        # database that predates the search feature.
+        from app.search.indexer import ensure_search_table
+
+        ensure_search_table()
 
     # FSO sync on startup - import and run sync in app context
     # This ensures FSO names are available as soon as the app starts
