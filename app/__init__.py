@@ -31,25 +31,42 @@ def create_app():
     load_dotenv()
 
     # ------------------------------------------------------------------
+    # Production detection — shared by the SECRET_KEY guard below and the
+    # TLS/security-header config further down. Render sets RENDER on every
+    # service; APP_ENV / FLASK_ENV cover other hosts. Hoisted here so the
+    # SECRET_KEY guard can reuse it instead of only checking RENDER.
+    # ------------------------------------------------------------------
+    is_production = (
+        bool(os.environ.get("RENDER"))
+        or os.environ.get("APP_ENV", "").lower() in ("production", "prod")
+        or os.environ.get("FLASK_ENV", "").lower() == "production"
+    )
+
+    # ------------------------------------------------------------------
     # Mandatory: SECRET_KEY — required for session signing, flash messages,
     #             CSRF tokens, and any cryptographic signing in Flask.
     # ------------------------------------------------------------------
     # In production this MUST be a long, random value.  Generate one with:
     #     python -c "import secrets; print(secrets.token_hex(32))"
+    # Render: provision it as a managed value (render.yaml generateValue: true)
+    # or via the Render dashboard. Never commit a real key to the repo.
     # ------------------------------------------------------------------
     secret_key = os.environ.get("SECRET_KEY")
     if not secret_key:
-        if os.environ.get("RENDER"):
+        if is_production:
             raise RuntimeError(
                 "SECRET_KEY environment variable is not set. "
-                "Generate a secure random key and add it to your Render dashboard "
-                "environment variables.",
+                "Provision a secure random key as a managed Render "
+                "environment variable (render.yaml: generateValue: true) "
+                "or add it in the Render dashboard before deploying.",
             )
         # In local development, use a fallback so the app can start without
         # requiring every developer to create a .env file immediately.
+        # ponytail: gated behind is_production so production never silently falls back.
         secret_key = secrets.token_hex(32)
         app.logger.warning(
-            "SECRET_KEY not set — using insecure fallback. Set SECRET_KEY in your .env file for local development.",
+            "SECRET_KEY not set — using insecure local fallback. "
+            "Set SECRET_KEY in your .env file for local development.",
         )
     app.config["SECRET_KEY"] = secret_key
 
@@ -93,12 +110,6 @@ def create_app():
     # trust the X-Forwarded-Proto header and don't create a redirect loop.
     # ------------------------------------------------------------------
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-
-    is_production = (
-        bool(os.environ.get("RENDER"))
-        or os.environ.get("APP_ENV", "").lower() in ("production", "prod")
-        or os.environ.get("FLASK_ENV", "").lower() == "production"
-    )
 
     csp = {
         "default-src": ["'self'"],

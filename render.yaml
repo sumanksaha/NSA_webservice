@@ -5,6 +5,12 @@
 # You will need to upgrade to a paid plan before the 90-day period ends to avoid data loss.
 #
 # To check expiry: Render Dashboard -> Databases -> nsa-webservice-db -> Settings
+#
+# IMPORTANT: Background workers require a PAID Render instance type (free tier
+# does not support workers). The Celery worker below consumes the task queue
+# (broker = REDIS_URL, e.g. Upstash Redis). Without it, tasks enqueued by the
+# web service are never executed. Both services must share the same env vars
+# (DATABASE_URL, REDIS_URL, etc.).
 
 services:
   - type: web
@@ -18,7 +24,7 @@ services:
           name: nsa-webservice-db
           property: connectionString
       - key: SECRET_KEY
-        sync: false
+        generateValue: true
       - key: REDIS_URL
         sync: false
       - key: SPREADSHEET_ID
@@ -41,6 +47,56 @@ services:
         value: "false"
       - key: PDF_USE_DIRECT_URLS
         value: "false"
+
+  # ---------------------------------------------------------------------------
+  # Celery background worker — consumes PDF-generation & OCR tasks from the
+  # Redis broker (REDIS_URL). Must share the web service's build + env so it
+  # can render templates, write PDFs/ZIPs, and access the DB.
+  #   Start command: celery -A app.celery worker --loglevel=info
+  #   - Uses `app.celery` (NOT celery_app.celery): importing the `app` package
+  #     runs create_app(), which applies REDIS_URL broker/backend and the
+  #     Flask ContextTask. celery_app.celery is a bare, unconfigured instance
+  #     (localhost broker, no task discovery) and would silently do nothing.
+  #   - SKIP_FSO_STARTUP_SYNC=1 avoids re-running the (idempotent but wasteful)
+  #     FSO markdown sync on every worker boot.
+  # Requires a PAID Render plan (background workers unsupported on free tier).
+  # ---------------------------------------------------------------------------
+  - type: worker
+    name: food-adjudication-celery-worker
+    env: python
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2
+    startCommand: celery -A app.celery worker --loglevel=info
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nsa-webservice-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: REDIS_URL
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: R2_REGION
+        value: auto
+      - key: DISABLE_PDF_GENERATION
+        value: "false"
+      - key: PDF_USE_DIRECT_URLS
+        value: "false"
+      - key: SKIP_FSO_STARTUP_SYNC
+        value: "1"
 
 databases:
   - name: nsa-webservice-db
