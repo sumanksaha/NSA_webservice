@@ -167,7 +167,7 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 **Phase 0 TODO:**
 1. [x] **JS linting (ESLint + Prettier)** for vanilla JS in `app/static/js/**` — not prescribed by the roadmap (it assumed a React path) but warranted now that `editor.js` has grown past 400 lines with upload/export logic. **Implemented 2026-08-02:** `package.json` (ESLint 9 + Prettier 3 dev deps), `eslint.config.js` (flat config, ES2020, browser globals + `Quill`, Prettier-integrated), `.prettierrc` (4-space, double quotes, semicolons), `js-lint` job added to `.github/workflows/lint.yml`. Both `app/static/js/**` files now pass `eslint --max-warnings=0` and `prettier --check`. **Bonus:** ESLint caught a pre-existing syntax error in `editor.js` line 214 (`[{ table: [[], [], false]] }]` — unbalanced brackets broke the whole file's parse in the browser since Phase 1); fixed to `[{ table: [[], [], false] }]` (parse fix only; the vendored Quill 2.0.1 table module exposes no toolbar handler, so table insertion via the toolbar is a separate future item).
 
-**Files created/changed:** `package.json`, `eslint.config.js`, `.prettierrc`, `.github/workflows/lint.yml` (+js-lint job), `app/static/js/document_viewer/editor.js` (syntax fix + auto-format), `app/static/js/task_status.js` (auto-format only).
+**Files created/changed:** `package.json`, `eslint.config.js`, `.prettierrc`, `.github/workflows/lint.yml` (+js-lint job), `.pre-commit-config.yaml` (+js-lint + prettier-format local hooks so JS is checked locally before commits), `app/static/js/document_viewer/editor.js` (syntax fix + auto-format), `app/static/js/task_status.js` (auto-format only).
 
 ### Phase 1 — Core Petition Engine (Largely Implemented)
 

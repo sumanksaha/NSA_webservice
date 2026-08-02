@@ -57,3 +57,25 @@ repos:
         types_or: [python]
         require_serial: true
         pass_filenames: false
+
+      # ─── JS lint (ESLint) ────────────────────────────────────────────
+      # Uses the same npm scripts as the CI js-lint job, so local runs and
+      # CI stay in sync. Runs when any .js file under the repo changes.
+      - id: js-lint
+        name: ESLint (JS)
+        description: "Lint vanilla-JS files with ESLint — fails on any warning/error."
+        entry: npm run lint:js
+        language: system
+        types: [javascript]
+        require_serial: false
+        pass_filenames: false
+
+      # ─── JS format (Prettier) ────────────────────────────────────────
+      - id: prettier-format
+        name: Prettier (JS)
+        description: "Check JS formatting with Prettier — fails on unformatted files."
+        entry: npm run format:js
+        language: system
+        types: [javascript]
+        require_serial: false
+        pass_filenames: false
