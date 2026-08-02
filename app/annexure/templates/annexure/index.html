@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Annexures{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-paperclip"></i> Annexure Management</h2>
+    </div>
+
+    <!-- Upload form -->
+    <div class="annexure-upload">
+        <form id="annexureForm" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="file" class="form-label">Document <span class="required"></span></label>
+                    <input type="file" id="file" name="file" class="form-input" required
+                           accept=".pdf,.jpg,.jpeg,.png,.docx,.txt">
+                    <p class="form-hint">PDF, JPG, PNG, DOCX, TXT — up to 20 MB.</p>
+                </div>
+                <div class="form-group">
+                    <label for="caption" class="form-label">Caption</label>
+                    <input type="text" id="caption" name="caption" class="form-input"
+                           placeholder="e.g. Lab Report Annexure">
+                </div>
+                <div class="form-group">
+                    <label for="tags" class="form-label">Tags</label>
+                    <input type="text" id="tags" name="tags" class="form-input"
+                           placeholder="comma, separated, tags">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="case_id" class="form-label">Case File ID</label>
+                    <input type="number" id="case_id" name="case_id" class="form-input"
+                           value="{{ case_id or '' }}" placeholder="Optional case id">
+                </div>
+                <div class="form-group">
+                    <label for="adjudication_id" class="form-label">Adjudication ID</label>
+                    <input type="number" id="adjudication_id" name="adjudication_id" class="form-input"
+                           value="{{ adjudication_id or '' }}" placeholder="Optional adjudication id">
+                </div>
+                <div class="form-group form-group--action">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-upload"></i> Upload Annexure
+                    </button>
+                </div>
+            </div>
+        </form>
+        <div id="uploadStatus" class="info-box" style="display: none;"></div>
+    </div>
+
+    <!-- Annexure list -->
+    <div class="annexure-list">
+        {% if annexures %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Letter</th>
+                    <th>Caption</th>
+                    <th>File</th>
+                    <th>Pages</th>
+                    <th>Size</th>
+                    <th>Case / Adjudication</th>
+                    <th>Uploaded</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in annexures %}
+                <tr>
+                    <td>
+                        {% if a.annexure_letter %}
+                        <span class="annexure-badge">{{ a.annexure_letter }}</span>
+                        {% else %}
+                        <span class="form-hint">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ a.caption }}</strong>
+                        {% if a.file_hash %}
+                        <br><span class="form-hint mono">{{ a.file_hash[:12] }}…</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ a.filename }}</td>
+                    <td>{{ a.page_count or '—' }}</td>
+                    <td>
+                        {% if a.file_size is not none %}
+                            {{ "%.1f"|format(a.file_size / 1024) }} KB
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.case_id %}
+                            <a href="{{ url_for('case_file_generator.edit_case_file', case_id=a.case_id) }}">Case #{{ a.case_id }}</a>
+                        {% elif a.adjudication_id %}
+                            <a href="{{ url_for('adjudication.edit_adjudication', case_id=a.adjudication_id) }}">Adj #{{ a.adjudication_id }}</a>
+                        {% else %}
+                            <span class="form-hint">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ a.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{{ url_for('annexure.download', annexure_id=a.id) }}"
+                               class="btn btn-secondary btn-sm" title="Download">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                            <button type="button" class="btn btn-secondary btn-sm annexure-rename"
+                                    data-id="{{ a.id }}" data-caption="{{ a.caption }}" title="Rename">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm annexure-delete"
+                                    data-id="{{ a.id }}" title="Delete">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="form-hint">No annexures uploaded yet. Use the form above to attach documents to a case.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var form = document.getElementById('annexureForm');
+    var status = document.getElementById('uploadStatus');
+
+    function showStatus(msg, isError) {
+        status.innerHTML = msg;
+        status.className = 'info-box ' + (isError ? 'info-box--error' : 'info-box--success');
+        status.style.display = 'block';
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var submitBtn = form.querySelector('button[type="submit"]');
+        var originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+        submitBtn.disabled = true;
+        showStatus('<i class="fa-solid fa-spinner fa-spin"></i> Uploading...', false);
+
+        try {
+            var resp = await fetch('{{ url_for("annexure.upload") }}', {
+                method: 'POST',
+                body: new FormData(form)
+            });
+            var data = await resp.json();
+            if (resp.ok) {
+                showStatus('<i class="fa-solid fa-circle-check"></i> Uploaded "' + data.caption +
+                    '"' + (data.annexure_letter ? ' as Annexure ' + data.annexure_letter : '') +
+                    ' — reloading...', false);
+                setTimeout(function() { window.location.reload(); }, 800);
+            } else {
+                showStatus('<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (data.error || 'Upload failed'), true);
+            }
+        } catch (err) {
+            showStatus('<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' + err.message, true);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Rename
+    document.querySelectorAll('.annexure-rename').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = btn.dataset.id;
+            var caption = btn.dataset.caption || '';
+            var newCaption = prompt('New caption:', caption);
+            if (newCaption === null || newCaption.trim() === '') return;
+            fetch('{{ url_for("annexure.rename", annexure_id="__ID__") }}'.replace('__ID__', id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ caption: newCaption.trim() })
+            }).then(function(resp) { return resp.json(); })
+              .then(function(data) {
+                  if (data.status === 'ok') { window.location.reload(); }
+                  else { alert(data.error || 'Rename failed'); }
+              });
+        });
+    });
+
+    // Delete
+    document.querySelectorAll('.annexure-delete').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (!confirm('Delete this annexure?')) return;
+            var id = btn.dataset.id;
+            fetch('{{ url_for("annexure.delete", annexure_id="__ID__") }}'.replace('__ID__', id), {
+                method: 'POST'
+            }).then(function(resp) { return resp.json(); })
+              .then(function(data) {
+                  if (data.status === 'ok') { window.location.reload(); }
+                  else { alert(data.error || 'Delete failed'); }
+              });
+        });
+    });
+})();
+</script>
+{% endblock %}

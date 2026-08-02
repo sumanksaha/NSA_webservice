@@ -1,7 +1,14 @@
-﻿# Roadmap Alignment Report — NSA Webservice
+# Roadmap Alignment Report — NSA Webservice
 
 > **Generated:** 2026-08-02
+> **Last status update:** 2026-08-02 (steps 1–4 of the recommended order complete)
 > **Purpose:** Evaluate the current NSA Webservice codebase against the 20-phase roadmap and produce a detailed implementation plan with TODO list and file-level edit guidance.
+
+> **📌 Current Project Status Update (2026-08-02):**
+> - **Cloudinary Integration:** ✅ **COMPLETED** for adjudication photos (`InspectionPhoto`). Backend implemented in `app/utils/storage.py` with R2/B2 fallback. Environment config added to `.env.example`, `render.yaml`, and `pyproject.toml`.
+> - **Evaluation Score:** 4.3/5 (see `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for details).
+> - **Next Steps:** Add unit tests, retry logic, and credential validation (see [Recommendations](#8-recommendations) in Cloudinary plan).
+> - **Out of Scope:** `PhotoEvidence` migration (requires OCR refactor).
 
 ---
 
@@ -11,13 +18,19 @@
 |--------|--------------|----------------|-----------|
 | **Frontend** | Flask + Jinja2 + Vanilla JS (Quill 2.x) + custom CSS | React + TypeScript + Tailwind + Vite | **MISMATCH** |
 | **State Management** | Server-side session (Flask-Login) | Zustand (client-side) | **MISMATCH** |
-| **Local Storage** | SQLAlchemy + PostgreSQL/SQLite | Dexie.js (IndexedDB, offline-first) | **MISMATCH** |
+| **Local Storage** | SQLAlchemy + PostgreSQL/SQLite + **Cloudinary (photos)** | Dexie.js (IndexedDB, offline-first) | **PARTIAL** |
 | **Routing** | Flask routes | React Router | **MISMATCH** |
 | **Build Tooling** | setuptools + GitHub Actions | Vite + ESLint + Prettier | **MISMATCH** |
-| **Backend** | Flask (Python 3.12), SQLAlchemy, Celery + QStash | Backend as API provider | **PARTIAL** |
+| **Backend** | Flask (Python 3.12), SQLAlchemy, Celery + QStash, **Cloudinary (R2/B2 fallback)** | Backend as API provider | **PARTIAL** |
 
-The current project is a mature **Flask web application** (server-side rendered) for Food Safety Officer adjudication. The roadmap describes a **new React + TypeScript** frontend. The roadmap's *domain features* are the substantive goals. Two approaches:
-- **(A)** Build a new React frontend (rontend/) that consumes Flask REST APIs
+The current project is a mature **Flask web application** (server-side rendered) for Food Safety Officer adjudication.
+
+**📌 Recent Progress:**
+- **Cloudinary Integration:** ✅ **Fully implemented** for adjudication photos (`InspectionPhoto`). The backend in `app/utils/storage.py` now supports Cloudinary as an optional storage backend (active when `CLOUDINARY_*` env vars are set), with automatic fallback to R2/B2. No changes required to routes, models, or PDF embedding logic.
+- **Evaluation:** See `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for a detailed assessment (score: 4.3/5).
+
+The roadmap describes a **new React + TypeScript** frontend. The roadmap's *domain features* are the substantive goals. Two approaches:
+- **(A)** Build a new React frontend (`frontend/`) that consumes Flask REST APIs
 - **(B)** Adapt roadmap features to the existing Flask/Jinja2 architecture
 
 ---
@@ -102,7 +115,8 @@ c:\github\NSA_webservice\
 | InspectionPhoto | inspection_photos | adjudication_id, file_url, caption |
 | PhotoEvidence | photo_evidence | image_id, case_id, filepath, geo, verification_status |
 | AuditLog | udit_log | entity_type, action, actor, hash chain |
-| RecordAudit | ecord_audit | action, record_type, changes_json, user_id |
+| RecordAudit | 
+ecord_audit | action, record_type, changes_json, user_id |
 | User | user | username, password_hash |
 | CodeSequence | code_sequence | key, last_value |
 | AppSecret | pp_secrets | name, value |
@@ -110,7 +124,7 @@ c:\github\NSA_webservice\
 ### 1.3 Technology Stack
 
 Python 3.12, Flask 2.x, SQLAlchemy, Alembic, WeasyPrint, openpyxl, Celery + Redis, QStash,
-PaddleOCR + Tesseract, pdf2image, PIL, numpy, boto3 (R2/B2), gspread, pdfplumber,
+PaddleOCR + Tesseract, pdf2image, PIL, numpy, **cloudinary>=1.40.0**, boto3 (R2/B2), gspread, pdfplumber,
 PyMuPDF, python-docx, Pydantic v2, ruff, black, mypy, bandit, pytest.
 GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
@@ -159,13 +173,13 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Live preview | Quill editor with live iframe preview | app/static/js/document_viewer/editor.js |
 | PDF export | WeasyPrint via QStash async or sync fallback | app/case_file_generator/tasks.py, app/utils/pdf_utils.py |
 | Print layout | CSS print styles in theme.css | app/static/css/theme.css |
-| Auto-save | Partial - button-click save, not continuous | app/document_viewer/routes.py:32-115 |
+| Auto-save | ✅ Continuous (debounced text-change) | app/document_viewer/routes.py:32-115, editor.js |
 | Non-sample adjudication Petition | Adjudication model + templates | app/adjudication/routes.py + templates |
 | Permission Letter (both types) | Templates for both types | permission_letter.html, Legal_NonsampleAdjudication_Template.html |
 
 **TODO:**
-1. [ ] Continuous auto-save (debounce on text-change) in editor.js
-2. [ ] Store Quill Delta alongside HTML for round-trip fidelity
+1. [x] Continuous auto-save (debounce on text-change) in editor.js — **done (commit ee3db9a)**
+2. [x] Store Quill Delta alongside HTML for round-trip fidelity — **done (commit ee3db9a)**
 3. [ ] Add validation error display in UI
 4. [ ] Add Facts/Grounds/Prayer structured sections to petition template
 
@@ -181,14 +195,14 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Images | Toolbar has image option, no upload handler | editor.js |
 | Hyperlinks | Toolbar includes link module | editor.js |
 | Custom legal blocks | Via Jinja2 template variables | Templates |
-| Track formatting | Quill Delta available, not stored | editor.js |
+| Track formatting | Quill Delta stored alongside HTML (.delta files) | editor.js |
 | Store as HTML | HTML stored in instance/saved/ | document_viewer/routes.py |
-| Store as Quill Delta | Not stored | Need endpoint |
+| Store as Quill Delta | ✅ Stored alongside HTML | document_viewer/routes.py |
 | Store as Markdown | Not stored | Would need quill-delta-to-markdown |
 
 **TODO:**
 1. [ ] Wire up image upload handler in Quill editor
-2. [ ] Store Quill Delta (add SavedDocument model + migration)
+2. [x] Store Quill Delta — **done (commit ee3db9a)**
 3. [ ] Add Markdown export option
 
 **Files to edit:** app/static/js/document_viewer/editor.js, app/models.py, migrations/versions/new_saved_documents_table.py
@@ -200,56 +214,56 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Cases | case_files table | Exists | No action |
 | Petitions | case_files (template render) | HTML not stored as field | Consider persisting |
 | Templates | Jinja2 .html files | Exist | OK |
-| Settings | No settings table | Missing | Create Settings model + migration |
-| Annexures | No table | Missing | Create Annexure model |
-| Evidence | photo_evidence (photos only) | Partial | Extend to all evidence types |
-| Versions | version_id col (optimistic locking) | Partial | Add full version history table |
-| SearchIndex | Not implemented | Missing | Create FTS5 or full-text index |
+| Settings | ✅ Settings model exists | app/models.py:444 | No action |
+| Annexures | ✅ Annexure model exists | app/models.py:491 | Phase 4: upload + metadata |
+| Evidence | ✅ General Evidence model exists | app/models.py:542 | Phase 5: blueprint/UI |
+| Versions | ✅ Version model exists | app/models.py:620 | Phase 9: compare/restore |
+| SearchIndex | ✅ FTS5 virtual table | app/search/ | Phase 10: fuzzy/filters |
 
 **Functions:**
 
 | Function | Status | File(s) |
 |---|---|---|
 | CRUD | Full CRUD for all models | All route files |
-| Search | No global text search | Would need FTS5 |
+| Search | ✅ SQLite FTS5 search + API | app/search/ | Phase 10: fuzzy/filters |
 | Backup | Partial - instance folder ZIP | case_file_generator/routes.py |
 | Restore | Not implemented | New feature |
 | Auto-save | Partial (see Phase 1) | editor.js, document_viewer/routes.py |
 | Offline support | Not server-side offline | Would need PWA |
 
 **TODO:**
-1. [ ] Create Settings model + migration (app-level config)
-2. [ ] Create Annexure model (UUID, caption, date, hash, page_count, ocr_text, tags)
-3. [ ] Add Version model for full audit trail + snapshot-on-save
-4. [ ] Implement SQLite FTS5 search index + search API
+1. [x] Create Settings model + migration (app-level config) — **done (commit e9e3a0e)**
+2. [x] Create Annexure model (UUID, caption, date, hash, page_count, ocr_text, tags) — **done (commit e9e3a0e)**
+3. [x] Add Version model for full audit trail + snapshot-on-save — **done (commit e9e3a0e)**
+4. [x] Implement SQLite FTS5 search index + search API — **done (commit 00db98e)**
 5. [ ] Implement backup and restore endpoints
-6. [ ] Extend PhotoEvidence to general Evidence model
+6. [x] Extend PhotoEvidence to general Evidence model — **done (commit e9e3a0e)**
 
 **Files to edit/create:** app/models.py (add Settings, Annexure, Version, Evidence), migrations/versions/, app/search/ (new blueprint)
 
-### Phase 4 — Annexure Management (Not Started)
+### Phase 4 — Annexure Management (Blueprint Implemented)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Upload (PDF, JPG, PNG, DOCX) | Partial - JPG/PNG via upload_photo() | app/utils/storage.py |
-| Generate Annexure A/B/C | Not implemented | New module needed |
-| Metadata (UUID, Caption, Date, Hash, Page count, OCR text, Tags) | Partial - PhotoEvidence has some | app/models.py:330-347 |
-| Preview | Partial - PDF preview via WeasyPrint | document_viewer/editor.html |
-| Rename | Not implemented | New feature |
-| Delete | Exists for photos | app/inspection/routes.py (DELETE endpoint) |
-| Reorder | Not implemented | New feature |
-| Replace | Not implemented | New feature |
-| Duplicate detection | Partial - hash-based in document_cleaner | app/document_cleaner/ |
+| Upload (PDF, JPG, PNG, DOCX) | ✅ /annexure/upload (multipart, 20 MB) | app/annexure/routes.py |
+| Generate Annexure A/B/C | ✅ Auto letter assignment (A, B, C, ... per case) | app/annexure/routes.py::_next_annexure_letter |
+| Metadata (UUID, Caption, Date, Hash, Page count, OCR text, Tags) | ✅ SHA-256 hash + page count + OCR/text + size + MIME | app/annexure/metadata.py |
+| Preview | Download endpoint serves original file | app/annexure/routes.py::download |
+| Rename | ✅ POST /annexure/<id>/rename | app/annexure/routes.py |
+| Delete | ✅ POST /annexure/<id>/delete | app/annexure/routes.py |
+| Reorder | ✅ POST /annexure/<id>/reorder (letter A-Z) | app/annexure/routes.py |
+| Replace | Not implemented | Phase 4 remaining |
+| Duplicate detection | ✅ By SHA-256 content hash (409 on duplicate) | app/annexure/routes.py::upload |
 
 **TODO:**
-1. [ ] Create Annexure model (uuid, caption, date, hash, page_count, ocr_text, tags, case_id FK)
-2. [ ] Add upload endpoint supporting PDF/JPG/PNG/DOCX
-3. [ ] Implement annexure generation (A/B/C naming)
-4. [ ] Add metadata extraction (hash, page count, OCR text)
-5. [ ] Add frontend UI for annexure list/preview/rename/delete/reorder
-6. [ ] Implement duplicate detection by hash
+1. [x] Create Annexure model (uuid, caption, date, hash, page_count, ocr_text, tags, case_id FK) — **done (commit e9e3a0e)**
+2. [x] Add upload endpoint supporting PDF/JPG/PNG/DOCX — **done (annexure blueprint)**
+3. [x] Implement annexure generation (A/B/C naming) — **done (auto letter assignment)**
+4. [x] Add metadata extraction (hash, page count, OCR text) — **done (app/annexure/metadata.py)**
+5. [x] Add frontend UI for annexure list/preview/rename/delete/reorder — **done (annexure/index.html)**
+6. [x] Implement duplicate detection by hash — **done (409 on duplicate)**
 
-**Files to edit/create:** app/models.py (add Annexure), app/annexure/ (new blueprint), app/document_loader/ (extend for metadata), migrations/
+**Files to edit/create:** app/models.py (add Annexure), app/annexure/ (new blueprint), app/document_loader/ (extend for metadata), migrations/ — ✅ all in place; 14 tests in tests/test_annexure.py
 
 ### Phase 5 — Evidence Management (Partially Implemented)
 
@@ -263,6 +277,7 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Categorization | Not implemented | New feature |
 | Search | Not implemented for evidence | New feature |
 | Thumbnail generation | Not implemented | New feature |
+| **Cloud Storage** | ✅ **Cloudinary for adjudication photos** | app/utils/storage.py (lines 162–269) |
 
 **TODO:**
 1. [ ] Extend Evidence model to support all types (video, report, licence, bill, lab report)
@@ -352,18 +367,18 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Index Petition, OCR text, Evidence, Annexures, Case metadata | Not implemented | No full-text search |
-| Keyword search | Not implemented | |
-| Filters | Not implemented | |
-| Fuzzy search | Not implemented | |
-| Full-text search | Not implemented | |
+| Index Petition, OCR text, Evidence, Annexures, Case metadata | ✅ FTS5 index (case_file, adjudication, annexure, evidence) | app/search/indexer.py |
+| Keyword search | ✅ FTS5 MATCH + bm25 | app/search/indexer.py |
+| Filters | ✅ Entity-type filter | app/search/routes.py |
+| Fuzzy search | Not implemented | | Phase 10 remaining |
+| Full-text search | ✅ FTS5 with LIKE fallback (PostgreSQL) | app/search/indexer.py |
 
 **TODO:**
-1. [ ] Create search index table (or SQLite FTS5 / PostgreSQL tsvector)
-2. [ ] Index: petition text, OCR text, evidence text, annexure text, case metadata
-3. [ ] Build search API endpoint
+1. [x] Create search index table (SQLite FTS5) — **done (commit 00db98e)**
+2. [x] Index: case metadata, adjudication, annexure OCR text, evidence OCR text — **done (commit 00db98e)**
+3. [x] Build search API endpoint — **done (commit 00db98e)**
 4. [ ] Implement fuzzy matching (rapidfuzz)
-5. [ ] Add search UI
+5. [x] Add search UI — **done (commit 00db98e)**
 
 **Files to edit/create:** app/search/__init__.py, app/search/routes.py, app/search/indexer.py, migrations/, pyproject.toml (add rapidfuzz)
 
@@ -506,10 +521,10 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Backend (Supabase/R2) | R2/B2 for photo storage; Google Sheets for data | app/utils/storage.py, app/services/sheets_sync.py |
+| Backend (Supabase/R2/Cloudinary) | R2/B2 + **Cloudinary** for photo storage; Google Sheets for data | app/utils/storage.py, app/services/sheets_sync.py |
 | Sync cases | Partial - Google Sheets sync for case data | app/services/sheets_sync.py |
 | Sync annexures | Not implemented | |
-| Sync images | Photos uploaded to R2 | app/utils/storage.py |
+| Sync images | Photos uploaded to R2/**Cloudinary** | app/utils/storage.py |
 | Sync evidence | Partial - photos only | app/inspection/routes.py |
 | Sync versions | Not implemented | |
 
@@ -563,12 +578,12 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 ## 3. Consolidated TODO List
 
 ### Priority 1 — Foundational (Phase 1-3 completion)
-1. [ ] **Continuous auto-save** in Quill editor (editor.js)
-2. [ ] **Settings table** model + migration
-3. [ ] **Annexure model** with metadata
-4. [ ] **Evidence model** extended to all types
-5. [ ] **SQLite FTS5 search** index + API
-6. [ ] **Version history table** + compare/restore
+1. [x] **Continuous auto-save** in Quill editor (editor.js) — **done (ee3db9a)**
+2. [x] **Settings table** model + migration — **done (e9e3a0e)**
+3. [x] **Annexure model** with metadata — **done (e9e3a0e)**
+4. [x] **Evidence model** extended to all types — **done (e9e3a0e)**
+5. [x] **SQLite FTS5 search** index + API — **done (00db98e)**
+6. [ ] **Version history table** + compare/restore (Version model exists; compare/restore pending)
 7. [ ] **JSON export** endpoint
 
 ### Priority 2 — Core Features (Phase 6-12)
@@ -656,11 +671,12 @@ Flask backend exposes REST APIs for all features.
 
 | Step | Phase | Action | Key Files |
 |---|---|---|---|
-| 1 | Phase 0 | **Architecture decision: React vs Flask templates** | frontend/ |
-| 2 | Phase 1 | Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
-| 3 | Phase 3 | Settings + Annexure + Evidence models | models.py, migrations/ |
-| 4 | Phase 3 | SQLite FTS5 search index + API | app/search/ |
-| 5 | Phase 4 | Annexure upload + metadata extraction | app/annexure/ |
+| 1 | Phase 0 | ✅ Architecture decision: keep Flask templates (no new React frontend) | — |
+| 2 | Phase 1 | ✅ Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
+| 3 | Phase 3 | ✅ Settings + Annexure + Evidence + Version models | models.py, migrations/ |
+| 4 | Phase 3 | ✅ SQLite FTS5 search index + API | app/search/ |
+| 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
+| 6 | Phase 5 | ⏳ **Extend evidence model → blueprint/UI (NEXT)** | app/evidence/ |
 | 6 | Phase 5 | Extend evidence model | app/evidence/ |
 | 7 | Phase 6 | Cross-reference engine | app/cross_reference/ |
 | 8 | Phase 7 | Dynamic TOC generator | app/toc_generator/ |
@@ -684,7 +700,7 @@ Flask backend exposes REST APIs for all features.
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
-3. **Quill editor already integrated** - supports rich text, tables, lists, links. HTML stored in `instance/saved/`. Supports Phase 2 but lacks Delta storage + image upload.
+3. **Quill editor already integrated** - supports rich text, tables, lists, links. HTML + Delta stored in `instance/saved/`. Supports Phase 2; only image upload remains.
 
 4. **Domain model well-normalized** - CaseFile (sample-based) vs Adjudication (non-sample) split. `shared/case_keys.py` establishes canonical key contract across 4 UIs.
 
@@ -696,7 +712,47 @@ Flask backend exposes REST APIs for all features.
 
 8. **ENGINEERING_ASSESSMENT.md** (2026-07-18) rates architecture 6.5/10. Bottlenecks: SQLite, Sheets sync, in-memory PDF. Partially addressed (PostgreSQL, QStash).
 
-## 7. Documentation Reference
+## 7. Cloudinary Integration Status
+
+### Overview
+The Cloudinary photo storage backend has been **fully implemented** for adjudication photos (`InspectionPhoto`). This provides an alternative to R2/B2 storage with automatic fallback if Cloudinary is not configured.
+
+### Implementation Details
+- **Backend Location:** `app/utils/storage.py` (lines 162–269)
+- **Environment Configuration:**
+  - `.env.example` (lines 57–65)
+  - `render.yaml` (lines 70–75 for web service, 134–139 for worker service)
+  - `pyproject.toml` (line 59: `cloudinary>=1.40.0`)
+- **Integration Points:**
+  - `upload_adjudication_photo` (`app/inspection/routes.py:936`) – Uses `storage.upload_photo`
+  - `delete_adjudication_photo` (`app/inspection/routes.py:1004`) – Uses `storage.delete_photo`
+  - PDF embedding (`app/utils/pdf_utils.py:56`) – Fetches HTTPS URLs via `requests.get`
+
+### Features
+✅ **Automatic Backend Selection:** Cloudinary is used when `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` are all set.
+✅ **Fallback to R2/B2:** If Cloudinary env vars are missing or SDK is not installed, falls back to R2/B2.
+✅ **Lazy SDK Import:** Cloudinary SDK is imported only when needed, so the module remains importable without it.
+✅ **Deterministic Public IDs:** Uploads use `public_id = inspections/<adjudication_id>/<uuid>` for organization.
+✅ **Idempotent Deletes:** Cloudinary deletes are idempotent (mirrors R2's NoSuchKey behavior).
+✅ **PDF Compatibility:** Cloudinary HTTPS URLs work seamlessly with existing PDF embedding logic.
+
+### Evaluation
+- **Score:** 4.3/5 (see `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for detailed breakdown)
+- **Strengths:** Minimal invasive changes, robust fallback, proper security handling, seamless integration.
+- **Gaps:** No unit tests for Cloudinary helpers, no retry logic, no early credential validation.
+
+### Next Steps
+1. Add unit tests for Cloudinary helpers (`_extract_cloudinary_public_id`, `_upload_to_cloudinary`, etc.).
+2. Add retry logic for Cloudinary operations (using `tenacity`).
+3. Add a health endpoint to validate Cloudinary credentials early.
+4. Consider supporting `CLOUDINARY_URL` for convenience.
+
+### Out of Scope
+- **`PhotoEvidence` Migration:** Inspection photos still use local storage. Migrating to Cloudinary requires refactoring the OCR pipeline to work with HTTP URLs instead of local paths.
+
+---
+
+## 8. Documentation Reference
 
 | File | Purpose |
 |---|---|
@@ -706,6 +762,7 @@ Flask backend exposes REST APIs for all features.
 | LEGAL_PARAGRAPH_DETECTION_ENGINE.md | Legal parser spec |
 | DOCUMENT_VIEWER_IMPLEMENTATION_PLAN.md | Editor plan |
 | POSTGRES_MIGRATION.md | PostgreSQL migration guide |
+| CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md | Cloudinary integration plan + evaluation |
 | .opencode/plans/PHASE2_MODERNIZATION_STRATEGY.md | Code modernization |
 | .opencode/plans/PHASE3_PRODUCTION_REFACTORING.md | Production refactoring |
 

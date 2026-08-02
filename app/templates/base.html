@@ -71,6 +71,10 @@
                    class="nav-link {% if request.blueprint == 'search' %}active{% endif %}">
                     <i class="fa-solid fa-magnifying-glass"></i> Search
                 </a>
+                <a href="{{ url_for('annexure.index') }}"
+                   class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}">
+                    <i class="fa-solid fa-paperclip"></i> Annexures
+                </a>
             </nav>
 
             <div class="nav-user">

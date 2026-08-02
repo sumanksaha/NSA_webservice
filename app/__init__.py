@@ -325,6 +325,7 @@ def create_app():
 
     # Register blueprints (auth first so login page is available)
     from app.adjudication.routes import adjudication_bp
+    from app.annexure import annexure_bp
     from app.audit import audit_bp
     from app.auth.routes import auth_bp
     from app.bill_generator.routes import bill_generator_bp
@@ -354,6 +355,7 @@ def create_app():
     app.register_blueprint(audit_bp, url_prefix="/admin")
     app.register_blueprint(tasks_webhook_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
+    app.register_blueprint(annexure_bp, url_prefix="/annexure")
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
