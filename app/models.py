@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import ClassVar
 
@@ -438,3 +439,231 @@ class AppSecret(db.Model):
 
     name = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=False)
+
+
+class Settings(db.Model):
+    """Key/value store for application-level configuration.
+
+    Replaces ad-hoc env-var lookups for non-secret runtime config
+    (e.g. items-per-page, default PDF orientation).  Secrets such as
+    SECRET_KEY continue to live in the ``app_secrets`` table / env vars.
+    """
+
+    __tablename__ = "settings"
+
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+    value_type = db.Column(
+        db.String(20),
+        nullable=False,
+        default="string",
+        comment="string|int|float|bool|json",
+    )
+    description = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    def __repr__(self):
+        return f"<Settings {self.key}={self.value}>"
+
+    @classmethod
+    def get(cls, key, default=None):
+        """Retrieve a setting value, cast to the declared type."""
+        obj = cls.query.get(key)
+        if obj is None:
+            return default
+        if obj.value_type == "int":
+            return int(obj.value) if obj.value else default
+        if obj.value_type == "float":
+            return float(obj.value) if obj.value else default
+        if obj.value_type == "bool":
+            return obj.value.lower() in ("1", "true", "yes") if obj.value else False
+        if obj.value_type == "json":
+            import json
+            return json.loads(obj.value) if obj.value else default
+        return obj.value
+
+
+class Annexure(db.Model):
+    """Uploaded supporting documents (PDF, JPG, PNG, DOCX).
+
+    Each annexure is attached to either a ``case_files`` or ``adjudications``
+    record and carries metadata extracted at upload time: SHA-256 hash,
+    page count, OCR text, and free-form tags.
+    """
+
+    __tablename__ = "annexures"
+
+    id = db.Column(db.String(36), primary_key=True)
+    case_id = db.Column(
+        db.Integer,
+        db.ForeignKey("case_files.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    adjudication_id = db.Column(
+        db.Integer,
+        db.ForeignKey("adjudications.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    caption = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.DateTime, nullable=True)
+    file_hash = db.Column(db.String(64), nullable=False)
+    page_count = db.Column(db.Integer, nullable=True)
+    ocr_text = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.String(500), nullable=True)
+
+    filepath = db.Column(db.String(500), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_size = db.Column(db.Integer, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    annexure_letter = db.Column(db.String(1), nullable=True)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index("idx_annexures_case_id", "case_id"),
+        db.Index("idx_annexures_adjudication_id", "adjudication_id"),
+        db.Index("idx_annexures_file_hash", "file_hash"),
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.id:
+            self.id = str(uuid.uuid4())
+
+    def __repr__(self):
+        return f"<Annexure {self.id[:8]} '{self.caption}'>"
+
+
+class Evidence(db.Model):
+    """General evidence model supporting all evidence types.
+
+    Extends the historical ``PhotoEvidence`` concept to support
+    photo, video, report, licence, bill, and lab_report evidence.
+    Photo-specific geolocation fields are nullable so non-photo
+    evidence types can reuse the same table.
+
+    Step 5 (Phase 5) TODO: unify with ``InspectionPhoto``.
+    """
+
+    __tablename__ = "evidence"
+
+    EVIDENCE_TYPES = (
+        "photo",
+        "video",
+        "report",
+        "licence",
+        "bill",
+        "lab_report",
+    )
+
+    id = db.Column(db.String(36), primary_key=True)
+    case_id = db.Column(
+        db.Integer,
+        db.ForeignKey("case_files.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    adjudication_id = db.Column(
+        db.Integer,
+        db.ForeignKey("adjudications.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    inspection_id = db.Column(
+        db.Integer,
+        db.ForeignKey("inspection.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    evidence_type = db.Column(db.String(20), nullable=False)
+
+    filepath = db.Column(db.String, nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_size = db.Column(db.Integer, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    file_hash = db.Column(db.String(64), nullable=True)
+
+    raw_lat = db.Column(db.Float, nullable=True)
+    raw_lng = db.Column(db.Float, nullable=True)
+    accuracy = db.Column(db.Float, nullable=True)
+    captured_at = db.Column(db.DateTime, nullable=True)
+    locality = db.Column(db.String, nullable=True)
+    ip_region = db.Column(db.String, nullable=True)
+    ip_match = db.Column(db.Boolean, nullable=True)
+    distance_to_fbo_m = db.Column(db.Float, nullable=True)
+    verification_status = db.Column(db.String, default="PENDING")
+    stamped = db.Column(db.Boolean, default=False)
+
+    caption = db.Column(db.String(200), nullable=True)
+    ocr_text = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.String(500), nullable=True)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index("idx_evidence_case_id", "case_id"),
+        db.Index("idx_evidence_type", "evidence_type"),
+        db.Index("idx_evidence_adjudication_id", "adjudication_id"),
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.id:
+            self.id = str(uuid.uuid4())
+
+    def __repr__(self):
+        return f"<Evidence {self.id[:8]} ({self.evidence_type})>"
+
+
+class Version(db.Model):
+    """Version history table: snapshot-on-save of edited documents.
+
+    Stores a snapshot of the HTML (+ optional Delta) every time a document
+    is saved or auto-saved, enabling compare/restore workflows.
+    """
+
+    __tablename__ = "versions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    case_id = db.Column(
+        db.Integer,
+        db.ForeignKey("case_files.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    adjudication_id = db.Column(
+        db.Integer,
+        db.ForeignKey("adjudications.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    doc_type = db.Column(db.String(20), nullable=False)  # petition | permission
+    version_number = db.Column(db.Integer, nullable=False)
+    html_snapshot = db.Column(db.Text, nullable=False)
+    delta = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_by = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "case_id",
+            "doc_type",
+            "version_number",
+            name="uq_version_case_doc",
+        ),
+        db.UniqueConstraint(
+            "adjudication_id",
+            "doc_type",
+            "version_number",
+            name="uq_version_adjudication_doc",
+        ),
+        db.Index("idx_version_case_id", "case_id"),
+        db.Index("idx_version_adjudication_id", "adjudication_id"),
+    )
+
+    def __repr__(self):
+        return "<Version " + str(self.doc_type) + "#" + str(self.version_number) + ">"
