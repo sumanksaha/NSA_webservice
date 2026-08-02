@@ -1,9 +1,18 @@
-"""Routes for the document viewer: POST save-to-PDF endpoint.
+"""Routes for the document viewer: auto-save + save-to-PDF endpoints.
 
-Phase 3 adds the POST ``/save/<case_id>`` endpoint that accepts edited HTML
-from the Quill editor, validates the case exists, writes the HTML to the
-instance folder, generates a PDF via WeasyPrint, and returns the PDF as a
-download.  CSRF protection is enforced globally by Flask-WTF.
+Phase 3: ``/save/<case_id>`` accepts edited HTML (and optional Quill Delta),
+validates the case exists, writes the HTML (+ Delta) to the instance folder,
+generates a PDF via WeasyPrint, and returns the PDF as a download.
+CSRF protection is enforced globally by Flask-WTF.
+
+Phase 1 (auto-save): ``/autosave/<case_id>`` accepts HTML + Delta (JSON),
+saves both to disk WITHOUT generating a PDF, and returns a lightweight JSON
+acknowledgement. Triggered by the debounced ``text-change`` listener in
+``editor.js``.
+
+Delta storage: Both ``/save`` and ``/autosave`` persist the Quill Delta as a
+``.delta`` file alongside the ``.html`` file. The ``/saved`` endpoint returns
+JSON ``{"html": "...", "delta": {...}|null}`` for lossless round-trip restore.
 
 The GET editor page routes remain in ``case_file_generator`` and
 ``adjudication`` blueprints (at ``/case_file_generator/<id>/editor``
@@ -12,11 +21,11 @@ blueprint-specific context.  The save endpoint is shared.
 """
 
 import io
+import json
 from datetime import datetime
 from pathlib import Path
 
 from flask import (
-    Response,
     current_app,
     jsonify,
     request,
@@ -28,6 +37,103 @@ from app.document_viewer import document_viewer_bp
 from app.services.audit import log_audit
 from app.utils.pdf_utils import generate_pdf_from_html
 
+# --- Shared helpers ---
+
+_VALID_DOC_TYPES = ("petition", "permission")
+
+
+def _resolve_case(case_id: int):
+    """Look up a CaseFile or Adjudication by primary key."""
+    from app.models import Adjudication, CaseFile
+
+    case_record = CaseFile.query.get(case_id)
+    if case_record is not None:
+        return case_record, "case_file", case_record.case_number
+
+    case_record = Adjudication.query.get(case_id)
+    if case_record is not None:
+        return case_record, "adjudication", case_record.case_number
+
+    return None, None, None
+
+
+def _save_document_content(case_id, html_content, delta_content, doc_type):
+    """Persist HTML (+ optional Delta) to instance/saved/."""
+    timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    saved_dir = Path(current_app.instance_path) / "saved"
+    saved_dir.mkdir(parents=True, exist_ok=True)
+
+    html_filename = f"{case_id}_{doc_type}_{timestamp_str}.html"
+    html_path = saved_dir / html_filename
+    html_path.write_text(html_content, encoding="utf-8")
+
+    if delta_content is not None:
+        delta_filename = f"{case_id}_{doc_type}_{timestamp_str}.delta"
+        delta_path = saved_dir / delta_filename
+        try:
+            delta_text = delta_content if isinstance(delta_content, str) else json.dumps(delta_content)
+            delta_path.write_text(delta_text, encoding="utf-8")
+        except (TypeError, ValueError, OSError) as exc:
+            current_app.logger.warning("Failed to save delta for case %s: %s", case_id, exc)
+
+    return timestamp_str
+
+
+def _log_audit(case_type, case_id, action, actor, **details):
+    """Best-effort audit logging."""
+    try:
+        log_audit(entity_type=case_type, entity_id=str(case_id), action=action, actor=actor, details=details)
+    except Exception:
+        current_app.logger.warning("Audit log write failed for case %s; continuing.", case_id)
+
+
+def _actor():
+    """Return the current user's username or 'anonymous'."""
+    return current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
+
+
+@document_viewer_bp.route("/autosave/<int:case_id>", methods=["POST"])
+def autosave_document(case_id: int):
+    """Lightweight auto-save: store HTML + Quill Delta without PDF generation.
+
+    Body (JSON): {"html": "...", "delta": {...}, "doc_type": "petition"|"permission"}
+    Returns 200 with JSON {"status": "ok", "timestamp": "...", "has_delta": bool}.
+    """
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    html_content = payload.get("html", "").strip()
+    if not html_content:
+        return jsonify({"error": "No HTML content provided"}), 400
+
+    doc_type = payload.get("doc_type", "permission")
+    if doc_type not in _VALID_DOC_TYPES:
+        return jsonify({"error": "doc_type must be 'petition' or 'permission'"}), 400
+
+    delta_content = payload.get("delta")
+
+    case_record, case_type, _case_label = _resolve_case(case_id)
+    if case_record is None:
+        return jsonify({"error": f"Case with ID {case_id} not found"}), 404
+
+    try:
+        timestamp_str = _save_document_content(case_id, html_content, delta_content, doc_type)
+    except OSError as exc:
+        current_app.logger.error("Failed to auto-save for case %s: %s", case_id, exc)
+        return jsonify({"error": "Could not auto-save document"}), 500
+
+    _log_audit(
+        case_type,
+        case_id,
+        action=f"DOCUMENT_AUTOSAVED_{doc_type.upper()}",
+        actor=_actor(),
+        has_delta=delta_content is not None,
+        timestamp=timestamp_str,
+    )
+
+    return jsonify({"status": "ok", "timestamp": timestamp_str, "has_delta": delta_content is not None})
+
 
 @document_viewer_bp.route("/save/<int:case_id>", methods=["POST"])
 def save_document(case_id: int):
@@ -36,7 +142,7 @@ def save_document(case_id: int):
     Body (JSON): ``{"html": "<edited HTML>", "doc_type": "petition"|"permission"}``
 
     - Validates the case exists (CaseFile or Adjudication).
-    - Writes the HTML to ``instance/saved/<case_id>_<doc_type>_<timestamp>.html``.
+        - Writes the HTML (+ optional Delta) to ``instance/saved/``.
     - Converts HTML to PDF via the existing ``generate_pdf_from_html`` pipeline.
     - Logs an audit event.
     - Returns the PDF as a file download, or a JSON error on failure.
@@ -45,8 +151,6 @@ def save_document(case_id: int):
     The CSRF token is provided by the ``<meta name="csrf-token">`` tag in
     ``base.html`` and is read by the global fetch wrapper in ``base.html``.
     """
-    from app.models import Adjudication, CaseFile
-
     # --- Validate request body ---
     payload = request.get_json(silent=True)
     if payload is None:
@@ -57,31 +161,19 @@ def save_document(case_id: int):
         return jsonify({"error": "No HTML content provided"}), 400
 
     doc_type = payload.get("doc_type", "permission")
-    if doc_type not in ("petition", "permission"):
+    if doc_type not in _VALID_DOC_TYPES:
         return jsonify({"error": "doc_type must be 'petition' or 'permission'"}), 400
 
+    delta_content = payload.get("delta")
+
     # --- Determine case type (CaseFile vs Adjudication) ---
-    case_record = CaseFile.query.get(case_id)
-    if case_record is not None:
-        case_type = "case_file"
-        case_label = case_record.case_number
-    else:
-        case_record = Adjudication.query.get(case_id)
-        if case_record is not None:
-            case_type = "adjudication"
-            case_label = case_record.case_number
-        else:
-            return jsonify({"error": f"Case with ID {case_id} not found"}), 404
+    case_record, case_type, case_label = _resolve_case(case_id)
+    if case_record is None:
+        return jsonify({"error": f"Case with ID {case_id} not found"}), 404
 
-    # --- Save edited HTML to instance folder ---
-    timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    html_filename = f"{case_id}_{doc_type}_{timestamp_str}.html"
-    saved_dir = Path(current_app.instance_path) / "saved"
-    saved_dir.mkdir(parents=True, exist_ok=True)
-    html_path = saved_dir / html_filename
-
+    # --- Save edited HTML (+ optional Delta) to instance folder ---
     try:
-        html_path.write_text(html_content, encoding="utf-8")
+        timestamp_str = _save_document_content(case_id, html_content, delta_content, doc_type)
     except OSError as exc:
         current_app.logger.error("Failed to save HTML for case %s: %s", case_id, exc)
         return jsonify({"error": "Could not save edited document"}), 500
@@ -92,18 +184,14 @@ def save_document(case_id: int):
         current_app.logger.error("PDF generation failed for case %s: %s", case_id, pdf_error)
         return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 500
 
-    # --- Audit log ---
-    actor = current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
-    try:
-        log_audit(
-            entity_type=case_type,
-            entity_id=str(case_id),
-            action=f"DOCUMENT_EDITED_{doc_type.upper()}",
-            actor=actor,
-            details={"html_filename": html_filename, "pdf_bytes": len(pdf_bytes)},
-        )
-    except Exception:
-        current_app.logger.warning("Audit log write failed for case %s; continuing.", case_id)
+        # --- Audit log ---
+    _log_audit(
+        case_type,
+        case_id,
+        action=f"DOCUMENT_EDITED_{doc_type.upper()}",
+        actor=_actor(),
+        has_delta=delta_content is not None,
+    )
 
     # --- Return PDF as file download ---
     pdf_filename = f"{case_label}_{doc_type}_{timestamp_str}.pdf"
@@ -123,9 +211,9 @@ def get_saved_document(case_id: int, doc_type: str):
     reopens the editor, saved edits (if any) are loaded instead of the
     fresh template render.
 
-    Returns 200 with the HTML text, or 404 if no saved version exists.
+        Returns 200 with JSON, or 404 if no saved version exists.
     """
-    if doc_type not in ("petition", "permission"):
+    if doc_type not in _VALID_DOC_TYPES:
         return jsonify({"error": "doc_type must be 'petition' or 'permission'"}), 400
 
     saved_dir = Path(current_app.instance_path) / "saved"
@@ -145,4 +233,14 @@ def get_saved_document(case_id: int, doc_type: str):
         current_app.logger.error("Failed to read saved HTML for case %s: %s", case_id, exc)
         return jsonify({"error": "Could not read saved document"}), 500
 
-    return Response(html_content, mimetype="text/html")
+    # Look for a corresponding .delta file (same timestamp in filename)
+    delta_content = None
+    delta_path = latest_path.with_suffix(".delta")
+    if delta_path.exists():
+        try:
+            delta_content = json.loads(delta_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            current_app.logger.warning("Failed to read delta for case %s: %s", case_id, exc)
+            delta_content = None
+
+    return jsonify({"html": html_content, "delta": delta_content})

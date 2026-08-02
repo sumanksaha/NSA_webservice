@@ -1,8 +1,16 @@
 /**
- * Document Viewer Editor — Quill 2.x integration
+ * Document Viewer Editor -- Quill 2.x integration
  *
  * Initializes Quill on #editor, loads server-rendered HTML, and provides
  * a live, sandboxed preview. Switches between document types via #docTypeSelector.
+ *
+ * Phase 1 enhancements:
+ *  - Continuous auto-save: debounced text-change listener sends HTML + Delta to
+ *    /autosave/<case_id> (no PDF generation).
+ *  - Delta storage: Quill Delta captured alongside HTML for round-trip fidelity.
+ *  - On load, /saved/<case_id>/<doc_type> returns JSON {html, delta}; if delta
+ *    exists it is restored via quill.setContents() for lossless round-trip.
+ *  - Visual auto-save indicator (status text + spinner).
  */
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
@@ -11,35 +19,132 @@ document.addEventListener("DOMContentLoaded", function () {
     var quill = null;
     var previewFrame = null;
     var initialDocType = "petition";
+    var autosaveDebounceMs = 1000;
 
     // --- Cached DOM ---
     var editorContainer = document.getElementById("editor");
     var docTypeSelector = document.getElementById("docTypeSelector");
     var previewFrameEl = document.getElementById("preview");
     var saveBtn = document.getElementById("saveBtn");
+    var autosaveStatus = document.getElementById("autosaveStatus");
 
     // --- Server-rendered HTML (passed via Jinja2 as |safe) ---
     var petitionHtml = document.getElementById("petition-data").textContent;
     var permissionHtml = document.getElementById("permission-data").textContent;
 
+    // Track whether an autosave is in-flight
+    var autosaveInProgress = false;
+
+    // -----------------------------------------------------------------------
+    // Debounce utility
+    // -----------------------------------------------------------------------
+    function debounce(fn, waitMs) {
+        var timeoutId;
+        return function () {
+            var context = this;
+            var args = arguments;
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(function () {
+                fn.apply(context, args);
+            }, waitMs);
+        };
+    }
+
+    // -----------------------------------------------------------------------
+    // Auto-save indicator helpers
+    // -----------------------------------------------------------------------
+    function setAutosaveStatus(text, isSaving) {
+        if (!autosaveStatus) return;
+        autosaveStatus.textContent = text;
+        if (isSaving) {
+            autosaveStatus.classList.add("autosaving");
+        } else {
+            autosaveStatus.classList.remove("autosaving");
+        }
+    }
+
     /**
-     * Fetch the most recently saved HTML for a doc type.
+     * Perform an auto-save: send current HTML + Delta to the server.
+     * The server stores both WITHOUT generating a PDF (fast path).
+     */
+    function autoSave() {
+        if (!quill || autosaveInProgress) return;
+
+        var html = quill.root.innerHTML;
+        var delta = quill.getContents().toJSON();
+        var docType = docTypeSelector ? docTypeSelector.value : initialDocType;
+
+        // Update the in-memory HTML variable so switchDocType stays in sync
+        if (docType === "permission") {
+            permissionHtml = html;
+        } else {
+            petitionHtml = html;
+        }
+
+        autosaveInProgress = true;
+        setAutosaveStatus("Saving...", true);
+
+        fetch("/document_viewer/autosave/" + (window.CASE_ID || ""), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                html: html,
+                delta: delta,
+                doc_type: docType,
+            }),
+        })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    throw new Error("Auto-save failed: " + resp.status);
+                }
+                return resp.json();
+            })
+            .then(function (data) {
+                setAutosaveStatus("Saved " + (data.timestamp || ""), false);
+                setTimeout(function () {
+                    setAutosaveStatus("", false);
+                }, 2000);
+            })
+            .catch(function (err) {
+                console.error("Auto-save error:", err);
+                setAutosaveStatus("Save failed", false);
+            })
+            .finally(function () {
+                autosaveInProgress = false;
+            });
+    }
+
+    // Debounced version of autoSave
+    var debouncedAutoSave = debounce(autoSave, autosaveDebounceMs);
+
+    /**
+     * Fetch the most recently saved HTML + Delta for a doc type.
      * Falls back to server-rendered HTML if no saved version exists.
+     * Returns JSON: {"html": "...", "delta": {...}|null}
+     * If delta exists, restores via quill.setContents() for lossless round-trip.
      */
     function fetchSavedHtml(docType, fallbackHtml) {
         var caseId = window.CASE_ID || "";
         fetch("/document_viewer/saved/" + caseId + "/" + docType)
             .then(function (resp) {
                 if (resp.ok) {
-                    return resp.text();
+                    return resp.json();
                 }
-                return Promise.resolve(fallbackHtml);
+                return Promise.resolve({ html: fallbackHtml, delta: null });
             })
-            .then(function (html) {
+            .then(function (data) {
+                var html = data.html || fallbackHtml;
+                var delta = data.delta;
                 petitionHtml = docType === "petition" ? html : petitionHtml;
                 permissionHtml = docType === "permission" ? html : permissionHtml;
                 if (quill) {
-                    quill.clipboard.dangerouslyPasteHTML(html);
+                    if (delta) {
+                        quill.setContents(delta);
+                    } else {
+                        quill.clipboard.dangerouslyPasteHTML(html);
+                    }
                     updatePreview();
                 }
             })
@@ -114,12 +219,12 @@ document.addEventListener("DOMContentLoaded", function () {
             placeholder: "Loading document...",
         });
 
-        // Load the active document content
         var content = getActiveHtml();
         quill.clipboard.dangerouslyPasteHTML(content);
 
-        // Set up live preview
+        // Set up live preview + debounced auto-save
         quill.on("text-change", updatePreview);
+        quill.on("text-change", debouncedAutoSave);
     }
 
     /**
@@ -131,16 +236,17 @@ document.addEventListener("DOMContentLoaded", function () {
         var content = getActiveHtml();
         quill.clipboard.dangerouslyPasteHTML(content);
         updatePreview();
-        // Fetch saved HTML for the new doc type (session restore)
         fetchSavedHtml(docType, content);
     }
 
     /**
      * Trigger a server-side PDF download of the edited HTML.
+     * Sends Quill Delta alongside HTML for persistence.
      */
     function saveToPdf() {
         if (!quill) return;
         var html = quill.root.innerHTML;
+        var delta = quill.getContents().toJSON();
         var docType = docTypeSelector ? docTypeSelector.value : "petition";
         var csrfToken = document
             .querySelector('meta[name="csrf-token"]')
@@ -152,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 "Content-Type": "application/json",
                 "X-CSRFToken": csrfToken,
             },
-            body: JSON.stringify({ html: html, doc_type: docType }),
+            body: JSON.stringify({ html: html, delta: delta, doc_type: docType }),
         })
             .then(function (resp) {
                 if (!resp.ok) {
@@ -180,7 +286,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (editorContainer) {
         initQuill();
         updatePreview();
-        // Session restore: fetch saved HTML for the initial doc type
         fetchSavedHtml(initialDocType, petitionHtml);
     }
 
@@ -190,7 +295,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (docTypeSelector) {
         docTypeSelector.addEventListener("change", switchDocType);
-        // Set initialDocType from selector if present
         initialDocType = docTypeSelector.value;
     }
 
@@ -206,6 +310,16 @@ document.addEventListener("DOMContentLoaded", function () {
         getPreviewHtml: function () {
             if (!quill) return "";
             return quill.root.innerHTML;
+        },
+        getDelta: function () {
+            if (!quill) return null;
+            return quill.getContents().toJSON();
+        },
+        getAutosaveDebounceMs: function () {
+            return autosaveDebounceMs;
+        },
+        triggerAutosave: function () {
+            autoSave();
         },
     };
 });

@@ -1,9 +1,10 @@
 """One-off script to create an initial admin user.
 
 Usage:
-    python scripts/create_user.py <username>
+    python scripts/create_user.py <username> [--admin]
 
-You will be prompted for the password (hidden input).
+You will be prompted for the password (hidden input). Pass ``--admin`` to
+grant the user admin rights (ability to reset other users' passwords).
 
 This script requires a running Flask app context to access the database.
 It works with both SQLite and PostgreSQL.
@@ -37,6 +38,7 @@ def main():
         sys.exit(1)
 
     username = sys.argv[1].strip()
+    is_admin = "--admin" in sys.argv
     if not username:
         sys.exit(1)
 
@@ -58,6 +60,7 @@ def main():
         user = User(
             username=username,
             password_hash=generate_password_hash(password),
+            is_admin=is_admin,
         )
         db.session.add(user)
         db.session.commit()

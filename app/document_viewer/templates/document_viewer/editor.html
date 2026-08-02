@@ -108,6 +108,18 @@
     gap: 12px;
     margin-top: 16px;
     justify-content: flex-end;
+    align-items: center;
+}
+
+.autosave-status {
+    font-size: 13px;
+    color: var(--text-secondary, #6c757d);
+    font-style: italic;
+    min-height: 1.2em;
+}
+
+.autosave-status.autosaving {
+    color: var(--color-info, #0d6efd);
 }
 
 @media (max-width: 768px) {
@@ -146,10 +158,11 @@
         </div>
     </div>
 
-    <div class="action-bar">
+        <div class="action-bar">
         <button type="button" id="saveBtn" class="btn btn-primary">
             <i class="fa-solid fa-download"></i> Save as PDF
         </button>
+        <span id="autosaveStatus" class="autosave-status"></span>
     </div>
 </div>
 

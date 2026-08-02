@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}User Management — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-users-gear"></i> User Management</h2>
+        <p>Admin-only. Create accounts, reset passwords, and grant or revoke admin rights.</p>
+    </div>
+
+    <div class="mb--md">
+        <a href="{{ url_for('auth.create_user') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-user-plus"></i> Create user
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="info-box {% if category == 'error' %}info-box--error{% else %}info-box--success{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <i class="fa-solid fa-user"></i> {{ user.username }}
+                        {% if user.id == current_user.id %}
+                        <span class="status-badge status-badge--info">you</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_admin %}
+                        <span class="status-badge status-badge--success">admin</span>
+                        {% else %}
+                        <span class="status-badge status-badge--warning">user</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{{ url_for('auth.reset_password', user_id=user.id) }}" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-key"></i> Reset password
+                            </a>
+                            {% if user.id != current_user.id %}
+                            {# Grant needs no confirm; only Revoke is destructive. #}
+                            <form method="post" action="{{ url_for('auth.toggle_admin', user_id=user.id) }}"
+                                  {% if user.is_admin %}data-confirm="Revoke admin rights for {{ user.username }}? You can grant them back later."{% endif %}>
+                                {{ csrf_token() }}
+                                {% if user.is_admin %}
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                        title="Revoke admin rights">
+                                    <i class="fa-solid fa-user-minus"></i> Revoke admin
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-secondary btn-sm"
+                                        title="Grant admin rights">
+                                    <i class="fa-solid fa-user-plus"></i> Grant admin
+                                </button>
+                                {% endif %}
+                            </form>
+                            <form method="post" action="{{ url_for('auth.delete_user', user_id=user.id) }}"
+                                  data-confirm="Delete user {{ user.username }}? This cannot be undone.">
+                                {{ csrf_token() }}
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                        title="Delete user account">
+                                    <i class="fa-solid fa-user-xmark"></i> Delete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Client-side confirmation for destructive actions (revoke admin, delete
+    // user). Uses a data-confirm attribute + event delegation so the message
+    // text is safely HTML-escaped by Jinja (no inline-JS quoting issues).
+    (function() {
+        document.addEventListener('submit', function(e) {
+            var form = e.target;
+            if (form && form.hasAttribute('data-confirm')) {
+                if (!window.confirm(form.getAttribute('data-confirm'))) {
+                    e.preventDefault();
+                }
+            }
+        });
+    })();
+</script>
+{% endblock %}

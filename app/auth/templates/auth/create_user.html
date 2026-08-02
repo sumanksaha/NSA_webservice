@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Create User — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">
+                <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <h2 class="mb--sm">Create User</h2>
+            <p class="form-hint">
+                Adding a new account — the user can log in with these credentials immediately.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="info-box {% if category == 'error' %}info-box--error{% else %}info-box--success{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('auth.create_user') }}">
+            {{ csrf_token() }}
+
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required
+                       placeholder="e.g. fso.kolkata" autocomplete="username">
+            </div>
+
+            <div class="form-group mt--sm">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required
+                       placeholder="At least 8 characters" autocomplete="new-password">
+            </div>
+
+            <div class="form-group mt--sm">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-input" required
+                       placeholder="Re-enter the new password" autocomplete="new-password">
+            </div>
+
+            <div class="form-group mt--sm">
+                <label class="ce-copy-label" for="is_admin">
+                    <input type="checkbox" id="is_admin" name="is_admin">
+                    Grant admin rights (can manage users)
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg login-btn">
+                <i class="fa-solid fa-user-plus"></i> Create User
+            </button>
+            <p class="form-hint mt--sm">
+                <a href="{{ url_for('auth.users') }}">&larr; Back to user management</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

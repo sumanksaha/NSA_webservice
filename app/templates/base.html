@@ -74,6 +74,16 @@
                 <span class="user-name">
                     <i class="fa-solid fa-user"></i> {{ current_user.username }}
                 </span>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('auth.users') }}" class="btn btn-secondary btn-sm"
+                   title="Manage users">
+                    <i class="fa-solid fa-users-gear"></i>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-secondary btn-sm"
+                   title="Change password">
+                    <i class="fa-solid fa-key"></i>
+                </a>
                 <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </a>

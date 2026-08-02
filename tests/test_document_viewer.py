@@ -448,10 +448,13 @@ class TestSaveDocumentCsrf:
 
 
 class TestSessionRestore:
-    """Test Phase 4: session restore via GET /saved/<case_id>/<doc_type>."""
+    """Test Phase 1 (auto-save + delta): session restore via GET /saved/<case_id>/<doc_type>.
 
-    def test_get_saved_html_returns_html(self, test_client):
-        """GET /saved/<case_id>/<doc_type> returns saved HTML after a save."""
+    The /saved endpoint now returns JSON: {"html": "...", "delta": {...}|null}
+    """
+
+    def test_get_saved_returns_json_with_html(self, test_client):
+        """GET /saved returns JSON with saved HTML after a save."""
         with test_client.session_transaction() as sess:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
@@ -465,11 +468,15 @@ class TestSessionRestore:
 
         resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
         assert resp.status_code == 200
-        assert resp.mimetype == "text/html"
-        assert "Session restore test" in resp.data.decode("utf-8")
+        assert resp.is_json
+        data = resp.get_json()
+        assert "html" in data
+        assert "Session restore test" in data["html"]
+        assert "delta" in data
+        assert data["delta"] is None
 
     def test_get_saved_html_404_no_save(self, test_client):
-        """GET /saved/<case_id>/<doc_type> returns 404 if no saved HTML exists."""
+        """GET /saved returns 404 if no saved HTML exists."""
         from pathlib import Path
 
         saved_dir = Path(test_client.application.instance_path) / "saved"
@@ -503,22 +510,253 @@ class TestSessionRestore:
         second_html = "<p>Second save</p>"
 
         test_client.post(
-            "/document_viewer/save/1",
-            json={"html": first_html, "doc_type": "permission"},
-            follow_redirects=False,
+            "/document_viewer/save/1", json={"html": first_html, "doc_type": "permission"}, follow_redirects=False
         )
         test_client.post(
-            "/document_viewer/save/1",
-            json={"html": second_html, "doc_type": "permission"},
-            follow_redirects=False,
+            "/document_viewer/save/1", json={"html": second_html, "doc_type": "permission"}, follow_redirects=False
         )
 
         resp = test_client.get("/document_viewer/saved/1/permission", follow_redirects=False)
         assert resp.status_code == 200
-        assert "Second save" in resp.data.decode("utf-8")
+        assert resp.is_json
+        data = resp.get_json()
+        assert "Second save" in data["html"]
 
     def test_get_saved_requires_auth(self, test_client):
-        """GET /saved/<case_id>/<doc_type> without login redirects to auth."""
+        """GET /saved without login redirects to auth."""
         resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["Location"]
+
+
+class TestAutosave:
+    """Test Phase 1: continuous auto-save via POST /autosave/<case_id>."""
+
+    def test_autosave_returns_json_ok(self, test_client):
+        """POST /autosave returns 200 with JSON status."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>Autosave test</p>", "delta": {"ops": [{"insert": "test"}]}, "doc_type": "petition"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["has_delta"] is True
+        assert "timestamp" in data
+
+    def test_autosave_html_written_to_instance(self, test_client):
+        """POST /autosave writes the HTML to instance/saved/."""
+        from pathlib import Path
+
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>Autosave content</p>", "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        html_files = list(saved_dir.glob("1_petition_*.html"))
+        assert len(html_files) >= 1
+        content = html_files[-1].read_text(encoding="utf-8")
+        assert "Autosave content" in content
+
+    def test_autosave_delta_written_to_instance(self, test_client):
+        """POST /autosave writes the Delta to instance/saved/ as .delta file."""
+        import json
+        from pathlib import Path
+
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        delta = {"ops": [{"insert": "Hello"}, {"insert": "World"}]}
+        test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>Test</p>", "delta": delta, "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        delta_files = list(saved_dir.glob("1_petition_*.delta"))
+        assert len(delta_files) >= 1
+        delta_content = delta_files[-1].read_text(encoding="utf-8")
+        parsed = json.loads(delta_content)
+        assert parsed == delta
+
+    def test_autosave_without_delta(self, test_client):
+        """POST /autosave without delta still works (delta is optional)."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>No delta</p>", "doc_type": "permission"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["has_delta"] is False
+
+    def test_autosave_requires_auth(self, test_client):
+        """POST /autosave without login redirects to auth."""
+        resp = test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>test</p>", "doc_type": "permission"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert "/auth/login" in resp.headers["Location"]
+
+    def test_autosave_404_nonexistent_case(self, test_client):
+        """POST /autosave/99999 returns 404."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/99999",
+            json={"html": "<p>test</p>", "doc_type": "permission"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 404
+        data = resp.get_json()
+        assert "error" in data
+
+    def test_autosave_no_html_returns_400(self, test_client):
+        """POST /autosave with empty HTML returns 400."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/1", json={"html": "", "doc_type": "permission"}, follow_redirects=False
+        )
+        assert resp.status_code == 400
+
+    def test_autosave_invalid_doc_type_returns_400(self, test_client):
+        """POST /autosave with invalid doc_type returns 400."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/1", json={"html": "<p>test</p>", "doc_type": "invalid"}, follow_redirects=False
+        )
+        assert resp.status_code == 400
+
+    def test_autosave_not_json_returns_400(self, test_client):
+        """POST /autosave with non-JSON body returns 400."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        resp = test_client.post(
+            "/document_viewer/autosave/1", data="not json", content_type="text/plain", follow_redirects=False
+        )
+        assert resp.status_code == 400
+
+
+class TestDeltaStorage:
+    """Test Phase 1: Quill Delta stored alongside HTML for round-trip fidelity."""
+
+    def test_save_with_delta_stores_delta_file(self, test_client):
+        """POST /save with delta stores a .delta file alongside .html."""
+        from pathlib import Path
+
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        delta = {"ops": [{"insert": "Hello"}, {"insert": "World", "bold": True}]}
+        resp = test_client.post(
+            "/document_viewer/save/1",
+            json={"html": "<p>Test delta</p>", "delta": delta, "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        if resp.status_code == 500:
+            pass  # WeasyPrint missing in test env
+
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        delta_files = list(saved_dir.glob("1_petition_*.delta"))
+        assert len(delta_files) >= 1
+
+    def test_saved_returns_delta_after_save_with_delta(self, test_client):
+        """GET /saved returns delta when saved alongside HTML."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        delta = {"ops": [{"insert": "Round-trip test"}]}
+        test_client.post(
+            "/document_viewer/save/1",
+            json={"html": "<p>Delta round-trip</p>", "delta": delta, "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        assert resp.status_code == 200
+        assert resp.is_json
+        data = resp.get_json()
+        assert data["delta"] is not None
+        assert data["delta"] == delta
+        assert "Delta round-trip" in data["html"]
+
+    def test_saved_returns_null_delta_after_save_without_delta(self, test_client):
+        """GET /saved returns delta=null when no delta was saved."""
+        from pathlib import Path
+
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        if saved_dir.is_dir():
+            for f in saved_dir.glob("1_petition_*.delta"):
+                f.unlink()
+
+        test_client.post(
+            "/document_viewer/save/1",
+            json={"html": "<p>No delta here</p>", "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        assert resp.status_code == 200
+        assert resp.is_json
+        data = resp.get_json()
+        assert data["delta"] is None
+        assert "No delta here" in data["html"]
+
+    def test_autosave_saves_delta_and_retrieves_via_saved(self, test_client):
+        """Full round-trip: autosave with delta, then GET /saved returns it."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        delta = {"ops": [{"insert": "Autosave round-trip"}]}
+
+        test_client.post(
+            "/document_viewer/autosave/1",
+            json={"html": "<p>Autosave delta</p>", "delta": delta, "doc_type": "petition"},
+            follow_redirects=False,
+        )
+
+        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        assert resp.status_code == 200
+        assert resp.is_json
+        data = resp.get_json()
+        assert data["delta"] is not None
+        assert data["delta"] == delta
+        assert "Autosave delta" in data["html"]
