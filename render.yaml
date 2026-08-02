@@ -62,6 +62,17 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
+      # ---------------------------------------------------------------------------
+      # Cloudinary photo storage (active when CLOUDINARY_* env vars are set).
+      # Credential values are provisioned in the Render Dashboard (sync: false);
+      # never commit real keys. python-cloudinary uploads to a secure_url; see
+      # app/utils/storage.py. Omitting all three falls back to R2/B2.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   # ---------------------------------------------------------------------------
   # Celery background worker — consumes PDF-generation & OCR tasks from the
@@ -117,6 +128,15 @@ services:
         value: "false"
       - key: SKIP_FSO_STARTUP_SYNC
         value: "1"
+      # ---------------------------------------------------------------------------
+      # Cloudinary photo storage (active when CLOUDINARY_* env vars are set).
+      # Credential values are provisioned in the Render Dashboard (sync: false).
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
 databases:
   - name: nsa-webservice-db
