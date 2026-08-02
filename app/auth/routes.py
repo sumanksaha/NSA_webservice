@@ -1,5 +1,4 @@
 from datetime import datetime
-from functools import wraps
 from urllib.parse import urlparse
 
 from flask import Response, abort, flash, redirect, render_template, request, session, url_for
@@ -84,20 +83,7 @@ def _guard_admin_action(target, self_message, last_admin_message) -> Response | 
     return None
 
 
-def admin_required(view):
-    """Restrict a view to authenticated admin users (403 for everyone else).
-
-    Must be stacked below ``@login_required`` so unauthenticated visitors get
-    the standard redirect to the login page instead of a bare 403.
-    """
-
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            abort(403)
-        return view(*args, **kwargs)
-
-    return wrapped
+from app.utils.auth import admin_required
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])

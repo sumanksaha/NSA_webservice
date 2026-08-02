@@ -1708,6 +1708,32 @@ textarea.form-input {
   margin-top: 0.75rem;
 }
 
+/* Backup & restore table list (settings/backup.html) */
+.backup-table-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.backup-table-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background-color: var(--bg-subtle);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.backup-table-list code {
+  font-size: 0.8125rem;
+}
+
 .fso-item {
   background-color: var(--bg-subtle);
   padding: 0.625rem;

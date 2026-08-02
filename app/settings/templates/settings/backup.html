@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Backup & Restore{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-database"></i> Backup &amp; Restore</h2>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="info-box {% if category == 'error' %}info-box--error{% else %}info-box--success{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="mb--lg">
+        <h3 class="mb--sm"><i class="fa-solid fa-box-archive"></i> Download Backup</h3>
+        <p class="form-hint">
+            Creates a single ZIP containing the database ({{ dialect }}) as a JSON dump and
+            all instance files — annexures, saved documents, and editor images.
+        </p>
+        <div class="flex-between--wrap">
+            <a href="{{ url_for('settings.backup_download') }}" class="btn btn-primary">
+                <i class="fa-solid fa-download"></i> Download Backup ZIP
+            </a>
+            <span class="form-hint">{{ total_tables }} tables &middot; {{ total_rows }} rows</span>
+        </div>
+    </div>
+
+    <div class="mt--lg pt--lg section-divider">
+        <h3 class="mb--sm"><i class="fa-solid fa-rotate-left"></i> Restore from Backup</h3>
+        <p class="form-hint">
+            Upload a previously downloaded backup ZIP to replace the database and instance files.
+            <strong>This overwrites all current data</strong> — a full search reindex runs afterwards.
+        </p>
+        <form action="{{ url_for('settings.backup_restore') }}" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <input type="file" id="file" name="file" class="form-input"
+                           accept=".zip,application/zip" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary"
+                            onclick="return confirm('Restore will replace all current data. Continue?');">
+                        <i class="fa-solid fa-rotate-left"></i> Restore
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="mt--lg pt--lg section-divider">
+        <h3 class="mb--sm"><i class="fa-solid fa-table"></i> Database Contents</h3>
+        <p class="form-hint">Row counts per table included in the backup.</p>
+        <div class="filter-panel mt--md">
+            <ul class="backup-table-list">
+                {% for table, count in table_counts.items() %}
+                <li>
+                    <code>{{ table }}</code>
+                    <span class="form-hint">{{ count }} rows</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

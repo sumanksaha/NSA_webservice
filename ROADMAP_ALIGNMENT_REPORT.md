@@ -215,7 +215,7 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 **Files to edit:** app/static/js/document_viewer/editor.js, app/document_viewer/routes.py, app/document_viewer/markdown_export.py — ✅ complete; 27 tests in tests/test_document_viewer_phase2.py
 
-### Phase 3 — Local Database (Partially Implemented - Server-side)
+### Phase 3 — Local Database (Implemented)
 
 | Roadmap Table | Current Equivalent | Gap | Action Needed |
 |---|---|---|---|
@@ -234,8 +234,8 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 |---|---|---|
 | CRUD | Full CRUD for all models | All route files |
 | Search | ✅ SQLite FTS5 search + API | app/search/ | Phase 10: fuzzy/filters |
-| Backup | Partial - instance folder ZIP | case_file_generator/routes.py |
-| Restore | Not implemented | New feature |
+| Backup | ✅ Full ZIP (JSON DB dump + instance files) | app/utils/backup.py, app/settings/routes.py |
+| Restore | ✅ ZIP restore (FK-safe, schema-drift guarded) | app/utils/backup.py, app/settings/routes.py |
 | Auto-save | Partial (see Phase 1) | editor.js, document_viewer/routes.py |
 | Offline support | Not server-side offline | Would need PWA |
 
@@ -244,10 +244,10 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 2. [x] Create Annexure model (UUID, caption, date, hash, page_count, ocr_text, tags) — **done (commit e9e3a0e)**
 3. [x] Add Version model for full audit trail + snapshot-on-save — **done (commit e9e3a0e)**
 4. [x] Implement SQLite FTS5 search index + search API — **done (commit 00db98e)**
-5. [ ] Implement backup and restore endpoints
+5. [x] Implement backup and restore endpoints — **done (admin-only `/settings/backup` page, `/backup/download`, `/backup/restore`)**
 6. [x] Extend PhotoEvidence to general Evidence model — **done (commit e9e3a0e)**
 
-**Files to edit/create:** app/models.py (add Settings, Annexure, Version, Evidence), migrations/versions/, app/search/ (new blueprint)
+**Files to edit/create:** app/models.py (add Settings, Annexure, Version, Evidence), migrations/versions/, app/search/ (new blueprint) — ✅ all in place; backup/restore added in app/utils/backup.py + app/settings/routes.py; 10 tests in tests/test_phase3_backup.py
 
 ### Phase 4 — Annexure Management (Blueprint Implemented)
 
@@ -610,7 +610,7 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 19. [ ] **Case intelligence engine** (readiness score)
 20. [ ] **Multi-user RBAC** (Role model, @role_required)
 21. [ ] **Cloud sync** (Supabase)
-22. [ ] **Backup & restore**
+22. [x] **Backup & restore** (manual ZIP backup/restore done in Phase 3; automated scheduled export still open)
 23. [ ] **Plugin architecture**
 
 
@@ -633,7 +633,7 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 | app/timeline/ | Timeline engine | __init__.py, engine.py, routes.py |
 | app/knowledge_graph/ | Knowledge graph | __init__.py, models.py, engine.py |
 | app/analytics/ | Analytics dashboard | __init__.py, routes.py, templates/ |
-| app/backup/ | Backup & restore | __init__.py, routes.py, tasks.py |
+| app/settings/ | Backup & restore (Phase 3, admin-only) | app/utils/backup.py, app/settings/routes.py |
 | app/sync/ | Cloud sync | __init__.py, supabase_sync.py |
 | app/ai_assistant/ | AI assistant | __init__.py, service.py, routes.py |
 | app/case_intelligence/ | AI intelligence | __init__.py, engine.py |
@@ -684,6 +684,7 @@ Flask backend exposes REST APIs for all features.
 | 2b | Phase 2 | ✅ Rich editor completion: image upload + Markdown export | editor.js, markdown_export.py, routes.py |
 | 3 | Phase 3 | ✅ Settings + Annexure + Evidence + Version models | models.py, migrations/ |
 | 4 | Phase 3 | ✅ SQLite FTS5 search index + API | app/search/ |
+| 4b | Phase 3 | ✅ Backup & restore endpoints (admin-only) | app/utils/backup.py, app/settings/routes.py |
 | 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
 | 6 | Phase 5 | ⏳ **Extend evidence model → blueprint/UI (NEXT)** | app/evidence/ |
 | 6 | Phase 5 | Extend evidence model | app/evidence/ |
@@ -705,7 +706,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and Phase 3 (models) done.
+1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints).
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
