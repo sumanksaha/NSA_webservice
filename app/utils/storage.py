@@ -16,6 +16,13 @@ Configuration is read from environment variables:
 The client is **not** created at import time.  If the environment variables
 are missing, a clear ``RuntimeError`` is raised only when ``upload_photo`` or
 ``delete_photo`` is actually called, so application startup is never blocked.
+
+When the ``CLOUDINARY_CLOUD_NAME`` / ``CLOUDINARY_API_KEY`` /
+``CLOUDINARY_API_SECRET`` environment variables are all set, ``upload_photo``
+and ``delete_photo`` route through Cloudinary instead of R2/B2.  The ``cloudinary``
+SDK is imported lazily, so this module stays importable when it is absent; if it
+is configured-but-uninstalled the upload falls back to R2/B2 with a logged
+warning.
 """
 
 import logging
@@ -152,6 +159,117 @@ def _get_content_type(ext):
 
 
 # ---------------------------------------------------------------------------
+# Cloudinary (optional backend - active when CLOUDINARY_* env vars are set)
+# ---------------------------------------------------------------------------
+# Cloudinary is selected by a simple env switch, so a single deploy flag flips
+# the whole storage backend without touching callers.  The SDK is imported
+# lazily so the module is importable even when `cloudinary` isn't installed.
+_cloudinary = None  # cached configured cloudinary module handle
+
+
+def _cloudinary_configured() -> bool:
+    """True only when all three Cloudinary credential env vars are present."""
+    return all(os.environ.get(k) for k in ("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"))
+
+
+def _get_cloudinary():
+    """Lazily import + configure the Cloudinary SDK and cache the handle.
+
+    Returns the configured ``cloudinary`` module (global config set), or
+    ``None`` when the SDK is not installed - callers then fall back to R2/B2.
+    """
+    global _cloudinary
+    if _cloudinary is not None:
+        return _cloudinary
+    try:
+        import cloudinary
+        from cloudinary import uploader  # noqa: F401  (ensures submodule importable)
+    except ImportError:
+        logger.warning(
+            "Cloudinary env vars are set but the 'cloudinary' SDK is not installed; "
+            "falling back to R2/B2. Add `cloudinary` to dependencies to enable it.",
+        )
+        return None
+    cloudinary.config(
+        cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
+        api_key=os.environ["CLOUDINARY_API_KEY"],
+        api_secret=os.environ["CLOUDINARY_API_SECRET"],
+        secure=True,  # deliver HTTPS URLs
+    )
+    _cloudinary = cloudinary
+    logger.info(
+        "Cloudinary storage client initialised (cloud=%s)",
+        os.environ["CLOUDINARY_CLOUD_NAME"],
+    )
+    return _cloudinary
+
+
+def _extract_cloudinary_public_id(file_url):
+    """Derive a Cloudinary public_id (folders + name; no version segment;
+    no trailing extension) from a delivery URL, for use with ``destroy``.
+
+    Recognises ``https://res.cloudinary.com/<cloud>/image/upload/v<ts>/<id>.<ext>``.
+    Returns ``None`` for non-Cloudinary URLs.
+    """
+    path = urlparse(file_url).path
+    parts = path.split("/")
+    if "upload" not in parts:
+        return None
+    after = parts[parts.index("upload") + 1 :]
+    # drop an optional version segment like "v1234567890"
+    if after and after[0].startswith("v") and after[0][1:].isdigit():
+        after = after[1:]
+    public_id = "/".join(after)
+    # a public_id never carries the trailing extension
+    last = public_id.rsplit("/", 1)[-1]
+    if "." in last:
+        public_id = public_id.rsplit(".", 1)[0]
+    return unquote(public_id)
+
+
+def _upload_to_cloudinary(file_obj, adjudication_id):
+    """Upload one image to Cloudinary; return the secure HTTPS URL, or
+    ``None`` if Cloudinary is configured-but-unusable (caller falls back)."""
+    cld = _get_cloudinary()
+    if cld is None:
+        return None
+    file_obj.seek(0)
+    public_id = f"inspections/{adjudication_id}/{uuid4().hex}"
+    result = cld.uploader.upload(
+        file_obj,
+        public_id=public_id,
+        resource_type="image",
+    )
+    url = result["secure_url"]
+    logger.info("Uploaded photo to Cloudinary (public_id=%s) -> %s", public_id, url)
+    return url
+
+
+def _delete_from_cloudinary(file_url):
+    """Delete a Cloudinary asset by deriving its public_id from its URL.
+    Idempotent: an already-absent asset is treated as success (mirrors
+    R2's "NoSuchKey -> success" behaviour)."""
+    cld = _get_cloudinary()
+    if cld is None:
+        logger.warning("Cloudinary URL present but SDK not installed; cannot delete %s", file_url)
+        return False
+    public_id = _extract_cloudinary_public_id(file_url)
+    if not public_id:
+        logger.warning("Could not derive Cloudinary public_id from URL: %s", file_url)
+        return False
+    try:
+        result = cld.uploader.destroy(public_id, resource_type="image")
+    except Exception:
+        logger.exception("delete_photo: failed to delete Cloudinary asset (public_id=%s)", public_id)
+        return False
+    if result.get("result") == "error":
+        logger.warning("Cloudinary destroy error for public_id=%s: %s", public_id, result.get("error"))
+        return False
+    logger.info("Deleted Cloudinary asset (public_id=%s)", public_id)
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 def upload_photo(file_obj, adjudication_id, filename):
@@ -196,6 +314,13 @@ def upload_photo(file_obj, adjudication_id, filename):
     if size > MAX_FILE_SIZE:
         raise ValueError(f"File size {size} bytes exceeds the maximum allowed size of {MAX_FILE_SIZE} bytes (5 MB).")
 
+    # --- Cloudinary backend (active when CLOUDINARY_* env vars are set) ----
+    if _cloudinary_configured():
+        url = _upload_to_cloudinary(file_obj, adjudication_id)
+        if url is not None:
+            return url
+        # else: SDK missing - fall through to R2/B2 below.
+
     # --- Collision-safe object key ------------------------------------------
     key = f"inspections/{adjudication_id}/{uuid4().hex}{ext}"
     content_type = _get_content_type(ext)
@@ -234,6 +359,9 @@ def delete_photo(file_url):
         ``False`` on a genuine error.
 
     """
+    if file_url.startswith("https://res.cloudinary.com/"):
+        return _delete_from_cloudinary(file_url)
+
     from botocore.exceptions import ClientError
 
     key = _extract_key(file_url)
