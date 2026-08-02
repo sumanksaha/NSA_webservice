@@ -9,7 +9,7 @@
     </div>
 
     <form method="post" action="{{ url_for('adjudication.generate_all') }}">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% if prefill and prefill.from_inspection %}
         <input type="hidden" name="from_inspection" value="{{ prefill.from_inspection }}">
         {% endif %}

@@ -9,7 +9,7 @@
     </div>
 
     <form id="sampleForm" action="{{ url_for('sample.create_sample') }}" method="post" class="sample-form">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <!-- Sample Information -->
         <div class="section-header">
             <h3><i class="fa-solid fa-circle-info"></i> Sample Information</h3>

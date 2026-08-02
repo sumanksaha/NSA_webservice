@@ -61,7 +61,7 @@
                             {# Grant needs no confirm; only Revoke is destructive. #}
                             <form method="post" action="{{ url_for('auth.toggle_admin', user_id=user.id) }}"
                                   {% if user.is_admin %}data-confirm="Revoke admin rights for {{ user.username }}? You can grant them back later."{% endif %}>
-                                {{ csrf_token() }}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if user.is_admin %}
                                 <button type="submit" class="btn btn-danger btn-sm"
                                         title="Revoke admin rights">
@@ -76,7 +76,7 @@
                             </form>
                             <form method="post" action="{{ url_for('auth.delete_user', user_id=user.id) }}"
                                   data-confirm="Delete user {{ user.username }}? This cannot be undone.">
-                                {{ csrf_token() }}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-danger btn-sm"
                                         title="Delete user account">
                                     <i class="fa-solid fa-user-xmark"></i> Delete

@@ -9,7 +9,7 @@
     </div>
 
     <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div id="case-task-status" class="info-box" style="display: none;"></div>
 
         <!-- Case Information -->

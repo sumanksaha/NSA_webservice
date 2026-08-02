@@ -9,7 +9,7 @@
     </div>
 
     <form id="billForm" action="{{ url_for('bill_generator.generate_bill_route') }}" method="post">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div id="bill-task-status" class="info-box" style="display: none;"></div>
         <!-- Date Range Filter for Preview -->
         <div class="section-header">
