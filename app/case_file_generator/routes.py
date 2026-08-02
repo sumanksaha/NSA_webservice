@@ -24,6 +24,92 @@ from app.utils.lookup import lookup_fssai
 case_file_generator_bp = Blueprint("case_file_generator", __name__, template_folder="templates", static_folder="static")
 
 
+# Field labels for user-facing validation messages (matches form input names)
+_REQUIRED_FIELDS: dict[str, str] = {
+    "case_number": "Case Number",
+    "food_safety_officer_name": "Food Safety Officer Name",
+    "authorization_date": "Authorization Date",
+    "sample_draw_date": "Sample Draw Date",
+    "sample_draw_time": "Sample Draw Time",
+    "manufacturer_fssai_license": "Manufacturer FSSAI Number",
+    "manufacturer_person_name": "Manufacturer Name",
+    "manufacturer_trade_name": "Manufacturer FBO Name",
+    "manufacturer_address": "Manufacturer Address",
+    "retailer_fssai_license": "Retailer FSSAI Number",
+    "retailer_person_name": "Retailer Name",
+    "retailer_trade_name": "Retailer FBO Name",
+    "retailer_address": "Retailer Address",
+    "product_name": "Product Name",
+    "batch_no": "Batch Number",
+    "sample_quantity": "Sample Quantity",
+    "packet_count": "Packet Count",
+    "mfg_date": "Date of Manufacturing",
+    "expiry_date": "Date of Expiry",
+    "sample_code": "Sample Code",
+    "sample_submission_date": "Sample Submission Date",
+    "lab_registration_no": "Lab Registration Number",
+    "do_receipt_date": "DO Receipt Date",
+    "analyst_report_no": "Analyst Report Number",
+    "analyst_report_date": "Analyst Report Date",
+    "directive_letter_no": "Directive Letter Number",
+    "directive_letter_date": "Directive Letter Date",
+    "retailer_report_receive_date": "Retailer Report Receive Date",
+    "manufacturer_report_receive_date": "Manufacturer Report Receive Date",
+}
+
+# Date fields shared by validation and process_form_data() so the two lists
+# can never drift apart.
+_DATE_FIELDS: list[str] = [
+    "authorization_date",
+    "inspection_date",
+    "mfg_date",
+    "expiry_date",
+    "sample_submission_date",
+    "do_receipt_date",
+    "analyst_report_date",
+    "directive_letter_date",
+    "retailer_report_receive_date",
+    "manufacturer_report_receive_date",
+]
+
+
+def validate_case_file_form(form_data: dict) -> dict[str, str]:
+    """Validate the case file form, returning ``{field: error_message}``.
+
+    Returns an empty dict when the form is valid. Required fields are checked
+    for presence, ``packet_count`` must be a positive integer, and date fields
+    must be valid ``YYYY-MM-DD`` strings. Messages are user-facing and rendered
+    inline next to each field in the UI.
+    """
+    errors: dict[str, str] = {}
+
+    for field, label in _REQUIRED_FIELDS.items():
+        value = form_data.get(field, "")
+        if value is None or (isinstance(value, str) and not value.strip()):
+            errors[field] = f"{label} is required."
+
+    # packet_count must be a positive integer
+    packet_count = form_data.get("packet_count", "")
+    if packet_count:
+        try:
+            if int(packet_count) <= 0:
+                errors["packet_count"] = "Packet Count must be a positive number."
+        except (TypeError, ValueError):
+            errors["packet_count"] = "Packet Count must be a valid integer."
+
+    # Date fields must be valid YYYY-MM-DD strings
+    for field in _DATE_FIELDS:
+        value = form_data.get(field, "")
+        if not value:
+            continue
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except (TypeError, ValueError):
+            errors[field] = f"{_REQUIRED_FIELDS[field]} must be a valid date."
+
+    return errors
+
+
 def get_applicable_sections(form_data: dict) -> list:
     """Determine applicable FSS Act sections based on analysis result.
 
@@ -50,18 +136,8 @@ def get_applicable_sections(form_data: dict) -> list:
 
 def process_form_data(form_data):
     """Process form data and prepare case_data dictionary for template rendering and model saving."""
-    date_fields = [
-        "authorization_date",
-        "inspection_date",
-        "mfg_date",
-        "expiry_date",
-        "sample_submission_date",
-        "do_receipt_date",
-        "analyst_report_date",
-        "directive_letter_date",
-        "retailer_report_receive_date",
-        "manufacturer_report_receive_date",
-    ]
+    # Shared with validate_case_file_form() so date handling never drifts.
+    date_fields = _DATE_FIELDS
 
     case_data = {}
 
@@ -360,6 +436,18 @@ def list_samples_for_datalist():
 def generate_case_file_route():
     form_data = request.form.to_dict()
 
+    # Validate required fields + formats before persisting. Returns structured
+    # field-level errors so the UI can highlight each offending input.
+    validation_errors = validate_case_file_form(form_data)
+    if validation_errors:
+        return (
+            jsonify({
+                "error": "Please correct the highlighted fields below.",
+                "errors": validation_errors,
+            }),
+            400,
+        )
+
     # Handle sample_id linkage (Step 5)
     sample_id = None
     import contextlib
@@ -368,11 +456,8 @@ def generate_case_file_route():
         with contextlib.suppress(ValueError):
             sample_id = int(form_data["sample_id"])
 
-    # Validate packet_count before constructing model
-    try:
-        packet_count = int(form_data.get("packet_count", 4))
-    except ValueError:
-        return jsonify({"error": "packet_count must be a valid integer"}), 400
+    # packet_count was validated above; parse safely for the model
+    packet_count = int(form_data.get("packet_count", 4))
 
     # Save record to database - using canonical keys from Step 2
     case_file_record = CaseFile(

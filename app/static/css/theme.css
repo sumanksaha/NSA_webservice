@@ -569,6 +569,20 @@ textarea.form-input {
   cursor: not-allowed;
 }
 
+/* Inline validation error states (Phase 1) */
+.form-input--error,
+.form-input--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-bg);
+}
+
+.field-error {
+  font-size: 0.8125rem;
+  color: var(--color-error);
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
 .form-textarea {
   min-height: 80px;
   resize: vertical;

@@ -284,6 +284,49 @@
       </ol>
     </section>
 
+    <section>
+      <h3 class="center">GROUNDS</h3>
+      <ol class="justify">
+        <li>
+          That the sample of <strong>{{ product_name }}</strong> collected from
+          the premises of <strong>{{ retailer_trade_name }}</strong> on
+          {{ sample_draw_date }} vide code No. {{ sample_code }} was analysed by
+          the Food Analyst, and the report bearing No. {{ analyst_report_no }}
+          dated {{ analyst_report_date }} revealed that the sampled food article
+          {% if analysis_result %}
+            was found to be <strong>{{ analysis_result }}</strong>.
+          {% else %}
+            was not conforming to the standards prescribed under the Food
+            Safety and Standards Act, 2006.
+          {% endif %}
+        </li>
+        <li>
+          That the said food article is in contravention of the provisions of
+          Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and the
+          Food Business Operator(s) are liable to be penalised
+          <span class="bold">
+            {% if applicable_sections %}
+              u/s {{ sections_display }}
+            {% else %}
+              under the relevant section
+            {% endif %}
+          </span>
+          of the Food Safety and Standards Act, 2006.
+        </li>
+        <li>
+          That the Food Business Operator(s) did not prefer any appeal against
+          the report of the Food Analyst within the stipulated time as provided
+          under Section 46(4) of the Food Safety and Standards Act, 2006.
+        </li>
+        <li>
+          That the complainant has submitted all the relevant documents in
+          connection with the above sample before the Designated Officer, who
+          after perusal of the same has authorised the complainant to file the
+          present petition for adjudication.
+        </li>
+      </ol>
+    </section>
+
     <div class="legal-notice-box">
     {% for sec in applicable_sections %}
     <span class="section-title">Liability under Section {{ sec }}:</span>
@@ -310,10 +353,43 @@
     {% endif %}
 </div>
 
-    <p>
-      And for this act of kindness your petitioner as in duty bound shall ever
-      pray.
-    </p>
+    <section>
+      <h3 class="center">PRAYER</h3>
+      <p class="justify">
+        In view of the facts and circumstances stated above, it is most
+        respectfully prayed that this Hon'ble Adjudicating Officer may be
+        pleased to:
+      </p>
+      <ol class="justify">
+        <li>
+          take cognizance of the complaint and initiate adjudication
+          proceedings against the Food Business Operator(s) for the aforesaid
+          contravention;
+        </li>
+        <li>
+          impose penalty upon the Food Business Operator(s)
+          <span class="bold">
+            {% if applicable_sections %}
+              u/s {{ sections_display }}
+            {% else %}
+              under the relevant section
+            {% endif %}
+          </span>
+          of the Food Safety and Standards Act, 2006, as deemed fit and proper;
+        </li>
+        <li>
+          award costs of the proceedings; and
+        </li>
+        <li>
+          pass such other order or orders as may be deemed fit and proper in
+          the interest of justice.
+        </li>
+      </ol>
+      <p class="justify">
+        And for this act of kindness your petitioner as in duty bound shall
+        ever pray.
+      </p>
+    </section>
 
     <table class="footer-table">
       <tr>

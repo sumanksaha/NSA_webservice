@@ -409,10 +409,40 @@
     // Load sample codes on page load
     document.addEventListener('DOMContentLoaded', loadSampleCodes);
 
+    // Clear any previously rendered inline field errors.
+    function clearFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
+        document.querySelectorAll('.form-input--error').forEach(function(el) {
+            el.classList.remove('form-input--error');
+        });
+    }
+
+    // Render server-provided field errors inline, next to each input.
+    function renderFieldErrors(errors) {
+        clearFieldErrors();
+        if (!errors) return;
+
+        var firstField = null;
+        Object.keys(errors).forEach(function(field) {
+            var input = document.querySelector('[name="' + field + '"]');
+            if (!input) return;
+            input.classList.add('form-input--error');
+            var group = input.closest('.form-group');
+            if (!group) return;
+            var errEl = document.createElement('div');
+            errEl.className = 'field-error';
+            errEl.textContent = errors[field];
+            group.appendChild(errEl);
+            if (!firstField) firstField = input;
+        });
+        if (firstField) firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     // Asynchronous case file generation: submit via fetch(), poll the QStash
     // task, then show a download link for the generated ZIP.
     document.getElementById('caseFileForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        clearFieldErrors();
         var form = this;
         var statusBox = document.getElementById('case-task-status');
         var submitBtn = document.getElementById('caseSubmitBtn');
@@ -431,6 +461,9 @@
                 statusBox.className = 'info-box info-box--error';
                 statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
                     (outcome.error || 'Case file generation failed.') + ' — the case file may still have been created.';
+                if (outcome.errors) {
+                    renderFieldErrors(outcome.errors);
+                }
                 return;
             }
 

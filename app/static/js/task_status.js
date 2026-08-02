@@ -17,7 +17,9 @@
     }
 
     // Submit a form via fetch(), then poll the returned task_id until
-    // completed/error. Calls onDone({ status, result, error }).
+    // completed/error. Calls onDone({ status, result, error, errors }).
+    // `errors` (when present) is a structured {field: message} map from the
+    // server used by forms to highlight invalid inputs inline.
     function submitAndPoll(form, onDone, opts) {
         opts = opts || {};
         var formData = new FormData(form);
@@ -27,6 +29,7 @@
                     if (!resp.ok) {
                         var err = new Error(data.error || "Request failed (" + resp.status + ")");
                         err.status = resp.status;
+                        err.errors = data.errors || null;
                         throw err;
                     }
                     return data;
@@ -42,7 +45,12 @@
                 pollStatus(data.task_id, onDone, opts);
             })
             .catch(function (err) {
-                onDone({ status: "error", error: err.message, result: null });
+                onDone({
+                    status: "error",
+                    error: err.message,
+                    errors: err.errors || null,
+                    result: null,
+                });
             });
     }
 

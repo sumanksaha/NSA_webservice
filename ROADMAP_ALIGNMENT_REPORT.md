@@ -169,28 +169,29 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 **Files created/changed:** `package.json`, `eslint.config.js`, `.prettierrc`, `.github/workflows/lint.yml` (+js-lint job), `.pre-commit-config.yaml` (+js-lint + prettier-format local hooks so JS is checked locally before commits), `app/static/js/document_viewer/editor.js` (syntax fix + auto-format), `app/static/js/task_status.js` (auto-format only).
 
-### Phase 1 — Core Petition Engine (Largely Implemented)
+### Phase 1 — Core Petition Engine (Implemented)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Case Model (Petition, Parties, Facts, Grounds, Prayer) | CaseFile model exists | app/models.py:12-90 |
+| Case Model (Petition, Parties, Facts, Grounds, Prayer) | CaseFile model exists | app/models.py:13-90 |
 | Petition form (UI) | Jinja2 template with all fields | app/case_file_generator/templates/case_file_generator/index.html |
 | Petition template (PDF) | WeasyPrint-rendered HTML | app/case_file_generator/templates/case_file_generator/petition.html |
-| Validation | process_form_data() + get_applicable_sections() | app/case_file_generator/routes.py:27-48 |
+| Validation | process_form_data() + get_applicable_sections() + **validate_case_file_form()** | app/case_file_generator/routes.py |
+| Validation error display | ✅ Structured field errors rendered inline in UI | routes.py (400 + `errors` map), index.html (`renderFieldErrors`), task_status.js (`errors` passthrough), theme.css (`.form-input--error`/`.field-error`) |
 | Live preview | Quill editor with live iframe preview | app/static/js/document_viewer/editor.js |
 | PDF export | WeasyPrint via QStash async or sync fallback | app/case_file_generator/tasks.py, app/utils/pdf_utils.py |
 | Print layout | CSS print styles in theme.css | app/static/css/theme.css |
-| Auto-save | ✅ Continuous (debounced text-change) | app/document_viewer/routes.py:32-115, editor.js |
+| Auto-save | ✅ Continuous (debounced text-change) | app/document_viewer/routes.py, editor.js |
 | Non-sample adjudication Petition | Adjudication model + templates | app/adjudication/routes.py + templates |
 | Permission Letter (both types) | Templates for both types | permission_letter.html, Legal_NonsampleAdjudication_Template.html |
 
 **TODO:**
 1. [x] Continuous auto-save (debounce on text-change) in editor.js — **done (commit ee3db9a)**
 2. [x] Store Quill Delta alongside HTML for round-trip fidelity — **done (commit ee3db9a)**
-3. [ ] Add validation error display in UI
-4. [ ] Add Facts/Grounds/Prayer structured sections to petition template
+3. [x] Add validation error display in UI — **done**: `validate_case_file_form()` returns structured `{field: message}` errors (400) wired into `generate_case_file_route`; `task_status.js` passes `errors` through; `index.html` renders them inline (`renderFieldErrors`) with `.form-input--error` / `.field-error` styling; tests in tests/test_phase1.py
+4. [x] Add Facts/Grounds/Prayer structured sections to petition template — **done**: petition.html now has explicit **STATEMENT OF FACTS**, **GROUNDS** (analysis result, s.26(2)(ii) contravention, no appeal u/s 46(4), DO authorization), and **PRAYER** (numbered prayer clauses + closing line) sections
 
-**Files to edit:** app/static/js/document_viewer/editor.js, app/case_file_generator/templates/case_file_generator/petition.html, app/document_viewer/routes.py
+**Files changed (Phase 1 completion):** app/case_file_generator/routes.py (validation), app/case_file_generator/templates/case_file_generator/petition.html (GROUNDS/PRAYER sections), app/case_file_generator/templates/case_file_generator/index.html (inline errors), app/static/js/task_status.js (errors passthrough), app/static/css/theme.css (error styles), tests/test_phase1.py
 
 ### Phase 2 — Rich Editor (Implemented - Quill 2.x)
 
@@ -679,7 +680,7 @@ Flask backend exposes REST APIs for all features.
 | Step | Phase | Action | Key Files |
 |---|---|---|---|
 | 1 | Phase 0 | ✅ Architecture decision: keep Flask templates (no new React frontend) — **done**; JS linting (ESLint+Prettier) also **done** | package.json, eslint.config.js, lint.yml |
-| 2 | Phase 1 | ✅ Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
+| 2 | Phase 1 | ✅ Core petition engine — auto-save + delta storage + **validation error display** + **Facts/Grounds/Prayer sections** | editor.js, routes.py, petition.html, task_status.js |
 | 2b | Phase 2 | ✅ Rich editor completion: image upload + Markdown export | editor.js, markdown_export.py, routes.py |
 | 3 | Phase 3 | ✅ Settings + Annexure + Evidence + Version models | models.py, migrations/ |
 | 4 | Phase 3 | ✅ SQLite FTS5 search index + API | app/search/ |
@@ -704,7 +705,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~420 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete: architecture decision made (keep Flask); React-only items skipped by decision; CI present; **JS linting (ESLint + Prettier) added** for `app/static/js/**` (caught and fixed a pre-existing syntax error in editor.js).
+1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and Phase 3 (models) done.
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
