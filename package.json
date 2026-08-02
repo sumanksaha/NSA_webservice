@@ -1,0 +1,18 @@
+{
+  "name": "nsa-webservice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Frontend JS tooling (ESLint + Prettier) for the Flask app's vanilla-JS files",
+  "scripts": {
+    "lint:js": "eslint app/static/js/ --max-warnings=0",
+    "format:js": "prettier --check app/static/js/",
+    "format:js:write": "prettier --write app/static/js/"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "9.1.2",
+    "globals": "15.15.0",
+    "prettier": "3.9.6"
+  }
+}

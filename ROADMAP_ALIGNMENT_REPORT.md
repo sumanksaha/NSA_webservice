@@ -151,16 +151,23 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 ### Phase 0 — Architecture & Foundation
 
-| Roadmap Item | Current State | Gap | Action Needed |
+> **Status (2026-08-02):** Foundation decision **made** — keep Flask + Jinja2 (no new React frontend, recorded in Section 5 step 1). All React-only items are therefore **skipped by decision**; CI already exists. The one non-prescribed improvement is JS linting/formatting for the growing vanilla-JS files.
+
+| Roadmap Item | Current State | Status | Action |
 |---|---|---|---|
-| React + TypeScript frontend | Flask + Jinja2 + Vanilla JS | **Major mismatch** | Build frontend/ package or keep Flask templates |
-| Tailwind CSS | Custom theme.css (1852 lines) | Not using Tailwind | Skip if keeping Flask; add if new React frontend |
-| Zustand | Server-side session | N/A for Flask | Only if React path chosen |
-| Dexie.js (IndexedDB) | SQLAlchemy | N/A for Flask | Only if React path chosen |
-| React Router | Flask routes | N/A for Flask | Only if React path chosen |
-| Vite | setuptools | N/A for Flask | Only if React path chosen |
-| ESLint + Prettier | ruff + black + mypy + bandit | JS linting absent | Only if React path chosen |
-| GitHub Actions (CI) | Present (lint, pip-audit, validation, deploy) | Already exists | No action needed |
+| React + TypeScript frontend | Flask + Jinja2 + Vanilla JS | ✅ **Decided: keep Flask** | No `frontend/` package; roadmap domain features implemented natively (see Phases 1–10) |
+| Tailwind CSS | Custom theme.css (~1852 lines) | ✅ Skipped (by decision) | Custom CSS remains the styling system |
+| Zustand | Server-side session (Flask-Login) | ✅ Skipped (N/A for Flask) | No client-side state store needed |
+| Dexie.js (IndexedDB) | SQLAlchemy + PostgreSQL/SQLite | ✅ Skipped (N/A for Flask) | Server-side DB remains |
+| React Router | Flask routes | ✅ Skipped (N/A for Flask) | Flask blueprints handle routing |
+| Vite | setuptools | ✅ Skipped (N/A for Flask) | Python packaging remains |
+| ESLint + Prettier | ruff + black + mypy + bandit; **no JS linting** | ⚠️ **Gap (not prescribed)** | Recommend adding ESLint (+ optional Prettier) for `app/static/js/**` (editor.js 447 lines, task_status.js 106 lines) |
+| GitHub Actions (CI) | lint, pip-audit, validation, deploy, release, docker-build | ✅ Present | No action needed |
+
+**Phase 0 TODO:**
+1. [x] **JS linting (ESLint + Prettier)** for vanilla JS in `app/static/js/**` — not prescribed by the roadmap (it assumed a React path) but warranted now that `editor.js` has grown past 400 lines with upload/export logic. **Implemented 2026-08-02:** `package.json` (ESLint 9 + Prettier 3 dev deps), `eslint.config.js` (flat config, ES2020, browser globals + `Quill`, Prettier-integrated), `.prettierrc` (4-space, double quotes, semicolons), `js-lint` job added to `.github/workflows/lint.yml`. Both `app/static/js/**` files now pass `eslint --max-warnings=0` and `prettier --check`. **Bonus:** ESLint caught a pre-existing syntax error in `editor.js` line 214 (`[{ table: [[], [], false]] }]` — unbalanced brackets broke the whole file's parse in the browser since Phase 1); fixed to `[{ table: [[], [], false] }]` (parse fix only; the vendored Quill 2.0.1 table module exposes no toolbar handler, so table insertion via the toolbar is a separate future item).
+
+**Files created/changed:** `package.json`, `eslint.config.js`, `.prettierrc`, `.github/workflows/lint.yml` (+js-lint job), `app/static/js/document_viewer/editor.js` (syntax fix + auto-format), `app/static/js/task_status.js` (auto-format only).
 
 ### Phase 1 — Core Petition Engine (Largely Implemented)
 
@@ -671,7 +678,7 @@ Flask backend exposes REST APIs for all features.
 
 | Step | Phase | Action | Key Files |
 |---|---|---|---|
-| 1 | Phase 0 | ✅ Architecture decision: keep Flask templates (no new React frontend) | — |
+| 1 | Phase 0 | ✅ Architecture decision: keep Flask templates (no new React frontend) — **done**; JS linting (ESLint+Prettier) also **done** | package.json, eslint.config.js, lint.yml |
 | 2 | Phase 1 | ✅ Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
 | 2b | Phase 2 | ✅ Rich editor completion: image upload + Markdown export | editor.js, markdown_export.py, routes.py |
 | 3 | Phase 3 | ✅ Settings + Annexure + Evidence + Version models | models.py, migrations/ |
@@ -697,7 +704,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~245 tests, CI/CD, security hardening, 13 blueprints. Phase 0 (foundation) already complete.
+1. **Cohesive production-ready Flask app** - ~420 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete: architecture decision made (keep Flask); React-only items skipped by decision; CI present; **JS linting (ESLint + Prettier) added** for `app/static/js/**` (caught and fixed a pre-existing syntax error in editor.js).
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 

@@ -170,19 +170,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
         doc.open();
         doc.write(
-            '<!DOCTYPE html>' +
-            '<html><head>' +
-            '<meta charset="utf-8">' +
-            '<style>' +
-            'body { margin: 0; padding: 30px; font-family: "Times New Roman", serif; ' +
-            'line-height: 1.6; color: #333; }' +
-            'table { width: 100%; border-collapse: collapse; margin: 10px 0; }' +
-            'th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }' +
-            '.page-break { page-break-before: always; }' +
-            '</style>' +
-            '</head><body>' +
-            html +
-            '</body></html>'
+            "<!DOCTYPE html>" +
+                "<html><head>" +
+                '<meta charset="utf-8">' +
+                "<style>" +
+                'body { margin: 0; padding: 30px; font-family: "Times New Roman", serif; ' +
+                "line-height: 1.6; color: #333; }" +
+                "table { width: 100%; border-collapse: collapse; margin: 10px 0; }" +
+                "th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }" +
+                ".page-break { page-break-before: always; }" +
+                "</style>" +
+                "</head><body>" +
+                html +
+                "</body></html>"
         );
         doc.close();
     }
@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", function () {
             [{ indent: "-1" }, { indent: "+1" }],
             ["blockquote"],
             [{ align: [] }],
-            [{ table: [[], [], false]] }],
+            [{ table: [[], [], false] }],
             ["image", "link"],
         ];
 
@@ -266,9 +266,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function uploadEditorImage(file) {
         var formData = new FormData();
         formData.append("image", file);
-        var csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content");
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
         fetch("/document_viewer/upload_image", {
             method: "POST",
@@ -306,9 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var delta = quill.getContents().toJSON();
         var html = quill.root.innerHTML;
         var docType = docTypeSelector ? docTypeSelector.value : "petition";
-        var csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content");
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
         fetch("/document_viewer/export_markdown", {
             method: "POST",
@@ -366,9 +362,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var html = quill.root.innerHTML;
         var delta = quill.getContents().toJSON();
         var docType = docTypeSelector ? docTypeSelector.value : "petition";
-        var csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content");
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
         fetch("/document_viewer/save/" + (window.CASE_ID || ""), {
             method: "POST",

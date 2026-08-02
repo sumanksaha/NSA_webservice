@@ -46,3 +46,24 @@ jobs:
 
       - name: Run ruff format check (informational only)
         run: ruff format --check --diff
+
+  js-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run ESLint (vanilla JS in app/static/js)
+        run: npm run lint:js
+
+      - name: Run Prettier check
+        run: npm run format:js
