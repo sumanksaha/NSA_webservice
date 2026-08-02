@@ -24,6 +24,86 @@ class App(Flask):
     celery: Any = None
 
 
+def _load_or_create_production_secret_key(app: Flask) -> str:
+    """Return a stable production SECRET_KEY, generating + persisting one if needed.
+
+    Render's ``generateValue: true`` only mints a value when the env var is
+    FIRST created on the service, so services that predate the setting (or
+    were created from the dashboard) can boot with no SECRET_KEY. Instead of
+    crashing the deploy, generate a strong key once and persist it so
+    sessions stay valid across restarts and redeploys.
+
+    Persistence order (first success wins):
+      1. ``app_secrets`` key/value table in the primary DB (survives
+         redeploys on Render's persistent Postgres).
+      2. ``<instance_path>/.secret_key`` file (survives restarts).
+      3. Ephemeral in-memory key — sessions reset on restart, but the app
+         still boots (never blocks a deploy).
+
+    An explicit ``SECRET_KEY`` env var (dashboard-managed or a
+    generateValue-minted value) always takes precedence and bypasses this.
+    """
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        # Normalize postgres:// -> postgresql:// (same as create_app does)
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        try:
+            from sqlalchemy import create_engine, text
+
+            engine = create_engine(database_url)
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS app_secrets (name VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)",
+                    ),
+                )
+                row = conn.execute(
+                    text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
+                ).fetchone()
+                if row:
+                    app.logger.info("SECRET_KEY auto-provisioned (DB — reuse)")
+                    return str(row[0])
+                new_key = secrets.token_hex(32)
+                conn.execute(
+                    text(
+                        "INSERT INTO app_secrets (name, value) VALUES ('secret_key', :v) ON CONFLICT(name) DO NOTHING",
+                    ),
+                    {"v": new_key},
+                )
+                row = conn.execute(
+                    text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
+                ).fetchone()
+                app.logger.info("SECRET_KEY auto-provisioned (DB — new)")
+                return str(row[0]) if row else new_key
+        except Exception as exc:
+            app.logger.warning("SECRET_KEY DB persistence unavailable: %s", exc)
+
+    # Instance-folder file fallback (survives restarts on the same instance)
+    try:
+        key_file = Path(app.instance_path) / ".secret_key"
+        if key_file.exists():
+            stored = key_file.read_text().strip()
+            if stored:
+                app.logger.info("SECRET_KEY auto-provisioned (file — reuse)")
+                return stored
+        new_key = secrets.token_hex(32)
+        key_file.write_text(new_key)
+        app.logger.info("SECRET_KEY auto-provisioned (file — new)")
+        return new_key
+    except OSError as exc:
+        app.logger.warning("SECRET_KEY file fallback unavailable: %s", exc)
+
+    # Ephemeral last resort — never block a deploy; sessions reset on restart
+    app.logger.warning(
+        "SECRET_KEY not set and no persistence available — using ephemeral key; "
+        "sessions will reset on restart. Provision SECRET_KEY in Render "
+        "(render.yaml generateValue: true for new services, or set it in the "
+        "dashboard for existing services).",
+    )
+    return secrets.token_hex(32)
+
+
 def create_app():
     app = App(__name__)
 
@@ -42,6 +122,13 @@ def create_app():
         or os.environ.get("FLASK_ENV", "").lower() == "production"
     )
 
+    # Ensure instance folder exists before the SECRET_KEY guard — the
+    # production fallback may write a key file there on first boot.
+    try:
+        os.makedirs(app.instance_path, exist_ok=True)
+    except OSError:
+        app.logger.warning(f"Could not create instance directory: {app.instance_path}")
+
     # ------------------------------------------------------------------
     # Mandatory: SECRET_KEY — required for session signing, flash messages,
     #             CSRF tokens, and any cryptographic signing in Flask.
@@ -54,27 +141,20 @@ def create_app():
     secret_key = os.environ.get("SECRET_KEY")
     if not secret_key:
         if is_production:
-            raise RuntimeError(
-                "SECRET_KEY environment variable is not set. "
-                "Provision a secure random key as a managed Render "
-                "environment variable (render.yaml: generateValue: true) "
-                "or add it in the Render dashboard before deploying.",
+            # Auto-provision so the deploy can never be blocked (Render only
+            # mints generateValue secrets when the env var is first created).
+            secret_key = _load_or_create_production_secret_key(app)
+        else:
+            # In local development, use a fallback so the app can start without
+            # requiring every developer to create a .env file immediately.
+            # Gated behind is_production so production never silently falls
+            # back to a fresh random key (that would rotate every session).
+            secret_key = secrets.token_hex(32)
+            app.logger.warning(
+                "SECRET_KEY not set — using insecure local fallback. "
+                "Set SECRET_KEY in your .env file for local development.",
             )
-        # In local development, use a fallback so the app can start without
-        # requiring every developer to create a .env file immediately.
-        # ponytail: gated behind is_production so production never silently falls back.
-        secret_key = secrets.token_hex(32)
-        app.logger.warning(
-            "SECRET_KEY not set — using insecure local fallback. "
-            "Set SECRET_KEY in your .env file for local development.",
-        )
     app.config["SECRET_KEY"] = secret_key
-
-    # Ensure instance folder exists
-    try:
-        os.makedirs(app.instance_path, exist_ok=True)
-    except OSError:
-        app.logger.warning(f"Could not create instance directory: {app.instance_path}")
 
     # Database configuration - PostgreSQL primary, SQLite fallback
     db_path = Path(app.instance_path) / "app.db"
@@ -272,6 +352,13 @@ def create_app():
 
     # Fallback safeguard: if core tables are missing (e.g., fresh local DB
     # without migrations applied), create them so startup sync doesn't fail.
+    # On a FRESH database we also stamp the Alembic head: the historical
+    # migration chain was written as incremental patches on top of a
+    # db.create_all()-created schema (e.g. the baseline adds columns to
+    # tables that don't exist yet from migrations alone), so replaying it
+    # against a fresh DB crashes on duplicate columns. Stamping makes the
+    # subsequent `flask db upgrade` in the Render start command a no-op
+    # while future migrations still apply normally.
     with app.app_context():
         from sqlalchemy import create_engine
         from sqlalchemy import inspect as sa_inspect
@@ -281,6 +368,20 @@ def create_app():
         if "fso" not in inspector.get_table_names():
             db.create_all()
             app.logger.info("Created missing tables via db.create_all() fallback")
+            # Only stamp when there is NO migration history at all — never
+            # clobber a partially-migrated database.
+            if "alembic_version" not in inspector.get_table_names():
+                try:
+                    from flask_migrate import stamp as alembic_stamp
+
+                    alembic_stamp(revision="head")
+                    app.logger.info("Stamped fresh database at migration head")
+                except Exception as exc:
+                    app.logger.warning(
+                        "Could not stamp fresh database at migration head (%s) — "
+                        "`flask db upgrade` may replay the full chain next deploy.",
+                        exc,
+                    )
 
     # FSO sync on startup - import and run sync in app context
     # This ensures FSO names are available as soon as the app starts

@@ -419,3 +419,21 @@ class CodeSequence(db.Model):
 
     key = db.Column(db.String(50), primary_key=True)
     last_value = db.Column(db.Integer, nullable=False, default=0)
+
+
+class AppSecret(db.Model):
+    """Key/value store for bootstrap secrets persisted in the database.
+
+    Currently used to auto-provision a stable ``SECRET_KEY`` in production
+    when the env var is missing (Render only mints ``generateValue`` secrets
+    when the env var is first created). Stored via raw SQL in
+    ``app/__init__.py::_load_or_create_production_secret_key`` before the
+    Flask-SQLAlchemy models are wired, so this model exists mainly so schema
+    tooling (Alembic migrations, parity/verify scripts, ``db.create_all()``)
+    knows the table. Prefer an env var / managed secret over this store.
+    """
+
+    __tablename__ = "app_secrets"
+
+    name = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.Text, nullable=False)

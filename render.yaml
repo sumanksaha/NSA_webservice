@@ -23,6 +23,11 @@ services:
         fromDatabase:
           name: nsa-webservice-db
           property: connectionString
+      # SECRET_KEY: generateValue only mints a value when the env var is FIRST
+      # created on a service. For EXISTING services (or dashboard-created ones)
+      # with no/empty SECRET_KEY, delete the env var in the dashboard and
+      # redeploy — or set a value manually. The app also auto-provisions a
+      # persisted fallback so a missing key can never block a deploy.
       - key: SECRET_KEY
         generateValue: true
       - key: REDIS_URL
@@ -81,6 +86,11 @@ services:
         fromDatabase:
           name: nsa-webservice-db
           property: connectionString
+      # SECRET_KEY: generateValue only mints a value when the env var is FIRST
+      # created on a service. For EXISTING services (or dashboard-created ones)
+      # with no/empty SECRET_KEY, delete the env var in the dashboard and
+      # redeploy — or set a value manually. The app also auto-provisions a
+      # persisted fallback so a missing key can never block a deploy.
       - key: SECRET_KEY
         generateValue: true
       - key: REDIS_URL
