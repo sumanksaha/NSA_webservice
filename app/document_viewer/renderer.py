@@ -112,15 +112,27 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     and the extracted ``build_adjudication_context()`` helper.
     """
     from app.adjudication.routes import adjudication_to_dict
-    from app.models import Adjudication, PhotoEvidence
+    from app.models import Adjudication, Evidence
 
     adj = Adjudication.query.get_or_404(case_id)
     form_data = adjudication_to_dict(adj)
 
     context = build_adjudication_context(form_data)
 
-    # Photo Evidence Integration -- all photos for this case
-    all_photos = PhotoEvidence.query.filter_by(case_id=adj.id).order_by(PhotoEvidence.captured_at.asc()).all()
+    # Photo Evidence Integration -- all photos for this case (linked via
+    # case_id or adjudication_id, since adjudication uploads store the
+    # adjudication_id on the unified Evidence model)
+    from sqlalchemy import or_
+
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
 
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
 

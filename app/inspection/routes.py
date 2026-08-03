@@ -4,6 +4,7 @@ Provides endpoints for Inspection CRUD operations and UI.
 """
 
 import contextlib
+import mimetypes
 import os
 import uuid
 from datetime import date, datetime
@@ -20,7 +21,7 @@ from app.inspection.audit import log_audit
 from app.inspection.image_processing import process_and_stamp_image
 from app.inspection.inspection_utils import calculate_compliance_deadline, generate_inspection_code
 from app.inspection.verification_service import verify_photo_location
-from app.models import FSO, Adjudication, Inspection, InspectionPhoto, PhotoEvidence
+from app.models import FSO, Adjudication, Evidence, Inspection
 from app.services.sheets_sync import sync_to_sheets
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
@@ -641,22 +642,32 @@ def inspection_detail(inspection_id):
     if not inspection:
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
-    photos = PhotoEvidence.query.filter_by(inspection_id=inspection_id).order_by(PhotoEvidence.uploaded_at.desc()).all()
+    photos = (
+        Evidence.query
+        .filter_by(inspection_id=inspection_id, evidence_type="photo")
+        .order_by(Evidence.uploaded_at.desc())
+        .all()
+    )
     fso_names = get_all_fso_names()
     return render_template("inspection/detail.html", inspection=inspection, photos=photos, fso_names=fso_names)
 
 
 @inspection_bp.route("/<int:inspection_id>/photo-evidence", methods=["GET"])
 def get_inspection_photo_evidence(inspection_id):
-    """Get all PhotoEvidence records for an inspection (legacy model, JSON)."""
+    """Get all photo evidence records for an inspection (JSON)."""
     inspection = Inspection.query.get(inspection_id)
     if not inspection:
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
-    photos = PhotoEvidence.query.filter_by(inspection_id=inspection_id).order_by(PhotoEvidence.uploaded_at.desc()).all()
+    photos = (
+        Evidence.query
+        .filter_by(inspection_id=inspection_id, evidence_type="photo")
+        .order_by(Evidence.uploaded_at.desc())
+        .all()
+    )
     return jsonify([
         {
-            "image_id": p.image_id,
+            "image_id": p.id,
             "filepath": p.filepath,
             "raw_lat": p.raw_lat,
             "raw_lng": p.raw_lng,
@@ -815,12 +826,15 @@ def upload_photo_evidence():
     temp_path = temp_dir / f"{image_id}_{filename}"
     file.save(str(temp_path))
 
-    # Insert PhotoEvidence row with inspection_id
-    photo_evidence = PhotoEvidence(
-        image_id=image_id,
+    # Insert Evidence row with inspection_id (unified model, Phase 5)
+    photo_evidence = Evidence(
+        id=image_id,
         inspection_id=inspection_id,
         case_id=case_id or str(inspection_id),
+        evidence_type="photo",
         filepath=temp_path,
+        filename=filename,
+        mime_type=mimetypes.guess_type(filename)[0],
         raw_lat=lat,
         raw_lng=lng,
         accuracy=accuracy,
@@ -868,7 +882,7 @@ def upload_photo_evidence():
             db.session.rollback()
         return jsonify({"error": f"Image processing failed: {exc}"}), 400
 
-    # Update PhotoEvidence row
+    # Update Evidence row
     photo_evidence.locality = result["locality"]
     photo_evidence.ip_match = result["ip_match"]
     photo_evidence.distance_to_fbo_m = result["distance_to_fbo_m"]
@@ -929,7 +943,7 @@ def upload_photo_evidence():
 
 
 # ============================================================================
-# Photo evidence CRUD (R2/B2 storage + InspectionPhoto model)
+# Photo evidence CRUD (R2/B2 storage, unified Evidence model)
 # ============================================================================
 
 
@@ -973,9 +987,12 @@ def upload_adjudication_photo(adjudication_id):
 
     caption = request.form.get("caption", "").strip()
 
-    photo = InspectionPhoto(
+    photo = Evidence(
+        id=str(uuid.uuid4()),
         adjudication_id=adjudication_id,
-        file_url=file_url,
+        evidence_type="photo",
+        filepath=file_url,
+        filename=safe_filename,
         caption=caption or None,
     )
     try:
@@ -986,13 +1003,13 @@ def upload_adjudication_photo(adjudication_id):
         # Best-effort cleanup of the uploaded object
         with contextlib.suppress(Exception):
             delete_photo(file_url)
-        current_app.logger.exception(f"Failed to save InspectionPhoto for adjudication {adjudication_id}")
+        current_app.logger.exception(f"Failed to save photo evidence for adjudication {adjudication_id}")
         return jsonify({"error": "Database error."}), 500
 
     return (
         jsonify({
             "id": photo.id,
-            "file_url": photo.file_url,
+            "file_url": photo.filepath,
             "caption": photo.caption,
             "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
         }),
@@ -1000,19 +1017,19 @@ def upload_adjudication_photo(adjudication_id):
     )
 
 
-@inspection_bp.route("/photos/<int:photo_id>", methods=["DELETE"])
+@inspection_bp.route("/photos/<photo_id>", methods=["DELETE"])
 def delete_adjudication_photo(photo_id):
     """Delete a photo from storage and remove its DB record."""
-    photo = InspectionPhoto.query.get(photo_id)
+    photo = Evidence.query.get(photo_id)
     if not photo:
         return jsonify({"error": f"Photo with id {photo_id} not found"}), 404
 
     # Delete from storage; log warning but do not block on failure
-    if not delete_photo(photo.file_url):
+    if not delete_photo(photo.filepath):
         current_app.logger.warning(
             "Storage delete returned False for photo %s (url=%s); proceeding with DB delete",
             photo_id,
-            photo.file_url,
+            photo.filepath,
         )
 
     try:
@@ -1038,9 +1055,9 @@ def list_adjudication_photos(adjudication_id):
     per_page = min(per_page, 200)  # Cap max per_page
 
     paginated = (
-        InspectionPhoto.query
-        .filter_by(adjudication_id=adjudication_id)
-        .order_by(InspectionPhoto.uploaded_at.asc())
+        Evidence.query
+        .filter_by(adjudication_id=adjudication_id, evidence_type="photo")
+        .order_by(Evidence.uploaded_at.asc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
 
@@ -1048,7 +1065,7 @@ def list_adjudication_photos(adjudication_id):
         "items": [
             {
                 "id": p.id,
-                "file_url": p.file_url,
+                "file_url": p.filepath,
                 "caption": p.caption,
                 "uploaded_at": p.uploaded_at.isoformat() if p.uploaded_at else None,
             }

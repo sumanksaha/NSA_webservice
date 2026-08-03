@@ -163,7 +163,7 @@
         {% if photos %}
         <div class="photo-grid" id="photoGrid">
             {% for photo in photos %}
-            <div class="photo-card" data-image-id="{{ photo.image_id }}" onclick="openLightbox('{{ photo.filepath }}', '{{ photo.locality or 'Unknown' }}', '{{ photo.verification_status }}', '{{ photo.captured_at.strftime('%Y-%m-%d %H:%M') if photo.captured_at else 'N/A' }}')">
+            <div class="photo-card" data-image-id="{{ photo.id }}" onclick="openLightbox('{{ photo.filepath }}', '{{ photo.locality or 'Unknown' }}', '{{ photo.verification_status }}', '{{ photo.captured_at.strftime('%Y-%m-%d %H:%M') if photo.captured_at else 'N/A' }}')">
                 <div class="photo-thumb">
                     <img src="{{ photo.filepath }}" alt="Photo evidence" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23eee%22 width=%22200%22 height=%22200%22/><text fill=%22%23999%22 font-size=%2214%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>Image not found</text></svg>'">
                 </div>

@@ -1,14 +1,14 @@
 # Roadmap Alignment Report — NSA Webservice
 
 > **Generated:** 2026-08-02
-> **Last status update:** 2026-08-02 (steps 1–4 of the recommended order complete)
+> **Last status update:** 2026-08-03 (steps 1–6 of the recommended order complete — Phase 5 done)
 > **Purpose:** Evaluate the current NSA Webservice codebase against the 20-phase roadmap and produce a detailed implementation plan with TODO list and file-level edit guidance.
 
-> **📌 Current Project Status Update (2026-08-02):**
-> - **Cloudinary Integration:** ✅ **COMPLETED** for adjudication photos (`InspectionPhoto`). Backend implemented in `app/utils/storage.py` with R2/B2 fallback. Environment config added to `.env.example`, `render.yaml`, and `pyproject.toml`.
+> **📌 Current Project Status Update (2026-08-03):**
+> - **Phase 5 (Evidence Management):** ✅ **COMPLETED** — unified `Evidence` model (photo/video/report/licence/bill/lab_report), drag-and-drop multi-file upload, Pillow compression + thumbnails, type/tag categorization, library + FTS5 search, and the legacy `PhotoEvidence`/`InspectionPhoto` tables unified into `evidence` (migration `unify_photo_evidence`). Blueprint registered at `/evidence`, nav link added, 16 tests in tests/test_phase5_evidence.py.
+> - **Cloudinary Integration:** ✅ **COMPLETED** for adjudication photos (`InspectionPhoto` → now `Evidence`). Backend implemented in `app/utils/storage.py` with R2/B2 fallback. Environment config added to `.env.example`, `render.yaml`, and `pyproject.toml`.
 > - **Evaluation Score:** 4.3/5 (see `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for details).
-> - **Next Steps:** Add unit tests, retry logic, and credential validation (see [Recommendations](#8-recommendations) in Cloudinary plan).
-> - **Out of Scope:** `PhotoEvidence` migration (requires OCR refactor).
+> - **Next Steps:** Phase 6 — Cross-reference engine.
 
 ---
 
@@ -26,7 +26,8 @@
 The current project is a mature **Flask web application** (server-side rendered) for Food Safety Officer adjudication.
 
 **📌 Recent Progress:**
-- **Cloudinary Integration:** ✅ **Fully implemented** for adjudication photos (`InspectionPhoto`). The backend in `app/utils/storage.py` now supports Cloudinary as an optional storage backend (active when `CLOUDINARY_*` env vars are set), with automatic fallback to R2/B2. No changes required to routes, models, or PDF embedding logic.
+- **Phase 5 (Evidence Management):** ✅ **Completed 2026-08-03** — unified Evidence model + `/evidence` blueprint (drag-and-drop upload, Pillow compression, thumbnails, type/tag categorization, search) and the legacy PhotoEvidence/InspectionPhoto tables merged into `evidence`.
+- **Cloudinary Integration:** ✅ **Fully implemented** for adjudication photos (now the unified `Evidence` model). The backend in `app/utils/storage.py` now supports Cloudinary as an optional storage backend (active when `CLOUDINARY_*` env vars are set), with automatic fallback to R2/B2. No changes required to routes, models, or PDF embedding logic.
 - **Evaluation:** See `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for a detailed assessment (score: 4.3/5).
 
 The roadmap describes a **new React + TypeScript** frontend. The roadmap's *domain features* are the substantive goals. Two approaches:
@@ -112,8 +113,7 @@ c:\github\NSA_webservice\
 | FboIssue | bo_issue | fbo_id, state, source_type, detail_json, geo coords |
 | FboIssueAudit | bo_issue_audit | issue_id, from_state, to_state |
 | FSO | so | fso_name (PK) |
-| InspectionPhoto | inspection_photos | adjudication_id, file_url, caption |
-| PhotoEvidence | photo_evidence | image_id, case_id, filepath, geo, verification_status |
+| Evidence | evidence | id, evidence_type, filepath, caption, tags, ocr_text, geo, verification_status — unified model (replaces InspectionPhoto + PhotoEvidence in Phase 5) |
 | AuditLog | udit_log | entity_type, action, actor, hash chain |
 | RecordAudit | 
 ecord_audit | action, record_type, changes_json, user_id |
@@ -273,29 +273,29 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 **Files to edit/create:** app/models.py (add Annexure), app/annexure/ (new blueprint), app/document_loader/ (extend for metadata), migrations/ — ✅ all in place; 14 tests in tests/test_annexure.py
 
-### Phase 5 — Evidence Management (Partially Implemented)
+### Phase 5 — Evidence Management (Implemented)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Evidence Types (Photos, Videos, Reports, Licences, Bills, Lab reports) | Photos only via PhotoEvidence/InspectionPhoto | app/models.py:330-347, 163-176 |
-| Drag & drop upload | Not implemented | New frontend feature |
-| Compression | Not implemented | New feature |
-| OCR | PaddleOCR + Tesseract pipeline | app/ocr_pipeline/, app/inspection/tasks.py |
-| Metadata extraction | Partial (geo coords, verification) | app/models.py:330-347 |
-| Categorization | Not implemented | New feature |
-| Search | Not implemented for evidence | New feature |
-| Thumbnail generation | Not implemented | New feature |
-| **Cloud Storage** | ✅ **Cloudinary for adjudication photos** | app/utils/storage.py (lines 162–269) |
+| Evidence Types (Photos, Videos, Reports, Licences, Bills, Lab reports) | ✅ All 6 types on unified `Evidence` model | app/models.py:503-577 (EVIDENCE_TYPES) |
+| Drag & drop upload | ✅ Multi-file drag-and-drop with queue + per-file status | app/static/js/evidence_uploader.js, app/evidence/templates/evidence/index.html |
+| Compression | ✅ Pillow lossy compression + downscale (>2560px → optimized JPEG) | app/evidence/media.py::compress_image |
+| OCR | ✅ PaddleOCR + Tesseract pipeline + text extraction at upload (PDF/DOCX/image) | app/ocr_pipeline/, app/inspection/tasks.py, app/annexure/metadata.py |
+| Metadata extraction | ✅ SHA-256 hash, size, MIME, OCR text, geo coords, verification, captured_at | app/models.py:503-577, app/evidence/routes.py |
+| Categorization | ✅ Evidence type + free-form tags + tag cloud filters | app/evidence/routes.py::index, templates |
+| Search | ✅ In-library keyword filter + global FTS5/LIKE search index | app/evidence/routes.py::index, app/search/indexer.py (ENTITY_EVIDENCE) |
+| Thumbnail generation | ✅ JPEG thumbnails (320px) generated on upload / lazily served | app/evidence/media.py::generate_thumbnail |
+| **Cloud Storage** | ✅ **Cloudinary for adjudication photos** (R2/B2 fallback); evidence blueprint stores locally | app/utils/storage.py (lines 162–269) |
 
 **TODO:**
-1. [ ] Extend Evidence model to support all types (video, report, licence, bill, lab report)
-2. [ ] Add drag-and-drop upload UI
-3. [ ] Implement image compression (Pillow)
-4. [ ] Add thumbnail generation for images
-5. [ ] Implement evidence categorization + search
-6. [ ] Unify InspectionPhoto and PhotoEvidence into single Evidence model
+1. [x] Extend Evidence model to support all types (video, report, licence, bill, lab report) — **done** (EVIDENCE_TYPES tuple)
+2. [x] Add drag-and-drop upload UI — **done** (evidence_uploader.js + index.html)
+3. [x] Implement image compression (Pillow) — **done** (app/evidence/media.py::compress_image)
+4. [x] Add thumbnail generation for images — **done** (app/evidence/media.py::generate_thumbnail)
+5. [x] Implement evidence categorization + search — **done** (type/tag filters + tag cloud + FTS5/LIKE search)
+6. [x] Unify InspectionPhoto and PhotoEvidence into single Evidence model — **done** (migration `unify_photo_evidence`, legacy endpoints read/write Evidence)
 
-**Files to edit/create:** app/models.py (extend/replace Evidence), app/evidence/ (blueprint), app/static/js/evidence_uploader.js, migrations/
+**Files created/changed:** app/evidence/ (blueprint: `__init__.py`, `routes.py`, `media.py`, `templates/evidence/index.html`), app/static/js/evidence_uploader.js, migrations/versions/unify_photo_evidence.py, app/models.py (Evidence unified model), app/inspection/routes.py + app/adjudication/routes.py + app/document_viewer/renderer.py (Evidence queries), app/templates/base.html (nav link), app/static/css/theme.css (evidence styles), tests/test_phase5_evidence.py (16 tests).
 
 ### Phase 6 — Automatic Cross-Reference Engine (Not Implemented)
 
@@ -686,8 +686,7 @@ Flask backend exposes REST APIs for all features.
 | 4 | Phase 3 | ✅ SQLite FTS5 search index + API | app/search/ |
 | 4b | Phase 3 | ✅ Backup & restore endpoints (admin-only) | app/utils/backup.py, app/settings/routes.py |
 | 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
-| 6 | Phase 5 | ⏳ **Extend evidence model → blueprint/UI (NEXT)** | app/evidence/ |
-| 6 | Phase 5 | Extend evidence model | app/evidence/ |
+| 6 | Phase 5 | ✅ **Evidence model extended → blueprint/UI done** — unified Evidence model, drag-and-drop upload, compression, thumbnails, categorization, search, PhotoEvidence/InspectionPhoto unification | app/evidence/ |
 | 7 | Phase 6 | Cross-reference engine | app/cross_reference/ |
 | 8 | Phase 7 | Dynamic TOC generator | app/toc_generator/ |
 | 9 | Phase 8 | PDF assembly (headers/footers/QR) | app/pdf_assembly/ |
@@ -706,7 +705,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints).
+1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints); Phase 4 complete (annexures); **Phase 5 complete** (unified evidence library + PhotoEvidence/InspectionPhoto unification).
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
@@ -775,6 +774,374 @@ The Cloudinary photo storage backend has been **fully implemented** for adjudica
 | CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md | Cloudinary integration plan + evaluation |
 | .opencode/plans/PHASE2_MODERNIZATION_STRATEGY.md | Code modernization |
 | .opencode/plans/PHASE3_PRODUCTION_REFACTORING.md | Production refactoring |
+| **Section 9** | **Extraction → Storage → Autopopulation Pipeline** | This document |
+
+---
+
+## 9. Extraction → Storage → Autopopulation Pipeline Implementation Plan
+
+### 9.1 Overview
+
+This section details the implementation plan for the **extraction → storage → autopopulation** pipeline with **correction feedback** and **conflict resolution** as requested. The pipeline integrates with the existing Flask architecture and leverages current OCR capabilities while adding new document-specific extraction, review workflows, and autopopulation features.
+
+### 9.2 Schema Design
+
+#### New Database Models Required
+
+| Model | Purpose | Key Fields | Relationships |
+|-------|---------|------------|---------------|
+| **OCRDocument** | Stores OCR-processed documents with extraction results | `id`, `sample_id` (FK), `doc_type` (enum), `image_path`, `raw_extracted_json`, `confidence`, `status`, `reviewed_by`, `reviewed_at` | Belongs to Sample |
+| **LabTestParameter** | Child table for VIIA's variable test parameter rows | `id`, `sample_id` (FK), `sl_no`, `parameter`, `method`, `result`, `prescribed_standard` | Belongs to Sample |
+| **OCRCorrection** | Tracks manual corrections to OCR-extracted fields | `id`, `ocr_document_id` (FK), `field_name`, `doc_type`, `ocr_value`, `corrected_value`, `corrected_by`, `corrected_at` | Belongs to OCRDocument |
+| **FieldAuthority** | Static config table for field priority in conflict resolution | `id`, `field_name`, `doc_type`, `priority` | Standalone |
+| **ConflictLog** | Tracks field conflicts between documents | `id`, `sample_id` (FK), `field_name`, `existing_value`, `existing_source_doc_id`, `new_value`, `new_source_doc_id`, `status`, `resolved_value`, `resolved_by`, `resolved_at` | Belongs to Sample |
+
+#### Enhanced Sample Model
+
+The existing `Sample` model will be extended with:
+- **New OCR-discovered fields**: `nature_of_food`, `batch_no`, `mfd` (manufacturing date), `exp` (expiry date), `preservative`, `parts_quantity`, `place_of_collection`, `witness_name`, `test_parameter`
+- **New status enum**: `collected` → `sent_to_lab` → `analysis_pending` → `result_received` → `conforms`/`non_conforming` → `adjudication_initiated`
+
+### 9.3 Pipeline Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXTRACTION → STORAGE → AUTOPOPULATION PIPELINE        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │  Document    │    │  Page       │    │  Vision-LLM          │  │
+│  │  Upload     │───▶│  Splitter   │───▶│  Extraction          │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+│                       │                    │                          │
+│                       ▼                    ▼                          │
+│                  ┌─────────────┐    ┌─────────────────────┐          │
+│                  │  Zonal OCR  │◀───│  Fallback (printed   │          │
+│                  │  (Tesseract) │    │  forms only)         │          │
+│                  └─────────────┘    └─────────────────────┘          │
+│                       │                                          │
+│                       ▼                                          │
+│                  ┌─────────────────────┐                            │
+│                  │  Raw Extraction      │                            │
+│                  │  Storage            │                            │
+│                  └─────────────────────┘                            │
+│                       │                                          │
+│                       ▼                                          │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    REVIEW & COMMIT PHASE                      │   │
+│  │                                                             │   │
+│  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐  │   │
+│  │  │  Editable   │    │  Diff       │    │  Conflict       │  │   │
+│  │  │  Review    │───▶│  Detection  │───▶│  Resolution     │  │   │
+│  │  │  Form      │    │  & OCR     │    │  Queue          │  │   │
+│  │  │            │    │  Correction │    │                 │  │   │
+│  │  └─────────────┘    └─────────────┘    └─────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                       │                                          │
+│                       ▼                                          │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    AUTOPOPULATION PHASE                       │   │
+│  │                                                             │   │
+│  │  ┌─────────────┐    ┌─────────────────────────────────┐  │   │
+│  │  │  Confirmed  │    │  Field Mapping Dictionary        │  │   │
+│  │  │  Sample    │───▶│  (DO Letter, Bill Generator,     │  │   │
+│  │  │  Data      │    │   Case File, Adjudication       │  │   │
+│  │  │            │    │   Notices)                       │  │   │
+│  │  └─────────────┘    └─────────────────────────────────┘  │   │
+│  │                       │                                      │   │
+│  │                       ▼                                      │   │
+│  │                  ┌─────────────┐                          │   │
+│  │                  │  Document   │                          │   │
+│  │                  │  Generation │                          │   │
+│  │                  └─────────────┘                          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 9.4 Extraction Phase
+
+#### Vision-LLM Extraction Strategy
+- **Primary Method**: Vision-LLM with JSON schema prompts for each `doc_type`
+- **Document Types Supported**:
+  - `VA` (Voluntary Analysis)
+  - `sample_tag` (Sample Tag)
+  - `coupon` (Test Coupon)
+  - `form_vi` (Form VI)
+  - `invoice` (Invoice)
+  - `form_viia` (Form VIIA - Lab Test Report)
+  - `do_letter` (DO Letter)
+- **Schema Prompts**: Each doc_type has a specific JSON schema that guides the LLM extraction
+- **Confidence Handling**: Always treated as low by default - no auto-accept threshold
+
+#### Zonal OCR Fallback
+- **Usage**: Only for printed forms with reliably fixed layouts
+- **Implementation**: Existing PaddleOCR + Tesseract pipeline
+- **Trigger**: When Vision-LLM is unavailable or for handwritten/cursive content
+
+#### Page Splitter for Multi-Sample PDFs
+- **Function**: Groups multi-sample PDF bundles by extracted `sample_code` before per-page extraction
+- **Implementation**: Pre-processing step that analyzes PDF structure and separates by sample
+- **Output**: Individual document processing jobs for each sample
+
+#### Async Processing with Celery
+- **Job Type**: Async Celery job for OCR processing
+- **Integration**: Uses existing Celery setup (`celery_app.py`)
+- **Status Tracking**: Job status stored in `OCRDocument.status`
+
+### 9.5 Review → Commit Phase
+
+#### Editable Pre-filled Review Form
+- **UI**: Web interface showing extracted data in editable form fields
+- **Pre-filling**: Form fields populated from `raw_extracted_json`
+- **User Interaction**: Manual correction of OCR errors
+
+#### Diff Detection and OCRCorrection
+- **Process**: On form submit, compare corrected values against `raw_extracted_json`
+- **Auto-write**: Create `OCRCorrection` rows only for changed fields
+- **Fields Tracked**: `field_name`, `doc_type`, `ocr_value`, `corrected_value`, `corrected_by`, `corrected_at`
+
+#### Conflict Detection and Resolution
+- **Before Upsert**: Normalize and compare new field values against existing confirmed `Sample` values
+- **Match Handling**: Silent upsert for matching values
+- **Mismatch Handling**:
+  - Block upsert for conflicting fields
+  - Write to `ConflictLog` table
+  - Surface in resolution queue with side-by-side source thumbnails
+- **Conflict Log Fields**: `sample_id`, `field_name`, `existing_value`, `existing_source_doc_id`, `new_value`, `new_source_doc_id`, `status`, `resolved_value`, `resolved_by`, `resolved_at`
+
+#### Conflict Resolution Queue
+- **UI**: Dashboard showing all unresolved conflicts
+- **Visualization**: Side-by-side comparison with source document thumbnails
+- **Resolution Workflow**: Manual selection of correct value or new correction
+- **Status Flow**: `unresolved` → `resolved`
+
+#### Sample Field Flagging
+- **Conflict Indication**: Sample fields with open conflicts are flagged in UI
+- **Autopopulation Block**: Conflict fields render as visible warnings instead of values
+
+### 9.6 Feedback Loop
+
+#### Correction Rate Dashboard
+- **Metrics**: Per `(doc_type, field_name)` correction rate tracking
+- **Data Source**: `OCRCorrection` table aggregated by doc_type and field_name
+- **Visualization**: Identifies weak extraction fields requiring attention
+
+#### Few-Shot Learning Integration
+- **Pattern**: Same as existing FSS-section-suggester
+- **Trigger**: Periodic (weekly) or on correction-count threshold
+- **Process**: Trailing corrected examples folded into Vision-LLM prompt as few-shot pairs
+- **Refresh**: Automated refresh of few-shot examples based on new corrections
+
+### 9.7 Autopopulation Phase
+
+#### Field Mapping Dictionary Approach
+- **Central Configuration**: Single field mapping dictionary for all document generators
+- **No Per-Document Hardcoding**: Unified mapping from confirmed Sample + LabTestParameter fields
+- **Supported Generators**:
+  - DO Letter Generator
+  - Bill Generator  
+  - Case File/Petition Generator
+  - Adjudication Notices
+
+#### Non-Conforming Result Handling
+- **Auto-draft**: Non-conforming lab results automatically draft FBOIssue
+- **State Machine**: Uses existing FBOIssue state machine
+- **Approval**: DO remains sole approver - nothing auto-dispatches
+
+#### Manual Override Capability
+- **At Generation Time**: Every autopopulated field remains manually overridable
+- **Conflict Handling**: Conflict fields render as visible warnings instead of values
+- **User Control**: Full manual control over final document content
+
+### 9.8 Operational Modes
+
+#### Backfill Mode (Bulk Historical PDFs)
+- **Entry Point**: Bulk upload endpoint for historical PDF processing
+- **Processing**: Same pipeline as forward mode
+- **Batch Handling**: Optimized for large volumes with progress tracking
+- **Integration**: Uses existing batch processing capabilities
+
+#### Forward Mode (Single Sample, Real-Time)
+- **Entry Point**: Sample creation/upload in real-time
+- **Processing**: Immediate pipeline execution as sample progresses
+- **Status Tracking**: Real-time status updates through existing task webhook system
+
+#### Shared Pipeline
+- **Unified Architecture**: Both modes share identical extraction → storage → autopopulation pipeline
+- **Configuration**: Mode-specific configuration at entry point only
+- **Code Reuse**: Maximum code reuse between operational modes
+
+### 9.9 Implementation Files and Components
+
+#### New Blueprints Required
+| Blueprint | Purpose | Key Files |
+|---|---|---|
+| `app/ocr_extraction/` | OCR extraction service | `__init__.py`, `routes.py`, `service.py`, `schemas/` |
+| `app/conflict_resolution/` | Conflict resolution UI and API | `__init__.py`, `routes.py`, `templates/` |
+| `app/autopopulation/` | Autopopulation service | `__init__.py`, `service.py`, `mappings.py` |
+| `app/feedback_dashboard/` | Correction feedback analytics | `__init__.py`, `routes.py`, `templates/` |
+
+#### Model Extensions
+- **File**: `app/models.py`
+- **Additions**: `OCRDocument`, `LabTestParameter`, `OCRCorrection`, `FieldAuthority`, `ConflictLog`
+- **Modifications**: Extend `Sample` model with new fields and status enum
+
+#### Service Layer
+| Service | Purpose | File |
+|---|---|---|
+| `OCRExtractionService` | Vision-LLM and zonal OCR orchestration | `app/services/ocr_extraction.py` |
+| `PageSplitterService` | Multi-sample PDF bundle processing | `app/services/page_splitter.py` |
+| `ConflictResolutionService` | Conflict detection and resolution logic | `app/services/conflict_resolution.py` |
+| `AutopopulationService` | Field mapping and document generation | `app/services/autopopulation.py` |
+| `FeedbackService` | Correction analytics and few-shot learning | `app/services/feedback.py` |
+
+#### Celery Tasks
+- **File**: `app/ocr_extraction/tasks.py`
+- **Tasks**:
+  - `process_ocr_document_async` - Async OCR processing
+  - `process_batch_ocr_job` - Batch processing for backfill mode
+  - `refresh_few_shot_examples` - Periodic few-shot learning refresh
+
+#### Templates
+| Template | Purpose | File |
+|---|---|---|
+| `ocr_extraction/review.html` | Editable review form for OCR results |
+| `conflict_resolution/queue.html` | Conflict resolution dashboard |
+| `feedback_dashboard/index.html` | Correction rate analytics |
+| `autopopulation/preview.html` | Autopopulated document preview |
+
+#### Static Assets
+| File | Purpose |
+|---|---|
+| `app/static/js/ocr_review.js` | Review form interaction logic |
+| `app/static/js/conflict_resolution.js` | Conflict resolution UI logic |
+| `app/static/css/ocr_styles.css` | OCR-specific styling |
+
+### 9.10 Integration Points
+
+#### Existing System Integration
+- **OCR Pipeline**: Leverage existing `app/ocr_pipeline/` for zonal OCR fallback
+- **Celery**: Use existing `celery_app.py` setup for async processing
+- **Storage**: Use existing `app/utils/storage.py` for document storage
+- **Models**: Extend existing `app/models.py` with new tables
+- **Routes**: Add new blueprints to existing Flask app structure
+
+#### Document Type Specifics
+- **Form VIIA Integration**: Special handling for variable rows via `LabTestParameter` model
+- **Sample Code Extraction**: Page splitter uses sample code detection for multi-sample PDFs
+- **Field Authority**: Static configuration for conflict resolution priority
+
+### 9.11 Implementation Priority and Timeline
+
+#### Phase A: Foundation (High Priority)
+1. **Database Schema** - Create new models and migrations
+2. **OCR Extraction Service** - Vision-LLM + zonal OCR implementation
+3. **Page Splitter** - Multi-sample PDF processing
+4. **Celery Tasks** - Async processing infrastructure
+
+#### Phase B: Review Workflow (High Priority)
+5. **Review Interface** - Editable pre-filled forms
+6. **Diff Detection** - OCRCorrection automatic creation
+7. **Conflict Resolution** - ConflictLog and resolution queue
+
+#### Phase C: Autopopulation (High Priority)
+8. **Field Mapping** - Unified mapping dictionary
+9. **Document Generators** - Integration with existing generators
+10. **Conflict Flagging** - UI indication of conflicted fields
+
+#### Phase D: Feedback Loop (Medium Priority)
+11. **Correction Dashboard** - Analytics and visualization
+12. **Few-Shot Learning** - Periodic prompt refresh
+
+#### Phase E: Operational Modes (Medium Priority)
+13. **Backfill Mode** - Bulk processing interface
+14. **Forward Mode** - Real-time processing integration
+
+### 9.12 Success Metrics
+
+- **Extraction Accuracy**: >90% field-level accuracy for printed forms, >70% for handwritten
+- **Conflict Resolution Time**: <5 minutes average per conflict
+- **Autopopulation Coverage**: 100% of standard document fields supported
+- **User Satisfaction**: Manual correction effort reduced by >60%
+- **System Performance**: Batch processing of 100+ documents/hour
+
+### 9.13 Dependencies and Requirements
+
+#### New Dependencies
+- **Vision-LLM API**: OpenRouter/OpenAI API access for document extraction
+- **Additional Python Packages**: `pydantic` (already present), `tenacity` (for retry logic)
+
+#### Infrastructure Requirements
+- **API Keys**: Vision-LLM provider credentials
+- **Storage**: Existing storage infrastructure sufficient
+- **Compute**: Existing Celery worker capacity for async processing
+
+#### Configuration
+- **Environment Variables**: `VISION_LLM_API_KEY`, `VISION_LLM_PROVIDER`, etc.
+- **Settings**: Configurable confidence thresholds, retry logic, batch sizes
+
+### 9.14 Testing Strategy
+
+#### Unit Tests
+- OCR extraction accuracy tests with known document samples
+- Conflict detection and resolution logic tests
+- Field mapping and autopopulation tests
+- Few-shot learning refresh tests
+
+#### Integration Tests
+- End-to-end pipeline tests for each document type
+- Backfill vs forward mode comparison tests
+- Performance and load testing
+
+#### User Acceptance Tests
+- Review interface usability testing
+- Conflict resolution workflow validation
+- Autopopulation accuracy verification
+
+---
+
+## 10. Updated Consolidated TODO List
+
+### Priority 1 — Foundational (Phase 1-3 completion)
+1. [x] **Continuous auto-save** in Quill editor (editor.js) — **done (ee3db9a)**
+2. [x] **Settings table** model + migration — **done (e9e3a0e)**
+3. [x] **Annexure model** with metadata — **done (e9e3a0e)**
+4. [x] **Evidence model** extended to all types — **done (e9e3a0e)**
+5. [x] **SQLite FTS5 search** index + API — **done (00db98e)**
+6. [ ] **Version history table** + compare/restore (Version model exists; compare/restore pending)
+7. [ ] **JSON export** endpoint
+
+### Priority 2 — Core Features (Phase 6-12)
+8. [ ] **Cross-reference engine**
+9. [ ] **Dynamic TOC generator**
+10. [ ] **PDF assembly** (headers/footers/page numbers)
+11. [ ] **QR code** generation
+12. [ ] **Signature placeholders**
+13. [ ] **Validation engine**
+14. [ ] **Timeline engine**
+
+### Priority 3 — Extraction → Storage → Autopopulation Pipeline (NEW)
+15. [ ] **Database Schema** - OCRDocument, LabTestParameter, OCRCorrection, FieldAuthority, ConflictLog models
+16. [ ] **Update Sample model** - Add OCR fields and status enum
+17. [ ] **OCR Extraction Service** - Vision-LLM + zonal OCR fallback implementation
+18. [ ] **Page Splitter** - Multi-sample PDF bundle processing
+19. [ ] **Celery Tasks** - Async OCR processing with status tracking
+20. [ ] **Review Interface** - Editable pre-filled forms with diff detection
+21. [ ] **Conflict Resolution** - ConflictLog system with resolution queue UI
+22. [ ] **Autopopulation Service** - Field mapping dictionary and document generation integration
+23. [ ] **Feedback Dashboard** - Correction rate analytics and few-shot learning refresh
+24. [ ] **Operational Modes** - Backfill (bulk) and forward (real-time) processing
+
+### Priority 4 — Intelligence & Analytics (Phase 13-19)
+25. [ ] **Knowledge graph**
+26. [ ] **Analytics dashboard**
+27. [ ] **AI assistant service** (LLM integration)
+28. [ ] **Case intelligence engine** (readiness score)
+29. [ ] **Multi-user RBAC** (Role model, @role_required)
+30. [ ] **Cloud sync** (Supabase)
+31. [x] **Backup & restore** (manual ZIP backup/restore done in Phase 3; automated scheduled export still open)
+32. [ ] **Plugin architecture**
 
 ---
 

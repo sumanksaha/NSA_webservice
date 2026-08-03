@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, sen
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
-from app.models import Adjudication, FboIssue, PhotoEvidence
+from app.models import Adjudication, Evidence, FboIssue
 from app.services.audit import log_audit
 from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
@@ -372,8 +372,18 @@ def regenerate_adjudication_documents(case_id):
     include_flagged = request.args.get("include_flagged", "false").lower() == "true"
     flag_override_reason = request.args.get("flag_override_reason", "").strip()
 
-    # Fetch all PhotoEvidence for this case
-    all_photos = PhotoEvidence.query.filter_by(case_id=case_id).order_by(PhotoEvidence.captured_at.asc()).all()
+    # Fetch all photo evidence for this case (linked via case_id or adjudication_id)
+    from sqlalchemy import or_
+
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
 
     # Split into verified and flagged photos
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
@@ -388,7 +398,7 @@ def regenerate_adjudication_documents(case_id):
         final_photos = verified_photos + flagged_photos
 
         # Log audit for flagged photos inclusion
-        flagged_image_ids = [p.image_id for p in flagged_photos]
+        flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
             log_audit(
                 "photo",
@@ -407,7 +417,7 @@ def regenerate_adjudication_documents(case_id):
     }
 
     # Log adjudication order generation with photo evidence details
-    image_ids = [p.image_id for p in final_photos]
+    image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
     log_audit(
         "adjudication_order",
@@ -631,8 +641,18 @@ def generate_all():
     include_flagged = request.form.get("include_flagged", "false").lower() == "true"
     flag_override_reason = request.form.get("flag_override_reason", "").strip()
 
-    # Fetch all PhotoEvidence for this case
-    all_photos = PhotoEvidence.query.filter_by(case_id=adj.id).order_by(PhotoEvidence.captured_at.asc()).all()
+    # Fetch all photo evidence for this case (linked via case_id or adjudication_id)
+    from sqlalchemy import or_
+
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
 
     # Split into verified and flagged photos
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
@@ -647,7 +667,7 @@ def generate_all():
         final_photos = verified_photos + flagged_photos
 
         # Log audit for flagged photos inclusion
-        flagged_image_ids = [p.image_id for p in flagged_photos]
+        flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
             log_audit(
                 "photo",
@@ -666,7 +686,7 @@ def generate_all():
     }
 
     # Log adjudication order generation with photo evidence details
-    image_ids = [p.image_id for p in final_photos]
+    image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
     log_audit(
         "adjudication_order",

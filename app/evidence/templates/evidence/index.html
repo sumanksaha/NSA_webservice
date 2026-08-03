@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Evidence{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-folder-open"></i> Evidence Library</h2>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="evidence-upload">
+        <form id="evidenceForm" enctype="multipart/form-data"
+              data-upload-url="{{ url_for('evidence.upload') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="evidence-dropzone" id="evidenceDropzone">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2rem;"></i>
+                <p><strong>Drag &amp; drop files here</strong> or <span class="link-style">browse</span></p>
+                <p class="form-hint">Photos, videos, PDFs, DOCX, TXT — up to 50 MB each.</p>
+                <input type="file" id="evidenceFiles" name="files" class="evidence-file-input" multiple hidden>
+            </div>
+            <div id="fileQueue" class="evidence-queue"></div>
+
+            <div class="form-row mt--md">
+                <div class="form-group">
+                    <label for="evidence_type" class="form-label">Evidence Type</label>
+                    <select id="evidence_type" name="evidence_type" class="form-input">
+                        <option value="">Auto (from file)</option>
+                        {% for t in evidence_types %}
+                        <option value="{{ t }}">{{ t|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="caption" class="form-label">Caption (all files)</label>
+                    <input type="text" id="caption" name="caption" class="form-input"
+                           placeholder="e.g. Shop exterior photos">
+                </div>
+                <div class="form-group">
+                    <label for="tags" class="form-label">Tags (all files)</label>
+                    <input type="text" id="tags" name="tags" class="form-input"
+                           placeholder="comma, separated, tags">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="case_id" class="form-label">Case File ID</label>
+                    <input type="number" id="case_id" name="case_id" class="form-input"
+                           value="{{ case_id or '' }}" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="adjudication_id" class="form-label">Adjudication ID</label>
+                    <input type="number" id="adjudication_id" name="adjudication_id" class="form-input"
+                           value="{{ adjudication_id or '' }}" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="inspection_id" class="form-label">Inspection ID</label>
+                    <input type="number" id="inspection_id" name="inspection_id" class="form-input"
+                           value="{{ inspection_id or '' }}" placeholder="Optional">
+                </div>
+                <div class="form-group form-group--action">
+                    <button type="submit" id="evidenceUploadBtn" class="btn btn-primary">
+                        <i class="fa-solid fa-upload"></i> Upload
+                    </button>
+                </div>
+            </div>
+        </form>
+        <div id="uploadStatus" class="info-box" style="display: none;"></div>
+    </div>
+
+    <!-- Filters / search -->
+    <div class="filter-panel mt--lg">
+        <form method="get" action="{{ url_for('evidence.index') }}" class="flex-between--wrap">
+            <div class="filter-chips">
+                <a href="{{ url_for('evidence.index') }}"
+                   class="filter-chip {% if not active_type %}filter-chip--active{% endif %}">All</a>
+                {% for t in evidence_types %}
+                <a href="{{ url_for('evidence.index', evidence_type=t, q=query, tag=active_tag) }}"
+                   class="filter-chip {% if active_type == t %}filter-chip--active{% endif %}">{{ t|replace('_', ' ')|title }}</a>
+                {% endfor %}
+            </div>
+            <div class="filter-search">
+                <input type="search" name="q" value="{{ query }}" class="form-input"
+                       placeholder="Search caption, tags, OCR text…">
+                <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-magnifying-glass"></i></button>
+            </div>
+        </form>
+        {% if tag_counts %}
+        <div class="evidence-tags mt--sm">
+            <span class="form-hint">Tags:</span>
+            {% for tag, count in tag_counts %}
+            <a href="{{ url_for('evidence.index', tag=tag, evidence_type=active_type, q=query) }}"
+               class="evidence-tag {% if active_tag == tag %}evidence-tag--active{% endif %}">#{{ tag }} ({{ count }})</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Evidence grid -->
+    <div class="evidence-grid mt--lg">
+        {% for ev in evidence %}
+        <div class="evidence-card" data-id="{{ ev.id }}">
+            <div class="evidence-preview">
+                {% if ev.evidence_type == 'photo' %}
+                <img src="{{ url_for('evidence.thumbnail', evidence_id=ev.id) }}" alt="{{ ev.caption or ev.filename }}"
+                     loading="lazy" onerror="this.style.display='none'">
+                {% elif ev.evidence_type == 'video' %}
+                <i class="fa-solid fa-film evidence-icon"></i>
+                {% elif ev.evidence_type == 'bill' %}
+                <i class="fa-solid fa-file-invoice-dollar evidence-icon"></i>
+                {% elif ev.evidence_type == 'licence' %}
+                <i class="fa-solid fa-id-card evidence-icon"></i>
+                {% elif ev.evidence_type == 'lab_report' %}
+                <i class="fa-solid fa-flask evidence-icon"></i>
+                {% else %}
+                <i class="fa-solid fa-file-lines evidence-icon"></i>
+                {% endif %}
+            </div>
+            <div class="evidence-body">
+                <div class="evidence-title" title="{{ ev.filename }}">{{ ev.caption or ev.filename }}</div>
+                <div class="evidence-meta">
+                    <span class="evidence-badge evidence-badge--{{ ev.evidence_type }}">{{ ev.evidence_type|replace('_', ' ')|title }}</span>
+                    {% if ev.file_size is not none %}<span>{{ "%.1f"|format(ev.file_size / 1024) }} KB</span>{% endif %}
+                    <span>{{ ev.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                {% if ev.tags %}
+                <div class="evidence-meta">
+                    {% for tag in ev.tags.split(',') %}
+                    {% if tag.strip() %}<span class="evidence-tag">#{{ tag.strip() }}</span>{% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="evidence-meta form-hint">
+                    {% if ev.case_id %}<a href="{{ url_for('case_file_generator.edit_case_file', case_id=ev.case_id) }}">Case #{{ ev.case_id }}</a>{% endif %}
+                    {% if ev.adjudication_id %}<a href="{{ url_for('adjudication.edit_adjudication', case_id=ev.adjudication_id) }}">Adj #{{ ev.adjudication_id }}</a>{% endif %}
+                    {% if ev.inspection_id %}<span>Insp #{{ ev.inspection_id }}</span>{% endif %}
+                    {% if not ev.case_id and not ev.adjudication_id and not ev.inspection_id %}<span>Unlinked</span>{% endif %}
+                </div>
+            </div>
+            <div class="evidence-actions btn-group">
+                <a href="{{ url_for('evidence.download', evidence_id=ev.id) }}" class="btn btn-secondary btn-sm" title="Download">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm evidence-edit" data-id="{{ ev.id }}"
+                        data-caption="{{ ev.caption or '' }}" data-tags="{{ ev.tags or '' }}"
+                        data-type="{{ ev.evidence_type }}"
+                        data-update-url="{{ url_for('evidence.update', evidence_id='__ID__') }}"
+                        title="Edit metadata">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm evidence-delete" data-id="{{ ev.id }}"
+                        data-delete-url="{{ url_for('evidence.delete', evidence_id='__ID__') }}"
+                        title="Delete">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <p class="form-hint">No evidence found. Upload files above, or clear the filters.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/evidence_uploader.js') }}"></script>
+{% endblock %}

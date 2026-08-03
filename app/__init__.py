@@ -345,6 +345,9 @@ def create_app():
     from app.document_viewer import document_viewer_bp
 
     app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
+    from app.evidence import evidence_bp
+
+    app.register_blueprint(evidence_bp, url_prefix="/evidence")
     app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
     app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
     app.register_blueprint(sample_bp, url_prefix="/sample")

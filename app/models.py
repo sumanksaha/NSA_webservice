@@ -153,28 +153,9 @@ class Adjudication(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     synced_at = db.Column(db.DateTime, nullable=True)
 
-    # Photo evidence (linked to R2/B2 storage via app.utils.storage)
-    photos = db.relationship(
-        "InspectionPhoto",
-        backref="adjudication",
-        cascade="all, delete-orphan",
-    )
-
-
-class InspectionPhoto(db.Model):
-    __tablename__ = "inspection_photos"
-
-    id = db.Column(db.Integer, primary_key=True)
-    adjudication_id = db.Column(
-        db.Integer,
-        db.ForeignKey("adjudications.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    file_url = db.Column(db.String(500), nullable=False)
-    caption = db.Column(db.String(200))
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (db.Index("idx_inspection_photos_adjudication_id", "adjudication_id"),)
+    # Photo evidence — unified Evidence model (Phase 5); photos are
+    # queried via ``Evidence.query.filter_by(adjudication_id=...,
+    # evidence_type="photo")`` rather than an ORM relationship.
 
 
 class Bill(db.Model):
@@ -328,26 +309,6 @@ class Inspection(db.Model):
     )
 
 
-class PhotoEvidence(db.Model):
-    __tablename__ = "photo_evidence"
-
-    image_id = db.Column(db.String, primary_key=True)
-    case_id = db.Column(db.Integer, db.ForeignKey("case_files.id"), nullable=True)
-    inspection_id = db.Column(db.Integer, db.ForeignKey("inspection.id"), nullable=True)
-    filepath = db.Column(db.String, nullable=False)
-    raw_lat = db.Column(db.Float, nullable=False)
-    raw_lng = db.Column(db.Float, nullable=False)
-    accuracy = db.Column(db.Float, nullable=False)
-    captured_at = db.Column(db.DateTime, nullable=False)
-    uploaded_at = db.Column(db.DateTime, nullable=False)
-    locality = db.Column(db.String, nullable=True)
-    ip_region = db.Column(db.String, nullable=True)
-    ip_match = db.Column(db.Boolean, nullable=True)
-    distance_to_fbo_m = db.Column(db.Float, nullable=True)
-    verification_status = db.Column(db.String, default="PENDING")
-    stamped = db.Column(db.Boolean, default=False)
-
-
 class AuditLog(db.Model):
     __tablename__ = "audit_log"
 
@@ -484,6 +445,7 @@ class Settings(db.Model):
             return obj.value.lower() in ("1", "true", "yes") if obj.value else False
         if obj.value_type == "json":
             import json
+
             return json.loads(obj.value) if obj.value else default
         return obj.value
 
@@ -540,14 +502,13 @@ class Annexure(db.Model):
 
 
 class Evidence(db.Model):
-    """General evidence model supporting all evidence types.
+    """Unified evidence model supporting all evidence types.
 
-    Extends the historical ``PhotoEvidence`` concept to support
-    photo, video, report, licence, bill, and lab_report evidence.
-    Photo-specific geolocation fields are nullable so non-photo
-    evidence types can reuse the same table.
-
-    Step 5 (Phase 5) TODO: unify with ``InspectionPhoto``.
+    Single home for every evidence record: photos (migrated from the
+    former ``PhotoEvidence`` / ``InspectionPhoto`` tables in Phase 5),
+    videos, reports, licences, bills, and lab reports. Photo-specific
+    geolocation fields are nullable so non-photo evidence types reuse
+    the same table.
     """
 
     __tablename__ = "evidence"

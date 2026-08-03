@@ -236,7 +236,7 @@ class TestPdfRenderWithEmbeddedPhotos:
         photos = []
         for meta in photos_meta:
             p = MagicMock()
-            p.image_id = meta.get("image_id", "img-001")
+            p.id = meta.get("image_id", "img-001")
             p.filepath = meta.get("filepath", "")
             p.verification_status = meta.get("verification_status", "PASS")
             p.captured_at = meta.get("captured_at", datetime(2026, 1, 1))
@@ -253,7 +253,7 @@ class TestPdfRenderWithEmbeddedPhotos:
         adj = self._build_mock_adjudication([])
         with app.app_context():
             with patch("app.adjudication.routes.Adjudication.query.get_or_404", return_value=adj):
-                with patch("app.adjudication.routes.PhotoEvidence") as mock_pe:
+                with patch("app.adjudication.routes.Evidence") as mock_pe:
                     mock_pe.query.filter_by.return_value.order_by.return_value.all.return_value = []
                     # We don't actually hit WeasyPrint; just verify context building
                     form_data = {
