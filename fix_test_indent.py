@@ -1,14 +1,13 @@
 """Fix indentation issues in test_search.py."""
-import re
 
 f = r"C:\github\NSA_webservice\tests\test_search.py"
-with open(f, "r") as fh:
+with open(f) as fh:
     lines = fh.readlines()
 
 # Fix specific lines that got wrong indentation from editor edits
 fixes = {
-    297: "            results = search(\"Ghost\")\n",  # was 24 spaces
-    448: "            assert len(results) == 0\n",     # was 24 spaces
+    297: '            results = search("Ghost")\n',  # was 24 spaces
+    448: "            assert len(results) == 0\n",  # was 24 spaces
 }
 
 for lineno, fix in fixes.items():
