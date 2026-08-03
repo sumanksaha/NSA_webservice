@@ -31,7 +31,7 @@ from app.shared.context_derivers import (
     derive_sections_display,
     derive_violations,
 )
-from app.utils.pdf_utils import embed_photos_as_base64
+from app.utils.pdf_utils import embed_photos_as_base64, post_process_pdf_html
 
 
 def render_case_file_document(case_id: int, doc_type: str) -> str:
@@ -52,7 +52,9 @@ def render_case_file_document(case_id: int, doc_type: str) -> str:
     else:
         template = "case_file_generator/permission_letter.html"
 
-    return str(render_template(template, **case_data))
+    html = str(render_template(template, **case_data))
+    # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
+    return post_process_pdf_html(html, case_id=case_id)
 
 
 def build_adjudication_context(form_data: dict) -> dict:
@@ -146,4 +148,6 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     else:
         template = "adjudication/Legal_NonsampleAdjudication_Template.html"
 
-    return str(render_template(template, **context))
+    html = str(render_template(template, **context))
+    # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
+    return post_process_pdf_html(html, adjudication_id=case_id)

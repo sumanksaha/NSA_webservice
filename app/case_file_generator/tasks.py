@@ -41,12 +41,17 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
     from flask import render_template
     from weasyprint import HTML
 
+    from app.utils.pdf_utils import post_process_pdf_html
+
     generated_at = datetime.utcnow()
 
     # ---- Render both templates (permanent failure on error) ----
     try:
         petition_html = render_template("case_file_generator/petition.html", **case_data)
         permission_html = render_template("case_file_generator/permission_letter.html", **case_data)
+        # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
+        petition_html = post_process_pdf_html(petition_html, case_id=case_file_id)
+        permission_html = post_process_pdf_html(permission_html, case_id=case_file_id)
     except Exception as exc:
         logger.error(
             "Template render failed for case_file %s: %s",

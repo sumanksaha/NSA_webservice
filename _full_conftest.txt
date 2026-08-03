@@ -1,0 +1,22 @@
+   1| """Pytest session bootstrap.
+   2| 
+   3| The ``app`` package runs ``create_app()`` at module-import time, which binds
+   4| the SQLAlchemy engine to the default dev DB (``instance/app.db``) and creates
+   5| tables via the startup fallback. Test fixtures that later override
+   6| ``SQLALCHEMY_DATABASE_URI`` to ``sqlite:///:memory:`` do NOT take effect,
+   7| so tests silently read/write the developer's DB — and fail with schema drift
+   8| when the dev DB predates model changes (e.g. ``user.is_admin``).
+   9| 
+  10| Setting ``DATABASE_URL`` here, before any test module imports ``app``, pins
+  11| the whole session to an isolated temp SQLite DB instead. ``load_dotenv`` does
+  12| not override an already-set env var, so this cannot be clobbered.
+  13| """
+  14| 
+  15| import os
+  16| import tempfile
+  17| from pathlib import Path
+  18| 
+  19| _TEST_DB_DIR = tempfile.mkdtemp(prefix="nsa_test_db_")
+  20| os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
+  21| os.environ["SKIP_FSO_STARTUP_SYNC"] = "1"
+  22| os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"  # noqa: S105

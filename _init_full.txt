@@ -1,0 +1,424 @@
+   1| import os
+   2| import secrets
+   3| import threading
+   4| from pathlib import Path
+   5| from typing import Any
+   6| 
+   7| from dotenv import load_dotenv
+   8| from flask import Flask, redirect, request, url_for
+   9| from flask_login import current_user
+  10| from flask_migrate import Migrate
+  11| from werkzeug.middleware.proxy_fix import ProxyFix
+  12| 
+  13| from app.extensions import csrf, db, login_manager, talisman
+  14| 
+  15| _fso_sync_lock = threading.Lock()
+  16| 
+  17| # Module-level Celery instance — populated after app factory runs
+  18| celery = None
+  19| 
+  20| 
+  21| class App(Flask):
+  22|     """Flask app subclass with a typed ``celery`` attribute."""
+  23| 
+  24|     celery: Any = None
+  25| 
+  26| 
+  27| def _load_or_create_production_secret_key(app: Flask) -> str:
+  28|     """Return a stable production SECRET_KEY, generating + persisting one if needed.
+  29| 
+  30|     Render's ``generateValue: true`` only mints a value when the env var is
+  31|     FIRST created on the service, so services that predate the setting (or
+  32|     were created from the dashboard) can boot with no SECRET_KEY. Instead of
+  33|     crashing the deploy, generate a strong key once and persist it so
+  34|     sessions stay valid across restarts and redeploys.
+  35| 
+  36|     Persistence order (first success wins):
+  37|       1. ``app_secrets`` key/value table in the primary DB (survives
+  38|          redeploys on Render's persistent Postgres).
+  39|       2. ``<instance_path>/.secret_key`` file (survives restarts).
+  40|       3. Ephemeral in-memory key — sessions reset on restart, but the app
+  41|          still boots (never blocks a deploy).
+  42| 
+  43|     An explicit ``SECRET_KEY`` env var (dashboard-managed or a
+  44|     generateValue-minted value) always takes precedence and bypasses this.
+  45|     """
+  46|     database_url = os.environ.get("DATABASE_URL")
+  47|     if database_url:
+  48|         # Normalize postgres:// -> postgresql:// (same as create_app does)
+  49|         if database_url.startswith("postgres://"):
+  50|             database_url = database_url.replace("postgres://", "postgresql://", 1)
+  51|         try:
+  52|             from sqlalchemy import create_engine, text
+  53| 
+  54|             engine = create_engine(database_url)
+  55|             with engine.begin() as conn:
+  56|                 conn.execute(
+  57|                     text(
+  58|                         "CREATE TABLE IF NOT EXISTS app_secrets (name VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)",
+  59|                     ),
+  60|                 )
+  61|                 row = conn.execute(
+  62|                     text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
+  63|                 ).fetchone()
+  64|                 if row:
+  65|                     app.logger.info("SECRET_KEY auto-provisioned (DB — reuse)")
+  66|                     return str(row[0])
+  67|                 new_key = secrets.token_hex(32)
+  68|                 conn.execute(
+  69|                     text(
+  70|                         "INSERT INTO app_secrets (name, value) VALUES ('secret_key', :v) ON CONFLICT(name) DO NOTHING",
+  71|                     ),
+  72|                     {"v": new_key},
+  73|                 )
+  74|                 row = conn.execute(
+  75|                     text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
+  76|                 ).fetchone()
+  77|                 app.logger.info("SECRET_KEY auto-provisioned (DB — new)")
+  78|                 return str(row[0]) if row else new_key
+  79|         except Exception as exc:
+  80|             app.logger.warning("SECRET_KEY DB persistence unavailable: %s", exc)
+  81| 
+  82|     # Instance-folder file fallback (survives restarts on the same instance)
+  83|     try:
+  84|         key_file = Path(app.instance_path) / ".secret_key"
+  85|         if key_file.exists():
+  86|             stored = key_file.read_text().strip()
+  87|             if stored:
+  88|                 app.logger.info("SECRET_KEY auto-provisioned (file — reuse)")
+  89|                 return stored
+  90|         new_key = secrets.token_hex(32)
+  91|         key_file.write_text(new_key)
+  92|         app.logger.info("SECRET_KEY auto-provisioned (file — new)")
+  93|         return new_key
+  94|     except OSError as exc:
+  95|         app.logger.warning("SECRET_KEY file fallback unavailable: %s", exc)
+  96| 
+  97|     # Ephemeral last resort — never block a deploy; sessions reset on restart
+  98|     app.logger.warning(
+  99|         "SECRET_KEY not set and no persistence available — using ephemeral key; "
+ 100|         "sessions will reset on restart. Provision SECRET_KEY in Render "
+ 101|         "(render.yaml generateValue: true for new services, or set it in the "
+ 102|         "dashboard for existing services).",
+ 103|     )
+ 104|     return secrets.token_hex(32)
+ 105| 
+ 106| 
+ 107| def create_app():
+ 108|     app = App(__name__)
+ 109| 
+ 110|     # Load environment variables from .env file before any config
+ 111|     load_dotenv()
+ 112| 
+ 113|     # ------------------------------------------------------------------
+ 114|     # Production detection — shared by the SECRET_KEY guard below and the
+ 115|     # TLS/security-header config further down. Render sets RENDER on every
+ 116|     # service; APP_ENV / FLASK_ENV cover other hosts. Hoisted here so the
+ 117|     # SECRET_KEY guard can reuse it instead of only checking RENDER.
+ 118|     # ------------------------------------------------------------------
+ 119|     is_production = (
+ 120|         bool(os.environ.get("RENDER"))
+ 121|         or os.environ.get("APP_ENV", "").lower() in ("production", "prod")
+ 122|         or os.environ.get("FLASK_ENV", "").lower() == "production"
+ 123|     )
+ 124| 
+ 125|     # Ensure instance folder exists before the SECRET_KEY guard — the
+ 126|     # production fallback may write a key file there on first boot.
+ 127|     try:
+ 128|         os.makedirs(app.instance_path, exist_ok=True)
+ 129|     except OSError:
+ 130|         app.logger.warning(f"Could not create instance directory: {app.instance_path}")
+ 131| 
+ 132|     # ------------------------------------------------------------------
+ 133|     # Mandatory: SECRET_KEY — required for session signing, flash messages,
+ 134|     #             CSRF tokens, and any cryptographic signing in Flask.
+ 135|     # ------------------------------------------------------------------
+ 136|     # In production this MUST be a long, random value.  Generate one with:
+ 137|     #     python -c "import secrets; print(secrets.token_hex(32))"
+ 138|     # Render: provision it as a managed value (render.yaml generateValue: true)
+ 139|     # or via the Render dashboard. Never commit a real key to the repo.
+ 140|     # ------------------------------------------------------------------
+ 141|     secret_key = os.environ.get("SECRET_KEY")
+ 142|     if not secret_key:
+ 143|         if is_production:
+ 144|             # Auto-provision so the deploy can never be blocked (Render only
+ 145|             # mints generateValue secrets when the env var is first created).
+ 146|             secret_key = _load_or_create_production_secret_key(app)
+ 147|         else:
+ 148|             # In local development, use a fallback so the app can start without
+ 149|             # requiring every developer to create a .env file immediately.
+ 150|             # Gated behind is_production so production never silently falls
+ 151|             # back to a fresh random key (that would rotate every session).
+ 152|             secret_key = secrets.token_hex(32)
+ 153|             app.logger.warning(
+ 154|                 "SECRET_KEY not set — using insecure local fallback. "
+ 155|                 "Set SECRET_KEY in your .env file for local development.",
+ 156|             )
+ 157|     app.config["SECRET_KEY"] = secret_key
+ 158| 
+ 159|     # Database configuration - PostgreSQL primary, SQLite fallback
+ 160|     db_path = Path(app.instance_path) / "app.db"
+ 161|     database_url = os.environ.get("DATABASE_URL")
+ 162|     if database_url:
+ 163|         # Normalize postgres:// to postgresql:// for SQLAlchemy compatibility
+ 164|         # (Render still issues the old postgres:// scheme)
+ 165|         if database_url.startswith("postgres://"):
+ 166|             database_url = database_url.replace("postgres://", "postgresql://", 1)
+ 167|         # Validate URL has a scheme (basic check for malformed URLs)
+ 168|         if not any(
+ 169|             database_url.startswith(proto) for proto in ["postgresql://", "sqlite://", "mysql://", "mariadb://"]
+ 170|         ):
+ 171|             app.logger.warning(f"DATABASE_URL malformed: '{database_url}' - falling back to SQLite")
+ 172|             database_url = f"sqlite:///{db_path}"
+ 173|         app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+ 174|     else:
+ 175|         app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+ 176|         app.logger.warning("DATABASE_URL not set - falling back to SQLite")
+ 177|     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+ 178| 
+ 179|     # Redis configuration (can be set via environment variable)
+ 180|     app.config["REDIS_URL"] = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+ 181| 
+ 182|     # Google Sheets configuration (can be set via environment variables)
+ 183|     app.config["SPREADSHEET_ID"] = os.environ.get("SPREADSHEET_ID")
+ 184|     app.config["GOOGLE_CREDENTIALS_JSON"] = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+ 185| 
+ 186|     # ------------------------------------------------------------------
+ 187|     # Security headers & HTTPS enforcement via Flask-Talisman
+ 188|     # ------------------------------------------------------------------
+ 189|     # Render terminates TLS at the edge.  We use ProxyFix so Flask/Talisman
+ 190|     # trust the X-Forwarded-Proto header and don't create a redirect loop.
+ 191|     # ------------------------------------------------------------------
+ 192|     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+ 193| 
+ 194|     csp = {
+ 195|         "default-src": ["'self'"],
+ 196|         "style-src": [
+ 197|             "'self'",
+ 198|             "'unsafe-inline'",
+ 199|             "https://fonts.googleapis.com",
+ 200|             "https://cdnjs.cloudflare.com",
+ 201|         ],
+ 202|         "font-src": [
+ 203|             "'self'",
+ 204|             "https://fonts.gstatic.com",
+ 205|             "https://cdnjs.cloudflare.com",
+ 206|         ],
+ 207|         "script-src": [
+ 208|             "'self'",
+ 209|             "'unsafe-inline'",
+ 210|         ],
+ 211|         "img-src": [
+ 212|             "'self'",
+ 213|             "data:",
+ 214|         ],
+ 215|         "connect-src": ["'self'"],
+ 216|         "frame-ancestors": ["'none'"],
+ 217|         "form-action": ["'self'"],
+ 218|         "base-uri": ["'self'"],
+ 219|     }
+ 220| 
+ 221|     talisman.init_app(
+ 222|         app,
+ 223|         force_https=is_production,
+ 224|         force_https_permanent=is_production,
+ 225|         content_security_policy=csp,
+ 226|         content_security_policy_report_only=False,
+ 227|         content_security_policy_report_uri="/csp-report",
+ 228|         strict_transport_security=is_production,
+ 229|         strict_transport_security_max_age=31536000,
+ 230|         strict_transport_security_include_subdomains=is_production,
+ 231|         session_cookie_secure=is_production,
+ 232|         session_cookie_http_only=True,
+ 233|         session_cookie_samesite="Lax",
+ 234|     )
+ 235| 
+ 236|     # Initialize CSRF protection (uses SECRET_KEY set above)
+ 237|     csrf.init_app(app)
+ 238| 
+ 239|     # Initialize SQLAlchemy database
+ 240|     db.init_app(app)
+ 241| 
+ 242|     # Initialize security extensions
+ 243|     csrf.init_app(app)
+ 244|     login_manager.init_app(app)
+ 245|     login_manager.login_view = "auth.login"
+ 246|     login_manager.login_message = "Please log in to access this page."
+ 247|     talisman.init_app(app, force_https=False)
+ 248| 
+ 249|     # Initialize Flask-Migrate
+ 250|     Migrate(app, db)
+ 251| 
+ 252|     # ------------------------------------------------------------------
+ 253|     # Flask-Login: user_loader callback
+ 254|     # ------------------------------------------------------------------
+ 255|     from app.models import User
+ 256| 
+ 257|     @login_manager.user_loader
+ 258|     def load_user(user_id):
+ 259|         try:
+ 260|             return User.query.get(int(user_id))
+ 261|         except (ValueError, TypeError):
+ 262|             return None
+ 263| 
+ 264|     login_manager.init_app(app)
+ 265| 
+ 266|     # ------------------------------------------------------------------
+ 267|     # Global login gate — every route requires authentication UNLESS it
+ 268|     # is one of the public endpoints listed below.
+ 269|     # ------------------------------------------------------------------
+ 270|     public_endpoints = {
+ 271|         "auth.login",
+ 272|         "static",
+ 273|         # Lookup endpoints - public for form prefill/autocomplete
+ 274|         "case_file_generator.lookup_sample",
+ 275|         "case_file_generator.list_samples_for_datalist",
+ 276|         "adjudication.lookup_ce_route",
+ 277|         "adjudication.lookup_fssai_route",
+ 278|         "inspection.lookup_ce_route",
+ 279|         "inspection.lookup_fssai_route",
+ 280|         "sample.lookup_retailer",
+ 281|         "bill_generator.lookup_fbo_issues",
+ 282|         "adjudication.lookup_fbo_issues",
+ 283|         # QStash webhook — authenticated by Upstash-Signature, not session
+ 284|         "tasks_webhook.run_task",
+ 285|     }
+ 286| 
+ 287|     @app.before_request
+ 288|     def set_audit_user():
+ 289|         """Store the current user ID on ``db.session.info`` so that audit
+ 290|         event hooks can read it without depending on the request context.
+ 291|         """
+ 292|         try:
+ 293|             db.session.info["audit_user_id"] = current_user.get_id() if current_user.is_authenticated else None
+ 294|         except (RuntimeError, AttributeError):
+ 295|             db.session.info["audit_user_id"] = None
+ 296| 
+ 297|     @app.before_request
+ 298|     def require_login():
+ 299|         if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
+ 300|             return redirect(url_for("auth.login", next=request.url))
+ 301| 
+ 302|     # Register custom Jinja filters globally
+ 303|     from app.utils.filters import format_date_indian, to_words
+ 304| 
+ 305|     app.jinja_env.filters["to_words"] = to_words
+ 306|     app.jinja_env.filters["format_date"] = format_date_indian
+ 307|     app.jinja_env.filters["format_date_indian"] = format_date_indian
+ 308| 
+ 309|     # Flask-Login already exposes current_user in all templates,
+ 310|     # no need for a custom context_processor.
+ 311| 
+ 312|     # ------------------------------------------------------------------
+ 313|     # Wire up SQLAlchemy audit event hooks for Adjudication, Bill, CaseFile
+ 314|     # ------------------------------------------------------------------
+ 315|     from app.audit_hooks import register_audit_hooks
+ 316| 
+ 317|     register_audit_hooks()
+ 318| 
+ 319|     # Register blueprints (auth first so login page is available)
+ 320|     from app.adjudication.routes import adjudication_bp
+ 321|     from app.audit import audit_bp
+ 322|     from app.auth.routes import auth_bp
+ 323|     from app.bill_generator.routes import bill_generator_bp
+ 324|     from app.billing.routes import billing_bp
+ 325|     from app.case_file_generator.routes import case_file_generator_bp
+ 326|     from app.fbo_issue.routes import fbo_issue_bp
+ 327|     from app.inspection.routes import inspection_bp
+ 328|     from app.legal_analysis import legal_analysis_bp
+ 329|     from app.sample.routes import sample_bp
+ 330|     from app.settings.routes import settings_bp
+ 331|     from app.tasks_webhook import tasks_webhook_bp
+ 332| 
+ 333|     app.register_blueprint(auth_bp, url_prefix="/auth")
+ 334|     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
+ 335|     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
+ 336|     from app.document_viewer import document_viewer_bp
+ 337| 
+ 338|     app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
+ 339|     app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
+ 340|     app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
+ 341|     app.register_blueprint(sample_bp, url_prefix="/sample")
+ 342|     app.register_blueprint(billing_bp, url_prefix="/billing")
+ 343|     app.register_blueprint(settings_bp, url_prefix="/settings")
+ 344|     app.register_blueprint(inspection_bp, url_prefix="/inspection")
+ 345|     app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
+ 346|     app.register_blueprint(audit_bp, url_prefix="/admin")
+ 347|     app.register_blueprint(tasks_webhook_bp)
+ 348| 
+ 349|     # Initialize database tables (models must be imported first)
+ 350|     # Import models so they're registered with SQLAlchemy metadata
+ 351|     from app import models
+ 352| 
+ 353|     # Fallback safeguard: if core tables are missing (e.g., fresh local DB
+ 354|     # without migrations applied), create them so startup sync doesn't fail.
+ 355|     # On a FRESH database we also stamp the Alembic head: the historical
+ 356|     # migration chain was written as incremental patches on top of a
+ 357|     # db.create_all()-created schema (e.g. the baseline adds columns to
+ 358|     # tables that don't exist yet from migrations alone), so replaying it
+ 359|     # against a fresh DB crashes on duplicate columns. Stamping makes the
+ 360|     # subsequent `flask db upgrade` in the Render start command a no-op
+ 361|     # while future migrations still apply normally.
+ 362|     with app.app_context():
+ 363|         from sqlalchemy import create_engine
+ 364|         from sqlalchemy import inspect as sa_inspect
+ 365| 
+ 366|         engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+ 367|         inspector = sa_inspect(engine)
+ 368|         if "fso" not in inspector.get_table_names():
+ 369|             db.create_all()
+ 370|             app.logger.info("Created missing tables via db.create_all() fallback")
+ 371|             # Only stamp when there is NO migration history at all — never
+ 372|             # clobber a partially-migrated database.
+ 373|             if "alembic_version" not in inspector.get_table_names():
+ 374|                 try:
+ 375|                     from flask_migrate import stamp as alembic_stamp
+ 376| 
+ 377|                     alembic_stamp(revision="head")
+ 378|                     app.logger.info("Stamped fresh database at migration head")
+ 379|                 except Exception as exc:
+ 380|                     app.logger.warning(
+ 381|                         "Could not stamp fresh database at migration head (%s) — "
+ 382|                         "`flask db upgrade` may replay the full chain next deploy.",
+ 383|                         exc,
+ 384|                     )
+ 385| 
+ 386|     # FSO sync on startup - import and run sync in app context
+ 387|     # This ensures FSO names are available as soon as the app starts
+ 388|     # Can be skipped via SKIP_FSO_STARTUP_SYNC env var (e.g. for fresh-DB migrations)
+ 389|     if not os.environ.get("SKIP_FSO_STARTUP_SYNC"):
+ 390|         from app.utils.fso_data import sync_fso_from_markdown
+ 391| 
+ 392|         with app.app_context(), _fso_sync_lock:
+ 393|             try:
+ 394|                 result = sync_fso_from_markdown()
+ 395|                 if result.errors:
+ 396|                     app.logger.warning(f"FSO startup sync completed with warnings: {result.errors}")
+ 397|                 else:
+ 398|                     app.logger.info(f"FSO startup sync: {result.inserted} inserted, {result.updated} updated")
+ 399|             except Exception as e:
+ 400|                 app.logger.error(f"FSO startup sync failed: {e!s}")
+ 401| 
+ 402|     # Redirect root to first tab (Sample -adjudication)
+ 403|     @app.route("/")
+ 404|     def root():
+ 405|         return redirect(url_for("case_file_generator.index"))
+ 406| 
+ 407|     # Initialize Celery with Flask app context support
+ 408|     # Lazy import to avoid ModuleNotFoundError in deployment environments
+ 409|     try:
+ 410|         from celery_app import make_celery
+ 411| 
+ 412|         app.celery = make_celery(app)
+ 413|     except ImportError:
+ 414|         # Celery not available (e.g., in minimal deployment)
+ 415|         app.celery = None
+ 416| 
+ 417|     return app
+ 418| 
+ 419| 
+ 420| # Create the Flask application instance for Gunicorn
+ 421| app = create_app()
+ 422| 
+ 423| # Export celery at module level so it can be imported elsewhere
+ 424| celery = app.celery

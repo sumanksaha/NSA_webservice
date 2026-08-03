@@ -1,14 +1,15 @@
 # Roadmap Alignment Report — NSA Webservice
 
 > **Generated:** 2026-08-02
-> **Last status update:** 2026-08-03 (steps 1–6 of the recommended order complete — Phase 5 done)
+> **Last status update:** 2026-08-03 (steps 1–7 of the recommended order complete — Phase 6 done)
 > **Purpose:** Evaluate the current NSA Webservice codebase against the 20-phase roadmap and produce a detailed implementation plan with TODO list and file-level edit guidance.
 
 > **📌 Current Project Status Update (2026-08-03):**
 > - **Phase 5 (Evidence Management):** ✅ **COMPLETED** — unified `Evidence` model (photo/video/report/licence/bill/lab_report), drag-and-drop multi-file upload, Pillow compression + thumbnails, type/tag categorization, library + FTS5 search, and the legacy `PhotoEvidence`/`InspectionPhoto` tables unified into `evidence` (migration `unify_photo_evidence`). Blueprint registered at `/evidence`, nav link added, 16 tests in tests/test_phase5_evidence.py.
 > - **Cloudinary Integration:** ✅ **COMPLETED** for adjudication photos (`InspectionPhoto` → now `Evidence`). Backend implemented in `app/utils/storage.py` with R2/B2 fallback. Environment config added to `.env.example`, `render.yaml`, and `pyproject.toml`.
 > - **Evaluation Score:** 4.3/5 (see `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for details).
-> - **Next Steps:** Phase 6 — Cross-reference engine.
+> - **Next Steps:** Phase 7 — Dynamic TOC generator.
+> - **Phase 6 (Cross-Reference Engine):** ✅ **COMPLETED** — `app/cross_reference/` engine: paragraph/annexure/section reference extraction (incl. sub-clause refs like `Section 26(2)(ii)` and runs like `Sections 55, 56 and 58`), annexure metadata linking by letter/index, renumbering passes (plain-text list markers, `<ol start>` continuations scoped to `class="justify"` lists, annexure letter reassignment), auto "List of Enclosures", and a defensive `post_process_pdf_html` pass wired into every PDF-assembly path (document_viewer, case_file_generator, adjudication). 27 tests in tests/test_cross_reference.py.
 
 ---
 
@@ -27,6 +28,7 @@ The current project is a mature **Flask web application** (server-side rendered)
 
 **📌 Recent Progress:**
 - **Phase 5 (Evidence Management):** ✅ **Completed 2026-08-03** — unified Evidence model + `/evidence` blueprint (drag-and-drop upload, Pillow compression, thumbnails, type/tag categorization, search) and the legacy PhotoEvidence/InspectionPhoto tables merged into `evidence`.
+- **Phase 6 (Cross-Reference Engine):** ✅ **Completed 2026-08-03** — `app/cross_reference/` (reference extraction/linking, paragraph + HTML-list + annexure renumbering, auto enclosures list) wired into every PDF-assembly path.
 - **Cloudinary Integration:** ✅ **Fully implemented** for adjudication photos (now the unified `Evidence` model). The backend in `app/utils/storage.py` now supports Cloudinary as an optional storage backend (active when `CLOUDINARY_*` env vars are set), with automatic fallback to R2/B2. No changes required to routes, models, or PDF embedding logic.
 - **Evaluation:** See `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for a detailed assessment (score: 4.3/5).
 
@@ -297,20 +299,23 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 **Files created/changed:** app/evidence/ (blueprint: `__init__.py`, `routes.py`, `media.py`, `templates/evidence/index.html`), app/static/js/evidence_uploader.js, migrations/versions/unify_photo_evidence.py, app/models.py (Evidence unified model), app/inspection/routes.py + app/adjudication/routes.py + app/document_viewer/renderer.py (Evidence queries), app/templates/base.html (nav link), app/static/css/theme.css (evidence styles), tests/test_phase5_evidence.py (16 tests).
 
-### Phase 6 — Automatic Cross-Reference Engine (Not Implemented)
+### Phase 6 — Automatic Cross-Reference Engine (Implemented)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Auto-generate paragraph to annexure/section references | Not implemented | New engine needed |
-| Automatic paragraph/annexure/page numbering updates | Not implemented | Document post-processing |
+| Auto-generate paragraph to annexure/section references | ✅ `CrossReferenceEngine.extract_references()` — paragraph word refs (`para 3`), numbered list markers, Annexure refs (letters + numbers, incl. `Annexure-C`, `Annexure No. B`), Section refs (runs `Sections 55, 56 and 58`, sub-clauses `Section 26(2)(ii)`, `u/s 63`) | app/cross_reference/engine.py |
+| Link references to annexure metadata | ✅ `link_references()` — resolves Annexure refs by letter or 1-based index against stored metadata (caption, page_count, filename); flags unresolved refs; marks known FSS sections | app/cross_reference/engine.py |
+| Automatic paragraph/annexure/page numbering updates | ✅ Renumbering passes: `renumber_paragraphs()` (text list markers), `renumber_html_lists()` (`<ol start>` continuations, scoped to `class="justify"` lists), `renumber_annexures()` (A/B/C letter reassignment) | app/cross_reference/engine.py |
+| Enclosures list | ✅ `build_enclosures_html()` auto-generates "List of Enclosures" from stored annexures; injected via an `<ol data-cross-reference="enclosures">` placeholder | app/cross_reference/engine.py |
+| PDF-assembly integration | ✅ Defensive `post_process_pdf_html()` / `renumber_html_lists()` in pdf_utils, wired into document_viewer, case_file_generator, and adjudication PDF paths | app/utils/pdf_utils.py, renderer.py, tasks.py, adjudication/routes.py |
 
 **TODO:**
-1. [ ] Build CrossReferenceEngine that parses text for patterns (paragraph numbers, Annexure refs, Section refs)
-2. [ ] Link references to annexure metadata (page refs, section refs)
-3. [ ] Implement renumbering on insert/delete
-4. [ ] Integrate into PDF assembly pipeline
+1. [x] Build CrossReferenceEngine that parses text for patterns (paragraph numbers, Annexure refs, Section refs) — **done**
+2. [x] Link references to annexure metadata (page refs, section refs) — **done** (`link_references`)
+3. [x] Implement renumbering on insert/delete — **done** (text + HTML list + annexure letter passes)
+4. [x] Integrate into PDF assembly pipeline — **done** (defensive `post_process_pdf_html` in all PDF paths)
 
-**Files to edit/create:** app/cross_reference/__init__.py, app/cross_reference/engine.py, app/utils/pdf_utils.py (renumbering pass)
+**Files created/changed:** app/cross_reference/__init__.py, app/cross_reference/engine.py, app/utils/pdf_utils.py (`post_process_pdf_html`, `renumber_html_lists`), app/document_viewer/renderer.py, app/case_file_generator/tasks.py, app/adjudication/routes.py, tests/test_cross_reference.py (27 tests).
 
 ### Phase 7 — Dynamic TOC (Not Implemented)
 
@@ -595,7 +600,7 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 7. [ ] **JSON export** endpoint
 
 ### Priority 2 — Core Features (Phase 6-12)
-8. [ ] **Cross-reference engine**
+8. [x] **Cross-reference engine** — **done** (`app/cross_reference/` + PDF pipeline integration)
 9. [ ] **Dynamic TOC generator**
 10. [ ] **PDF assembly** (headers/footers/page numbers)
 11. [ ] **QR code** generation
@@ -687,7 +692,7 @@ Flask backend exposes REST APIs for all features.
 | 4b | Phase 3 | ✅ Backup & restore endpoints (admin-only) | app/utils/backup.py, app/settings/routes.py |
 | 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
 | 6 | Phase 5 | ✅ **Evidence model extended → blueprint/UI done** — unified Evidence model, drag-and-drop upload, compression, thumbnails, categorization, search, PhotoEvidence/InspectionPhoto unification | app/evidence/ |
-| 7 | Phase 6 | Cross-reference engine | app/cross_reference/ |
+| 7 | Phase 6 | ✅ Cross-reference engine — **done**: reference extraction/linking, renumbering, enclosures, PDF pipeline integration | app/cross_reference/ |
 | 8 | Phase 7 | Dynamic TOC generator | app/toc_generator/ |
 | 9 | Phase 8 | PDF assembly (headers/footers/QR) | app/pdf_assembly/ |
 | 10 | Phase 9 | Version history + compare/restore | models.py, audit/ |
@@ -705,7 +710,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints); Phase 4 complete (annexures); **Phase 5 complete** (unified evidence library + PhotoEvidence/InspectionPhoto unification).
+1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints); Phase 4 complete (annexures); **Phase 5 complete** (unified evidence library + PhotoEvidence/InspectionPhoto unification); **Phase 6 complete** (cross-reference engine).
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
@@ -1113,7 +1118,7 @@ The existing `Sample` model will be extended with:
 7. [ ] **JSON export** endpoint
 
 ### Priority 2 — Core Features (Phase 6-12)
-8. [ ] **Cross-reference engine**
+8. [x] **Cross-reference engine** — **done** (`app/cross_reference/` + PDF pipeline integration)
 9. [ ] **Dynamic TOC generator**
 10. [ ] **PDF assembly** (headers/footers/page numbers)
 11. [ ] **QR code** generation

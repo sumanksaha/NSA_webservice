@@ -1,0 +1,1 @@
+  22| os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"  # noqa: S105

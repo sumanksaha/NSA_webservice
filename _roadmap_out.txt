@@ -1,0 +1,715 @@
+   1| ﻿# Roadmap Alignment Report — NSA Webservice
+   2| 
+   3| > **Generated:** 2026-08-02
+   4| > **Purpose:** Evaluate the current NSA Webservice codebase against the 20-phase roadmap and produce a detailed implementation plan with TODO list and file-level edit guidance.
+   5| 
+   6| ---
+   7| 
+   8| ## 0. Executive Summary
+   9| 
+  10| | Aspect | Current State | Roadmap Target | Alignment |
+  11| |--------|--------------|----------------|-----------|
+  12| | **Frontend** | Flask + Jinja2 + Vanilla JS (Quill 2.x) + custom CSS | React + TypeScript + Tailwind + Vite | **MISMATCH** |
+  13| | **State Management** | Server-side session (Flask-Login) | Zustand (client-side) | **MISMATCH** |
+  14| | **Local Storage** | SQLAlchemy + PostgreSQL/SQLite | Dexie.js (IndexedDB, offline-first) | **MISMATCH** |
+  15| | **Routing** | Flask routes | React Router | **MISMATCH** |
+  16| | **Build Tooling** | setuptools + GitHub Actions | Vite + ESLint + Prettier | **MISMATCH** |
+  17| | **Backend** | Flask (Python 3.12), SQLAlchemy, Celery + QStash | Backend as API provider | **PARTIAL** |
+  18| 
+  19| The current project is a mature **Flask web application** (server-side rendered) for Food Safety Officer adjudication. The roadmap describes a **new React + TypeScript** frontend. The roadmap's *domain features* are the substantive goals. Two approaches:
+  20| - **(A)** Build a new React frontend (rontend/) that consumes Flask REST APIs
+  21| - **(B)** Adapt roadmap features to the existing Flask/Jinja2 architecture
+  22| 
+  23| ---
+  24| 
+  25| ## 1. Current Project Structure
+  26| 
+  27| `
+  28| c:\github\NSA_webservice\
+  29| ├── app.py                              # WSGI entry point
+  30| ├── app/
+  31| │   ├── __init__.py                     # App factory, blueprint registration
+  32| │   ├── extensions.py                   # db, talisman, csrf, login_manager
+  33| │   ├── models.py                       # 15 SQLAlchemy models
+  34| │   ├── audit_hooks.py                  # SQLAlchemy after_flush audit logging
+  35| │   ├── adjudication/                   # Non-sample adjudication
+  36| │   ├── audit/                          # Audit log viewer
+  37| │   ├── auth/                           # Login/logout/change-password
+  38| │   ├── bill_generator/                 # Bill PDF generation
+  39| │   ├── billing/                        # Billing summary + Excel
+  40| │   ├── case_file_generator/            # Sample-based petition/PDF generation
+  41| │   ├── document_cleaner/               # Legal text cleaning pipeline
+  42| │   ├── document_loader/                # Document ingestion (PDF/DOCX/TXT)
+  43| │   ├── document_viewer/                # Quill editor viewer/saver
+  44| │   ├── fbo_issue/                      # FBO issue state machine
+  45| │   ├── inspection/                     # Inspection CRUD + photo + OCR
+  46| │   ├── legal_analysis/                 # Legal paragraph detection workbench
+  47| │   ├── ocr_pipeline/                   # OCR (PaddleOCR + Tesseract)
+  48| │   ├── sample/                         # Sample tracking CRUD
+  49| │   ├── services/                       # Services layer
+  50| │   ├── settings/                       # Settings dashboard
+  51| │   ├── shared/                         # Canonical field keys + context deriviners
+  52| │   ├── static/                         # CSS, JS, Quill vendor
+  53| │   ├── templates/base.html             # Master layout
+  54| │   ├── utils/                          # Lookup, filters, storage, pdf_utils
+  55| │   ├── tasks_webhook/                  # QStash webhook + task status
+  56| ├── legal_paragraph_detection_engine/   # Standalone rule-based legal parser
+  57| ├── migrations/                         # Alembic migrations (15 files)
+  58| ├── tests/                              # 14 pytest modules, ~245 test cases
+  59| ├── scripts/                            # Utility scripts
+  60| ├── .opencode/plans/                    # AI-assisted planning docs
+  61| ├── render.yaml                         # Render deployment config
+  62| ├── celery_app.py                       # Celery integration
+  63| ├── pyproject.toml                      # Dependencies + tool config
+  64| ├── requirements.txt / requirements-dev.txt
+  65| ├── .env.example                        # 15 environment variables
+  66| ├── ALL_TODO_MERGED.md                  # Security TODO items
+  67| ├── ENGINEERING_ASSESSMENT.md           # Principal architect assessment
+  68| ├── PROJECT_EVOLUTION.md                # Comprehensive architecture audit
+  69| └── LEGAL_PARAGRAPH_DETECTION_ENGINE.md # Legal text parser spec
+  70| `
+  71| 
+  72| ### 1.1 Registered Flask Blueprints (13)
+  73| 
+  74| | Blueprint | Prefix | Purpose |
+  75| |-----------|--------|---------|
+  76| | uth | /auth | Login, logout, change password |
+  77| | case_file_generator | /case_file_generator | Sample-based petition + permission letter |
+  78| | djudication | /adjudication | Non-sample adjudication, section suggestions |
+  79| | document_viewer | /document_viewer | Quill editor + save-to-PDF |
+  80| | ill_generator | /bill_generator | Bill PDF (QStash async) |
+  81| | bo_issue | /fbo-issue | FBO issue state machine |
+  82| | sample | /sample | Sample tracking CRUD |
+  83| | illing | /billing | Billing summary + Excel export |
+  84| | settings | /settings | Settings, FSO sync |
+  85| | inspection | /inspection | Inspection CRUD, photos, OCR |
+  86| | legal_analysis | /legal | Legal paragraph detection workbench |
+  87| | udit | /admin | Read-only audit log viewer |
+  88| | 	asks_webhook | *(none)* | QStash webhook, task status |
+  89| 
+  90| ### 1.2 SQLAlchemy Models (15)
+  91| 
+  92| | Model | Table | Key Fields |
+  93| |-------|-------|-----------|
+  94| | CaseFile | case_files | case_number, parties, sample_code, applicable_sections, version_id |
+  95| | Adjudication | djudications | case_number, FBO details, checklist, sections, version_id, photos |
+  96| | Inspection | inspection | inspection_code, fso_name, compliance_deadline, adjudication_id |
+  97| | Sample | sample | sample_code, sample_name, fso_name, collection_date, price |
+  98| | Bill | ills | Name, EMP_ID, prices, version_id |
+  99| | FboIssue | bo_issue | fbo_id, state, source_type, detail_json, geo coords |
+ 100| | FboIssueAudit | bo_issue_audit | issue_id, from_state, to_state |
+ 101| | FSO | so | fso_name (PK) |
+ 102| | InspectionPhoto | inspection_photos | adjudication_id, file_url, caption |
+ 103| | PhotoEvidence | photo_evidence | image_id, case_id, filepath, geo, verification_status |
+ 104| | AuditLog | udit_log | entity_type, action, actor, hash chain |
+ 105| | RecordAudit | 
+ 106| ecord_audit | action, record_type, changes_json, user_id |
+ 107| | User | user | username, password_hash |
+ 108| | CodeSequence | code_sequence | key, last_value |
+ 109| | AppSecret | pp_secrets | name, value |
+ 110| 
+ 111| ### 1.3 Technology Stack
+ 112| 
+ 113| Python 3.12, Flask 2.x, SQLAlchemy, Alembic, WeasyPrint, openpyxl, Celery + Redis, QStash,
+ 114| PaddleOCR + Tesseract, pdf2image, PIL, numpy, boto3 (R2/B2), gspread, pdfplumber,
+ 115| PyMuPDF, python-docx, Pydantic v2, ruff, black, mypy, bandit, pytest.
+ 116| GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
+ 117| 
+ 118| ### 1.4 Test Coverage
+ 119| 
+ 120| | Test File | Tests | Covers |
+ 121| |---|---|---|
+ 122| | 	est_auth_change_password.py | 9 | Auth: password change |
+ 123| | 	est_bill_generator.py | 11 | Bill: creation, PDF template vars |
+ 124| | 	est_document_cleaner.py | 45 | Document: text cleaning pipeline |
+ 125| | 	est_document_loader.py | 35 | Document: PDF/DOCX/TXT loading |
+ 126| | 	est_document_viewer.py | 24 | Editor: save, retrieve, PDF, session |
+ 127| | 	est_legal_suggest.py | 4 | Adjudication: section suggestions |
+ 128| | 	est_metadata_extractor.py | 31 | Metadata: regex + NER extraction |
+ 129| | 	est_ocr_pipeline.py | 24 | OCR: decision, preprocessing, engine |
+ 130| | 	est_pdf_photo_embedding.py | 11 | PDF: photo embedding in WeasyPrint |
+ 131| | 	est_route_collisions.py | 1 | URL collision regression |
+ 132| | 	est_step1.py-	est_step5_integration.py | 74 | Step-based integration tests |
+ 133| | **Total** | **~245** | |
+ 134| 
+ 135| ---
+ 136| 
+ 137| ## 2. Phase-by-Phase Roadmap Alignment
+ 138| 
+ 139| ### Phase 0 — Architecture & Foundation
+ 140| 
+ 141| | Roadmap Item | Current State | Gap | Action Needed |
+ 142| |---|---|---|---|
+ 143| | React + TypeScript frontend | Flask + Jinja2 + Vanilla JS | **Major mismatch** | Build frontend/ package or keep Flask templates |
+ 144| | Tailwind CSS | Custom theme.css (1852 lines) | Not using Tailwind | Skip if keeping Flask; add if new React frontend |
+ 145| | Zustand | Server-side session | N/A for Flask | Only if React path chosen |
+ 146| | Dexie.js (IndexedDB) | SQLAlchemy | N/A for Flask | Only if React path chosen |
+ 147| | React Router | Flask routes | N/A for Flask | Only if React path chosen |
+ 148| | Vite | setuptools | N/A for Flask | Only if React path chosen |
+ 149| | ESLint + Prettier | ruff + black + mypy + bandit | JS linting absent | Only if React path chosen |
+ 150| | GitHub Actions (CI) | Present (lint, pip-audit, validation, deploy) | Already exists | No action needed |
+ 151| 
+ 152| ### Phase 1 — Core Petition Engine (Largely Implemented)
+ 153| 
+ 154| | Feature | Status | File(s) |
+ 155| |---|---|---|
+ 156| | Case Model (Petition, Parties, Facts, Grounds, Prayer) | CaseFile model exists | app/models.py:12-90 |
+ 157| | Petition form (UI) | Jinja2 template with all fields | app/case_file_generator/templates/case_file_generator/index.html |
+ 158| | Petition template (PDF) | WeasyPrint-rendered HTML | app/case_file_generator/templates/case_file_generator/petition.html |
+ 159| | Validation | process_form_data() + get_applicable_sections() | app/case_file_generator/routes.py:27-48 |
+ 160| | Live preview | Quill editor with live iframe preview | app/static/js/document_viewer/editor.js |
+ 161| | PDF export | WeasyPrint via QStash async or sync fallback | app/case_file_generator/tasks.py, app/utils/pdf_utils.py |
+ 162| | Print layout | CSS print styles in theme.css | app/static/css/theme.css |
+ 163| | Auto-save | Partial - button-click save, not continuous | app/document_viewer/routes.py:32-115 |
+ 164| | Non-sample adjudication Petition | Adjudication model + templates | app/adjudication/routes.py + templates |
+ 165| | Permission Letter (both types) | Templates for both types | permission_letter.html, Legal_NonsampleAdjudication_Template.html |
+ 166| 
+ 167| **TODO:**
+ 168| 1. [ ] Continuous auto-save (debounce on text-change) in editor.js
+ 169| 2. [ ] Store Quill Delta alongside HTML for round-trip fidelity
+ 170| 3. [ ] Add validation error display in UI
+ 171| 4. [ ] Add Facts/Grounds/Prayer structured sections to petition template
+ 172| 
+ 173| **Files to edit:** app/static/js/document_viewer/editor.js, app/case_file_generator/templates/case_file_generator/petition.html, app/document_viewer/routes.py
+ 174| 
+ 175| ### Phase 2 — Rich Editor (Implemented - Quill 2.x)
+ 176| 
+ 177| | Feature | Status | File(s) |
+ 178| |---|---|---|
+ 179| | Rich text | Quill 2.x with Snow theme | app/static/vendor/quill/ |
+ 180| | Tables | Quill table module | editor.js |
+ 181| | Lists | Bulleted/numbered list toolbar | editor.js |
+ 182| | Images | Toolbar has image option, no upload handler | editor.js |
+ 183| | Hyperlinks | Toolbar includes link module | editor.js |
+ 184| | Custom legal blocks | Via Jinja2 template variables | Templates |
+ 185| | Track formatting | Quill Delta available, not stored | editor.js |
+ 186| | Store as HTML | HTML stored in instance/saved/ | document_viewer/routes.py |
+ 187| | Store as Quill Delta | Not stored | Need endpoint |
+ 188| | Store as Markdown | Not stored | Would need quill-delta-to-markdown |
+ 189| 
+ 190| **TODO:**
+ 191| 1. [ ] Wire up image upload handler in Quill editor
+ 192| 2. [ ] Store Quill Delta (add SavedDocument model + migration)
+ 193| 3. [ ] Add Markdown export option
+ 194| 
+ 195| **Files to edit:** app/static/js/document_viewer/editor.js, app/models.py, migrations/versions/new_saved_documents_table.py
+ 196| 
+ 197| ### Phase 3 — Local Database (Partially Implemented - Server-side)
+ 198| 
+ 199| | Roadmap Table | Current Equivalent | Gap | Action Needed |
+ 200| |---|---|---|---|
+ 201| | Cases | case_files table | Exists | No action |
+ 202| | Petitions | case_files (template render) | HTML not stored as field | Consider persisting |
+ 203| | Templates | Jinja2 .html files | Exist | OK |
+ 204| | Settings | No settings table | Missing | Create Settings model + migration |
+ 205| | Annexures | No table | Missing | Create Annexure model |
+ 206| | Evidence | photo_evidence (photos only) | Partial | Extend to all evidence types |
+ 207| | Versions | version_id col (optimistic locking) | Partial | Add full version history table |
+ 208| | SearchIndex | Not implemented | Missing | Create FTS5 or full-text index |
+ 209| 
+ 210| **Functions:**
+ 211| 
+ 212| | Function | Status | File(s) |
+ 213| |---|---|---|
+ 214| | CRUD | Full CRUD for all models | All route files |
+ 215| | Search | No global text search | Would need FTS5 |
+ 216| | Backup | Partial - instance folder ZIP | case_file_generator/routes.py |
+ 217| | Restore | Not implemented | New feature |
+ 218| | Auto-save | Partial (see Phase 1) | editor.js, document_viewer/routes.py |
+ 219| | Offline support | Not server-side offline | Would need PWA |
+ 220| 
+ 221| **TODO:**
+ 222| 1. [ ] Create Settings model + migration (app-level config)
+ 223| 2. [ ] Create Annexure model (UUID, caption, date, hash, page_count, ocr_text, tags)
+ 224| 3. [ ] Add Version model for full audit trail + snapshot-on-save
+ 225| 4. [ ] Implement SQLite FTS5 search index + search API
+ 226| 5. [ ] Implement backup and restore endpoints
+ 227| 6. [ ] Extend PhotoEvidence to general Evidence model
+ 228| 
+ 229| **Files to edit/create:** app/models.py (add Settings, Annexure, Version, Evidence), migrations/versions/, app/search/ (new blueprint)
+ 230| 
+ 231| ### Phase 4 — Annexure Management (Not Started)
+ 232| 
+ 233| | Feature | Status | File(s) |
+ 234| |---|---|---|
+ 235| | Upload (PDF, JPG, PNG, DOCX) | Partial - JPG/PNG via upload_photo() | app/utils/storage.py |
+ 236| | Generate Annexure A/B/C | Not implemented | New module needed |
+ 237| | Metadata (UUID, Caption, Date, Hash, Page count, OCR text, Tags) | Partial - PhotoEvidence has some | app/models.py:330-347 |
+ 238| | Preview | Partial - PDF preview via WeasyPrint | document_viewer/editor.html |
+ 239| | Rename | Not implemented | New feature |
+ 240| | Delete | Exists for photos | app/inspection/routes.py (DELETE endpoint) |
+ 241| | Reorder | Not implemented | New feature |
+ 242| | Replace | Not implemented | New feature |
+ 243| | Duplicate detection | Partial - hash-based in document_cleaner | app/document_cleaner/ |
+ 244| 
+ 245| **TODO:**
+ 246| 1. [ ] Create Annexure model (uuid, caption, date, hash, page_count, ocr_text, tags, case_id FK)
+ 247| 2. [ ] Add upload endpoint supporting PDF/JPG/PNG/DOCX
+ 248| 3. [ ] Implement annexure generation (A/B/C naming)
+ 249| 4. [ ] Add metadata extraction (hash, page count, OCR text)
+ 250| 5. [ ] Add frontend UI for annexure list/preview/rename/delete/reorder
+ 251| 6. [ ] Implement duplicate detection by hash
+ 252| 
+ 253| **Files to edit/create:** app/models.py (add Annexure), app/annexure/ (new blueprint), app/document_loader/ (extend for metadata), migrations/
+ 254| 
+ 255| ### Phase 5 — Evidence Management (Partially Implemented)
+ 256| 
+ 257| | Feature | Status | File(s) |
+ 258| |---|---|---|
+ 259| | Evidence Types (Photos, Videos, Reports, Licences, Bills, Lab reports) | Photos only via PhotoEvidence/InspectionPhoto | app/models.py:330-347, 163-176 |
+ 260| | Drag & drop upload | Not implemented | New frontend feature |
+ 261| | Compression | Not implemented | New feature |
+ 262| | OCR | PaddleOCR + Tesseract pipeline | app/ocr_pipeline/, app/inspection/tasks.py |
+ 263| | Metadata extraction | Partial (geo coords, verification) | app/models.py:330-347 |
+ 264| | Categorization | Not implemented | New feature |
+ 265| | Search | Not implemented for evidence | New feature |
+ 266| | Thumbnail generation | Not implemented | New feature |
+ 267| 
+ 268| **TODO:**
+ 269| 1. [ ] Extend Evidence model to support all types (video, report, licence, bill, lab report)
+ 270| 2. [ ] Add drag-and-drop upload UI
+ 271| 3. [ ] Implement image compression (Pillow)
+ 272| 4. [ ] Add thumbnail generation for images
+ 273| 5. [ ] Implement evidence categorization + search
+ 274| 6. [ ] Unify InspectionPhoto and PhotoEvidence into single Evidence model
+ 275| 
+ 276| **Files to edit/create:** app/models.py (extend/replace Evidence), app/evidence/ (blueprint), app/static/js/evidence_uploader.js, migrations/
+ 277| 
+ 278| ### Phase 6 — Automatic Cross-Reference Engine (Not Implemented)
+ 279| 
+ 280| | Feature | Status | File(s) |
+ 281| |---|---|---|
+ 282| | Auto-generate paragraph to annexure/section references | Not implemented | New engine needed |
+ 283| | Automatic paragraph/annexure/page numbering updates | Not implemented | Document post-processing |
+ 284| 
+ 285| **TODO:**
+ 286| 1. [ ] Build CrossReferenceEngine that parses text for patterns (paragraph numbers, Annexure refs, Section refs)
+ 287| 2. [ ] Link references to annexure metadata (page refs, section refs)
+ 288| 3. [ ] Implement renumbering on insert/delete
+ 289| 4. [ ] Integrate into PDF assembly pipeline
+ 290| 
+ 291| **Files to edit/create:** app/cross_reference/__init__.py, app/cross_reference/engine.py, app/utils/pdf_utils.py (renumbering pass)
+ 292| 
+ 293| ### Phase 7 — Dynamic TOC (Not Implemented)
+ 294| 
+ 295| | Feature | Status | File(s) |
+ 296| |---|---|---|
+ 297| | Detect headings/subheadings | Not implemented | Could use legal_paragraph_detection_engine |
+ 298| | Detect annexures/appendices | Not implemented | New feature |
+ 299| | Generate TOC, bookmarks, hyperlinks | Not implemented | PDF post-processing |
+ 300| | Live update after edit | Not implemented | New feature |
+ 301| 
+ 302| **TODO:**
+ 303| 1. [ ] Build TOC generator that parses HTML for heading tags and annexure markers
+ 304| 2. [ ] Generate hyperlinked TOC
+ 305| 3. [ ] Inject PDF bookmarks during WeasyPrint rendering
+ 306| 4. [ ] Hook into editor for live updates
+ 307| 
+ 308| **Files to edit/create:** app/toc_generator/__init__.py, app/toc_generator/generator.py, app/document_viewer/templates/document_viewer/editor.html (add TOC panel)
+ 309| 
+ 310| ### Phase 8 — PDF Assembly Engine (Partially Implemented)
+ 311| 
+ 312| | Feature | Status | File(s) |
+ 313| |---|---|---|
+ 314| | Petition + Permission Letter only | Petition + Permission Letter only | app/case_file_generator/tasks.py |
+ 315| | Bookmarks | Not implemented | WeasyPrint CSS @page |
+ 316| | Hyperlinks | Not implemented | |
+ 317| | Headers | Partial - CSS @page possible | theme.css / templates |
+ 318| | Footers | Not implemented | |
+ 319| | Page numbers | Not implemented | |
+ 320| | QR code | Not implemented | Would need qrcode library |
+ 321| | Signature placeholders | Not implemented | |
+ 322| 
+ 323| **TODO:**
+ 324| 1. [ ] Extend PDF assembly to include annexures, evidence, and index pages
+ 325| 2. [ ] Add WeasyPrint CSS for headers/footers/page numbers (@page rules)
+ 326| 3. [ ] Add QR code generation (qrcode package)
+ 327| 4. [ ] Add signature placeholders in templates
+ 328| 5. [ ] Add PDF bookmarks via PDFAssemblyEngine
+ 329| 
+ 330| **Files to edit/create:** app/pdf_assembly/__init__.py, app/pdf_assembly/assembler.py, app/case_file_generator/templates/..., pyproject.toml (add qrcode)
+ 331| 
+ 332| ### Phase 9 — Version Control (Partially Implemented)
+ 333| 
+ 334| | Feature | Status | File(s) |
+ 335| |---|---|---|
+ 336| | Version chain (v1 -> v2 -> v3) | version_id optimistic locking only | app/models.py |
+ 337| | Compare | Not implemented | Need diff view |
+ 338| | Restore | Not implemented | |
+ 339| | Branch drafts | Not implemented | |
+ 340| | Audit history | Partial - AuditLog hash chain + RecordAudit | app/models.py, app/audit_hooks.py |
+ 341| 
+ 342| **TODO:**
+ 343| 1. [ ] Create Version model (version_number, content_hash, created_at, user_id, change_summary)
+ 344| 2. [ ] Add snapshot-on-save triggers (store HTML/deltas)
+ 345| 3. [ ] Implement compare view (diff of two versions)
+ 346| 4. [ ] Implement restore endpoint
+ 347| 5. [ ] Add branch draft support
+ 348| 6. [ ] Expose audit history in UI
+ 349| 
+ 350| **Files to edit/create:** app/models.py (add Version), app/audit/routes.py (extend), migrations/, app/static/js/version_history.js
+ 351| 
+ 352| ### Phase 10 — Search Engine (Not Implemented)
+ 353| 
+ 354| | Feature | Status | File(s) |
+ 355| |---|---|---|
+ 356| | Index Petition, OCR text, Evidence, Annexures, Case metadata | Not implemented | No full-text search |
+ 357| | Keyword search | Not implemented | |
+ 358| | Filters | Not implemented | |
+ 359| | Fuzzy search | Not implemented | |
+ 360| | Full-text search | Not implemented | |
+ 361| 
+ 362| **TODO:**
+ 363| 1. [ ] Create search index table (or SQLite FTS5 / PostgreSQL tsvector)
+ 364| 2. [ ] Index: petition text, OCR text, evidence text, annexure text, case metadata
+ 365| 3. [ ] Build search API endpoint
+ 366| 4. [ ] Implement fuzzy matching (rapidfuzz)
+ 367| 5. [ ] Add search UI
+ 368| 
+ 369| **Files to edit/create:** app/search/__init__.py, app/search/routes.py, app/search/indexer.py, migrations/, pyproject.toml (add rapidfuzz)
+ 370| 
+ 371| ### Phase 11 — AI Assistant (Partially Implemented - Rule-Based)
+ 372| 
+ 373| | Capability | Status | File(s) |
+ 374| |---|---|---|
+ 375| | Grammar correction | Not implemented | |
+ 376| | Legal language improvement | Not implemented | |
+ 377| | Summarize evidence | Not implemented | |
+ 378| | Detect contradictions | Not implemented | |
+ 379| | Identify missing annexures | Not implemented | |
+ 380| | Suggest legal provisions | Rule-based via suggest_sections() | app/utils/suggester.py |
+ 381| | Draft prayers | Not implemented | |
+ 382| | Draft facts | Not implemented | |
+ 383| | Draft grounds | Not implemented | |
+ 384| 
+ 385| **Note:** The `legal_paragraph_detection_engine` provides paragraph-level legal citation extraction — a foundation for AI features. Service layer: `app/services/legal_engine.py`.
+ 386| 
+ 387| **TODO:**
+ 388| 1. [ ] Create AIAssistant service layer
+ 389| 2. [ ] Integrate LLM API (OpenRouter/OpenAI) for grammar, legal language, summarization, contradiction detection
+ 390| 3. [ ] Add "identify missing annexures" logic
+ 391| 4. [ ] Add "draft prayers/facts/grounds" via LLM prompt templates
+ 392| 5. [ ] Wire AI features into document editor UI
+ 393| 
+ 394| **Files to edit/create:** app/ai_assistant/__init__.py, app/ai_assistant/service.py, app/ai_assistant/routes.py, app/static/js/ai_assistant.js, pyproject.toml (add openai or httpx)
+ 395| 
+ 396| ### Phase 12 — Legal Rule Engine (Partially Implemented)
+ 397| 
+ 398| | Validation | Status | File(s) |
+ 399| |---|---|---|
+ 400| | Mandatory sections | Rule-based via suggest_sections() | app/utils/suggester.py |
+ 401| | Missing signatures | Not implemented | |
+ 402| | Numbering | Not implemented | |
+ 403| | Statutory references | Partial - section detection in legal_paragraph_detection_engine | legal_paragraph_detection_engine/ |
+ 404| | Duplicate evidence | Not implemented | |
+ 405| | Timeline consistency | Not implemented | |
+ 406| | Document completeness | Not implemented | |
+ 407| 
+ 408| **Output formats:**
+ 409| | Output | Status |
+ 410| |---|---|
+ 411| | Validation Score | Not implemented |
+ 412| | Warnings | Not implemented |
+ 413| | Errors | Partial via ValidationError JSON |
+ 414| | Suggestions | Section suggestions via suggester |
+ 415| 
+ 416| **TODO:**
+ 417| 1. [ ] Create ValidationEngine that runs all checks
+ 418| 2. [ ] Implement missing-signature detection (scan templates for signature placeholders)
+ 419| 3. [ ] Implement numbering validation (case_number, sample_code, lab_reg_no formats)
+ 420| 4. [ ] Implement statutory reference validation (Sections 55/56/58/63/64 rules)
+ 421| 5. [ ] Implement duplicate evidence detection (hash-based)
+ 422| 6. [ ] Implement timeline consistency validation
+ 423| 7. [ ] Implement document completeness check
+ 424| 8. [ ] Return structured score + warnings + errors + suggestions
+ 425| 
+ 426| **Files to edit/create:** app/validation/__init__.py, app/validation/engine.py, app/validation/rules.py, app/legal_analysis/routes.py (extend)
+ 427| 
+ 428| ### Phase 13 — Timeline Engine (Not Implemented)
+ 429| 
+ 430| | Feature | Status | File(s) |
+ 431| |---|---|---|
+ 432| | Auto-create complaint to inspection to sampling to dispatch to lab result to notice to reply to petition to order | Not implemented | |
+ 433| | Link events to supporting documents | Not implemented | Partial via case_id/inspection_id FKs |
+ 434| 
+ 435| **TODO:**
+ 436| 1. [ ] Create TimelineEvent model (event_type, case_id, timestamp, document_ref, description)
+ 437| 2. [ ] Implement timeline auto-generation from case data (derive events from dates)
+ 438| 3. [ ] Add timeline UI (Gantt-style)
+ 439| 4. [ ] Link events to supporting documents
+ 440| 
+ 441| **Files to edit/create:** app/models.py (add TimelineEvent), app/timeline/__init__.py, app/timeline/engine.py, app/timeline/routes.py, migrations/
+ 442| 
+ 443| ### Phase 14 — Knowledge Graph (Not Implemented)
+ 444| 
+ 445| | Feature | Status | File(s) |
+ 446| |---|---|---|
+ 447| | Store relationships (Complaint to Inspection to Observation to Evidence to Sample to Lab Report to Violation to Ground to Prayer) | Not implemented | |
+ 448| | Trace assertions to evidence | Not implemented | |
+ 449| 
+ 450| **Note:** README mentions Neo4j (Level 8, planned). The legal_paragraph_detection_engine provides entity relationship extraction foundation.
+ 451| 
+ 452| **TODO:**
+ 453| 1. [ ] Create Entity and Relationship models (or use Neo4j)
+ 454| 2. [ ] Extract entities from case data
+ 455| 3. [ ] Build relationship mappings
+ 456| 4. [ ] Provide graph traversal API
+ 457| 
+ 458| **Files to edit/create:** app/knowledge_graph/__init__.py, app/knowledge_graph/models.py, app/knowledge_graph/engine.py, app/models.py (add Entity/Relationship)
+ 459| 
+ 460| ### Phase 15 — Analytics Dashboard (Partially Implemented)
+ 461| 
+ 462| | Metric | Status | File(s) |
+ 463| |---|---|---|
+ 464| | Pending cases | Partial - derivable from DB | app/billing/routes.py |
+ 465| | Disposed cases | Not implemented | |
+ 466| | Inspections | List view with filters | app/inspection/routes.py |
+ 467| | Sample status | Sample list | app/sample/routes.py |
+ 468| | Evidence count | Partial - per-case photo count | app/adjudication/routes.py |
+ 469| | Legal provisions used | Section tracking via applicable_sections | app/models.py, app/shared/case_keys.py |
+ 470| | Violation trends | Partial - checklist data exists | app/adjudication/routes.py |
+ 471| | Geographic distribution | Partial - geo coords in PhotoEvidence | app/models.py |
+ 472| 
+ 473| **Current analytics-like features:**
+ 474| - Billing summary with filters: app/billing/routes.py, app/billing/billing_utils.py
+ 475| - Inspection list with sorting/filtering: app/inspection/routes.py
+ 476| - FBO issue state tracking: app/fbo_issue/routes.py
+ 477| 
+ 478| **TODO:**
+ 479| 1. [ ] Create analytics dashboard route + template
+ 480| 2. [ ] Implement aggregate queries (pending/disposed cases, inspection counts)
+ 481| 3. [ ] Add chart.js or similar for visualization
+ 482| 4. [ ] Add geographic map (Leaflet + geo coords)
+ 483| 5. [ ] Add violation trend analysis
+ 484| 
+ 485| **Files to edit/create:** app/analytics/__init__.py, app/analytics/routes.py, migrations/
+ 486| 
+ 487| ### Phase 16 — Backup & Export (Partially Implemented)
+ 488| 
+ 489| | Feature | Status | File(s) |
+ 490| |---|---|---|
+ 491| | Export PDF | Case file PDF (petition + permission letter) | app/case_file_generator/tasks.py |
+ 492| | Export JSON | Not implemented | |
+ 493| | Export ZIP | Case file ZIP (petition + permission letter) | app/case_file_generator/tasks.py |
+ 494| | Import complete case | Not implemented | |
+ 495| | Scheduled backups | Partial - Render automated DB backups | render.yaml |
+ 496| 
+ 497| **TODO:**
+ 498| 1. [ ] Add JSON export endpoint for full case data
+ 499| 2. [ ] Extend ZIP export to include annexures, evidence, versions
+ 500| 3. [ ] Implement case import (JSON to DB restore)
+ 501| 4. [ ] Add scheduled backup configuration (Celery beat)
+ 502| 5. [ ] Add backup download UI
+ 503| 
+ 504| **Files to edit/create:** Extend app/case_file_generator/routes.py, app/backup/ (new), celery_app.py (beat schedule)
+ 505| 
+ 506| ### Phase 17 — Cloud Synchronization (Partially Implemented via Google Sheets)
+ 507| 
+ 508| | Feature | Status | File(s) |
+ 509| |---|---|---|
+ 510| | Backend (Supabase/R2) | R2/B2 for photo storage; Google Sheets for data | app/utils/storage.py, app/services/sheets_sync.py |
+ 511| | Sync cases | Partial - Google Sheets sync for case data | app/services/sheets_sync.py |
+ 512| | Sync annexures | Not implemented | |
+ 513| | Sync images | Photos uploaded to R2 | app/utils/storage.py |
+ 514| | Sync evidence | Partial - photos only | app/inspection/routes.py |
+ 515| | Sync versions | Not implemented | |
+ 516| 
+ 517| **TODO:**
+ 518| 1. [ ] Build Supabase sync bridge (export DB to Supabase PostgreSQL)
+ 519| 2. [ ] Sync annexures to cloud storage
+ 520| 3. [ ] Add conflict resolution logic (version_id check)
+ 521| 4. [ ] Add sync status UI
+ 522| 
+ 523| **Files to edit/create:** app/sync/__init__.py, app/sync/supabase_sync.py, app/sync/routes.py
+ 524| 
+ 525| ### Phase 18 — Multi-user Workflow (Auth Only)
+ 526| 
+ 527| All authenticated users have equal access. No role differentiation.
+ 528| 
+ 529| **TODO:**
+ 530| 1. [ ] Add Role model + user_roles association table
+ 531| 2. [ ] Implement RBAC decorator (@role_required)
+ 532| 3. [ ] Add review/comments system (Comment model)
+ 533| 4. [ ] Add approval workflow (status field on CaseFile/Adjudication)
+ 534| 5. [ ] Add user management UI (admin only)
+ 535| 
+ 536| **Files to edit/create:** app/models.py (add Role, UserRole, Comment), app/decorators.py, migrations/
+ 537| 
+ 538| ### Phase 19 — AI Case Intelligence (Not Implemented)
+ 539| 
+ 540| **TODO:**
+ 541| 1. [ ] Create CaseIntelligence engine running all checks
+ 542| 2. [ ] Implement evidence strength analysis (OCR quality, photo verification)
+ 543| 3. [ ] Implement allegation-to-evidence traceability
+ 544| 4. [ ] Implement date conflict detection
+ 545| 5. [ ] Compute composite readiness score
+ 546| 
+ 547| **Files to edit/create:** app/case_intelligence/__init__.py, app/case_intelligence/engine.py, app/legal_analysis/routes.py
+ 548| 
+ 549| ### Phase 20 — Plugin Architecture (Not Implemented)
+ 550| 
+ 551| OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in suggester.py.
+ 552| 
+ 553| **TODO:**
+ 554| 1. [ ] Create plugin registry system (app/plugins/)
+ 555| 2. [ ] Abstract OCR engine as plugin interface
+ 556| 3. [ ] Abstract AI model as plugin interface
+ 557| 4. [ ] Abstract rule packs as plugin interface
+ 558| 5. [ ] Abstract PDF engine as plugin interface
+ 559| 
+ 560| **Files to edit/create:** app/plugins/__init__.py, app/plugins/registry.py, app/plugins/base.py, refactor app/ocr_pipeline/ocr_engine.py
+ 561| 
+ 562| ---
+ 563| 
+ 564| ## 3. Consolidated TODO List
+ 565| 
+ 566| ### Priority 1 — Foundational (Phase 1-3 completion)
+ 567| 1. [ ] **Continuous auto-save** in Quill editor (editor.js)
+ 568| 2. [ ] **Settings table** model + migration
+ 569| 3. [ ] **Annexure model** with metadata
+ 570| 4. [ ] **Evidence model** extended to all types
+ 571| 5. [ ] **SQLite FTS5 search** index + API
+ 572| 6. [ ] **Version history table** + compare/restore
+ 573| 7. [ ] **JSON export** endpoint
+ 574| 
+ 575| ### Priority 2 — Core Features (Phase 6-12)
+ 576| 8. [ ] **Cross-reference engine**
+ 577| 9. [ ] **Dynamic TOC generator**
+ 578| 10. [ ] **PDF assembly** (headers/footers/page numbers)
+ 579| 11. [ ] **QR code** generation
+ 580| 12. [ ] **Signature placeholders**
+ 581| 13. [ ] **Validation engine**
+ 582| 14. [ ] **Timeline engine**
+ 583| 
+ 584| ### Priority 3 — Intelligence & Analytics (Phase 13-19)
+ 585| 16. [ ] **Knowledge graph**
+ 586| 17. [ ] **Analytics dashboard**
+ 587| 18. [ ] **AI assistant service** (LLM integration)
+ 588| 19. [ ] **Case intelligence engine** (readiness score)
+ 589| 20. [ ] **Multi-user RBAC** (Role model, @role_required)
+ 590| 21. [ ] **Cloud sync** (Supabase)
+ 591| 22. [ ] **Backup & restore**
+ 592| 23. [ ] **Plugin architecture**
+ 593| 
+ 594| 
+ 595| ## 4. File-Level Edit Guide
+ 596| 
+ 597| ### 4.1 Files Needing New Models
+ 598| **File:** `app/models.py`
+ 599| - Add: `Settings`, `Annexure`, `Evidence`, `Version`, `TimelineEvent`, `Role`, `UserRole`, `Comment`, `Entity`, `Relationship`, `SavedDocument`
+ 600| 
+ 601| ### 4.2 Files Needing New Blueprints
+ 602| | Blueprint | Purpose | New Files |
+ 603| |---|---|---|
+ 604| | app/annexure/ | Annexure management | __init__.py, routes.py, templates/ |
+ 605| | app/evidence/ | Evidence management | __init__.py, routes.py, templates/ |
+ 606| | app/search/ | Full-text search | __init__.py, routes.py, indexer.py |
+ 607| | app/cross_reference/ | Auto cross-reference | __init__.py, engine.py |
+ 608| | app/toc_generator/ | Dynamic TOC | __init__.py, generator.py |
+ 609| | app/pdf_assembly/ | PDF assembly | __init__.py, assembler.py |
+ 610| | app/validation/ | Legal rule engine | __init__.py, engine.py, rules.py |
+ 611| | app/timeline/ | Timeline engine | __init__.py, engine.py, routes.py |
+ 612| | app/knowledge_graph/ | Knowledge graph | __init__.py, models.py, engine.py |
+ 613| | app/analytics/ | Analytics dashboard | __init__.py, routes.py, templates/ |
+ 614| | app/backup/ | Backup & restore | __init__.py, routes.py, tasks.py |
+ 615| | app/sync/ | Cloud sync | __init__.py, supabase_sync.py |
+ 616| | app/ai_assistant/ | AI assistant | __init__.py, service.py, routes.py |
+ 617| | app/case_intelligence/ | AI intelligence | __init__.py, engine.py |
+ 618| | app/plugins/ | Plugin architecture | __init__.py, registry.py, base.py |
+ 619| 
+ 620| ### 4.3 Existing Routes to Extend
+ 621| | File | Extension Needed |
+ 622| |---|---|
+ 623| | app/case_file_generator/routes.py | JSON export, validation |
+ 624| | app/adjudication/routes.py | Validation, comments, approvals |
+ 625| | app/inspection/routes.py | StaleDataError handling (S9a) |
+ 626| | app/sample/routes.py | StaleDataError handling (S9a) |
+ 627| | app/billing/routes.py | Analytics data endpoints |
+ 628| | app/settings/routes.py | Settings CRUD UI |
+ 629| | app/document_viewer/routes.py | Delta storage, auto-save |
+ 630| | app/legal_analysis/routes.py | Validation + readiness score |
+ 631| | app/__init__.py | Register blueprints, RBAC |
+ 632| 
+ 633| ### 4.4 New Migrations
+ 634| new_annexure_table.py, new_evidence_table.py, new_settings_table.py,
+ 635| new_version_history_table.py, new_search_index_table.py,
+ 636| new_timeline_event_table.py, new_role_userrole_comment_tables.py,
+ 637| new_entity_relationship_tables.py, new_saved_document_table.py
+ 638| 
+ 639| ### 4.5 Frontend Files to Modify
+ 640| | File | Modification |
+ 641| |---|---|
+ 642| | app/static/js/document_viewer/editor.js | Auto-save, delta, image upload, TOC |
+ 643| | app/document_viewer/templates/document_viewer/editor.html | TOC, version history, comments |
+ 644| | app/templates/base.html | Analytics nav link |
+ 645| | app/static/css/theme.css | Styles for new panels |
+ 646| 
+ 647| ### 4.6 Config Files to Modify
+ 648| pyproject.toml (add qrcode, rapidfuzz, openai), .env.example (add API keys),
+ 649| render.yaml (beat worker, env vars), celery_app.py (beat schedule)
+ 650| 
+ 651| ### 4.7 React Frontend (If Chosen)
+ 652| Create frontend/ with Vite + React + TS + Tailwind + Zustand + Dexie.js.
+ 653| Flask backend exposes REST APIs for all features.
+ 654| 
+ 655| 
+ 656| ## 5. Recommended Implementation Order
+ 657| 
+ 658| | Step | Phase | Action | Key Files |
+ 659| |---|---|---|---|
+ 660| | 1 | Phase 0 | **Architecture decision: React vs Flask templates** | frontend/ |
+ 661| | 2 | Phase 1 | Continuous auto-save + delta storage | editor.js, document_viewer/routes.py |
+ 662| | 3 | Phase 3 | Settings + Annexure + Evidence models | models.py, migrations/ |
+ 663| | 4 | Phase 3 | SQLite FTS5 search index + API | app/search/ |
+ 664| | 5 | Phase 4 | Annexure upload + metadata extraction | app/annexure/ |
+ 665| | 6 | Phase 5 | Extend evidence model | app/evidence/ |
+ 666| | 7 | Phase 6 | Cross-reference engine | app/cross_reference/ |
+ 667| | 8 | Phase 7 | Dynamic TOC generator | app/toc_generator/ |
+ 668| | 9 | Phase 8 | PDF assembly (headers/footers/QR) | app/pdf_assembly/ |
+ 669| | 10 | Phase 9 | Version history + compare/restore | models.py, audit/ |
+ 670| | 11 | Phase 10 | Search engine (fuzzy, filters) | app/search/ |
+ 671| | 12 | Phase 11 | AI assistant (LLM integration) | app/ai_assistant/ |
+ 672| | 13 | Phase 12 | Legal validation engine | app/validation/ |
+ 673| | 14 | Phase 13 | Timeline engine | app/timeline/ |
+ 674| | 15 | Phase 14 | Knowledge graph | app/knowledge_graph/ |
+ 675| | 16 | Phase 15 | Analytics dashboard | app/analytics/ |
+ 676| | 17 | Phase 16 | Backup & export | app/backup/ |
+ 677| | 18 | Phase 17 | Cloud sync (Supabase) | app/sync/ |
+ 678| | 19 | Phase 18 | Multi-user RBAC | models.py, decorators.py |
+ 679| | 20 | Phase 19 | AI case intelligence | app/case_intelligence/ |
+ 680| | 21 | Phase 20 | Plugin architecture | app/plugins/ |
+ 681| 
+ 682| ## 6. Key Architectural Observations
+ 683| 
+ 684| 1. **Cohesive production-ready Flask app** - ~245 tests, CI/CD, security hardening, 13 blueprints. Phase 0 (foundation) already complete.
+ 685| 
+ 686| 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
+ 687| 
+ 688| 3. **Quill editor already integrated** - supports rich text, tables, lists, links. HTML stored in `instance/saved/`. Supports Phase 2 but lacks Delta storage + image upload.
+ 689| 
+ 690| 4. **Domain model well-normalized** - CaseFile (sample-based) vs Adjudication (non-sample) split. `shared/case_keys.py` establishes canonical key contract across 4 UIs.
+ 691| 
+ 692| 5. **Async task handling sophisticated** - QStash (webhook delivery) with sync fallback. Works on free-tier without persistent Celery worker.
+ 693| 
+ 694| 6. **legal_paragraph_detection_engine** - standalone package with test suite. Foundation for Phase 6, 12, 19.
+ 695| 
+ 696| 7. **Security robust** - Talisman (CSP, HSTS), CSRF, Flask-Login, hash-chained AuditLog, optimistic locking. Gaps: S7 (scraper TLS), S2 (CSP enforcement), S6a.
+ 697| 
+ 698| 8. **ENGINEERING_ASSESSMENT.md** (2026-07-18) rates architecture 6.5/10. Bottlenecks: SQLite, Sheets sync, in-memory PDF. Partially addressed (PostgreSQL, QStash).
+ 699| 
+ 700| ## 7. Documentation Reference
+ 701| 
+ 702| | File | Purpose |
+ 703| |---|---|
+ 704| | PROJECT_EVOLUTION.md | Architecture audit (must-read) |
+ 705| | ENGINEERING_ASSESSMENT.md | Performance/scaling assessment |
+ 706| | ALL_TODO_MERGED.md | Security TODO items |
+ 707| | LEGAL_PARAGRAPH_DETECTION_ENGINE.md | Legal parser spec |
+ 708| | DOCUMENT_VIEWER_IMPLEMENTATION_PLAN.md | Editor plan |
+ 709| | POSTGRES_MIGRATION.md | PostgreSQL migration guide |
+ 710| | .opencode/plans/PHASE2_MODERNIZATION_STRATEGY.md | Code modernization |
+ 711| | .opencode/plans/PHASE3_PRODUCTION_REFACTORING.md | Production refactoring |
+ 712| 
+ 713| ---
+ 714| 
+ 715| *End of Report*

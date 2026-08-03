@@ -53,6 +53,44 @@ def generate_pdf_from_html(html_content):
         return None, f"PDF generation failed: {e}"
 
 
+def renumber_html_lists(html_content: str) -> str:
+    """Renumbering pass for ``<ol start="N">`` continuation lists (Phase 6).
+
+    Recomputes ``start`` attributes on ordered lists that explicitly carry
+    one, so paragraph numbering stays correct after insert/delete edits in
+    the document editor. Lists without a ``start`` attribute are untouched.
+
+    Delegates to the cross-reference engine; never raises (returns the input
+    unchanged on failure).
+    """
+    try:
+        from app.cross_reference.engine import CrossReferenceEngine
+
+        return CrossReferenceEngine().renumber_html_lists(html_content)
+    except Exception as exc:
+        logger.warning("HTML renumbering pass skipped: %s", exc)
+        return html_content
+
+
+def post_process_pdf_html(html_content: str, case_id: int | None = None, adjudication_id: int | None = None) -> str:
+    """Phase 6 cross-reference pass over rendered HTML before PDF compilation.
+
+    Applies the list-renumbering pass and, when the document carries an
+    ``<ol data-cross-reference="enclosures">`` placeholder, fills it with
+    the auto-generated annexure enclosures list for the case.
+
+    Defensive: returns the input unchanged on any failure so PDF generation
+    is never blocked.
+    """
+    try:
+        from app.cross_reference.engine import CrossReferenceEngine
+
+        return CrossReferenceEngine().annotate_html(html_content, case_id=case_id, adjudication_id=adjudication_id)
+    except Exception as exc:
+        logger.warning("Cross-reference post-processing skipped: %s", exc)
+        return html_content
+
+
 def embed_photos_as_base64(photo_urls):
     """Fetch photo images from storage URLs and return base64 data URIs
     that WeasyPrint can embed in PDFs, even when URLs are not publicly

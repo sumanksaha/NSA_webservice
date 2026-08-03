@@ -33,7 +33,7 @@ from app.shared.context_derivers import (
 )
 from app.utils.filters import parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
-from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html
+from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
 from app.utils.suggester import suggest_sections
 
 adjudication_bp = Blueprint("adjudication", __name__, template_folder="templates", static_folder="static")
@@ -437,6 +437,8 @@ def regenerate_adjudication_documents(case_id):
 
     for tpl, prefix in templates_to_generate:
         rendered_html = render_template(tpl, **context)
+        # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
+        rendered_html = post_process_pdf_html(rendered_html, adjudication_id=case_id)
         pdf_bytes, error = generate_pdf_from_html(rendered_html)
         if pdf_bytes:
             outputs.append((f"{prefix}.pdf", pdf_bytes))
@@ -707,6 +709,8 @@ def generate_all():
     for tpl, prefix in templates_to_generate:
         # Render the template to HTML string
         rendered_html = render_template(tpl, **context)
+        # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
+        rendered_html = post_process_pdf_html(rendered_html, adjudication_id=adj.id)
 
         # Compile HTML string to PDF using WeasyPrint in memory
         pdf_bytes, error = generate_pdf_from_html(rendered_html)
