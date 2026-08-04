@@ -247,13 +247,13 @@ class TestUpload:
 
 
 class TestReplace:
-    def _upload_one(self, client, case_id, caption="Doc", content="sample text"):
+    def _upload_one(self, client, case_id, caption="Doc", content="sample text", filename="doc.txt"):
         resp = client.post(
             "/annexure/upload",
             data={
                 "case_id": str(case_id),
                 "caption": caption,
-                **_txt_upload(filename="doc.txt", content=content),
+                **_txt_upload(filename=filename, content=content),
             },
             content_type="multipart/form-data",
         )
@@ -262,7 +262,10 @@ class TestReplace:
 
     def test_replace_requires_auth(self, test_client):
         client, case_id = test_client
+        _login(client)
         ann_id = self._upload_one(client, case_id)
+        # Logout so the replace call is unauthenticated.
+        client.get("/auth/logout", follow_redirects=False)
         resp = client.post(
             f"/annexure/{ann_id}/replace",
             data=_txt_upload(filename="new.txt", content="replacement"),
@@ -298,11 +301,12 @@ class TestReplace:
             assert ann.file_hash and len(ann.file_hash) == 64
             assert ann.page_count == 1
             assert ann.filename == "replacement.txt"
-            # The new content is served by download.
-            resp_dl = client.get(f"/annexure/{ann_id}/download")
-            assert resp_dl.status_code == 200
-            assert b"new content here" in resp_dl.data
-            assert b"old content" not in resp_dl.data
+
+        # Download outside app_context to avoid context-stack corruption.
+        resp_dl = client.get(f"/annexure/{ann_id}/download")
+        assert resp_dl.status_code == 200
+        assert b"new content here" in resp_dl.data
+        assert b"old content" not in resp_dl.data
 
     def test_replace_keeps_caption_when_omitted(self, test_client):
         client, case_id = test_client
@@ -333,8 +337,8 @@ class TestReplace:
     def test_replace_duplicate_of_other_annexure_rejected(self, test_client):
         client, case_id = test_client
         _login(client)
-        ann_a = self._upload_one(client, case_id, caption="A", content="unique a")
-        ann_b = self._upload_one(client, case_id, caption="B", content="unique b")
+        ann_a = self._upload_one(client, case_id, caption="A", content="unique a", filename="a.txt")
+        ann_b = self._upload_one(client, case_id, caption="B", content="unique b", filename="b.txt")
 
         # Try to set B's file to A's content -> 409 duplicate.
         resp = client.post(
