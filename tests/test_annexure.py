@@ -242,6 +242,151 @@ class TestUpload:
 
 
 # ---------------------------------------------------------------------------
+# Replace
+# ---------------------------------------------------------------------------
+
+
+class TestReplace:
+    def _upload_one(self, client, case_id, caption="Doc", content="sample text"):
+        resp = client.post(
+            "/annexure/upload",
+            data={
+                "case_id": str(case_id),
+                "caption": caption,
+                **_txt_upload(filename="doc.txt", content=content),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 201
+        return resp.get_json()["annexure_id"]
+
+    def test_replace_requires_auth(self, test_client):
+        client, case_id = test_client
+        ann_id = self._upload_one(client, case_id)
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data=_txt_upload(filename="new.txt", content="replacement"),
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+
+    def test_replace_updates_file_and_keeps_id_letter(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_id = self._upload_one(client, case_id, caption="Original", content="old content")
+
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data={
+                "caption": "New Caption",
+                **_txt_upload(filename="replacement.txt", content="new content here"),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["annexure_id"] == ann_id
+        assert data["annexure_letter"] == "A"  # letter preserved
+
+        with client.application.app_context():
+            ann = db.session.get(Annexure, ann_id)
+            assert ann is not None
+            assert ann.caption == "New Caption"
+            assert ann.annexure_letter == "A"
+            assert ann.file_hash and len(ann.file_hash) == 64
+            assert ann.page_count == 1
+            assert ann.filename == "replacement.txt"
+            # The new content is served by download.
+            resp_dl = client.get(f"/annexure/{ann_id}/download")
+            assert resp_dl.status_code == 200
+            assert b"new content here" in resp_dl.data
+            assert b"old content" not in resp_dl.data
+
+    def test_replace_keeps_caption_when_omitted(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_id = self._upload_one(client, case_id, caption="Keep Me", content="v1")
+
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data=_txt_upload(filename="v2.txt", content="v2 content"),
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        with client.application.app_context():
+            assert db.session.get(Annexure, ann_id).caption == "Keep Me"
+
+    def test_replace_reupload_same_content_not_duplicate(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_id = self._upload_one(client, case_id, content="same bytes")
+        # Replacing with identical content to itself is allowed (no 409).
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data=_txt_upload(filename="same.txt", content="same bytes"),
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+
+    def test_replace_duplicate_of_other_annexure_rejected(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_a = self._upload_one(client, case_id, caption="A", content="unique a")
+        ann_b = self._upload_one(client, case_id, caption="B", content="unique b")
+
+        # Try to set B's file to A's content -> 409 duplicate.
+        resp = client.post(
+            f"/annexure/{ann_b}/replace",
+            data=_txt_upload(filename="a.txt", content="unique a"),
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 409
+        data = resp.get_json()
+        assert "Duplicate" in data["error"]
+        assert data["duplicate_of"] == ann_a
+        # B is unchanged after the rejected replace.
+        with client.application.app_context():
+            ann = db.session.get(Annexure, ann_b)
+            assert ann.filename == "b.txt"
+
+    def test_replace_unsupported_extension(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_id = self._upload_one(client, case_id)
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data={"file": (io.BytesIO(b"bad"), "virus.exe")},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 400
+        assert "Unsupported file type" in resp.get_json()["error"]
+
+    def test_replace_missing_file_400(self, test_client):
+        client, case_id = test_client
+        _login(client)
+        ann_id = self._upload_one(client, case_id)
+        resp = client.post(
+            f"/annexure/{ann_id}/replace",
+            data={"caption": "no file"},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 400
+        assert "No file provided" in resp.get_json()["error"]
+
+    def test_replace_not_found(self, test_client):
+        client, _ = test_client
+        _login(client)
+        resp = client.post(
+            "/annexure/nope/replace",
+            data=_txt_upload(),
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # Management actions
 # ---------------------------------------------------------------------------
 

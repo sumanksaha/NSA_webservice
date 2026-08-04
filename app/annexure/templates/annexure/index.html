@@ -108,6 +108,10 @@
                                class="btn btn-secondary btn-sm" title="Download">
                                 <i class="fa-solid fa-download"></i>
                             </a>
+                            <button type="button" class="btn btn-secondary btn-sm annexure-replace"
+                                    data-id="{{ a.id }}" title="Replace file">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>
                             <button type="button" class="btn btn-secondary btn-sm annexure-rename"
                                     data-id="{{ a.id }}" data-caption="{{ a.caption }}" title="Rename">
                                 <i class="fa-solid fa-pen"></i>
@@ -170,6 +174,48 @@
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }
+    });
+
+    // Replace — pick a new file and re-upload it onto the same annexure slot.
+    document.querySelectorAll('.annexure-replace').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = btn.dataset.id;
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pdf,.jpg,.jpeg,.png,.docx,.txt';
+            input.addEventListener('change', function() {
+                if (!input.files || input.files.length === 0) return;
+                var file = input.files[0];
+                var fd = new FormData();
+                fd.append('file', file, file.name);
+
+                var row = btn.closest('tr');
+                if (!confirm('Replace the file of this annexure with \"' + file.name + '\"?')) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                fetch('{{ url_for("annexure.replace", annexure_id="__ID__") }}'.replace('__ID__', id), {
+                    method: 'POST',
+                    body: fd
+                }).then(function(resp) { return resp.json(); })
+                  .then(function(data) {
+                      if (data.status === 'ok') {
+                          alert('Annexure file replaced.');
+                          window.location.reload();
+                      } else {
+                          alert(data.error || 'Replace failed');
+                          btn.disabled = false;
+                          btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
+                      }
+                  })
+                  .catch(function() {
+                      alert('Replace failed');
+                      btn.disabled = false;
+                      btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
+                  });
+            });
+            input.click();
+        });
     });
 
     // Rename
