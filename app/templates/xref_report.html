@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Xref Report — {{ case_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.xref-page { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.xref-page h2 { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.xref-summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.xref-stat { flex: 1; min-width: 140px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; box-shadow: var(--shadow-card); }
+.xref-stat .stat-value { font-size: 2rem; font-weight: 700; color: var(--text-primary); }
+.xref-stat .stat-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+.xref-stat.resolved .stat-value { color: #1a7f37; }
+.xref-stat.unresolved .stat-value { color: #b91c1c; }
+.xref-stat.annexure .stat-value { color: #2563eb; }
+.xref-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-card); }
+.xref-card h3 { font-family: var(--font-heading); font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-top: 0; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.xref-table { width: 100%; border-collapse: collapse; }
+.xref-table th, .xref-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.xref-table th { background: var(--bg-subtle); color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.xref-table tr:hover { background: var(--bg-subtle); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+.badge-annexure { background: #dbeafe; color: #1e40af; }
+.badge-section { background: #dcfce7; color: #15803d; }
+.badge-paragraph { background: #fef9c3; color: #854d0e; }
+.badge-resolved { background: #dcfce7; color: #15803d; }
+.badge-unresolved { background: #fee2e2; color: #b91c1c; }
+.badge-known { background: #dcfce7; color: #15803d; }
+.xref-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.doc-preview { border: 1px solid var(--border); border-radius: 6px; height: 400px; overflow: hidden; }
+.doc-preview iframe { width: 100%; height: 100%; border: none; }
+.xref-actions { display: flex; gap: 12px; }
+.text-secondary { color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="xref-page">
+    <h2><i class="fa-solid fa-sitemap"></i> Cross-Reference Report — Case {{ case_number }}</h2>
+    <div class="xref-summary">
+        <div class="xref-stat"><div class="stat-value">{{ report.references|length }}</div><div class="stat-label">Total References</div></div>
+        <div class="xref-stat resolved"><div class="stat-value">{{ report.resolved|length }}</div><div class="stat-label">Resolved</div></div>
+        <div class="xref-stat unresolved"><div class="stat-value">{{ report.unresolved|length }}</div><div class="stat-label">Unresolved</div></div>
+        <div class="xref-stat annexure"><div class="stat-value">{{ report.annexures|length }}</div><div class="stat-label">Annexures</div></div>
+    </div>
+
+    {% if report.annexures %}
+    <div class="xref-card">
+        <h3>Annexures ({{ report.annexures|length }})</h3>
+        <table class="xref-table">
+            <thead><tr><th>Letter</th><th>Caption</th><th>Pages</th></tr></thead>
+            <tbody>
+                {% for a in report.annexures %}
+                <tr><td>{% if a.annexure_letter %}<span class="badge badge-annexure">{{ a.annexure_letter }}</span>{% else %}<em>—</em>{% endif %}</td><td>{{ a.caption }}</td><td>{{ a.page_count or '—' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="xref-card"><h3>Annexures</h3><p class="text-secondary">No annexures attached to this case.</p></div>
+    {% endif %}
+
+    <div class="xref-card">
+        <h3>Extracted References ({{ report.references|length }})</h3>
+        {% if report.references %}
+        <table class="xref-table">
+            <thead><tr><th>#</th><th>Type</th><th>Target</th><th>Raw Text</th><th>Context</th><th>Resolved</th></tr></thead>
+            <tbody>
+                {% for ref in report.references %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{% if ref.kind == 'annexure' %}<span class="badge badge-annexure">Annexure</span>{% elif ref.kind == 'section' %}<span class="badge badge-section">Section</span>{% else %}<span class="badge badge-paragraph">Paragraph</span>{% endif %}</td>
+                    <td>{{ ref.target }}</td>
+                    <td><code>{{ ref.raw }}</code></td>
+                    <td><small>{{ ref.context }}</small></td>
+                    <td>{% if ref.resolved %}<span class="badge badge-resolved">✓</span>{% else %}<span class="badge badge-unresolved">✗</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-secondary">No cross-references detected in this document.</p>
+        {% endif %}
+    </div>
+
+    {% if report.unresolved %}
+    <div class="xref-card">
+        <h3>Unresolved References ({{ report.unresolved|length }})</h3>
+        {% for ref in report.unresolved %}
+        <div style="margin-bottom: 8px;"><strong>{{ ref.raw }}</strong><em class="text-secondary"> ({{ ref.kind }})</em> — <small>{{ ref.context }}</small></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="xref-card">
+        <h3>Known FSS Act Sections</h3>
+        <div class="xref-chips">
+            {% for sec in report.sections_known %}
+            <span class="badge badge-known">Section {{ sec }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="xref-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin-bottom:0;">Document Preview</h3>
+            <div class="xref-actions">
+                <button id="renumberBtn" class="btn btn-secondary btn-sm" style="display:none;">
+                    <i class="fa-solid fa-sort-numeric-desc"></i> Renumber Annexures
+                </button>
+                <a href="{{ report_url }}" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-refresh"></i> Refresh Report
+                </a>
+            </div>
+        </div>
+        <div class="doc-preview">
+            <iframe srcdoc="{{ annotated_html | e }}" title="Document Preview"></iframe>
+        </div>
+    </div>
+
+    {% if report.text_preview %}
+    <div class="xref-card">
+        <h3>Extracted Text Preview</h3>
+        <pre style="white-space:pre-wrap; font-size:0.85rem; color:var(--text-secondary); max-height:200px; overflow-y:auto;">{{ report.text_preview }}</pre>
+    </div>
+    {% endif %}
+
+    <script>
+    var annexureCount = {{ report.annexures|length }};
+    if (annexureCount > 0) {
+        document.getElementById('renumberBtn').style.display = 'inline-flex';
+    }
+    document.getElementById('renumberBtn').addEventListener('click', function() {
+        if (!confirm('Renumber annexure letters (A, B, C...) in upload order?')) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Renumbering...';
+                        fetch('{{ renumber_url or report_url }}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+        }).then(r => r.json()).then(data => {
+            if (data.status === 'ok') {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Done (' + data.count + ')';
+                setTimeout(() => { window.location.reload(); }, 800);
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
+                btn.disabled = false;
+            }
+        }).catch(err => {
+            btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Error';
+            btn.disabled = false;
+        });
+    });
+    </script>
+</div>
+{% endblock %}

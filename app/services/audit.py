@@ -7,7 +7,7 @@ blueprint-to-blueprint coupling.
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -87,7 +87,7 @@ def log_audit(entity_type: str, entity_id: str, action: str, actor: str, details
     Serializes ``details`` dict to JSON for the ``details_json`` column.
     """
     details_json = json.dumps(details)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     timestamp_str = timestamp.isoformat()
 
     try:

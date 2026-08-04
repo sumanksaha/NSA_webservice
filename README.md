@@ -268,7 +268,7 @@ NSA_webservice/
 ├── app/                        # Application package
 │   ├── __init__.py             # App factory
 │   ├── extensions.py           # Flask extension initialization
-│   ├── models.py               # SQLAlchemy models
+│   ├── models/                 # SQLAlchemy models (modular: auth, document, inspection, billing, config, issue)
 │   ├── audit_hooks.py          # SQLAlchemy event listeners
 │   ├── adjudication/           # Adjudication blueprint
 │   ├── audit/                  # Audit log viewer blueprint

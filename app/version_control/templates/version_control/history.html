@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Version History — {{ case_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.vc-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.vc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.vc-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.vc-case-type {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #1e40af;
+    background: #dbeafe;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.vc-back {
+    color: var(--text-body);
+    text-decoration: none;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    transition: background-color 0.12s ease;
+}
+
+.vc-back:hover {
+    background: var(--bg-subtle);
+}
+
+.vc-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.vc-tab {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-body);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.vc-tab:hover {
+    background: var(--bg-subtle);
+}
+
+.vc-tab.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.vc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .vc-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.vc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+}
+
+.vc-card .vc-card-header {
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vc-card-body {
+    padding: 16px;
+}
+
+.vc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.vc-table th,
+.vc-table td {
+    text-align: left;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.vc-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+}
+
+.vc-table tr:hover td {
+    background: var(--bg-subtle);
+}
+
+.vc-version-no {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.vc-summary {
+    color: var(--text-body);
+    line-height: 1.4;
+}
+
+.vc-meta {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.vc-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.vc-actions {
+    display: flex;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.vc-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-body);
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.vc-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.vc-btn-danger:hover {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.vc-btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.vc-btn-primary:hover {
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.vc-form-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.vc-form-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.vc-form-row select,
+.vc-form-row input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-body);
+    font-size: 13px;
+}
+
+/* Diff output */
+.vc-diff {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    max-height: 340px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.vc-diff-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 13px;
+    padding: 12px;
+}
+
+.vc-diff-summary {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.vc-diff-summary .vc-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.vc-stat-add {
+    color: #15803d;
+}
+
+.vc-stat-del {
+    color: #b91c1c;
+}
+
+.vc-stat-sim {
+    color: var(--text-secondary);
+}
+
+/* Branch modal */
+.vc-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.vc-modal-overlay.open {
+    display: flex;
+}
+
+.vc-modal {
+    background: var(--bg-card);
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    padding: 20px;
+    width: min(420px, 90vw);
+}
+
+.vc-modal h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+}
+
+.vc-modal p {
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.vc-modal input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--bg-card);
+    color: var(--text-body);
+    margin-bottom: 14px;
+    box-sizing: border-box;
+}
+
+.vc-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vc-page">
+    <div class="vc-header">
+        <h2>
+            <i class="fa-solid fa-clock-rotate-left"></i> Version History
+            <span class="vc-case-type">{{ case_type }}</span>
+            <span>— {{ case_number }}</span>
+        </h2>
+        <a class="vc-back" href="javascript:history.back()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="vc-tabs" role="tablist">
+        <button type="button" class="vc-tab active" data-doc-type="petition" role="tab">Petition</button>
+        <button type="button" class="vc-tab" data-doc-type="permission" role="tab">Permission Letter</button>
+    </div>
+
+    <div class="vc-grid">
+        <div class="vc-card">
+            <div class="vc-card-header">
+                <i class="fa-solid fa-list-ul"></i> Saved Versions
+                <span id="vcVersionCount" class="toc-count" style="margin-left:auto;"></span>
+            </div>
+            <div id="vcVersionList" class="vc-card-body">
+                <p class="vc-empty">Loading version history…</p>
+            </div>
+        </div>
+
+        <div class="vc-card">
+            <div class="vc-card-header">
+                <i class="fa-solid fa-code-compare"></i> Compare Versions
+            </div>
+            <div class="vc-card-body">
+                <div class="vc-form-row">
+                    <label for="vcCompareFrom">From</label>
+                    <select id="vcCompareFrom"></select>
+                    <label for="vcCompareTo">To</label>
+                    <select id="vcCompareTo"></select>
+                    <button type="button" id="vcCompareBtn" class="vc-btn vc-btn-primary">
+                        <i class="fa-solid fa-code-compare"></i> Compare
+                    </button>
+                </div>
+                <div id="vcDiffSummary" class="vc-diff-summary"></div>
+                <div id="vcDiffOutput" class="vc-diff">
+                    <span class="vc-diff-empty">Select two versions above to see what changed.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Branch name modal -->
+<div id="vcBranchModal" class="vc-modal-overlay">
+    <div class="vc-modal" role="dialog" aria-modal="true" aria-labelledby="vcBranchTitle">
+        <h3 id="vcBranchTitle">Create branch</h3>
+        <p id="vcBranchDesc">Branch from version <strong id="vcBranchVersionNo"></strong>.</p>
+        <input type="text" id="vcBranchName" placeholder="e.g. draft-2026-08-04" maxlength="100">
+        <div class="vc-modal-actions">
+            <button type="button" class="vc-btn" id="vcBranchCancel">Cancel</button>
+            <button type="button" class="vc-btn vc-btn-primary" id="vcBranchConfirm">
+                <i class="fa-solid fa-code-branch"></i> Create branch
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.VC_CONFIG = {
+        caseId: {{ case_id if case_id is not none else 'null' }},
+        adjudicationId: {{ adjudication_id if adjudication_id is not none else 'null' }},
+        caseType: {{ case_type | tojson }},
+    };
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/version_control/version_control.js') }}"></script>
+{% endblock %}

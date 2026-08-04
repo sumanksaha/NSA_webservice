@@ -20,7 +20,7 @@ Design notes (performance):
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import request
 from sqlalchemy import inspect as sa_inspect
@@ -33,11 +33,13 @@ from app.models import RecordAudit
 # ---------------------------------------------------------------------------
 # Sensitive / internal columns to exclude from change diffs
 # ---------------------------------------------------------------------------
-_EXCLUDED_COLUMNS = frozenset({
-    "synced_at",  # set automatically by sync, not user-driven
-    "pdf_task_id",  # Celery task tracking, not a meaningful record change
-    "pdf_generated_at",  # same as above
-})
+_EXCLUDED_COLUMNS = frozenset(
+    {
+        "synced_at",  # set automatically by sync, not user-driven
+        "pdf_task_id",  # Celery task tracking, not a meaningful record change
+        "pdf_generated_at",  # same as above
+    }
+)
 
 
 def _get_user_id():
@@ -73,7 +75,7 @@ def _record_audit(action, record_type, record_id, changes=None):
         record_type=record_type,
         record_id=str(record_id),
         changes=json.dumps(changes) if changes else None,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC),
         ip_address=_get_ip(),
         user_agent=_get_user_agent(),
     )

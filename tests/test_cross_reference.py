@@ -12,7 +12,7 @@ Covers:
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -100,7 +100,7 @@ def _add_annexure(case_id, caption, letter, page_count=None):
     ann = Annexure(
         case_id=case_id,
         caption=caption,
-        date=datetime.utcnow(),
+        date=datetime.now(UTC),
         file_hash=f"hash-{letter}-{caption}",
         page_count=page_count,
         filepath=f"/tmp/{caption}.txt",

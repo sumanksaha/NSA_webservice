@@ -223,22 +223,26 @@ class OCRBatchProcessor:
                         summary.direct_pages += 1
                 else:
                     summary.fail_count += 1
-                    summary.errors.append({
+                    summary.errors.append(
+                        {
+                            "file": result.file,
+                            "page": result.page,
+                            "error": result.error,
+                        }
+                    )
+
+                line = _fast_dumps(
+                    {
                         "file": result.file,
                         "page": result.page,
+                        "success": result.success,
+                        "ocr_used": result.ocr_used,
+                        "confidence": round(result.confidence, 4),
+                        "language": result.language,
+                        "char_count": result.char_count,
                         "error": result.error,
-                    })
-
-                line = _fast_dumps({
-                    "file": result.file,
-                    "page": result.page,
-                    "success": result.success,
-                    "ocr_used": result.ocr_used,
-                    "confidence": round(result.confidence, 4),
-                    "language": result.language,
-                    "char_count": result.char_count,
-                    "error": result.error,
-                })
+                    }
+                )
                 batch_buffer.append(line)
 
                 # Periodic flush (every 10k pages)

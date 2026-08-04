@@ -54,14 +54,14 @@ dependencies = [
   "flask-login>=0.6.3",
   "celery>=5.6.3",
   "redis>=5.0.0",
-  "qstash>=3.4.0",  # Upstash QStash — serverless task queue (webhook-based, no worker)
+  "qstash>=3.4.0",          # Upstash QStash — serverless task queue (webhook-based, no worker)
 
-  "cloudinary>=1.40.0",  # Cloudinary photo upload (active when CLOUDINARY_* env vars are set)
+  "cloudinary>=1.40.0", # Cloudinary photo upload (active when CLOUDINARY_* env vars are set)
 
   "pytesseract>=0.3.10",
   "pdf2image>=1.16.3",
-  "pillow>=9.0.0",  # image compression + thumbnail generation (evidence blueprint)
-  # Document Loader (Legal Document Ingestion)
+  "pillow>=9.0.0",       # image compression + thumbnail generation (evidence blueprint)
+  "qrcode>=8.0",         # QR code generation for PDF assembly
   "pdfplumber>=0.10.0",
   "PyMuPDF>=1.25.0",
   "python-docx>=1.1.0",
@@ -168,6 +168,7 @@ ignore = [
 "smoke_test.py" = ["T201"]
 "test_*.py" = ["T201", "W293"]
 "tests/*.py" = ["T20", "W293"]
+"app/pdf_assembly/*" = ["T201"]
 
 [tool.ruff.format]
 preview = true
@@ -237,7 +238,7 @@ ignore_errors = true
 # =============================================================================
 [tool.pytest.ini_options]
 minversion = "7.0"
-testpaths = ["tests"]
+testpaths = ["tests", "legal_paragraph_detection_engine/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short --no-header"
@@ -253,8 +254,10 @@ filterwarnings = [
 # Tool: Coverage.py — Code coverage measurement
 # =============================================================================
 [tool.coverage.run]
-source = ["app"]
+source = ["app", "legal_paragraph_detection_engine.src"]
 omit = [
+  "*/legal_paragraph_detection_engine/tests/*",
+  "*/legal_paragraph_detection_engine/examples/*",
   "*/migrations/*",
   "*/tests/*",
   "*/venv/*",
@@ -309,8 +312,14 @@ severity = "HIGH"
 # Tool: Setuptools — Python packaging
 # =============================================================================
 [tool.setuptools.packages.find]
-include = ["app*"]
-exclude = ["tests*", "migrations*", "instance*", "scripts*"]
+include = ["app*", "legal_paragraph_detection_engine*"]
+exclude = [
+  "tests*",
+  "migrations*",
+  "instance*",
+  "scripts*",
+  "legal_paragraph_detection_engine.tests*",
+]
 
 [tool.setuptools.package-data]
 "*" = [

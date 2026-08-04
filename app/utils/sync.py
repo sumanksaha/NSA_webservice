@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import gspread
@@ -89,7 +89,7 @@ def sync_to_sheets():
             # Align rows with database columns dynamically
             headers = [col.name for col in model.__table__.columns if col.name != "synced_at"]
 
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             for record in unsynced_records:
                 row_data = []
                 for col in headers:

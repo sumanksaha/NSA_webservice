@@ -378,7 +378,7 @@ class TestAdminToggleRole:
         _login(test_client)
         with test_client.application.app_context():
             target_id = _officer_id()
-            officer = User.query.get(target_id)
+            officer = db.session.get(User, target_id)
             officer.is_admin = True
             db.session.commit()
         resp = test_client.post(
@@ -387,7 +387,7 @@ class TestAdminToggleRole:
         )
         assert resp.status_code == 302
         with test_client.application.app_context():
-            officer = User.query.get(target_id)
+            officer = db.session.get(User, target_id)
             assert officer.is_admin is False
             audit = RecordAudit.query.filter_by(action="admin_demoted").first()
             assert audit is not None

@@ -217,11 +217,13 @@ def generate_bill_route():
 
     if dispatched["mode"] == "async":
         return (
-            jsonify({
-                "message": "Bill created; PDF generation queued",
-                "bill_id": bill_record.id,
-                "task_id": dispatched["message_id"],
-            }),
+            jsonify(
+                {
+                    "message": "Bill created; PDF generation queued",
+                    "bill_id": bill_record.id,
+                    "task_id": dispatched["message_id"],
+                }
+            ),
             202,
         )
 
@@ -239,10 +241,12 @@ def generate_bill_route():
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify({
-            "message": "Bill created; PDF generated",
-            "bill_id": bill_record.id,
-            "pdf_result": result,
-        }),
+        jsonify(
+            {
+                "message": "Bill created; PDF generated",
+                "bill_id": bill_record.id,
+                "pdf_result": result,
+            }
+        ),
         200,
     )

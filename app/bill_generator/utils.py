@@ -57,15 +57,17 @@ def get_billable_samples(start_date, end_date):
     # Build sample list with 1-based index
     sample_list = []
     for i, s in enumerate(samples, 1):
-        sample_list.append({
-            "si_no": i,
-            "sample_id": s.id,
-            "sample_code": s.sample_code or "",
-            "sample_name": s.sample_name or "",
-            "retailer_name": s.retailer_name or "",
-            "price": safe_price(s.price),
-            "type": s.sample_type or "",
-        })
+        sample_list.append(
+            {
+                "si_no": i,
+                "sample_id": s.id,
+                "sample_code": s.sample_code or "",
+                "sample_name": s.sample_name or "",
+                "retailer_name": s.retailer_name or "",
+                "price": safe_price(s.price),
+                "type": s.sample_type or "",
+            }
+        )
 
     return {
         "enforcement_no": enforcement_no,

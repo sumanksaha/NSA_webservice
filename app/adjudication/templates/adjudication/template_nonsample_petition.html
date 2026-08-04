@@ -108,7 +108,9 @@
         </div>
     </div>
     
-    <div class="page-break"></div>
+        <div class="page-break"></div>
+
+    <div data-toc></div>
 
     <p class="bold">Most Respectfully Sheweth: -</p>
     
@@ -245,12 +247,8 @@
         </tr>
     </table>
 
-    <strong>List of Enclosures</strong>
-    <ol class="justify">
-        <li>Copy of Inspection Report and instruction sheet issued to the FBO dated {{ first_inspection_date }}</li>
-        <li>Copy of {% if '63' in applicable_sections or non_license == 'yes' %}Trade License No: {{ ce_license_no }}{% else %}{{ fssai_license }}{% endif %}</li>
-        <li>Letter of approval from the Designated Officer</li>
-    </ol>
+        <strong>List of Enclosures</strong>
+    <ol data-cross-reference="enclosures" class="justify"></ol>
 
 <div style="page-break-before: always;"></div>
 

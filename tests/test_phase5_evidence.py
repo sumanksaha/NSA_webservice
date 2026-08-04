@@ -89,7 +89,7 @@ class TestEvidenceBlueprint:
         evidence_id = data["results"][0]["evidence_id"]
 
         with app.app_context():
-            ev = Evidence.query.get(evidence_id)
+            ev = db.session.get(Evidence, evidence_id)
             assert ev is not None
             assert ev.evidence_type == "photo"
             assert ev.caption == "Shop front"
@@ -182,7 +182,7 @@ class TestEvidenceBlueprint:
         assert resp.get_json()["status"] == "ok"
 
         with app.app_context():
-            assert Evidence.query.get(evidence_id) is None
+            assert db.session.get(Evidence, evidence_id) is None
 
     def test_update_metadata(self, test_client):
         client, app = test_client
@@ -202,7 +202,7 @@ class TestEvidenceBlueprint:
         assert resp.status_code == 200
 
         with app.app_context():
-            ev = Evidence.query.get(evidence_id)
+            ev = db.session.get(Evidence, evidence_id)
             assert ev.caption == "Renamed"
             assert ev.tags == "a,b"
             assert ev.evidence_type == "licence"
@@ -303,7 +303,7 @@ class TestUnifiedPhotoEndpoints:
         # upload_photo uses app.utils.storage.upload_photo (Cloudinary); stub it.
         from unittest.mock import patch
 
-        with patch("app.inspection.routes.upload_photo", return_value="https://cdn.example/x.jpg"):
+        with patch("app.inspection.routes.photo_routes.upload_photo", return_value="https://cdn.example/x.jpg"):
             resp = client.post(
                 f"/inspection/{adj_id}/photos",
                 data={"photo": (io.BytesIO(_png_bytes()), "cam.jpg"), "caption": "Front"},
@@ -313,7 +313,7 @@ class TestUnifiedPhotoEndpoints:
         photo_id = resp.get_json()["id"]
 
         with app.app_context():
-            ev = Evidence.query.get(photo_id)
+            ev = db.session.get(Evidence, photo_id)
             assert ev is not None
             assert ev.adjudication_id == adj_id
             assert ev.evidence_type == "photo"
@@ -326,12 +326,12 @@ class TestUnifiedPhotoEndpoints:
         assert resp.get_json()["total"] == 1
 
         # Delete removes the row (and storage delete is stubbed).
-        with patch("app.inspection.routes.delete_photo", return_value=True):
+        with patch("app.inspection.routes.photo_routes.delete_photo", return_value=True):
             resp = client.delete(f"/inspection/photos/{photo_id}")
         assert resp.status_code == 204
 
         with app.app_context():
-            assert Evidence.query.get(photo_id) is None
+            assert db.session.get(Evidence, photo_id) is None
 
     def test_inspection_photo_evidence_api_uses_evidence(self, test_client):
         client, app = test_client

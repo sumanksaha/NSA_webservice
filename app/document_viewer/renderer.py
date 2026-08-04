@@ -127,8 +127,7 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     from sqlalchemy import or_
 
     all_photos = (
-        Evidence.query
-        .filter(
+        Evidence.query.filter(
             Evidence.evidence_type == "photo",
             or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
         )

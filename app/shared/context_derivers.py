@@ -271,10 +271,12 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
     for field_name, (title, observation) in CHECKLIST_RULES.items():
         field_value = form_data.get(field_name)
         if field_value is not None and is_violation(field_value):
-            violations.append({
-                "title": title,
-                "observation": observation,
-            })
+            violations.append(
+                {
+                    "title": title,
+                    "observation": observation,
+                }
+            )
 
     # Check special violations (fields marked as 'yes' indicate violations)
     for field_name, (title, observation) in SPECIAL_VIOLATION_RULES.items():
@@ -282,15 +284,19 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
         if field_value is not None:
             if isinstance(field_value, str):
                 if field_value.strip().lower() == "yes":
-                    violations.append({
+                    violations.append(
+                        {
+                            "title": title,
+                            "observation": observation,
+                        }
+                    )
+            elif field_value:
+                violations.append(
+                    {
                         "title": title,
                         "observation": observation,
-                    })
-            elif field_value:
-                violations.append({
-                    "title": title,
-                    "observation": observation,
-                })
+                    }
+                )
 
     return violations
 

@@ -122,6 +122,113 @@
     color: var(--color-info, #0d6efd);
 }
 
+/* --- Phase 7: live Table of Contents panel --- */
+.toc-pane {
+    flex: 0 0 240px;
+    min-width: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.toc-pane.toc-hidden {
+    display: none;
+}
+
+.toc-pane .pane-header {
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toc-count {
+    margin-left: auto;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border-radius: 10px;
+    padding: 1px 8px;
+}
+
+.toc-nav-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px 14px;
+    font-size: 13px;
+}
+
+.toc-nav-list ol {
+    margin: 0;
+    padding-left: 16px;
+    list-style: none;
+}
+
+.toc-nav-list .toc-list {
+    padding-left: 0;
+}
+
+.toc-nav-list li {
+    margin: 2px 0;
+}
+
+.toc-nav-list a {
+    color: var(--text-body);
+    text-decoration: none;
+    display: block;
+    padding: 4px 6px;
+    border-radius: 4px;
+    line-height: 1.35;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.toc-nav-list a:hover {
+    background: var(--bg-subtle);
+    color: #2563eb;
+}
+
+.toc-nav-list .toc-number {
+    display: inline-block;
+    min-width: 28px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.toc-nav-list .toc-annexure a {
+    color: #1e40af;
+}
+
+.toc-nav-list .toc-annexure-badge {
+    display: inline-block;
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #1e40af;
+    background: #dbeafe;
+    border-radius: 3px;
+    padding: 1px 5px;
+    vertical-align: 0.08em;
+    margin-right: 4px;
+}
+
+.toc-empty {
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 @media (max-width: 768px) {
     .split-view {
         flex-direction: column;
@@ -143,6 +250,17 @@
     </div>
 
     <div class="split-view">
+        <aside id="tocPanel" class="toc-pane" aria-label="Table of Contents">
+            <div class="pane-header">
+                <i class="fa-solid fa-list-ol"></i> Contents
+                <span id="tocCount" class="toc-count"></span>
+            </div>
+            <nav id="liveToc" class="toc-nav-list" aria-label="Document headings"></nav>
+            <p id="tocEmpty" class="toc-empty" style="display:none;">
+                No headings yet &mdash; apply an H1&ndash;H6 style from the toolbar.
+            </p>
+        </aside>
+
         <div class="editor-pane">
             <div class="pane-header">
                 <i class="fa-solid fa-pen"></i> Editor
@@ -158,7 +276,25 @@
         </div>
     </div>
 
-        <div class="action-bar">
+            <div class="action-bar">
+        <button type="button" id="tocToggleBtn" class="btn btn-secondary"
+                aria-pressed="true" title="Toggle live table of contents">
+            <i class="fa-solid fa-list-ol"></i> Live TOC
+        </button>
+        <a href="{{ report_url if report_url else '#' }}"
+           class="btn btn-secondary"
+           {% if not report_url %}style="display:none;"{% endif %}>
+            <i class="fa-solid fa-sitemap"></i> Xref Report
+        </a>
+        <a href="{{ toc_url if toc_url else '#' }}"
+           class="btn btn-secondary"
+           {% if not toc_url %}style="display:none;"{% endif %}>
+           <i class="fa-solid fa-list-ol"></i> TOC Report
+        </a>
+        <a href="{{ url_for('version_control.history_page', case_id_or_adjudication_id=case_id, kind=case_type) }}"
+           class="btn btn-secondary" title="View document version history">
+            <i class="fa-solid fa-clock-rotate-left"></i> History
+        </a>
         <button type="button" id="exportMarkdownBtn" class="btn btn-secondary">
             <i class="fa-solid fa-file-code"></i> Export Markdown
         </button>

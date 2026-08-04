@@ -2,7 +2,7 @@
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -120,7 +120,7 @@ class TestInspectionCodeGeneration:
 
             # Check format: INSP-YYYY-#####
             assert code.startswith("INSP-")
-            year = datetime.utcnow().year
+            year = datetime.now(UTC).year
             assert f"INSP-{year}-" in code
 
             # Check numeric part is 5 digits
@@ -133,7 +133,7 @@ class TestInspectionCodeGeneration:
         """Test that generated codes are unique."""
         with app.app_context():
             # Clear any existing inspections for this year
-            year = datetime.utcnow().year
+            year = datetime.now(UTC).year
             Inspection.query.filter(Inspection.inspection_code.like(f"INSP-{year}-%")).delete()
             db.session.commit()
 
@@ -156,7 +156,7 @@ class TestInspectionCodeGeneration:
         """Test that codes are sequential within the same year."""
         with app.app_context():
             # Clear any existing inspections for this year
-            year = datetime.utcnow().year
+            year = datetime.now(UTC).year
             Inspection.query.filter(Inspection.inspection_code.like(f"INSP-{year}-%")).delete()
             db.session.commit()
 
@@ -188,7 +188,7 @@ class TestInspectionCodeGeneration:
         """
         with app.app_context():
             # Clear any existing inspections for this year
-            year = datetime.utcnow().year
+            year = datetime.now(UTC).year
             Inspection.query.filter(Inspection.inspection_code.like(f"INSP-{year}-%")).delete()
             db.session.commit()
 

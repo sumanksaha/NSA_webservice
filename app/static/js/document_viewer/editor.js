@@ -28,6 +28,11 @@ document.addEventListener("DOMContentLoaded", function () {
     var saveBtn = document.getElementById("saveBtn");
     var exportMarkdownBtn = document.getElementById("exportMarkdownBtn");
     var autosaveStatus = document.getElementById("autosaveStatus");
+    var tocPanel = document.getElementById("tocPanel");
+    var liveToc = document.getElementById("liveToc");
+    var tocCount = document.getElementById("tocCount");
+    var tocEmpty = document.getElementById("tocEmpty");
+    var tocToggleBtn = document.getElementById("tocToggleBtn");
 
     // --- Server-rendered HTML (passed via Jinja2 as |safe) ---
     var petitionHtml = document.getElementById("petition-data").textContent;
@@ -164,7 +169,11 @@ document.addEventListener("DOMContentLoaded", function () {
     function updatePreview() {
         if (!quill || !previewFrame) return;
 
-        var html = quill.root.innerHTML;
+        // Extract headings, assign hierarchical numbers, and inject anchor
+        // ids so the live TOC panel can scroll the preview to each heading.
+        var toc = buildToc(quill.root.innerHTML);
+        var html = toc.annotatedHtml;
+
         var doc = previewFrame.contentDocument;
         if (!doc) return;
 
@@ -185,6 +194,156 @@ document.addEventListener("DOMContentLoaded", function () {
                 "</body></html>"
         );
         doc.close();
+
+        renderToc(toc.entries);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 7: live Table of Contents panel
+    // -----------------------------------------------------------------------
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    // Mirrors the server-side _ANNEXURE_MARKER_RE in app/toc_generator/engine.py.
+    // Matches standalone annexure/appendix/enclosure/attachment markers such
+    // as "ANNEXURE A", "APPENDIX I" or a bare "ANNEXURE", but rejects plurals
+    // ("ANNEXURES") and descriptive titles ("Annexure Management").
+    var ANNEXURE_MARKER_RE =
+        /^(annexure|appendix|enclosure|attachment)(?![a-z])(?:\s*[–—:.-]?\s*(?:[a-z]{1,2}|\d+|\[?[ivxlcdm]+\]?))?$/i;
+
+    function isAnnexureMarker(text) {
+        return ANNEXURE_MARKER_RE.test(text);
+    }
+
+    /**
+     * Extract h1-h6 headings from editor HTML and assign hierarchical
+     * numbers (1, 1.1, 1.1.1) mirroring the server-side TocGeneratorEngine.
+     * Returns { entries, annotatedHtml } where annotatedHtml has unique
+     * anchor ids injected onto every non-empty heading.
+     */
+    function buildToc(html) {
+        var container = document.createElement("div");
+        container.innerHTML = html || "";
+
+        var headings = container.querySelectorAll("h1, h2, h3, h4, h5, h6");
+        var entries = [];
+        var counters = [];
+        var seen = 0;
+
+        Array.prototype.forEach.call(headings, function (heading) {
+            var text = (heading.textContent || "").trim();
+            if (!text) return; // empty headings are skipped (matches the engine)
+
+            var level = parseInt(heading.tagName.charAt(1), 10);
+            while (counters.length > level) counters.pop();
+            while (counters.length < level) counters.push(0);
+            counters[counters.length - 1] += 1;
+            seen += 1;
+
+            var id = "toc-" + seen;
+            heading.id = id;
+            entries.push({
+                level: level,
+                text: text,
+                id: id,
+                number: counters.join("."),
+                annexure: isAnnexureMarker(text),
+            });
+        });
+
+        return { entries: entries, annotatedHtml: container.innerHTML };
+    }
+
+    /**
+     * Render the TOC panel as a nested list. Uses the same stack-based
+     * strategy as build_toc_html in the server engine so arbitrary level
+     * jumps (e.g. h1 -> h3 -> h1) stay correctly nested.
+     */
+    function renderToc(entries) {
+        if (!liveToc) return;
+
+        if (!entries.length) {
+            liveToc.innerHTML = "";
+            liveToc.style.display = "none";
+            if (tocEmpty) tocEmpty.style.display = "block";
+            if (tocCount) tocCount.textContent = "";
+            return;
+        }
+
+        var lines = ['<ol class="toc-list">'];
+        var stack = [];
+
+        entries.forEach(function (entry, i) {
+            var level = entry.level;
+
+            if (i > 0) {
+                if (level > stack[stack.length - 1].level) {
+                    var top = stack.pop();
+                    top.hasSub = true;
+                    stack.push(top);
+                    lines.push('<ol class="toc-sub">');
+                } else {
+                    while (stack.length && stack[stack.length - 1].level >= level) {
+                        var closed = stack.pop();
+                        if (closed.hasSub) lines.push("</ol>");
+                        lines.push("</li>");
+                    }
+                }
+            }
+
+            var annexureClass = entry.annexure ? " toc-annexure" : "";
+            var badge = entry.annexure ? '<span class="toc-annexure-badge">Annexure</span> ' : "";
+            lines.push(
+                '<li class="toc-item level-' +
+                    level +
+                    annexureClass +
+                    '">' +
+                    '<a href="#' +
+                    entry.id +
+                    '" data-toc-target="' +
+                    entry.id +
+                    '">' +
+                    '<span class="toc-number">' +
+                    entry.number +
+                    "</span> " +
+                    badge +
+                    escapeHtml(entry.text) +
+                    "</a>"
+            );
+            stack.push({ level: level, hasSub: false });
+        });
+
+        while (stack.length) {
+            var last = stack.pop();
+            if (last.hasSub) lines.push("</ol>");
+            lines.push("</li>");
+        }
+        lines.push("</ol>");
+
+        liveToc.innerHTML = lines.join("\n");
+        liveToc.style.display = "";
+        if (tocEmpty) tocEmpty.style.display = "none";
+        if (tocCount) tocCount.textContent = "(" + entries.length + ")";
+    }
+
+    /**
+     * Scroll the live preview iframe so the heading with the given anchor
+     * id is visible at the top of the pane.
+     */
+    function scrollPreviewTo(id) {
+        if (!previewFrame) return;
+        var doc = previewFrame.contentDocument;
+        var target = doc && doc.getElementById(id);
+        if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
     }
 
     /**
@@ -395,14 +554,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // --- Initialize ---
+    // Cache the preview frame before the first updatePreview() so the live
+    // preview and TOC panel render immediately on load.
+    if (previewFrameEl) {
+        previewFrame = previewFrameEl;
+    }
+
     if (editorContainer) {
         initQuill();
         updatePreview();
         fetchSavedHtml(initialDocType, petitionHtml);
-    }
-
-    if (previewFrameEl) {
-        previewFrame = previewFrameEl;
     }
 
     if (docTypeSelector) {
@@ -416,6 +577,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (exportMarkdownBtn) {
         exportMarkdownBtn.addEventListener("click", exportMarkdown);
+    }
+
+    if (liveToc) {
+        liveToc.addEventListener("click", function (e) {
+            var link = e.target.closest("a[data-toc-target]");
+            if (!link) return;
+            e.preventDefault();
+            scrollPreviewTo(link.getAttribute("data-toc-target"));
+        });
+    }
+
+    if (tocToggleBtn && tocPanel) {
+        tocToggleBtn.addEventListener("click", function () {
+            var hidden = tocPanel.classList.toggle("toc-hidden");
+            tocToggleBtn.setAttribute("aria-pressed", String(!hidden));
+        });
     }
 
     // Expose for testing / debugging
@@ -433,6 +610,10 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         getAutosaveDebounceMs: function () {
             return autosaveDebounceMs;
+        },
+        getToc: function () {
+            if (!quill) return [];
+            return buildToc(quill.root.innerHTML).entries;
         },
         triggerAutosave: function () {
             autoSave();

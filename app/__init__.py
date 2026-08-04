@@ -257,7 +257,7 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         try:
-            return User.query.get(int(user_id))
+            return db.session.get(User, int(user_id))
         except (ValueError, TypeError):
             return None
 
@@ -338,6 +338,7 @@ def create_app():
     from app.search import search_bp
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
+    from app.version_control import version_control_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
@@ -356,6 +357,7 @@ def create_app():
     app.register_blueprint(inspection_bp, url_prefix="/inspection")
     app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
     app.register_blueprint(audit_bp, url_prefix="/admin")
+    app.register_blueprint(version_control_bp)
     app.register_blueprint(tasks_webhook_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(annexure_bp, url_prefix="/annexure")

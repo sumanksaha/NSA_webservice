@@ -20,3 +20,6 @@ _TEST_DB_DIR = tempfile.mkdtemp(prefix="nsa_test_db_")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
 os.environ["SKIP_FSO_STARTUP_SYNC"] = "1"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"  # noqa: S105
+
+# Phase 8: PDF Assembly Engine tests configuration
+os.environ["DISABLE_PDF_GENERATION"] = "1"  # Disable actual PDF generation for testing

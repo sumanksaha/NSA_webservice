@@ -7,7 +7,7 @@ metadata (file path, record ID, timestamp) — never raw PDF bytes.
 import io
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Lazy import to avoid ModuleNotFoundError in deployment environments
@@ -38,7 +38,7 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
     from flask import render_template
     from weasyprint import HTML
 
-    generated_at = datetime.utcnow()
+    generated_at = datetime.now(UTC)
 
     # ---- Render HTML (permanent failure on error) ----
     try:

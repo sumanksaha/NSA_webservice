@@ -15,7 +15,7 @@ import importlib
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -70,12 +70,12 @@ def store_task_status(
             "task": task_name,
             "result": result,
             "error": error,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
-        _get_redis().setex(
+        _get_redis().set(
             TASK_STATUS_KEY.format(message_id=message_id),
-            TASK_STATUS_TTL_SECONDS,
             json.dumps(record, default=str),
+            ex=TASK_STATUS_TTL_SECONDS,
         )
     except Exception as exc:
         logger.warning("store_task_status failed for %s: %s", message_id, exc)

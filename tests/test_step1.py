@@ -46,7 +46,7 @@ class TestFSOModel:
             db.session.commit()
 
             # Verify in database
-            result = FSO.query.get("Test FSO")
+            result = db.session.get(FSO, "Test FSO")
             assert result is not None
             assert result.fso_name == "Test FSO"
             assert result.created_at is not None
@@ -124,7 +124,7 @@ class TestFSOMarkdownSync:
             assert count3 == 22
 
             # The manually added FSO should still be there
-            assert FSO.query.get("New FSO Not In File") is not None
+            assert db.session.get(FSO, "New FSO Not In File") is not None
 
     def test_sync_graceful_missing_file(self, app):
         """Test that missing file doesn't crash."""
@@ -172,7 +172,7 @@ class TestSampleModel:
             db.session.commit()
 
             # Verify in database
-            result = Sample.query.get(sample.id)
+            result = db.session.get(Sample, sample.id)
             assert result is not None
             assert result.sample_code == "SKS-2026-00001"
             assert result.sample_name == "Test Sample"

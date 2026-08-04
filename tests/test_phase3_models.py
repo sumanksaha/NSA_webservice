@@ -1,11 +1,9 @@
 """Unit tests for Phase 3 / Step 3 models: Settings, Annexure, Evidence, Version."""
 
-from datetime import datetime
-
 import pytest
 
 from app.extensions import db
-from app.models import Annexure, Evidence, Settings, User, Version
+from app.models import Annexure, Evidence, Settings, Version
 
 
 @pytest.fixture
@@ -206,12 +204,14 @@ class TestVersionModel:
         v = Version(
             doc_type="petition",
             version_number=1,
+            content_hash="a" * 64,
             html_snapshot="<p>This is the HTML content</p>",
         )
         test_db.session.add(v)
         test_db.session.commit()
         assert v.doc_type == "petition"
         assert v.version_number == 1
+        assert v.content_hash == "a" * 64
         assert v.html_snapshot == "<p>This is the HTML content</p>"
         assert v.delta is None
         assert v.created_at is not None
@@ -220,17 +220,22 @@ class TestVersionModel:
         v = Version(
             doc_type="permission",
             version_number=2,
+            content_hash="b" * 64,
             html_snapshot="<p>Updated content</p>",
             delta='{"ops":[{"insert":"hello"}]}',
-            created_by=1,
         )
         test_db.session.add(v)
         test_db.session.commit()
         assert v.delta == '{"ops":[{"insert":"hello"}]}'
-        assert v.created_by == 1
+        assert v.content_hash == "b" * 64
 
     def test_version_created_at_defaults(self, test_db):
-        v = Version(doc_type="petition", version_number=1, html_snapshot="<p>test</p>")
+        v = Version(
+            doc_type="petition",
+            version_number=1,
+            content_hash="c" * 64,
+            html_snapshot="<p>test</p>",
+        )
         test_db.session.add(v)
         test_db.session.commit()
         assert v.created_at is not None
@@ -239,6 +244,3 @@ class TestVersionModel:
         v = Version(doc_type="petition", version_number=3, html_snapshot="<p>test</p>")
         assert "petition" in repr(v)
         assert "3" in repr(v)
-
-
-

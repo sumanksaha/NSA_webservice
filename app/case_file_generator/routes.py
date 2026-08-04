@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request, url_for
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
@@ -288,16 +288,18 @@ def index():
 def list_cases():
     """List all existing case files."""
     cases = CaseFile.query.order_by(CaseFile.created_at.desc()).all()
-    return jsonify([
-        {
-            "id": c.id,
-            "case_number": c.case_number,
-            "product_name": c.product_name,
-            "manufacturer_name": c.manufacturer_name,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
-        }
-        for c in cases
-    ])
+    return jsonify(
+        [
+            {
+                "id": c.id,
+                "case_number": c.case_number,
+                "product_name": c.product_name,
+                "manufacturer_name": c.manufacturer_name,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in cases
+        ]
+    )
 
 
 @case_file_generator_bp.route("/case/<int:case_id>", methods=["GET"])
@@ -324,9 +326,82 @@ def edit_case_file(case_id):
         "document_viewer/editor.html",
         case_number=case_file.case_number,
         case_id=case_file.id,
+        case_type="case_file",
         petition_html=render_case_file_document(case_id, "petition"),
         permission_html=render_case_file_document(case_id, "permission"),
+        report_url=url_for("case_file_generator.xref_report", case_id=case_file.id),
+        toc_url=url_for("case_file_generator.toc_report", case_id=case_file.id),
     )
+
+
+@case_file_generator_bp.route("/<int:case_id>/xref_report", methods=["GET"])
+def xref_report(case_id):
+    """Render the cross-reference (Xref) report for a case file.
+
+    Shows extracted paragraph / annexure / section references, their
+    resolution status against stored annexures, and a live HTML preview
+    of the document with enclosures auto-filled.
+    """
+    case_file = CaseFile.query.get_or_404(case_id)
+    doc_type = request.args.get("doc_type", "petition")
+
+    from app.cross_reference import generate_xref_report_data
+    from app.document_viewer.renderer import render_case_file_document
+
+    annotated_html = render_case_file_document(case_id, doc_type)
+    report = generate_xref_report_data(annotated_html, case_id=case_id)
+
+    return render_template(
+        "xref_report.html",
+        case_number=case_file.case_number,
+        fbo_name=case_file.manufacturer_name,
+        food_safety_officer=None,
+        doc_type=doc_type,
+        report=report,
+        annotated_html=annotated_html,
+        report_url=url_for("case_file_generator.xref_report", case_id=case_id),
+        renumber_url=url_for("case_file_generator.renumber_annexures", case_id=case_id),
+    )
+
+
+@case_file_generator_bp.route("/<int:case_id>/toc_report", methods=["GET"])
+def toc_report(case_id):
+    """Render the Table of Contents report for a case file.
+
+    Shows extracted headings with hierarchical numbering, the generated
+    TOC HTML, and a live preview with heading IDs annotated.
+    """
+    case_file = CaseFile.query.get_or_404(case_id)
+    doc_type = request.args.get("doc_type", "petition")
+
+    from app.document_viewer.renderer import render_case_file_document
+    from app.toc_generator import generate_toc_data
+    from app.toc_generator.engine import TocGeneratorEngine
+
+    annotated_html = render_case_file_document(case_id, doc_type)
+    toc_data = generate_toc_data(annotated_html)
+    toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
+
+    return render_template(
+        "toc_report.html",
+        case_number=case_file.case_number,
+        fbo_name=case_file.manufacturer_name,
+        food_safety_officer=None,
+        doc_type=doc_type,
+        toc_data=toc_data,
+        toc_html=toc_html,
+        annotated_html=annotated_html,
+        toc_url=url_for("case_file_generator.toc_report", case_id=case_id),
+    )
+
+
+@case_file_generator_bp.route("/<int:case_id>/renumber_annexures", methods=["POST"])
+def renumber_annexures(case_id):
+    """Renumber annexure letters (A, B, C, ...) in upload order."""
+    from app.cross_reference.engine import CrossReferenceEngine
+
+    updates = CrossReferenceEngine().renumber_annexures(case_id=case_id)
+    return jsonify({"status": "ok", "updates": updates, "count": len(updates)})
 
 
 @case_file_generator_bp.route("/regenerate/<int:case_id>", methods=["GET"])
@@ -353,11 +428,13 @@ def regenerate_case_files(case_id):
 
     if dispatched["mode"] == "async":
         return (
-            jsonify({
-                "message": "Case file PDF regeneration queued",
-                "case_file_id": case_file.id,
-                "task_id": dispatched["message_id"],
-            }),
+            jsonify(
+                {
+                    "message": "Case file PDF regeneration queued",
+                    "case_file_id": case_file.id,
+                    "task_id": dispatched["message_id"],
+                }
+            ),
             202,
         )
 
@@ -370,11 +447,13 @@ def regenerate_case_files(case_id):
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify({
-            "message": "Case file PDF regenerated",
-            "case_file_id": case_file.id,
-            "pdf_result": result,
-        }),
+        jsonify(
+            {
+                "message": "Case file PDF regenerated",
+                "case_file_id": case_file.id,
+                "pdf_result": result,
+            }
+        ),
         200,
     )
 
@@ -402,17 +481,19 @@ def lookup_sample():
         return jsonify({"error": f"Sample with code {sample_code} not found"}), 404
 
     # Return sample data for prefill - using canonical keys for Step 3
-    return jsonify({
-        "id": sample.id,
-        "sample_code": sample.sample_code,
-        "sample_name": sample.sample_name,
-        "retailer_fssai_license": sample.retailer_fssai or "",  # canonical
-        "retailer_person_name": sample.retailer_name or "",  # canonical
-        "sample_submission_date": (
-            sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""
-        ),  # canonical
-        "total_cost": sample.price or "",  # canonical (DB column: price)
-    })
+    return jsonify(
+        {
+            "id": sample.id,
+            "sample_code": sample.sample_code,
+            "sample_name": sample.sample_name,
+            "retailer_fssai_license": sample.retailer_fssai or "",  # canonical
+            "retailer_person_name": sample.retailer_name or "",  # canonical
+            "sample_submission_date": (
+                sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""
+            ),  # canonical
+            "total_cost": sample.price or "",  # canonical (DB column: price)
+        }
+    )
 
 
 @case_file_generator_bp.route("/samples", methods=["GET"])
@@ -424,12 +505,14 @@ def list_samples_for_datalist():
 
     paginated = Sample.query.order_by(Sample.sample_code.desc()).paginate(page=page, per_page=per_page, error_out=False)
     sample_codes = [sample.sample_code for sample in paginated.items]
-    return jsonify({
-        "sample_codes": sample_codes,
-        "page": paginated.page,
-        "per_page": paginated.per_page,
-        "total": paginated.total,
-    })
+    return jsonify(
+        {
+            "sample_codes": sample_codes,
+            "page": paginated.page,
+            "per_page": paginated.per_page,
+            "total": paginated.total,
+        }
+    )
 
 
 @case_file_generator_bp.route("/generate_case_file", methods=["POST"])
@@ -441,10 +524,12 @@ def generate_case_file_route():
     validation_errors = validate_case_file_form(form_data)
     if validation_errors:
         return (
-            jsonify({
-                "error": "Please correct the highlighted fields below.",
-                "errors": validation_errors,
-            }),
+            jsonify(
+                {
+                    "error": "Please correct the highlighted fields below.",
+                    "errors": validation_errors,
+                }
+            ),
             400,
         )
 
@@ -582,11 +667,13 @@ def generate_case_file_route():
 
     if dispatched["mode"] == "async":
         return (
-            jsonify({
-                "message": "Case file created; PDF generation queued",
-                "case_file_id": case_file_record.id,
-                "task_id": dispatched["message_id"],
-            }),
+            jsonify(
+                {
+                    "message": "Case file created; PDF generation queued",
+                    "case_file_id": case_file_record.id,
+                    "task_id": dispatched["message_id"],
+                }
+            ),
             202,
         )
 
@@ -599,10 +686,12 @@ def generate_case_file_route():
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify({
-            "message": "Case file created; PDF generated",
-            "case_file_id": case_file_record.id,
-            "pdf_result": result,
-        }),
+        jsonify(
+            {
+                "message": "Case file created; PDF generated",
+                "case_file_id": case_file_record.id,
+                "pdf_result": result,
+            }
+        ),
         200,
     )

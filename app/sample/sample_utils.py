@@ -5,7 +5,7 @@ Utilities for the Sample module, including sample_code generation.
 
 import random
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -46,7 +46,7 @@ def generate_sample_code() -> str:
         str: Generated sample code (e.g., 'SKS-2026-00001')
 
     """
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     seq_key = f"sample:{year}"
     # Stable hash for advisory lock (PostgreSQL only)
     lock_key = hash(seq_key) & 0x7FFFFFFF
@@ -61,7 +61,7 @@ def generate_sample_code() -> str:
             # The UPDATE ... SET last_value = last_value + 1 is atomic at
             # the database level, guaranteeing uniqueness even without
             # row-level locking.
-            seq = CodeSequence.query.get(seq_key)
+            seq = db.session.get(CodeSequence, seq_key)
             if seq is None:
                 seq = CodeSequence(key=seq_key, last_value=0)
                 db.session.add(seq)

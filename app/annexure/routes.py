@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -171,10 +171,12 @@ def upload():
         if existing is not None:
             stored_path.unlink(missing_ok=True)
             return (
-                jsonify({
-                    "error": "Duplicate file — identical to annexure " + existing.caption,
-                    "duplicate_of": existing.id,
-                }),
+                jsonify(
+                    {
+                        "error": "Duplicate file — identical to annexure " + existing.caption,
+                        "duplicate_of": existing.id,
+                    }
+                ),
                 409,
             )
 
@@ -191,7 +193,7 @@ def upload():
             case_id=case_id,
             adjudication_id=adjudication_id,
             caption=caption,
-            date=datetime.utcnow(),
+            date=datetime.now(UTC),
             file_hash=file_hash,
             page_count=page_count,
             ocr_text=ocr_text,
@@ -215,13 +217,15 @@ def upload():
         )
 
         return (
-            jsonify({
-                "status": "ok",
-                "annexure_id": annexure.id,
-                "caption": annexure.caption,
-                "annexure_letter": letter,
-                "page_count": page_count,
-            }),
+            jsonify(
+                {
+                    "status": "ok",
+                    "annexure_id": annexure.id,
+                    "caption": annexure.caption,
+                    "annexure_letter": letter,
+                    "page_count": page_count,
+                }
+            ),
             201,
         )
     except Exception as exc:
@@ -278,9 +282,11 @@ def reorder(annexure_id: str):
     ).first()
     if sibling is not None:
         return (
-            jsonify({
-                "error": f"Annexure letter '{letter}' is already used by '{sibling.caption}' on this case.",
-            }),
+            jsonify(
+                {
+                    "error": f"Annexure letter '{letter}' is already used by '{sibling.caption}' on this case.",
+                }
+            ),
             409,
         )
 

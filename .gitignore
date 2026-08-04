@@ -338,3 +338,20 @@ nul
 instance/app.db
 instance/app.db.backup_*
 piolium/tmp/
+
+# ---------------------------------------------------------------------------
+# Local Data / Generated CSV Data (use data/ dir for essential copies)
+# ---------------------------------------------------------------------------
+*.csv
+!tests/fixtures/*.csv
+!.gitignore
+
+# ---------------------------------------------------------------------------
+# AI Agent Tool Directories (do not commit working artifacts)
+# ---------------------------------------------------------------------------
+.pi-subagents/
+.ai/
+piolium/
+instance/annexures/
+instance/saved/
+instance/editor_images/

@@ -236,7 +236,7 @@ class TestInspectionToAdjudicationLinkage:
             db.session.commit()
 
             # Verify linkage
-            linked_inspection = Inspection.query.get(inspection.id)
+            linked_inspection = db.session.get(Inspection, inspection.id)
             assert linked_inspection.adjudication_id == adjudication.id
 
             # Verify inspection no longer appears in Pending views
@@ -290,8 +290,8 @@ class TestInspectionToAdjudicationLinkage:
             db.session.commit()
 
             # Verify the linkage
-            retrieved_inspection = Inspection.query.get(inspection.id)
-            retrieved_adjudication = Adjudication.query.get(adjudication.id)
+            retrieved_inspection = db.session.get(Inspection, inspection.id)
+            retrieved_adjudication = db.session.get(Adjudication, adjudication.id)
 
             assert retrieved_inspection.adjudication_id == retrieved_adjudication.id
 
@@ -380,7 +380,7 @@ class TestFKIntegrity:
             db.session.commit()
 
             # Verify the CaseFile still exists but sample_id is NULL
-            retrieved_casefile = CaseFile.query.get(casefile.id)
+            retrieved_casefile = db.session.get(CaseFile, casefile.id)
             assert retrieved_casefile is not None
             assert retrieved_casefile.sample_id is None
 
@@ -389,7 +389,7 @@ class TestFKIntegrity:
             db.session.commit()
 
             # Verify the sample no longer exists
-            deleted_sample = Sample.query.get(sample.id)
+            deleted_sample = db.session.get(Sample, sample.id)
             assert deleted_sample is None
 
     def test_delete_inspection_with_adjudication(self, test_client):
@@ -441,11 +441,11 @@ class TestFKIntegrity:
             db.session.commit()
 
             # Verify inspection is deleted
-            deleted_inspection = Inspection.query.get(inspection.id)
+            deleted_inspection = db.session.get(Inspection, inspection.id)
             assert deleted_inspection is None
 
             # Verify adjudication still exists
-            retrieved_adjudication = Adjudication.query.get(adjudication.id)
+            retrieved_adjudication = db.session.get(Adjudication, adjudication.id)
             assert retrieved_adjudication is not None
 
 

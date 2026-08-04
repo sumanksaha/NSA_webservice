@@ -4,6 +4,7 @@ import base64
 import io
 import logging
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -16,6 +17,66 @@ PDF_GENERATION_ENABLED = os.environ.get("DISABLE_PDF_GENERATION", "false").lower
 # If R2_PUBLIC_BASE_URL or R2_ENDPOINT are set we assume public URLs;
 # set PDF_USE_DIRECT_URLS=true to skip base64 embedding entirely.
 _PDF_USE_DIRECT_URLS = os.environ.get("PDF_USE_DIRECT_URLS", "false").lower() == "true"
+
+# Phase 7: WeasyPrint PDF CSS. Heading elements become PDF outline
+# (bookmark) entries, giving generated documents a navigable outline that
+# mirrors the injected Table of Contents. Annexure markers (detected by the
+# TOC engine) get a distinct badge inside the injected TOC nav so annexures
+# are easy to spot both in the PDF outline and the printed table of contents.
+_BOOKMARK_CSS = """\
+h1 { bookmark-level: 1; }
+h2 { bookmark-level: 2; }
+h3 { bookmark-level: 3; }
+h4 { bookmark-level: 4; }
+h5 { bookmark-level: 5; }
+h6 { bookmark-level: 6; }
+.toc-annexure a { color: #1e40af; }
+.toc-annexure-badge {
+  display: inline-block;
+  font-size: 0.65em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1e40af;
+  background: #dbeafe;
+  border-radius: 3px;
+  padding: 1px 5px;
+  vertical-align: 0.08em;
+  margin-right: 4px;
+}
+"""
+
+_HEADING_TAG_RE = re.compile(r"<(h[1-6])\b", re.IGNORECASE)
+
+
+def _inject_bookmark_css(html_content: str) -> str:
+    """Inject WeasyPrint bookmark + TOC CSS for h1-h6 headings.
+
+    WeasyPrint turns elements carrying ``bookmark-level`` into PDF outline
+    entries, so this gives generated documents a navigable outline aligned
+    with the Phase 7 TOC. The block also styles the ``.toc-annexure-badge``
+    chip that the TOC engine emits on annexure/appendix markers. The
+    ``<style>`` block is placed inside ``<head>`` (falling back to right after
+    ``<html>``, or prepended for bare HTML fragments) so WeasyPrint applies it
+    during PDF layout. Skipped entirely when the document has no heading
+    tags; never raises.
+    """
+    if not html_content or not _HEADING_TAG_RE.search(html_content):
+        return html_content
+
+    style_block = f"<style>\n{_BOOKMARK_CSS}</style>"
+
+    head_match = re.search(r"<head[^>]*>", html_content, re.IGNORECASE)
+    if head_match:
+        split_at = head_match.end()
+        return f"{html_content[:split_at]}{style_block}{html_content[split_at:]}"
+
+    html_match = re.search(r"<html[^>]*>", html_content, re.IGNORECASE)
+    if html_match:
+        split_at = html_match.end()
+        return f"{html_content[:split_at]}{style_block}{html_content[split_at:]}"
+
+    return style_block + html_content
 
 
 def import_weasyprint():
@@ -73,11 +134,18 @@ def renumber_html_lists(html_content: str) -> str:
 
 
 def post_process_pdf_html(html_content: str, case_id: int | None = None, adjudication_id: int | None = None) -> str:
-    """Phase 6 cross-reference pass over rendered HTML before PDF compilation.
+    """Phase 6 + Phase 7 post-processing pass over rendered HTML before PDF compilation.
 
-    Applies the list-renumbering pass and, when the document carries an
-    ``<ol data-cross-reference="enclosures">`` placeholder, fills it with
-    the auto-generated annexure enclosures list for the case.
+    Phase 6 (cross-references):
+    - Applies the list-renumbering pass.
+    - Fills an ``<ol data-cross-reference="enclosures">`` placeholder with
+      the auto-generated annexure enclosures list for the case.
+
+    Phase 7 (dynamic TOC):
+    - Injects a Table of Contents into ``<div data-toc></div>`` placeholders.
+    - Adds ``id`` attributes to headings for anchor navigation.
+    - Injects WeasyPrint ``bookmark-level`` CSS so h1-h6 headings become
+      a navigable PDF outline.
 
     Defensive: returns the input unchanged on any failure so PDF generation
     is never blocked.
@@ -85,10 +153,27 @@ def post_process_pdf_html(html_content: str, case_id: int | None = None, adjudic
     try:
         from app.cross_reference.engine import CrossReferenceEngine
 
-        return CrossReferenceEngine().annotate_html(html_content, case_id=case_id, adjudication_id=adjudication_id)
+        html_content = CrossReferenceEngine().annotate_html(
+            html_content, case_id=case_id, adjudication_id=adjudication_id
+        )
     except Exception as exc:
         logger.warning("Cross-reference post-processing skipped: %s", exc)
-        return html_content
+
+    # Phase 7: Dynamic TOC injection
+    try:
+        from app.toc_generator.engine import TocGeneratorEngine
+
+        html_content = TocGeneratorEngine().annotate_html(html_content)
+    except Exception as exc:
+        logger.warning("TOC post-processing skipped: %s", exc)
+
+    # Phase 7: WeasyPrint PDF bookmarks (navigable outline)
+    try:
+        html_content = _inject_bookmark_css(html_content)
+    except Exception as exc:
+        logger.warning("Bookmark CSS injection skipped: %s", exc)
+
+    return html_content
 
 
 def embed_photos_as_base64(photo_urls):
@@ -140,10 +225,12 @@ def embed_photos_as_base64(photo_urls):
                 }.get(ext, "image/jpeg")
 
             b64 = base64.b64encode(raw_bytes).decode("ascii")
-            results.append({
-                "url": path,
-                "data_uri": f"data:{content_type};base64,{b64}",
-            })
+            results.append(
+                {
+                    "url": path,
+                    "data_uri": f"data:{content_type};base64,{b64}",
+                }
+            )
         except Exception as exc:
             logger.warning("Failed to embed photo for PDF: %s — %s", path, exc)
             results.append({"url": path, "error": str(exc)})

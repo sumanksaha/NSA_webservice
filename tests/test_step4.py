@@ -2,7 +2,7 @@
 
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -81,7 +81,7 @@ class TestDerivedStateQueries:
                 compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
-                dismissed_at=datetime.utcnow(),
+                dismissed_at=datetime.now(UTC),
                 adjudication_id=None,
             )
 
@@ -158,7 +158,7 @@ class TestDerivedStateQueries:
                 compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
-                dismissed_at=datetime.utcnow(),
+                dismissed_at=datetime.now(UTC),
                 adjudication_id=None,
             )
 
@@ -290,11 +290,11 @@ class TestDismissAction:
             # Simulate dismiss action
             inspection.is_dismissed = True
             inspection.dismissed_by = "Test FSO"
-            inspection.dismissed_at = datetime.utcnow()
+            inspection.dismissed_at = datetime.now(UTC)
             db.session.commit()
 
             # Verify fields are set
-            result = Inspection.query.get(inspection.id)
+            result = db.session.get(Inspection, inspection.id)
             assert result.is_dismissed
             assert result.dismissed_by == "Test FSO"
             assert result.dismissed_at is not None
@@ -328,7 +328,7 @@ class TestDismissAction:
             # Dismiss the inspection
             inspection.is_dismissed = True
             inspection.dismissed_by = "Test FSO"
-            inspection.dismissed_at = datetime.utcnow()
+            inspection.dismissed_at = datetime.now(UTC)
             db.session.commit()
 
             # Verify it's no longer in Pending Action
@@ -575,7 +575,7 @@ class TestHistoryView:
                 compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
-                dismissed_at=datetime.utcnow(),
+                dismissed_at=datetime.now(UTC),
                 adjudication_id=None,
             )
             db.session.add(dismissed)
@@ -704,7 +704,7 @@ class TestPrecedenceRules:
                 compliance_deadline=past_date,
                 is_dismissed=True,
                 dismissed_by="Test FSO",
-                dismissed_at=datetime.utcnow(),
+                dismissed_at=datetime.now(UTC),
                 adjudication_id=adj.id,
             )
             db.session.add(inspection)

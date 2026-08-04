@@ -35,12 +35,14 @@ ENTITY_ADJUDICATION = "adjudication"
 ENTITY_ANNEXURE = "annexure"
 ENTITY_EVIDENCE = "evidence"
 
-ENTITY_TYPES = frozenset({
-    ENTITY_CASE_FILE,
-    ENTITY_ADJUDICATION,
-    ENTITY_ANNEXURE,
-    ENTITY_EVIDENCE,
-})
+ENTITY_TYPES = frozenset(
+    {
+        ENTITY_CASE_FILE,
+        ENTITY_ADJUDICATION,
+        ENTITY_ANNEXURE,
+        ENTITY_EVIDENCE,
+    }
+)
 
 _FTS_TABLE = "search_index"
 
@@ -182,9 +184,7 @@ def ensure_search_table() -> bool:
 def _upsert_row(entity_type, entity_id, title, content):
     """Delete then insert a row for the given entity (no commit)."""
     db.session.execute(
-        text(
-            "DELETE FROM " + _FTS_TABLE + " WHERE entity_type = :etype AND entity_id = :eid"  # noqa: S608
-        ),
+        text("DELETE FROM " + _FTS_TABLE + " WHERE entity_type = :etype AND entity_id = :eid"),  # noqa: S608
         {"etype": entity_type, "eid": entity_id},
     )
     db.session.execute(
@@ -199,9 +199,7 @@ def _upsert_row(entity_type, entity_id, title, content):
 def _delete_row(entity_type, entity_id):
     """Delete a row from the FTS index (no commit)."""
     db.session.execute(
-        text(
-            "DELETE FROM " + _FTS_TABLE + " WHERE entity_type = :etype AND entity_id = :eid"  # noqa: S608
-        ),
+        text("DELETE FROM " + _FTS_TABLE + " WHERE entity_type = :etype AND entity_id = :eid"),  # noqa: S608
         {"etype": entity_type, "eid": entity_id},
     )
 
@@ -413,12 +411,14 @@ def _search_like(query, entity_type, limit):
                 or getattr(row, "caption", None)
                 or ""
             )
-            results.append({
-                "entity_type": etype,
-                "entity_id": str(row.id),
-                "title": title,
-                "snippet": snippet_text[:200] if snippet_text else "",
-            })
+            results.append(
+                {
+                    "entity_type": etype,
+                    "entity_id": str(row.id),
+                    "title": title,
+                    "snippet": snippet_text[:200] if snippet_text else "",
+                }
+            )
 
     return results
 

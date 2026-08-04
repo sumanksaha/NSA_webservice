@@ -18,7 +18,7 @@ import io
 import json
 import logging
 import zipfile
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -198,7 +198,7 @@ def build_backup_archive() -> io.BytesIO:
         metadata = {
             "version": BACKUP_VERSION,
             "dialect": db_dialect(),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "table_counts": {name: len(rows) for name, rows in db_dump.items()},
         }
         zf.writestr(METADATA_NAME, json.dumps(metadata, indent=2))

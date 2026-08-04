@@ -30,7 +30,7 @@ import json
 import mimetypes
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -45,8 +45,11 @@ from flask_login import current_user
 
 from app.document_viewer import document_viewer_bp
 from app.document_viewer.markdown_export import delta_to_markdown, html_to_markdown
+from app.extensions import db
 from app.services.audit import log_audit
-from app.utils.pdf_utils import generate_pdf_from_html
+from app.services.version_control import VersionService
+from app.utils.document_storage import save_saved_document
+from app.utils.pdf_utils import generate_pdf_from_html, post_process_pdf_html
 
 # ---------------------------------------------------------------------------
 # Editor image upload (Phase 2) — stored under instance/editor_images/
@@ -64,11 +67,11 @@ def _resolve_case(case_id: int):
     """Look up a CaseFile or Adjudication by primary key."""
     from app.models import Adjudication, CaseFile
 
-    case_record = CaseFile.query.get(case_id)
+    case_record = db.session.get(CaseFile, case_id)
     if case_record is not None:
         return case_record, "case_file", case_record.case_number
 
-    case_record = Adjudication.query.get(case_id)
+    case_record = db.session.get(Adjudication, case_id)
     if case_record is not None:
         return case_record, "adjudication", case_record.case_number
 
@@ -77,24 +80,7 @@ def _resolve_case(case_id: int):
 
 def _save_document_content(case_id, html_content, delta_content, doc_type):
     """Persist HTML (+ optional Delta) to instance/saved/."""
-    timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    saved_dir = Path(current_app.instance_path) / "saved"
-    saved_dir.mkdir(parents=True, exist_ok=True)
-
-    html_filename = f"{case_id}_{doc_type}_{timestamp_str}.html"
-    html_path = saved_dir / html_filename
-    html_path.write_text(html_content, encoding="utf-8")
-
-    if delta_content is not None:
-        delta_filename = f"{case_id}_{doc_type}_{timestamp_str}.delta"
-        delta_path = saved_dir / delta_filename
-        try:
-            delta_text = delta_content if isinstance(delta_content, str) else json.dumps(delta_content)
-            delta_path.write_text(delta_text, encoding="utf-8")
-        except (TypeError, ValueError, OSError) as exc:
-            current_app.logger.warning("Failed to save delta for case %s: %s", case_id, exc)
-
-    return timestamp_str
+    return save_saved_document(current_app.instance_path, case_id, doc_type, html_content, delta_content)
 
 
 def _log_audit(case_type, case_id, action, actor, **details):
@@ -103,6 +89,44 @@ def _log_audit(case_type, case_id, action, actor, **details):
         log_audit(entity_type=case_type, entity_id=str(case_id), action=action, actor=actor, details=details)
     except Exception:
         current_app.logger.warning("Audit log write failed for case %s; continuing.", case_id)
+
+
+def _snapshot_version(case_type, case_id, doc_type, html_content, delta_content, force=False):
+    """Phase 9 best-effort version snapshot; never blocks the response.
+
+    Explicit saves (``force=True``) always create a snapshot; autosaves create
+    one only when the content actually changed (deduped by SHA-256 content
+    hash via :meth:`VersionService.create_version_if_changed`). Any failure
+    is logged and swallowed so save/autosave behaviour is unchanged.
+    """
+    try:
+        user_id = current_user.get_id() if current_user.is_authenticated else None
+        # Both ``case_id`` and ``adjudication_id`` are required keyword
+        # arguments of VersionService.create_version — exactly one is set,
+        # the other is None (matching the API route's call convention).
+        if case_type == "case_file":
+            target_kwargs = {"case_id": case_id, "adjudication_id": None}
+        else:
+            target_kwargs = {"adjudication_id": case_id, "case_id": None}
+        service = VersionService()
+        if force:
+            service.create_version(
+                doc_type=doc_type,
+                html_content=html_content,
+                delta_content=delta_content,
+                user_id=user_id,
+                **target_kwargs,
+            )
+        else:
+            service.create_version_if_changed(
+                doc_type=doc_type,
+                html_content=html_content,
+                delta_content=delta_content,
+                user_id=user_id,
+                **target_kwargs,
+            )
+    except Exception as exc:
+        current_app.logger.warning("Version snapshot skipped for case %s: %s", case_id, exc)
 
 
 def _actor():
@@ -141,6 +165,9 @@ def autosave_document(case_id: int):
         current_app.logger.error("Failed to auto-save for case %s: %s", case_id, exc)
         return jsonify({"error": "Could not auto-save document"}), 500
 
+    # Phase 9: snapshot only when the content actually changed (autosave path).
+    _snapshot_version(case_type, case_id, doc_type, html_content, delta_content, force=False)
+
     _log_audit(
         case_type,
         case_id,
@@ -161,6 +188,8 @@ def save_document(case_id: int):
 
     - Validates the case exists (CaseFile or Adjudication).
         - Writes the HTML (+ optional Delta) to ``instance/saved/``.
+    - Runs the edited HTML through ``post_process_pdf_html`` (Phase 6+7:
+      renumbering, enclosures, TOC/bookmarks) before PDF conversion.
     - Converts HTML to PDF via the existing ``generate_pdf_from_html`` pipeline.
     - Logs an audit event.
     - Returns the PDF as a file download, or a JSON error on failure.
@@ -196,8 +225,20 @@ def save_document(case_id: int):
         current_app.logger.error("Failed to save HTML for case %s: %s", case_id, exc)
         return jsonify({"error": "Could not save edited document"}), 500
 
-    # --- Generate PDF from edited HTML ---
-    pdf_bytes, pdf_error = generate_pdf_from_html(html_content)
+    # --- Phase 9: snapshot-on-save (explicit save always creates a version) ---
+    _snapshot_version(case_type, case_id, doc_type, html_content, delta_content, force=True)
+
+    # --- Generate PDF from edited HTML (Phase 6+7 post-processing first) ---
+    # The edited HTML is post-processed (list renumbering, enclosures, TOC
+    # injection, heading ids + WeasyPrint bookmarks) so the downloaded PDF
+    # matches what the server-side templates produce. The raw edit is still
+    # what gets persisted to disk above. post_process_pdf_html is defensive
+    # and never raises, so no extra guarding is needed here.
+    if case_type == "case_file":
+        pdf_html = post_process_pdf_html(html_content, case_id=case_id)
+    else:
+        pdf_html = post_process_pdf_html(html_content, adjudication_id=case_id)
+    pdf_bytes, pdf_error = generate_pdf_from_html(pdf_html)
     if pdf_bytes is None:
         current_app.logger.error("PDF generation failed for case %s: %s", case_id, pdf_error)
         return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 500
@@ -322,12 +363,14 @@ def export_markdown():
     else:
         return jsonify({"error": "No document content provided"}), 400
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    return jsonify({
-        "status": "ok",
-        "markdown": markdown,
-        "filename": f"document_{timestamp}.md",
-    })
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    return jsonify(
+        {
+            "status": "ok",
+            "markdown": markdown,
+            "filename": f"document_{timestamp}.md",
+        }
+    )
 
 
 @document_viewer_bp.route("/saved/<int:case_id>/<doc_type>", methods=["GET"])

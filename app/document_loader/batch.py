@@ -225,10 +225,12 @@ class BatchProcessor:
                     )
                 else:
                     summary.fail_count += 1
-                    summary.errors.append({
-                        "file": result.file_path,
-                        "error": result.error,
-                    })
+                    summary.errors.append(
+                        {
+                            "file": result.file_path,
+                            "error": result.error,
+                        }
+                    )
                     line = _fast_dumps(
                         {
                             "file_name": Path(result.file_path).name,

@@ -44,24 +44,26 @@ logger = logging.getLogger(__name__)
 _SAVED_DIR_NAME = "evidence"
 _MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-_ALLOWED_EXTENSIONS = frozenset({
-    ".pdf",
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".webp",
-    ".gif",
-    ".bmp",
-    ".tiff",
-    ".tif",
-    ".docx",
-    ".doc",
-    ".txt",
-    ".mp4",
-    ".mov",
-    ".avi",
-    ".mkv",
-})
+_ALLOWED_EXTENSIONS = frozenset(
+    {
+        ".pdf",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".gif",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".docx",
+        ".doc",
+        ".txt",
+        ".mp4",
+        ".mov",
+        ".avi",
+        ".mkv",
+    }
+)
 
 # Extension -> suggested evidence type (overridable via the upload form).
 _EXT_TYPE_MAP = {
@@ -355,7 +357,7 @@ def download(evidence_id: str):
     """Download the evidence file (URL-backed files redirect)."""
     from app.models import Evidence
 
-    evidence = Evidence.query.get(evidence_id)
+    evidence = db.session.get(Evidence, evidence_id)
     if evidence is None:
         abort(404)
 
@@ -379,7 +381,7 @@ def thumbnail(evidence_id: str):
     """Serve the cached thumbnail for image evidence (generates on demand)."""
     from app.models import Evidence
 
-    evidence = Evidence.query.get(evidence_id)
+    evidence = db.session.get(Evidence, evidence_id)
     if evidence is None or evidence.evidence_type != "photo":
         abort(404)
 
@@ -400,7 +402,7 @@ def update(evidence_id: str):
     """Update caption / tags / evidence type (JSON body)."""
     from app.models import Evidence
 
-    evidence = Evidence.query.get(evidence_id)
+    evidence = db.session.get(Evidence, evidence_id)
     if evidence is None:
         return jsonify({"error": f"Evidence {evidence_id} not found"}), 404
 
@@ -431,7 +433,7 @@ def delete(evidence_id: str):
     """Delete the evidence row and its files (original + thumbnail)."""
     from app.models import Evidence
 
-    evidence = Evidence.query.get(evidence_id)
+    evidence = db.session.get(Evidence, evidence_id)
     if evidence is None:
         return jsonify({"error": f"Evidence {evidence_id} not found"}), 404
 

@@ -107,6 +107,67 @@ def _esc(value: str) -> str:
     return _html.escape(str(value), quote=True)
 
 
+def strip_html_to_text(html_content: str) -> str:
+    """Extract plain text from an HTML string.
+
+    Uses the standard-library :class:`html.parser.HTMLParser` so no
+    third-party dependency is required.  Collapses whitespace and
+    inserts newlines at block-level boundaries so the xref engine's
+    regex patterns work correctly on the resulting text.
+    """
+    from html.parser import HTMLParser
+
+    class _TextExtractor(HTMLParser):
+        _BLOCK_TAGS = frozenset(
+            {
+                "p",
+                "div",
+                "li",
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "h5",
+                "h6",
+                "tr",
+                "br",
+                "blockquote",
+                "pre",
+                "section",
+                "header",
+                "footer",
+                "table",
+                "thead",
+                "tbody",
+                "ul",
+                "ol",
+            }
+        )
+
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self._parts: list[str] = []
+
+        def handle_starttag(self, tag: str, attrs: Any) -> None:
+            if tag in self._BLOCK_TAGS:
+                self._parts.append("\n")
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag in self._BLOCK_TAGS:
+                self._parts.append("\n")
+
+        def handle_data(self, data: str) -> None:
+            self._parts.append(data)
+
+    extractor = _TextExtractor()
+    try:
+        extractor.feed(html_content or "")
+        extractor.close()
+    except Exception:
+        return html_content  # defensive — never break caller
+    return "\n".join(line.strip() for line in "".join(extractor._parts).splitlines())
+
+
 class CrossReferenceEngine:
     """Extract, link, and renumber cross-references in legal documents."""
 

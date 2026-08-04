@@ -236,6 +236,43 @@ class TestEditorRouteAdjudication:
         assert "{{" not in html
         assert "Test Officer" in html
 
+    def test_adjudication_save_post_processes_html_before_pdf(self, adj_app):
+        """Adjudication saves pass adjudication_id into post-processing."""
+        from unittest.mock import patch
+
+        # The adj_app fixture does not disable CSRF (unlike test_client), so
+        # disable it here for the POST to be accepted.
+        adj_app.application.config["WTF_CSRF_ENABLED"] = False
+
+        with adj_app.application.app_context():
+            from app.extensions import db
+            from app.models import CaseFile
+
+            # Both CaseFile and Adjudication get id 1 (SQLite autoincrement is
+            # per-table), and the save route resolves CaseFile first. Remove the
+            # CaseFile so the POST exercises the adjudication branch.
+            db.session.delete(CaseFile.query.first())
+            db.session.commit()
+
+        with adj_app.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        with patch(
+            "app.document_viewer.routes.generate_pdf_from_html",
+            return_value=(b"%PDF-fake", None),
+        ) as mock_pdf:
+            resp = adj_app.post(
+                "/document_viewer/save/1",
+                json={"html": "<h2>GROUNDS</h2>", "doc_type": "petition"},
+                follow_redirects=False,
+            )
+
+        assert resp.status_code == 200
+        pdf_html = mock_pdf.call_args[0][0]
+        assert 'id="toc-1"' in pdf_html
+        assert "bookmark-level: 2" in pdf_html
+
 
 class TestEditorStaticAssets:
     """Test that vendored Quill and editor JS are served."""
@@ -414,6 +451,36 @@ class TestSaveDocument:
         assert len(html_files) >= 1
         content = html_files[-1].read_text(encoding="utf-8")
         assert "Edited content for save test" in content
+
+    def test_save_post_processes_html_before_pdf(self, test_client):
+        """Edited HTML runs through post_process_pdf_html before PDF generation.
+
+        Phase 6/7 post-processing must be applied to edited documents so the
+        downloaded PDF carries renumbered lists, heading anchor ids, and
+        WeasyPrint bookmarks -- not just the raw editor HTML.
+        """
+        from unittest.mock import patch
+
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+
+        with patch(
+            "app.document_viewer.routes.generate_pdf_from_html",
+            return_value=(b"%PDF-fake", None),
+        ) as mock_pdf:
+            resp = test_client.post(
+                "/document_viewer/save/1",
+                json={"html": "<h1>IN THE MATTER OF</h1>", "doc_type": "permission"},
+                follow_redirects=False,
+            )
+
+        assert resp.status_code == 200
+        assert mock_pdf.called, "generate_pdf_from_html should have been called"
+        pdf_html = mock_pdf.call_args[0][0]
+        # Phase 7: heading annotated with an anchor id + bookmark CSS injected
+        assert 'id="toc-1"' in pdf_html
+        assert "bookmark-level: 1" in pdf_html
 
 
 class TestSaveDocumentCsrf:

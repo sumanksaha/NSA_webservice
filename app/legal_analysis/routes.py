@@ -11,7 +11,7 @@ from typing import Any
 from flask import jsonify, render_template, request
 
 from app.legal_analysis import legal_analysis_bp
-from app.services.legal_engine import LegalEngineUnavailable, analyze_legal_text
+from app.services.legal_engine import analyze_legal_text
 
 
 @legal_analysis_bp.route("/")
@@ -31,7 +31,7 @@ def analyze():
 
     try:
         result = analyze_legal_text(text.strip())
-    except LegalEngineUnavailable as exc:
+    except ImportError as exc:
         return jsonify({"error": str(exc)}), 503
     except RuntimeError as exc:
         return jsonify({"error": f"Engine failure: {exc}"}), 500

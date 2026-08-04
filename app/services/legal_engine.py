@@ -6,9 +6,9 @@ Flask app through a thin, JSON-safe wrapper.
 Design notes:
 - The engine is imported lazily so the app boots even when the package is not
   installed (e.g. minimal deployments that skip the engine). Callers that need
-  the engine get a descriptive :class:`LegalEngineUnavailable` error instead.
-- The engine is a process-wide singleton; its read-through cache (T-26) makes
-  repeated analyses of the same text cheap.
+  the engine get an ``ImportError`` with a descriptive message instead.
+- Unlike the previous singleton-based implementation, ``get_legal_engine()``
+  returns the class (not an instance), letting callers control lifecycle.
 """
 
 from __future__ import annotations
@@ -23,28 +23,17 @@ logger = logging.getLogger(__name__)
 # "section 26(2)" — captures the top-level section number.
 _SECTION_REF_RE = re.compile(r"section\s*(\d{1,3})", re.IGNORECASE)
 
-_engine: Any = None
 
+def get_legal_engine() -> Any:
+    """Return the ``LegalParagraphEngine`` class, importing the package on first use.
 
-class LegalEngineUnavailable(RuntimeError):
-    """Raised when the legal paragraph detection engine is not importable."""
+    Raises:
+        ImportError: If the legal paragraph detection engine package is not
+            installed.
+    """
+    from legal_paragraph_detection_engine import LegalParagraphEngine  # type: ignore[import-untyped]
 
-
-def _get_engine() -> Any:
-    """Return the shared engine instance, importing the package on first use."""
-    global _engine
-    if _engine is None:
-        try:
-            from legal_paragraph_detection_engine import LegalParagraphEngine
-        except ImportError as exc:
-            logger.warning("Legal paragraph detection engine not available: %s", exc)
-            raise LegalEngineUnavailable(
-                "The legal paragraph detection engine is not installed. "
-                "Install it via `pip install -e ./legal_paragraph_detection_engine` "
-                "or run from the repository root."
-            ) from exc
-        _engine = LegalParagraphEngine()
-    return _engine
+    return LegalParagraphEngine
 
 
 def analyze_legal_text(text: str, doc_type: str | None = None) -> dict[str, Any]:
@@ -59,15 +48,16 @@ def analyze_legal_text(text: str, doc_type: str | None = None) -> dict[str, Any]
         (the engine's structured paragraph list).
 
     Raises:
-        LegalEngineUnavailable: If the engine package cannot be imported.
+        ImportError: If the engine package cannot be imported.
         ValueError: If ``text`` is empty/blank.
         RuntimeError: If the engine fails to process the text.
     """
     if not text or not text.strip():
         raise ValueError("No text provided to analyze.")
 
-    engine = _get_engine()
+    engine_cls = get_legal_engine()
     doc_type_info = {"type": doc_type} if doc_type else None
+    engine = engine_cls()
     paragraphs = engine.process_document(text, doc_type_info)
 
     return {

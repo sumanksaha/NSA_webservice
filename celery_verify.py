@@ -388,11 +388,11 @@ with app.test_client() as client:
         assert "bill_id" in body
 
         # Verify task_id stored on DB record
-        bill = Bill.query.get(body["bill_id"])
+        bill = db.session.get(Bill, body["bill_id"])
         assert bill is not None, "Bill not found in DB"
-        assert bill.pdf_task_id == body["task_id"], (
-            f"pdf_task_id mismatch: DB={bill.pdf_task_id} vs response={body['task_id']}"
-        )
+        assert (
+            bill.pdf_task_id == body["task_id"]
+        ), f"pdf_task_id mismatch: DB={bill.pdf_task_id} vs response={body['task_id']}"
 
         # Revert sample billed flags
         s1.billed = False
@@ -454,11 +454,11 @@ with app.test_client() as client:
         assert "case_file_id" in body
 
         # Verify task_id stored on DB record
-        cf = CaseFile.query.get(body["case_file_id"])
+        cf = db.session.get(CaseFile, body["case_file_id"])
         assert cf is not None, "CaseFile not found in DB"
-        assert cf.pdf_task_id == body["task_id"], (
-            f"pdf_task_id mismatch: DB={cf.pdf_task_id} vs response={body['task_id']}"
-        )
+        assert (
+            cf.pdf_task_id == body["task_id"]
+        ), f"pdf_task_id mismatch: DB={cf.pdf_task_id} vs response={body['task_id']}"
 
         record(
             "generate_case_file_pdf",

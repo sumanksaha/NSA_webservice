@@ -4,7 +4,7 @@ Provides administrative routes including FSO sync, and the Phase 3
 local-database backup / restore endpoints.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import login_required
@@ -53,8 +53,7 @@ def _table_row_counts() -> dict:
         try:
             # Table names come from SQLAlchemy metadata, not user input.
             counts[table.name] = (
-                db.session.execute(text(f"SELECT COUNT(*) FROM {table.name}")).scalar()  # noqa: S608
-                or 0
+                db.session.execute(text(f"SELECT COUNT(*) FROM {table.name}")).scalar() or 0  # noqa: S608
             )
         except Exception:
             counts[table.name] = 0
@@ -82,7 +81,7 @@ def backup():
 def backup_download():
     """Download a full backup ZIP (database dump + instance files)."""
     archive = build_backup_archive()
-    filename = f"nsa_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.zip"
+    filename = f"nsa_backup_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.zip"
     return send_file(
         archive,
         as_attachment=True,

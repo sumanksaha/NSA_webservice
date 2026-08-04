@@ -1,9 +1,9 @@
 import io
 import json
 import zipfile
-from datetime import datetime
+from datetime import UTC, datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file, url_for
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
@@ -278,16 +278,18 @@ def suggest_sections_route():
 def list_adjudication_cases():
     """List all existing adjudication cases."""
     cases = Adjudication.query.order_by(Adjudication.created_at.desc()).all()
-    return jsonify([
-        {
-            "id": c.id,
-            "case_number": c.case_number,
-            "fbo_name": c.fbo_name,
-            "food_safety_officer": c.food_safety_officer,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
-        }
-        for c in cases
-    ])
+    return jsonify(
+        [
+            {
+                "id": c.id,
+                "case_number": c.case_number,
+                "fbo_name": c.fbo_name,
+                "food_safety_officer": c.food_safety_officer,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in cases
+        ]
+    )
 
 
 @adjudication_bp.route("/case/<int:case_id>", methods=["GET"])
@@ -314,9 +316,82 @@ def edit_adjudication(case_id):
         "document_viewer/editor.html",
         case_number=adj.case_number,
         case_id=adj.id,
+        case_type="adjudication",
         petition_html=render_adjudication_document(case_id, "petition"),
         permission_html=render_adjudication_document(case_id, "permission"),
+        report_url=url_for("adjudication.xref_report", case_id=case_id),
+        toc_url=url_for("adjudication.toc_report", case_id=case_id),
     )
+
+
+@adjudication_bp.route("/<int:case_id>/xref_report", methods=["GET"])
+def xref_report(case_id):
+    """Render the cross-reference (Xref) report for an adjudication case.
+
+    Shows extracted paragraph / annexure / section references, their
+    resolution status against stored annexures, and a live HTML preview
+    of the document with enclosures auto-filled.
+    """
+    adj = Adjudication.query.get_or_404(case_id)
+    doc_type = request.args.get("doc_type", "petition")
+
+    from app.cross_reference import generate_xref_report_data
+    from app.document_viewer.renderer import render_adjudication_document
+
+    annotated_html = render_adjudication_document(case_id, doc_type)
+    report = generate_xref_report_data(annotated_html, adjudication_id=case_id)
+
+    return render_template(
+        "xref_report.html",
+        case_number=adj.case_number,
+        fbo_name=adj.fbo_name,
+        food_safety_officer=adj.food_safety_officer,
+        doc_type=doc_type,
+        report=report,
+        annotated_html=annotated_html,
+        report_url=url_for("adjudication.xref_report", case_id=case_id),
+        renumber_url=url_for("adjudication.renumber_annexures", case_id=case_id),
+    )
+
+
+@adjudication_bp.route("/<int:case_id>/toc_report", methods=["GET"])
+def toc_report(case_id):
+    """Render the Table of Contents report for an adjudication case.
+
+    Shows extracted headings with hierarchical numbering, the generated
+    TOC HTML, and a live preview with heading IDs annotated.
+    """
+    adj = Adjudication.query.get_or_404(case_id)
+    doc_type = request.args.get("doc_type", "petition")
+
+    from app.document_viewer.renderer import render_adjudication_document
+    from app.toc_generator import generate_toc_data
+    from app.toc_generator.engine import TocGeneratorEngine
+
+    annotated_html = render_adjudication_document(case_id, doc_type)
+    toc_data = generate_toc_data(annotated_html)
+    toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
+
+    return render_template(
+        "toc_report.html",
+        case_number=adj.case_number,
+        fbo_name=adj.fbo_name,
+        food_safety_officer=adj.food_safety_officer,
+        doc_type=doc_type,
+        toc_data=toc_data,
+        toc_html=toc_html,
+        annotated_html=annotated_html,
+        toc_url=url_for("adjudication.toc_report", case_id=case_id),
+    )
+
+
+@adjudication_bp.route("/<int:case_id>/renumber_annexures", methods=["POST"])
+def renumber_annexures(case_id):
+    """Renumber annexure letters (A, B, C, ...) in upload order."""
+    from app.cross_reference.engine import CrossReferenceEngine
+
+    updates = CrossReferenceEngine().renumber_annexures(adjudication_id=case_id)
+    return jsonify({"status": "ok", "updates": updates, "count": len(updates)})
 
 
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
@@ -376,8 +451,7 @@ def regenerate_adjudication_documents(case_id):
     from sqlalchemy import or_
 
     all_photos = (
-        Evidence.query
-        .filter(
+        Evidence.query.filter(
             Evidence.evidence_type == "photo",
             or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
         )
@@ -445,9 +519,11 @@ def regenerate_adjudication_documents(case_id):
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return (
-                jsonify({
-                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-                }),
+                jsonify(
+                    {
+                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                    }
+                ),
                 500,
             )
 
@@ -528,10 +604,10 @@ def generate_all():
         try:
             from app.models import Inspection
 
-            inspection = Inspection.query.get(int(from_inspection))
+            inspection = db.session.get(Inspection, int(from_inspection))
             if inspection and not inspection.adjudication_id and not inspection.is_dismissed:
                 # Check if compliance_deadline has passed
-                today = datetime.utcnow()
+                today = datetime.now(UTC)
                 if inspection.compliance_deadline and inspection.compliance_deadline < today:
                     inspection.adjudication_id = adj.id
                     try:
@@ -647,8 +723,7 @@ def generate_all():
     from sqlalchemy import or_
 
     all_photos = (
-        Evidence.query
-        .filter(
+        Evidence.query.filter(
             Evidence.evidence_type == "photo",
             or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
         )
@@ -719,9 +794,11 @@ def generate_all():
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return (
-                jsonify({
-                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-                }),
+                jsonify(
+                    {
+                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                    }
+                ),
                 500,
             )
 

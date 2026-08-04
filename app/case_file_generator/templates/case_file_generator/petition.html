@@ -130,7 +130,9 @@
       </div>
     </div>
 
-    <div class="page-break"></div>
+        <div class="page-break"></div>
+
+    <div data-toc></div>
 
     <p class="bold">Most Respectfully Sheweth: -</p>
 
@@ -398,16 +400,10 @@
           Food Safety Officer<br />Kolkata Municipal Corporation
         </td>
       </tr>
-    </table>
-    <ol class="justify">
-      <li>Copy of form of Notice to the FBO (Form VA)</li>
-      <li>Copy of Form VI</li>
-      <li>Copy of sample coupon Form vide No <strong>{{ sample_code }}</strong></li>
-      <li>Copy of Lab peon Book</li>
-      <li>Copy of Letter No {{ directive_letter_no }} Dated {{ directive_letter_date }}</li>
-      <li>Copy of Food Analyst Report No {{ analyst_report_no }} Dated {{ analyst_report_date }}</li>
-      <li>Copy of {{ manufacturer_fssai_license }}</li>
-      <li>Copy of {{ retailer_fssai_license }}</li>
-    </ol>
+        </table>
+    <div class="enclosure-section">
+        <p><strong>List of Enclosures</strong></p>
+        <ol data-cross-reference="enclosures" class="justify"></ol>
+    </div>
   </body>
 </html>

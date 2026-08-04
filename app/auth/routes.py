@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from flask import Response, abort, flash, redirect, render_template, request, session, url_for
@@ -29,7 +29,7 @@ def _log_login_event(action, user_id=None):
             action=action,
             record_type="auth",
             record_id=str(user_id) if user_id else "anonymous",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             ip_address=request.remote_addr,
             user_agent=request.headers.get("User-Agent", "")[:500],
         )
@@ -48,7 +48,7 @@ def _log_user_audit(action, actor_id, target_user_id):
             action=action,
             record_type="user",
             record_id=str(target_user_id),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             ip_address=request.remote_addr,
             user_agent=request.headers.get("User-Agent", "")[:500],
         )
@@ -234,7 +234,7 @@ def create_user():
 @admin_required
 def reset_password(user_id):
     """Admin sets a new password for another user (no current password needed)."""
-    target = User.query.get(user_id)
+    target = db.session.get(User, user_id)
     if target is None:
         abort(404)
 
@@ -273,7 +273,7 @@ def toggle_admin(user_id):
     so an admin can never lock themselves out; the change is written to the
     audit log.
     """
-    target = User.query.get(user_id)
+    target = db.session.get(User, user_id)
     if target is None:
         abort(404)
 
@@ -304,7 +304,7 @@ def delete_user(user_id):
     ``_guard_admin_action`` so an admin can never remove their own login; the
     deletion is written to the audit log.
     """
-    target = User.query.get(user_id)
+    target = db.session.get(User, user_id)
     if target is None:
         abort(404)
 

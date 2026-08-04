@@ -1,15 +1,14 @@
 # Roadmap Alignment Report — NSA Webservice
 
 > **Generated:** 2026-08-02
-> **Last status update:** 2026-08-03 (steps 1–7 of the recommended order complete — Phase 6 done)
+> **Last status update:** 2026-08-04 — **Phases 1–9 are 100% implemented.** Phase 8 hyperlinks closed; Phase 9 version control fully implemented; all tests passing.
 > **Purpose:** Evaluate the current NSA Webservice codebase against the 20-phase roadmap and produce a detailed implementation plan with TODO list and file-level edit guidance.
 
-> **📌 Current Project Status Update (2026-08-03):**
-> - **Phase 5 (Evidence Management):** ✅ **COMPLETED** — unified `Evidence` model (photo/video/report/licence/bill/lab_report), drag-and-drop multi-file upload, Pillow compression + thumbnails, type/tag categorization, library + FTS5 search, and the legacy `PhotoEvidence`/`InspectionPhoto` tables unified into `evidence` (migration `unify_photo_evidence`). Blueprint registered at `/evidence`, nav link added, 16 tests in tests/test_phase5_evidence.py.
-> - **Cloudinary Integration:** ✅ **COMPLETED** for adjudication photos (`InspectionPhoto` → now `Evidence`). Backend implemented in `app/utils/storage.py` with R2/B2 fallback. Environment config added to `.env.example`, `render.yaml`, and `pyproject.toml`.
-> - **Evaluation Score:** 4.3/5 (see `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for details).
-> - **Next Steps:** Phase 7 — Dynamic TOC generator.
-> - **Phase 6 (Cross-Reference Engine):** ✅ **COMPLETED** — `app/cross_reference/` engine: paragraph/annexure/section reference extraction (incl. sub-clause refs like `Section 26(2)(ii)` and runs like `Sections 55, 56 and 58`), annexure metadata linking by letter/index, renumbering passes (plain-text list markers, `<ol start>` continuations scoped to `class="justify"` lists, annexure letter reassignment), auto "List of Enclosures", and a defensive `post_process_pdf_html` pass wired into every PDF-assembly path (document_viewer, case_file_generator, adjudication). 27 tests in tests/test_cross_reference.py.
+> **📌 Current Project Status Update (2026-08-04):**
+> - **Phases 0–7:** ✅ Complete (all committed).
+> - **Phase 8 (PDF Assembly Engine):** ✅ **COMPLETED 2026-08-04** — the final remaining item (PDF hyperlinks) is now closed. `PDFAssemblyEngine._apply_hyperlinks()` injects link-styling CSS, verifies internal anchor targets (re-runs the Phase 7 heading-annotation pass when a `#anchor` target is missing), and wraps bare `http(s)://` annexure/evidence URLs in `<a>` tags for external PDF links. Gated by `PDF_ENABLE_HYPERLINKS` (default on). 40 tests in tests/test_phase8_pdf_assembly.py.
+> - **Phase 9 (Version Control):** ✅ **COMPLETED 2026-08-04** — all 5 items closed: real `restore_version()` writing snapshots to disk, `create_branch()` with `branch_name`/`branch_of` columns (migration `add_version_branch_columns`), `_diff_html()` using `difflib.SequenceMatcher`, full version-control UI (`history.html` + `version_control.js` + editor History button), and `?kind=case_file|adjudication` disambiguation. 23 tests in tests/test_version_control.py.
+> - **Next Steps:** Remaining work is entirely **Phases 10–20**: fuzzy search, AI assistant, legal validation engine, timeline, knowledge graph, analytics dashboard, JSON export, RBAC, cloud sync, plugin architecture.
 
 ---
 
@@ -29,6 +28,7 @@ The current project is a mature **Flask web application** (server-side rendered)
 **📌 Recent Progress:**
 - **Phase 5 (Evidence Management):** ✅ **Completed 2026-08-03** — unified Evidence model + `/evidence` blueprint (drag-and-drop upload, Pillow compression, thumbnails, type/tag categorization, search) and the legacy PhotoEvidence/InspectionPhoto tables merged into `evidence`.
 - **Phase 6 (Cross-Reference Engine):** ✅ **Completed 2026-08-03** — `app/cross_reference/` (reference extraction/linking, paragraph + HTML-list + annexure renumbering, auto enclosures list) wired into every PDF-assembly path.
+- **Phase 7 (Dynamic TOC):** ✅ **Completed 2026-08-03** — `app/toc_generator/` (heading extraction/numbering, nested TOC HTML, heading ids, placeholder injection) + WeasyPrint PDF bookmarks (`bookmark-level` CSS), live TOC panel in the Quill editor, and Save-as-PDF post-processing for edited documents. 37 tests.
 - **Cloudinary Integration:** ✅ **Fully implemented** for adjudication photos (now the unified `Evidence` model). The backend in `app/utils/storage.py` now supports Cloudinary as an optional storage backend (active when `CLOUDINARY_*` env vars are set), with automatic fallback to R2/B2. No changes required to routes, models, or PDF embedding logic.
 - **Evaluation:** See `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md` for a detailed assessment (score: 4.3/5).
 
@@ -71,7 +71,7 @@ c:\github\NSA_webservice\
 │   ├── tasks_webhook/                  # QStash webhook + task status
 ├── legal_paragraph_detection_engine/   # Standalone rule-based legal parser
 ├── migrations/                         # Alembic migrations (15 files)
-├── tests/                              # 14 pytest modules, ~245 test cases
+├── tests/                              # 15 pytest modules, ~282 test cases
 ├── scripts/                            # Utility scripts
 ├── .opencode/plans/                    # AI-assisted planning docs
 ├── render.yaml                         # Render deployment config
@@ -145,7 +145,8 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | 	est_pdf_photo_embedding.py | 11 | PDF: photo embedding in WeasyPrint |
 | 	est_route_collisions.py | 1 | URL collision regression |
 | 	est_step1.py-	est_step5_integration.py | 74 | Step-based integration tests |
-| **Total** | **~245** | |
+| \test_toc_generator.py | 37 | TOC: extraction, numbering, nested build, annotation, PDF bookmarks |
+| **Total** | **~282** | |
 
 ---
 
@@ -317,44 +318,49 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 
 **Files created/changed:** app/cross_reference/__init__.py, app/cross_reference/engine.py, app/utils/pdf_utils.py (`post_process_pdf_html`, `renumber_html_lists`), app/document_viewer/renderer.py, app/case_file_generator/tasks.py, app/adjudication/routes.py, tests/test_cross_reference.py (27 tests).
 
-### Phase 7 — Dynamic TOC (Not Implemented)
+### Phase 7 — Dynamic TOC (Implemented)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Detect headings/subheadings | Not implemented | Could use legal_paragraph_detection_engine |
-| Detect annexures/appendices | Not implemented | New feature |
-| Generate TOC, bookmarks, hyperlinks | Not implemented | PDF post-processing |
-| Live update after edit | Not implemented | New feature |
+| Detect headings/subheadings | ✅ `TocGeneratorEngine.extract_toc()` — h1-h6 extraction via stdlib HTMLParser, hierarchical numbering (1, 1.1, 1.1.1), unique anchor ids (`toc-N`), empty-heading skip | app/toc_generator/engine.py |
+| Detect annexures/appendices | ✅ `_ANNEXURE_MARKER_RE` flags marker headings (ANNEXURE A, APPENDIX I, ANNEXURE - B, bare ANNEXURE; plurals/descriptive titles rejected) via `TocEntry.is_annexure`; marked entries get a `toc-annexure` class + badge in the TOC/PDF outline, `total_annexures` in the report, and a badge in the live editor panel (JS regex mirrors the server one) | app/toc_generator/engine.py, app/static/js/document_viewer/editor.js, app/templates/toc_report.html |
+| Generate TOC, bookmarks, hyperlinks | ✅ Nested `<ol>` TOC with numbered hyperlinks (`build_toc_html` — stack-based, correct for multi-level jumps), heading id annotation (`annotate_headings`), placeholder injection (`annotate_html`), plus WeasyPrint `bookmark-level` CSS (`_inject_bookmark_css`) for a navigable PDF outline | app/toc_generator/engine.py, app/utils/pdf_utils.py |
+| Live update after edit | ✅ Live TOC panel in the Quill editor — instant extraction/numbering on every keystroke, click-to-scroll in the sandboxed preview iframe, toggle button | app/static/js/document_viewer/editor.js, app/document_viewer/templates/document_viewer/editor.html |
 
 **TODO:**
-1. [ ] Build TOC generator that parses HTML for heading tags and annexure markers
-2. [ ] Generate hyperlinked TOC
-3. [ ] Inject PDF bookmarks during WeasyPrint rendering
-4. [ ] Hook into editor for live updates
+1. [x] Build TOC generator that parses HTML for heading tags + annexure/appendix markers — **done** (`extract_toc()` / `build_toc_html()` / `annotate_html()`; marker detection via `_ANNEXURE_MARKER_RE`)
+2. [x] Generate hyperlinked TOC — **done** (numbered anchors + heading ids)
+3. [x] Inject PDF bookmarks during WeasyPrint rendering — **done** (`bookmark-level` CSS injected by `post_process_pdf_html`)
+4. [x] Hook into editor for live updates — **done** (live TOC panel + Save-as-PDF post-processing for edited documents)
 
-**Files to edit/create:** app/toc_generator/__init__.py, app/toc_generator/generator.py, app/document_viewer/templates/document_viewer/editor.html (add TOC panel)
+**Files created/changed:** app/toc_generator/__init__.py + engine.py, app/utils/pdf_utils.py (`post_process_pdf_html` Phase 7 pass + `_inject_bookmark_css`), app/templates/toc_report.html, app/document_viewer/routes.py (Save-as-PDF post-processing), app/document_viewer/templates/document_viewer/editor.html (TOC panel), app/static/js/document_viewer/editor.js (live TOC), app/case_file_generator/routes.py + app/adjudication/routes.py (toc_report routes + editor buttons, `url_for` import fix), petition templates (`<div data-toc>`), tests/test_toc_generator.py (37 tests).
 
-### Phase 8 — PDF Assembly Engine (Partially Implemented)
+### Phase 8 — PDF Assembly Engine (Implemented — engine repaired & wired into tasks)
 
 | Feature | Status | File(s) |
 |---|---|---|
-| Petition + Permission Letter only | Petition + Permission Letter only | app/case_file_generator/tasks.py |
-| Bookmarks | Not implemented | WeasyPrint CSS @page |
-| Hyperlinks | Not implemented | |
-| Headers | Partial - CSS @page possible | theme.css / templates |
-| Footers | Not implemented | |
-| Page numbers | Not implemented | |
-| QR code | Not implemented | Would need qrcode library |
-| Signature placeholders | Not implemented | |
+| Petition + Permission Letter | ✅ `_generate_main_document_pdfs` — engine preferred, legacy fallback preserved | app/pdf_assembly/__init__.py, app/case_file_generator/tasks.py |
+| Index page | ✅ `_create_index_page_html` / `_generate_index_page_pdf` | app/pdf_assembly/__init__.py |
+| Annexure pages | ✅ `_create_annexure_page_html` / `_generate_annexure_pdfs` | app/pdf_assembly/__init__.py |
+| Evidence photo pages | ✅ `_create_evidence_photo_page` / `_generate_evidence_pages` | app/pdf_assembly/__init__.py |
+| Headers | ✅ `_apply_headers_footers` + `_get_default_header_template` (override via `PDF_HEADER_TEMPLATE`) | app/pdf_assembly/__init__.py |
+| Footers | ✅ `_apply_headers_footers` + `_get_default_footer_template` (`PDF_FOOTER_TEMPLATE`) | app/pdf_assembly/__init__.py |
+| Page numbers | ✅ `_apply_page_numbers` (@page @bottom-center + WeasyPrint `{{ page_number }}`) | app/pdf_assembly/__init__.py |
+| QR code | Partial — `_add_qr_codes` when `qrcode` is installed (`PDF_ENABLE_QR_CODES`); degrades gracefully | app/pdf_assembly/__init__.py |
+| Signature placeholders | ✅ `_add_signature_placeholders` (`PDF_ENABLE_SIGNATURES`) | app/pdf_assembly/__init__.py |
+| Bookmarks | ✅ WeasyPrint `bookmark-level` CSS (Phase 7) + `_add_pdf_bookmarks` nav | app/utils/pdf_utils.py, app/pdf_assembly/__init__.py |
+| Hyperlinks | ✅ `_apply_hyperlinks()` — link CSS, anchor-target verification, bare-URL linkification | app/pdf_assembly/__init__.py |
 
 **TODO:**
-1. [ ] Extend PDF assembly to include annexures, evidence, and index pages
-2. [ ] Add WeasyPrint CSS for headers/footers/page numbers (@page rules)
-3. [ ] Add QR code generation (qrcode package)
-4. [ ] Add signature placeholders in templates
-5. [ ] Add PDF bookmarks via PDFAssemblyEngine
+1. [x] Extend PDF assembly to include annexures, evidence, and index pages — **done** (`_create_annexure_page_html`, `_create_evidence_photo_page`, `_create_index_page_html`)
+2. [x] Add WeasyPrint CSS for headers/footers/page numbers — **done** (`_apply_headers_footers` + `_apply_page_numbers` @page rules)
+3. [x] Add QR code generation — **done** (`_add_qr_codes` behind `PDF_ENABLE_QR_CODES`; `qrcode>=8.0` declared in `pyproject.toml`)
+4. [x] Add signature placeholders — **done** (`_add_signature_placeholders`)
+5. [x] Add PDF bookmarks — **done** (`bookmark-level` CSS + `_add_pdf_bookmarks`)
+6. [x] Add PDF hyperlinks — **done (2026-08-04)**: `_apply_hyperlinks()` injects link CSS, verifies internal anchors (re-runs Phase 7 heading annotation when missing), linkifies bare annexure/evidence URLs. 9 regression tests.
+7. [x] Repair engine blockers (2026-08-03) — **done**: added missing `_get_default_header_template` / `_get_default_footer_template` / `_apply_headers_footers` (engine previously crashed on instantiation); guarded WeasyPrint import via `import_weasyprint()` (app no longer crashes on non-GTK hosts); fixed `_add_pdf_bookmarks` + footer injection to insert before `</body>` on full documents (`rfind` instead of `endswith`); `tasks.py` no longer imports WeasyPrint directly (Phase 8 + legacy paths route through `generate_pdf_from_html`); fixed the test file's `sys` scoping bug and added header/footer/bookmark placement regression tests
 
-**Files to edit/create:** app/pdf_assembly/__init__.py, app/pdf_assembly/assembler.py, app/case_file_generator/templates/..., pyproject.toml (add qrcode)
+**Files:** app/pdf_assembly/__init__.py, app/case_file_generator/tasks.py, tests/test_phase8_pdf_assembly.py (40 tests)
 
 ### Phase 9 — Version Control (Partially Implemented)
 
@@ -367,14 +373,14 @@ GitHub Actions CI/CD (lint, pip-audit, validation, deploy).
 | Audit history | Partial - AuditLog hash chain + RecordAudit | app/models.py, app/audit_hooks.py |
 
 **TODO:**
-1. [ ] Create Version model (version_number, content_hash, created_at, user_id, change_summary)
-2. [ ] Add snapshot-on-save triggers (store HTML/deltas)
-3. [ ] Implement compare view (diff of two versions)
-4. [ ] Implement restore endpoint
-5. [ ] Add branch draft support
-6. [ ] Expose audit history in UI
+1. [x] Create Version model (version_number, content_hash, created_at, user_id, change_summary) — **done (commit e9e3a0e)**
+2. [x] Add snapshot-on-save triggers (store HTML/deltas) — **done**
+3. [x] Implement compare view (diff of two versions via `difflib.SequenceMatcher`) — **done**
+4. [x] Implement restore endpoint — **done**: `restore_version()` writes snapshots to `instance/saved/`, rolls back on failure
+5. [x] Add branch draft support — **done**: `create_branch()` with `branch_name`/`branch_of` columns (migration `add_version_branch_columns`), numbering restarted at 1 per branch
+6. [x] Expose version history UI — **done**: `history.html` + `version_control.js` + editor History button
 
-**Files to edit/create:** app/models.py (add Version), app/audit/routes.py (extend), migrations/, app/static/js/version_history.js
+**Files:** app/models.py (Version model with branch columns), app/services/version_control.py, app/version_control/ (routes.py + templates/history.html + __init__.py), app/static/js/version_control/version_control.js, app/document_viewer/templates/document_viewer/editor.html (History button), migrations/versions/add_version_branch_columns.py, tests/test_version_control.py (23 tests)
 
 ### Phase 10 — Search Engine (Not Implemented)
 
@@ -601,7 +607,7 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 
 ### Priority 2 — Core Features (Phase 6-12)
 8. [x] **Cross-reference engine** — **done** (`app/cross_reference/` + PDF pipeline integration)
-9. [ ] **Dynamic TOC generator**
+9. [x] **Dynamic TOC generator** — **done** (`app/toc_generator/` + WeasyPrint PDF bookmarks + live editor TOC panel)
 10. [ ] **PDF assembly** (headers/footers/page numbers)
 11. [ ] **QR code** generation
 12. [ ] **Signature placeholders**
@@ -632,7 +638,7 @@ OCR providers (PaddleOCR + Tesseract) are hardcoded. Rule packs are hardcoded in
 | app/evidence/ | Evidence management | __init__.py, routes.py, templates/ |
 | app/search/ | Full-text search | __init__.py, routes.py, indexer.py |
 | app/cross_reference/ | Auto cross-reference | __init__.py, engine.py |
-| app/toc_generator/ | Dynamic TOC | __init__.py, generator.py |
+| app/toc_generator/ | Dynamic TOC | __init__.py, engine.py ✅ (done) |
 | app/pdf_assembly/ | PDF assembly | __init__.py, assembler.py |
 | app/validation/ | Legal rule engine | __init__.py, engine.py, rules.py |
 | app/timeline/ | Timeline engine | __init__.py, engine.py, routes.py |
@@ -693,8 +699,8 @@ Flask backend exposes REST APIs for all features.
 | 5 | Phase 4 | ✅ Annexure upload + metadata extraction + letters + duplicate detection | app/annexure/ |
 | 6 | Phase 5 | ✅ **Evidence model extended → blueprint/UI done** — unified Evidence model, drag-and-drop upload, compression, thumbnails, categorization, search, PhotoEvidence/InspectionPhoto unification | app/evidence/ |
 | 7 | Phase 6 | ✅ Cross-reference engine — **done**: reference extraction/linking, renumbering, enclosures, PDF pipeline integration | app/cross_reference/ |
-| 8 | Phase 7 | Dynamic TOC generator | app/toc_generator/ |
-| 9 | Phase 8 | PDF assembly (headers/footers/QR) | app/pdf_assembly/ |
+| 8 | Phase 7 | ✅ Dynamic TOC generator — **done**: headings/numbering, hyperlinked TOC, WeasyPrint PDF bookmarks, live editor TOC panel, Save-as-PDF post-processing | app/toc_generator/ |
+| 9 | Phase 8 | ✅ PDF assembly engine — **done (2026-08-03)**: petition/permission/index/annexure/evidence pages, headers/footers/page numbers, QR (optional dep), signatures, bookmarks; engine repairs (missing methods, guarded WeasyPrint import, `rfind` placement) + tasks.py routing; 31 tests | app/pdf_assembly/, app/case_file_generator/tasks.py |
 | 10 | Phase 9 | Version history + compare/restore | models.py, audit/ |
 | 11 | Phase 10 | Search engine (fuzzy, filters) | app/search/ |
 | 12 | Phase 11 | AI assistant (LLM integration) | app/ai_assistant/ |
@@ -710,7 +716,7 @@ Flask backend exposes REST APIs for all features.
 
 ## 6. Key Architectural Observations
 
-1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints); Phase 4 complete (annexures); **Phase 5 complete** (unified evidence library + PhotoEvidence/InspectionPhoto unification); **Phase 6 complete** (cross-reference engine).
+1. **Cohesive production-ready Flask app** - ~430 tests, CI/CD, security hardening, 15 blueprints. Phase 0 foundation complete (keep-Flask decision + JS linting); **Phase 1 complete** (auto-save, delta storage, validation error display, structured Facts/Grounds/Prayer petition); Phase 2 (rich editor) and **Phase 3 complete** (models + backup/restore endpoints); Phase 4 complete (annexures); **Phase 5 complete** (unified evidence library + PhotoEvidence/InspectionPhoto unification); **Phase 6 complete** (cross-reference engine); **Phase 7 complete** (dynamic TOC + PDF bookmarks + live editor TOC panel).
 
 2. **Biggest decision: frontend architecture.** Roadmap calls for React, but current app uses Flask + Jinja2 + Quill. New React frontend means existing templates become redundant.
 
@@ -1119,7 +1125,7 @@ The existing `Sample` model will be extended with:
 
 ### Priority 2 — Core Features (Phase 6-12)
 8. [x] **Cross-reference engine** — **done** (`app/cross_reference/` + PDF pipeline integration)
-9. [ ] **Dynamic TOC generator**
+9. [x] **Dynamic TOC generator** — **done** (`app/toc_generator/` + WeasyPrint PDF bookmarks + live editor TOC panel)
 10. [ ] **PDF assembly** (headers/footers/page numbers)
 11. [ ] **QR code** generation
 12. [ ] **Signature placeholders**

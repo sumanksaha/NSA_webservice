@@ -194,8 +194,8 @@ class TestBillGeneratorUtils:
             mark_samples_as_billed([sample1.id, sample2.id], bill.id)
 
             # Verify samples are marked as billed
-            s1 = Sample.query.get(sample1.id)
-            s2 = Sample.query.get(sample2.id)
+            s1 = db.session.get(Sample, sample1.id)
+            s2 = db.session.get(Sample, sample2.id)
             assert s1.billed
             assert s2.billed
 

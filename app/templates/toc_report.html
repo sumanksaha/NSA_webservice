@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}TOC Report - Case {{ case_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.toc-page { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.toc-page h2 { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.toc-summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.toc-stat { flex: 1; min-width: 140px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; box-shadow: var(--shadow-card); }
+.toc-stat .stat-value { font-size: 2rem; font-weight: 700; color: var(--text-primary); }
+.toc-stat .stat-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+.toc-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-card); }
+.toc-card h3 { font-family: var(--font-heading); font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-top: 0; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.toc-tree { font-family: monospace; font-size: 0.9rem; line-height: 1.8; }
+.toc-tree ol { margin: 0; padding-left: 24px; }
+.toc-tree li { margin: 4px 0; }
+.toc-tree a { color: #2563eb; text-decoration: none; }
+.toc-tree a:hover { text-decoration: underline; }
+.toc-tree .toc-number { display: inline-block; min-width: 32px; color: var(--text-secondary); }
+.toc-annexure-badge { display: inline-block; font-size: 0.65em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1e40af; background: #dbeafe; border-radius: 3px; padding: 1px 5px; vertical-align: 0.08em; margin-right: 4px; }
+.badge-annexure { display: inline-block; font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #1e40af; background: #dbeafe; border-radius: 4px; padding: 2px 7px; }
+.toc-actions { display: flex; gap: 12px; }
+.text-secondary { color: var(--text-secondary); }
+.doc-preview { border: 1px solid var(--border); border-radius: 6px; height: 400px; overflow: hidden; }
+.doc-preview iframe { width: 100%; height: 100%; border: none; }
+.toc-table { width: 100%; border-collapse: collapse; }
+.toc-table th, .toc-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.toc-table th { background: var(--bg-subtle); color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.toc-table tr:hover { background: var(--bg-subtle); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="toc-page">
+    <h2><i class="fa-solid fa-list-ol"></i> Table of Contents Report - Case {{ case_number }}</h2>
+
+    <div class="toc-summary">
+        <div class="toc-stat"><div class="stat-value">{{ toc_data.total_headings }}</div><div class="stat-label">Total Headings</div></div>
+        <div class="toc-stat"><div class="stat-value">{{ toc_data.total_annexures }}</div><div class="stat-label">Annexures</div></div>
+        <div class="toc-stat"><div class="stat-value">{{ toc_data.max_depth }}</div><div class="stat-label">Max Depth</div></div>
+        <div class="toc-stat"><div class="stat-value">{{ "Yes" if toc_data.has_toc_placeholder else "No" }}</div><div class="stat-label">TOC Placeholder</div></div>
+    </div>
+
+    <div class="toc-card">
+        <h3>Generated Table of Contents</h3>
+        {% if toc_data.entries %}
+        <div class="toc-tree">
+            {{ toc_html | safe }}
+        </div>
+        {% else %}
+        <p class="text-secondary">No headings found in this document.</p>
+        {% endif %}
+    </div>
+
+    <div class="toc-card">
+        <h3>Heading Details ({{ toc_data.total_headings }})</h3>
+        {% if toc_data.entries %}
+                <table class="toc-table">
+            <thead><tr><th>#</th><th>Level</th><th>Number</th><th>Text</th><th>Tag</th><th>Type</th></tr></thead>
+            <tbody>
+                {% for entry in toc_data.entries %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ entry.level }}</td>
+                    <td><code>{{ entry.number }}</code></td>
+                    <td>{{ entry.text }}</td>
+                    <td><code>{{ entry.tag }}</code></td>
+                    <td>{% if entry.is_annexure %}<span class="badge-annexure">Annexure</span>{% else %}<span class="text-secondary">Heading</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-secondary">No headings found in this document.</p>
+        {% endif %}
+    </div>
+
+    <div class="toc-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin-bottom:0;">Document Preview</h3>
+            <div class="toc-actions">
+                <a href="{{ report_url }}" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-refresh"></i> Refresh Report
+                </a>
+            </div>
+        </div>
+        <div class="doc-preview">
+            <iframe srcdoc="{{ annotated_html | e }}" title="Document Preview"></iframe>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -156,11 +156,13 @@ class TestEmbedPhotosAsBase64:
         mock_resp.headers = {"Content-Type": "image/jpeg"}
         mock_get.return_value = mock_resp
 
-        result = embed_photos_as_base64([
-            "https://example.com/photo.jpg",
-            "/tmp/missing.jpg",
-            "/tmp/valid.jpg",
-        ])
+        result = embed_photos_as_base64(
+            [
+                "https://example.com/photo.jpg",
+                "/tmp/missing.jpg",
+                "/tmp/valid.jpg",
+            ]
+        )
         assert len(result) == 3
         # URL photo embedded
         assert "data_uri" in result[0]
@@ -310,10 +312,12 @@ class TestPdfRenderWithEmbeddedPhotos:
         mock_resp.headers = {"Content-Type": "image/jpeg"}
         mock_get.return_value = mock_resp
 
-        result = embed_photos_as_base64([
-            "https://example.com/ok.jpg",
-            "/tmp/missing.jpg",
-        ])
+        result = embed_photos_as_base64(
+            [
+                "https://example.com/ok.jpg",
+                "/tmp/missing.jpg",
+            ]
+        )
         assert len(result) == 2
         assert "data_uri" in result[0]
         assert "error" in result[1]

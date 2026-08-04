@@ -5,7 +5,7 @@ Utilities for the Inspection module, including inspection_code generation.
 
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -46,7 +46,7 @@ def generate_inspection_code() -> str:
         str: Generated inspection code (e.g., 'INSP-2026-00001')
 
     """
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     seq_key = f"inspection:{year}"
     # Stable hash for advisory lock (PostgreSQL only)
     lock_key = hash(seq_key) & 0x7FFFFFFF
@@ -58,7 +58,7 @@ def generate_inspection_code() -> str:
             _acquire_advisory_lock(lock_key)
 
             # Atomically get-or-create the sequence row and increment it.
-            seq = CodeSequence.query.get(seq_key)
+            seq = db.session.get(CodeSequence, seq_key)
             if seq is None:
                 seq = CodeSequence(key=seq_key, last_value=0)
                 db.session.add(seq)

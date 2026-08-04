@@ -3,7 +3,7 @@
 Provides endpoints for Sample CRUD operations and UI.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
 
@@ -112,12 +112,14 @@ def lookup_retailer():
         return jsonify({"error": error}), 404
 
     if result:
-        return jsonify({
-            "companyName": result.get("companyName"),
-            "fullAddress": result.get("fullAddress"),
-            "expiryDate": result.get("expiryDate"),
-            "source": result.get("source"),
-        })
+        return jsonify(
+            {
+                "companyName": result.get("companyName"),
+                "fullAddress": result.get("fullAddress"),
+                "expiryDate": result.get("expiryDate"),
+                "source": result.get("source"),
+            }
+        )
 
     return jsonify({"error": "Retailer not found"}), 404
 
@@ -147,7 +149,7 @@ def create_sample():
         return jsonify({"error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'"}), 400
 
     # Validate FSO exists - map canonical to DB column
-    fso = FSO.query.get(food_safety_officer_name)
+    fso = db.session.get(FSO, food_safety_officer_name)
     if not fso:
         return jsonify({"error": f'FSO "{food_safety_officer_name}" not found in database'}), 400
 
@@ -177,7 +179,7 @@ def create_sample():
         retailer_fssai=retailer_fssai_license or None,  # DB column: retailer_fssai
         retailer_name=retailer_person_name or None,  # DB column: retailer_name
         price=form_data.get("total_cost", "").strip() or None,  # DB column: price (canonical: total_cost)
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     try:
@@ -203,17 +205,19 @@ def create_sample():
             success = sync_to_sheets("sample_repo", row_dict)
             if success:
                 # Update synced_at timestamp
-                sample.synced_at = datetime.utcnow()
+                sample.synced_at = datetime.now(UTC)
                 db.session.commit()
         except Exception as e:
             current_app.logger.warning(f"Sample Sheets sync failed: {e}")
 
         return (
-            jsonify({
-                "message": "Sample created successfully",
-                "sample_id": sample.id,
-                "sample_code": sample.sample_code,
-            }),
+            jsonify(
+                {
+                    "message": "Sample created successfully",
+                    "sample_id": sample.id,
+                    "sample_code": sample.sample_code,
+                }
+            ),
             201,
         )
     except Exception as e:
@@ -224,30 +228,32 @@ def create_sample():
 @sample_bp.route("/<int:sample_id>", methods=["GET"])
 def get_sample(sample_id):
     """Get a specific sample by ID."""
-    sample = Sample.query.get(sample_id)
+    sample = db.session.get(Sample, sample_id)
     if not sample:
         return jsonify({"error": f"Sample with id {sample_id} not found"}), 404
 
-    return jsonify({
-        "id": sample.id,
-        "sample_code": sample.sample_code,
-        "sample_name": sample.sample_name,
-        "sample_type": sample.sample_type,
-        "fso_name": sample.fso_name,
-        "collection_date": sample.collection_date.isoformat() if sample.collection_date else None,
-        "submission_date": sample.submission_date.isoformat() if sample.submission_date else None,
-        "retailer_fssai": sample.retailer_fssai,
-        "retailer_name": sample.retailer_name,
-        "price": sample.price,
-        "created_at": sample.created_at.isoformat() if sample.created_at else None,
-        "synced_at": sample.synced_at.isoformat() if sample.synced_at else None,
-    })
+    return jsonify(
+        {
+            "id": sample.id,
+            "sample_code": sample.sample_code,
+            "sample_name": sample.sample_name,
+            "sample_type": sample.sample_type,
+            "fso_name": sample.fso_name,
+            "collection_date": sample.collection_date.isoformat() if sample.collection_date else None,
+            "submission_date": sample.submission_date.isoformat() if sample.submission_date else None,
+            "retailer_fssai": sample.retailer_fssai,
+            "retailer_name": sample.retailer_name,
+            "price": sample.price,
+            "created_at": sample.created_at.isoformat() if sample.created_at else None,
+            "synced_at": sample.synced_at.isoformat() if sample.synced_at else None,
+        }
+    )
 
 
 @sample_bp.route("/<int:sample_id>", methods=["PUT"])
 def update_sample(sample_id):
     """Update a sample record."""
-    sample = Sample.query.get(sample_id)
+    sample = db.session.get(Sample, sample_id)
     if not sample:
         return jsonify({"error": f"Sample with id {sample_id} not found"}), 404
 
@@ -264,9 +270,11 @@ def update_sample(sample_id):
             return jsonify({"error": "sample_type cannot be empty"}), 400
         if sample_type_val not in ["enforcement", "surveillance"]:
             return (
-                jsonify({
-                    "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
-                }),
+                jsonify(
+                    {
+                        "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
+                    }
+                ),
                 400,
             )
         sample.sample_type = sample_type_val
@@ -274,7 +282,7 @@ def update_sample(sample_id):
     if "fso_name" in form_data:
         fso_name = form_data["fso_name"].strip()
         # Validate FSO exists
-        fso = FSO.query.get(fso_name)
+        fso = db.session.get(FSO, fso_name)
         if not fso:
             return jsonify({"error": f'FSO "{fso_name}" not found'}), 400
         sample.fso_name = fso_name
@@ -306,7 +314,7 @@ def update_sample(sample_id):
                 "retailer_name": sample.retailer_name or "",
                 "price": sample.price or "",
                 "created_at": sample.created_at.isoformat() if sample.created_at else "",
-                "synced_at": datetime.utcnow().isoformat(),
+                "synced_at": datetime.now(UTC).isoformat(),
             }
             sync_to_sheets("sample_repo", row_dict)
         except Exception as e:
@@ -321,7 +329,7 @@ def update_sample(sample_id):
 @sample_bp.route("/<int:sample_id>", methods=["DELETE"])
 def delete_sample(sample_id):
     """Delete a sample record."""
-    sample = Sample.query.get(sample_id)
+    sample = db.session.get(Sample, sample_id)
     if not sample:
         return jsonify({"error": f"Sample with id {sample_id} not found"}), 404
 
