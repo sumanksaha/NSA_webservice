@@ -18,7 +18,7 @@
 # Build/tooling pinned for Render compatibility (avoid 3.14 pip/setuptools issues)
 # These must resolve first so the editable build below uses compatible setuptools.
 # ponytail: order matters - before -e . which triggers the isolated build.
-setuptools>=70,<75
+setuptools>=70,<84
 wheel
 pip>=24.0
 -e .
