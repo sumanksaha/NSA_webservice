@@ -5,5 +5,7 @@ multiple modules (inspection, sample, case_file_generator, adjudication).
 
 Consumers import directly from submodules:
   - from app.shared.case_keys import ...
+  - from app.shared.case_resolver import CaseResolver, ResolvedCase
   - from app.shared.context_derivers import ...
+  - from app.shared.document_case_manager import DocumentCaseManager
 """

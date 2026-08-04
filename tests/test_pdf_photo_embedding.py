@@ -106,7 +106,7 @@ class TestInspectionPhotoRouteCollisions:
 class TestEmbedPhotosAsBase64:
     """Test the path-branching logic in embed_photos_as_base64()."""
 
-    @patch("app.utils.pdf_utils.requests.get")
+    @patch("app.pdf_assembly.engine.requests.get")
     def test_http_url_fetches_via_requests(self, mock_get):
         """If filepath is an http(s) URL, use requests.get() and return base64."""
         mock_resp = MagicMock()
@@ -126,7 +126,7 @@ class TestEmbedPhotosAsBase64:
     @patch("builtins.open", new_callable=mock_open, read_data=b"local-file-bytes")
     def test_local_path_exists_reads_file(self, mock_file, mock_exists):
         """If filepath is a local path that exists, read it directly; do NOT call requests.get()."""
-        with patch("app.utils.pdf_utils.requests.get") as mock_get:
+        with patch("app.pdf_assembly.engine.requests.get") as mock_get:
             result = embed_photos_as_base64(["/tmp/photo_123.jpg"])
         assert len(result) == 1
         assert "data_uri" in result[0]
@@ -138,7 +138,7 @@ class TestEmbedPhotosAsBase64:
     @patch("os.path.exists", return_value=False)
     def test_local_path_missing_skips_without_exception(self, mock_exists):
         """If local path doesn't exist, skip photo, log warning, return error entry."""
-        with patch("app.utils.pdf_utils.logger") as mock_logger:
+        with patch("app.pdf_assembly.engine.logger") as mock_logger:
             result = embed_photos_as_base64(["/tmp/missing_photo.png"])
         assert len(result) == 1
         assert "error" in result[0]
@@ -147,7 +147,7 @@ class TestEmbedPhotosAsBase64:
 
     @patch("os.path.exists", side_effect=lambda p: p == "/tmp/valid.jpg")
     @patch("builtins.open", new_callable=mock_open, read_data=b"valid-bytes")
-    @patch("app.utils.pdf_utils.requests.get")
+    @patch("app.pdf_assembly.engine.requests.get")
     def test_mixed_batch_url_plus_missing_local(self, mock_get, mock_file, mock_exists):
         """Mixed batch: HTTP URL + missing local file. Only valid photo embedded."""
         mock_resp = MagicMock()
@@ -249,7 +249,7 @@ class TestPdfRenderWithEmbeddedPhotos:
         adj_photos.order_by.return_value = adj_photos
         return adj
 
-    @patch("app.utils.pdf_utils.requests.get")
+    @patch("app.pdf_assembly.engine.requests.get")
     def test_zero_photos_render_succeeds(self, mock_get, app):
         """PDF generation with 0 photos should succeed without errors."""
         adj = self._build_mock_adjudication([])
@@ -267,7 +267,7 @@ class TestPdfRenderWithEmbeddedPhotos:
                     # No exception should occur during context derivation
                     assert True  # smoke guard
 
-    @patch("app.utils.pdf_utils.requests.get")
+    @patch("app.pdf_assembly.engine.requests.get")
     def test_one_url_photo_embeds_in_base64(self, mock_get):
         """Single HTTP URL photo should be fetched via requests and embedded."""
         from app.utils.pdf_utils import embed_photos_as_base64
@@ -291,7 +291,7 @@ class TestPdfRenderWithEmbeddedPhotos:
         """Single local photo should be read from disk and embedded."""
         from app.utils.pdf_utils import embed_photos_as_base64
 
-        with patch("app.utils.pdf_utils.requests.get") as mock_get:
+        with patch("app.pdf_assembly.engine.requests.get") as mock_get:
             result = embed_photos_as_base64(["/tmp/local_photo.jpg"])
         assert len(result) == 1
         assert "data_uri" in result[0]
@@ -301,7 +301,7 @@ class TestPdfRenderWithEmbeddedPhotos:
 
     @patch("os.path.exists", side_effect=lambda p: p == "/tmp/ok.jpg")
     @patch("builtins.open", new_callable=mock_open, read_data=b"ok-bytes")
-    @patch("app.utils.pdf_utils.requests.get")
+    @patch("app.pdf_assembly.engine.requests.get")
     def test_mixed_batch_only_valid_embedded(self, mock_get, mock_file, mock_exists):
         """Mixed valid URL + missing local should only embed the valid one."""
         from app.utils.pdf_utils import embed_photos_as_base64

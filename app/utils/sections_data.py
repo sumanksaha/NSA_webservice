@@ -1,3 +1,15 @@
+"""Canonical FSS Act section reference data.
+
+Loads the FSS Act section reference text (Sections 55, 56, 58, 63, 64) from
+``fss_sections.md`` in the workspace root and exposes it as a dict keyed by
+section number (``SECTIONS``) plus the whitelist of section ids the UI and the
+rule suggester are allowed to work with (``VALID_SECTION_IDS``).
+
+Consumers: :mod:`app.utils.suggester` (single source of truth for section ids).
+This is the authoritative module; the legacy root-level ``sections_data.py``
+duplicate was removed (S6b).
+"""
+
 import re
 from pathlib import Path
 

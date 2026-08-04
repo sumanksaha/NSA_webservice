@@ -65,15 +65,32 @@ Generated from the full security audit (July 26, 2026).
 - [ ] Add any missing domains to CSP allowlist
 - [ ] Flip to enforcement
 
-### S6a: Remove legacy `suggester.py` from root
+### S6a: Remove legacy `suggester.py` from root — ✅ DONE (2026-08-04)
 
-**File:** `suggester.py` (project root)
+**File:** `suggester.py` (project root) — **deleted** (with S6a/S6b cleanup + wiring, see `task.md`).
 
-**What:** There's a duplicate rule-based suggester at `app/utils/suggester.py` (the one actually imported). The root-level `suggester.py` is unused. Remove it to avoid confusion.
+**What:** There was a duplicate rule-based suggester at `app/utils/suggester.py` (the one actually imported). The root-level `suggester.py` was unused. Removed it to avoid confusion.
 
 **Check:**
-- [ ] Confirm `suggester.py` at root is not imported anywhere
-- [ ] Delete the file
+- [x] Confirmed `suggester.py` at root is not imported anywhere (0 matches)
+- [x] Backported docstring + type annotations to `app/utils/suggester.py`
+- [x] Deleted the file + tracked `__pycache__/suggester.cpython-313.pyc`
+- [x] `pytest tests/` passes with 0 import errors
+
+### S6b: Remove legacy root-level `sections_data.py` — ✅ DONE (2026-08-04)
+
+**File:** `sections_data.py` (project root) — **deleted**.
+
+**What:** Duplicate of canonical `app/utils/sections_data.py` (pathlib-based, typed). Root copy was older with a CWD-dependent relative path and stale docstring; neither version had live importers.
+
+**Check:**
+- [x] Confirmed 0 imports of either version
+- [x] Deleted root file + tracked `__pycache__/sections_data.cpython-313.pyc`
+- [x] Kept `fss_sections.md`, `fso_list.md`, `app/utils/sections_data.py`
+
+### S6c: Wire canonical `sections_data` into suggester — ✅ DONE (2026-08-04)
+
+**What:** `app/utils/suggester.py` now imports `VALID_SECTION_IDS`/`SECTIONS` from `app/utils/sections_data.py` (single source of truth); `_MANUAL_ONLY_SECTIONS` is asserted against the whitelist and outputs are filtered by it. New tests in `tests/test_suggester_sections_data.py`.
 
 ---
 

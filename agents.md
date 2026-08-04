@@ -192,6 +192,9 @@ The following were deleted in the 2026-08-03/04 cleanup commit (`deletion_plan.m
 
 | Category              | What was removed                                                                    | Reason                                                                                          |
 | --------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Root duplicates (S6a) | `suggester.py` (120 LOC, root)                                                      | Orphaned duplicate; app uses `app/utils/suggester.py` (docstring + annotations backported)       |
+| Root duplicates (S6b) | `sections_data.py` (root)                                                           | Older duplicate; app uses `app/utils/sections_data.py` (pathlib, typed)                          |
+| Tracked bytecode      | `__pycache__/app/suggester/sections_data.cpython-313.pyc`                           | Compiled artifacts committed despite `__pycache__/` in `.gitignore`                              |
 | Broken duplicate      | `legal-paragraph-detection-engine/` (5,095 LOC)                                     | Dashed duplicate with broken imports; app uses `legal_paragraph_detection_engine/` (underscore) |
 | Scratch scripts       | `_fix_*.py`, `_write_*.py`, `_test_*.py`, `_debug_*.py`                             | Never committed, local debugging                                                                |
 | One-off check scripts | `check_*.py`, `search_*.py`, `filter_house_number.py`, `fuzzy_dedup_stage0.py`      | 0 importers, 0 CI references                                                                    |
@@ -216,13 +219,65 @@ The following were deleted in the 2026-08-03/04 cleanup commit (`deletion_plan.m
 
 ## 8. Known Shallow Modules & Architectural Friction
 
-The following modules have low Module Depth (interface nearly as complex as implementation). They are the targets of the ongoing deepening effort in `REFACTORING_PLAN.md`. See that file for the full plan; key points:
+The following modules have low Module Depth (interface nearly as complex as implementation). They are the targets of the ongoing deepening effort in `task.md` §Deepening Tasks. Current status and refined targets:
 
-- **Case/Adjudication route duplication** — `case_file_generator/routes.py` (697) and `adjudication/routes.py` (820) are near-mirrors. Target: `DocumentCaseManager` in `app/shared/document_case_manager.py`.
-- **Cross-module case resolution** — `_resolve_case` (document_viewer), `_resolve_target` (version_control), and inline lookups (evidence, search, annexure) all solve the same "CaseFile vs Adjudication ID" problem. Target: `CaseResolver` in `app/shared/case_resolver.py`.
-- **Document viewer inlined concerns** — route file directly calls `VersionService`, `log_audit`, `save_saved_document` via private helpers. Target: `DocumentSaveCoordinator` in `app/services/document_lifecycle.py`.
-- **Inspection routes mechanical split** — `photo_routes.py` (428 lines) mixes EXIF extraction, validation, storage, OCR dispatch, and routes. Target: `InspectionPhotoService` in `app/inspection/photo_service.py`.
-- **PDF utils grab-bag** — `app/utils/pdf_utils.py` mixes WeasyPrint import guard, bookmark CSS, post-processing orchestration, and image embedding. Target: `PDFAssemblyEngine` in `app/pdf_assembly/engine.py` (fill the empty `__init__.py`).
+### ✅ CONFIRMED SHALLOW MODULES (Priority Order)
+
+1. **Cross-module case resolution** — **HIGHEST PRIORITY (D1)**
+   - **Problem**: `_resolve_case()` in `document_viewer/routes.py` (lines 66-78), `_resolve_target()` + `_kind_param()` in `version_control/routes.py` (lines 39-68), and inline lookups in evidence/search/annexure all solve the same "CaseFile vs Adjudication ID" problem
+   - **Target**: `CaseResolver` class in `app/shared/case_resolver.py` with `ResolvedCase` dataclass
+   - **Interface**: `resolve(case_id, kind=None) -> ResolvedCase | None`
+   - **Dependencies**: None (prerequisite for D2 and D5)
+   - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 1 → 4
+
+2. **Document viewer inlined concerns** — **PRIORITY 2 (D2)**
+   - **Problem**: Route file directly calls `VersionService`, `log_audit`, `save_saved_document` via 5 private helpers (`_resolve_case`, `_save_document_content`, `_log_audit`, `_snapshot_version`, `_actor`)
+   - **Target**: `DocumentSaveCoordinator` class in `app/services/document_lifecycle.py`
+   - **Interface**: `save(case_id, case_type, doc_type, html, delta, force_snapshot=False) -> SaveResult`
+   - **Dependencies**: D1 (CaseResolver)
+   - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 2 → 4
+
+3. **PDF utils grab-bag** — **PRIORITY 3 (D3)**
+   - **Problem**: `app/utils/pdf_utils.py` mixes WeasyPrint import guard, bookmark CSS, post-processing orchestration, and image embedding
+   - **Current State**: `PDFAssemblyEngine` class already exists in `app/pdf_assembly/__init__.py` (42KB) but needs consolidation
+   - **Target**: Complete `PDFAssemblyEngine` in `app/pdf_assembly/engine.py` with clean interface
+   - **Interface**: `assemble()`, `post_process()`, `embed_photos()`, `generate_from_html()`
+   - **Dependencies**: None
+   - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 3 → 4
+
+4. **Inspection routes mechanical split** — **PRIORITY 4 (D4)**
+   - **Problem**: `photo_routes.py` (15,111 bytes, ~400+ lines) mixes EXIF extraction, validation, storage, OCR dispatch, and routes
+   - **Target**: `InspectionPhotoService` class in `app/inspection/photo_service.py`
+   - **Interface**: `upload_evidence()`, `upload_adjudication_photo()`, `delete()`, `list_for_inspection()`, `list_adjudication()`
+   - **Dependencies**: None
+   - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 1 → 4
+
+5. **Case/Adjudication route duplication** — **PRIORITY 5 (D5)**
+   - **Problem**: `case_file_generator/routes.py` (697 lines) and `adjudication/routes.py` (820 lines) are near-mirrors with duplicated logic
+   - **Target**: `DocumentCaseManager` class in `app/shared/document_case_manager.py`
+   - **Interface**: Parameterized by `(model, template_dir, bp, case_type, sections_fn)` with methods for CRUD, rendering, and document generation
+   - **Dependencies**: D1 (CaseResolver), D2 (DocumentSaveCoordinator)
+   - **Effort**: 3 days | **Risk**: Medium | **Module Depth**: 2 → 4
+
+### 📊 REFACTORING METRICS
+
+| Module | Current Lines | Current Depth | Target Depth | Complexity Reduction |
+|--------|---------------|----------------|--------------|---------------------|
+| CaseResolver | N/A | N/A | 4 | New abstraction |
+| DocumentSaveCoordinator | N/A | N/A | 4 | Encapsulates 5 helpers |
+| PDFAssemblyEngine | ~1000+ | 3 | 4 | Consolidates PDF concerns |
+| InspectionPhotoService | ~400+ | 1 | 4 | Separates business logic |
+| DocumentCaseManager | ~1500+ | 2 | 4 | Eliminates duplication |
+
+### 🎯 RECOMMENDED IMPLEMENTATION ORDER
+
+1. **D1: CaseResolver** (Foundation - no dependencies)
+2. **D2: DocumentSaveCoordinator** (Depends on D1)
+3. **D3: PDFAssemblyEngine** (Independent, can run parallel)
+4. **D4: InspectionPhotoService** (Independent, can run parallel)
+5. **D5: DocumentCaseManager** (Depends on D1+D2)
+
+**Parallelization**: D3 and D4 can be implemented concurrently with D1+D2
 
 ---
 
@@ -246,30 +301,30 @@ The following modules have low Module Depth (interface nearly as complex as impl
 
 ## 7. Test Inventory
 
-| Test File                    | Tests | Covers                                         |
-| ---------------------------- | ----- | ---------------------------------------------- |
+| Test File                    | Tests | Covers                                                                 |
+| ---------------------------- | ----- | ---------------------------------------------------------------------- |
 | test_annexure.py             | 22    | Annexure upload, replace, rename, reorder, delete, duplicate detection |
-| test_auth_*.py               | 9+9   | Auth: login, password change                   |
-| test_bill_generator.py       | 11    | Bill PDF template vars                         |
-| test_cross_reference.py      | 27    | Reference extraction/linking/renumbering       |
-| test_document_cleaner.py     | 45    | Text cleaning pipeline                         |
-| test_document_loader.py      | 35    | PDF/DOCX/TXT loading                           |
-| test_document_viewer.py      | 24+27 | Editor save/retrieve, Markdown export, TOC     |
-| test_legal_suggest.py        | 4     | Section suggestions                            |
-| test_metadata_extractor.py   | 31    | Regex + NER extraction                         |
-| test_ocr_pipeline.py         | 24    | OCR pipeline                                   |
-| test_pdf_photo_embedding.py  | 11    | Photo embedding in PDFs                        |
-| test_phase1.py               | —     | Validation errors, Facts/Grounds/Prayer        |
-| test_phase3_models.py        | —     | Settings, Annexure, Evidence, Version models   |
-| test_phase5_evidence.py      | 16    | Unified Evidence model                         |
-| test_phase7_toc_generator.py | 37    | TOC extraction/numbering/bookmarks             |
-| test_phase8_pdf_assembly.py  | 40    | PDF assembly, hyperlinks, QR, signatures       |
-| test_route_collisions.py     | 1     | URL collision regression                       |
-| test_search.py               | —     | FTS5 search                                    |
-| test_step1-5_integration.py  | 74    | End-to-end integration                         |
-| test_storage.py              | —     | Storage backend selection                      |
-| test_version_control.py      | 23    | Version compare, restore, branching            |
-| test_toc_generator.py        | 37    | TOC generator engine                           |
+| test_auth_*.py               | 9+9   | Auth: login, password change                                           |
+| test_bill_generator.py       | 11    | Bill PDF template vars                                                 |
+| test_cross_reference.py      | 27    | Reference extraction/linking/renumbering                               |
+| test_document_cleaner.py     | 45    | Text cleaning pipeline                                                 |
+| test_document_loader.py      | 35    | PDF/DOCX/TXT loading                                                   |
+| test_document_viewer.py      | 24+27 | Editor save/retrieve, Markdown export, TOC                             |
+| test_legal_suggest.py        | 4     | Section suggestions                                                    |
+| test_metadata_extractor.py   | 31    | Regex + NER extraction                                                 |
+| test_ocr_pipeline.py         | 24    | OCR pipeline                                                           |
+| test_pdf_photo_embedding.py  | 11    | Photo embedding in PDFs                                                |
+| test_phase1.py               | —     | Validation errors, Facts/Grounds/Prayer                                |
+| test_phase3_models.py        | —     | Settings, Annexure, Evidence, Version models                           |
+| test_phase5_evidence.py      | 16    | Unified Evidence model                                                 |
+| test_phase7_toc_generator.py | 37    | TOC extraction/numbering/bookmarks                                     |
+| test_phase8_pdf_assembly.py  | 40    | PDF assembly, hyperlinks, QR, signatures                               |
+| test_route_collisions.py     | 1     | URL collision regression                                               |
+| test_search.py               | —     | FTS5 search                                                            |
+| test_step1-5_integration.py  | 74    | End-to-end integration                                                 |
+| test_storage.py              | —     | Storage backend selection                                              |
+| test_version_control.py      | 23    | Version compare, restore, branching                                    |
+| test_toc_generator.py        | 37    | TOC generator engine                                                   |
 
 ---
 

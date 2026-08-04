@@ -8,13 +8,13 @@
 
 ## Summary
 
-| # | Candidate | Module Depth | Files Affected | Risk |
-| --- | ----------- | ------------- | ---------------- | ------ |
-| 1 | Case/Adjudication route duplication | 2 | 2 route files | Medium |
-| 2 | Cross-module case resolution | 1 | 5+ files | Low |
-| 3 | Document viewer inlined concerns | 2 | 1 route file | Low |
-| 4 | Inspection routes mechanical split | 1 | 5 files | Medium |
-| 5 | PDF utils grab-bag | 3 | 2 files | Medium |
+| #   | Candidate                           | Module Depth | Files Affected | Risk   |
+| --- | ----------------------------------- | ------------ | -------------- | ------ |
+| 1   | Case/Adjudication route duplication | 2            | 2 route files  | Medium |
+| 2   | Cross-module case resolution        | 1            | 5+ files       | Low    |
+| 3   | Document viewer inlined concerns    | 2            | 1 route file   | Low    |
+| 4   | Inspection routes mechanical split  | 1            | 5 files        | Medium |
+| 5   | PDF utils grab-bag                  | 3            | 2 files        | Medium |
 
 ---
 
@@ -290,13 +290,13 @@ Medium — consolidating 5 callers. Must preserve all existing function signatur
 
 ## Implementation Order
 
-| Step | Candidate | Module to create | Files to modify | Effort |
-| ------ | ----------- | ----------------- | ----------------- | -------- |
-| 1 | #2 (CaseResolver) | `app/shared/case_resolver.py` | 5+ route files | 1 day |
-| 2 | #3 (DocumentSaveCoordinator) | `app/services/document_lifecycle.py` | `document_viewer/routes.py` | 1 day |
-| 3 | #5 (PDFAssemblyEngine) | `app/pdf_assembly/engine.py` | `pdf_utils.py`, 5 callers | 2 days |
-| 4 | #4 (InspectionPhotoService) | `app/inspection/photo_service.py` | `photo_routes.py` | 2 days |
-| 5 | #1 (DocumentCaseManager) | `app/shared/document_case_manager.py` | `case_file_generator/`, `adjudication/` | 3 days |
+| Step | Candidate                    | Module to create                      | Files to modify                         | Effort |
+| ---- | ---------------------------- | ------------------------------------- | --------------------------------------- | ------ |
+| 1    | #2 (CaseResolver)            | `app/shared/case_resolver.py`         | 5+ route files                          | 1 day  |
+| 2    | #3 (DocumentSaveCoordinator) | `app/services/document_lifecycle.py`  | `document_viewer/routes.py`             | 1 day  |
+| 3    | #5 (PDFAssemblyEngine)       | `app/pdf_assembly/engine.py`          | `pdf_utils.py`, 5 callers               | 2 days |
+| 4    | #4 (InspectionPhotoService)  | `app/inspection/photo_service.py`     | `photo_routes.py`                       | 2 days |
+| 5    | #1 (DocumentCaseManager)     | `app/shared/document_case_manager.py` | `case_file_generator/`, `adjudication/` | 3 days |
 
 ---
 
@@ -304,14 +304,14 @@ Medium — consolidating 5 callers. Must preserve all existing function signatur
 
 > See `REFACTORING_PLAN.md` for the full design of each deepening candidate. This table summarizes the implementation order and Module Depth targets.
 
-| Step | Candidate                        | New Module                                | Target Depth | Files to Touch          | Effort |
-| ---- | -------------------------------- | ----------------------------------------- | ------------ | ----------------------- | ------ |
-| 1    | Cross-module case resolution   | `app/shared/case_resolver.py`             | 1 → 4        | 5+ route files          | 1 day  |
-| 2    | Document viewer inlined concerns | `app/services/document_lifecycle.py`      | 2 → 4        | `document_viewer/routes.py` | 1 day  |
-| 3    | PDF utils grab-bag              | `app/pdf_assembly/engine.py`             | 3 → 4        | `pdf_utils.py` + 5 callers | 2 days |
-| 4    | Inspection routes mechanical split | `app/inspection/photo_service.py`        | 1 → 4        | `photo_routes.py`       | 2 days |
-| 5    | Case/Adjudication route duplication | `app/shared/document_case_manager.py`  | 2 → 4        | 2 route files           | 3 days |
+| Step | Candidate                           | New Module                            | Target Depth | Files to Touch              | Effort |
+| ---- | ----------------------------------- | ------------------------------------- | ------------ | --------------------------- | ------ |
+| 1    | Cross-module case resolution        | `app/shared/case_resolver.py`         | 1 → 4        | 5+ route files              | 1 day  |
+| 2    | Document viewer inlined concerns    | `app/services/document_lifecycle.py`  | 2 → 4        | `document_viewer/routes.py` | 1 day  |
+| 3    | PDF utils grab-bag                  | `app/pdf_assembly/engine.py`          | 3 → 4        | `pdf_utils.py` + 5 callers  | 2 days |
+| 4    | Inspection routes mechanical split  | `app/inspection/photo_service.py`     | 1 → 4        | `photo_routes.py`           | 2 days |
+| 5    | Case/Adjudication route duplication | `app/shared/document_case_manager.py` | 2 → 4        | 2 route files               | 3 days |
 
 ---
 
-*End of refactoring plan*
+_End of refactoring plan_

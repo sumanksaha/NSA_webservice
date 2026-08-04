@@ -17,8 +17,8 @@ import logging
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
 
-from app.extensions import db
 from app.services.version_control import VersionError, VersionService
+from app.shared.case_resolver import CaseResolver
 
 # Create version control blueprint
 version_control_bp = Blueprint(
@@ -34,33 +34,6 @@ logger = logging.getLogger(__name__)
 version_service = VersionService()
 
 _VALID_DOC_TYPES = ("petition", "permission")
-
-
-def _resolve_target(case_id_or_adjudication_id: int, kind: str | None = None):
-    """Resolve whether a path ID refers to a CaseFile or an Adjudication.
-
-    ``kind`` (``"case_file"`` | ``"adjudication"``) disambiguates when both
-    tables happen to contain the same numeric ID (each table has its own
-    autoincrement). When omitted, CaseFile is checked first, then Adjudication.
-
-    Returns ``(case_id, adjudication_id)`` with exactly one non-None when the
-    record exists, or ``(None, None)`` when neither table has that ID.
-    """
-    from app.models import Adjudication, CaseFile
-
-    if kind == "adjudication":
-        if db.session.get(Adjudication, case_id_or_adjudication_id) is not None:
-            return None, case_id_or_adjudication_id
-        return None, None
-    if kind == "case_file":
-        if db.session.get(CaseFile, case_id_or_adjudication_id) is not None:
-            return case_id_or_adjudication_id, None
-        return None, None
-    if db.session.get(CaseFile, case_id_or_adjudication_id) is not None:
-        return case_id_or_adjudication_id, None
-    if db.session.get(Adjudication, case_id_or_adjudication_id) is not None:
-        return None, case_id_or_adjudication_id
-    return None, None
 
 
 def _kind_param():
@@ -173,13 +146,13 @@ def compare_versions(
         if doc_type not in _VALID_DOC_TYPES:
             return jsonify({"error": "doc_type must be 'petition' or 'permission'"}), 400
 
-        case_id, adjudication_id = _resolve_target(case_id_or_adjudication_id, _kind_param())
-        if case_id is None and adjudication_id is None:
+        resolved = CaseResolver().resolve(case_id_or_adjudication_id, kind=_kind_param())
+        if resolved is None:
             return jsonify({"error": f"Case with ID {case_id_or_adjudication_id} not found"}), 404
 
         diff_data = version_service.compare_versions(
-            case_id=case_id,
-            adjudication_id=adjudication_id,
+            case_id=resolved.case_id,
+            adjudication_id=resolved.adjudication_id,
             doc_type=doc_type,
             version_a=version_a,
             version_b=version_b,
@@ -230,13 +203,13 @@ def restore_version(
         data = request.get_json() or {}
         user_id = current_user.get_id() if current_user.is_authenticated else None
 
-        case_id, adjudication_id = _resolve_target(case_id_or_adjudication_id, _kind_param())
-        if case_id is None and adjudication_id is None:
+        resolved = CaseResolver().resolve(case_id_or_adjudication_id, kind=_kind_param())
+        if resolved is None:
             return jsonify({"error": f"Case with ID {case_id_or_adjudication_id} not found"}), 404
 
         restored = version_service.restore_version(
-            case_id=case_id,
-            adjudication_id=adjudication_id,
+            case_id=resolved.case_id,
+            adjudication_id=resolved.adjudication_id,
             doc_type=doc_type,
             version_id=version_id,
             user_id=user_id,
@@ -338,13 +311,13 @@ def get_version_history(case_id_or_adjudication_id: int):
     }
     """
     try:
-        case_id, adjudication_id = _resolve_target(case_id_or_adjudication_id, _kind_param())
-        if case_id is None and adjudication_id is None:
+        resolved = CaseResolver().resolve(case_id_or_adjudication_id, kind=_kind_param())
+        if resolved is None:
             return jsonify({"error": f"Case with ID {case_id_or_adjudication_id} not found"}), 404
 
         history_data = version_service.get_version_history_ui_data(
-            case_id=case_id,
-            adjudication_id=adjudication_id,
+            case_id=resolved.case_id,
+            adjudication_id=resolved.adjudication_id,
         )
 
         return jsonify(history_data)
@@ -358,23 +331,17 @@ def get_version_history(case_id_or_adjudication_id: int):
 @login_required
 def history_page(case_id_or_adjudication_id: int):
     """Render the version-history UI page for a case or adjudication."""
-    from app.models import Adjudication, CaseFile
-
-    case_id, adjudication_id = _resolve_target(case_id_or_adjudication_id, _kind_param())
-    if case_id is None and adjudication_id is None:
+    resolved = CaseResolver().resolve(case_id_or_adjudication_id, kind=_kind_param())
+    if resolved is None:
         return jsonify({"error": f"Case with ID {case_id_or_adjudication_id} not found"}), 404
 
-    if case_id is not None:
-        case_number = db.session.get(CaseFile, case_id).case_number
-        case_type = "case_file"
-    else:
-        case_number = db.session.get(Adjudication, adjudication_id).case_number
-        case_type = "adjudication"
+    case_number = resolved.case_number
+    case_type = resolved.case_type
 
     return render_template(
         "version_control/history.html",
         case_number=case_number,
-        case_id=case_id,
-        adjudication_id=adjudication_id,
+        case_id=resolved.case_id,
+        adjudication_id=resolved.adjudication_id,
         case_type=case_type,
     )

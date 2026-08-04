@@ -27,7 +27,7 @@
 
 | Phase  | Feature                                                                     | Status                              | Gap                                                                       |
 | ------ | --------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------- |
-| **10** | Search engine — fuzzy search                                                | ⚠️ FTS5 keyword + filters done      | Fuzzy search (rapidfuzz) not implemented nor declared in `pyproject.toml` |
+| **10** | Search engine — fuzzy search                                                | ⚠️ FTS5 keyword + filters done      | Fuzzy search (rapidfuzz) not implemented nor declared in `pyproject.toml`; `numpy` also undeclared (OCR tests fail to collect on fresh envs) |
 | **11** | AI assistant — grammar, legal language, summarize, contradictions, drafting | ❌                                  | Only rule-based `suggester.py` exists                                     |
 | **12** | Legal rule engine — ValidationEngine (score, warnings, errors, suggestions) | ❌                                  | Only `suggest_sections()` exists                                          |
 | **13** | Timeline engine — auto-generated events, Gantt UI                           | ❌                                  | Not started                                                               |
@@ -58,7 +58,7 @@
 | 5    | Phase 7  | ✅ Done — TOC generator                                                                 | (complete)                                       |
 | 6    | Phase 8  | ✅ Done — PDF assembly                                                                  | (complete)                                       |
 | 7    | Phase 9  | ✅ Done — version control                                                               | (complete)                                       |
-| 8    | Phase 10 | Add `rapidfuzz` to `pyproject.toml`; fuzzy fallback in `search/indexer.py`              | `pyproject.toml`, `app/search/indexer.py`        |
+| 8    | Phase 10 | Add `rapidfuzz` + `numpy` to `pyproject.toml`; fuzzy fallback in `search/indexer.py`      | `pyproject.toml`, `app/search/indexer.py`        |
 | 9    | Phase 12 | Create `app/validation/` (engine, rules, routes)                                        | new blueprint                                    |
 | 10   | Phase 13 | Create `app/timeline/` (TimelineEvent model, engine, Gantt UI)                          | new blueprint                                    |
 | 11   | Phase 15 | Create `app/analytics/` (aggregate queries, charts)                                     | new blueprint                                    |
@@ -107,7 +107,7 @@
 | `app/legal_analysis/routes.py`      | Validation + readiness score                               |
 | `celery_app.py`                     | Beat schedule for backups                                  |
 | `app/templates/base.html`           | Nav links (analytics, version history)                     |
-| `pyproject.toml`                    | `rapidfuzz`, `openai` or `httpx` for Phase 11              |
+| `pyproject.toml`                    | `rapidfuzz` + `numpy`, `openai` or `httpx` for Phase 11     |
 
 ### 3.4 New Migrations
 
@@ -195,6 +195,7 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 | Package             | Phase           | Reason                                                                           |
 | ------------------- | --------------- | -------------------------------------------------------------------------------- |
 | `rapidfuzz`         | Phase 10        | Fuzzy search (also fixes undeclared import in `document_cleaner/normalizers.py`) |
+| `numpy`             | Phase 10        | OCR runtime dep (undeclared) — `test_ocr_pipeline` fails to collect on fresh envs |
 | `openai` or `httpx` | Phase 11        | LLM integration                                                                  |
 | `redis`             | Phase 1 (infra) | Caching + Celery broker (already in `pyproject.toml`)                            |
 | `tenacity`          | Phase A         | Retry logic for Cloudinary and extraction pipeline                               |

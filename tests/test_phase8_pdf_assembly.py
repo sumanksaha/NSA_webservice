@@ -212,103 +212,97 @@ class TestPDFAssemblyPageNumbers:
     def test_page_number_css_injection(self):
         """Test that page number CSS is injected correctly."""
         with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.HTML"):
-                from app.pdf_assembly import PDFAssemblyEngine
+            from app.pdf_assembly import PDFAssemblyEngine
 
-                engine = PDFAssemblyEngine()
+            engine = PDFAssemblyEngine()
 
-                # Test with HTML that has a style tag
-                html_with_style = "<html><head><style>body { color: red; }</style></head><body>Test</body></html>"
-                result = engine._apply_page_numbers(html_with_style)
+            # Test with HTML that has a style tag
+            html_with_style = "<html><head><style>body { color: red; }</style></head><body>Test</body></html>"
+            result = engine._apply_page_numbers(html_with_style)
 
-                # Page number CSS should be injected
-                assert "@page" in result
-                assert "{{ page_number }}" in result
-                assert "Page {{ page_number }}" in result
+            # Page number CSS should be injected
+            assert "@page" in result
+            assert "{{ page_number }}" in result
+            assert "Page {{ page_number }}" in result
 
     def test_page_number_css_injection_without_style(self):
         """Test page number CSS injection when no style tag exists."""
         with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.HTML"):
-                from app.pdf_assembly import PDFAssemblyEngine
+            from app.pdf_assembly import PDFAssemblyEngine
 
-                engine = PDFAssemblyEngine()
+            engine = PDFAssemblyEngine()
 
-                # Test with HTML that has no style tag
-                html_without_style = "<html><body>Test</body></html>"
-                result = engine._apply_page_numbers(html_without_style)
+            # Test with HTML that has no style tag
+            html_without_style = "<html><body>Test</body></html>"
+            result = engine._apply_page_numbers(html_without_style)
 
-                # Page number CSS should be injected at the beginning
-                assert "@page" in result
-                assert "{{ page_number }}" in result
-                assert result.startswith("<style>")
+            # Page number CSS should be injected at the beginning
+            assert "@page" in result
+            assert "{{ page_number }}" in result
+            assert result.startswith("<style>")
 
     def test_page_number_css_structure(self):
         """Test that page number CSS has correct structure."""
         with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.HTML"):
-                from app.pdf_assembly import PDFAssemblyEngine
+            from app.pdf_assembly import PDFAssemblyEngine
 
-                engine = PDFAssemblyEngine()
+            engine = PDFAssemblyEngine()
 
-                html = "<html><body>Test</body></html>"
-                result = engine._apply_page_numbers(html)
+            html = "<html><body>Test</body></html>"
+            result = engine._apply_page_numbers(html)
 
-                # Verify CSS structure
-                assert "@page {" in result
-                assert "@bottom-center {" in result
-                assert 'content: "Page {{ page_number }}";' in result
-                assert "font-size: 10px;" in result
-                assert "color: #666666;" in result
+            # Verify CSS structure
+            assert "@page {" in result
+            assert "@bottom-center {" in result
+            assert 'content: "Page {{ page_number }}";' in result
+            assert "font-size: 10px;" in result
+            assert "color: #666666;" in result
 
     def test_page_numbers_in_complete_processing(self):
         """Test that page numbers are included in complete post-processing."""
         with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.HTML"):
-                with patch("app.pdf_assembly.post_process_pdf_html"):
-                    with patch("app.pdf_assembly.render_template"):
-                        from app.pdf_assembly import PDFAssemblyEngine
-
-                        engine = PDFAssemblyEngine()
-
-                        # Mock the other processing methods
-                        engine._apply_headers_footers = lambda x, y: x
-                        engine._add_qr_codes = lambda x, y: x
-                        engine._add_signature_placeholders = lambda x: x
-                        engine._add_pdf_bookmarks = lambda x, y: x
-
-                        html = "<html><body>Test</body></html>"
-                        case_data = {"case_number": "123"}
-
-                        result = engine._apply_complete_post_processing(html, 456, case_data)
-
-                        # The result should contain page number CSS
-                        assert "@page" in result
-                        assert "{{ page_number }}" in result
-
-    def test_page_number_css_placement(self):
-        """Test that page number CSS is placed correctly in HTML."""
-        with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.HTML"):
+            with patch("app.pdf_assembly.engine.PDFAssemblyEngine.post_process") as mock_post:
                 from app.pdf_assembly import PDFAssemblyEngine
 
                 engine = PDFAssemblyEngine()
 
-                # Test when style tag exists - should replace it
-                html_with_style = "<html><head><style>body { color: red; }</style></head><body>Test</body></html>"
-                result = engine._apply_page_numbers(html_with_style)
+                # Mock the other processing methods
+                engine._apply_headers_footers = lambda x, y: x
+                engine._add_qr_codes = lambda x, y: x
+                engine._add_signature_placeholders = lambda x: x
+                engine._add_pdf_bookmarks = lambda x, y: x
 
-                # Should have both original and page number CSS
-                assert "body { color: red; }" in result
-                assert "@page {" in result
+                html = "<html><body>Test</body></html>"
+                case_data = {"case_number": "123"}
 
-                # Test when no style tag exists - should add at beginning
-                html_without_style = "<html><body>Test</body></html>"
-                result2 = engine._apply_page_numbers(html_without_style)
+                result = engine._apply_complete_post_processing(html, 456, case_data)
 
-                # Should start with style tag
-                assert result2.startswith("<style>")
-                assert "{{ page_number }}" in result2
+                # The result should contain page number CSS
+                assert "@page" in result
+                assert "{{ page_number }}" in result
+
+    def test_page_number_css_placement(self):
+        """Test that page number CSS is placed correctly in HTML."""
+        with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
+            from app.pdf_assembly import PDFAssemblyEngine
+
+            engine = PDFAssemblyEngine()
+
+            # Test when style tag exists - should replace it
+            html_with_style = "<html><head><style>body { color: red; }</style></head><body>Test</body></html>"
+            result = engine._apply_page_numbers(html_with_style)
+
+            # Should have both original and page number CSS
+            assert "body { color: red; }" in result
+            assert "@page {" in result
+
+            # Test when no style tag exists - should add at beginning
+            html_without_style = "<html><body>Test</body></html>"
+            result2 = engine._apply_page_numbers(html_without_style)
+
+            # Should start with style tag
+            assert result2.startswith("<style>")
+            assert "{{ page_number }}" in result2
 
 
 class TestPDFAssemblyHeadersFooters:
@@ -545,27 +539,26 @@ class TestPDFAssemblyHyperlinks:
 
     def test_hyperlinks_wired_into_complete_post_processing(self):
         """The hyperlink pass runs as part of the Phase 8 chain."""
-        with patch("app.pdf_assembly.post_process_pdf_html") as mock_post:
+        with patch("app.pdf_assembly.engine.PDFAssemblyEngine.post_process") as mock_post:
             with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-                with patch("app.pdf_assembly.HTML"):
-                    from app.pdf_assembly import PDFAssemblyEngine
+                from app.pdf_assembly import PDFAssemblyEngine
 
-                    engine = PDFAssemblyEngine()
-                    mock_post.side_effect = lambda h, **kw: (
-                        '<html><body><a href="#toc-1">1. Facts</a>' '<h1 id="toc-1">Facts</h1>' "</body></html>"
-                    )
-                    # The other Phase 8 passes are mocked out (as in the
-                    # existing page-number integration test) so only the
-                    # hyperlink pass is exercised here.
-                    engine._apply_headers_footers = lambda x, y: x
-                    engine._add_qr_codes = lambda x, y: x
-                    engine._add_signature_placeholders = lambda x: x
-                    engine._add_pdf_bookmarks = lambda x, y: x
-                    engine._apply_page_numbers = lambda x: x
-                    html = "<html><body></body></html>"
-                    out = engine._apply_complete_post_processing(html, 1, {})
-                    assert "a[href]" in out  # styling injected
-                    assert 'href="#toc-1"' in out  # anchor survived
+                engine = PDFAssemblyEngine()
+                mock_post.side_effect = lambda h, **kw: (
+                    '<html><body><a href="#toc-1">1. Facts</a>' '<h1 id="toc-1">Facts</h1>' "</body></html>"
+                )
+                # The other Phase 8 passes are mocked out (as in the
+                # existing page-number integration test) so only the
+                # hyperlink pass is exercised here.
+                engine._apply_headers_footers = lambda x, y: x
+                engine._add_qr_codes = lambda x, y: x
+                engine._add_signature_placeholders = lambda x: x
+                engine._add_pdf_bookmarks = lambda x, y: x
+                engine._apply_page_numbers = lambda x: x
+                html = "<html><body></body></html>"
+                out = engine._apply_complete_post_processing(html, 1, {})
+                assert "a[href]" in out  # styling injected
+                assert 'href="#toc-1"' in out  # anchor survived
 
 
 class TestPDFAssemblyConfiguration:

@@ -303,7 +303,7 @@ class TestUnifiedPhotoEndpoints:
         # upload_photo uses app.utils.storage.upload_photo (Cloudinary); stub it.
         from unittest.mock import patch
 
-        with patch("app.inspection.routes.photo_routes.upload_photo", return_value="https://cdn.example/x.jpg"):
+        with patch("app.inspection.photo_service.upload_photo", return_value="https://cdn.example/x.jpg"):
             resp = client.post(
                 f"/inspection/{adj_id}/photos",
                 data={"photo": (io.BytesIO(_png_bytes()), "cam.jpg"), "caption": "Front"},
@@ -326,7 +326,7 @@ class TestUnifiedPhotoEndpoints:
         assert resp.get_json()["total"] == 1
 
         # Delete removes the row (and storage delete is stubbed).
-        with patch("app.inspection.routes.photo_routes.delete_photo", return_value=True):
+        with patch("app.inspection.photo_service.delete_photo", return_value=True):
             resp = client.delete(f"/inspection/photos/{photo_id}")
         assert resp.status_code == 204
 

@@ -1,4 +1,22 @@
+"""suggester.py
+
+Rule-based suggester that recommends applicable FSS Act sections
+(55, 56, 58, 63, 64) based on inspection checklist results and case flags.
+No external LLM dependencies — all logic is deterministic and runs locally.
+
+The set of valid section IDs and the statutory section text are sourced from
+the canonical :mod:`app.utils.sections_data` module (``VALID_SECTION_IDS`` /
+``SECTIONS``), which loads ``fss_sections.md`` from the workspace root.
+
+Note: this module deliberately imports ``SECTIONS`` eagerly, so importing the
+suggester hard-fails at import time if ``fss_sections.md`` is missing (the
+"fail loudly" design of ``app.utils.sections_data``). The app deploys from the
+git checkout (Render), where the tracked ``fss_sections.md`` is always present.
+"""
+
 import logging
+
+from app.utils.sections_data import SECTIONS, VALID_SECTION_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +51,14 @@ _HYGIENE_CHECKLIST_ITEMS = {
 }
 
 # Sections the officer must tick manually
-_MANUAL_ONLY_SECTIONS = {"58", "64"}
+_MANUAL_ONLY_SECTIONS = frozenset({"58", "64"})
+
+# Fail loudly at import if the manual-only set drifts away from the canonical
+# whitelist (single source of truth: app.utils.sections_data.VALID_SECTION_IDS).
+assert _MANUAL_ONLY_SECTIONS <= VALID_SECTION_IDS, (
+    f"Manual-only sections {sorted(_MANUAL_ONLY_SECTIONS)} not a subset of "
+    f"VALID_SECTION_IDS {sorted(VALID_SECTION_IDS)}"
+)
 
 # Checklist items indicating failure to comply with FSO directions -> Sec 55
 _DIRECTION_COMPLIANCE_ITEMS = {
@@ -49,6 +74,20 @@ _DIRECTION_COMPLIANCE_ITEMS = {
     "Pest_report": "Pest-control documentation directions not followed.",
     "Water_report": "Water-test documentation directions not followed.",
 }
+
+
+def section_title(section_id: str) -> str | None:
+    """Return the heading text for a section, e.g. 'Penalty for failure to comply
+    with the directions of Food Safety Officer' (Section 55).
+
+    Pulls from the canonical ``SECTIONS`` map loaded from ``fss_sections.md``.
+    Returns ``None`` when the section id is unknown or has no ``##`` heading.
+    """
+    text: str = SECTIONS.get(section_id, "")
+    for line in text.splitlines():
+        if line.startswith("## "):
+            return line[3:].strip()
+    return None
 
 
 def _is_non_license(form_data: dict) -> bool:
@@ -85,8 +124,8 @@ def suggest_sections(form_data: dict) -> dict:
       3. Section 56 if hygiene violations detected in checklist.
       4. Sections 58 and 64 are manual-only (officer ticks in UI).
     """
-    sections = []
-    reasoning = {}
+    sections: list[str] = []
+    reasoning: dict[str, str] = {}
 
     # Rule 1: non-licensed -> Sec 63 only
     if _is_non_license(form_data):
@@ -107,7 +146,8 @@ def suggest_sections(form_data: dict) -> dict:
         sections.append("56")
         reasoning["56"] = hygiene_reason
 
-    # Rule 4: Sections 58 and 64 are manual-only - never auto-suggested
-    sections = [s for s in sections if s not in _MANUAL_ONLY_SECTIONS]
+    # Rule 4: Sections 58 and 64 are manual-only - never auto-suggested;
+    # whitelist the result against the canonical VALID_SECTION_IDS.
+    sections = [s for s in sections if s in VALID_SECTION_IDS and s not in _MANUAL_ONLY_SECTIONS]
 
     return {"sections": sections, "reasoning": reasoning}

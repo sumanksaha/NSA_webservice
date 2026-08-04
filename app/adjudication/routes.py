@@ -1,9 +1,25 @@
+"""Adjudication blueprint — thin routes + DocumentCaseManager.
+
+Common CRUD, editor, xref/toc, and renumber routes are registered via
+:class:`app.shared.document_case_manager.DocumentCaseManager`.  This file
+retains only the adjudication-specific helpers and routes:
+
+- ``adjudication_to_dict``
+- ``CHECKLIST`` / ``RULES``
+- ``lookup_ce_route`` / ``suggest_sections_route`` / ``lookup_fbo_issues``
+- ``generate_all`` (synchronous in-memory PDF generation)
+- ``regenerate_adjudication_documents`` (in-memory ZIP)
+
+Backward-compatible imports preserved for callers (tests, renderers, etc.).
+"""
+
 import io
 import json
 import zipfile
 from datetime import UTC, datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file, url_for
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
@@ -31,6 +47,7 @@ from app.shared.context_derivers import (
     derive_sections_display,
     derive_violations,
 )
+from app.shared.document_case_manager import DocumentCaseManager
 from app.utils.filters import parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
@@ -69,14 +86,11 @@ RULES = {
 
 
 def adjudication_to_dict(adj):
-    """Convert an Adjudication model instance to a dictionary for JSON serialization.
-    This includes all fields needed for form pre-population and document regeneration.
-    Map DB columns to canonical keys for Step 3.
-    """
+    """Convert an Adjudication model instance to a dictionary for JSON serialization."""
     return {
         "id": adj.id,
         "case_number": adj.case_number,
-        "food_safety_officer_name": adj.food_safety_officer,  # DB column: food_safety_officer
+        "food_safety_officer_name": adj.food_safety_officer,
         "non_license": adj.non_license,
         "pre_authorization": adj.pre_authorization,
         "complaint_lodged": adj.complaint_lodged,
@@ -93,12 +107,12 @@ def adjudication_to_dict(adj):
         "problem": adj.problem,
         "first_inspection_date": (
             adj.First_inspection_date.isoformat() if adj.First_inspection_date else None
-        ),  # DB column: First_inspection_date
+        ),
         "compliance_deadline": adj.compliance_deadline.isoformat() if adj.compliance_deadline else None,
-        "complaint_date": adj.Complaint_date.isoformat() if adj.Complaint_date else None,  # DB column: Complaint_date
+        "complaint_date": adj.Complaint_date.isoformat() if adj.Complaint_date else None,
         "followup_inspection_date": (
             adj.inspection_date.isoformat() if adj.inspection_date else None
-        ),  # DB column: inspection_date (follow-up)
+        ),
         "authorization_date": adj.authorization_date.isoformat() if adj.authorization_date else None,
         "clean_premise": adj.clean_premise,
         "refrigerator_clean": adj.refrigerator_clean,
@@ -122,31 +136,109 @@ def adjudication_to_dict(adj):
     }
 
 
-@adjudication_bp.route("/")
-def index():
-    # Check for prefill data from inspection - using canonical keys from Step 3
-    prefill_data = {}
-    for key in [
-        "from_inspection",
-        "food_safety_officer_name",
-        "fbo_name",
-        "fbo_address",
-        "fssai_license",
-        "ce_license_no",
-        "first_inspection_date",
-        "compliance_deadline",
-        "concerned_food",
-        "problem",
-        "ce_trade_name",
-        "ce_proprietor",
-        "ce_address",
-        "ce_status",
-    ]:
-        value = request.args.get(key)
-        if value:
-            prefill_data[key] = value
+def _process_adjudication_form(form_data):
+    """Create an Adjudication model instance from validated form data."""
+    return Adjudication(
+        case_number=form_data.get("case_number", ""),
+        food_safety_officer=form_data.get("food_safety_officer_name", ""),
+        non_license=form_data.get("non_license", "no"),
+        pre_authorization=form_data.get("pre_authorization", "no"),
+        complaint_lodged=form_data.get("complaint_lodged", "no"),
+        ce_license_no=form_data.get("ce_license_no", ""),
+        ce_trade_name=form_data.get("ce_trade_name", ""),
+        ce_proprietor=form_data.get("ce_proprietor", ""),
+        ce_address=form_data.get("ce_address", ""),
+        ce_status=form_data.get("ce_status", ""),
+        fbo_owner=form_data.get("fbo_owner", ""),
+        fbo_name=form_data.get("fbo_name", ""),
+        fbo_address=form_data.get("fbo_address", ""),
+        fssai_license=form_data.get("fssai_license", ""),
+        concerned_food=form_data.get("concerned_food", ""),
+        problem=form_data.get("problem", ""),
+        First_inspection_date=parse_date(form_data.get("first_inspection_date", "")),
+        compliance_deadline=parse_date(form_data.get("compliance_deadline", "")),
+        Complaint_date=parse_date(form_data.get("complaint_date", "")),
+        inspection_date=parse_date(form_data.get("followup_inspection_date", "")),
+        authorization_date=parse_date(form_data.get("authorization_date", "")),
+        clean_premise=form_data.get("clean_premise", "yes"),
+        refrigerator_clean=form_data.get("refrigerator_clean", "yes"),
+        proper_attire=form_data.get("proper_attire", "yes"),
+        proper_covered_utensil=form_data.get("proper_covered_utensil", "yes"),
+        date_tag=form_data.get("date_tag", "yes"),
+        veg_nonveg_separation=form_data.get("veg_nonveg_separation", "yes"),
+        food_segregation=form_data.get("food_segregation", "yes"),
+        license_display=form_data.get("license_display", "yes"),
+        artificial_colour=form_data.get("artificial_colour", "no"),
+        Expired_item=form_data.get("Expired_item", "no"),
+        Pest_report=form_data.get("Pest_report", "yes"),
+        Water_report=form_data.get("Water_report", "yes"),
+        section_55=form_data.get("section_55", "no"),
+        section_56=form_data.get("section_56", "no"),
+        section_58=form_data.get("section_58", "no"),
+        section_63=form_data.get("section_63", "no"),
+        section_64=form_data.get("section_64", "no"),
+    )
 
-    return render_template("adjudication/index.html", checklist=CHECKLIST, prefill=prefill_data)
+
+def _prepare_adjudication_context(case_data):
+    """Prepare template rendering context for adjudication documents."""
+    form_data = case_data
+    section_55 = form_data.get(SECTION_55, "no")
+    section_56 = form_data.get(SECTION_56, "no")
+    section_58 = form_data.get(SECTION_58, "no")
+    section_63 = form_data.get(SECTION_63, "no")
+    section_64 = form_data.get(SECTION_64, "no")
+
+    non_license = form_data.get(SHARED_NON_LICENSE, "no")
+    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, "no")
+    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, "no")
+
+    applicable_sections = derive_applicable_sections_from_adjudication(
+        section_55=section_55,
+        section_56=section_56,
+        section_58=section_58,
+        section_63=section_63,
+        section_64=section_64,
+    )
+
+    context = form_data.copy()
+    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
+    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
+    context[DERIVED_CASE_TRACK] = derive_case_track(
+        non_license=non_license,
+        pre_authorization=pre_authorization,
+        complaint_lodged=complaint_lodged,
+        is_sample=False,
+    )
+    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
+    context[DERIVED_SAME_ENTITY] = False
+    context["violations"] = context[DERIVED_VIOLATIONS]
+    return context
+
+
+# --------------------------------------------------------------------------- #
+# DocumentCaseManager — common routes delegation
+# --------------------------------------------------------------------------- #
+
+_manager = DocumentCaseManager(
+    model=Adjudication,
+    template_dir="adjudication",
+    bp_name="adjudication",
+    case_type="adjudication",
+    model_to_dict_fn=adjudication_to_dict,
+    process_form_fn=_process_adjudication_form,
+    prepare_context_fn=_prepare_adjudication_context,
+    templates={
+        "permission": "adjudication/Legal_NonsampleAdjudication_Template.html",
+        "petition": "adjudication/template_nonsample_petition.html",
+    },
+)
+_manager.register_routes(adjudication_bp)
+
+
+# --------------------------------------------------------------------------- #
+# Model-specific routes (not covered by DocumentCaseManager)
+# --------------------------------------------------------------------------- #
 
 
 @adjudication_bp.route("/lookup_ce", methods=["POST"])
@@ -177,10 +269,7 @@ def lookup_fssai_route():
 
 @adjudication_bp.route("/lookup_fbo_issues", methods=["GET"])
 def lookup_fbo_issues():
-    """Lookup FBO issues by fbo_id to provide pre-fill options for adjudication cases.
-    Returns open and permission_granted issues that can be used to pre-fill adjudication forms.
-    Query params: fbo_id (required), issue_id (optional - specific issue lookup)
-    """
+    """Lookup FBO issues by fbo_id to provide pre-fill options for adjudication cases."""
     fbo_id = request.args.get("fbo_id")
     issue_id = request.args.get("issue_id")
 
@@ -190,21 +279,18 @@ def lookup_fbo_issues():
     query = FboIssue.query.filter(FboIssue.state.in_(["open", "permission_granted"]))
 
     if issue_id:
-        # Specific issue lookup by ID
         try:
             issue_id_int = int(issue_id)
         except ValueError:
             return jsonify({"error": "issue_id must be an integer"}), 400
         query = query.filter_by(id=issue_id_int)
     elif fbo_id:
-        # Lookup all issues for this FBO
         query = query.filter_by(fbo_id=fbo_id)
 
     issues = query.order_by(FboIssue.created_at.desc()).all()
 
     result = []
     for issue in issues:
-        # Parse detail_json
         detail = None
         if issue.detail_json:
             try:
@@ -212,7 +298,6 @@ def lookup_fbo_issues():
             except Exception:
                 detail = issue.detail_json
 
-        # Extract relevant pre-fill data for adjudication
         prefill_data = {
             "issue_id": issue.id,
             "fbo_id": issue.fbo_id,
@@ -225,12 +310,11 @@ def lookup_fbo_issues():
             "detail": detail,
         }
 
-        # Add source-specific prefill mappings for adjudication form fields
         if issue.source_type == "inspection" and detail:
             prefill_data["prefill"] = {
                 "fbo_name": issue.fbo_name,
                 "fssai_license": issue.fbo_id,
-                "fbo_owner": issue.fbo_name,  # Map to fbo_owner as default
+                "fbo_owner": issue.fbo_name,
                 "concerned_food": detail.get("checklist", []),
                 "problem": ", ".join(detail.get("checklist", [])),
                 "inspection_date": detail.get("inspection_date"),
@@ -249,7 +333,6 @@ def lookup_fbo_issues():
                 "price": detail.get("price"),
                 "food_safety_officer": issue.fso_name,
             }
-            # Add manufacturer info if present
             if issue.manufacturer_fbo_id:
                 prefill_data["prefill"]["manufacturer_fssai"] = issue.manufacturer_fbo_id
         else:
@@ -267,131 +350,9 @@ def lookup_fbo_issues():
 
 @adjudication_bp.route("/suggest_sections", methods=["POST"])
 def suggest_sections_route():
-    # Accept standard form data
     form_data = request.form.to_dict()
     suggestions = suggest_sections(form_data)
     return jsonify(suggestions)
-
-
-# Adjudication retrieval endpoints for data reuse
-@adjudication_bp.route("/cases", methods=["GET"])
-def list_adjudication_cases():
-    """List all existing adjudication cases."""
-    cases = Adjudication.query.order_by(Adjudication.created_at.desc()).all()
-    return jsonify(
-        [
-            {
-                "id": c.id,
-                "case_number": c.case_number,
-                "fbo_name": c.fbo_name,
-                "food_safety_officer": c.food_safety_officer,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-            }
-            for c in cases
-        ]
-    )
-
-
-@adjudication_bp.route("/case/<int:case_id>", methods=["GET"])
-def get_adjudication_case(case_id):
-    """Retrieve a specific adjudication case by ID."""
-    adj = Adjudication.query.get_or_404(case_id)
-    return jsonify(adjudication_to_dict(adj))
-
-
-@adjudication_bp.route("/case/by_number/<case_number>", methods=["GET"])
-def get_adjudication_case_by_number(case_number):
-    """Retrieve a specific adjudication case by case number."""
-    adj = Adjudication.query.filter_by(case_number=case_number).first_or_404()
-    return jsonify(adjudication_to_dict(adj))
-
-
-@adjudication_bp.route("/<int:case_id>/editor", methods=["GET"])
-def edit_adjudication(case_id):
-    """Render the Quill document editor, pre-filled with an adjudication's documents."""
-    adj = Adjudication.query.get_or_404(case_id)
-    from app.document_viewer.renderer import render_adjudication_document
-
-    return render_template(
-        "document_viewer/editor.html",
-        case_number=adj.case_number,
-        case_id=adj.id,
-        case_type="adjudication",
-        petition_html=render_adjudication_document(case_id, "petition"),
-        permission_html=render_adjudication_document(case_id, "permission"),
-        report_url=url_for("adjudication.xref_report", case_id=case_id),
-        toc_url=url_for("adjudication.toc_report", case_id=case_id),
-    )
-
-
-@adjudication_bp.route("/<int:case_id>/xref_report", methods=["GET"])
-def xref_report(case_id):
-    """Render the cross-reference (Xref) report for an adjudication case.
-
-    Shows extracted paragraph / annexure / section references, their
-    resolution status against stored annexures, and a live HTML preview
-    of the document with enclosures auto-filled.
-    """
-    adj = Adjudication.query.get_or_404(case_id)
-    doc_type = request.args.get("doc_type", "petition")
-
-    from app.cross_reference import generate_xref_report_data
-    from app.document_viewer.renderer import render_adjudication_document
-
-    annotated_html = render_adjudication_document(case_id, doc_type)
-    report = generate_xref_report_data(annotated_html, adjudication_id=case_id)
-
-    return render_template(
-        "xref_report.html",
-        case_number=adj.case_number,
-        fbo_name=adj.fbo_name,
-        food_safety_officer=adj.food_safety_officer,
-        doc_type=doc_type,
-        report=report,
-        annotated_html=annotated_html,
-        report_url=url_for("adjudication.xref_report", case_id=case_id),
-        renumber_url=url_for("adjudication.renumber_annexures", case_id=case_id),
-    )
-
-
-@adjudication_bp.route("/<int:case_id>/toc_report", methods=["GET"])
-def toc_report(case_id):
-    """Render the Table of Contents report for an adjudication case.
-
-    Shows extracted headings with hierarchical numbering, the generated
-    TOC HTML, and a live preview with heading IDs annotated.
-    """
-    adj = Adjudication.query.get_or_404(case_id)
-    doc_type = request.args.get("doc_type", "petition")
-
-    from app.document_viewer.renderer import render_adjudication_document
-    from app.toc_generator import generate_toc_data
-    from app.toc_generator.engine import TocGeneratorEngine
-
-    annotated_html = render_adjudication_document(case_id, doc_type)
-    toc_data = generate_toc_data(annotated_html)
-    toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
-
-    return render_template(
-        "toc_report.html",
-        case_number=adj.case_number,
-        fbo_name=adj.fbo_name,
-        food_safety_officer=adj.food_safety_officer,
-        doc_type=doc_type,
-        toc_data=toc_data,
-        toc_html=toc_html,
-        annotated_html=annotated_html,
-        toc_url=url_for("adjudication.toc_report", case_id=case_id),
-    )
-
-
-@adjudication_bp.route("/<int:case_id>/renumber_annexures", methods=["POST"])
-def renumber_annexures(case_id):
-    """Renumber annexure letters (A, B, C, ...) in upload order."""
-    from app.cross_reference.engine import CrossReferenceEngine
-
-    updates = CrossReferenceEngine().renumber_annexures(adjudication_id=case_id)
-    return jsonify({"status": "ok", "updates": updates, "count": len(updates)})
 
 
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
@@ -400,55 +361,11 @@ def regenerate_adjudication_documents(case_id):
     adj = Adjudication.query.get_or_404(case_id)
     form_data = adjudication_to_dict(adj)
 
-    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
-
-    # STEP 4: Derive all context fields using shared helpers
-    # Get section checkboxes
-    section_55 = form_data.get(SECTION_55, "no")
-    section_56 = form_data.get(SECTION_56, "no")
-    section_58 = form_data.get(SECTION_58, "no")
-    section_63 = form_data.get(SECTION_63, "no")
-    section_64 = form_data.get(SECTION_64, "no")
-
-    # Get case flags
-    non_license = form_data.get(SHARED_NON_LICENSE, "no")
-    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, "no")
-    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, "no")
-
-    # Derive applicable sections
-    applicable_sections = derive_applicable_sections_from_adjudication(
-        section_55=section_55,
-        section_56=section_56,
-        section_58=section_58,
-        section_63=section_63,
-        section_64=section_64,
-    )
-
-    # Render context
-    context = form_data.copy()
+    context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
-    # STEP 4: Add canonical derived context fields
-    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
-    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
-    context[DERIVED_CASE_TRACK] = derive_case_track(
-        non_license=non_license,
-        pre_authorization=pre_authorization,
-        complaint_lodged=complaint_lodged,
-        is_sample=False,
-    )
-    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
-    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
-
-    # Keep backward compatible violations field
-    context["violations"] = context[DERIVED_VIOLATIONS]
-
-    # Photo Evidence Integration for regenerate function
     include_flagged = request.args.get("include_flagged", "false").lower() == "true"
     flag_override_reason = request.args.get("flag_override_reason", "").strip()
-
-    # Fetch all photo evidence for this case (linked via case_id or adjudication_id)
-    from sqlalchemy import or_
 
     all_photos = (
         Evidence.query.filter(
@@ -459,19 +376,13 @@ def regenerate_adjudication_documents(case_id):
         .all()
     )
 
-    # Split into verified and flagged photos
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
     flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
 
-    # Determine final photos list based on include_flagged flag
     if include_flagged:
         if not flag_override_reason:
             return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
-
-        # Combine verified and flagged photos
         final_photos = verified_photos + flagged_photos
-
-        # Log audit for flagged photos inclusion
         flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
             log_audit(
@@ -484,13 +395,11 @@ def regenerate_adjudication_documents(case_id):
     else:
         final_photos = verified_photos
 
-    # Add photos to context
     context["adjudication"] = {
         "photos": final_photos,
         "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
     }
 
-    # Log adjudication order generation with photo evidence details
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
     log_audit(
@@ -502,6 +411,7 @@ def regenerate_adjudication_documents(case_id):
     )
 
     outputs = []
+    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
@@ -511,7 +421,6 @@ def regenerate_adjudication_documents(case_id):
 
     for tpl, prefix in templates_to_generate:
         rendered_html = render_template(tpl, **context)
-        # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
         rendered_html = post_process_pdf_html(rendered_html, adjudication_id=case_id)
         pdf_bytes, error = generate_pdf_from_html(rendered_html)
         if pdf_bytes:
@@ -529,11 +438,9 @@ def regenerate_adjudication_documents(case_id):
 
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zip_buffer = io.BytesIO()
-
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as z:
         for fname, data in outputs:
             z.writestr(fname, data)
-
     zip_buffer.seek(0)
     return send_file(
         zip_buffer,
@@ -545,52 +452,10 @@ def regenerate_adjudication_documents(case_id):
 
 @adjudication_bp.route("/generate_all", methods=["POST"])
 def generate_all():
+    """Create a new adjudication case and generate PDFs in-memory."""
     form_data = request.form.to_dict()
 
-    # Save record to local database - using canonical keys from Step 2
-    adj = Adjudication(
-        case_number=form_data.get("case_number", ""),
-        food_safety_officer=form_data.get("food_safety_officer_name", ""),  # canonical -> DB column
-        non_license=form_data.get("non_license", "no"),
-        pre_authorization=form_data.get("pre_authorization", "no"),
-        complaint_lodged=form_data.get("complaint_lodged", "no"),
-        ce_license_no=form_data.get("ce_license_no", ""),
-        ce_trade_name=form_data.get("ce_trade_name", ""),
-        ce_proprietor=form_data.get("ce_proprietor", ""),
-        ce_address=form_data.get("ce_address", ""),
-        ce_status=form_data.get("ce_status", ""),
-        fbo_owner=form_data.get("fbo_owner", ""),
-        fbo_name=form_data.get("fbo_name", ""),
-        fbo_address=form_data.get("fbo_address", ""),
-        fssai_license=form_data.get("fssai_license", ""),
-        concerned_food=form_data.get("concerned_food", ""),
-        problem=form_data.get("problem", ""),
-        First_inspection_date=parse_date(form_data.get("first_inspection_date", "")),  # canonical
-        compliance_deadline=parse_date(form_data.get("compliance_deadline", "")),
-        Complaint_date=parse_date(form_data.get("complaint_date", "")),  # canonical
-        inspection_date=parse_date(form_data.get("followup_inspection_date", "")),  # canonical -> DB column (follow-up)
-        authorization_date=parse_date(form_data.get("authorization_date", "")),
-        # Checklist
-        clean_premise=form_data.get("clean_premise", "yes"),
-        refrigerator_clean=form_data.get("refrigerator_clean", "yes"),
-        proper_attire=form_data.get("proper_attire", "yes"),
-        proper_covered_utensil=form_data.get("proper_covered_utensil", "yes"),
-        date_tag=form_data.get("date_tag", "yes"),
-        veg_nonveg_separation=form_data.get("veg_nonveg_separation", "yes"),
-        food_segregation=form_data.get("food_segregation", "yes"),
-        license_display=form_data.get("license_display", "yes"),
-        artificial_colour=form_data.get("artificial_colour", "no"),
-        Expired_item=form_data.get("Expired_item", "no"),
-        Pest_report=form_data.get("Pest_report", "yes"),
-        Water_report=form_data.get("Water_report", "yes"),
-        # Sections
-        section_55=form_data.get("section_55", "no"),
-        section_56=form_data.get("section_56", "no"),
-        section_58=form_data.get("section_58", "no"),
-        section_63=form_data.get("section_63", "no"),
-        section_64=form_data.get("section_64", "no"),
-    )
-
+    adj = _process_adjudication_form(form_data)
     db.session.add(adj)
     try:
         db.session.commit()
@@ -606,61 +471,33 @@ def generate_all():
 
             inspection = db.session.get(Inspection, int(from_inspection))
             if inspection and not inspection.adjudication_id and not inspection.is_dismissed:
-                # Check if compliance_deadline has passed
                 today = datetime.now(UTC)
                 if inspection.compliance_deadline and inspection.compliance_deadline < today:
                     inspection.adjudication_id = adj.id
-                    try:
-                        db.session.commit()
-                    except StaleDataError:
-                        db.session.rollback()
-                        current_app.logger.warning(
-                            f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}",
-                        )
+                try:
+                    db.session.commit()
+                except StaleDataError:
+                    db.session.rollback()
+                    current_app.logger.warning(
+                        f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}",
+                    )
         except Exception as e:
             current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
             db.session.rollback()
 
-    # Try syncing to Google Sheets (new module-based sync)
+    # Sheets sync
     allowed_sheets_columns = {
-        "case_number",
-        "food_safety_officer",
-        "non_license",
-        "pre_authorization",
-        "complaint_lodged",
-        "ce_license_no",
-        "ce_trade_name",
-        "ce_proprietor",
-        "ce_address",
-        "ce_status",
-        "fbo_owner",
-        "fbo_name",
-        "fbo_address",
-        "fssai_license",
-        "concerned_food",
-        "problem",
-        "First_inspection_date",
-        "compliance_deadline",
-        "Complaint_date",
-        "inspection_date",
-        "authorization_date",
-        "clean_premise",
-        "refrigerator_clean",
-        "proper_attire",
-        "proper_covered_utensil",
-        "date_tag",
-        "veg_nonveg_separation",
-        "food_segregation",
-        "license_display",
-        "artificial_colour",
-        "Expired_item",
-        "Pest_report",
-        "Water_report",
-        "section_55",
-        "section_56",
-        "section_58",
-        "section_63",
-        "section_64",
+        "case_number", "food_safety_officer", "non_license",
+        "pre_authorization", "complaint_lodged", "ce_license_no",
+        "ce_trade_name", "ce_proprietor", "ce_address", "ce_status",
+        "fbo_owner", "fbo_name", "fbo_address", "fssai_license",
+        "concerned_food", "problem", "First_inspection_date",
+        "compliance_deadline", "Complaint_date", "inspection_date",
+        "authorization_date", "clean_premise", "refrigerator_clean",
+        "proper_attire", "proper_covered_utensil", "date_tag",
+        "veg_nonveg_separation", "food_segregation", "license_display",
+        "artificial_colour", "Expired_item", "Pest_report", "Water_report",
+        "section_55", "section_56", "section_58", "section_63", "section_64",
     }
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
@@ -671,56 +508,12 @@ def generate_all():
     except Exception as e:
         current_app.logger.warning(f"Adjudication: Sheets sync failed: {e}")
 
-    # Generate Adjudication Pack Documents in Memory
-    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
-
-    # STEP 4: Derive all context fields using shared helpers
-    # Get section checkboxes
-    section_55 = form_data.get(SECTION_55, "no")
-    section_56 = form_data.get(SECTION_56, "no")
-    section_58 = form_data.get(SECTION_58, "no")
-    section_63 = form_data.get(SECTION_63, "no")
-    section_64 = form_data.get(SECTION_64, "no")
-
-    # Get case flags
-    non_license = form_data.get(SHARED_NON_LICENSE, "no")
-    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, "no")
-    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, "no")
-
-    # Derive applicable sections
-    applicable_sections = derive_applicable_sections_from_adjudication(
-        section_55=section_55,
-        section_56=section_56,
-        section_58=section_58,
-        section_63=section_63,
-        section_64=section_64,
-    )
-
-    # Render context
-    context = form_data.copy()
+    # Prepare context
+    context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
-    # STEP 4: Add canonical derived context fields
-    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
-    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
-    context[DERIVED_CASE_TRACK] = derive_case_track(
-        non_license=non_license,
-        pre_authorization=pre_authorization,
-        complaint_lodged=complaint_lodged,
-        is_sample=False,
-    )
-    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
-    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
-
-    # Keep backward compatible violations field
-    context["violations"] = context[DERIVED_VIOLATIONS]
-
-    # Photo Evidence Integration
     include_flagged = request.form.get("include_flagged", "false").lower() == "true"
     flag_override_reason = request.form.get("flag_override_reason", "").strip()
-
-    # Fetch all photo evidence for this case (linked via case_id or adjudication_id)
-    from sqlalchemy import or_
 
     all_photos = (
         Evidence.query.filter(
@@ -731,19 +524,13 @@ def generate_all():
         .all()
     )
 
-    # Split into verified and flagged photos
     verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
     flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
 
-    # Determine final photos list based on include_flagged flag
     if include_flagged:
         if not flag_override_reason:
             return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
-
-        # Combine verified and flagged photos
         final_photos = verified_photos + flagged_photos
-
-        # Log audit for flagged photos inclusion
         flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
             log_audit(
@@ -756,13 +543,11 @@ def generate_all():
     else:
         final_photos = verified_photos
 
-    # Add photos to context
     context["adjudication"] = {
         "photos": final_photos,
         "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
     }
 
-    # Log adjudication order generation with photo evidence details
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
     log_audit(
@@ -774,20 +559,17 @@ def generate_all():
     )
 
     outputs = []
+    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         if not form_data.get("authorization_date"):
-            return jsonify({"error": "authorization_date is required when Pre-Authorization Case is not checked."}), 400
+            return jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
-        # Render the template to HTML string
         rendered_html = render_template(tpl, **context)
-        # Phase 6: cross-reference pass (list renumbering + annexure enclosures).
         rendered_html = post_process_pdf_html(rendered_html, adjudication_id=adj.id)
-
-        # Compile HTML string to PDF using WeasyPrint in memory
         pdf_bytes, error = generate_pdf_from_html(rendered_html)
         if pdf_bytes:
             outputs.append((f"{prefix}.pdf", pdf_bytes))
@@ -802,16 +584,12 @@ def generate_all():
                 500,
             )
 
-    # Zip the outputs in memory
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
     zip_buffer = io.BytesIO()
-
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as z:
         for fname, data in outputs:
             z.writestr(fname, data)
-
     zip_buffer.seek(0)
-
     return send_file(
         zip_buffer,
         as_attachment=True,
