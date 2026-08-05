@@ -6,7 +6,8 @@
   "scripts": {
     "lint:js": "eslint app/static/js/ --max-warnings=0",
     "format:js": "prettier --check app/static/js/",
-    "format:js:write": "prettier --write app/static/js/"
+    "format:js:write": "prettier --write app/static/js/",
+    "test:js": "node tests/js/test_search_snippet.js"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

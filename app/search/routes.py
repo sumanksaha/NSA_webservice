@@ -31,9 +31,15 @@ def api_search():
         q   — search terms (required)
         type — optional entity type filter (case_file, adjudication, annexure, evidence)
         limit — max results (default 20, capped at 100)
+        fuzzy — set to "true" to force fuzzy matching (tolerates typos);
+                fuzzy matching also runs automatically when exact search
+                yields no results
 
     Returns:
-        ``{"results": [...], "query": "...", "total": N}``
+        ``{"results": [...], "query": "...", "total": N, "fuzzy": bool}``
+        Fuzzy results carry an extra ``score`` key (0-100 confidence).
+        Snippets wrap matched terms in ``<mark>`` tags (both FTS5 and
+        fuzzy results).
     """
     q = request.args.get("q", "").strip()
     entity_type = request.args.get("type", None)
@@ -43,9 +49,13 @@ def api_search():
         limit = min(int(request.args.get("limit", 20)), 100)
     except (ValueError, TypeError):
         limit = 20
+    fuzzy = request.args.get("fuzzy", "false").lower() in ("1", "true", "yes", "on")
 
-    results = search_index(q, entity_type=entity_type, limit=limit)
-    return jsonify({"results": results, "query": q, "total": len(results)})
+    results = search_index(q, entity_type=entity_type, limit=limit, fuzzy=fuzzy)
+    # Report the *effective* mode: fuzzy is also used automatically when
+    # exact search yields no results, in which case results carry scores.
+    fuzzy_used = fuzzy or bool(results and "score" in results[0])
+    return jsonify({"results": results, "query": q, "total": len(results), "fuzzy": fuzzy_used})
 
 
 @search_bp.route("/reindex", methods=["POST"])

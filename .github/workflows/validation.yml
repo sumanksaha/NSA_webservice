@@ -15,6 +15,7 @@
 #   4. test        — Pytest unit + integration tests with coverage
 #   5. security    — Bandit security scan + pip-audit vulnerability check
 #   6. docs        — Documentation structure validation
+#   7. js-test     — ESLint, Prettier, and Node unit tests for static JS
 # =============================================================================
 
 name: Repository Validation
@@ -343,3 +344,35 @@ jobs:
                       fi
                     done || true
               continue-on-error: true
+
+    # ---------------------------------------------------------------------------
+    # Job 7: JavaScript — ESLint, Prettier, Node unit tests
+    # ---------------------------------------------------------------------------
+    js-test:
+        name: JS Lint, Format & Tests
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+
+            - name: Install JS dev dependencies
+              run: |
+                  npm install --no-audit --no-fund
+
+            - name: Lint static JS with ESLint
+              run: |
+                  npm run lint:js
+
+            - name: Check JS formatting with Prettier
+              run: |
+                  npm run format:js
+
+            - name: Run JS unit tests
+              run: |
+                  npm run test:js

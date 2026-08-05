@@ -1,4 +1,5 @@
 # Agent Reference — NSA Webservice
+> **Status:** ✅ Plan approved – markdown files updated. Next steps: Phase 1 (connection pooling, async Sheets sync) pending implementation.
 
 > **Purpose:** Single reference for any AI agent or developer working in this codebase. Covers project context, architecture, key patterns, directory map, and deletion history. **Read this first, then `plan.md` and `task.md`.**
 

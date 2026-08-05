@@ -27,7 +27,9 @@ from app.search.indexer import (
     ENTITY_ANNEXURE,
     ENTITY_CASE_FILE,
     ENTITY_EVIDENCE,
+    _snippet_around_matches,
     ensure_search_table,
+    fuzzy_search_fallback,
     index_all,
     index_record,
     search,
@@ -298,9 +300,14 @@ class TestIndexAll:
             db.session.commit()
             index_all()
 
-            # Ghost Manufacturer should no longer appear in search
+            # The deleted Ghost case file must no longer appear in search.
+            # (Since Phase 10, zero-result queries auto-fallback to fuzzy
+            # matching, which may surface unrelated near-matches — so assert
+            # on the deleted record itself, not on the result count.)
             results = search("Ghost")
-            assert len(results) == 0
+            assert not any(
+                r["entity_type"] == ENTITY_CASE_FILE and r["title"] == "GHOST001" for r in results
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -379,6 +386,41 @@ class TestSearch:
             results = search("Test", limit=1)
             assert len(results) <= 1
 
+    def test_fts5_snippet_contains_mark(self, test_client):
+        """Exact (FTS5) search snippets should wrap matches in <mark> tags."""
+        with test_client.application.app_context():
+            results = search("Acme", entity_type=ENTITY_CASE_FILE)
+            assert len(results) == 1
+            assert "<mark>Acme</mark>" in results[0]["snippet"]
+
+    def test_fts5_title_highlighted_when_matched(self, test_client):
+        """Exact searches should highlight the query in the result title too."""
+        with test_client.application.app_context():
+            results = search("ADJ001")
+            adj = next(
+                r for r in results if r["entity_type"] == ENTITY_ADJUDICATION
+            )
+            assert "<mark>ADJ001</mark>" in adj["title"]
+
+    def test_like_path_highlights_snippet(self, test_client):
+        """The LIKE fallback (PostgreSQL) should wrap matches in <mark> tags."""
+        with test_client.application.app_context():
+            from app.search.indexer import _search_like
+
+            results = _search_like("Acme", ENTITY_CASE_FILE, 20)
+            assert len(results) >= 1
+            assert results[0]["title"] == "TESTCASE001"
+            assert "<mark>Acme</mark>" in results[0]["snippet"]
+
+    def test_like_path_highlights_title_when_matched(self, test_client):
+        """The LIKE fallback should highlight title matches too."""
+        with test_client.application.app_context():
+            from app.search.indexer import _search_like
+
+            results = _search_like("ADJ001", ENTITY_ADJUDICATION, 20)
+            assert len(results) >= 1
+            assert "<mark>ADJ001</mark>" in results[0]["title"]
+
 
 # ---------------------------------------------------------------------------
 # Auto-indexing via SQLAlchemy after_flush hooks
@@ -452,6 +494,172 @@ class TestAutoIndexHook:
 
 
 # ---------------------------------------------------------------------------
+# Fuzzy search (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+class TestFuzzySearch:
+    """Tests for rapidfuzz-based fuzzy search fallback."""
+
+    def test_fuzzy_fallback_finds_typo(self, test_client):
+        """A typo of a manufacturer name should be found with fuzzy=True."""
+        with test_client.application.app_context():
+            results = search("Acmee", fuzzy=True)
+            assert len(results) >= 1
+            assert any(r["entity_type"] == ENTITY_CASE_FILE for r in results)
+
+    def test_fuzzy_results_include_score(self, test_client):
+        """Fuzzy results should carry a score key with confidence >= threshold."""
+        with test_client.application.app_context():
+            results = search("Acmee", fuzzy=True)
+            assert len(results) >= 1
+            for r in results:
+                assert "score" in r
+                assert 0 <= r["score"] <= 100
+                assert r["score"] >= 65
+
+    def test_fuzzy_returns_empty_for_garbage(self, test_client):
+        """Garbage queries with no similarity should return an empty list."""
+        with test_client.application.app_context():
+            results = search("zzzzqwertyzzzz", fuzzy=True)
+            assert len(results) == 0
+
+    def test_fuzzy_empty_query(self, test_client):
+        """Empty query with fuzzy=True should still return an empty list."""
+        with test_client.application.app_context():
+            assert search("", fuzzy=True) == []
+            assert search("   ", fuzzy=True) == []
+
+    def test_search_auto_fallback_when_no_exact(self, test_client):
+        """When exact search yields nothing, fuzzy fallback runs automatically."""
+        with test_client.application.app_context():
+            # "Acmz" is not an exact FTS5 token match but is similar to "Acme"
+            results = search("Acmz")
+            assert len(results) >= 1
+            assert any(r["entity_type"] == ENTITY_CASE_FILE for r in results)
+            assert "score" in results[0]
+
+    def test_fuzzy_respects_entity_type_filter(self, test_client):
+        """Fuzzy search should honor the entity_type filter."""
+        with test_client.application.app_context():
+            found = search("Acme", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(found) >= 1
+            assert all(r["entity_type"] == ENTITY_CASE_FILE for r in found)
+
+            excluded = search("Acme", fuzzy=True, entity_type=ENTITY_ADJUDICATION)
+            assert len(excluded) == 0
+
+    def test_fuzzy_threshold_is_respected(self, test_client):
+        """Raising the threshold above any match score yields no results."""
+        with test_client.application.app_context():
+            default = fuzzy_search_fallback("Acmee")
+            assert len(default) >= 1
+
+            strict = fuzzy_search_fallback("Acmee", threshold=100.0)
+            assert strict == []
+
+    def test_fuzzy_limit_is_respected(self, test_client):
+        """The limit parameter should cap fuzzy results."""
+        with test_client.application.app_context():
+            results = fuzzy_search_fallback("test", limit=1)
+            assert len(results) <= 1
+
+    def test_fuzzy_finds_annexure_by_ocr_text(self, test_client):
+        """Fuzzy search should also match OCR text fields (annexure)."""
+        with test_client.application.app_context():
+            # "hevay metals" is a typo of "heavy metals" in annexure OCR text
+            results = search("hevay metals", fuzzy=True)
+            assert len(results) >= 1
+            assert any(r["entity_type"] == ENTITY_ANNEXURE for r in results)
+
+    def test_fuzzy_snippet_highlights_matched_word(self, test_client):
+        """Fuzzy snippets should wrap the corrected word in <mark> tags."""
+        with test_client.application.app_context():
+            results = search("Acmee", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(results) >= 1
+            assert "<mark>Acme</mark>" in results[0]["snippet"]
+
+    def test_fuzzy_snippet_prefers_content_over_title(self, test_client):
+        """Snippets should come from content, not just repeat the title."""
+        with test_client.application.app_context():
+            results = search("Acmee", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(results) >= 1
+            snippet = results[0]["snippet"]
+            assert "<mark>Acme</mark>" in snippet
+            # The match context (manufacturer name field) is shown around the
+            # highlight, not just the title repeated.
+            assert "<mark>Acme</mark> Foods" in snippet
+
+    def test_fuzzy_snippet_uses_word_boundaries(self, test_client):
+        """Highlighted words should never be cut in the middle."""
+        with test_client.application.app_context():
+            results = search("Cotton", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(results) >= 1
+            assert "<mark>Cotton</mark>" in results[0]["snippet"]
+
+    def test_fuzzy_snippet_highlights_multi_word_typo(self, test_client):
+        """A multi-word typo query should highlight each corrected term."""
+        with test_client.application.app_context():
+            results = search("hevay metals", fuzzy=True)
+            annexure_hits = [
+                r for r in results if r["entity_type"] == ENTITY_ANNEXURE
+            ]
+            assert annexure_hits
+            snippet = annexure_hits[0]["snippet"]
+            assert "<mark>heavy</mark>" in snippet
+            assert "<mark>metals</mark>" in snippet
+
+    def test_fuzzy_typo_anchors_on_whole_word(self, test_client):
+        """A typo should anchor on the closest whole word, not a partial
+        substring of a longer unrelated token."""
+        with test_client.application.app_context():
+            cf = db.session.execute(db.select(CaseFile)).scalars().first()
+            cf.manufacturer_address = "XAcmezzzz Industrial Estate"
+            db.session.commit()
+            results = search("Acmee", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(results) >= 1
+            snippet = results[0]["snippet"]
+            assert "<mark>Acme</mark>" in snippet
+            assert "<mark>XAcmezzzz</mark>" not in snippet
+
+    def test_fuzzy_snippet_fallback_when_no_word_match(self, test_client):
+        """Without any whole-word match, the fallback snippet has no marks."""
+        with test_client.application.app_context():
+            snippet = _snippet_around_matches(
+                "zzzqx", "the quick brown fox jumps over the lazy dog"
+            )
+            assert isinstance(snippet, str)
+            assert snippet
+            assert "<mark>" not in snippet
+
+    def test_fuzzy_title_highlighted(self, test_client):
+        """Fuzzy results should highlight the query in the title too."""
+        with test_client.application.app_context():
+            results = search("ADJ001", fuzzy=True)
+            adj = next(
+                r for r in results if r["entity_type"] == ENTITY_ADJUDICATION
+            )
+            assert "<mark>ADJ001</mark>" in adj["title"]
+
+    def test_fuzzy_title_unmarked_for_content_only_match(self, test_client):
+        """A content-only match should leave the title plain."""
+        with test_client.application.app_context():
+            results = search("Cotton", fuzzy=True, entity_type=ENTITY_CASE_FILE)
+            assert len(results) == 1
+            assert results[0]["title"] == "TESTCASE001"
+
+    def test_highlight_title_skips_fts5_expressions(self, test_client):
+        """Operator-laden queries must not inject spurious title marks."""
+        with test_client.application.app_context():
+            from app.search.indexer import _highlight_title
+
+            assert "<mark>Acme</mark>" in _highlight_title("Acme", "Acme Foods")
+            assert _highlight_title("Acme OR Doe", "Acme") == "Acme"
+            assert _highlight_title("Cotton*", "Cotton") == "Cotton"
+            assert _highlight_title("NOT Acme", "Acme") == "Acme"
+
+
+# ---------------------------------------------------------------------------
 # API endpoint tests
 # ---------------------------------------------------------------------------
 
@@ -515,6 +723,39 @@ class TestSearchAPI:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["total"] == 0
+
+    def test_api_fuzzy_flag(self, test_client):
+        """GET /search/api?fuzzy=true should return scored fuzzy matches."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+        resp = test_client.get("/search/api?q=Acmee&fuzzy=true", follow_redirects=False)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["fuzzy"] is True
+        assert data["total"] >= 1
+        assert all("score" in r for r in data["results"])
+
+    def test_api_fuzzy_defaults_false(self, test_client):
+        """Without the fuzzy param, the API should report fuzzy=False."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+        resp = test_client.get("/search/api?q=Acme", follow_redirects=False)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["fuzzy"] is False
+
+    def test_api_fuzzy_auto_fallback(self, test_client):
+        """Exact searches with no matches should still auto-fallback to fuzzy."""
+        with test_client.session_transaction() as sess:
+            sess["_user_id"] = "1"
+            sess["_fresh"] = True
+        resp = test_client.get("/search/api?q=Acmz", follow_redirects=False)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] >= 1
+        assert all("score" in r for r in data["results"])
 
 
 # ---------------------------------------------------------------------------

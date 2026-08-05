@@ -21,14 +21,21 @@ falls back to LIKE queries against the regular ORM tables.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
+from rapidfuzz import fuzz
 from sqlalchemy import text
 
 from app.extensions import db
 
 logger = logging.getLogger(__name__)
+
+# FTS5 MATCH operator tokens/syntax.  Title highlighting is skipped for
+# queries containing these so operator words (e.g. "OR" in "Acme OR Doe")
+# or wildcards don't produce spurious <mark> marks.
+_FTS5_OPERATOR_RE = re.compile(r'\b(?:OR|AND|NOT|NEAR)\b|[*"()^]')
 
 ENTITY_CASE_FILE = "case_file"
 ENTITY_ADJUDICATION = "adjudication"
@@ -302,22 +309,291 @@ def index_all():
 # ---------------------------------------------------------------------------
 
 
-def search(query, entity_type=None, limit=20):
+def search(query, entity_type=None, limit=20, fuzzy=False):
     """Search the index for query.
 
     Uses SQLite FTS5 when available (SQLite backend).  Falls back to
     ILIKE queries on regular tables when FTS5 is unavailable
     (PostgreSQL).
 
+    When ``fuzzy=True`` -- or when the exact search yields no results --
+    a rapidfuzz-based fuzzy fallback is used that tolerates typos and
+    partial word matches.  Fuzzy results carry a ``score`` key (0-100
+    match confidence).
+
     Returns a list of dicts with keys: entity_type, entity_id, title,
-    snippet.
+    snippet (and ``score`` when fuzzy matching was used).  FTS5 and fuzzy
+    snippets and titles wrap matched terms in ``<mark>`` tags so the UI
+    can highlight them (the PostgreSQL LIKE fallback returns plain text).
     """
     if not query or not query.strip():
         return []
 
     if _dialect() == "sqlite":
-        return _search_fts5(query, entity_type, limit)
-    return _search_like(query, entity_type, limit)
+        results = _search_fts5(query, entity_type, limit)
+    else:
+        results = _search_like(query, entity_type, limit)
+
+    if fuzzy or not results:
+        return fuzzy_search_fallback(query, entity_type, limit)
+    return results
+
+
+def _snippet_around_match(query, text, width=80):
+    """Fallback snippet centered on the best partial-ratio alignment.
+
+    Used when no whole-word match can be located; returns plain text
+    without ``<mark>`` highlighting.
+    """
+    try:
+        alignment = fuzz.partial_ratio_alignment(query, text)
+        if alignment is None:
+            return text[:200].replace("\n", " ").strip()
+        start = max(0, alignment.dest_start - width)
+        end = min(len(text), alignment.dest_end + width)
+        snippet = text[start:end].replace("\n", " ").strip()
+        if start > 0:
+            snippet = "…" + snippet
+        if end < len(text):
+            snippet += "…"
+        return snippet
+    except Exception:
+        return text[:200].replace("\n", " ").strip()
+
+
+def _field_score(query, text):
+    """Best fuzzy similarity of ``query`` against ``text`` (0-100).
+
+    Combines token-level matching (``token_set_ratio`` -- useful for
+    multi-word queries) with substring-window matching (``partial_ratio``
+    -- tolerates typos inside longer documents).
+    """
+    if not text:
+        return 0.0
+    return max(
+        fuzz.token_set_ratio(query, text),
+        fuzz.partial_ratio(query, text),
+    )
+
+
+def _expand_to_word(text, start, end):
+    """Grow a span so it covers the full surrounding word (if any)."""
+    while start > 0 and (text[start - 1].isalnum() or text[start - 1] == "_"):
+        start -= 1
+    while end < len(text) and (text[end].isalnum() or text[end] == "_"):
+        end += 1
+    return start, end
+
+
+def _find_match_spans(query, text, fuzzy_word_threshold=60.0):
+    """Locate non-overlapping (start, end) spans in ``text`` for the query.
+
+    Each query term is first matched by exact, case-insensitive substring
+    (handles compound tokens like ``heavy-metals``); if a term has no
+    exact hit it falls back to the closest *whole-word* fuzzy match, so a
+    typo like "Acmee" anchors on the word "Acme" rather than a partial
+    substring of a longer, unrelated token.  Spans are expanded to word
+    boundaries, merged, and returned sorted by position.
+    """
+    if not query or not text:
+        return []
+
+    text_lower = text.lower()
+    terms = [t for t in re.split(r"\s+", query.strip()) if t]
+    spans: list[tuple[int, int]] = []
+
+    for term in terms:
+        term_lower = term.lower()
+
+        # 1) Exact substring occurrences (handles tags like "heavy-metals").
+        found_exact = False
+        start = 0
+        while True:
+            idx = text_lower.find(term_lower, start)
+            if idx == -1:
+                break
+            found_exact = True
+            spans.append(_expand_to_word(text, idx, idx + len(term)))
+            start = idx + len(term)
+
+        if found_exact:
+            continue
+
+        # 2) Closest whole-word fuzzy match (typo tolerance).
+        best_score = fuzzy_word_threshold - 1
+        best_span = None
+        for m in re.finditer(r"[^\W_]+", text):
+            score = fuzz.ratio(term, m.group(0))
+            if score > best_score:
+                best_score = score
+                best_span = (m.start(), m.end())
+        if best_span:
+            spans.append(best_span)
+
+    if not spans:
+        return []
+
+    spans.sort()
+    merged: list[tuple[int, int]] = []
+    for s, e in spans:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
+def _apply_marks(text, spans):
+    """Wrap ``spans`` (start, end) pairs in ``<mark>`` tags."""
+    pieces = []
+    cursor = 0
+    for s, e in spans:
+        pieces.append(text[cursor:s])
+        pieces.append("<mark>" + text[s:e] + "</mark>")
+        cursor = e
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
+def _snippet_around_matches(query, text, width=80, fuzzy_word_threshold=60.0):
+    """Return a word-bounded, ``<mark>``-highlighted snippet for ``query``.
+
+    The window is centered on the located match spans, padded with up to
+    ``width`` characters of context on either side, and snapped outward to
+    whole-word boundaries so tokens are never cut mid-word.  Matched terms
+    are wrapped in ``<mark>`` tags for the UI to render.  Falls back to
+    ``_snippet_around_match`` when no match spans can be found.
+    """
+    if not text:
+        return ""
+
+    normalized = " ".join(text.split())
+    spans = _find_match_spans(query, normalized, fuzzy_word_threshold)
+    if not spans:
+        return _snippet_around_match(query, normalized, width)
+
+    start = max(0, spans[0][0] - width)
+    end = min(len(normalized), spans[-1][1] + width)
+
+    # Snap window edges to whole words so tokens are never cut mid-word.
+    if start > 0:
+        ws = normalized.rfind(" ", 0, start)
+        start = 0 if ws == -1 else ws + 1
+    if end < len(normalized):
+        ws = normalized.find(" ", end)
+        if ws != -1:
+            end = ws
+
+    window = normalized[start:end]
+    clamped = []
+    for s, e in spans:
+        if e <= start or s >= end:
+            continue
+        cs = max(s, start) - start
+        ce = min(e, end) - start
+        if ce > cs:
+            clamped.append((cs, ce))
+    snippet = _apply_marks(window, clamped).strip()
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(normalized):
+        snippet += "…"
+    return snippet
+
+
+def _highlight_text(query, text, fuzzy_word_threshold=60.0):
+    """Return ``text`` with matched terms wrapped in ``<mark>`` tags.
+
+    Applies to the whole string with no windowing -- used for short fields
+    such as titles (e.g. case-number searches).  Returns the original text
+    unchanged when nothing matches.
+    """
+    if not text:
+        return ""
+    spans = _find_match_spans(query, text, fuzzy_word_threshold)
+    if not spans:
+        return text
+    return _apply_marks(text, spans)
+
+
+def _highlight_title(query, title):
+    """Highlight matched terms in a result title, when safe to do so.
+
+    Only plain keyword queries are highlighted.  FTS5 expressions such as
+    ``Acme OR Doe`` or ``Cotton*`` contain operator tokens that would
+    otherwise be treated as literal terms and produce spurious marks.
+    """
+    if not query or not title:
+        return title
+    if _FTS5_OPERATOR_RE.search(query):
+        return title
+    return _highlight_text(query, title)
+
+
+def fuzzy_search_fallback(query, entity_type=None, limit=20, threshold=65.0):
+    """Fuzzy search across indexed entities using rapidfuzz.
+
+    Scores each candidate record's title and content independently with
+    ``_field_score`` (token-set + partial-ratio matching).  Snippets are
+    generated from the field that matches best -- content is preferred
+    over the title so results show match context rather than repeating
+    the title -- and matched terms are wrapped in ``<mark>`` tags.
+
+    Returns a list of dicts with keys: entity_type, entity_id, title,
+    snippet, score -- sorted by score descending, capped at ``limit``.
+    Records scoring below ``threshold`` are dropped.
+    """
+    from app.models import Adjudication, Annexure, CaseFile, Evidence
+
+    if not query or not query.strip():
+        return []
+
+    model_map = {
+        ENTITY_CASE_FILE: CaseFile,
+        ENTITY_ADJUDICATION: Adjudication,
+        ENTITY_ANNEXURE: Annexure,
+        ENTITY_EVIDENCE: Evidence,
+    }
+
+    results = []
+    for etype, model in model_map.items():
+        if entity_type and entity_type != etype:
+            continue
+        records = db.session.execute(db.select(model)).scalars().all()
+        for record in records:
+            title, content = _build_doc(record, etype)
+            title_score = _field_score(query, title)
+            content_score = _field_score(query, content)
+            combined = f"{title} {content}".strip()
+            score = max(
+                title_score,
+                content_score,
+                _field_score(query, combined),
+            )
+            if score < threshold:
+                continue
+
+            # Prefer content context; fall back to the title only when the
+            # match lives there (e.g. a case-number query).
+            if content and content_score >= title_score:
+                snippet = _snippet_around_matches(query, content)
+            elif title:
+                snippet = _snippet_around_matches(query, title)
+            else:
+                snippet = ""
+
+            # Highlight matched terms in the title too (e.g. case-number
+            # searches) so the UI can show why the record matched.
+            results.append({
+                "entity_type": etype,
+                "entity_id": str(record.id),
+                "title": _highlight_title(query, title),
+                "snippet": snippet,
+                "score": round(score),
+            })
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:limit]
 
 
 def _search_fts5(query, entity_type, limit):
@@ -341,7 +617,7 @@ def _search_fts5(query, entity_type, limit):
             {
                 "entity_type": row[0],
                 "entity_id": row[1],
-                "title": row[2],
+                "title": _highlight_title(query, row[2]) or row[2],
                 "snippet": (row[3] or "").replace("\n", " ").strip(),
             }
             for row in rows
@@ -352,7 +628,11 @@ def _search_fts5(query, entity_type, limit):
 
 
 def _search_like(query, entity_type, limit):
-    """Fallback search using ILIKE on regular tables (PostgreSQL)."""
+    """Fallback search using ILIKE on regular tables (PostgreSQL).
+
+    Titles and snippets are highlighted with ``<mark>`` tags the same way
+    as the FTS5 and fuzzy paths, so every backend renders consistently.
+    """
     from app.models import Adjudication, Annexure, CaseFile, Evidence
 
     if not query or not query.strip():
@@ -398,25 +678,13 @@ def _search_like(query, entity_type, limit):
         if not conditions:
             continue
         for row in db.session.query(model).filter(db.or_(*conditions)).limit(limit):
-            title = (
-                getattr(row, "case_number", None)
-                or getattr(row, "caption", None)
-                or getattr(row, "evidence_type", None)
-                or str(row.id)
-            )
-            snippet_text = (
-                getattr(row, "concerned_food", None)
-                or getattr(row, "problem", None)
-                or getattr(row, "ocr_text", None)
-                or getattr(row, "caption", None)
-                or ""
-            )
+            title, content = _build_doc(row, etype)
             results.append(
                 {
                     "entity_type": etype,
                     "entity_id": str(row.id),
-                    "title": title,
-                    "snippet": snippet_text[:200] if snippet_text else "",
+                    "title": _highlight_title(query, title) or title,
+                    "snippet": _snippet_around_matches(query, content),
                 }
             )
 

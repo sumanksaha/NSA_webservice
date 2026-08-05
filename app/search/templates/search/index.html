@@ -2,6 +2,226 @@
 
 {% block title %}Search{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Fuzzy toggle switch (Phase 10) */
+.switch-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.375rem 0;
+}
+
+.switch-control input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: var(--border);
+  position: relative;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: var(--transition);
+}
+
+.switch-control input[type="checkbox"]:checked + .switch-track {
+  background-color: var(--accent-primary);
+}
+
+.switch-control input[type="checkbox"]:checked + .switch-track .switch-thumb {
+  transform: translateX(20px);
+}
+
+.switch-control input[type="checkbox"]:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px rgba(22, 36, 74, 0.25);
+}
+
+.switch-control input[type="checkbox"]:disabled + .switch-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch-label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-body);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.switch-label i {
+  color: var(--accent-secondary);
+}
+
+/* Search results (Phase 10) */
+.search-results {
+  margin-top: 0.5rem;
+}
+
+.search-results-count {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--text-body);
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-results-count i {
+  color: var(--accent-primary);
+}
+
+.search-results-count .fuzzy-badge {
+  background-color: var(--color-warning-bg);
+  color: #b45309;
+  border-radius: 999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.fuzzy-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #92400e;
+  background-color: var(--color-warning-bg);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.search-results-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.search-result-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: var(--transition);
+  box-shadow: var(--shadow-card);
+}
+
+.search-result-item:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.search-result-link {
+  display: grid;
+  gap: 0.375rem;
+  padding: 1rem 1.25rem;
+  text-decoration: none;
+}
+
+.search-result-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.search-result-type {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background-color: rgba(22, 36, 74, 0.08);
+  color: var(--accent-primary);
+}
+
+.match-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #15803d;
+  background-color: var(--color-success-bg);
+  border-radius: 999px;
+  padding: 0.125rem 0.625rem;
+}
+
+.search-result-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.search-result-title mark {
+  background-color: rgba(22, 36, 74, 0.10);
+  color: var(--accent-primary);
+  border-radius: 3px;
+  padding: 0 0.125rem;
+  font-weight: 700;
+}
+
+.search-result-snippet {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.search-result-snippet mark {
+  background-color: rgba(180, 83, 9, 0.16);
+  color: #92400e;
+  border-radius: 3px;
+  padding: 0 0.125rem;
+  font-weight: 600;
+}
+
+.search-result-item--missing-link {
+  opacity: 0.85;
+}
+
+.search-result-item--missing-link .search-result-link {
+  cursor: default;
+}
+
+.search-result-item--missing-link .search-result-link:hover {
+  transform: none;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -26,6 +246,18 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="form-group">
+                <label class="form-label" for="fuzzyToggle">Matching</label>
+                <label class="switch-control" for="fuzzyToggle"
+                       title="Fuzzy matching tolerates typos and partial words (e.g. 'inspectn' finds 'inspection')">
+                    <input type="checkbox" id="fuzzyToggle" name="fuzzy" value="true">
+                    <span class="switch-track"><span class="switch-thumb"></span></span>
+                    <span class="switch-label">
+                        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Fuzzy
+                    </span>
+                </label>
+                <p class="form-hint">Tolerates typos &amp; partial words</p>
+            </div>
             <div class="form-group form-group--action">
                 <button id="searchBtn" class="btn btn-primary">
                     <i class="fa-solid fa-magnifying-glass"></i> Search
@@ -41,39 +273,69 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/search_snippet.js') }}"></script>
 <script>
 (function() {
     var searchBox = document.getElementById('searchBox');
     var typeFilter = document.getElementById('typeFilter');
+    var fuzzyToggle = document.getElementById('fuzzyToggle');
     var searchBtn = document.getElementById('searchBtn');
     var resultsDiv = document.getElementById('searchResults');
+
+    // escapeHtml / renderSnippet are provided globally by js/search_snippet.js.
+
+    function typeLabel(etype) {
+        return escapeHtml(etype.replace(/_/g, ' '));
+    }
 
     function renderResults(data) {
         if (!data.results || data.results.length === 0) {
             resultsDiv.innerHTML = '<p class="form-hint">No results found for "' +
-                (data.query || '') + '".</p>';
+                escapeHtml(data.query || '') + '".</p>';
             return;
         }
 
         var html = '<div class="search-results-count">' +
-            data.total + ' result(s) for "' + data.query + '"</div>' +
-            '<div class="search-results-list">';
+            '<i class="fa-solid fa-list-ul"></i> ' + data.total + ' result(s) for "' +
+            escapeHtml(data.query) + '"';
+        if (data.fuzzy) {
+            html += ' <span class="fuzzy-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> fuzzy match</span>';
+        }
+        html += '</div>';
+        if (data.fuzzy) {
+            html += '<p class="fuzzy-note"><i class="fa-solid fa-wand-magic-sparkles"></i> ' +
+                'Showing fuzzy matches for "' + escapeHtml(data.query) + '" — results tolerate ' +
+                'typos and partial words.</p>';
+        }
+        html += '<div class="search-results-list">';
 
         data.results.forEach(function(r) {
             var link = '#';
+            var linkable = false;
             if (r.entity_type === 'case_file') {
-                link = '/case_file_generator/' + r.entity_id + '/editor';
+                link = '/case_file_generator/' + escapeHtml(r.entity_id) + '/editor';
+                linkable = true;
             } else if (r.entity_type === 'adjudication') {
-                link = '/adjudication/' + r.entity_id + '/editor';
+                link = '/adjudication/' + escapeHtml(r.entity_id) + '/editor';
+                linkable = true;
             }
 
-            var typeLabel = r.entity_type.replace(/_/g, ' ');
+            var scoreHtml = '';
+            if (typeof r.score === 'number') {
+                scoreHtml = '<span class="match-score" title="Fuzzy match confidence">' +
+                    '<i class="fa-solid fa-bolt"></i> ' + r.score + '% match</span>';
+            }
 
-            html += '<div class="search-result-item">' +
-                '<a href="' + link + '" class="search-result-link">' +
-                '<span class="search-result-type">' + typeLabel + '</span>' +
-                '<span class="search-result-title">' + (r.title || '') + '</span>' +
-                '<span class="search-result-snippet">' + (r.snippet || '') + '</span>' +
+            var itemClass = linkable ? '' : ' search-result-item--missing-link';
+            html += '<div class="search-result-item' + itemClass + '">' +
+                '<a href="' + link + '" class="search-result-link"' +
+                (linkable ? '' : ' aria-disabled="true"') + '>' +
+                '<span class="search-result-top">' +
+                '<span class="search-result-type">' + typeLabel(r.entity_type) + '</span>' +
+                scoreHtml +
+                '</span>' +
+                '<span class="search-result-title">' + renderSnippet(r.title || '') + '</span>' +
+                '<span class="search-result-snippet">' + renderSnippet(r.snippet || '') + '</span>' +
                 '</a></div>';
         });
 
@@ -92,6 +354,9 @@
         params.set('q', q);
         if (typeFilter.value) {
             params.set('type', typeFilter.value);
+        }
+        if (fuzzyToggle.checked) {
+            params.set('fuzzy', 'true');
         }
 
         resultsDiv.innerHTML = '<p class="form-hint"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</p>';

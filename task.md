@@ -1,4 +1,5 @@
 # Task List & Detailed Implementation Plan — NSA Webservice
+> **Status:** ✅ Plan approved – markdown files updated. Implementation pending.
 
 > **Purpose:** Consolidated, actionable, highly detailed implementation plan and TODO list for AI agents and developers. Organized by priority with checkboxes, explicit file targets, data schemas, function signatures, routes, acceptance criteria, and testing strategies. 
 > **Sources & Alignment:** `SECURITY_TODO.md`, `ALL_TODO_MERGED.md`, `ROADMAP_ALIGNMENT_REPORT.md`, `ENGINEERING_ASSESSMENT.md`, `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md`, `REFACTORING_PLAN.md`.
@@ -668,6 +669,70 @@
 ## Priority 6 — Infrastructure & Future Levels
 
 - [ ] **PostgreSQL Migration:** Execute production database schema migration.
+
+  **Alembic Migration Snippet** (new revision `add_rbac_and_comment_tables`):
+  ```python
+  """add_rbac_and_comment_tables
+
+  Revision ID: a1b2c3d4e5f6
+  Revises: previous_rev_id
+  Create Date: 2026-08-05 12:00:00
+
+  """
+  from alembic import op
+  import sqlalchemy as sa
+
+  def upgrade():
+      # roles table
+      op.create_table(
+          "role",
+          sa.Column("id", sa.Integer, primary_key=True),
+          sa.Column("name", sa.String(64), nullable=False, unique=True),
+          sa.Column("description", sa.String(256)),
+      )
+      # association table user_roles
+      op.create_table(
+          "user_roles",
+          sa.Column("user_id", sa.Integer, sa.ForeignKey("user.id"), primary_key=True),
+          sa.Column("role_id", sa.Integer, sa.ForeignKey("role.id"), primary_key=True),
+      )
+      # comments table
+      op.create_table(
+          "comment",
+          sa.Column("id", sa.Integer, primary_key=True),
+          sa.Column("case_id", sa.Integer, nullable=False, index=True),
+          sa.Column("case_type", sa.String(32), server_default="case_file"),
+          sa.Column("user_id", sa.Integer, sa.ForeignKey("user.id"), nullable=False),
+          sa.Column("content", sa.Text, nullable=False),
+          sa.Column("section_id", sa.String(128)),
+          sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
+      )
+
+  def downgrade():
+      op.drop_table("comment")
+      op.drop_table("user_roles")
+      op.drop_table("role")
+  ```
+
+  **CI Workflow Modification** (add PostgreSQL service to GitHub Actions):
+  ```yaml
+  # .github/workflows/ci.yml
+  services:
+    postgres:
+      image: postgres:15
+      env:
+        POSTGRES_USER: test_user
+        POSTGRES_PASSWORD: test_pass
+        POSTGRES_DB: test_db
+      ports: ["5432:5432"]
+      options: >-
+        --health-cmd "pg_isready -U $POSTGRES_USER"
+        --health-interval 10s
+        --health-timeout 5s
+        --health-retries 5
+  env:
+    DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+  ```
 - [ ] **Celery Worker Setup:** Deploy persistent Celery worker process.
 - [ ] **Dockerization:** Maintain multi-stage `Dockerfile` and `docker-compose.yml` (Flask + Celery + Redis + Postgres).
 - [ ] **OpenAPI Spec:** Generate Swagger documentation via `flasgger` / `apispec`.

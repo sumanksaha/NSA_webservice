@@ -69,6 +69,8 @@ dependencies = [
   "orjson>=3.10.0",
   "chardet>=5.0.0",
   "tqdm>=4.65.0",
+  "rapidfuzz>=3.0.0",    # fuzzy string matching — search fallback (Phase 10) + document cleaner normalizers
+  "numpy>=1.26.0",       # OCR pipeline runtime dependency (undeclared) — test_ocr_pipeline fails to collect without it
 ]
 
 [project.urls]
