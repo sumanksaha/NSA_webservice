@@ -20,10 +20,8 @@ from app.utils.suggester import (
 def _checklist(**overrides):
     """A compliant default checklist; pass values to trigger rules.
 
-    NOTE: ``Expired_item`` defaults to ``"yes"`` here because the rule engine
-    treats ``Expired_item == "no"`` as a Section 55 direction-compliance
-    violation (pre-existing suggester semantics); the real form default is
-    ``"no"`` but that alone would trigger Rule 2.
+    Field defaults mirror the Adjudication model defaults, so a pristine
+    checklist suggests no sections.
     """
     defaults = {
         "non_license": "no",
@@ -35,7 +33,7 @@ def _checklist(**overrides):
         "veg_nonveg_separation": "yes",
         "date_tag": "yes",
         "license_display": "yes",
-        "Expired_item": "yes",
+        "Expired_item": "no",
         "Pest_report": "yes",
         "Water_report": "yes",
         "artificial_colour": "no",
@@ -56,9 +54,7 @@ def test_suggestions_subset_of_valid_ids():
     for form_data in cases:
         result = suggest_sections(form_data)
         for section_id in result["sections"]:
-            assert section_id in VALID_SECTION_IDS, (
-                f"suggested section {section_id} not in VALID_SECTION_IDS"
-            )
+            assert section_id in VALID_SECTION_IDS, f"suggested section {section_id} not in VALID_SECTION_IDS"
 
 
 def test_non_license_returns_63_only():
@@ -77,6 +73,19 @@ def test_direction_noncompliance_returns_55():
     result = suggest_sections(_checklist(artificial_colour="yes"))
     assert "55" in result["sections"]
     assert "55" in result["reasoning"]
+
+
+def test_expired_item_present_triggers_55():
+    # S6d: Expired_item is framed as 'are expired items present?'; a 'yes' is a
+    # Section 55 violation, the form default 'no' is compliant and must NOT fire.
+    # Previously 'no' was wrongly flagged (inverted logic).
+    result = suggest_sections(_checklist(Expired_item="yes"))
+    assert "55" in result["sections"]
+    assert "expired items present" in result["reasoning"]["55"]
+
+    # The compliant default ('no') must NOT flag Section 55.
+    clean = suggest_sections(_checklist())
+    assert "55" not in clean["sections"]
 
 
 def test_manual_only_never_auto_suggested():

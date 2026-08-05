@@ -15,12 +15,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Optional
 
 from flask import current_app
 from flask_login import current_user
 
-from app.extensions import db
+from app.models import Version
 from app.services.audit import log_audit
 from app.services.version_control import VersionService
 from app.shared.case_resolver import CaseResolver
@@ -36,8 +35,8 @@ class SaveResult:
     """Result of a coordinated document save."""
 
     timestamp: str
-    version_number: Optional[int]
-    content_hash: Optional[str]
+    version_number: int | None
+    content_hash: str | None
     success: bool
 
 
@@ -58,7 +57,7 @@ class DocumentSaveCoordinator:
     audit failure never prevents the document from being saved.
     """
 
-    def __init__(self, case_resolver: Optional[CaseResolver] = None) -> None:
+    def __init__(self, case_resolver: CaseResolver | None = None) -> None:
         self._case_resolver = case_resolver or CaseResolver()
 
     # ------------------------------------------------------------------ #
@@ -71,7 +70,7 @@ class DocumentSaveCoordinator:
         case_type: str,
         doc_type: str,
         html_content: str,
-        delta_content: Optional[dict] = None,
+        delta_content: dict | None = None,
         force_snapshot: bool = False,
     ) -> SaveResult:
         """Persist an edited document and create a version snapshot.
@@ -109,9 +108,7 @@ class DocumentSaveCoordinator:
             )
 
         # --- 2. Version snapshot (best-effort, never blocks) ---
-        version = self._snapshot_version(
-            case_type, case_id, doc_type, html_content, delta_content, force_snapshot
-        )
+        version = self._snapshot_version(case_type, case_id, doc_type, html_content, delta_content, force_snapshot)
 
         # --- 3. Audit logging (best-effort) ---
         self._log_audit(
@@ -140,9 +137,9 @@ class DocumentSaveCoordinator:
         case_id: int,
         doc_type: str,
         html_content: str,
-        delta_content: Optional[dict],
+        delta_content: dict | None,
         force: bool,
-    ) -> Optional[object]:
+    ) -> Version | None:
         """Create a version snapshot via :class:`VersionService`.
 
         Explicit saves (``force=True``) always create a snapshot; auto-saves
@@ -155,25 +152,27 @@ class DocumentSaveCoordinator:
         try:
             user_id = current_user.get_id() if current_user.is_authenticated else None
             if case_type == "case_file":
-                target_kwargs = {"case_id": case_id, "adjudication_id": None}
+                case_id_arg, adjudication_id_arg = case_id, None
             else:
-                target_kwargs = {"adjudication_id": case_id, "case_id": None}
+                case_id_arg, adjudication_id_arg = None, case_id
 
             service = VersionService()
             if force:
                 return service.create_version(
+                    case_id=case_id_arg,
+                    adjudication_id=adjudication_id_arg,
                     doc_type=doc_type,
                     html_content=html_content,
                     delta_content=delta_content,
                     user_id=user_id,
-                    **target_kwargs,
                 )
             return service.create_version_if_changed(
+                case_id=case_id_arg,
+                adjudication_id=adjudication_id_arg,
                 doc_type=doc_type,
                 html_content=html_content,
                 delta_content=delta_content,
                 user_id=user_id,
-                **target_kwargs,
             )
         except Exception as exc:
             current_app.logger.warning("Version snapshot skipped for case %s: %s", case_id, exc)
@@ -185,7 +184,7 @@ class DocumentSaveCoordinator:
         case_id: int,
         doc_type: str,
         force_snapshot: bool,
-        delta_content: Optional[dict],
+        delta_content: dict | None,
         timestamp_str: str,
     ) -> None:
         """Best-effort audit logging — never fails a save operation."""

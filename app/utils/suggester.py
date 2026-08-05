@@ -70,9 +70,18 @@ _DIRECTION_COMPLIANCE_ITEMS = {
     "veg_nonveg_separation": "Veg/non-veg segregation directions not followed.",
     "food_segregation": "Food segregation directions not followed.",
     "license_display": "Licence-display directions not followed.",
-    "Expired_item": "Directions on removing expired stock not followed.",
     "Pest_report": "Pest-control documentation directions not followed.",
     "Water_report": "Water-test documentation directions not followed.",
+}
+
+# Checklist items framed as "are bad things present?" -- value "yes" means
+# non-compliant. Unlike _DIRECTION_COMPLIANCE_ITEMS the form default is "no"
+# (compliant), so these are checked for == "yes".
+# S6d: Expired_item was previously mis-grouped under the "no"-is-a-violation
+# logic, which flagged the compliant default "no" as a Section 55 violation.
+_POSITIVE_FLAG_ITEMS = {
+    "artificial_colour": "Artificial colours used despite standing directions.",
+    "Expired_item": "Directions on removing expired stock not followed (expired items present).",
 }
 
 
@@ -106,8 +115,7 @@ def _detect_section_56_from_checklist(form_data: dict) -> tuple[bool, str]:
 
 def _detect_section_55_from_checklist(form_data: dict) -> tuple[bool, str]:
     violations = [desc for field, desc in _DIRECTION_COMPLIANCE_ITEMS.items() if form_data.get(field) == "no"]
-    if form_data.get("artificial_colour") == "yes":
-        violations.append("Artificial colours used despite standing directions.")
+    violations += [desc for field, desc in _POSITIVE_FLAG_ITEMS.items() if form_data.get(field) == "yes"]
     if not violations:
         return False, ""
     summary = "; ".join(violations[:2])

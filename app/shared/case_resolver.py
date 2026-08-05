@@ -11,7 +11,7 @@ source of truth and a single database hit per table.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models import Adjudication, CaseFile
@@ -27,11 +27,11 @@ class ResolvedCase:
     ``None`` for both when the ID does not exist in either table).
     """
 
-    case_id: Optional[int]
-    adjudication_id: Optional[int]
+    case_id: int | None
+    adjudication_id: int | None
     case_type: str  # "case_file" | "adjudication"
     case_number: str
-    record: Optional[Union["CaseFile", "Adjudication"]]
+    record: CaseFile | Adjudication | None
 
 
 class CaseResolver:
@@ -47,7 +47,7 @@ class CaseResolver:
     """
 
     @staticmethod
-    def resolve(id: int, kind: Optional[str] = None) -> Optional[ResolvedCase]:
+    def resolve(id: int, kind: str | None = None) -> ResolvedCase | None:
         """Resolve ``id`` to a :class:`ResolvedCase`.
 
         Args:

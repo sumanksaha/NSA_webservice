@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.extensions import db
-from app.models import Adjudication, CaseFile, FSO
+from app.models import FSO, Adjudication, CaseFile
 from app.services.document_lifecycle import DocumentSaveCoordinator, SaveResult
 
 

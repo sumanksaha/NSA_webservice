@@ -27,7 +27,7 @@ import io
 import logging
 import os
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -105,7 +105,7 @@ def import_weasyprint():
 
 
 class PDFAssemblyEngine:
-    """Consolidated PDF assembly engine (Phase 6–8 + standalone utilities).
+    """Consolidated PDF assembly engine (Phase 6-8 + standalone utilities).
 
     Four canonical entry points:
 
@@ -210,12 +210,10 @@ class PDFAssemblyEngine:
                     }.get(ext, "image/jpeg")
 
                 b64 = base64.b64encode(raw_bytes).decode("ascii")
-                results.append(
-                    {
-                        "url": path,
-                        "data_uri": f"data:{content_type};base64,{b64}",
-                    }
-                )
+                results.append({
+                    "url": path,
+                    "data_uri": f"data:{content_type};base64,{b64}",
+                })
             except Exception as exc:
                 logger.warning("Failed to embed photo for PDF: %s — %s", path, exc)
                 results.append({"url": path, "error": str(exc)})
@@ -234,9 +232,7 @@ class PDFAssemblyEngine:
         typically performed at the template-rendering layer (the data URIs
         are injected into the HTML before it reaches this method).
         """
-        processed = self.post_process(
-            html_content, case_id=case_id, adjudication_id=adjudication_id
-        )
+        processed = self.post_process(html_content, case_id=case_id, adjudication_id=adjudication_id)
         return self.generate_from_html(processed)
 
     def renumber_html_lists(self, html_content: str) -> str:
@@ -366,14 +362,10 @@ class PDFAssemblyEngine:
             from flask import render_template
 
             petition_html = render_template("case_file_generator/petition.html", **case_data)
-            permission_html = render_template(
-                "case_file_generator/permission_letter.html", **case_data
-            )
+            permission_html = render_template("case_file_generator/permission_letter.html", **case_data)
 
             petition_html = self._apply_complete_post_processing(petition_html, case_id, case_data)
-            permission_html = self._apply_complete_post_processing(
-                permission_html, case_id, case_data
-            )
+            permission_html = self._apply_complete_post_processing(permission_html, case_id, case_data)
 
             petition_pdf, petition_error = self.generate_from_html(petition_html)
             if petition_error:
@@ -416,9 +408,7 @@ class PDFAssemblyEngine:
                     continue
                 annexure_pdfs.append(annexure_pdf)
             except Exception as exc:
-                self.logger.warning(
-                    "Failed to generate PDF for annexure %s: %s", annexure.get("id"), exc
-                )
+                self.logger.warning("Failed to generate PDF for annexure %s: %s", annexure.get("id"), exc)
         return annexure_pdfs
 
     def _generate_evidence_pages(self, case_id: int, case_data: dict) -> list[bytes]:
@@ -433,9 +423,7 @@ class PDFAssemblyEngine:
         for photo_info in embedded_photos:
             try:
                 if "data_uri" in photo_info:
-                    photo_pdf = self._create_evidence_photo_page(
-                        photo_info["data_uri"], photo_info["url"]
-                    )
+                    photo_pdf = self._create_evidence_photo_page(photo_info["data_uri"], photo_info["url"])
                     evidence_pdfs.append(photo_pdf)
             except Exception as exc:
                 self.logger.warning("Failed to generate evidence photo page: %s", exc)
@@ -469,9 +457,7 @@ class PDFAssemblyEngine:
             self.logger.warning("PyPDF2 not available, returning main document only")
             return main_pdf
 
-    def _apply_complete_post_processing(
-        self, html_content: str, case_id: int, case_data: dict
-    ) -> str:
+    def _apply_complete_post_processing(self, html_content: str, case_id: int, case_data: dict) -> str:
         """Apply complete Phase 6 + 7 + 8 post-processing to HTML."""
         html_content = self.post_process(html_content, case_id=case_id)
         html_content = self._apply_headers_footers(html_content, case_data)
@@ -499,7 +485,7 @@ class PDFAssemblyEngine:
             if footer_block:
                 body_close = html_content.rfind("</body>")
                 if body_close != -1:
-                    html_content = f"{html_content[:body_close]}" f"{footer_block}" f"{html_content[body_close:]}"
+                    html_content = f"{html_content[:body_close]}{footer_block}{html_content[body_close:]}"
                 else:
                     html_content += footer_block
 
@@ -507,7 +493,7 @@ class PDFAssemblyEngine:
                 body_match = re.search(r"<body[^>]*>", html_content, re.IGNORECASE)
                 if body_match:
                     split_at = body_match.end()
-                    html_content = f"{html_content[:split_at]}" f"{header_block}" f"{html_content[split_at:]}"
+                    html_content = f"{html_content[:split_at]}{header_block}{html_content[split_at:]}"
                 else:
                     html_content = header_block + html_content
 
@@ -630,11 +616,7 @@ class PDFAssemblyEngine:
         """Ensure every internal ``#anchor`` href has a matching target id."""
         try:
             target_ids = set(re.findall(r'\bid="([^"]+)"', html_content or ""))
-            missing = [
-                target
-                for target in _INTERNAL_HREF_RE.findall(html_content or "")
-                if target not in target_ids
-            ]
+            missing = [target for target in _INTERNAL_HREF_RE.findall(html_content or "") if target not in target_ids]
             if not missing:
                 return html_content
             self.logger.info(
@@ -675,7 +657,7 @@ class PDFAssemblyEngine:
 
         body_close = html_content.rfind("</body>")
         if body_close != -1:
-            html_content = f"{html_content[:body_close]}" f"{bookmarks_html}" f"{html_content[body_close:]}"
+            html_content = f"{html_content[:body_close]}{bookmarks_html}{html_content[body_close:]}"
         else:
             html_content += bookmarks_html
         return html_content
@@ -838,19 +820,19 @@ class PDFAssemblyEngine:
                     <div class="section-title">CASE INFORMATION</div>
                     <div class="index-item">
                         <span class="item-title">Case Number:</span>
-                        <span class="item-page">{case_data.get('case_number', '')}</span>
+                        <span class="item-page">{case_data.get("case_number", "")}</span>
                     </div>
                     <div class="index-item">
                         <span class="item-title">Sample ID:</span>
-                        <span class="item-page">{case_data.get('sample_code', '')}</span>
+                        <span class="item-page">{case_data.get("sample_code", "")}</span>
                     </div>
                     <div class="index-item">
                         <span class="item-title">Food Safety Officer:</span>
-                        <span class="item-page">{case_data.get('food_safety_officer_name', '')}</span>
+                        <span class="item-page">{case_data.get("food_safety_officer_name", "")}</span>
                     </div>
                     <div class="index-item">
                         <span class="item-title">Created On:</span>
-                        <span class="item-page">{datetime.now().strftime('%Y-%m-%d')}</span>
+                        <span class="item-page">{datetime.now().strftime("%Y-%m-%d")}</span>
                     </div>
                 </div>
 
@@ -878,7 +860,7 @@ class PDFAssemblyEngine:
             </div>
 
             <div class="footer">
-                <p>Page 1 of 1 | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p>Page 1 of 1 | Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
                 <p>This is an officially generated document. No manual signatures are required.</p>
             </div>
         </body>
@@ -888,9 +870,7 @@ class PDFAssemblyEngine:
     def _create_annexure_page_html(self, annexure: dict) -> str:
         """Create HTML for a standalone annexure page."""
         annexure_id = annexure.get("id", 0)
-        annexure_letter = (
-            chr(64 + (annexure_id % 26)) if annexure_id <= 26 else str(annexure_id)
-        )
+        annexure_letter = chr(64 + (annexure_id % 26)) if annexure_id <= 26 else str(annexure_id)
         title = annexure.get("title", f"Annexure {annexure_letter}")
         content = annexure.get("content", "")
 
