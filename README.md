@@ -148,11 +148,20 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Containerization** | Docker + Docker Compose |
 | **Monitoring** | Prometheus + Grafana |
 
----
+## Project Status & Capabilities
 
-## Current Status
+**Version:** 0.8.0 (Pre‑Production)
 
-**Version:** 0.8.0 (Pre-Production)
+The NSA Webservice now offers a comprehensive, end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. Key capabilities include:
+
+- **Inspection Management** with photo verification and geo‑tagging.
+- **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
+- **Case File Generation** delivering PDF documents via WeasyPrint and async processing with Celery.
+- **Adjudication Engine** that suggests legal sections and generates adjudication documents.
+- **FBO Issue State Machine** with full audit‑trail logging.
+- **Billing Dashboard** exporting Excel reports.
+- **Robust Authentication** (Flask‑Login) and **Security Hardening** (CSP, HSTS, CSRF, session hardening).
+- **Hash‑Chained Audit Log** for tamper‑evident record keeping.
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -162,15 +171,43 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | Adjudication | ✅ Complete | Section suggestion, document generation |
 | FBO Issue State Machine | ✅ Complete | With audit trail |
 | Billing Dashboard | ✅ Complete | Excel export, filtering |
-| Authentication | ✅ Complete | Flask-Login, global gate |
-| Audit Trail | ✅ Complete | Hash-chained + RecordAudit |
+| Authentication | ✅ Complete | Flask‑Login, global gate |
+| Audit Trail | ✅ Complete | Hash‑chained + RecordAudit |
 | Security Hardening | ✅ Complete | CSP, HSTS, CSRF, session hardening |
-| CI/CD | ⚠️ Partial | pip-audit + Dependabot configured |
+| CI/CD | ⚠️ Partial | pip‑audit + Dependabot configured |
 | RBAC / Roles | ❌ Not Started | All users have full access |
 | PostgreSQL Migration | ⚠️ In Progress | Schema ready, production pending |
-| Tests | ⚠️ Partial | Module-specific, no end-to-end |
+| Tests | ⚠️ Partial | Module‑specific, no end‑to‑end |
 
 ---
+
+## Future Scope & Roadmap
+
+### Phase 1 – Hardening (Q3 2026)
+- ✅ PostgreSQL production migration (targeted for Q3 2026)
+- ✅ Persistent Celery worker deployment
+- ✅ RBAC implementation (FSO, Admin, Auditor roles)
+
+### Phase 2 – Platform Upgrade (Q4 2026)
+- FastAPI migration for async APIs
+- OpenAPI/Swagger documentation
+- Structured logging with `structlog`
+- Monitoring (Prometheus + Grafana) and Sentry error tracking
+
+### Phase 3 – Intelligence (Q1 2027)
+- Neo4j graph database integration for relationship queries
+- Qdrant vector store for semantic search over legal corpus
+- LangGraph workflow orchestration
+- OpenRouter multi‑LLM gateway for AI‑assisted section suggestion and document drafting
+
+### Phase 4 – Enterprise (Q2 2027)
+- Bulk operations and multi‑tenancy support
+- Advanced pattern detection across cases
+- Automated document drafting and continuous learning from adjudication outcomes
+
+---
+
+**Note:** The MyPy configuration now excludes the `build/` directory and stray `nul` file to avoid duplicate module errors (`exclude = "^(build/|nul)$"`).
 
 ## Roadmap
 
