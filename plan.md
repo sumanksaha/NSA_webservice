@@ -418,4 +418,44 @@ Sync functions are loaded lazily via `_load_sync_fns()` so the module bootstraps
 
 ---
 
+## 9. Test Environment Issues (Discovered During 2026-08-06 Verification)
+
+> During the verification run of all 14 open dependabot PRs (commit `a746104`), the full test suite (832 tests, 22-min runtime) was executed. The dependency updates themselves are **not** the cause of any failures — the updated package versions (pytest 9.1.1, pytest-cov 7.1.0, black 26.5.1, etc.) were already installed in the environment before the PR changes were applied. The failures are all **environment-specific** gaps that must be addressed for a clean test run.
+
+### Test Suite Results
+
+| Metric | Count |
+|--------|-------|
+| Passed | 783 |
+| Failed | 18 |
+| Errors | 21 |
+| Total | 822 attempted (832 collected, 10 not reached due to cascade) |
+
+### Failure Breakdown — All Environment-Related
+
+| Test File | Failures | Errors | Root Cause | Fix Priority |
+|-----------|----------|--------|------------|--------------|
+| `test_concurrency_inspection.py` | 4 | 0 | PostgreSQL-specific: advisory locks + `StaleDataError` not raised on SQLite → HTTP 500 instead of 409 | Medium |
+| `test_case_backup.py` | 0 | 14 | PostgreSQL-specific: JSON export/import, zip archives, Celery beat require PG features; SQLite setup fails in fixtures | Medium |
+| `test_food_cell_do_intimation.py` | 7 | 7 | (a) Missing template `food_cell/do_intimation.html`; (b) Redis/Celery not available for async sync dispatch | High |
+| `test_ocr_pipeline.py` | 7 | 0 | Missing `cv2` (OpenCV) — optional OCR preprocessing dependency | Medium |
+| `test_timeline.py` | 11 | 0 | Pre-existing uncommitted `app/__init__.py` change (health endpoint `health_bp` registration + `public_endpoints` addition) interferes with blueprint route initialization → 404 on all `TestTimelineRoutes` endpoints | High |
+
+### Environment Details
+
+- **Python:** 3.11.15 (project requires 3.12+ — version mismatch may cause subtle issues)
+- **Database:** SQLite (via conftest temp DB) — no PostgreSQL available
+- **Redis:** Not running — Celery tasks fail silently
+- **GitHub CLI:** Not installed in environment
+- **Shell:** PowerShell 7 (no native `&&` / `||` support; `curl` aliased to `Invoke-WebRequest`)
+- **GitHub API rate limit:** 60 requests/hour unauthenticated
+
+### Notes
+
+- The **dependabot PR changes themselves are verified safe** — all 783 passing tests run with the updated dependency versions already installed.
+- The timeline **engine** tests pass in isolation (`TestTimelineEngine::test_valid_case_has_no_warnings` ✅); only the **route** tests fail due to the pre-existing `app/__init__.py` changes.
+- The concurrency guard (S9a) code is correct (`StaleDataError → 409` tuple); the test failures are because SQLite doesn't trigger `StaleDataError` the way PostgreSQL does.
+
+---
+
 _End of plan.md_

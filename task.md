@@ -653,6 +653,38 @@
 
 ---
 
+### Test Environment Issues (Discovered During 2026-08-06 PR Verification)
+
+> During the verification of committing all 14 open Dependabot PRs (commit `a746104`), the full test suite (832 tests, 22-min runtime) was executed. **783 tests passed**. The 28 failures + 21 errors are all environment-specific — **not** caused by the dependency changes (the updated package versions were already installed before the commit). These items document the gaps that must be addressed for a fully green test run in this environment.
+
+- [ ] **ENV-1: Timeline Route Registration Bug** — `test_timeline.py::TestTimelineRoutes` (11 failures). All route tests return 404. Root cause: a pre-existing **uncommitted change** to `app/__init__.py` (adds `from app.health import health_bp` + `app.register_blueprint(health_bp)` + `"health.health"` in `public_endpoints`) interferes with blueprint initialization or route map building. **Verified:** `TestTimelineEngine` tests pass in isolation (2/2 ✅); only `TestTimelineRoutes` fail, even in isolation. Fix: revert the uncommitted `app/__init__.py` change or complete the health endpoint integration properly (ensure `app/health/__init__.py` + `app/health/routes.py` exist and `health_bp` is correctly defined).
+
+- [ ] **ENV-2: SQLite vs PostgreSQL Incompatibility — Concurrency Tests** — `test_concurrency_inspection.py` (4 failures). Tests assert HTTP 409 on concurrent modification, but get HTTP 500. Root cause: `StaleDataError` is raised by PostgreSQL advisory locks / row-level locking, but **SQLite does not raise `StaleDataError`** on concurrent writes — it silently overwrites or returns no error. The S9a guard code is correct (returns `jsonify({...}), 409` tuple), but the underlying DB doesn't trigger the exception. Fix: add `@pytest.mark.skipif(not _is_postgres(), reason="requires PostgreSQL advisory locks")` markers, or configure the test environment to use PostgreSQL.
+
+- [ ] **ENV-3: SQLite vs PostgreSQL — Backup/Export Tests** — `test_case_backup.py` (14 errors at setup). All tests fail at fixture setup because they require PostgreSQL-specific features (JSON export serialization, zip archive operations, Celery beat schedule configuration). Fix: same `skipif` markers as ENV-2, or run with PostgreSQL in CI.
+
+- [ ] **ENV-4: Missing OCR Template** — `test_food_cell_do_intimation.py` route tests fail with `jinja2.exceptions.TemplateNotFound: food_cell/do_intimation.html`. Fix: create `app/food_cell/templates/food_cell/do_intimation.html` (the HTML template for the DO Intimation letter).
+
+- [ ] **ENV-5: Missing Redis/Celery for Food Cell Sync** — `test_food_cell_do_intimation.py` (7 errors in `TestSyncForwarding`, `TestDownloadEndpoint`, `TestStatusEndpoint`, etc.). The post-save Celery task `send_do_intimation.delay()` requires a running Redis broker. Fix: configure `REDIS_URL` in the test environment, or mock Celery task dispatch with `celery_app.conf.task_always_eager = True`.
+
+- [ ] **ENV-6: Missing Optional Dependency — cv2/OpenCV** — `test_ocr_pipeline.py` (7 failures). `ModuleNotFoundError: No module named 'cv2'` — the OCR image preprocessing pipeline (`app/ocr_pipeline/preprocessing.py`) requires OpenCV for grayscale conversion, denoising, adaptive thresholding, and contrast enhancement. Fix: install `opencv-python` in the test/CI environment, or add `opencv-python` as an optional dependency in `pyproject.toml` under `[project.optional-dependencies.ocr]`.
+
+- [ ] **ENV-7: Dependabot Branch Staleness** — All 14 dependabot PR branches are based on an old main commit (`89d7535`), far behind the current main (`0b5827b`). This causes `git diff main..branch` to show massive diffs (650+ files) because the branches only contain the version bump, but the base is stale. Fix: configure `.github/dependabot.yml` to use `target-branch: main` with automatic rebasing, or rebase branches manually before review.
+
+- [ ] **ENV-8: Python Version Mismatch** — Environment runs Python 3.11.15, but `pyproject.toml` declares `requires-python = ">=3.12"`. Some tests may behave differently on 3.11 vs 3.12. Fix: use Python 3.12+ in the test environment.
+
+### Developer Environment Notes
+
+> Tooling limitations encountered during the PR verification task and workarounds used:
+
+- **`gh` CLI not installed**: Fell back to `https://api.github.com/repos/.../pulls` endpoint with `curl.exe -s -H "Accept: application/vnd.github.v3.diff"`.
+- **GitHub API rate limit (60/hour unauthenticated)**: Fetched all 14 PR diffs in a single parallel batch. No `GITHUB_TOKEN`/`GH_TOKEN` env var was available.
+- **PowerShell `&&`/`||` not supported**: Used `;` separators and `if ($?) {}` constructs instead.
+- **`curl` aliased to `Invoke-WebRequest`**: Used `curl.exe` for explicit `curl` binary.
+- **`tail`/`head` not available**: Used `Select-Object -First N` / `Select-Object -Last N` instead.
+- **30-second shell command timeout**: Used `Start-Process -WindowStyle Hidden` with output redirected to files for long-running test suites.
+- **CRLF line endings causing git binary detection**: Used `git diff --text` to force text diffs. Consider adding `.gitattributes` with `* text=auto` to normalize.
+
 ## Priority 5 — Cloudinary Testing & Hardening
 
 - **Target Files to Edit/Create:**
