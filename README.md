@@ -52,6 +52,8 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **FBO Issue Tracking** | Unified state machine for Food Business Operator issues with audit trail |
 | **Billing** | Summary dashboards and Excel export for sample billing |
 | **Document Generation** | PDF generation for permission letters, petitions, and legal notices |
+| **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
+| **Food Cell (DO Intimation)** | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21) |
 | **Audit Trail** | Tamper-evident hash-chained audit logging for all records and photo evidence |
 | **Google Sheets Sync** | Optional data synchronization with Google Sheets for external reporting |
 
@@ -162,6 +164,11 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Billing Dashboard** exporting Excel reports.
 - **Robust Authentication** (Flask‑Login) and **Security Hardening** (CSP, HSTS, CSRF, session hardening).
 - **Hash‑Chained Audit Log** for tamper‑evident record keeping.
+- **Timeline Engine + Gantt** visualizing each case's milestones with warnings for chronologically invalid sequences (Phase 13).
+- **Full‑text + fuzzy search** across case files, adjudications, annexures, and evidence (SQLite FTS5 + RapidFuzz).
+- **Version history, branching, cross‑reference & TOC reports** for edited documents, and **backup / export / import** of complete cases.
+- **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
+- **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -174,10 +181,16 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | Authentication | ✅ Complete | Flask‑Login, global gate |
 | Audit Trail | ✅ Complete | Hash‑chained + RecordAudit |
 | Security Hardening | ✅ Complete | CSP, HSTS, CSRF, session hardening |
+| Timeline Engine + Gantt | ✅ Complete | Phase 13 — 21 tests, global picker + entry points |
+| Search (FTS5 + fuzzy) | ✅ Complete | Phase 10 — 56 tests |
+| Version Control | ✅ Complete | Compare/restore/branch, history UI |
+| Backup / Export / Import | ✅ Complete | Phase 16 — JSON/ZIP export, case import |
+| OCR Pipeline | ⚠️ Foundation | Phase A done; Phases B–E pending |
+| Food Cell (DO Intimation) | ✅ Complete | Phase 21 — 15 tests |
 | CI/CD | ⚠️ Partial | pip‑audit + Dependabot configured |
 | RBAC / Roles | ❌ Not Started | All users have full access |
 | PostgreSQL Migration | ⚠️ In Progress | Schema ready, production pending |
-| Tests | ⚠️ Partial | Module‑specific, no end‑to‑end |
+| Tests | ✅ 39 modules | ~700+ test cases, incl. end‑to‑end |
 
 ---
 
@@ -217,15 +230,15 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - [ ] RBAC implementation (FSO, Admin, Auditor roles)
 - [ ] TLS fix for KMC scraper
 - [ ] End-to-end test suite
-- [ ] Docker containerization
+- [x] Docker containerization
 
 ### Phase 2: Platform Upgrade (Q4 2026)
 - [ ] FastAPI migration
-- [ ] OpenAPI / Swagger documentation
-- [ ] Structured logging (structlog)
+- [x] OpenAPI / Swagger documentation (flasgger `/apidocs/`)
+- [x] Structured logging (structlog)
 - [ ] Monitoring (Sentry + Prometheus)
 - [ ] Redis caching layer
-- [ ] Health check endpoints
+- [x] Health check endpoints (`GET /health`)
 
 ### Phase 3: Intelligence (Q1 2027)
 - [ ] Neo4j graph database integration
@@ -380,6 +393,10 @@ pytest tests/test_route_collisions.py -v
 | `test_route_collisions.py` | Regression: duplicate route detection |
 | `test_bill_generator.py` | Bill generation logic |
 | `test_pdf_photo_embedding.py` | PDF photo embedding edge cases |
+| `test_timeline.py` | Phase 13: timeline engine, routes, picker, entry points (21) |
+| `test_case_backup.py` | Phase 16: JSON/ZIP export, case import (14) |
+| `test_ocr_extraction.py` | Phase A: OCR extraction + task persistence (14) |
+| `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15) |
 
 ---
 
@@ -427,6 +444,13 @@ celery -A celery_app.celery worker --loglevel=info
 | `R2_BUCKET` | For Storage | Storage bucket name |
 | `R2_ENDPOINT` | For Storage | Storage endpoint URL |
 | `SKIP_FSO_STARTUP_SYNC` | No | Skip FSO sync on startup |
+| `AIRTABLE_API_KEY` | For Airtable backup | Airtable API key |
+| `AIRTABLE_BASE_ID` | For Airtable backup | Airtable base ID (auto-rotates when full) |
+| `MS_TENANT_ID` | For Excel backup | Azure AD tenant ID |
+| `MS_CLIENT_ID` | For Excel backup | Azure AD app registration ID |
+| `MS_CLIENT_SECRET` | For Excel backup | Azure AD client secret |
+| `MS_DRIVE_ID` | For Excel backup | OneDrive/SharePoint drive ID |
+| `MS_SPREADSHEET_ID` | For Excel backup | Excel file ID in OneDrive |
 
 ---
 
@@ -444,9 +468,19 @@ celery -A celery_app.celery worker --loglevel=info
 | Case File | `/case_file_generator` | Case file generation |
 | Adjudication | `/adjudication` | Adjudication management |
 | Billing | `/billing` | Billing summary + export |
+| Bill Generator | `/bill_generator` | Bill PDF (async via QStash) |
 | FBO Issue | `/fbo-issue` | FBO issue state machine |
+| Annexure | `/annexure` | Annexure upload + metadata |
+| Evidence | `/evidence` | Evidence library (photos, reports, etc.) |
+| Document Viewer | `/document_viewer` | Quill editor, save/restore, PDF |
+| Legal Analysis | `/legal` | Legal paragraph detection workbench |
+| Search | `/search` | FTS5 + fuzzy search API |
+| Version Control | `/api/version-control` | Version history UI + API |
+| Timeline | `/timeline` | Case milestone timeline + Gantt |
+| Food Cell | `/food-cell` | DO Intimation workflow (Phase 21) |
 | Audit | `/admin` | Audit log viewer |
 | Settings | `/settings` | Admin settings |
+| Health | `/health` | Health probe (public) |
 
 ### Response Format
 

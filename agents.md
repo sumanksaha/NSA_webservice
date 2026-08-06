@@ -1,5 +1,6 @@
 # Agent Reference — NSA Webservice
-> **Status:** ✅ Plan approved – markdown files updated. Next steps: Phase 1 (connection pooling, async Sheets sync) pending implementation.
+> **Status:** ✅ Phases 0–10, Deepening D1–D5, Infrastructure, Phase 10 fuzzy search (56 tests), Phase 16 (backup/export/import, 14 tests), Phase A (OCR pipeline foundation, 14 tests), and Phase 13 (timeline engine + Gantt UI + global case-picker + entry points across the UI, 21 tests) all implemented & verified. S9a concurrency guard fully fixed (`tests/test_concurrency_inspection.py` 4/4 pass). Performance Quick Wins **7/7 complete** (FSO `@lru_cache`, Jinja2 bytecode cache, Flask-Compress, connection pooling, health endpoint, DB indexes, eager loading). **Phase 21 ✅ Complete (2026-08-06)** — Food Cell DO Intimation: `app/food_cell/` blueprint + `DoIntimation` model/migration + Celery task + post-save hook in `app/sample/routes.py` + sync (Sheets/Airtable/Excel); `tests/test_food_cell_do_intimation.py` **15/15 pass**. Priority 7 (Multi-Target Sheets Redundancy — Airtable + MS Excel) designed & documented in `plan.md` §8 and `task.md` §Priority 7. Phases 11–12, 14–15, 17–20 pending.
+
 
 > **Purpose:** Single reference for any AI agent or developer working in this codebase. Covers project context, architecture, key patterns, directory map, and deletion history. **Read this first, then `plan.md` and `task.md`.**
 
@@ -47,7 +48,8 @@ NSA_webservice/
 │   │   ├── config.py             # AppSecret, Settings
 │   │   ├── document.py           # Adjudication, Annexure, CaseFile, Evidence, Version
 │   │   ├── inspection.py         # FSO, AuditLog, Inspection
-│   │   └── issue.py              # FboIssue, FboIssueAudit
+│   │   ├── issue.py              # FboIssue, FboIssueAudit
+│   │   └── food_cell.py          # DoIntimation (DO intimation record)
 │   ├── adjudication/             # Non-sample adjudication
 │   ├── annexure/                 # Annexure upload + metadata
 │   ├── audit/                    # Audit log viewer
@@ -60,6 +62,8 @@ NSA_webservice/
 │   ├── document_viewer/          # Quill editor + save/restore
 │   ├── evidence/                 # Unified Evidence model + UI
 │   ├── fbo_issue/                # State machine + audit trail
+│   ├── food_cell/                # Phase 21 DO Intimation workflow (2026-08-06)
+│   ├── health/                   # GET /health probe (public)
 │   ├── inspection/               # CRUD + photos + OCR (split into routes/ package)
 │   │   └── routes/               # Modular: inspection_routes, lookup_routes,
 │   │                             #   photo_routes, derived_views
@@ -77,13 +81,14 @@ NSA_webservice/
 │   ├── settings/                 # Settings + backup/restore
 │   ├── shared/                   # Canonical keys + context deriviners
 │   ├── tasks_webhook/            # QStash webhook + task status
+│   ├── timeline/                 # Phase 13 milestone timeline + Gantt UI
 │   ├── toc_generator/            # Dynamic TOC extraction/numbering
 │   ├── utils/                    # Filters, storage, pdf_utils, lookup, etc.
 │   ├── static/                   # CSS, JS (Quill vendor, editor.js, task_status.js)
-│   ├── templates/base.html       # Master layout
+│   ├── templates/base.html       # Master layout (global Timeline case-picker)
 │   └── version_control/          # Version history UI + routes
-├── migrations/                   # Alembic — 21 migration files (head: unify_photo_evidence)
-├── tests/                        # 25 pytest modules, ~500+ test cases
+├── migrations/                   # Alembic — 26 migration files (newest: add_food_cell_do_intimation)
+├── tests/                        # 39 pytest modules, ~700+ test cases
 ├── legal_paragraph_detection_engine/  # Standalone rule-based legal parser
 ├── scripts/                      # Utility scripts (create_user.py kept; others deleted)
 ├── .github/workflows/            # CI: lint, pip-audit, validation, deploy, docker-build, release
@@ -93,7 +98,7 @@ NSA_webservice/
 └── .env.example                  # 15 environment variables
 ```
 
-### Registered Flask Blueprints (14)
+### Registered Flask Blueprints (20)
 
 | Blueprint           | Prefix               | Purpose                                     |
 | ------------------- | -------------------- | ------------------------------------------- |
@@ -110,9 +115,13 @@ NSA_webservice/
 | legal_analysis      | /legal               | Legal paragraph detection workbench         |
 | audit               | /admin               | Read-only audit log viewer                  |
 | settings            | /settings            | Settings dashboard, backup/restore          |
-| version_control     | _(none)_             | Version history UI                          |
-| search              | /search              | FTS5 search API                             |
+| version_control     | /api/version-control | Version history UI + API                    |
+| search              | /search              | FTS5 + fuzzy search API                     |
 | tasks_webhook       | _(none)_             | QStash webhook, task status                 |
+| annexure            | /annexure            | Annexure upload + metadata                  |
+| timeline            | /timeline            | Phase 13 milestone timeline + Gantt UI      |
+| health              | /health              | Health probe (public)                      |
+| food_cell           | /food-cell           | Phase 21 DO Intimation workflow             |
 
 ---
 
@@ -305,6 +314,13 @@ The following modules have low Module Depth (interface nearly as complex as impl
 | Test File                    | Tests | Covers                                                                 |
 | ---------------------------- | ----- | ---------------------------------------------------------------------- |
 | test_annexure.py             | 22    | Annexure upload, replace, rename, reorder, delete, duplicate detection |
+| test_case_backup.py          | 14    | Phase 16: JSON/ZIP export, case import                                 |
+| test_case_resolver.py        | —     | CaseResolver CaseFile/Adjudication disambiguation                      |
+| test_concurrency_inspection.py | 4   | S9a: StaleDataError → 409 on inspection PUT/DELETE                     |
+| test_document_lifecycle.py   | —     | DocumentSaveCoordinator save/version/audit                             |
+| test_food_cell_do_intimation.py | 15  | Phase 21: DO Intimation generate/forward/sync |
+| test_inspection_photo_service.py | —  | InspectionPhotoService upload/verify/stamp                             |
+| test_ocr_extraction.py       | 14    | Phase A: OCR field extraction + task persistence                       |
 | test_auth_*.py               | 9+9   | Auth: login, password change                                           |
 | test_bill_generator.py       | 11    | Bill PDF template vars                                                 |
 | test_cross_reference.py      | 27    | Reference extraction/linking/renumbering                               |
@@ -321,9 +337,10 @@ The following modules have low Module Depth (interface nearly as complex as impl
 | test_phase7_toc_generator.py | 37    | TOC extraction/numbering/bookmarks                                     |
 | test_phase8_pdf_assembly.py  | 40    | PDF assembly, hyperlinks, QR, signatures                               |
 | test_route_collisions.py     | 1     | URL collision regression                                               |
-| test_search.py               | —     | FTS5 search                                                            |
+| test_search.py               | 56    | FTS5 search, fuzzy fallback, API, auto-index hooks
 | test_step1-5_integration.py  | 74    | End-to-end integration                                                 |
 | test_storage.py              | —     | Storage backend selection                                              |
+| test_timeline.py             | 21    | Phase 13: engine, routes, picker, entry points                         |
 | test_version_control.py      | 23    | Version compare, restore, branching                                    |
 | test_toc_generator.py        | 37    | TOC generator engine                                                   |
 
