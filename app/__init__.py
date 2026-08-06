@@ -338,6 +338,7 @@ def create_app():
     from app.search import search_bp
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
+    from app.validation import validation_bp
     from app.version_control import version_control_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -361,6 +362,7 @@ def create_app():
     app.register_blueprint(tasks_webhook_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(annexure_bp, url_prefix="/annexure")
+    app.register_blueprint(validation_bp, url_prefix="/validation")
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata

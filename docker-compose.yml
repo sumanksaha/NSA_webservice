@@ -1,0 +1,86 @@
+# =============================================================================
+# NSA Webservice — local development stack
+#
+# Mirrors Render's service layout: a Flask web process, a Celery worker, a
+# Redis broker, and a PostgreSQL database. Run `docker compose up`.
+#
+# Required env vars (see .env.example): DATABASE_URL (set below), REDIS_URL,
+# SECRET_KEY, SPREADSHEET_ID, GOOGLE_CREDENTIALS_JSON, etc.
+# =============================================================================
+services:
+  web:
+    build: .
+    image: nsa-webservice:latest
+    container_name: nsa-webservice-web
+    restart: unless-stopped
+    command: gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 60 app:app
+    env_file: .env
+    environment:
+      - FLASK_APP=app.py
+      - SKIP_FSO_STARTUP_SYNC=0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      # Persist SQLite fallback / uploads across restarts.
+      - instance_data:/app/instance
+      - uploads_data:/app/uploads
+
+  worker:
+    build: .
+    image: nsa-webservice:latest
+    container_name: nsa-webservice-worker
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - instance_data:/app/instance
+      - uploads_data:/app/uploads
+
+  flower:
+    image: mher/flower:1.2
+    container_name: nsa-webservice-flower
+    restart: unless-stopped
+    command: ["flower", "--port=5555", "--broker=redis://redis:6379/0"]
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: nsa-webservice-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nsa-webservice-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nsa_user
+      POSTGRES_PASSWORD: nsa_pass
+      POSTGRES_DB: nsa_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nsa_user -d nsa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  instance_data:
+  uploads_data:
+  redis_data:
+  postgres_data:

@@ -1,0 +1,71 @@
+# =============================================================================
+# NSA Webservice — Docker build context
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# App runtime artifacts
+instance/
+instance/**
+*.db
+*.db.backup_*
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# Uploads / generated output
+uploads/
+exports/
+reports/
+downloads/
+generated/
+
+# Test + coverage
+.coverage*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+test-reports/
+.nox/
+
+# AI / agent working state (never commit)
+.pi-subagents/
+.ai/
+piolium/
+.opencode/
+*.plan
+*.txt
+*.out
+*_output.txt
+
+# Secrets
+.env
+.env.*
+*.secret
+*.key
+credentials.json
+service-account.json
+auth.json
+oauth*.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/

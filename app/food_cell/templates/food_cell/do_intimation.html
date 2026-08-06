@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DO Intimation — {{ sample.sample_code or 'Sample' }}</title>
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; margin: 0; padding: 0; color: #000; }
+        .page { page-break-after: always; padding: 72pt 54pt; position: relative; }
+        .letterhead { border-bottom: 2pt solid #000; padding-bottom: 12pt; margin-bottom: 18pt; }
+        .letterhead h1 { font-size: 16pt; font-weight: bold; margin: 0; }
+        .letterhead .subtitle { font-size: 10pt; color: #555; margin-top: 4pt; }
+        .header-line { font-size: 9pt; color: #555; margin-bottom: 6pt; }
+        .body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12pt; }
+        .body-text b { font-weight: bold; }
+        .signature-block { margin-top: 48pt; }
+        .signature-line { border-top: 1pt solid #000; width: 180pt; padding-top: 4pt; font-size: 11pt; }
+        .footer { position: fixed; bottom: 18pt; left: 54pt; right: 54pt; font-size: 8pt; color: #777; border-top: 1pt solid #ccc; padding-top: 6pt; }
+        .qr { position: absolute; top: 54pt; right: 54pt; }
+        .no-print { display: none; }
+        table.summary { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt; }
+        table.summary th, table.summary td { border: 1pt solid #000; padding: 4pt 8pt; text-align: left; }
+        table.summary th { background-color: #eee; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="letterhead">
+        <h1>Govt. of India • Ministry of Health &amp; Family Welfare</h1>
+        <div class="subtitle">Food Safety and Standards Authority of India</div>
+    </div>
+
+        <div class="header-line">{{ sample.collection_date | default('—') }}</div>
+    <div class="header-line">To,<br>
+        The Designated Officer,<br>
+        Food Safety and Standards Authority of India,<br>
+        {{ sample.retailer_name or '[FBO Name]' }}.
+    </div>
+
+    <div class="body-text">
+        <p><b>Subject: Intimation under Section 45/46 of the Food Safety and Standards Act, 2006 — for {{ sample.retailer_name or 'the establishment' }}.</p>
+
+        <p>Sir/Madam,</p>
+
+        <p>
+            This is to intimate that a food safety inspection was conducted at
+            <b>{{ sample.retailer_name or '[FBO Name]' }}</b>,
+            located at <b>{{ sample.manufacturer_details or '[FBO Address]' }}</b>,
+            on <b>{{ sample.collection_date or '[Inspection Date]' }}</b>,
+            by <b>{{ sample.fso_name or 'Food Safety Officer' }}</b>.
+        </p>
+
+        <p>
+            During the inspection, a sample of <b>{{ sample.sample_name or '[Food Item]' }}</b>
+            (batch/lot: <b>{{ sample.batch_no or 'N/A' }}</b>)
+            was collected for laboratory analysis. The sample has been
+            dispatched to the Public Health Laboratory on
+            <b>{{ sample.submission_date or '[Dispatch Date]' }}</b>
+            with the following identifiers:
+        </p>
+
+        <table class="summary">
+            <tr><th>Parameter</th><th>Value</th></tr>
+            <tr><td>Sample Code</td><td>{{ sample.sample_code or '—' }}</td></tr>
+            <tr><td>Sample Collection Date</td><td>{{ sample.collection_date or '—' }}</td></tr>
+            <tr><td>Lab Registration No.</td><td>{{ sample.retailer_fssai or '—' }}</td></tr>
+            <tr><td>FSS Act Section(s) Invoked</td><td>{{ sample.nature_of_food or '—' }}</td></tr>
+            <tr><td>DO Reference No.</td><td>{{ sample.sample_code or '—' }}</td></tr>
+        </table>
+
+        <p>
+            The FSS Act, 2006 (Section 45 for food import, Section 46 for domestic
+            manufacture/distribution) empowers the Authority to issue a
+            <b>Do Intimation (Show-Cause Notice)</b> directing the FBO to show
+            cause why penal action should not be initiated against it.
+        </p>
+
+        <p>
+            You are hereby directed to take cognizance of the above and proceed
+            in accordance with the provisions of the FSS Act, 2006 and the
+            associated Rules. The finalised lab report and inspection records
+            shall be served separately.
+        </p>
+
+        <p>For the purpose of this intimation, the Food Safety Officer's
+           investigation report and the lab analysis report (where available)
+           are annexed hereto and form part of these proceedings.</p>
+
+        <div class="signature-block">
+            <p>Enclosures:</p>
+            <ol>
+                <li>Copy of the inspection report</li>
+                <li>Sample collection memo</li>
+                <li>Lab dispatch challan</li>
+                <li>{{ sample.nature_of_food or '[Statutory Section(s)]' }} invoked</li>
+            </ol>
+            <p>—</p>
+            <p><b>Food Safety Officer</b><br>
+               {{ sample.fso_name or '[FSO Name]' }}<br>
+               Food Safety Officer<br>
+               {{ sample.collection_date or '—' }}
+            </p>
+        </div>
+    </div>
+
+    <div class="footer">
+        This document is electronically generated. Page 1 of 1.
+        DO Reference: {{ sample.sample_code or '—' }}
+    </div>
+</div>
+</body>
+</html>

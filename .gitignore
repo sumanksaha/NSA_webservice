@@ -353,6 +353,10 @@ piolium/tmp/
 .pi-subagents/
 .ai/
 piolium/
+.kilo/
 instance/annexures/
 instance/saved/
 instance/editor_images/
+instance/jinja2_cache/
+instance/temp_uploads/
+.opencode/

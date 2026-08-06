@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Timeline — {{ case_number }} · NSA WebService{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --tl-navy: #0b3d91;
+        --tl-green: #0b6e4f;
+        --tl-amber: #c77d0a;
+        --tl-red: #b3261e;
+        --tl-ink: #1f2937;
+        --tl-muted: #6b7280;
+        --tl-line: #d7dde8;
+        --tl-bg-soft: #f5f8fc;
+        --tl-card: #ffffff;
+        --tl-shadow: 0 1px 3px rgba(11, 61, 145, 0.08), 0 8px 24px rgba(11, 61, 145, 0.06);
+        --tl-radius: 12px;
+    }
+
+    .tl-hero {
+        background: linear-gradient(135deg, #0b3d91 0%, #123f9a 45%, #1550a8 100%);
+        color: #fff;
+        border-radius: var(--tl-radius);
+        padding: 22px 26px;
+        margin-bottom: 22px;
+        box-shadow: var(--tl-shadow);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+    }
+    .tl-hero h1 {
+        font-family: 'Merriweather', Georgia, serif;
+        font-size: 1.35rem;
+        margin: 0 0 4px;
+        letter-spacing: 0.2px;
+    }
+    .tl-hero .tl-sub { font-size: 0.88rem; opacity: 0.9; display: flex; gap: 10px; flex-wrap: wrap; }
+    .tl-hero .tl-sub .sep { opacity: 0.5; }
+    .tl-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+    .tl-actions { display: flex; gap: 10px; align-items: center; }
+    .tl-refresh {
+        background: #fff;
+        color: var(--tl-navy);
+        border: none;
+        border-radius: 8px;
+        padding: 9px 16px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .tl-refresh:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18); }
+    .tl-refresh:active { transform: translateY(0); }
+    .tl-refresh .lbl { display: inline-flex; align-items: center; gap: 6px; }
+    .tl-refresh .spinner { display: none; animation: tl-spin 0.8s linear infinite; }
+    .tl-refresh.loading .spinner { display: inline-block; }
+    .tl-refresh.loading .lbl { opacity: 0.7; }
+    @keyframes tl-spin { to { transform: rotate(360deg); } }
+
+    .tl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .tl-stat {
+        background: var(--tl-card);
+        border: 1px solid var(--tl-line);
+        border-radius: var(--tl-radius);
+        padding: 14px 16px;
+        box-shadow: var(--tl-shadow);
+    }
+    .tl-stat .v { font-size: 1.6rem; font-weight: 700; color: var(--tl-navy); line-height: 1.1; }
+    .tl-stat .k { font-size: 0.75rem; color: var(--tl-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+    .tl-card { background: var(--tl-card); border: 1px solid var(--tl-line); border-radius: var(--tl-radius); box-shadow: var(--tl-shadow); padding: 20px 22px; margin-bottom: 22px; }
+    .tl-card h2 { font-family: 'Merriweather', Georgia, serif; font-size: 1.02rem; color: var(--tl-ink); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+    .tl-card h2 i { color: var(--tl-navy); }
+
+    /* ---- Warnings ---- */
+    .tl-warnings { display: none; }
+    .tl-warnings.show { display: block; }
+    .tl-warning {
+        display: flex; gap: 10px; align-items: flex-start;
+        background: #fff7e6; border: 1px solid #f0d48a; color: #7a4e00;
+        border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.85rem;
+    }
+    .tl-warning i { margin-top: 2px; }
+    .tl-none { color: var(--tl-green); font-size: 0.85rem; display: none; }
+    .tl-none.show { display: block; }
+
+    /* ---- Vertical timeline ---- */
+    .tl-timeline { position: relative; padding: 6px 0 2px; }
+    .tl-timeline::before {
+        content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
+        width: 3px; transform: translateX(-50%);
+        background: linear-gradient(to bottom, transparent, var(--tl-line) 4%, var(--tl-line) 96%, transparent);
+        border-radius: 2px;
+    }
+    .tl-node { position: relative; width: 50%; padding: 0 34px 26px; }
+    .tl-node:nth-child(odd) { left: 0; text-align: right; }
+    .tl-node:nth-child(even) { left: 50%; text-align: left; }
+    .tl-marker {
+        position: absolute; top: 2px; width: 34px; height: 34px; border-radius: 50%;
+        background: #fff; border: 3px solid var(--node-color, var(--tl-navy));
+        display: flex; align-items: center; justify-content: center;
+        color: var(--node-color, var(--tl-navy)); font-size: 0.9rem;
+        box-shadow: 0 2px 6px rgba(11, 61, 145, 0.18);
+        z-index: 1;
+    }
+    .tl-node:nth-child(odd) .tl-marker { right: -17px; }
+    .tl-node:nth-child(even) .tl-marker { left: -17px; }
+    .tl-node .tl-date { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px; color: var(--tl-muted); text-transform: uppercase; margin-bottom: 3px; }
+    .tl-node .tl-label { font-weight: 700; font-size: 0.92rem; color: var(--tl-ink); }
+    .tl-node .tl-desc { font-size: 0.83rem; color: var(--tl-muted); margin-top: 3px; line-height: 1.45; }
+    .tl-node .tl-doc { display: inline-block; margin-top: 7px; font-size: 0.78rem; }
+    .tl-node .tl-doc a {
+        color: var(--tl-navy); text-decoration: none; font-weight: 600;
+        border-bottom: 1px dashed #9db3dd; padding-bottom: 1px; transition: color 0.15s ease;
+    }
+    .tl-node .tl-doc a:hover { color: #1550a8; border-bottom-style: solid; }
+
+    /* ---- Gantt ---- */
+    .tl-gantt { margin-top: 6px; }
+    .tl-gantt-axis { display: flex; border-bottom: 1px solid var(--tl-line); margin-left: 0; }
+    .tl-gantt-axis .cell { flex: 1; text-align: center; font-size: 0.68rem; color: var(--tl-muted); text-transform: uppercase; letter-spacing: 0.4px; padding-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tl-gantt-track { position: relative; height: 44px; border-bottom: 1px solid #eef1f6; }
+    .tl-gantt-track .bg-line { position: absolute; top: 0; bottom: 0; border-left: 1px dashed #edf0f5; }
+    .tl-gantt-bar {
+        position: absolute; top: 8px; height: 28px; border-radius: 7px;
+        background: var(--node-color, var(--tl-navy));
+        color: #fff; font-size: 0.72rem; font-weight: 600;
+        display: flex; align-items: center; gap: 6px;
+        padding: 0 10px; overflow: hidden; white-space: nowrap;
+        box-shadow: 0 2px 6px rgba(11, 61, 145, 0.2);
+        cursor: default; min-width: 18px;
+        transition: filter 0.15s ease, transform 0.15s ease;
+    }
+    .tl-gantt-bar:hover { filter: brightness(1.08); transform: translateY(-1px); z-index: 2; }
+    .tl-gantt-bar .g-date { opacity: 0.85; font-weight: 400; }
+    .tl-gantt-now {
+        position: absolute; top: 0; bottom: 0; width: 2px; background: var(--tl-red); z-index: 1;
+    }
+    .tl-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #eef1f6; }
+    .tl-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--tl-muted); }
+    .tl-legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+    .tl-loading, .tl-error { padding: 40px; text-align: center; color: var(--tl-muted); font-size: 0.9rem; }
+    .tl-error { color: var(--tl-red); }
+
+    /* ---- Mobile ---- */
+    @media (max-width: 767px) {
+        .tl-timeline::before { left: 17px; }
+        .tl-node, .tl-node:nth-child(odd), .tl-node:nth-child(even) { width: 100%; left: 0; text-align: left; padding: 0 0 22px 48px; }
+        .tl-node:nth-child(odd) .tl-marker, .tl-node:nth-child(even) .tl-marker { left: 0; right: auto; }
+        .tl-hero { padding: 18px; }
+        .tl-actions { width: 100%; justify-content: flex-end; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tl-hero">
+    <div>
+        <h1><i class="fa-solid fa-timeline"></i> Case Timeline</h1>
+        <div class="tl-sub">
+            <span id="tlCaseNumber">{{ case_number or '—' }}</span>
+            <span class="sep">·</span>
+            <span id="tlParty">…</span>
+            <span class="sep">·</span>
+            <span class="tl-badge">{{ 'Sample-based case' if case_type == 'case_file' else 'Non-sample adjudication' }}</span>
+        </div>
+    </div>
+    <div class="tl-actions">
+        {% if case_id is not none %}
+        <a class="tl-refresh" href="{{ url_for('case_file_generator.edit_case', case_id=case_id) }}"
+           title="Open in document editor">
+            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit case</span>
+        </a>
+        {% elif adjudication_id is not none %}
+        <a class="tl-refresh" href="{{ url_for('adjudication.edit_case', case_id=adjudication_id) }}"
+           title="Open in document editor">
+            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit case</span>
+        </a>
+        {% endif %}
+        <button type="button" class="tl-refresh" id="tlRefresh" title="Regenerate timeline from record dates">
+            <i class="fa-solid fa-rotate-right spinner"></i><span class="lbl"><i class="fa-solid fa-arrows-rotate"></i> Refresh</span>
+        </button>
+    </div>
+</div>
+
+<div class="tl-stats" id="tlStats" hidden>
+    <div class="tl-stat"><div class="v" id="stTotal">0</div><div class="k">Milestones</div></div>
+    <div class="tl-stat"><div class="v" id="stSpan">0</div><div class="k">Days span</div></div>
+    <div class="tl-stat"><div class="v" id="stDocs">0</div><div class="k">Linked documents</div></div>
+    <div class="tl-stat"><div class="v" id="stWarns">0</div><div class="k">Sequence warnings</div></div>
+</div>
+
+<div class="tl-card">
+    <h2><i class="fa-solid fa-triangle-exclamation"></i> Chronology checks</h2>
+    <div class="tl-warnings" id="tlWarnings"></div>
+    <div class="tl-none" id="tlNoWarnings"><i class="fa-solid fa-circle-check"></i> All milestone dates are in a valid chronological order.</div>
+</div>
+
+<div class="tl-card">
+    <h2><i class="fa-solid fa-list-ul"></i> Milestone timeline</h2>
+    <div id="tlLoading" class="tl-loading"><i class="fa-solid fa-spinner fa-spin"></i> Building timeline…</div>
+    <div id="tlError" class="tl-error" hidden></div>
+    <div class="tl-timeline" id="tlTimeline"></div>
+</div>
+
+<div class="tl-card">
+    <h2><i class="fa-solid fa-chart-gantt"></i> Gantt overview</h2>
+    <div class="tl-gantt" id="tlGantt"></div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var API_URL = {{ api_url | tojson }};
+    var REFRESH_URL = {{ refresh_url | tojson }};
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function fmtDate(iso) {
+        if (!iso) return "";
+        var d = new Date(iso);
+        return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    function fmtTime(iso) {
+        if (!iso) return "";
+        var d = new Date(iso);
+        return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // ---- Vertical timeline -------------------------------------------------
+    function renderTimeline(events, container) {
+        container.innerHTML = "";
+        events.forEach(function (ev, idx) {
+            var node = document.createElement("div");
+            node.className = "tl-node";
+            node.style.setProperty("--node-color", ev.color || "#0b3d91");
+
+            var marker = document.createElement("div");
+            marker.className = "tl-marker";
+            marker.innerHTML = '<i class="fa-solid ' + escapeHtml(ev.icon || "fa-circle") + '"></i>';
+
+            var body = document.createElement("div");
+            var date = document.createElement("div");
+            date.className = "tl-date";
+            date.textContent = fmtDate(ev.timestamp) + " · " + fmtTime(ev.timestamp);
+
+            var label = document.createElement("div");
+            label.className = "tl-label";
+            label.textContent = ev.label;
+
+            var desc = document.createElement("div");
+            desc.className = "tl-desc";
+            desc.textContent = ev.description || "";
+
+            body.appendChild(date);
+            body.appendChild(label);
+            body.appendChild(desc);
+
+            if (ev.document_url) {
+                var doc = document.createElement("div");
+                doc.className = "tl-doc";
+                var a = document.createElement("a");
+                a.href = ev.document_url;
+                a.target = "_blank";
+                a.rel = "noopener";
+                a.innerHTML = '<i class="fa-solid fa-file-lines"></i> ' + escapeHtml(ev.document_label || "Open document");
+                doc.appendChild(a);
+                body.appendChild(doc);
+            }
+
+            node.appendChild(marker);
+            node.appendChild(body);
+            container.appendChild(node);
+        });
+
+        if (!events.length) {
+            container.innerHTML = '<div class="tl-loading">No dated milestones found for this case yet.</div>';
+        }
+    }
+
+    // ---- Gantt -------------------------------------------------------------
+    function renderGantt(events, container) {
+        container.innerHTML = "";
+        if (!events.length) return;
+
+        var start = new Date(events[0].timestamp);
+        var end = new Date(events[events.length - 1].timestamp);
+        var totalMs = Math.max(1, end - start);
+
+        // Month columns for the axis.
+        var months = [];
+        var cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+        while (cursor <= end) {
+            months.push(new Date(cursor));
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+        }
+
+        var axis = document.createElement("div");
+        axis.className = "tl-gantt-axis";
+        months.forEach(function (m) {
+            var cell = document.createElement("div");
+            cell.className = "cell";
+            cell.textContent = m.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+            axis.appendChild(cell);
+        });
+        container.appendChild(axis);
+
+        var track = document.createElement("div");
+        track.className = "tl-gantt-track";
+
+        // Column separators.
+        months.forEach(function (m) {
+            var pct = ((m - start) / totalMs) * 100;
+            var line = document.createElement("div");
+            line.className = "bg-line";
+            line.style.left = pct + "%";
+            track.appendChild(line);
+        });
+
+        // "Today" marker.
+        var now = new Date();
+        if (now >= start && now <= end) {
+            var nowLine = document.createElement("div");
+            nowLine.className = "tl-gantt-now";
+            nowLine.style.left = ((now - start) / totalMs) * 100 + "%";
+            nowLine.title = "Today";
+            track.appendChild(nowLine);
+        }
+
+        // Bars — single day = 1.6% width minimum so tiny ranges stay visible.
+        events.forEach(function (ev) {
+            var t = new Date(ev.timestamp);
+            var left = ((t - start) / totalMs) * 100;
+            var width = Math.max(1.6, (24 * 3600 * 1000) / totalMs * 100);
+            var bar = document.createElement("div");
+            bar.className = "tl-gantt-bar";
+            bar.style.setProperty("--node-color", ev.color || "#0b3d91");
+            bar.style.left = left + "%";
+            bar.style.width = width + "%";
+            bar.title = ev.label + " — " + fmtDate(ev.timestamp) + (ev.description ? " — " + ev.description : "");
+
+            var icon = document.createElement("i");
+            icon.className = "fa-solid " + (ev.icon || "fa-circle");
+            var labelSpan = document.createElement("span");
+            labelSpan.textContent = ev.label;
+            var dateSpan = document.createElement("span");
+            dateSpan.className = "g-date";
+            dateSpan.textContent = ev.date || "";
+
+            bar.appendChild(icon);
+            bar.appendChild(labelSpan);
+            bar.appendChild(dateSpan);
+            track.appendChild(bar);
+        });
+
+        container.appendChild(track);
+
+        // Legend (unique event types, first-seen order).
+        var legend = document.createElement("div");
+        legend.className = "tl-legend";
+        var seen = {};
+        events.forEach(function (ev) {
+            if (seen[ev.event_type]) return;
+            seen[ev.event_type] = true;
+            var item = document.createElement("div");
+            item.className = "tl-legend-item";
+            var swatch = document.createElement("span");
+            swatch.className = "tl-legend-swatch";
+            swatch.style.background = ev.color || "#0b3d91";
+            item.appendChild(swatch);
+            item.appendChild(document.createTextNode(ev.label));
+            legend.appendChild(item);
+        });
+        container.appendChild(legend);
+    }
+
+    // ---- Refresh -----------------------------------------------------------
+    function wireRefresh() {
+        var btn = document.getElementById("tlRefresh");
+        btn.addEventListener("click", function () {
+            btn.classList.add("loading");
+            fetch(REFRESH_URL, { method: "POST" })
+                .then(function (r) { return r.json(); })
+                .then(function () { return load(); })
+                .catch(function () {
+                    btn.classList.remove("loading");
+                    showError("Could not refresh the timeline.");
+                })
+                .finally(function () { btn.classList.remove("loading"); });
+        });
+    }
+
+    function showError(msg) {
+        document.getElementById("tlError").textContent = msg;
+        document.getElementById("tlError").hidden = false;
+        document.getElementById("tlLoading").hidden = true;
+    }
+
+    function load() {
+        var loading = document.getElementById("tlLoading");
+        loading.hidden = false;
+        loading.textContent = "Building timeline…";
+
+        return fetch(API_URL)
+            .then(function (res) {
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                loading.hidden = true;
+                document.getElementById("tlError").hidden = true;
+
+                document.getElementById("tlParty").textContent = data.party_name || "—";
+
+                var events = data.events || [];
+                var warnings = data.warnings || [];
+
+                // Stats.
+                var docs = events.filter(function (e) { return e.document_url; }).length;
+                var spanDays = events.length > 1
+                    ? Math.max(0, Math.round((new Date(events[events.length - 1].timestamp) - new Date(events[0].timestamp)) / 86400000))
+                    : 0;
+                document.getElementById("stTotal").textContent = events.length;
+                document.getElementById("stSpan").textContent = spanDays;
+                document.getElementById("stDocs").textContent = docs;
+                document.getElementById("stWarns").textContent = warnings.length;
+                document.getElementById("tlStats").hidden = false;
+
+                // Warnings.
+                var warnBox = document.getElementById("tlWarnings");
+                warnBox.innerHTML = "";
+                var hasWarnings = warnings.length > 0;
+                warnBox.classList.toggle("show", hasWarnings);
+                document.getElementById("tlNoWarnings").classList.toggle("show", !hasWarnings);
+                warnings.forEach(function (w) {
+                    var div = document.createElement("div");
+                    div.className = "tl-warning";
+                    div.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>' + escapeHtml(w.message) + "</span>";
+                    warnBox.appendChild(div);
+                });
+
+                renderTimeline(events, document.getElementById("tlTimeline"));
+                renderGantt(events, document.getElementById("tlGantt"));
+            })
+            .catch(function (err) {
+                showError("Failed to load the timeline: " + err.message);
+            });
+    }
+
+    wireRefresh();
+    load();
+})();
+</script>
+{% endblock %}
