@@ -303,8 +303,9 @@ static/assets/
 *.pb
 embeddings/
 vector-store/
-models/
-!app/models.py  # Keep our SQLAlchemy models
+/models/           # ML model-weight directory (root-level only — anchored so it never matches app/models/).
+                   # app/models/ (the SQLAlchemy models package) is intentionally NOT ignored here.
+
 weights/
 checkpoints/
 

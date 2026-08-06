@@ -1,0 +1,65 @@
+"""Inspection and FSO related models."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import ClassVar
+
+from app.extensions import db
+
+
+class FSO(db.Model):
+    __tablename__ = "fso"
+
+    fso_name = db.Column(db.String(100), primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (db.Index("idx_fso_name", "fso_name"),)
+
+
+class Inspection(db.Model):
+    __tablename__ = "inspection"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    version_id = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__: ClassVar[dict] = {
+        "version_id_col": version_id,
+    }
+    inspection_code = db.Column(db.String(50), nullable=False, unique=True)
+    fso_name = db.Column(db.String(100), db.ForeignKey("fso.fso_name"), nullable=False)
+    fssai_license = db.Column(db.String(50), nullable=True)
+    ce_license_no = db.Column(db.String(100), nullable=True)
+    fbo_name = db.Column(db.String(200), nullable=True)
+    fbo_address = db.Column(db.Text, nullable=True)
+    concerned_food = db.Column(db.String(200), nullable=True)
+    problem = db.Column(db.Text, nullable=True)
+    inspection_date = db.Column(db.DateTime, nullable=False)
+    compliance_deadline = db.Column(db.DateTime, nullable=False)
+    is_dismissed = db.Column(db.Boolean, default=False)
+    dismissed_by = db.Column(db.String(100), nullable=True)
+    dismissed_at = db.Column(db.DateTime, nullable=True)
+    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    synced_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index("idx_inspection_code", "inspection_code"),
+        db.Index("idx_inspection_date", "inspection_date"),
+        db.Index("idx_inspection_compliance_deadline", "compliance_deadline"),
+        db.Index("idx_inspection_fso_name", "fso_name"),
+    )
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_log"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_type = db.Column(db.String, nullable=False)
+    entity_id = db.Column(db.String, nullable=False)
+    action = db.Column(db.String, nullable=False)
+    actor = db.Column(db.String, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
+    prev_hash = db.Column(db.String, nullable=True)
+    curr_hash = db.Column(db.String, nullable=True)
+    details_json = db.Column(db.Text, nullable=True)
