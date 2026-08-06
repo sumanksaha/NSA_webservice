@@ -102,9 +102,15 @@ class Comment(db.Model):
 
 
 # Convenience relationship so ``user.roles`` is queryable once the table exists.
+# Deliberately NOT lazy="joined": the RBAC tables (role/user_roles) can lag
+# behind in some deployments (see migrations/versions/fix_rbac_tables.py), and
+# eager-joining them would make EVERY User query — login, user_loader on each
+# request — crash with `relation "user_roles" does not exist`. Lazy loading
+# keeps auth resilient and avoids a join on every request; Phase 18 RBAC is not
+# wired up yet, so nothing accesses user.roles today.
 User.roles = db.relationship(  # type: ignore[attr-defined]
     "Role",
     secondary="user_roles",
     backref="users",
-    lazy="joined",
+    lazy="select",
 )

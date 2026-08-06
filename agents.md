@@ -87,7 +87,7 @@ NSA_webservice/
 │   ├── static/                   # CSS, JS (Quill vendor, editor.js, task_status.js)
 │   ├── templates/base.html       # Master layout (global Timeline case-picker)
 │   └── version_control/          # Version history UI + routes
-├── migrations/                   # Alembic — 26 migration files (newest: add_food_cell_do_intimation)
+├── migrations/                   # Alembic — 27 migration files (newest: fix_rbac_tables)
 ├── tests/                        # 39 pytest modules, ~700+ test cases
 ├── legal_paragraph_detection_engine/  # Standalone rule-based legal parser
 ├── scripts/                      # Utility scripts (create_user.py kept; others deleted)

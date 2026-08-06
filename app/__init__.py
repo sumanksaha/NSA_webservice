@@ -400,6 +400,44 @@ def create_app():
                         "`flask db upgrade` may replay the full chain next deploy.",
                         exc,
                     )
+        else:
+            # Existing database — self-heal tables that `flask db upgrade`
+            # can NEVER create: a migration inserted mid-chain (e.g. the
+            # Phase 18 `a1b2c3d4e5f6` role/user_roles/comment migration) is an
+            # ancestor of the DB's current version, so Alembic never replays it
+            # and its tables stay missing (login crashed with
+            # `relation "user_roles" does not exist`). create_all() is only
+            # safe here when the DB is stamped at head — then no migration is
+            # pending that could later collide with the created tables.
+            try:
+                from alembic.config import Config as AlembicConfig
+                from alembic.script import ScriptDirectory
+                from sqlalchemy import text
+
+                migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
+                alembic_cfg = AlembicConfig(str(migrations_dir / "alembic.ini"))
+                alembic_cfg.set_main_option("script_location", str(migrations_dir))
+                if "alembic_version" in inspector.get_table_names():
+                    with engine.connect() as conn:
+                        db_version = conn.execute(
+                            text("SELECT version_num FROM alembic_version"),
+                        ).scalar()
+                    if db_version and db_version == ScriptDirectory.from_config(alembic_cfg).get_current_head():
+                        before = set(inspector.get_table_names())
+                        # Concurrent boots (web + Celery worker) may both reach
+                        # this; create_all only adds genuinely missing tables and
+                        # a duplicate-CREATE race is caught below (non-fatal).
+                        db.create_all()
+                        created = sorted(set(sa_inspect(engine).get_table_names()) - before)
+                        if created:
+                            app.logger.warning(
+                                "Schema self-heal: created missing model tables %s (DB stamped at "
+                                "migration head — `flask db upgrade` cannot replay mid-chain "
+                                "insertions).",
+                                created,
+                            )
+            except Exception as exc:
+                app.logger.warning("Schema self-heal skipped: %s", exc)
 
         # Create FTS5 search virtual table on SQLite (no-op on PostgreSQL).
         # This runs unconditionally so the table exists even on a pre-existing
