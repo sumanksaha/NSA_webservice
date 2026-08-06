@@ -77,10 +77,10 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Python ${{ env.PYTHON_VERSION }}
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ env.PYTHON_VERSION }}
                   cache: "pip"
@@ -107,10 +107,10 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Python ${{ env.PYTHON_VERSION }}
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ env.PYTHON_VERSION }}
                   cache: "pip"
@@ -137,10 +137,10 @@ jobs:
         timeout-minutes: 15
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Python ${{ env.PYTHON_VERSION }}
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ env.PYTHON_VERSION }}
                   cache: "pip"
@@ -174,10 +174,10 @@ jobs:
                     # - macos-15  # Uncomment when macOS testing is needed
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Python ${{ env.PYTHON_VERSION }}
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ env.PYTHON_VERSION }}
                   cache: "pip"
@@ -211,7 +211,7 @@ jobs:
 
             - name: Upload coverage report
               if: success()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: coverage-report-${{ matrix.os }}
                   path: coverage.xml
@@ -219,7 +219,7 @@ jobs:
 
             - name: Upload test results
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: test-results-${{ matrix.os }}
                   path: |
@@ -236,10 +236,10 @@ jobs:
         timeout-minutes: 15
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Python ${{ env.PYTHON_VERSION }}
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ env.PYTHON_VERSION }}
                   cache: "pip"
@@ -271,7 +271,7 @@ jobs:
 
             - name: Upload Bandit SARIF results
               if: always()
-              uses: github/codeql-action/upload-sarif@v3
+              uses: github/codeql-action/upload-sarif@v4.37.3
               with:
                   sarif_file: bandit-results.sarif
                   category: bandit
@@ -286,7 +286,7 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Validate documentation files exist
               run: |
@@ -354,7 +354,7 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up Node
               uses: actions/setup-node@v4
