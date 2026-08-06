@@ -175,5 +175,10 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
             logger.warning("QStash publish failed for %s (%s) — falling back to sync", task_name, exc)
 
     # Synchronous fallback — matches pre-QStash behavior.
+    logger.warning(
+        "QStash not fully configured (QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / "
+        "QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL) — executing %s synchronously",
+        task_name,
+    )
     result = resolve_task(task_name).apply(kwargs=payload).result
     return {"mode": "sync", "result": result}

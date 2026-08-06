@@ -34,11 +34,23 @@ def health():
     except (ImportError, AttributeError):
         memory_mb = None
 
+    # WeasyPrint availability — the PDF-generation pipeline depends on it and
+    # its import can fail on hosts missing the Pango system libraries. Surfacing
+    # it here makes the PDF engine's health checkable via a public GET.
+    weasyprint = "unavailable"
+    try:
+        import weasyprint
+
+        weasyprint = f"ok ({weasyprint.__version__})"
+    except Exception as exc:  # noqa: BLE001 — report any import failure
+        weasyprint = f"unavailable: {exc!s}"
+
     payload = {
         "status": "ok" if db_status == "connected" else "degraded",
         "database": db_status,
         "authenticated": current_user.is_authenticated if current_user else False,
         "memory_mb": memory_mb,
+        "weasyprint": weasyprint,
         "timestamp": datetime.now(UTC).isoformat(),
     }
     code = 200 if db_status == "connected" else 503

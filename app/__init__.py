@@ -270,6 +270,7 @@ def create_app():
     public_endpoints = {
         "auth.login",
         "static",
+        "health.health",
         # Lookup endpoints - public for form prefill/autocomplete
         "case_file_generator.lookup_sample",
         "case_file_generator.list_samples_for_datalist",
@@ -332,6 +333,7 @@ def create_app():
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp
     from app.fbo_issue.routes import fbo_issue_bp
+    from app.health import health_bp
     from app.inspection.routes import inspection_bp
     from app.legal_analysis import legal_analysis_bp
     from app.sample.routes import sample_bp
@@ -363,6 +365,7 @@ def create_app():
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(annexure_bp, url_prefix="/annexure")
     app.register_blueprint(validation_bp, url_prefix="/validation")
+    app.register_blueprint(health_bp)
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
