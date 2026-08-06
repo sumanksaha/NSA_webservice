@@ -357,6 +357,11 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ license_no: licNo })
             });
+            if (resp.redirected) {
+                ceStatus.textContent = "Your session may have expired. Please log in again and retry.";
+                ceStatus.className = "status-indicator status--error";
+                return;
+            }
             const data = await resp.json();
             if (!resp.ok || !data.identity) {
                 ceStatus.textContent = data.error || "Trade license not found.";
@@ -403,6 +408,11 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ license_no: licNo })
             });
+            if (resp.redirected) {
+                fssaiStatus.textContent = "Your session may have expired. Please log in again and retry.";
+                fssaiStatus.className = "status-indicator status--error";
+                return;
+            }
             const data = await resp.json();
             if (!resp.ok || !data.identity) {
                 fssaiStatus.textContent = data.error || "License not found in FSSAI records.";
@@ -450,6 +460,11 @@
                 method: "POST",
                 body: formData
             });
+            if (resp.redirected) {
+                suggestStatus.textContent = "Your session may have expired. Please log in again and retry.";
+                suggestStatus.className = "status-indicator status--error";
+                return;
+            }
             const data = await resp.json();
 
             const manualSelected = new Set(

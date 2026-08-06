@@ -274,6 +274,7 @@ def create_app():
         # Lookup endpoints - public for form prefill/autocomplete
         "case_file_generator.lookup_sample",
         "case_file_generator.list_samples_for_datalist",
+        "case_file_generator.lookup_fssai_route",
         "adjudication.lookup_ce_route",
         "adjudication.lookup_fssai_route",
         "inspection.lookup_ce_route",

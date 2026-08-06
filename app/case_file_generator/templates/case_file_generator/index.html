@@ -378,15 +378,36 @@
                 body: JSON.stringify({ license_no: licenseNo })
             });
 
-            const result = await response.json();
+            // A redirected response is a login page, never JSON — the most
+            // common cause is an expired session. Surface it clearly instead
+            // of failing on the JSON parse.
+            if (response.redirected) {
+                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
+                infoDiv.className = 'info-box info-box--error';
+                return;
+            }
 
-            if (result.error) {
-                infoDiv.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${result.error}`;
+            let result;
+            try {
+                result = await response.json();
+            } catch (parseError) {
+                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Unexpected response from server (HTTP ' + response.status + ')';
+                infoDiv.className = 'info-box info-box--error';
+                return;
+            }
+
+            if (!response.ok || result.error) {
+                infoDiv.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${result.error || ('Lookup failed (HTTP ' + response.status + ')')}`;
                 infoDiv.className = 'info-box info-box--error';
                 return;
             }
 
             const identity = result.identity;
+            if (!identity) {
+                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> No FBO data returned for this number.';
+                infoDiv.className = 'info-box info-box--error';
+                return;
+            }
 
             document.getElementById(`${type}_person_name`).value = identity.companyName || '';
             document.getElementById(`${type}_trade_name`).value = identity.companyName || '';
@@ -401,7 +422,7 @@
 
         } catch (error) {
             console.error('Lookup error:', error);
-            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error fetching FSSAI data. Please try again.';
+            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error fetching FSSAI data: ' + error.message;
             infoDiv.className = 'info-box info-box--error';
         }
     }
