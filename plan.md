@@ -306,6 +306,58 @@ Primary:  PostgreSQL (Render)
 | `MS_DRIVE_ID`        | SharePoint/OneDrive drive ID     | Excel sync |
 | `MS_SPREADDHEET_ID`  | Excel file ID in OneDrive/Share  | Excel sync |
 
+### Airtable API Key Management — How the App Gets & Holds the Key
+
+> The Airtable API key (`AIRTABLE_API_KEY`) follows a **multi-layer, environment-driven
+> security model** — it is **never hardcoded** in source code. It is read from environment
+> variables at runtime and threaded through Flask's `app.config`.
+
+**1. Source — Environment Variables (never committed):**
+
+| Variable | Purpose | Source |
+|----------|---------|--------|
+| `AIRTABLE_API_KEY` | Airtable personal access token (starts with `pat…`) | **Production**: Render Dashboard (manually entered). **Local dev**: `.env` (gitignored, loaded via `load_dotenv()`) |
+| `AIRTABLE_BASE_ID` | Primary Airtable base ID (starts with `app…`) | Same as above |
+| `ENABLE_AIRTABLE_SYNC` | Feature flag — defaults to `false` | Set to `"true"` in `render.yaml` for production; `"false"` if unset |
+| `ENABLE_BACKUP_SCHEDULE` | Gates the QStash daily backup schedule | Must be `"true"` to activate; dormant otherwise |
+
+**2. Config Loading (`app/__init__.py::create_app`, ~line 187–191):**
+
+```python
+app.config["AIRTABLE_API_KEY"]    = os.environ.get("AIRTABLE_API_KEY")
+app.config["AIRTABLE_BASE_ID"]    = os.environ.get("AIRTABLE_BASE_ID")
+app.config["ENABLE_AIRTABLE_SYNC"] = os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
+```
+
+`render.yaml` declares `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` as `sync: false` → manually
+entered in the Render Dashboard, never stored in code or committed to the repo.
+
+**3. Client creation (`app/services/airtable_sync.py::_get_client`):** lazily creates a
+thread-local-cached `pyairtable.Api` instance. Reads from `current_app.config` first, then falls
+back to `os.environ['AIRTABLE_API_KEY']`. Returns `None` if the key is missing or `pyairtable`
+is not installed — the app **always boots** regardless of Airtable availability.
+
+**4. Usage in the sync flow (`sync_to_airtable`):** gates on `ENABLE_AIRTABLE_SYNC` (both
+Airtable and Excel are dormant by default; only Airtable is enabled in production via
+`render.yaml`). Then: get client → `_get_base_id()` (honors 1,200-record base rotation) →
+`client.table(base_id, table_name).insert(fields)` → track mapping in the `AirtableBaseMap`
+model. Every failure is logged but never blocks the core operation.
+
+**5. Backup path (daily QStash schedule):** when `ENABLE_BACKUP_SCHEDULE=true`, startup
+registers a QStash recurring task (`0 2 * * *` daily at 02:00 UTC) →
+`backup_coordinator.run_backup()` → `export_airtable_all_bases_to_r2()`, which writes a
+combined CSV of all Airtable bases to R2 (`nsa_backups/airtable_csv/`, local fallback at
+`instance/backups/airtable_csv/`).
+
+**6. Restore path (SQLite fallback):** `restore_if_empty()` (`app/utils/sync.py`, line 415) on an
+empty SQLite DB tries, in order: `restore_from_airtable_csv()` → `restore_from_excel_csv()` →
+`restore_from_sheets_csv()`. Each downloads the R2 CSV, strips Airtable metadata (`base_id`,
+`id`), maps rows to models with type coercion, and commits.
+
+**Key points:** never in code · optional (flag defaults off) · graceful degradation (missing
+key / missing package / API failure) · Render Dashboard provisioning (`sync: false`) ·
+`.env` for local dev · sample placeholder values in `.env.example` (no real tokens).
+
 ### Integration Points with Existing Codebase
 
 | Existing File                  | Extension Point                                                                 |
