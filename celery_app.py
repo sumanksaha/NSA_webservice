@@ -28,6 +28,7 @@ TASK_MODULES = [
     "app.bill_generator.tasks",
     "app.case_file_generator.tasks",
     "app.inspection.tasks",
+    "app.food_cell.tasks",
 ]
 
 # Standalone instance for task decoration — safe to import anywhere.

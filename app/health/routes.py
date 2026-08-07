@@ -45,12 +45,23 @@ def health():
     except Exception as exc:  # noqa: BLE001 — report any import failure
         weasyprint = f"unavailable: {exc!s}"
 
+    # QStash status — reports whether the serverless task-queue webhook
+    # can verify incoming signatures. When keys are absent the webhook
+    # returns 503; surfacing this here makes the gap visible via /health.
+    try:
+        from app.utils.qstash_client import qstash_configured
+
+        qstash = "configured" if qstash_configured() else "not-configured"
+    except Exception:
+        qstash = "not-configured"
+
     payload = {
         "status": "ok" if db_status == "connected" else "degraded",
         "database": db_status,
         "authenticated": current_user.is_authenticated if current_user else False,
         "memory_mb": memory_mb,
         "weasyprint": weasyprint,
+        "qstash": qstash,
         "timestamp": datetime.now(UTC).isoformat(),
     }
     code = 200 if db_status == "connected" else 503

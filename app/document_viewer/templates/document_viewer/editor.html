@@ -291,6 +291,10 @@
            {% if not toc_url %}style="display:none;"{% endif %}>
            <i class="fa-solid fa-list-ol"></i> TOC Report
         </a>
+        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=case_id, kind=case_type) }}"
+           class="btn btn-secondary" title="Open case timeline">
+            <i class="fa-solid fa-timeline"></i> Timeline
+        </a>
         <a href="{{ url_for('version_control.history_page', case_id_or_adjudication_id=case_id, kind=case_type) }}"
            class="btn btn-secondary" title="View document version history">
             <i class="fa-solid fa-clock-rotate-left"></i> History

@@ -36,25 +36,32 @@ def _load_sync_fns() -> None:
     global _sync_to_sheets, _sync_to_airtable, _sync_to_excel, _sync_lock
     if _sync_lock:
         return
-    _sync_lock = True
+
     try:
-        from app.utils.sync import sync_to_sheets
+        from app.services.sheets_sync import sync_to_sheets
+
         _sync_to_sheets = sync_to_sheets
     except Exception:  # noqa: BLE001
         _sync_to_sheets = None
         logger.warning("sync_to_sheets unavailable; DO intimation won't sync to Sheets")
+
     try:
         from app.services.airtable_sync import sync_to_airtable
+
         _sync_to_airtable = sync_to_airtable
     except Exception:  # noqa: BLE001
         _sync_to_airtable = None
         logger.warning("sync_to_airtable unavailable")
+
     try:
         from app.services.excel_sync import sync_to_excel
+
         _sync_to_excel = sync_to_excel
     except Exception:  # noqa: BLE001
         _sync_to_excel = None
         logger.warning("sync_to_excel unavailable")
+
+    _sync_lock = True
 
 
 def _resolve_sample(sample_id: int, sample: "Sample | None") -> "Sample | None":
@@ -67,6 +74,7 @@ def _resolve_sample(sample_id: int, sample: "Sample | None") -> "Sample | None":
 def _next_do_reference_no() -> str:
     """Generate a unique DO reference number via the CodeSequence table."""
     from app.models.billing import CodeSequence
+
     seq: CodeSequence | None = db.session.get(CodeSequence, "do_intimation")
     if seq is None:
         seq = CodeSequence(key="do_intimation", last_value=0)
@@ -81,6 +89,7 @@ def _next_do_reference_no() -> str:
 def _render_html(sample: "Sample") -> str:
     """Render the DO intimation HTML template for *sample*."""
     from flask import render_template
+
     return render_template("food_cell/do_intimation.html", sample=sample)
 
 
@@ -94,6 +103,7 @@ def _render_pdf(html: str, sample: "Sample") -> str:
     """
     from app.pdf_assembly import PDFAssemblyEngine
     from pathlib import Path
+
     engine = PDFAssemblyEngine()
     pdf_bytes, error = engine.generate_from_html(html)
     if pdf_bytes is None:
@@ -121,6 +131,7 @@ def _render_pdf(html: str, sample: "Sample") -> str:
 def _store_intimation(intimation: "DoIntimation", sample: "Sample", html: str, pdf_path: str) -> None:
     """Persist HTML and PDF paths on the *intimation* record."""
     from pathlib import Path
+
     html_dir = Path(current_app.instance_path) / "food_cell" / "html"
     html_dir.mkdir(parents=True, exist_ok=True)
     html_filename = f"do_intimation_{sample.id}_{int(datetime.now(UTC).timestamp())}.html"
@@ -143,15 +154,10 @@ def _build_sync_row(sample: "Sample", intimation: "DoIntimation") -> dict[str, A
         "retailer_name": getattr(sample, "retailer_name", ""),
         "collection_date": sample.collection_date.isoformat() if sample.collection_date else "",
         "do_reference_no": intimation.do_reference_no,
-        "food_cell_forwarded": (
-            intimation.food_cell_forwarded.isoformat()
-            if intimation.food_cell_forwarded
-            else ""
-        ),
+        "food_cell_forwarded": (intimation.food_cell_forwarded.isoformat() if intimation.food_cell_forwarded else ""),
         "status": intimation.status,
         "pdf_url": intimation.pdf_url or "",
     }
-
 
 
 def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, bool]:
@@ -163,6 +169,7 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
     results: dict[str, bool] = {}
     row = _build_sync_row(sample, intimation)
 
+    # Sync to Sheets (module key → worksheet name via WORKSHEET_MAP)
     if _sync_to_sheets is not None:
         try:
             _sync_to_sheets("food_cell_do_intimations", row)
@@ -173,9 +180,10 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
     else:
         results["sheets"] = False
 
+    # Sync to Airtable (module key → table name via AIRTABLE_TABLE_MAP)
     if _sync_to_airtable is not None:
         try:
-            _sync_to_airtable("FoodCellDOIntimations", row, intimation.id)
+            _sync_to_airtable("food_cell_do_intimations", row, intimation.id)
             results["airtable"] = True
         except Exception:  # noqa: BLE001
             logger.exception("sync_to_airtable failed for sample %s", sample.id)
@@ -183,6 +191,7 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
     else:
         results["airtable"] = False
 
+    # Sync to Excel Online (worksheet name via WORKSHEET_MAP)
     if _sync_to_excel is not None:
         try:
             _sync_to_excel("FoodCellDOIntimations", row)
@@ -262,7 +271,8 @@ def generate_and_forward_do_intimation(
 
     logger.info(
         "DO intimation generated for sample %s (ref=%s), sync=%s",
-        sample.id, do_ref, sync_results,
+        sample.id,
+        do_ref,
+        sync_results,
     )
     return intimation
-

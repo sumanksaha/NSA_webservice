@@ -1,6 +1,6 @@
 # Implementation Plan — NSA Webservice Roadmap (Phases 0–20)
 
-> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard, fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points), **Phase 21 (Food Cell DO Intimation)**, and 7/7 Performance Quick Wins all implemented & verified. Phases 11–12, 14–15, 17–20 pending.
+> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard, fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points), **Phase 21 (Food Cell DO Intimation)**, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests pass)**, and 7/7 Performance Quick Wins all implemented & verified. Phases 11–12, 14–15, 17–20 pending.
 
 > **Generated:** 2026-08-06  
 > **Source:** Consolidated from `ROADMAP_ALIGNMENT_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `ENGINEERING_ASSESSMENT.md`, and `technical_debt_implementation_plan.md`  
@@ -251,7 +251,7 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 
 ## 8. Multi-Target Sheets Redundancy Architecture
 
-> **Status:** ⚠️ Designed. Implementation planned (Priority 7 in `task.md`).
+> **Status:** ✅ Complete (2026-08-07). `app/utils/sync.py` — 12 new restore functions/variables (`restore_from_airtable_csv()`, `restore_from_excel_csv()`, `restore_from_sheets_csv()`, `restore_if_empty()` orchestrating Airtable → Excel → Sheets, `trigger_backup()`, `_restore_from_records()`, `_restore_module()`, `_parse_csv_value()`, `_is_empty_sqlite_db()` fixed to use `db.metadata.tables`, plus `_AIRTABLE_TABLE_MAP`/`_WORKSHEET_MAP`/`_SHEETS_RESTORE_MAP` maps). `app/__init__.py` — fixed Priority 7 config indentation, QStash daily backup schedule at 02:00 UTC (gated behind `ENABLE_BACKUP_SCHEDULE`). `app/settings/routes.py` — restored `backup_restore` route, added `backup_redundant_to_r2` + `backup_redundant_to_r2_status` routes. `tests/test_priority7_redundancy.py` — **43/43 tests pass**, no regressions.
 > **Goal:** Eliminate Google Sheets as a single point of failure by adding Airtable and Microsoft Excel Online as parallel real-time sync targets, with R2 CSV exports of each service for redundant restore.
 
 ### Architecture
@@ -261,21 +261,21 @@ Primary:  PostgreSQL (Render)
            │  (per-record push on create/update)
            ├──► Google Sheets       (gspread API)
            ├──► Airtable             (pyairtable API)  ← NEW
-           └──► Excel Online          (Microsoft Graph API)  ← NEW
+           └──► Excel Online          (Microsoft Graph API)  ← DORMANT (no M365 credentials)
            │
            └──► Daily QStash-triggered backup:
                 scripts/backup_redundant_sheets.py
                   ├──► Sheets  → CSV → Cloudflare R2
                   ├──► Airtable → CSV → Cloudflare R2  ← NEW
-                  └──► Excel  → CSV → Cloudflare R2  ← NEW
+                  └──► Excel  → CSV → Cloudflare R2  ← DORMANT
            │
            └──► On PG failure → SQLite fallback
                 └──► Restore chain:
                     1. R2 JSON backup (build_backup_archive format)
                     2. R2 CSV from Sheets (if R2 JSON unavailable)
                     3. R2 CSV from Airtable (if Sheets R2 gone)  ← NEW
-                    4. R2 CSV from Excel (if Airtable R2 gone)   ← NEW
-                    5. Live API pull (if all R2 backups gone)    ← NEW
+                    4. Live API pull (if Airtable R2 gone)      ← NEW (Excel dormant)
+                    5. Empty SQLite (graceful degradation)
                     6. Empty SQLite (graceful degradation)
 ```
 
@@ -291,8 +291,8 @@ Primary:  PostgreSQL (Render)
 
 | Package     | Purpose                          | Current Status |
 | ----------- | -------------------------------- | -------------- |
-| `pyairtable` | Airtable API client SDK          | New            |
-| `msal`       | Microsoft OAuth2 client credentials flow | New            |
+| `pyairtable` | Airtable API client SDK          | ✅ Added (2026-08-07)            |
+| `msal`       | Microsoft OAuth2 client credentials flow | ✅ Added (2026-08-07)            |
 
 ### New Environment Variables
 

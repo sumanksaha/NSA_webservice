@@ -54,9 +54,14 @@ dependencies = [
   "flask-login>=0.6.3",
   "celery>=5.6.3",
   "redis>=5.0.0",
-  "qstash>=3.4.0",          # Upstash QStash — serverless task queue (webhook-based, no worker)
+  "qstash>=3.4.0",          # Upstash QStash â serverless task queue (webhook-based, no worker)
 
-  "cloudinary>=1.40.0", # Cloudinary photo upload (active when CLOUDINARY_* env vars are set)
+   "cloudinary>=1.40.0", # Cloudinary photo upload (active when CLOUDINARY_* env vars are set)
+      "pyairtable>=1.0.0",  # Airtable sync - Multi-Target Sheets Redundancy (Priority 7)
+   "httpx>=0.27.0",      # HTTP client for Airtable base-rotation REST calls
+   "msal>=1.0.0",        # Microsoft Excel Online sync (MS Graph API auth)
+
+
 
   "pytesseract>=0.3.10",
   "pdf2image>=1.16.3",
@@ -69,8 +74,8 @@ dependencies = [
   "orjson>=3.10.0",
   "chardet>=5.0.0",
   "tqdm>=4.65.0",
-  "rapidfuzz>=3.0.0",    # fuzzy string matching — search fallback (Phase 10) + document cleaner normalizers
-  "numpy>=1.26.0",       # OCR pipeline runtime dependency (undeclared) — test_ocr_pipeline fails to collect without it
+  "rapidfuzz>=3.0.0",    # fuzzy string matching â search fallback (Phase 10) + document cleaner normalizers
+  "numpy>=1.26.0",       # OCR pipeline runtime dependency (undeclared) â test_ocr_pipeline fails to collect without it
 ]
 
 [project.urls]
@@ -81,7 +86,7 @@ Changelog = "https://github.com/sumanksaha/NSA_webservice/blob/upgradation/CHANG
 Issues = "https://github.com/sumanksaha/NSA_webservice/issues"
 
 # =============================================================================
-# Tool: Black — The uncompromising Python code formatter
+# Tool: Black â The uncompromising Python code formatter
 # =============================================================================
 [tool.black]
 line-length = 120
@@ -107,7 +112,7 @@ extend-exclude = '''
 '''
 
 # =============================================================================
-# Tool: Ruff — An extremely fast Python linter
+# Tool: Ruff â An extremely fast Python linter
 # =============================================================================
 [tool.ruff]
 target-version = "py312"
@@ -115,16 +120,16 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-  "F",   # Pyflakes — errors (unused imports, undefined names, etc.)
-  "E",   # Pycodestyle — errors
-  "W",   # Pycodestyle — warnings
-  "I",   # isort — import sorting
+  "F",   # Pyflakes â errors (unused imports, undefined names, etc.)
+  "E",   # Pycodestyle â errors
+  "W",   # Pycodestyle â warnings
+  "I",   # isort â import sorting
   "N",   # PEP 8 naming conventions
-  "UP",  # Pyupgrade — modern Python syntax
-  "S",   # Bandit — security checks
-  "B",   # flake8-bugbear — bug detection
-  "SIM", # flake8-simplify — code simplification
-  "T20", # flake8-print — print statements
+  "UP",  # Pyupgrade â modern Python syntax
+  "S",   # Bandit â security checks
+  "B",   # flake8-bugbear â bug detection
+  "SIM", # flake8-simplify â code simplification
+  "T20", # flake8-print â print statements
   "RUF", # Ruff-specific rules
 ]
 ignore = [
@@ -176,7 +181,7 @@ ignore = [
 preview = true
 
 # =============================================================================
-# Tool: Mypy — Static type checking
+# Tool: Mypy â Static type checking
 # =============================================================================
 [tool.mypy]
 python_version = "3.12"
@@ -236,7 +241,7 @@ module = [
 ignore_errors = true
 
 # =============================================================================
-# Tool: Pytest — Python testing framework
+# Tool: Pytest â Python testing framework
 # =============================================================================
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -253,7 +258,7 @@ filterwarnings = [
 ]
 
 # =============================================================================
-# Tool: Coverage.py — Code coverage measurement
+# Tool: Coverage.py â Code coverage measurement
 # =============================================================================
 [tool.coverage.run]
 source = ["app", "legal_paragraph_detection_engine.src"]
@@ -289,7 +294,7 @@ directory = "htmlcov"
 output = "coverage.xml"
 
 # =============================================================================
-# Tool: Bandit — Security linter (configured via pyproject.toml)
+# Tool: Bandit â Security linter (configured via pyproject.toml)
 # =============================================================================
 [tool.bandit]
 targets = ["app"]
@@ -311,7 +316,7 @@ confidence = "HIGH"
 severity = "HIGH"
 
 # =============================================================================
-# Tool: Setuptools — Python packaging
+# Tool: Setuptools â Python packaging
 # =============================================================================
 [tool.setuptools.packages.find]
 include = ["app*", "legal_paragraph_detection_engine*"]
@@ -337,7 +342,7 @@ exclude = [
 ]
 
 # =============================================================================
-# Tool: isort — Import sorting (used via Ruff, config here for reference)
+# Tool: isort â Import sorting (used via Ruff, config here for reference)
 # =============================================================================
 [tool.isort]
 profile = "black"

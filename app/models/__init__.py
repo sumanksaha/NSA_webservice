@@ -8,7 +8,7 @@ like ``from app.models import User`` continue to work transparently.
 # flake8: noqa: F401
 # ruff: noqa: F401
 
-from app.models.auth import Comment, RecordAudit, Role, User, user_roles
+from app.models.auth import AirtableBaseMap, Comment, RecordAudit, Role, User, user_roles
 from app.models.billing import Bill, BillSample, CodeSequence, Sample
 from app.models.config import AppSecret, Settings
 from app.models.document import (

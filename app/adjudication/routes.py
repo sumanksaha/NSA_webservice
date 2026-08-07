@@ -22,7 +22,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, sen
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.extensions import db
+from app.extensions import csrf, db
 from app.models import Adjudication, Evidence, FboIssue
 from app.services.audit import log_audit
 from app.services.sheets_sync import sync_to_sheets
@@ -241,6 +241,7 @@ _manager.register_routes(adjudication_bp)
 # --------------------------------------------------------------------------- #
 
 
+@csrf.exempt
 @adjudication_bp.route("/lookup_ce", methods=["POST"])
 def lookup_ce_route():
     payload = request.get_json() or {}
@@ -256,6 +257,7 @@ def lookup_ce_route():
     return jsonify(result)
 
 
+@csrf.exempt
 @adjudication_bp.route("/lookup_fssai", methods=["POST"])
 def lookup_fssai_route():
     payload = request.get_json() or {}
@@ -507,6 +509,22 @@ def generate_all():
             current_app.logger.warning("Adjudication: Sheets sync returned False - sync failed but not blocking")
     except Exception as e:
         current_app.logger.warning(f"Adjudication: Sheets sync failed: {e}")
+
+    # Multi-target sync: Airtable (best-effort)
+    try:
+        from app.services.airtable_sync import sync_to_airtable
+
+        sync_to_airtable("non_sample", row_dict, adj.id)
+    except Exception as e:
+        current_app.logger.warning(f"Adjudication: Airtable sync failed: {e}")
+
+    # Multi-target sync: Excel Online (best-effort)
+    try:
+        from app.services.excel_sync import sync_to_excel
+
+        sync_to_excel("non_sample", row_dict)
+    except Exception as e:
+        current_app.logger.warning(f"Adjudication: Excel sync failed: {e}")
 
     # Prepare context
     context = _prepare_adjudication_context(form_data)

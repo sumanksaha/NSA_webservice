@@ -26,10 +26,19 @@ TASK_REGISTRY: dict[str, tuple[str, str]] = {
     "generate_bill_pdf": ("app.bill_generator.tasks", "generate_bill_pdf"),
     "generate_case_file_pdf": ("app.case_file_generator.tasks", "generate_case_file_pdf"),
     "run_ocr_extraction": ("app.inspection.tasks", "run_ocr_extraction"),
+    "backup_redundant_sheets": ("app.services.backup_coordinator", "run_backup"),
 }
 
 # Path (relative to PUBLIC_BASE_URL) where the webhook accepts QStash deliveries.
 WEBHOOK_PATH = "/tasks/run"
+# Path where QStash sends failure callbacks after exhausting all retries.
+# (DLQ pattern � without this, a permanently-failed message leaves the Redis
+# status stuck at "pending" forever with no signal to operators.)
+FAILURE_CALLBACK_PATH = "/tasks/failed"
+
+# QStash schedule endpoint for recurring tasks.
+# Docs: https://upstash.com/docs/qstash/features/schedule
+_SCHEDULE_ENDPOINT = "schedule"
 
 # Redis keys + TTL for the task-status store (frontend polling).
 TASK_STATUS_KEY = "qstash:task:{message_id}"
@@ -118,6 +127,11 @@ def _webhook_url(task_name: str) -> str:
     return f"{base}{WEBHOOK_PATH}/{task_name}"
 
 
+def _failure_callback_url(task_name: str) -> str:
+    base = os.environ["PUBLIC_BASE_URL"].rstrip("/")
+    return f"{base}{FAILURE_CALLBACK_PATH}/{task_name}"
+
+
 def make_dedup_key(task_name: str, record_id: int | str, payload: dict) -> str:
     """Build a dedup key scoped to the task + record + payload content.
 
@@ -158,6 +172,7 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
                 retries=3,
                 timeout=120,
                 deduplication_id=dedup_key,
+                failure_callback=_failure_callback_url(task_name),
             )
             assert not isinstance(response, list)
             logger.info(
@@ -182,3 +197,80 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
     )
     result = resolve_task(task_name).apply(kwargs=payload).result
     return {"mode": "sync", "result": result}
+
+
+def publish_recurring(
+    task_name: str,
+    schedule: str,
+    *,
+    payload: dict | None = None,
+    dedup_key: str | None = None,
+) -> dict[str, Any]:
+    """Register a recurring (scheduled) task on QStash.
+
+    Unlike ``publish_task``, this does NOT fall back to synchronous execution —
+    scheduled tasks only run on QStash's scheduler, which requires a paid
+    QStash plan.  If QStash is not configured, a warning is logged and the
+    function returns ``{"mode": "disabled"}``.
+
+    Args:
+        task_name: Key in ``TASK_REGISTRY``.
+        schedule: Cron-like expression (e.g. ``"0 2 * * *"`` for daily 02:00 UTC).
+        payload: Optional payload to send to the webhook on each run.
+        dedup_key: Optional deduplication key.
+
+    Returns:
+        ``{"mode": "scheduled", "schedule_id": str}`` on success,
+        ``{"mode": "disabled"}`` if QStash is not configured.
+    """
+    if task_name not in TASK_REGISTRY:
+        raise ValueError(f"Unknown task: {task_name}")
+
+    if not qstash_configured():
+        logger.warning(
+            "QStash not configured — recurring task %s not scheduled. "
+            "Set QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY "
+            "/ PUBLIC_BASE_URL env vars to enable.",
+            task_name,
+        )
+        return {"mode": "disabled"}
+
+    try:
+        import httpx
+
+        base = os.environ["PUBLIC_BASE_URL"].rstrip("/")
+        webhook_url = f"{base}{WEBHOOK_PATH}/{task_name}"
+        failure_url = f"{base}{FAILURE_CALLBACK_PATH}/{task_name}"
+
+        headers = {
+            "Authorization": f"Bearer {os.environ['QSTASH_TOKEN']}",
+            "Content-Type": "application/json",
+            "Upstash-Failure-Callback-Url": failure_url,
+        }
+        body = {
+            "destination": webhook_url,
+            "cron": schedule,
+            "body": json.dumps(payload or {}),
+            "method": "POST",
+        }
+        resp = httpx.post(
+            "https://api.upstash.com/v2/qstash/schedule",
+            headers=headers,
+            json=body,
+            timeout=30,
+        )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            return {
+                "mode": "scheduled",
+                "schedule_id": data.get("scheduleId"),
+            }
+        logger.warning(
+            "QStash schedule creation failed (status %d): %s",
+            resp.status_code,
+            resp.text[:200],
+        )
+        return {"mode": "disabled"}
+    except Exception as exc:
+        logger.warning("QStash recurring schedule failed for %s (%s)", task_name, exc)
+        return {"mode": "disabled"}

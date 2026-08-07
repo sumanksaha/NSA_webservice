@@ -1,5 +1,6 @@
 import os
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 
 import gspread
@@ -12,6 +13,7 @@ WORKSHEET_MAP = {
     "billing": "Billing",
     "sample_repo": "Sample_Repository",  # Step 5: Sample table sync
     "inspection_log": "Inspection_Log",  # Step 5: Inspection table sync
+    "food_cell_do_intimations": "FoodCellDOIntimations",  # Phase 21: Food Cell DO Intimation sync
 }
 
 SHEET_COLUMNS = {
@@ -141,9 +143,22 @@ SHEET_COLUMNS = {
         "compliance_deadline",
         "is_dismissed",
         "dismissed_by",
-        "adjudication_id",
+                "adjudication_id",
         "created_at",
         "synced_at",
+    ],
+    # Phase 21: Food Cell DO Intimation worksheet columns
+    "food_cell_do_intimations": [
+        "sample_id",
+        "sample_code",
+        "sample_name",
+        "fso_name",
+        "retailer_name",
+        "collection_date",
+        "do_reference_no",
+        "food_cell_forwarded",
+        "status",
+        "pdf_url",
     ],
 }
 
@@ -245,3 +260,86 @@ def sync_to_sheets(module: str, row_dict: dict) -> bool:
     except Exception as e:
         current_app.logger.error(f"Sheets sync failed [{module}]: {e}")
         return False
+
+
+# ---------------------------------------------------------------------------
+# CSV export for R2 backup (restore chain)
+# ---------------------------------------------------------------------------
+def export_sheets_to_r2() -> str | None:
+    """Export all Google Sheets worksheet data to a combined CSV in R2.
+
+    Downloads all records from every worksheet (via ``WORKSHEET_MAP``) and
+    uploads to ``nsa_backups/sheets_csv/`` in R2.
+
+    Returns the R2 key on success, or a local filepath on fallback.
+    Returns ``None`` if Sheets is not configured.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+
+    spreadsheet_id = (
+        current_app.config.get("GSHEETS_SPREADSHEET_ID")
+        or current_app.config.get("SPREADSHEET_ID")
+    )
+    if not spreadsheet_id:
+        return None
+
+    rows: list[dict] = []
+
+    try:
+        sh = client.open_by_key(spreadsheet_id)
+    except Exception as e:
+        current_app.logger.error(f"Sheets export: failed to open spreadsheet: {e}")
+        return None
+
+    for module, ws_name in WORKSHEET_MAP.items():
+        try:
+            ws = sh.worksheet(ws_name)
+            records = ws.get_all_records()
+            for record in records:
+                row = {"module": module}
+                row.update(record)
+                rows.append(row)
+        except Exception as e:
+            current_app.logger.warning(f"Sheets export failed for {module}: {e}")
+
+    if not rows:
+        return None
+
+    # Build CSV in memory
+    all_keys: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        for k in r:
+            if k not in seen:
+                seen.add(k)
+                all_keys.append(k)
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=all_keys, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_content = buf.getvalue()
+
+    # Upload to R2
+    try:
+        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+
+        r2 = _get_r2_client()
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        key = f"nsa_backups/sheets_csv/sheets_export_{ts}.csv"
+        r2.put_object(Bucket=_get_bucket(), Key=key, Body=csv_content)
+        current_app.logger.info("Exported Sheets data to R2: %s", key)
+        return key
+    except Exception as e:
+        current_app.logger.error(f"Failed to upload Sheets CSV to R2: {e}")
+
+    # Fallback: save locally
+    local_dir = Path(current_app.instance_path) / "backups" / "sheets_csv"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    local_file = local_dir / f"sheets_export_{ts}.csv"
+    local_file.write_text(csv_content, encoding="utf-8")
+    current_app.logger.info("Saved Sheets CSV backup locally: %s", local_file)
+    return str(local_file)

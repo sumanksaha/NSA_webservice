@@ -101,6 +101,39 @@ class Comment(db.Model):
         return f"<Comment #{self.id} case={self.case_id}>"
 
 
+class AirtableBaseMap(db.Model):
+    """Tracks which local DB record maps to which Airtable record + base.
+
+    Part of the Multi-Target Sheets Redundancy (Priority 7) architecture.
+    Enables restore chaining: when PostgreSQL fails, the system can recover
+    from R2 CSV exports of each sync target (Sheets / Airtable / Excel).
+
+    The ``module`` field identifies which business domain the record belongs
+    to (e.g. 'food_cell_do_intimations').  ``airtable_base_id`` tracks which
+    Airtable base the record lives in — when the primary base nears capacity,
+    the sync service creates a new base and routes subsequent records there.
+    """
+
+    __tablename__ = "airtable_base_map"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    record_id = db.Column(db.Integer, nullable=False, index=True)
+    module = db.Column(db.String(64), nullable=False, index=True)
+    airtable_record_id = db.Column(db.String(256), nullable=True)
+    airtable_base_id = db.Column(db.String(256), nullable=True)
+    airtable_table_name = db.Column(db.String(256), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.Index("idx_airtable_map_record_id", "record_id"),
+        db.Index("idx_airtable_map_module", "module"),
+        db.Index("idx_airtable_map_base_id", "airtable_base_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AirtableBaseMap record={self.record_id} module={self.module}>"
+
+
 # Convenience relationship so ``user.roles`` is queryable once the table exists.
 # Deliberately NOT lazy="joined": the RBAC tables (role/user_roles) can lag
 # behind in some deployments (see migrations/versions/fix_rbac_tables.py), and

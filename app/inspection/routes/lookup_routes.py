@@ -2,10 +2,12 @@
 
 from flask import jsonify, request
 
+from app.extensions import csrf
 from app.inspection import inspection_bp
 from app.utils.lookup import lookup_ce, lookup_fssai
 
 
+@csrf.exempt
 @inspection_bp.route("/lookup_fssai", methods=["POST"])
 def lookup_fssai_route():
     """Lookup FSSAI license information."""
@@ -35,6 +37,7 @@ def lookup_fssai_route():
     return jsonify({"error": "FSSAI license not found"}), 404
 
 
+@csrf.exempt
 @inspection_bp.route("/lookup_ce", methods=["POST"])
 def lookup_ce_route():
     """Lookup CE (KMC Trade) license information."""

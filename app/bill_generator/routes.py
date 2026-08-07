@@ -180,6 +180,22 @@ def generate_bill_route():
     except Exception as e:
         current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
 
+    # Multi-target sync: Airtable (best-effort)
+    try:
+        from app.services.airtable_sync import sync_to_airtable
+
+        sync_to_airtable("billing", row_dict, bill_record.id)
+    except Exception as e:
+        current_app.logger.warning(f"Bill Generator: Airtable sync failed: {e}")
+
+    # Multi-target sync: Excel Online (best-effort)
+    try:
+        from app.services.excel_sync import sync_to_excel
+
+        sync_to_excel("billing", row_dict)
+    except Exception as e:
+        current_app.logger.warning(f"Bill Generator: Excel sync failed: {e}")
+
     # Build template variables for synchronous PDF generation
     allowed_template_vars = {
         "Name",

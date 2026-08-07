@@ -186,6 +186,22 @@ def create_inspection():
         except Exception as e:
             current_app.logger.warning(f"Inspection Sheets sync failed: {e}")
 
+        # Multi-target sync: Airtable (best-effort)
+        try:
+            from app.services.airtable_sync import sync_to_airtable
+
+            sync_to_airtable("inspection_log", row_dict, inspection.id)
+        except Exception as e:
+            current_app.logger.warning(f"Inspection: Airtable sync failed: {e}")
+
+        # Multi-target sync: Excel Online (best-effort)
+        try:
+            from app.services.excel_sync import sync_to_excel
+
+            sync_to_excel("inspection_log", row_dict)
+        except Exception as e:
+            current_app.logger.warning(f"Inspection: Excel sync failed: {e}")
+
         return (
             jsonify(
                 {

@@ -5,6 +5,10 @@ This endpoint verifies the ``Upstash-Signature`` header (raw body + JWT with
 the destination URL as the subject), then runs the requested task synchronously
 inside the web request. QStash retries on non-2xx responses, giving durable
 delivery without a persistent worker.
+
+A companion ``/tasks/failed/<task_name>`` endpoint receives QStash's failure
+callback (a DLQ pattern) — without it, a permanently-failed message leaves the
+Redis status stuck at "pending" forever with no signal to operators.
 """
 
 import logging
@@ -18,6 +22,7 @@ from app.tasks_webhook import tasks_webhook_bp
 from app.utils.qstash_client import (
     TASK_REGISTRY,
     get_task_status,
+    qstash_configured,
     resolve_task,
     store_task_status,
 )
@@ -29,6 +34,43 @@ logger = logging.getLogger(__name__)
 # requests (never depends on a per-request cwd).
 PDFS_ROOT = (Path.cwd() / "pdfs").resolve()
 
+# Number of seconds of clock skew allowed when verifying QStash signatures.
+# QStash delivery nodes and the app host may drift slightly; without tolerance
+# a 1-second drift on a valid webhook causes a silent 401 on exp/nbf claims.
+_QSTASH_CLOCK_TOLERANCE = 5
+
+
+def _verify_qstash_signature(signature: str) -> bool:
+    """Verify an Upstash-Signature header against the current+next signing keys.
+
+    Precondition: the caller has already checked ``qstash_configured()``
+    (all 4 env vars present) and that ``signature`` is non-empty.
+
+    The ``url`` parameter is deliberately omitted from ``Receiver.verify()``:
+    the HMAC + exp/nbf claims already authenticate the sender (only QStash
+    holds the signing key). Binding the JWT ``sub`` to ``request.url`` would
+    be defense-in-depth, but behind ProxyFix (which does not trust x_host) or
+    a custom domain / trailing-slash drift, a mismatch silently 401s every
+    webhook. HMAC verification is the security boundary.
+    """
+    current_key = os.environ["QSTASH_CURRENT_SIGNING_KEY"]
+    next_key = os.environ["QSTASH_NEXT_SIGNING_KEY"]
+
+    try:
+        from qstash import Receiver
+
+        receiver = Receiver(current_signing_key=current_key, next_signing_key=next_key)
+        receiver.verify(
+            signature=signature,
+            body=request.get_data(as_text=True),
+            clock_tolerance=_QSTASH_CLOCK_TOLERANCE,
+        )
+    except Exception as exc:
+        logger.warning("QStash signature verification failed: %s", exc)
+        return False
+
+    return True
+
 
 @tasks_webhook_bp.route("/tasks/run/<task_name>", methods=["POST"])
 @csrf.exempt
@@ -38,32 +80,15 @@ def run_task(task_name):
     # Redis status store so the frontend can poll for completion.
     message_id = request.headers.get("Upstash-Message-Id", "")
 
+    if not qstash_configured():
+        logger.warning("QStash not fully configured; rejecting webhook")
+        return jsonify({"error": "QStash not configured"}), 503
+
     signature = request.headers.get("Upstash-Signature", "")
     if not signature:
         return jsonify({"error": "Missing Upstash-Signature header"}), 401
 
-    current_key = os.environ.get("QSTASH_CURRENT_SIGNING_KEY")
-    next_key = os.environ.get("QSTASH_NEXT_SIGNING_KEY")
-    if not (current_key and next_key):
-        logger.warning("QStash signing keys not configured; rejecting webhook")
-        return jsonify({"error": "QStash not configured"}), 503
-
-    try:
-        from qstash import Receiver
-
-        receiver = Receiver(current_signing_key=current_key, next_signing_key=next_key)
-        # Note: we deliberately do NOT pass ``url`` here. The HMAC + exp/nbf
-        # claims already authenticate the sender (only QStash holds the signing
-        # key). Binding the JWT ``sub`` to request.url would be defense-in-depth,
-        # but behind ProxyFix (which does not trust x_host) or a custom domain /
-        # trailing-slash drift, a mismatch silently 401s every webhook. See the
-        # review note; HMAC verification is the security boundary.
-        receiver.verify(
-            signature=signature,
-            body=request.get_data(as_text=True),
-        )
-    except Exception as exc:
-        logger.warning("QStash signature verification failed: %s", exc)
+    if not _verify_qstash_signature(signature):
         return jsonify({"error": "Invalid signature"}), 401
 
     if task_name not in TASK_REGISTRY:
@@ -108,12 +133,57 @@ def run_task(task_name):
     return jsonify({"ok": True, "task": task_name, "result": result}), 200
 
 
+@tasks_webhook_bp.route("/tasks/failed/<task_name>", methods=["POST"])
+@csrf.exempt
+def delivery_failed(task_name):
+    """QStash failure callback — invoked after all retries are exhausted.
+
+    This is the DLQ pattern: without it, a permanently-failed message leaves
+    the Redis status stuck at "pending" forever with no signal to operators.
+    QStash POSTs a JSON body with ``messageId``, ``url``, ``error``, and
+    ``timestamp`` to this endpoint when delivery definitively fails.
+
+    Auth: verified via ``Upstash-Signature`` (same mechanism as ``run_task``),
+    not via session cookie — QStash has no session.
+    """
+    if not qstash_configured():
+        logger.warning("QStash not fully configured; rejecting failure callback")
+        return jsonify({"error": "QStash not configured"}), 503
+
+    signature = request.headers.get("Upstash-Signature", "")
+    if not signature:
+        return jsonify({"error": "Missing Upstash-Signature header"}), 401
+
+    if not _verify_qstash_signature(signature):
+        return jsonify({"error": "Invalid signature"}), 401
+
+    body = request.get_json(silent=True) or {}
+    message_id = body.get("messageId", "") or request.headers.get("Upstash-Message-Id", "")
+
+    if message_id:
+        store_task_status(
+            message_id,
+            "failed",
+            task_name=task_name,
+            error=f"QStash delivery exhausted all retries: {body.get('error', 'unknown')}",
+        )
+        logger.error(
+            "QStash delivery FAILED permanently for task %s (message_id=%s): %s",
+            task_name,
+            message_id,
+            body.get("error", "unknown"),
+        )
+
+    return jsonify({"ok": True}), 200
+
+
 @tasks_webhook_bp.route("/tasks/status/<message_id>", methods=["GET"])
 def task_status(message_id):
     """Return the status of a previously queued task (frontend polling).
 
-    Reads the Redis status store written by :func:`run_task`. Login-gated like
-    other app routes (the poll comes from the authenticated frontend).
+    Reads the Redis status store written by :func:`run_task` and
+    :func:`delivery_failed`. Login-gated like other app routes (the poll
+    comes from the authenticated frontend).
     Returns 404 with ``{"status": "unknown"}`` when the message id is not
     tracked (e.g. before QStash delivers, or if Redis was unavailable).
     """
@@ -121,6 +191,10 @@ def task_status(message_id):
     if not found:
         return jsonify({"message_id": message_id, "status": "unknown"}), 404
 
+    # record is guaranteed non-None here (found=True), but the return-type
+    # annotation of get_task_status is ``dict | None`` — narrow it for static
+    # analysis so ``**record`` is provably a mapping.
+    assert record is not None
     return jsonify({"message_id": message_id, **record}), 200
 
 
@@ -148,4 +222,4 @@ def download_task_file():
     if not target.is_file():
         return jsonify({"error": "File not found"}), 404
 
-    return send_file(str(target), as_attachment=True)
+    return send_file(str(target), as_attachment=True, download_name=target.name)

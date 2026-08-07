@@ -99,6 +99,12 @@
                     <td>{{ sample.price or '-' }}</td>
                     <td>
                         <div class="btn-group">
+                            {% if sample_case_map.get(sample.id) %}
+                            <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=sample_case_map[sample.id], kind='case_file') }}"
+                               class="btn btn-secondary btn-sm" title="Case timeline">
+                                <i class="fa-solid fa-timeline"></i>
+                            </a>
+                            {% endif %}
                             <a href="{{ url_for('sample.get_sample', sample_id=sample.id) }}"
                                class="btn btn-secondary btn-sm" title="View">
                                 <i class="fa-solid fa-eye"></i>

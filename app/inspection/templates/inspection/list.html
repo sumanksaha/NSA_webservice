@@ -125,6 +125,12 @@
                     </td>
                     <td>
                         <div class="btn-group">
+                            {% if inspection.adjudication_id %}
+                            <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=inspection.adjudication_id, kind='adjudication') }}"
+                               class="btn btn-secondary btn-sm" title="Adjudication timeline">
+                                <i class="fa-solid fa-timeline"></i>
+                            </a>
+                            {% endif %}
                             <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
                                class="btn btn-secondary btn-sm" title="View">
                                 <i class="fa-solid fa-eye"></i>

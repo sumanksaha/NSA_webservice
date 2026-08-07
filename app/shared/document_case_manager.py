@@ -126,7 +126,17 @@ class DocumentCaseManager:
 
         @bp.route("/")
         def index():
-            return render_template(f"{self.template_dir}/index.html")
+            # Recent cases only — the index page is the landing view for both
+            # blueprints, so keep the 'Case Timelines' panel cheap instead of
+            # scanning the whole table on every load.
+            recent_cases = (
+                self.model.query.order_by(self.model.created_at.desc()).limit(50).all()
+            )
+            return render_template(
+                f"{self.template_dir}/index.html",
+                cases=[self._case_summary(c) for c in recent_cases],
+                case_type=self.case_type,
+            )
 
         @bp.route("/cases", methods=["GET"])
         def list_cases():

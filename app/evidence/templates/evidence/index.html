@@ -131,13 +131,24 @@
                 </div>
                 {% endif %}
                 <div class="evidence-meta form-hint">
-                    {% if ev.case_id %}<a href="{{ url_for('case_file_generator.edit_case_file', case_id=ev.case_id) }}">Case #{{ ev.case_id }}</a>{% endif %}
-                    {% if ev.adjudication_id %}<a href="{{ url_for('adjudication.edit_adjudication', case_id=ev.adjudication_id) }}">Adj #{{ ev.adjudication_id }}</a>{% endif %}
+                    {% if ev.case_id %}<a href="{{ url_for('case_file_generator.edit_case', case_id=ev.case_id) }}">Case #{{ ev.case_id }}</a>{% endif %}
+                    {% if ev.adjudication_id %}<a href="{{ url_for('adjudication.edit_case', case_id=ev.adjudication_id) }}">Adj #{{ ev.adjudication_id }}</a>{% endif %}
                     {% if ev.inspection_id %}<span>Insp #{{ ev.inspection_id }}</span>{% endif %}
                     {% if not ev.case_id and not ev.adjudication_id and not ev.inspection_id %}<span>Unlinked</span>{% endif %}
                 </div>
             </div>
             <div class="evidence-actions btn-group">
+                {% if ev.case_id %}
+                <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=ev.case_id, kind='case_file') }}"
+                   class="btn btn-secondary btn-sm" title="Case timeline">
+                    <i class="fa-solid fa-timeline"></i>
+                </a>
+                {% elif ev.adjudication_id %}
+                <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=ev.adjudication_id, kind='adjudication') }}"
+                   class="btn btn-secondary btn-sm" title="Adjudication timeline">
+                    <i class="fa-solid fa-timeline"></i>
+                </a>
+                {% endif %}
                 <a href="{{ url_for('evidence.download', evidence_id=ev.id) }}" class="btn btn-secondary btn-sm" title="Download">
                     <i class="fa-solid fa-download"></i>
                 </a>

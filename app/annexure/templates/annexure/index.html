@@ -94,9 +94,9 @@
                     </td>
                     <td>
                         {% if a.case_id %}
-                            <a href="{{ url_for('case_file_generator.edit_case_file', case_id=a.case_id) }}">Case #{{ a.case_id }}</a>
+                            <a href="{{ url_for('case_file_generator.edit_case', case_id=a.case_id) }}">Case #{{ a.case_id }}</a>
                         {% elif a.adjudication_id %}
-                            <a href="{{ url_for('adjudication.edit_adjudication', case_id=a.adjudication_id) }}">Adj #{{ a.adjudication_id }}</a>
+                            <a href="{{ url_for('adjudication.edit_case', case_id=a.adjudication_id) }}">Adj #{{ a.adjudication_id }}</a>
                         {% else %}
                             <span class="form-hint">—</span>
                         {% endif %}
@@ -104,6 +104,17 @@
                     <td>{{ a.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>
                         <div class="btn-group">
+                            {% if a.case_id %}
+                            <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=a.case_id, kind='case_file') }}"
+                               class="btn btn-secondary btn-sm" title="Case timeline">
+                                <i class="fa-solid fa-timeline"></i>
+                            </a>
+                            {% elif a.adjudication_id %}
+                            <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=a.adjudication_id, kind='adjudication') }}"
+                               class="btn btn-secondary btn-sm" title="Adjudication timeline">
+                                <i class="fa-solid fa-timeline"></i>
+                            </a>
+                            {% endif %}
                             <a href="{{ url_for('annexure.download', annexure_id=a.id) }}"
                                class="btn btn-secondary btn-sm" title="Download">
                                 <i class="fa-solid fa-download"></i>

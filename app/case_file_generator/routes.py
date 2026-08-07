@@ -17,7 +17,7 @@ from datetime import datetime
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.extensions import db
+from app.extensions import csrf, db
 from app.models import CaseFile, Sample
 from app.services.sheets_sync import sync_to_sheets
 from app.shared.case_keys import (
@@ -372,6 +372,7 @@ _manager.register_routes(case_file_generator_bp)
 # --------------------------------------------------------------------------- #
 
 
+@csrf.exempt
 @case_file_generator_bp.route("/lookup_fssai", methods=["POST"])
 def lookup_fssai_route():
     payload = request.get_json() or {}
@@ -467,6 +468,22 @@ def generate_case_file_route():
             current_app.logger.warning("Case File: Sheets sync returned False - sync failed but not blocking")
     except Exception as e:
         current_app.logger.warning(f"Case File: Sheets sync failed: {e}")
+
+    # Multi-target sync: Airtable (best-effort)
+    try:
+        from app.services.airtable_sync import sync_to_airtable
+
+        sync_to_airtable("sample", row_dict, case_file_record.id)
+    except Exception as e:
+        current_app.logger.warning(f"Case File: Airtable sync failed: {e}")
+
+    # Multi-target sync: Excel Online (best-effort)
+    try:
+        from app.services.excel_sync import sync_to_excel
+
+        sync_to_excel("sample", row_dict)
+    except Exception as e:
+        current_app.logger.warning(f"Case File: Excel sync failed: {e}")
 
     case_data = process_form_data(form_data)
     payload = {"case_file_id": case_file_record.id, "case_data": case_data}

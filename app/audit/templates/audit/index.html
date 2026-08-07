@@ -88,7 +88,20 @@
                         {% endif %}
                     </td>
                     <td>{{ entry.record_type }}</td>
-                    <td>{{ entry.record_id }}</td>
+                    <td>
+                        {{ entry.record_id }}
+                        {% if entry.record_type == 'CaseFile' %}
+                        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=entry.record_id, kind='case_file') }}"
+                           class="btn btn-secondary btn-sm" title="Case timeline">
+                            <i class="fa-solid fa-timeline"></i>
+                        </a>
+                        {% elif entry.record_type == 'Adjudication' %}
+                        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=entry.record_id, kind='adjudication') }}"
+                           class="btn btn-secondary btn-sm" title="Adjudication timeline">
+                            <i class="fa-solid fa-timeline"></i>
+                        </a>
+                        {% endif %}
+                    </td>
                     <td class="cell--monospace" style="max-width: 300px;">
                         {% if entry.changes %}
                             <details>

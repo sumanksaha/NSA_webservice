@@ -183,6 +183,23 @@ def create_app():
     app.config["SPREADSHEET_ID"] = os.environ.get("SPREADSHEET_ID")
     app.config["GOOGLE_CREDENTIALS_JSON"] = os.environ.get("GOOGLE_CREDENTIALS_JSON")
 
+    # Priority 7 — Multi-Target Sheets Redundancy configuration
+    app.config["AIRTABLE_API_KEY"] = os.environ.get("AIRTABLE_API_KEY")
+    app.config["AIRTABLE_BASE_ID"] = os.environ.get("AIRTABLE_BASE_ID")
+    app.config["ENABLE_AIRTABLE_SYNC"] = (
+    os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
+    )
+
+    # Microsoft Excel Online configuration (Priority 7)
+    app.config["MS_TENANT_ID"] = os.environ.get("MS_TENANT_ID")
+    app.config["MS_CLIENT_ID"] = os.environ.get("MS_CLIENT_ID")
+    app.config["MS_CLIENT_SECRET"] = os.environ.get("MS_CLIENT_SECRET")
+    app.config["MS_DRIVE_ID"] = os.environ.get("MS_DRIVE_ID")
+    app.config["MS_SPREADSHEET_ID"] = os.environ.get("MS_SPREADSHEET_ID")
+    app.config["ENABLE_EXCEL_SYNC"] = (
+    os.environ.get("ENABLE_EXCEL_SYNC", "false").lower() == "true"
+    )
+
     # ------------------------------------------------------------------
     # Security headers & HTTPS enforcement via Flask-Talisman
     # ------------------------------------------------------------------
@@ -284,6 +301,8 @@ def create_app():
         "adjudication.lookup_fbo_issues",
         # QStash webhook — authenticated by Upstash-Signature, not session
         "tasks_webhook.run_task",
+        # QStash failure callback — authenticated by Upstash-Signature, not session
+        "tasks_webhook.delivery_failed",
     }
 
     @app.before_request
@@ -334,6 +353,7 @@ def create_app():
     from app.billing.routes import billing_bp
     from app.case_file_generator.routes import case_file_generator_bp
     from app.fbo_issue.routes import fbo_issue_bp
+    from app.food_cell import food_cell_bp
     from app.health import health_bp
     from app.inspection.routes import inspection_bp
     from app.legal_analysis import legal_analysis_bp
@@ -341,6 +361,7 @@ def create_app():
     from app.search import search_bp
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
+    from app.timeline import timeline_bp
     from app.validation import validation_bp
     from app.version_control import version_control_bp
 
@@ -367,6 +388,9 @@ def create_app():
     app.register_blueprint(annexure_bp, url_prefix="/annexure")
     app.register_blueprint(validation_bp, url_prefix="/validation")
     app.register_blueprint(health_bp)
+    app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
+    # timeline_bp carries its own url_prefix ("/timeline") in the Blueprint.
+    app.register_blueprint(timeline_bp)
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
@@ -398,13 +422,12 @@ def create_app():
 
                     alembic_stamp(revision="head")
                     app.logger.info("Stamped fresh database at migration head")
-                except Exception as exc:
+                except (Exception, SystemExit) as exc:
                     app.logger.warning(
                         "Could not stamp fresh database at migration head (%s) — "
                         "`flask db upgrade` may replay the full chain next deploy.",
                         exc,
                     )
-        else:
             # Existing database — self-heal tables that `flask db upgrade`
             # can NEVER create: a migration inserted mid-chain (e.g. the
             # Phase 18 `a1b2c3d4e5f6` role/user_roles/comment migration) is an
@@ -459,10 +482,10 @@ def create_app():
         with app.app_context(), _fso_sync_lock:
             try:
                 result = sync_fso_from_markdown()
-                if result.errors:
-                    app.logger.warning(f"FSO startup sync completed with warnings: {result.errors}")
+                if result["errors"]:
+                    app.logger.warning(f"FSO startup sync completed with warnings: {result['errors']}")
                 else:
-                    app.logger.info(f"FSO startup sync: {result.inserted} inserted, {result.updated} updated")
+                    app.logger.info(f"FSO startup sync: {result['inserted']} inserted, {result['updated']} updated")
             except Exception as e:
                 app.logger.error(f"FSO startup sync failed: {e!s}")
 
@@ -470,6 +493,20 @@ def create_app():
     @app.route("/")
     def root():
         return redirect(url_for("case_file_generator.index"))
+
+    # QStash daily backup schedule for Multi-Target Sheets Redundancy (Priority 7)
+    if os.environ.get("ENABLE_BACKUP_SCHEDULE", "false").lower() == "true":
+        try:
+            from app.utils.qstash_client import publish_recurring
+
+            result = publish_recurring(
+                "backup_redundant_sheets",
+                schedule="0 2 * * *",  # daily at 02:00 UTC
+                payload={},
+            )
+            app.logger.info("Registered daily backup schedule with QStash: %s", result)
+        except Exception as e:
+            app.logger.warning(f"QStash backup schedule registration failed: {e}")
 
     # Initialize Celery with Flask app context support
     # Lazy import to avoid ModuleNotFoundError in deployment environments

@@ -90,6 +90,43 @@ def backup_download():
     )
 
 
+# ---------------------------------------------------------------------------
+# Priority 7 — Multi-Target Sheets Redundancy backup (admin only)
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/backup-redundant-to-r2", methods=["POST"])
+@login_required
+@admin_required
+def backup_redundant_to_r2():
+    """Trigger a redundant backup of all sync targets to R2 (admin only).
+
+    Calls ``export_sheets_to_r2()``, ``export_airtable_all_bases_to_r2()``, and
+    ``export_excel_to_r2()`` via the backup coordinator, then returns a JSON
+    summary of which targets succeeded.
+    """
+    from app.services.backup_coordinator import run_backup
+
+    results = run_backup()
+    return jsonify(results)
+
+
+@settings_bp.route("/backup-redundant-to-r2", methods=["GET"])
+@login_required
+@admin_required
+def backup_redundant_to_r2_status():
+    """Return the status/help text for the redundant backup endpoint."""
+    return jsonify(
+        {
+            "description": "POST to trigger backup of Sheets, Airtable, and Excel data to R2.",
+            "endpoint": "/settings/backup-redundant-to-r2",
+            "method": "POST",
+            "auth": "admin",
+            "targets": ["sheets", "airtable", "excel"],
+    }
+    )
+
+
 @settings_bp.route("/backup/restore", methods=["POST"])
 @login_required
 @admin_required

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from flask import current_app, jsonify, render_template, request
 
 from app.extensions import db
-from app.models import FSO, Sample
+from app.models import CaseFile, FSO, Sample
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
@@ -77,6 +77,14 @@ def list_samples():
     # Paginate
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # Batched sample_id -> linked CaseFile id map (for the Timeline entry point).
+    sample_ids = [s.id for s in paginated.items]
+    sample_case_map: dict[int, int] = {}
+    if sample_ids:
+        sample_case_map = dict(
+            db.session.query(CaseFile.sample_id, CaseFile.id).filter(CaseFile.sample_id.in_(sample_ids)).all()
+        )
+
     # Get all FSO names for filter dropdown
     all_fso_names = get_all_fso_names()
 
@@ -90,6 +98,7 @@ def list_samples():
         filter_fso=filter_fso,
         filter_date_from=filter_date_from,
         filter_date_to=filter_date_to,
+        sample_case_map=sample_case_map,
     )
 
 
@@ -112,14 +121,12 @@ def lookup_retailer():
         return jsonify({"error": error}), 404
 
     if result:
-        return jsonify(
-            {
-                "companyName": result.get("companyName"),
-                "fullAddress": result.get("fullAddress"),
-                "expiryDate": result.get("expiryDate"),
-                "source": result.get("source"),
-            }
-        )
+        return jsonify({
+            "companyName": result.get("companyName"),
+            "fullAddress": result.get("fullAddress"),
+            "expiryDate": result.get("expiryDate"),
+            "source": result.get("source"),
+        })
 
     return jsonify({"error": "Retailer not found"}), 404
 
@@ -210,14 +217,37 @@ def create_sample():
         except Exception as e:
             current_app.logger.warning(f"Sample Sheets sync failed: {e}")
 
+        # Multi-target sync: Airtable (best-effort)
+        try:
+            from app.services.airtable_sync import sync_to_airtable
+
+            sync_to_airtable("sample_repo", row_dict, sample.id)
+        except Exception as e:
+            current_app.logger.warning(f"Sample: Airtable sync failed: {e}")
+
+        # Multi-target sync: Excel Online (best-effort)
+        try:
+            from app.services.excel_sync import sync_to_excel
+
+            sync_to_excel("sample_repo", row_dict)
+        except Exception as e:
+            current_app.logger.warning(f"Sample: Excel sync failed: {e}")
+
+        # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
+        if not sample.food_cell_forwarded:
+            try:
+                from app.food_cell.tasks import send_do_intimation
+
+                send_do_intimation.delay(sample.id)
+            except Exception as e:
+                current_app.logger.warning(f"DO intimation trigger failed: {e}")
+
         return (
-            jsonify(
-                {
-                    "message": "Sample created successfully",
-                    "sample_id": sample.id,
-                    "sample_code": sample.sample_code,
-                }
-            ),
+            jsonify({
+                "message": "Sample created successfully",
+                "sample_id": sample.id,
+                "sample_code": sample.sample_code,
+            }),
             201,
         )
     except Exception as e:
@@ -232,22 +262,27 @@ def get_sample(sample_id):
     if not sample:
         return jsonify({"error": f"Sample with id {sample_id} not found"}), 404
 
-    return jsonify(
-        {
-            "id": sample.id,
-            "sample_code": sample.sample_code,
-            "sample_name": sample.sample_name,
-            "sample_type": sample.sample_type,
-            "fso_name": sample.fso_name,
-            "collection_date": sample.collection_date.isoformat() if sample.collection_date else None,
-            "submission_date": sample.submission_date.isoformat() if sample.submission_date else None,
-            "retailer_fssai": sample.retailer_fssai,
-            "retailer_name": sample.retailer_name,
-            "price": sample.price,
-            "created_at": sample.created_at.isoformat() if sample.created_at else None,
-            "synced_at": sample.synced_at.isoformat() if sample.synced_at else None,
-        }
-    )
+    # Linked case (if the sample is attached to a CaseFile) + its timeline URL.
+    linked_case = CaseFile.query.filter_by(sample_id=sample.id).first()
+    case_id = linked_case.id if linked_case else None
+    timeline_url = f"/timeline/case/{case_id}?kind=case_file" if case_id else None
+
+    return jsonify({
+        "id": sample.id,
+        "case_id": case_id,
+        "timeline_url": timeline_url,
+        "sample_code": sample.sample_code,
+        "sample_name": sample.sample_name,
+        "sample_type": sample.sample_type,
+        "fso_name": sample.fso_name,
+        "collection_date": sample.collection_date.isoformat() if sample.collection_date else None,
+        "submission_date": sample.submission_date.isoformat() if sample.submission_date else None,
+        "retailer_fssai": sample.retailer_fssai,
+        "retailer_name": sample.retailer_name,
+        "price": sample.price,
+        "created_at": sample.created_at.isoformat() if sample.created_at else None,
+        "synced_at": sample.synced_at.isoformat() if sample.synced_at else None,
+    })
 
 
 @sample_bp.route("/<int:sample_id>", methods=["PUT"])
@@ -270,11 +305,9 @@ def update_sample(sample_id):
             return jsonify({"error": "sample_type cannot be empty"}), 400
         if sample_type_val not in ["enforcement", "surveillance"]:
             return (
-                jsonify(
-                    {
-                        "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
-                    }
-                ),
+                jsonify({
+                    "error": f"sample_type must be 'enforcement' or 'surveillance', got '{sample_type_val}'",
+                }),
                 400,
             )
         sample.sample_type = sample_type_val
@@ -319,6 +352,22 @@ def update_sample(sample_id):
             sync_to_sheets("sample_repo", row_dict)
         except Exception as e:
             current_app.logger.warning(f"Sample Sheets sync failed: {e}")
+
+        # Multi-target sync: Airtable (best-effort)
+        try:
+            from app.services.airtable_sync import sync_to_airtable
+
+            sync_to_airtable("sample_repo", row_dict, sample.id)
+        except Exception as e:
+            current_app.logger.warning(f"Sample update: Airtable sync failed: {e}")
+
+        # Multi-target sync: Excel Online (best-effort)
+        try:
+            from app.services.excel_sync import sync_to_excel
+
+            sync_to_excel("sample_repo", row_dict)
+        except Exception as e:
+            current_app.logger.warning(f"Sample update: Excel sync failed: {e}")
 
         return jsonify({"message": "Sample updated successfully"}), 200
     except Exception as e:

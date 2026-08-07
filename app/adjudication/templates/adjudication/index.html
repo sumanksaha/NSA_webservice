@@ -247,6 +247,44 @@
         </div>
     </form>
 </div>
+
+<!-- Case Timelines panel (Phase 13) -->
+<div class="card mt--lg">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-timeline"></i> Case Timelines</h2>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Case Number</th>
+                    <th>FBO</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in cases %}
+                <tr>
+                    <td>{{ c.id }}</td>
+                    <td>{{ c.case_number }}</td>
+                    <td>{{ c.fbo_name or '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=c.id, kind='adjudication') }}"
+                           class="btn btn-secondary btn-sm" title="Open adjudication timeline">
+                            <i class="fa-solid fa-timeline"></i> Timeline
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="form-hint">No adjudications yet. Create one above to see its timeline.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
