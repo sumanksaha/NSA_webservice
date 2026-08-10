@@ -66,6 +66,64 @@ class TestCitationExtractor(unittest.TestCase):
         registry_citations = [c for c in citations if c.citation_type.name == "REGISTRY"]
         self.assertEqual(len(registry_citations), 2)
 
+    def test_statutory_citation_captures_full_statute_name(self):
+        """The full statute name is captured, not a truncated fragment.
+
+        RAG_AGENT_A_SCOPE §2.3: previously ``"the Food Safety and Standards
+        Act, 2006"`` was misidentified as fragments such as ``"the Fo"`` or
+        ``"of the Act"``. The captured statute must be the full name.
+        """
+        text = "the Food Safety and Standards Act, 2006"
+        citations = self.extractor.extract_citations(text)
+
+        statute_citations = [c for c in citations if c.citation_type.name == "STATUTORY"]
+        self.assertEqual(len(statute_citations), 1)
+        self.assertEqual(statute_citations[0].normalized_text, "Food Safety and Standards Act")
+
+    def test_of_the_act_is_not_emitted_as_statute_name(self):
+        """Bare ``"of the Act"`` cross-references are not statute names.
+
+        RAG_AGENT_A_SCOPE §2.3: ``"Section 14 of the Act."`` must only yield
+        the SECTION citation — the 2-word fragment before ``Act`` fails the
+        minimum 3-word statute-name requirement.
+        """
+        text = "Section 14 of the Act."
+        citations = self.extractor.extract_citations(text)
+
+        statute_citations = [c for c in citations if c.citation_type.name == "STATUTORY"]
+        self.assertEqual(len(statute_citations), 0)
+        section_citations = [c for c in citations if c.citation_type.name == "SECTION"]
+        self.assertEqual(len(section_citations), 1)
+
+    def test_statute_name_requires_minimum_three_words(self):
+        """A statute name must have >= 3 words (RAG_AGENT_A_SCOPE §2.3).
+
+        ``"Air Pollution Act"`` (2-word name) is rejected; the 4-word
+        ``"Prevention of Food Adulteration Act"`` is captured.
+        """
+        two_word = "The authority cited Air Pollution Act."
+        two_word_cits = [c for c in self.extractor.extract_citations(two_word) if c.citation_type.name == "STATUTORY"]
+        self.assertEqual(len(two_word_cits), 0)
+
+        full = "Prevention of Food Adulteration Act, 1954"
+        full_cits = [c for c in self.extractor.extract_citations(full) if c.citation_type.name == "STATUTORY"]
+        self.assertEqual(len(full_cits), 1)
+        self.assertEqual(full_cits[0].normalized_text, "Prevention of Food Adulteration Act")
+
+    def test_statutory_citations_deduplicated(self):
+        """Overlapping statutory patterns emit one citation per statute.
+
+        RAG_AGENT_A_SCOPE §2.3: ``"The Food Safety and Standards Act"`` is
+        matched by both the ``The ...`` and the bare-name patterns; the result
+        must contain exactly one STATUTORY citation.
+        """
+        text = "Pursuant to The Food Safety and Standards Act, 2006."
+        citations = self.extractor.extract_citations(text)
+
+        statute_citations = [c for c in citations if c.citation_type.name == "STATUTORY"]
+        self.assertEqual(len(statute_citations), 1)
+        self.assertEqual(statute_citations[0].normalized_text, "The Food Safety and Standards Act")
+
     def test_extract_special_patterns(self):
         """Test special legal document pattern extraction."""
         text = "The Constitution of India provides framework. Air Pollution Act."

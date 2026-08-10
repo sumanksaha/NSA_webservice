@@ -253,106 +253,15 @@ Section 3. Definitions. In this Act, unless the context otherwise requires,
 })();
 </script>
 
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
 <script>
-(function () {
-    var caseIdInput = document.getElementById('val-case-id');
-    var typeSel = document.getElementById('val-case-type');
-    var btn = document.getElementById('validate-btn');
-    var status = document.getElementById('val-status');
-    var results = document.getElementById('val-results');
-
-    function esc(s) {
-        var d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
-    }
-
-    function gradeColor(score) {
-        if (score >= 90) return '#0b6e4f';
-        if (score >= 75) return '#c77d0a';
-        return '#b3261e';
-    }
-
-    function findingList(items, icon, color) {
-        if (!items.length) return '';
-        var html = '<ul style="margin: 0; padding-left: 1.25rem; line-height: 1.7;">';
-        items.forEach(function (item) {
-            html += '<li><span style="color: ' + color + ';"><i class="fa-solid ' + icon + '"></i></span> ' +
-                esc(item.message) +
-                (item.field_name ? ' <span class="text--muted" style="font-size: 0.8125rem;">(' + esc(item.field_name) + ')</span>' : '') +
-                (item.suggestion ? ' <div class="form-hint" style="margin: 0.15rem 0 0.4rem 0;">' + esc(item.suggestion) + '</div>' : '') +
-                '</li>';
-        });
-        return html + '</ul>';
-    }
-
-    function renderResults(data) {
-        var color = gradeColor(data.score);
-        var html =
-            '<div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">' +
-            '<div style="width: 92px; height: 92px; border-radius: 50%; border: 6px solid ' + color + ';' +
-            ' display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-subtle);">' +
-            '<div style="font-size: 1.5rem; font-weight: 800; color: ' + color + '; line-height: 1;">' + data.score + '</div>' +
-            '<div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-top: 0.2rem;">/ 100</div>' +
-            '</div>' +
-            '<div>' +
-            '<div style="font-weight: 700; font-size: 1.125rem; color: ' + color + ';">' + esc(data.grade) + '</div>' +
-            '<div class="form-hint">' + esc(data.case_number) + ' &middot; ' + esc(data.case_type.replace('_', ' ')) +
-            ' &middot; ' + data.rules_run + ' rules evaluated</div>' +
-            '</div>' +
-            '</div>';
-
-        if (data.errors.length) {
-            html += '<div class="card card-sm mt--md"><div class="card-header"><h4><i class="fa-solid fa-circle-xmark"></i> Errors (' + data.errors.length + ')</h4></div>' +
-                findingList(data.errors, 'fa-circle-xmark', '#b3261e') + '</div>';
-        }
-        if (data.warnings.length) {
-            html += '<div class="card card-sm mt--sm"><div class="card-header"><h4><i class="fa-solid fa-triangle-exclamation"></i> Warnings (' + data.warnings.length + ')</h4></div>' +
-                findingList(data.warnings, 'fa-triangle-exclamation', '#c77d0a') + '</div>';
-        }
-        if (data.suggestions.length) {
-            html += '<div class="card card-sm mt--sm"><div class="card-header"><h4><i class="fa-solid fa-lightbulb"></i> Suggestions</h4></div><ul style="margin: 0; padding-left: 1.25rem; line-height: 1.7;">';
-            data.suggestions.forEach(function (s) {
-                html += '<li class="form-hint" style="margin: 0.15rem 0;">' + esc(s) + '</li>';
-            });
-            html += '</ul></div>';
-        }
-        results.innerHTML = html;
-    }
-
-    btn.addEventListener('click', function () {
-        var caseId = parseInt(caseIdInput.value, 10);
-        if (!caseId || caseId < 1) {
-            status.textContent = 'Enter a numeric case ID first.';
-            return;
-        }
-        var original = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validating…';
-        status.textContent = 'Processing…';
-        results.style.display = 'none';
-
-        fetch('{{ url_for("validation.validate") }}', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({case_id: caseId, case_type: typeSel.value})
-        }).then(function (resp) {
-            return resp.json().then(function (data) { return {ok: resp.ok, data: data}; });
-        }).then(function (out) {
-            if (!out.ok) {
-                status.textContent = out.data.error || 'Validation failed';
-                return;
-            }
-            renderResults(out.data);
-            results.style.display = 'block';
-            status.textContent = '';
-        }).catch(function () {
-            status.textContent = 'Request failed — please try again.';
-        }).finally(function () {
-            btn.disabled = false;
-            btn.innerHTML = original;
-        });
+    ValidationDrawer.initForm({
+        buttonId: 'validate-btn',
+        caseIdInputId: 'val-case-id',
+        typeSelectId: 'val-case-type',
+        drawerId: 'val-results',
+        statusId: 'val-status',
+        endpoint: '{{ url_for("validation.validate") }}'
     });
-})();
 </script>
 {% endblock %}

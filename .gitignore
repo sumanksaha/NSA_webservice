@@ -360,3 +360,4 @@ instance/editor_images/
 instance/jinja2_cache/
 instance/temp_uploads/
 .opencode/
+backups/*.json

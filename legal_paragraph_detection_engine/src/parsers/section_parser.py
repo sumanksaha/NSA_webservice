@@ -92,6 +92,19 @@ class SectionParser:
             r"\b(\d+)\s*\(\s*\d+\s*\)\s*\(\s*[a-zA-Z]\s*\)",  # 1(2)(a)
             r"\b(\d+)\s*\.\s*\d+\s*\.\s*[a-zA-Z]\s*\.\s*\d+",  # 1.2.3.4.
             r"^\s*\d+\.\d+\.\d+\.\d+\s*$",
+            # Pure parenthetical marker chains ("subsection markers") such as
+            # ``(1)(a)`` / ``(1)(2)(a)`` / ``(i)(ii)``. These are hierarchical
+            # markers, NOT section titles, and must be recognised so the
+            # chunker does not silently drop them (RAG_AGENT_A_SCOPE §2.3).
+            # Single markers (``(1)``, ``(a)``) are handled by the specific
+            # patterns above, so only multi-marker chains reach these.
+            r"^\s*(?:\(\s*\d+\s*\)\s*)+(?:\(\s*[a-zA-Z]\s*\)\s*)+$",
+            r"^\s*(?:\(\s*\d+\s*\)\s*)+$",
+            r"^\s*(?:\(\s*[ivxIVX]+\s*\)\s*)+$",
+            # Marker chain followed by content: ``(1)(a) First clause.`` — the
+            # chain is a marker prefix, not a section title (§2.3).
+            r"^\(\s*\d+\s*\)\s*\(\s*[a-zA-Z]\s*\).*",
+            r"^\(\s*[ivxIVX]+\s*\)\s*\(.*",
         ],
     }
 
@@ -211,6 +224,11 @@ class SectionParser:
             return SectionType.SUBPARAGRAPH
         elif re.search(r"\b(?:paragraph|para)\b", line_lower):
             return SectionType.PARAGRAPH
+        # Subsection-marker chains (``(1)(a)``, ``3(1)(a)``, ``(i)(ii)``) are
+        # classified by their deepest marker — never as a main section
+        # (RAG_AGENT_A_SCOPE §2.3).
+        elif self._has_deep_marker_chain(line):
+            return self._marker_chain_section_type(line)
         elif re.match(r"^\s*\(\s*\d+\s*\)", line):
             return SectionType.SUBSECTION
         elif re.match(r"^\s*\([a-zA-Z]\)", line) or re.match(r"^\s*[a-zA-Z]\s*\.\s", line):
@@ -221,14 +239,53 @@ class SectionParser:
         # Default to main section
         return SectionType.MAIN_SECTION
 
+    def _has_deep_marker_chain(self, line: str) -> bool:
+        """True when the line leads with a multi-marker chain.
+
+        Matches ``(1)(a) ...``, ``3(1)(a) ...`` and ``(i)(ii) ...`` — lines
+        whose leading parenthetical markers encode subsection/sub-subsection
+        depth (RAG_AGENT_A_SCOPE §2.3).
+        """
+        stripped = line.lstrip()
+        return bool(
+            re.match(r"^\(\s*\d+\s*\)\s*\(", stripped)
+            or re.match(r"^\d+\s*\(\s*\d+\s*\)\s*\(", stripped)
+            or re.match(r"^\(\s*[ivxIVX]+\s*\)\s*\(", stripped)
+        )
+
+    def _marker_chain_section_type(self, line: str) -> SectionType:
+        """Classify a marker chain by its deepest marker.
+
+        Mapping (RAG_AGENT_A_SCOPE §2.3): ``(1)`` → SUBSECTION,
+        ``(1)(a)`` → SUBSUBSECTION, ``(1)(a)(i)`` → PARAGRAPH, chains of
+        four or more markers → SUBPARAGRAPH.
+        """
+        markers = re.findall(r"\(\s*([^()]+?)\s*\)", line)
+        if len(markers) >= 4:
+            return SectionType.SUBPARAGRAPH
+        deepest = markers[-1] if markers else ""
+        if re.fullmatch(r"[ivxIVX]+", deepest):
+            return SectionType.PARAGRAPH
+        if re.fullmatch(r"[a-zA-Z]+", deepest):
+            return SectionType.SUBSUBSECTION
+        return SectionType.SUBSECTION
+
     def _extract_section_number(self, line: str, match: re.Match) -> str | None:
         """Extract section number from matched line.
 
-        A bare parenthetical such as ``(1)`` is a subsection *marker* and does
-        not carry a section number of its own (spec decision, F-06a).
+        A parenthetical such as ``(1)`` — or a pure marker chain such as
+        ``(1)(a)`` — is a subsection *marker* and does not carry a section
+        number of its own (spec decision, F-06a, extended to marker chains by
+        RAG_AGENT_A_SCOPE §2.3).
         """
-        # A parenthetical with nothing after it has no section number
-        if re.match(r"^\s*\(\s*\d+\s*\)\s*$", line):
+        # A line consisting purely of parenthetical markers has no section number
+        if re.fullmatch(r"(?:\(\s*[\da-zA-Z]+\s*\)\s*)+", line.strip()):
+            return None
+
+        # A line leading with a subsection-marker chain (``(1)(a) First``)
+        # references a section defined elsewhere — the markers are not a
+        # section number (spec decision F-06a, extended to chains by §2.3).
+        if line.lstrip().startswith("(") and self._has_deep_marker_chain(line):
             return None
 
         # Try to find the section number in the match
@@ -257,7 +314,29 @@ class SectionParser:
         return str(match.group(0).strip())
 
     def _extract_section_title(self, line: str, section_type: SectionType) -> str | None:
-        """Extract title from section line if present."""
+        """Extract title from section line if present.
+
+        Subsection-marker chains (``(1)(a)``) are NEVER titles — they are
+        stripped from the front of the line first, and when the line contains
+        nothing but markers the title is ``None`` (RAG_AGENT_A_SCOPE §2.3).
+        """
+        # Strip a leading "Section N" / number / marker-chain prefix so
+        # "Section 3(1)(a) Powers of the Food Authority" yields
+        # "Powers of the Food Authority" — never "(1)(a)".
+        stripped = self._strip_marker_prefix(line)
+        if stripped is None:
+            return None
+        if stripped != line.strip():
+            # A leading marker prefix was present; the remainder (if any) is
+            # the title. It must contain real words (never bare markers/digits)
+            # and must not itself begin with a section marker. A substring
+            # check is deliberately avoided so words like "subsection" (which
+            # contains "section") are accepted as titles.
+            if stripped and re.search(r"[A-Za-z]", stripped):
+                if not re.match(r"^(?:section|clause|provided)\b", stripped.lower()):
+                    return stripped
+            return None
+
         # Look for title patterns
         for pattern in self.TITLE_PATTERNS:
             match = re.match(pattern, line)
@@ -300,17 +379,38 @@ class SectionParser:
 
         return None
 
+    def _strip_marker_prefix(self, line: str) -> str | None:
+        """Strip a leading section-number / marker-chain prefix from ``line``.
+
+        ``"Section 3(1)(a) Powers"`` → ``"Powers"``, ``"(1)(a) First"`` →
+        ``"First"``. Returns ``None`` when nothing remains (the line is only
+        markers), otherwise the stripped remainder.
+        """
+        stripped = re.sub(
+            r"^\s*(?:Section|Sec\.|§)\s*\d+\s*[:\-]?\s*", "", line.strip(), flags=re.IGNORECASE
+        )
+        stripped = re.sub(r"^\s*\d+\s*\.?\s*", "", stripped)
+        stripped = re.sub(r"^(?:\(\s*[\da-zA-Z]+\s*\)\s*)+", "", stripped).strip()
+        return stripped or None
+
     def _calculate_level(self, line: str) -> int:
         """Calculate hierarchy level of section.
 
-        Level counts hierarchy *components*: a leading number counts as one
-        component and each ``(...)`` group / dotted segment adds one. Examples:
-        ``(1)`` → 1, ``(a)`` → 1, ``1.2.3`` → 3, ``1(2)(a)`` → 3.
+        Level counts hierarchy *components*: a leading section number counts as
+        one component (recognised both as a bare digit and behind a
+        ``Section``/``Sec``/``§`` marker) and each ``(...)`` group / dotted
+        segment adds one. A ``Section``-prefixed header that also carries
+        parenthetical markers gets one extra component, so a subsection-marker
+        chain pushes the level to 4+ as required (RAG_AGENT_A_SCOPE §2.3):
+        ``Section 3`` → 1, ``(1)`` → 1, ``(a)`` → 1, ``1.2.3`` → 3,
+        ``1(2)(a)`` → 3, ``Section 3(1)(a)`` → 4, ``3(1)(a)(i)`` → 4.
         """
         paren_groups = len(re.findall(r"\([^()]*\)", line))
         dot_segments = line.count(".")
-        leading_number = 1 if re.match(r"^\s*\d+", line) else 0
-        return max(leading_number + paren_groups + dot_segments, 1)
+        has_section_keyword = bool(re.match(r"^\s*(?:Section|Sec\.|§)\s*\d+", line, re.IGNORECASE))
+        leading_number = 1 if re.match(r"^\s*\d+", line) or has_section_keyword else 0
+        marker_bonus = 1 if has_section_keyword and paren_groups else 0
+        return max(leading_number + paren_groups + dot_segments + marker_bonus, 1)
 
     def _build_hierarchy(self, sections: list[SectionData]) -> list[SectionData]:
         """Build hierarchy relationships between sections."""

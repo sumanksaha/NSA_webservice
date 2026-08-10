@@ -1,244 +1,241 @@
-{% extends "base.html" %}
-
-{% block title %}Document Editor — {{ case_number }}{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}">
+{% extends "base.html" %} {% block title %}Document Editor — {{ case_number }}{% endblock %} {%
+block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" />
 <style>
-.editor-page {
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-.editor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.editor-header h2 {
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.doc-type-selector {
-    padding: 8px 14px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-card);
-    color: var(--text-body);
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.split-view {
-    display: flex;
-    gap: 16px;
-    height: 70vh;
-}
-
-.editor-pane {
-    flex: 1;
-    min-width: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.editor-pane .pane-header {
-    padding: 12px 16px;
-    background: var(--bg-subtle);
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#ql-editor-container {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.preview-pane {
-    flex: 1;
-    min-width: 0;
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.preview-pane .pane-header {
-    padding: 12px 16px;
-    background: var(--bg-subtle);
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#preview {
-    flex: 1;
-    border: none;
-    width: 100%;
-    background: #fff;
-}
-
-.action-bar {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-.autosave-status {
-    font-size: 13px;
-    color: var(--text-secondary, #6c757d);
-    font-style: italic;
-    min-height: 1.2em;
-}
-
-.autosave-status.autosaving {
-    color: var(--color-info, #0d6efd);
-}
-
-/* --- Phase 7: live Table of Contents panel --- */
-.toc-pane {
-    flex: 0 0 240px;
-    min-width: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.toc-pane.toc-hidden {
-    display: none;
-}
-
-.toc-pane .pane-header {
-    padding: 12px 16px;
-    background: var(--bg-subtle);
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.toc-count {
-    margin-left: auto;
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--text-secondary);
-    background: var(--bg-subtle);
-    border-radius: 10px;
-    padding: 1px 8px;
-}
-
-.toc-nav-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 12px 14px;
-    font-size: 13px;
-}
-
-.toc-nav-list ol {
-    margin: 0;
-    padding-left: 16px;
-    list-style: none;
-}
-
-.toc-nav-list .toc-list {
-    padding-left: 0;
-}
-
-.toc-nav-list li {
-    margin: 2px 0;
-}
-
-.toc-nav-list a {
-    color: var(--text-body);
-    text-decoration: none;
-    display: block;
-    padding: 4px 6px;
-    border-radius: 4px;
-    line-height: 1.35;
-    transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.toc-nav-list a:hover {
-    background: var(--bg-subtle);
-    color: #2563eb;
-}
-
-.toc-nav-list .toc-number {
-    display: inline-block;
-    min-width: 28px;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-}
-
-.toc-nav-list .toc-annexure a {
-    color: #1e40af;
-}
-
-.toc-nav-list .toc-annexure-badge {
-    display: inline-block;
-    font-size: 0.62em;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #1e40af;
-    background: #dbeafe;
-    border-radius: 3px;
-    padding: 1px 5px;
-    vertical-align: 0.08em;
-    margin-right: 4px;
-}
-
-.toc-empty {
-    padding: 12px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    font-style: italic;
-}
-
-@media (max-width: 768px) {
-    .split-view {
-        flex-direction: column;
-        height: auto;
+    .editor-page {
+        max-width: 1400px;
+        margin: 0 auto;
     }
-}
-</style>
-{% endblock %}
 
-{% block content %}
+    .editor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .editor-header h2 {
+        font-family: var(--font-heading);
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .doc-type-selector {
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-card);
+        color: var(--text-body);
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .split-view {
+        display: flex;
+        gap: 16px;
+        height: 70vh;
+    }
+
+    .editor-pane {
+        flex: 1;
+        min-width: 0;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .editor-pane .pane-header {
+        padding: 12px 16px;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #ql-editor-container {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .preview-pane {
+        flex: 1;
+        min-width: 0;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .preview-pane .pane-header {
+        padding: 12px 16px;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #preview {
+        flex: 1;
+        border: none;
+        width: 100%;
+        background: #fff;
+    }
+
+    .action-bar {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+        justify-content: flex-end;
+        align-items: center;
+    }
+
+    .autosave-status {
+        font-size: 13px;
+        color: var(--text-secondary, #6c757d);
+        font-style: italic;
+        min-height: 1.2em;
+    }
+
+    .autosave-status.autosaving {
+        color: var(--color-info, #0d6efd);
+    }
+
+    /* --- Phase 7: live Table of Contents panel --- */
+    .toc-pane {
+        flex: 0 0 240px;
+        min-width: 0;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .toc-pane.toc-hidden {
+        display: none;
+    }
+
+    .toc-pane .pane-header {
+        padding: 12px 16px;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toc-count {
+        margin-left: auto;
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--text-secondary);
+        background: var(--bg-subtle);
+        border-radius: 10px;
+        padding: 1px 8px;
+    }
+
+    .toc-nav-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 12px 14px;
+        font-size: 13px;
+    }
+
+    .toc-nav-list ol {
+        margin: 0;
+        padding-left: 16px;
+        list-style: none;
+    }
+
+    .toc-nav-list .toc-list {
+        padding-left: 0;
+    }
+
+    .toc-nav-list li {
+        margin: 2px 0;
+    }
+
+    .toc-nav-list a {
+        color: var(--text-body);
+        text-decoration: none;
+        display: block;
+        padding: 4px 6px;
+        border-radius: 4px;
+        line-height: 1.35;
+        transition:
+            background-color 0.12s ease,
+            color 0.12s ease;
+    }
+
+    .toc-nav-list a:hover {
+        background: var(--bg-subtle);
+        color: #2563eb;
+    }
+
+    .toc-nav-list .toc-number {
+        display: inline-block;
+        min-width: 28px;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .toc-nav-list .toc-annexure a {
+        color: #1e40af;
+    }
+
+    .toc-nav-list .toc-annexure-badge {
+        display: inline-block;
+        font-size: 0.62em;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #1e40af;
+        background: #dbeafe;
+        border-radius: 3px;
+        padding: 1px 5px;
+        vertical-align: 0.08em;
+        margin-right: 4px;
+    }
+
+    .toc-empty {
+        padding: 12px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+        .split-view {
+            flex-direction: column;
+            height: auto;
+        }
+    }
+</style>
+{% endblock %} {% block content %}
 <div class="editor-page">
     <div class="editor-header">
         <h2><i class="fa-solid fa-file-word"></i> Document Editor — Case {{ case_number }}</h2>
@@ -256,49 +253,115 @@
                 <span id="tocCount" class="toc-count"></span>
             </div>
             <nav id="liveToc" class="toc-nav-list" aria-label="Document headings"></nav>
-            <p id="tocEmpty" class="toc-empty" style="display:none;">
+            <p id="tocEmpty" class="toc-empty" style="display: none">
                 No headings yet &mdash; apply an H1&ndash;H6 style from the toolbar.
             </p>
         </aside>
 
         <div class="editor-pane">
-            <div class="pane-header">
-                <i class="fa-solid fa-pen"></i> Editor
-            </div>
+            <div class="pane-header"><i class="fa-solid fa-pen"></i> Editor</div>
             <div id="editor"></div>
         </div>
 
         <div class="preview-pane">
-            <div class="pane-header">
-                <i class="fa-solid fa-eye"></i> Live Preview
-            </div>
+            <div class="pane-header"><i class="fa-solid fa-eye"></i> Live Preview</div>
             <iframe id="preview" sandbox="allow-same-origin" title="Document Preview"></iframe>
         </div>
     </div>
 
-            <div class="action-bar">
-        <button type="button" id="tocToggleBtn" class="btn btn-secondary"
-                aria-pressed="true" title="Toggle live table of contents">
+    <div class="action-bar">
+        <button
+            type="button"
+            class="btn btn-secondary js-ai-assistant"
+            data-ai-action="summarize"
+            title="Summarize this document with AI"
+        >
+            <i class="fa-solid fa-robot"></i> Summarize
+        </button>
+        <button
+            type="button"
+            class="btn btn-secondary js-ai-assistant"
+            data-ai-action="refine_legal"
+            title="Refine legal terminology with AI"
+        >
+            <i class="fa-solid fa-pen-fancy"></i> Refine
+        </button>
+        <button
+            type="button"
+            class="btn btn-secondary js-ai-assistant"
+            data-ai-action="detect_contradictions"
+            title="Detect contradictions with AI"
+        >
+            <i class="fa-solid fa-bug"></i> Contradictions
+        </button>
+        <button
+            type="button"
+            class="btn btn-secondary js-ai-assistant"
+            data-ai-action="suggest_annexures"
+            title="Suggest missing annexures with AI"
+        >
+            <i class="fa-solid fa-paperclip"></i> Annexures
+        </button>
+        <button
+            type="button"
+            id="tocToggleBtn"
+            class="btn btn-secondary"
+            aria-pressed="true"
+            title="Toggle live table of contents"
+        >
             <i class="fa-solid fa-list-ol"></i> Live TOC
         </button>
-        <a href="{{ report_url if report_url else '#' }}"
-           class="btn btn-secondary"
-           {% if not report_url %}style="display:none;"{% endif %}>
+        <a
+            href="{{ report_url if report_url else '#' }}"
+            class="btn btn-secondary"
+            {%
+            if
+            not
+            report_url
+            %}style="display:none;"
+            {%
+            endif
+            %}
+        >
             <i class="fa-solid fa-sitemap"></i> Xref Report
         </a>
-        <a href="{{ toc_url if toc_url else '#' }}"
-           class="btn btn-secondary"
-           {% if not toc_url %}style="display:none;"{% endif %}>
-           <i class="fa-solid fa-list-ol"></i> TOC Report
+        <a
+            href="{{ toc_url if toc_url else '#' }}"
+            class="btn btn-secondary"
+            {%
+            if
+            not
+            toc_url
+            %}style="display:none;"
+            {%
+            endif
+            %}
+        >
+            <i class="fa-solid fa-list-ol"></i> TOC Report
         </a>
-        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=case_id, kind=case_type) }}"
-           class="btn btn-secondary" title="Open case timeline">
+        <a
+            href="{{ url_for('timeline.view', case_id_or_adjudication_id=case_id, kind=case_type) }}"
+            class="btn btn-secondary"
+            title="Open case timeline"
+        >
             <i class="fa-solid fa-timeline"></i> Timeline
         </a>
-        <a href="{{ url_for('version_control.history_page', case_id_or_adjudication_id=case_id, kind=case_type) }}"
-           class="btn btn-secondary" title="View document version history">
+        <a
+            href="{{ url_for('version_control.history_page', case_id_or_adjudication_id=case_id, kind=case_type) }}"
+            class="btn btn-secondary"
+            title="View document version history"
+        >
             <i class="fa-solid fa-clock-rotate-left"></i> History
         </a>
+        <button
+            type="button"
+            class="btn btn-secondary js-validate-case"
+            data-case-id="{{ case_id }}"
+            data-case-type="{{ case_type }}"
+            title="Run legal validation on this case"
+        >
+            <i class="fa-solid fa-clipboard-check"></i> Validate
+        </button>
         <button type="button" id="exportMarkdownBtn" class="btn btn-secondary">
             <i class="fa-solid fa-file-code"></i> Export Markdown
         </button>
@@ -307,18 +370,41 @@
         </button>
         <span id="autosaveStatus" class="autosave-status"></span>
     </div>
+
+    <div class="mt--md">
+        <span id="editor-val-status" class="form-hint"></span>
+    </div>
+    <div id="editor-val-drawer" class="mt--md" style="display: none"></div>
+
+    <div class="mt--md">
+        <span id="ai-assistant-status" class="form-hint"></span>
+    </div>
+    <div id="ai-assistant-results" class="mt--md" style="display: none"></div>
 </div>
 
 {# Hidden divs to safely pass server-rendered HTML to JS #}
-<div id="petition-data" style="display: none;">{{ petition_html | safe }}</div>
-<div id="permission-data" style="display: none;">{{ permission_html | safe }}</div>
+<div id="petition-data" style="display: none">{{ petition_html | safe }}</div>
+<div id="permission-data" style="display: none">{{ permission_html | safe }}</div>
 
 <script>
     window.CASE_ID = {{ case_id }};
 </script>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
 <script src="{{ url_for('static', filename='js/document_viewer/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_assistant.js') }}"></script>
+<script>
+    ValidationDrawer.initRowButtons({
+        buttonsSelector: ".js-validate-case",
+        drawerId: "editor-val-drawer",
+        statusId: "editor-val-status",
+        endpoint: '{{ url_for("validation.validate") }}',
+    });
+    AIAssistant.init({
+        buttonsSelector: ".js-ai-assistant",
+        drawerId: "ai-assistant-results",
+        statusId: "ai-assistant-status",
+    });
+</script>
 {% endblock %}

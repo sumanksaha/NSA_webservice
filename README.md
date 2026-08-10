@@ -43,19 +43,20 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 
 ### Core Capabilities
 
-| Module | Purpose |
-|--------|---------|
-| **Inspection Management** | Record food business inspections, capture geo-tagged photo evidence, calculate compliance deadlines |
-| **Sample Management** | Track food sample collection, lab submission, analyst reports with unique code generation |
-| **Case File Generation** | Generate legal case files for sample-based violations (misbranded, substandard food) |
-| **Adjudication** | Manage non-sample adjudication cases, section selection, legal document generation |
-| **FBO Issue Tracking** | Unified state machine for Food Business Operator issues with audit trail |
-| **Billing** | Summary dashboards and Excel export for sample billing |
-| **Document Generation** | PDF generation for permission letters, petitions, and legal notices |
+| Module                            | Purpose                                                                                                                                                          |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Inspection Management**         | Record food business inspections, capture geo-tagged photo evidence, calculate compliance deadlines                                                              |
+| **Sample Management**             | Track food sample collection, lab submission, analyst reports with unique code generation                                                                        |
+| **Case File Generation**          | Generate legal case files for sample-based violations (misbranded, substandard food)                                                                             |
+| **Adjudication**                  | Manage non-sample adjudication cases, section selection, legal document generation                                                                               |
+| **FBO Issue Tracking**            | Unified state machine for Food Business Operator issues with audit trail                                                                                         |
+| **Billing**                       | Summary dashboards and Excel export for sample billing                                                                                                           |
+| **Document Generation**           | PDF generation for permission letters, petitions, and legal notices                                                                                              |
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
-| **Food Cell (DO Intimation)** | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21) |
-| **Audit Trail** | Tamper-evident hash-chained audit logging for all records and photo evidence |
-| **Google Sheets Sync** | Optional data synchronization with Google Sheets for external reporting |
+| **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
+| **Legal RAG (Vector Search)**     | Semantic search over legal corpus via Qdrant (768-dim embeddings), hybrid dense + sparse retrieval, reranking, hash-chained query audit (Phase 1 complete)       |
+| **Audit Trail**                   | Tamper-evident hash-chained audit logging for all records and photo evidence                                                                                     |
+| **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
 ---
 
@@ -106,14 +107,14 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 
 ### Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| **Blueprint-per-domain** | Separate Flask blueprints for each functional domain enable independent development, testing, and future migration to microservices |
-| **Canonical Key Contract** | `app/shared/case_keys.py` defines uniform field names across modules, preventing field-name drift as the platform evolves |
-| **Hash-Chained Audit** | Tamper-evident `AuditLog` using SHA-256 prevents retroactive modification of records |
-| **Race-Safe Sequences** | `CodeSequence` table with atomic increments and PostgreSQL advisory locks ensures unique codes across concurrent workers |
-| **Optimistic Concurrency** | `version_id` columns with `StaleDataError` handling prevent lost updates during concurrent edits |
-| **Storage Abstraction** | S3-compatible interface (R2/B2) for photo evidence decouples storage from application logic |
+| Decision                   | Rationale                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Blueprint-per-domain**   | Separate Flask blueprints for each functional domain enable independent development, testing, and future migration to microservices |
+| **Canonical Key Contract** | `app/shared/case_keys.py` defines uniform field names across modules, preventing field-name drift as the platform evolves           |
+| **Hash-Chained Audit**     | Tamper-evident `AuditLog` using SHA-256 prevents retroactive modification of records                                                |
+| **Race-Safe Sequences**    | `CodeSequence` table with atomic increments and PostgreSQL advisory locks ensures unique codes across concurrent workers            |
+| **Optimistic Concurrency** | `version_id` columns with `StaleDataError` handling prevent lost updates during concurrent edits                                    |
+| **Storage Abstraction**    | S3-compatible interface (R2/B2) for photo evidence decouples storage from application logic                                         |
 
 ---
 
@@ -121,34 +122,37 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 
 ### Current Stack
 
-| Layer | Technology | Version | Purpose |
-|-------|-----------|---------|---------|
-| **Runtime** | Python | 3.12+ | Application runtime |
-| **Web Framework** | Flask | 2.x | HTTP server and routing |
-| **ORM** | SQLAlchemy | 2.x | Database abstraction |
-| **Migrations** | Alembic | 1.13+ | Schema version control |
-| **Database** | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence |
-| **Task Queue** | Celery | 5.4+ | Async background jobs |
-| **Message Broker** | Redis | 5.x | Celery broker + cache |
-| **PDF Generation** | WeasyPrint | — | HTML-to-PDF rendering |
-| **Excel Export** | openpyxl | — | Billing reports |
-| **Object Storage** | Cloudflare R2 / Backblaze B2 | — | Photo evidence storage |
-| **Auth** | Flask-Login | 0.6+ | Session-based authentication |
-| **Security** | Flask-Talisman | 1.1+ | CSP, HSTS, secure headers |
-| **OCR** | Tesseract (pytesseract) | — | Text extraction from images |
-| **Templates** | Jinja2 | — | Server-side HTML rendering |
+| Layer              | Technology                          | Version  | Purpose                                     |
+| ------------------ | ----------------------------------- | -------- | ------------------------------------------- |
+| **Runtime**        | Python                              | 3.12+    | Application runtime                         |
+| **Web Framework**  | Flask                               | 2.x      | HTTP server and routing                     |
+| **ORM**            | SQLAlchemy                          | 2.x      | Database abstraction                        |
+| **Migrations**     | Alembic                             | 1.13+    | Schema version control                      |
+| **Database**       | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence                            |
+| **Task Queue**     | Celery                              | 5.4+     | Async background jobs                       |
+| **Message Broker** | Redis                               | 5.x      | Celery broker + cache                       |
+| **PDF Generation** | WeasyPrint                          | —        | HTML-to-PDF rendering                       |
+| **Excel Export**   | openpyxl                            | —        | Billing reports                             |
+| **Object Storage** | Cloudflare R2 / Backblaze B2        | —        | Photo evidence storage                      |
+| **Auth**           | Flask-Login                         | 0.6+     | Session-based authentication                |
+| **Security**       | Flask-Talisman                      | 1.1+     | CSP, HSTS, secure headers                   |
+| **OCR**            | Tesseract (pytesseract)             | —        | Text extraction from images                 |
+| **Vector Store**   | Qdrant                              | latest   | Semantic search over legal corpus (768-dim) |
+| **Embeddings**     | sentence-transformers               | latest   | `all-mpnet-base-v2` (768-dim)               |
+| **Fuzzy Matching** | rapidfuzz                           | —        | Sparse retrieval + fuzzy fallback           |
+| **Templates**      | Jinja2                              | —        | Server-side HTML rendering                  |
 
 ### Target Stack (Levels 5–10)
 
-| Layer | Target Technology |
-|-------|-------------------|
-| **Web Framework** | FastAPI |
-| **Graph Database** | Neo4j |
-| **Vector Store** | Qdrant |
-| **Orchestration** | LangGraph |
-| **LLM Gateway** | OpenRouter |
+| Layer                | Target Technology       |
+| -------------------- | ----------------------- |
+| **Web Framework**    | FastAPI                 |
+| **Graph Database**   | Neo4j                   |
+| **Vector Store**     | Qdrant                  | ✅ Phase 1 (Agent A) |
+| **Orchestration**    | LangGraph               |
+| **LLM Gateway**      | OpenRouter              |
 | **Containerization** | Docker + Docker Compose |
-| **Monitoring** | Prometheus + Grafana |
+| **Monitoring**       | Prometheus + Grafana    |
 
 ## Project Status & Capabilities
 
@@ -169,51 +173,57 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Version history, branching, cross‑reference & TOC reports** for edited documents, and **backup / export / import** of complete cases.
 - **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
+- **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval and reranking (Phase 1 complete — 282 tests).
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Inspection CRUD | ✅ Complete | With photo verification pipeline |
-| Sample Management | ✅ Complete | Code generation, lab tracking |
-| Case File Generation | ✅ Complete | PDF generation, Celery async |
-| Adjudication | ✅ Complete | Section suggestion, document generation |
-| FBO Issue State Machine | ✅ Complete | With audit trail |
-| Billing Dashboard | ✅ Complete | Excel export, filtering |
-| Authentication | ✅ Complete | Flask‑Login, global gate |
-| Audit Trail | ✅ Complete | Hash‑chained + RecordAudit |
-| Security Hardening | ✅ Complete | CSP, HSTS, CSRF, session hardening |
-| Timeline Engine + Gantt | ✅ Complete | Phase 13 — 21 tests, global picker + entry points |
-| Search (FTS5 + fuzzy) | ✅ Complete | Phase 10 — 56 tests |
-| Version Control | ✅ Complete | Compare/restore/branch, history UI |
-| Backup / Export / Import | ✅ Complete | Phase 16 — JSON/ZIP export, case import |
-| OCR Pipeline | ⚠️ Foundation | Phase A done; Phases B–E pending |
-| Food Cell (DO Intimation) | ✅ Complete | Phase 21 — 15 tests |
-| CI/CD | ⚠️ Partial | pip‑audit + Dependabot configured |
-| RBAC / Roles | ❌ Not Started | All users have full access |
-| PostgreSQL Migration | ⚠️ In Progress | Schema ready, production pending |
-| Tests | ✅ 39 modules | ~700+ test cases, incl. end‑to‑end |
+| Area                      | Status         | Notes                                                         |
+| ------------------------- | -------------- | ------------------------------------------------------------- |
+| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                              |
+| Sample Management         | ✅ Complete    | Code generation, lab tracking                                 |
+| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                  |
+| Adjudication              | ✅ Complete    | Section suggestion, document generation                       |
+| FBO Issue State Machine   | ✅ Complete    | With audit trail                                              |
+| Billing Dashboard         | ✅ Complete    | Excel export, filtering                                       |
+| Authentication            | ✅ Complete    | Flask‑Login, global gate                                      |
+| Audit Trail               | ✅ Complete    | Hash‑chained + RecordAudit                                    |
+| Security Hardening        | ✅ Complete    | CSP, HSTS, CSRF, session hardening                            |
+| Timeline Engine + Gantt   | ✅ Complete    | Phase 13 — 21 tests, global picker + entry points             |
+| Search (FTS5 + fuzzy)     | ✅ Complete    | Phase 10 — 56 tests                                           |
+| Version Control           | ✅ Complete    | Compare/restore/branch, history UI                            |
+| Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                       |
+| OCR Pipeline              | ⚠️ Foundation  | Phase A done; Phases B–E pending                              |
+| Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                           |
+| Legal RAG (Phase 1)       | ✅ Complete    | 282 tests — corpus/embedding + retrieval foundation           |
+| CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                             |
+| RBAC / Roles              | ❌ Not Started | All users have full access                                    |
+| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                              |
+| Tests                     | ✅ 59+ modules | ~1000+ test cases (700+ existing + 282 RAG), incl. end‑to‑end |
 
 ---
 
 ## Future Scope & Roadmap
 
 ### Phase 1 – Hardening (Q3 2026)
+
 - ✅ PostgreSQL production migration (targeted for Q3 2026)
 - ✅ Persistent Celery worker deployment
 - ✅ RBAC implementation (FSO, Admin, Auditor roles)
 
 ### Phase 2 – Platform Upgrade (Q4 2026)
+
 - FastAPI migration for async APIs
 - OpenAPI/Swagger documentation
 - Structured logging with `structlog`
 - Monitoring (Prometheus + Grafana) and Sentry error tracking
 
 ### Phase 3 – Intelligence (Q1 2027)
+
 - Neo4j graph database integration for relationship queries
-- Qdrant vector store for semantic search over legal corpus
+- ✅ Qdrant vector store for semantic search over legal corpus (Phase 1 complete — 282 tests)
 - LangGraph workflow orchestration
 - OpenRouter multi‑LLM gateway for AI‑assisted section suggestion and document drafting
 
 ### Phase 4 – Enterprise (Q2 2027)
+
 - Bulk operations and multi‑tenancy support
 - Advanced pattern detection across cases
 - Automated document drafting and continuous learning from adjudication outcomes
@@ -225,6 +235,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 ## Roadmap
 
 ### Phase 1: Hardening (Q3 2026)
+
 - [ ] PostgreSQL production migration
 - [ ] Persistent Celery worker deployment
 - [ ] RBAC implementation (FSO, Admin, Auditor roles)
@@ -233,6 +244,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - [x] Docker containerization
 
 ### Phase 2: Platform Upgrade (Q4 2026)
+
 - [ ] FastAPI migration
 - [x] OpenAPI / Swagger documentation (flasgger `/apidocs/`)
 - [x] Structured logging (structlog)
@@ -241,13 +253,15 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - [x] Health check endpoints (`GET /health`)
 
 ### Phase 3: Intelligence (Q1 2027)
+
 - [ ] Neo4j graph database integration
 - [ ] Entity relationship queries
-- [ ] Qdrant vector store for semantic search
+- [x] Qdrant vector store for semantic search (Phase 1 complete — 282 tests)
 - [ ] LangGraph workflow orchestration
 - [ ] OpenRouter multi-LLM gateway
 
 ### Phase 4: Enterprise (Q2 2027)
+
 - [ ] AI-powered section suggestion
 - [ ] Document drafting assistance
 - [ ] Pattern detection across cases
@@ -383,20 +397,22 @@ pytest tests/test_route_collisions.py -v
 
 ### Test Structure
 
-| Test File | Coverage |
-|-----------|----------|
-| `test_step1.py` | FSO model, markdown sync, Sample model, code generation |
-| `test_step2.py` | Billing utilities, Excel export, filtering |
-| `test_step3.py` | Inspection model, code generation, deadline calculation |
-| `test_step4.py` | Derived-state queries, dismiss action, adjudication linkage |
-| `test_step5_integration.py` | Cross-module integration scenarios |
-| `test_route_collisions.py` | Regression: duplicate route detection |
-| `test_bill_generator.py` | Bill generation logic |
-| `test_pdf_photo_embedding.py` | PDF photo embedding edge cases |
-| `test_timeline.py` | Phase 13: timeline engine, routes, picker, entry points (21) |
-| `test_case_backup.py` | Phase 16: JSON/ZIP export, case import (14) |
-| `test_ocr_extraction.py` | Phase A: OCR extraction + task persistence (14) |
-| `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15) |
+| Test File                         | Coverage                                                     |
+| --------------------------------- | ------------------------------------------------------------ |
+| `test_step1.py`                   | FSO model, markdown sync, Sample model, code generation      |
+| `test_step2.py`                   | Billing utilities, Excel export, filtering                   |
+| `test_step3.py`                   | Inspection model, code generation, deadline calculation      |
+| `test_step4.py`                   | Derived-state queries, dismiss action, adjudication linkage  |
+| `test_step5_integration.py`       | Cross-module integration scenarios                           |
+| `test_route_collisions.py`        | Regression: duplicate route detection                        |
+| `test_bill_generator.py`          | Bill generation logic                                        |
+| `test_pdf_photo_embedding.py`     | PDF photo embedding edge cases                               |
+| `test_timeline.py`                | Phase 13: timeline engine, routes, picker, entry points (21) |
+| `test_case_backup.py`             | Phase 16: JSON/ZIP export, case import (14)                  |
+| `test_ocr_extraction.py`          | Phase A: OCR extraction + task persistence (14)              |
+| RAG corpus/embedding tests        | 20 files, 254 tests                                          | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality | ✅ All pass |
+| RAG retrieval tests               | 8 files, 102 tests                                           | Dense, sparse, hybrid, reranker, query classifier, logger, e2e           | ✅ All pass |
+| `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15)           |
 
 ---
 
@@ -432,25 +448,25 @@ celery -A celery_app.celery worker --loglevel=info
 
 ### Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SECRET_KEY` | Yes | Flask secret key (min 32 chars) |
-| `REDIS_URL` | For Celery | Redis connection string |
-| `GOOGLE_CREDENTIALS_JSON` | For Sheets | Google service account JSON |
-| `SPREADSHEET_ID` | For Sheets | Google Sheets document ID |
-| `R2_ACCESS_KEY` | For Storage | R2/B2 access key |
-| `R2_SECRET_KEY` | For Storage | R2/B2 secret key |
-| `R2_BUCKET` | For Storage | Storage bucket name |
-| `R2_ENDPOINT` | For Storage | Storage endpoint URL |
-| `SKIP_FSO_STARTUP_SYNC` | No | Skip FSO sync on startup |
-| `AIRTABLE_API_KEY` | For Airtable backup | Airtable API key |
-| `AIRTABLE_BASE_ID` | For Airtable backup | Airtable base ID (auto-rotates when full) |
-| `MS_TENANT_ID` | For Excel backup | Azure AD tenant ID |
-| `MS_CLIENT_ID` | For Excel backup | Azure AD app registration ID |
-| `MS_CLIENT_SECRET` | For Excel backup | Azure AD client secret |
-| `MS_DRIVE_ID` | For Excel backup | OneDrive/SharePoint drive ID |
-| `MS_SPREADSHEET_ID` | For Excel backup | Excel file ID in OneDrive |
+| Variable                  | Required            | Description                               |
+| ------------------------- | ------------------- | ----------------------------------------- |
+| `DATABASE_URL`            | Yes                 | PostgreSQL connection string              |
+| `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)           |
+| `REDIS_URL`               | For Celery          | Redis connection string                   |
+| `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON               |
+| `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                 |
+| `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                          |
+| `R2_SECRET_KEY`           | For Storage         | R2/B2 secret key                          |
+| `R2_BUCKET`               | For Storage         | Storage bucket name                       |
+| `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                      |
+| `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                  |
+| `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                          |
+| `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full) |
+| `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                        |
+| `MS_CLIENT_ID`            | For Excel backup    | Azure AD app registration ID              |
+| `MS_CLIENT_SECRET`        | For Excel backup    | Azure AD client secret                    |
+| `MS_DRIVE_ID`             | For Excel backup    | OneDrive/SharePoint drive ID              |
+| `MS_SPREADSHEET_ID`       | For Excel backup    | Excel file ID in OneDrive                 |
 
 ---
 
@@ -460,27 +476,28 @@ celery -A celery_app.celery worker --loglevel=info
 
 ### Blueprint Prefixes
 
-| Blueprint | Prefix | Description |
-|-----------|--------|-------------|
-| Auth | `/auth` | Login/logout |
-| Inspection | `/inspection` | Inspection CRUD + photo evidence |
-| Sample | `/sample` | Sample management |
-| Case File | `/case_file_generator` | Case file generation |
-| Adjudication | `/adjudication` | Adjudication management |
-| Billing | `/billing` | Billing summary + export |
-| Bill Generator | `/bill_generator` | Bill PDF (async via QStash) |
-| FBO Issue | `/fbo-issue` | FBO issue state machine |
-| Annexure | `/annexure` | Annexure upload + metadata |
-| Evidence | `/evidence` | Evidence library (photos, reports, etc.) |
-| Document Viewer | `/document_viewer` | Quill editor, save/restore, PDF |
-| Legal Analysis | `/legal` | Legal paragraph detection workbench |
-| Search | `/search` | FTS5 + fuzzy search API |
-| Version Control | `/api/version-control` | Version history UI + API |
-| Timeline | `/timeline` | Case milestone timeline + Gantt |
-| Food Cell | `/food-cell` | DO Intimation workflow (Phase 21) |
-| Audit | `/admin` | Audit log viewer |
-| Settings | `/settings` | Admin settings |
-| Health | `/health` | Health probe (public) |
+| Blueprint       | Prefix                 | Description                                   |
+| --------------- | ---------------------- | --------------------------------------------- |
+| Auth            | `/auth`                | Login/logout                                  |
+| Inspection      | `/inspection`          | Inspection CRUD + photo evidence              |
+| Sample          | `/sample`              | Sample management                             |
+| Case File       | `/case_file_generator` | Case file generation                          |
+| Adjudication    | `/adjudication`        | Adjudication management                       |
+| Billing         | `/billing`             | Billing summary + export                      |
+| Bill Generator  | `/bill_generator`      | Bill PDF (async via QStash)                   |
+| FBO Issue       | `/fbo-issue`           | FBO issue state machine                       |
+| Annexure        | `/annexure`            | Annexure upload + metadata                    |
+| Evidence        | `/evidence`            | Evidence library (photos, reports, etc.)      |
+| Document Viewer | `/document_viewer`     | Quill editor, save/restore, PDF               |
+| Legal Analysis  | `/legal`               | Legal paragraph detection workbench           |
+| Search          | `/search`              | FTS5 + fuzzy search API                       |
+| Version Control | `/api/version-control` | Version history UI + API                      |
+| Timeline        | `/timeline`            | Case milestone timeline + Gantt               |
+| Food Cell       | `/food-cell`           | DO Intimation workflow (Phase 21)             |
+| **RAG**         | `/rag`                 | RAG health + retrieval API (Phase 1 complete) |
+| Audit           | `/admin`               | Audit log viewer                              |
+| Settings        | `/settings`            | Admin settings                                |
+| Health          | `/health`              | Health probe (public)                         |
 
 ### Response Format
 
@@ -508,15 +525,15 @@ All API endpoints return JSON with consistent status codes:
 
 ### Naming Conventions
 
-| Element | Convention | Example |
-|---------|-----------|---------|
-| Modules | `snake_case` | `inspection_utils.py` |
-| Classes | `PascalCase` | `class InspectionPhoto` |
-| Functions | `snake_case` | `def generate_inspection_code()` |
-| Variables | `snake_case` | `compliance_deadline` |
-| Constants | `UPPER_CASE` | `MAX_FILE_SIZE` |
-| DB Columns | `snake_case` | `food_safety_officer_name` |
-| Blueprints | `snake_case` | `inspection_bp` |
+| Element    | Convention   | Example                          |
+| ---------- | ------------ | -------------------------------- |
+| Modules    | `snake_case` | `inspection_utils.py`            |
+| Classes    | `PascalCase` | `class InspectionPhoto`          |
+| Functions  | `snake_case` | `def generate_inspection_code()` |
+| Variables  | `snake_case` | `compliance_deadline`            |
+| Constants  | `UPPER_CASE` | `MAX_FILE_SIZE`                  |
+| DB Columns | `snake_case` | `food_safety_officer_name`       |
+| Blueprints | `snake_case` | `inspection_bp`                  |
 
 ### Commit Messages
 
@@ -548,18 +565,21 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 ## Future Levels 1–10
 
 ### Level 1: Foundation ✅
+
 - Flask web framework with blueprints
 - SQLAlchemy ORM with Alembic migrations
 - Basic authentication (Flask-Login)
 - Core inspection, sample, adjudication CRUD
 
 ### Level 2: Integration ✅
+
 - Google Sheets sync
 - PDF document generation (WeasyPrint)
 - Celery background tasks
 - S3-compatible object storage (R2/B2)
 
 ### Level 3: Security ✅
+
 - Flask-Talisman (CSP, HSTS, secure cookies)
 - CSRF protection (flask-wtf)
 - Session hardening (30min TTL, HttpOnly, SameSite)
@@ -567,24 +587,28 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - Optimistic concurrency control
 
 ### Level 4: Testing & Validation ✅
+
 - Module-specific pytest suite
 - Route collision regression guard
 - Code generation with race-safe sequences
 - Photo evidence verification pipeline (EXIF, IP geo, distance check)
 
 ### Level 5: Database & Scale 🔄 In Progress
+
 - PostgreSQL production migration
 - Connection pooling
 - Database indexes optimization
 - Query performance tuning (N+1 fixes)
 
 ### Level 6: API & Architecture ⬜ Planned
+
 - FastAPI migration
 - OpenAPI/Swagger documentation
 - Dependency injection
 - Async request handling
 
 ### Level 7: Observability ⬜ Planned
+
 - Structured logging (structlog)
 - Monitoring (Prometheus + Grafana)
 - Error tracking (Sentry)
@@ -592,18 +616,21 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - Distributed tracing
 
 ### Level 8: Graph & Knowledge ⬜ Planned
+
 - Neo4j graph database
 - Entity relationship mapping (FSO→FBO→Case→Section)
 - Graph-based pattern detection
 - Case similarity queries
 
-### Level 9: Intelligence ⬜ Planned
-- Qdrant vector store integration
-- Semantic search over legal corpus
-- AI-powered section suggestion
-- Document embedding pipeline
+### Level 9: Intelligence ✅ Phase 1 Complete
+
+- ✅ Qdrant vector store integration (`app/rag/qdrant_client.py`)
+- ✅ Semantic search over legal corpus (DenseRetriever + SparseRetriever + HybridRetriever)
+- 🔄 AI-powered section suggestion (Qdrant semantic search delivers context; LLM grounding Phase 2)
+- ✅ Document embedding pipeline (`IngestionPipeline`, Celery async, QStash scheduling)
 
 ### Level 10: Autonomy ⬜ Planned
+
 - LangGraph workflow orchestration
 - OpenRouter multi-LLM gateway
 - Agentic adjudication pipeline

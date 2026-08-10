@@ -1,0 +1,2939 @@
+{
+  "metadata": {
+    "corpus_dir": "FSSAI_rules documents",
+    "total_documents": 24,
+    "generated_at": "2026-08-09",
+    "vector_space": "fssai_legal_768 (768-dim cosine)",
+    "embedding_model": "sentence-transformers/all-mpnet-base-v2"
+  },
+  "schema": {
+    "entity_types": {
+      "document": "Legal document (Act, Amendment, Notification, Regulation, Rule)",
+      "section": "Legal section/subsection/clause within an Act or regulation",
+      "authority": "Governing body or ministry (FSSAI, Ministries)",
+      "jurisdiction": "Geographic/law-tier scope (Central Government, Republic of India)",
+      "reference": "Citation extracted from chunk text (cross-reference to another legal source)"
+    },
+    "relationship_types": {
+      "document_contains_section": "document -> section",
+      "document_issued_by": "document -> authority",
+      "document_applies_to": "document -> jurisdiction",
+      "section_cites": "section -> section (intra-document)",
+      "section_references": "section -> external section/document",
+      "authority_oversees": "authority -> document type",
+      "document_amends": "Amendment Act -> Act section"
+    }
+  },
+  "entities": {
+    "documents": [
+      {
+        "id": "16acc8d7976b482887c0c2d5267cf196",
+        "file": "1_Notification dt 10_03_2026-1.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 32,
+        "sections": [
+          "31",
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 32,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 13,
+        "references_count": 0,
+        "jurisdiction_raw": "Central\nGovernment",
+        "jurisdictions_canonical": [
+          "Central",
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 5,
+        "file_size_bytes": 740869,
+        "elapsed_s": 5.5
+      },
+      {
+        "id": "308c18806474431bbc00ba564c9450ed",
+        "file": "273797-1.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 11,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 11,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "missing_content_hash"
+        ],
+        "citations_count": 7,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 1,
+        "file_size_bytes": 231608,
+        "elapsed_s": 0.5
+      },
+      {
+        "id": "fcec36bc582545ac8bf72f63d86c9524",
+        "file": "6928478129442Final Notification of alcoholic beverages.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 13,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 13,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 5,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": "2026-06-01",
+        "is_current": true,
+        "pages": 3,
+        "file_size_bytes": 612821,
+        "elapsed_s": 1.81
+      },
+      {
+        "id": "beb8d9c019b74cf59b8b7a407ab6b8d3",
+        "file": "6a1fd30fa8c01prohibition_final.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 13,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 13,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 7,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 2,
+        "file_size_bytes": 1178151,
+        "elapsed_s": 1.84
+      },
+      {
+        "id": "22b048e9ca1e41e2b212298ebe9d902f",
+        "file": "6a3c0a8fbaf61273797.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 18,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 18,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 8,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 3,
+        "file_size_bytes": 611129,
+        "elapsed_s": 2.16
+      },
+      {
+        "id": "e170131a44d14570b0345b0665709596",
+        "file": "Alcoholic_Beverages_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "FSSAI",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 285,
+        "sections": [
+          "3",
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 285,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 27,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 29,
+        "file_size_bytes": 967750,
+        "elapsed_s": 9.05
+      },
+      {
+        "id": "5d17cb125da543dcb9162ae67c1196c6",
+        "file": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 27,
+        "sections": [
+          "31",
+          "4",
+          "55",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 27,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "missing_content_hash"
+        ],
+        "citations_count": 5,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 3,
+        "file_size_bytes": 86675,
+        "elapsed_s": 0.48
+      },
+      {
+        "id": "bc2970cf5668487dbb6870aa9dc9e489",
+        "file": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "document_type": "act",
+        "document_type_description": "Primary legislation - the FSS Act, 2006 or its formal amendments (Amendment Act 2008/2011/2023).",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 607,
+        "sections": [
+          "31",
+          "32",
+          "36",
+          "4",
+          "55"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 607,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 78,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Goa",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 101,
+        "file_size_bytes": 1255307,
+        "elapsed_s": 29.33
+      },
+      {
+        "id": "eb640e88f74b4f30ba1b8e8d9be4105e",
+        "file": "Contaminants_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 79,
+        "sections": [
+          "1",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "2"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 79,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 7,
+        "references_count": 0,
+        "jurisdiction_raw": "India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 19,
+        "file_size_bytes": 129134,
+        "elapsed_s": 2.02
+      },
+      {
+        "id": "01739f4ae170458793cb3c90b82365e5",
+        "file": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "fssai",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 31,
+        "sections": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 31,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 8,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 6,
+        "file_size_bytes": 770123,
+        "elapsed_s": 3.84
+      },
+      {
+        "id": "62478f4d0bbe41d1ba5a8b43bc838b0b",
+        "file": "Food_Additives_Regulations-4.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 5913,
+        "sections": [
+          "0",
+          "0001",
+          "0002",
+          "00022",
+          "0003",
+          "001",
+          "002",
+          "003",
+          "0031",
+          "004",
+          "005",
+          "0051"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 5913,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 522,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 243,
+        "file_size_bytes": 768904,
+        "elapsed_s": 105.36
+      },
+      {
+        "id": "ac7e57e6c92143d1a102f5b1b7a9e111",
+        "file": "Food_Fortification_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 90,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 90,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 6,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of\nIndia",
+        "jurisdictions_canonical": [
+          "Central Government of India",
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 13,
+        "file_size_bytes": 2119881,
+        "elapsed_s": 4.84
+      },
+      {
+        "id": "46e6ffdb9a0547989e35b1f54534829b",
+        "file": "Food_Safety_and_Standards_Act_2006.pdf",
+        "document_type": "act",
+        "document_type_description": "Primary legislation - the FSS Act, 2006 or its formal amendments (Amendment Act 2008/2011/2023).",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE",
+        "status": "ok",
+        "chunk_count": 734,
+        "sections": [
+          "1",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "195"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 734,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 214,
+        "references_count": 0,
+        "jurisdiction_raw": "Republic of India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 69,
+        "file_size_bytes": 329484,
+        "elapsed_s": 17.19
+      },
+      {
+        "id": "28995704ce224f36aa5dc3528e39a7f8",
+        "file": "FSS_Amendment_Act_1-2008.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "",
+        "canonical_authority": "",
+        "status": "ok",
+        "chunk_count": 0,
+        "sections": [],
+        "quality_grade": "A",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 0,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [],
+        "citations_count": 0,
+        "references_count": 0,
+        "jurisdiction_raw": "India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 1,
+        "file_size_bytes": 35054,
+        "elapsed_s": 0.02
+      },
+      {
+        "id": "eefdd9a00180405fa270060d64d37bfa",
+        "file": "FSS_Amendment_Act_2-2011.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE",
+        "status": "ok",
+        "chunk_count": 786,
+        "sections": [
+          "1",
+          "10",
+          "106",
+          "107",
+          "11",
+          "112",
+          "12",
+          "120",
+          "121",
+          "122",
+          "123",
+          "124"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 786,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 413,
+        "references_count": 0,
+        "jurisdiction_raw": "Republic of India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 72,
+        "file_size_bytes": 293682,
+        "elapsed_s": 16.78
+      },
+      {
+        "id": "8aed0e29bd494b089abb9e4f6349f20a",
+        "file": "FSS_Amendment_Act_3-2023.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE",
+        "status": "ok",
+        "chunk_count": 2523,
+        "sections": [
+          "1",
+          "10",
+          "100",
+          "101",
+          "102",
+          "104",
+          "105",
+          "106",
+          "107",
+          "108",
+          "11",
+          "110"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 2523,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 1441,
+        "references_count": 0,
+        "jurisdiction_raw": "Republic of\nIndia",
+        "jurisdictions_canonical": [
+          "Republic of",
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 186,
+        "file_size_bytes": 1985125,
+        "elapsed_s": 129.3
+      },
+      {
+        "id": "b0024e9a3f734758819ff2645d73afdb",
+        "file": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 8,
+        "sections": [
+          "31",
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 8,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "missing_content_hash"
+        ],
+        "citations_count": 4,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 2,
+        "file_size_bytes": 54396,
+        "elapsed_s": 0.3
+      },
+      {
+        "id": "7593abdf2cf64e89b61f5346946b52e1",
+        "file": "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 14,
+        "sections": [
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 14,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 5,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": "2018-07-01",
+        "is_current": true,
+        "pages": 3,
+        "file_size_bytes": 1315972,
+        "elapsed_s": 1.74
+      },
+      {
+        "id": "8b56fb25723f4aef906893725e729543",
+        "file": "L-and-R oper content_merged.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "status": "ok",
+        "chunk_count": 458,
+        "sections": [
+          "1",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "2"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 458,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 142,
+        "references_count": 0,
+        "jurisdiction_raw": "India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "Goa",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 50,
+        "file_size_bytes": 1043524,
+        "elapsed_s": 23.94
+      },
+      {
+        "id": "7d6b24d162284a38907dc4948c723972",
+        "file": "Licensing_Regulations-2.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 581,
+        "sections": [
+          "31",
+          "32",
+          "36",
+          "4",
+          "55",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 581,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 77,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 54,
+        "file_size_bytes": 174029,
+        "elapsed_s": 20.25
+      },
+      {
+        "id": "41f187fa8bc24911b5469d9d07da29e7",
+        "file": "LicReg.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "",
+        "canonical_authority": "",
+        "status": "ok",
+        "chunk_count": 0,
+        "sections": [],
+        "quality_grade": "A",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 0,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [],
+        "citations_count": 0,
+        "references_count": 0,
+        "jurisdiction_raw": "India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 1,
+        "file_size_bytes": 471159,
+        "elapsed_s": 0.03
+      },
+      {
+        "id": "3073b73f50304d0c8ee3281f0cccd18e",
+        "file": "Nutraceuticals_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 648,
+        "sections": [
+          "1",
+          "12",
+          "175",
+          "199",
+          "2",
+          "213",
+          "22",
+          "3",
+          "38",
+          "4",
+          "40",
+          "542"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 648,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 28,
+        "references_count": 0,
+        "jurisdiction_raw": "Government of India",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 131,
+        "file_size_bytes": 2199429,
+        "elapsed_s": 57.31
+      },
+      {
+        "id": "181715374eac4dc88803937d9fbc8934",
+        "file": "Organic_Food_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 31,
+        "sections": [
+          "16",
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 31,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "missing_content_hash"
+        ],
+        "citations_count": 7,
+        "references_count": 0,
+        "jurisdiction_raw": "Central Government",
+        "jurisdictions_canonical": [
+          "Central Government of India"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 5,
+        "file_size_bytes": 1749542,
+        "elapsed_s": 2.88
+      },
+      {
+        "id": "328edac527c846cbbbc94047838c3e54",
+        "file": "Packaging_Labelling_Regulations.pdf",
+        "document_type": "notification",
+        "document_type_description": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "status": "ok",
+        "chunk_count": 202,
+        "sections": [
+          "23",
+          "4",
+          "92"
+        ],
+        "quality_grade": "C",
+        "quality_grades": {
+          "A": 0,
+          "B": 0,
+          "C": 202,
+          "D": 0,
+          "E": 0,
+          "F": 0
+        },
+        "quality_issues": [
+          "chunk_too_long",
+          "chunk_too_short",
+          "missing_content_hash"
+        ],
+        "citations_count": 5,
+        "references_count": 0,
+        "jurisdiction_raw": "India",
+        "jurisdictions_canonical": [
+          "Republic of India (Union)"
+        ],
+        "state": "Delhi",
+        "effective_date": null,
+        "is_current": true,
+        "pages": 25,
+        "file_size_bytes": 84701,
+        "elapsed_s": 12.31
+      }
+    ],
+    "sections": [
+      {
+        "section_number": "0",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0 (context unknown)"
+      },
+      {
+        "section_number": "1",
+        "semantic_description": "Short title, commencement and extent",
+        "appears_in_documents": 7,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf",
+          "L-and-R oper content_merged.pdf",
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 1 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "2",
+        "semantic_description": "Definitions (clauses a-z)",
+        "appears_in_documents": 4,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "L-and-R oper content_merged.pdf",
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 2 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "3",
+        "semantic_description": "Powers of the Authority",
+        "appears_in_documents": 3,
+        "documents": [
+          "Alcoholic_Beverages_Regulations.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 3 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "4",
+        "semantic_description": "Duties and responsibilities of food business operators",
+        "appears_in_documents": 16,
+        "documents": [
+          "1_Notification dt 10_03_2026-1.pdf",
+          "273797-1.pdf",
+          "6928478129442Final Notification of alcoholic beverages.pdf",
+          "6a1fd30fa8c01prohibition_final.pdf",
+          "6a3c0a8fbaf61273797.pdf",
+          "Alcoholic_Beverages_Regulations.pdf",
+          "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "Food_Fortification_Regulations.pdf",
+          "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+          "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+          "Licensing_Regulations-2.pdf",
+          "Nutraceuticals_Regulations.pdf",
+          "Organic_Food_Regulations.pdf",
+          "Packaging_Labelling_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 4 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "5",
+        "semantic_description": "Licence to carry on business",
+        "appears_in_documents": 1,
+        "documents": [
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf"
+        ],
+        "hierarchy_hint": "Section 5 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "6",
+        "semantic_description": "Application for licence",
+        "appears_in_documents": 1,
+        "documents": [
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf"
+        ],
+        "hierarchy_hint": "Section 6 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "10",
+        "semantic_description": "Procedures for grant / renewal",
+        "appears_in_documents": 5,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 10 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "11",
+        "semantic_description": "Appeals against orders refusing licence",
+        "appears_in_documents": 5,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 11 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "12",
+        "semantic_description": "Appeals to Appellate Authority",
+        "appears_in_documents": 5,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "FSS_Amendment_Act_2-2011.pdf",
+          "L-and-R oper content_merged.pdf",
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 12 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "13",
+        "semantic_description": "Suspension / cancellation of licence",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 13 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "14",
+        "semantic_description": "Recall of food",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 14 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "15",
+        "semantic_description": "Withholding of orders",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 15 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "16",
+        "semantic_description": "Powers of entry, inspection and seizure",
+        "appears_in_documents": 4,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf",
+          "Organic_Food_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 16 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "17",
+        "semantic_description": "Seizure of unsafe food",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 17 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "18",
+        "semantic_description": "Constitution and jurisdiction of authorities",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 18 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "19",
+        "semantic_description": "Powers of officers",
+        "appears_in_documents": 3,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "L-and-R oper content_merged.pdf"
+        ],
+        "hierarchy_hint": "Section 19 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "22",
+        "semantic_description": "Food safety officers",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 22 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "23",
+        "semantic_description": "Powers of food safety officers",
+        "appears_in_documents": 1,
+        "documents": [
+          "Packaging_Labelling_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 23 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "31",
+        "semantic_description": "Offences and penalties",
+        "appears_in_documents": 5,
+        "documents": [
+          "1_Notification dt 10_03_2026-1.pdf",
+          "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+          "Licensing_Regulations-2.pdf"
+        ],
+        "hierarchy_hint": "Section 31 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "32",
+        "semantic_description": "Cognizance of offences",
+        "appears_in_documents": 2,
+        "documents": [
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Licensing_Regulations-2.pdf"
+        ],
+        "hierarchy_hint": "Section 32 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "36",
+        "semantic_description": "Composition of offences",
+        "appears_in_documents": 2,
+        "documents": [
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Licensing_Regulations-2.pdf"
+        ],
+        "hierarchy_hint": "Section 36 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "38",
+        "semantic_description": "Appeals to Appellate Authority",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 38 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "40",
+        "semantic_description": "Special provisions for certain offences",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 40 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "55",
+        "semantic_description": "Appellate authority",
+        "appears_in_documents": 3,
+        "documents": [
+          "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Licensing_Regulations-2.pdf"
+        ],
+        "hierarchy_hint": "Section 55 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "92",
+        "semantic_description": "Power to make regulations / rules",
+        "appears_in_documents": 14,
+        "documents": [
+          "1_Notification dt 10_03_2026-1.pdf",
+          "273797-1.pdf",
+          "6928478129442Final Notification of alcoholic beverages.pdf",
+          "6a1fd30fa8c01prohibition_final.pdf",
+          "6a3c0a8fbaf61273797.pdf",
+          "Alcoholic_Beverages_Regulations.pdf",
+          "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "Food_Fortification_Regulations.pdf",
+          "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+          "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+          "Licensing_Regulations-2.pdf",
+          "Organic_Food_Regulations.pdf",
+          "Packaging_Labelling_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 92 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "001",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 001 (context unknown)"
+      },
+      {
+        "section_number": "002",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 002 (context unknown)"
+      },
+      {
+        "section_number": "003",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 003 (context unknown)"
+      },
+      {
+        "section_number": "004",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 004 (context unknown)"
+      },
+      {
+        "section_number": "005",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 005 (context unknown)"
+      },
+      {
+        "section_number": "100",
+        "semantic_description": "Constitution of Central Advisory Committee",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 100 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "101",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 101 (context unknown)"
+      },
+      {
+        "section_number": "102",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 102 (context unknown)"
+      },
+      {
+        "section_number": "104",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 104 (context unknown)"
+      },
+      {
+        "section_number": "105",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 105 (context unknown)"
+      },
+      {
+        "section_number": "106",
+        "semantic_description": "Power to amend Act",
+        "appears_in_documents": 2,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 106 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "107",
+        "semantic_description": "Power to remove difficulties",
+        "appears_in_documents": 2,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 107 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "108",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 108 (context unknown)"
+      },
+      {
+        "section_number": "110",
+        "semantic_description": "Power to amend regulations",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ],
+        "hierarchy_hint": "Section 110 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "112",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 112 (context unknown)"
+      },
+      {
+        "section_number": "120",
+        "semantic_description": "Power to amend orders",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 120 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "121",
+        "semantic_description": "Power to exempt",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 121 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "122",
+        "semantic_description": "Power to modify",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 122 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "123",
+        "semantic_description": "Power to suspend",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 123 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "124",
+        "semantic_description": "Power to cancel",
+        "appears_in_documents": 1,
+        "documents": [
+          "FSS_Amendment_Act_2-2011.pdf"
+        ],
+        "hierarchy_hint": "Section 124 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "175",
+        "semantic_description": "Transitional provisions",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 175 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "195",
+        "semantic_description": "Repeal and saving",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Safety_and_Standards_Act_2006.pdf"
+        ],
+        "hierarchy_hint": "Section 195 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "199",
+        "semantic_description": "Amendment of Act",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 199 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "213",
+        "semantic_description": "Amendment of regulations",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 213 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "542",
+        "semantic_description": "Power to amend (Amendment Act 2023)",
+        "appears_in_documents": 1,
+        "documents": [
+          "Nutraceuticals_Regulations.pdf"
+        ],
+        "hierarchy_hint": "Section 542 of FSS Act 2006 / relevant regulation"
+      },
+      {
+        "section_number": "0001",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0001 (context unknown)"
+      },
+      {
+        "section_number": "0002",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0002 (context unknown)"
+      },
+      {
+        "section_number": "0003",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0003 (context unknown)"
+      },
+      {
+        "section_number": "0031",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0031 (context unknown)"
+      },
+      {
+        "section_number": "0051",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 0051 (context unknown)"
+      },
+      {
+        "section_number": "00022",
+        "semantic_description": "Unknown - no semantic mapping available",
+        "appears_in_documents": 1,
+        "documents": [
+          "Food_Additives_Regulations-4.pdf"
+        ],
+        "hierarchy_hint": "Section 00022 (context unknown)"
+      }
+    ],
+    "authorities": [
+      {
+        "name": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "type": "regulatory_body",
+        "level": "central",
+        "is_governing": true,
+        "doc_count": 10,
+        "raw_variants_normalized": [
+          "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+          "FSSAI",
+          "Food Safety and Standards Authority of India",
+          "fssai"
+        ]
+      },
+      {
+        "name": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "type": "ministry",
+        "level": "central_government",
+        "is_governing": false,
+        "doc_count": 9,
+        "raw_variants_normalized": [
+          "MINISTRY OF HEALTH AND FAMILY WELFARE"
+        ]
+      },
+      {
+        "name": "MINISTRY OF LAW AND JUSTICE",
+        "type": "ministry",
+        "level": "central_government",
+        "is_governing": false,
+        "doc_count": 3,
+        "raw_variants_normalized": [
+          "MINISTRY OF LAW AND JUSTICE"
+        ]
+      }
+    ],
+    "jurisdictions": [
+      {
+        "name": "Central",
+        "doc_count": 1,
+        "documents": [
+          "1_Notification dt 10_03_2026-1.pdf"
+        ]
+      },
+      {
+        "name": "Central Government of India",
+        "doc_count": 16,
+        "documents": [
+          "1_Notification dt 10_03_2026-1.pdf",
+          "273797-1.pdf",
+          "6928478129442Final Notification of alcoholic beverages.pdf",
+          "6a1fd30fa8c01prohibition_final.pdf",
+          "6a3c0a8fbaf61273797.pdf",
+          "Alcoholic_Beverages_Regulations.pdf",
+          "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+          "Compendium_Licensing_Regulations_04_08_2021.pdf",
+          "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+          "Food_Additives_Regulations-4.pdf",
+          "Food_Fortification_Regulations.pdf",
+          "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+          "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+          "Licensing_Regulations-2.pdf",
+          "Nutraceuticals_Regulations.pdf",
+          "Organic_Food_Regulations.pdf"
+        ]
+      },
+      {
+        "name": "Republic of",
+        "doc_count": 1,
+        "documents": [
+          "FSS_Amendment_Act_3-2023.pdf"
+        ]
+      },
+      {
+        "name": "Republic of India (Union)",
+        "doc_count": 9,
+        "documents": [
+          "Contaminants_Regulations.pdf",
+          "Food_Fortification_Regulations.pdf",
+          "Food_Safety_and_Standards_Act_2006.pdf",
+          "FSS_Amendment_Act_1-2008.pdf",
+          "FSS_Amendment_Act_2-2011.pdf",
+          "FSS_Amendment_Act_3-2023.pdf",
+          "L-and-R oper content_merged.pdf",
+          "LicReg.pdf",
+          "Packaging_Labelling_Regulations.pdf"
+        ]
+      }
+    ],
+    "references": []
+  },
+  "relationships": {
+    "document_contains_section": [
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "section": "31",
+        "section_description": "Offences and penalties"
+      },
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "273797-1.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "273797-1.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "6928478129442Final Notification of alcoholic beverages.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "6928478129442Final Notification of alcoholic beverages.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "6a1fd30fa8c01prohibition_final.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "6a1fd30fa8c01prohibition_final.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "6a3c0a8fbaf61273797.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "6a3c0a8fbaf61273797.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Alcoholic_Beverages_Regulations.pdf",
+        "section": "3",
+        "section_description": "Powers of the Authority"
+      },
+      {
+        "document": "Alcoholic_Beverages_Regulations.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Alcoholic_Beverages_Regulations.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "section": "31",
+        "section_description": "Offences and penalties"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "section": "55",
+        "section_description": "Appellate authority"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "section": "31",
+        "section_description": "Offences and penalties"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "section": "32",
+        "section_description": "Cognizance of offences"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "section": "36",
+        "section_description": "Composition of offences"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "section": "55",
+        "section_description": "Appellate authority"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "10",
+        "section_description": "Procedures for grant / renewal"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "11",
+        "section_description": "Appeals against orders refusing licence"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "12",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "13",
+        "section_description": "Suspension / cancellation of licence"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "14",
+        "section_description": "Recall of food"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "15",
+        "section_description": "Withholding of orders"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "16",
+        "section_description": "Powers of entry, inspection and seizure"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "17",
+        "section_description": "Seizure of unsafe food"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "18",
+        "section_description": "Constitution and jurisdiction of authorities"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "19",
+        "section_description": "Powers of officers"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "section": "2",
+        "section_description": "Definitions (clauses a-z)"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "2",
+        "section_description": "Definitions (clauses a-z)"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "3",
+        "section_description": "Powers of the Authority"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "5",
+        "section_description": "Licence to carry on business"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "6",
+        "section_description": "Application for licence"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0001",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0002",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "00022",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0003",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "001",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "002",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "003",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0031",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "004",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "005",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "section": "0051",
+        "section_description": ""
+      },
+      {
+        "document": "Food_Fortification_Regulations.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Food_Fortification_Regulations.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "10",
+        "section_description": "Procedures for grant / renewal"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "11",
+        "section_description": "Appeals against orders refusing licence"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "12",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "13",
+        "section_description": "Suspension / cancellation of licence"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "14",
+        "section_description": "Recall of food"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "15",
+        "section_description": "Withholding of orders"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "16",
+        "section_description": "Powers of entry, inspection and seizure"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "17",
+        "section_description": "Seizure of unsafe food"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "18",
+        "section_description": "Constitution and jurisdiction of authorities"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "19",
+        "section_description": "Powers of officers"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "section": "195",
+        "section_description": "Repeal and saving"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "10",
+        "section_description": "Procedures for grant / renewal"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "106",
+        "section_description": "Power to amend Act"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "107",
+        "section_description": "Power to remove difficulties"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "11",
+        "section_description": "Appeals against orders refusing licence"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "112",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "12",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "120",
+        "section_description": "Power to amend orders"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "121",
+        "section_description": "Power to exempt"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "122",
+        "section_description": "Power to modify"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "123",
+        "section_description": "Power to suspend"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "section": "124",
+        "section_description": "Power to cancel"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "10",
+        "section_description": "Procedures for grant / renewal"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "100",
+        "section_description": "Constitution of Central Advisory Committee"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "101",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "102",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "104",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "105",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "106",
+        "section_description": "Power to amend Act"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "107",
+        "section_description": "Power to remove difficulties"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "108",
+        "section_description": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "11",
+        "section_description": "Appeals against orders refusing licence"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "section": "110",
+        "section_description": "Power to amend regulations"
+      },
+      {
+        "document": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "section": "31",
+        "section_description": "Offences and penalties"
+      },
+      {
+        "document": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "10",
+        "section_description": "Procedures for grant / renewal"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "11",
+        "section_description": "Appeals against orders refusing licence"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "12",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "13",
+        "section_description": "Suspension / cancellation of licence"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "14",
+        "section_description": "Recall of food"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "15",
+        "section_description": "Withholding of orders"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "16",
+        "section_description": "Powers of entry, inspection and seizure"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "17",
+        "section_description": "Seizure of unsafe food"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "18",
+        "section_description": "Constitution and jurisdiction of authorities"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "19",
+        "section_description": "Powers of officers"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "section": "2",
+        "section_description": "Definitions (clauses a-z)"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "31",
+        "section_description": "Offences and penalties"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "32",
+        "section_description": "Cognizance of offences"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "36",
+        "section_description": "Composition of offences"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "55",
+        "section_description": "Appellate authority"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "1",
+        "section_description": "Short title, commencement and extent"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "12",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "175",
+        "section_description": "Transitional provisions"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "199",
+        "section_description": "Amendment of Act"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "2",
+        "section_description": "Definitions (clauses a-z)"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "213",
+        "section_description": "Amendment of regulations"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "22",
+        "section_description": "Food safety officers"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "3",
+        "section_description": "Powers of the Authority"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "38",
+        "section_description": "Appeals to Appellate Authority"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "40",
+        "section_description": "Special provisions for certain offences"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "section": "542",
+        "section_description": "Power to amend (Amendment Act 2023)"
+      },
+      {
+        "document": "Organic_Food_Regulations.pdf",
+        "section": "16",
+        "section_description": "Powers of entry, inspection and seizure"
+      },
+      {
+        "document": "Organic_Food_Regulations.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Organic_Food_Regulations.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      },
+      {
+        "document": "Packaging_Labelling_Regulations.pdf",
+        "section": "23",
+        "section_description": "Powers of food safety officers"
+      },
+      {
+        "document": "Packaging_Labelling_Regulations.pdf",
+        "section": "4",
+        "section_description": "Duties and responsibilities of food business operators"
+      },
+      {
+        "document": "Packaging_Labelling_Regulations.pdf",
+        "section": "92",
+        "section_description": "Power to make regulations / rules"
+      }
+    ],
+    "document_issued_by": [
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "273797-1.pdf",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "6928478129442Final Notification of alcoholic beverages.pdf",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "6a1fd30fa8c01prohibition_final.pdf",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "6a3c0a8fbaf61273797.pdf",
+        "raw_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "Alcoholic_Beverages_Regulations.pdf",
+        "raw_authority": "FSSAI",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "raw_authority": "fssai",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Food_Fortification_Regulations.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE"
+      },
+      {
+        "document": "FSS_Amendment_Act_1-2008.pdf",
+        "raw_authority": "",
+        "canonical_authority": ""
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "raw_authority": "MINISTRY OF LAW AND JUSTICE",
+        "canonical_authority": "MINISTRY OF LAW AND JUSTICE"
+      },
+      {
+        "document": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "raw_authority": "Food Safety and Standards Authority of India",
+        "canonical_authority": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "LicReg.pdf",
+        "raw_authority": "",
+        "canonical_authority": ""
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Organic_Food_Regulations.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      },
+      {
+        "document": "Packaging_Labelling_Regulations.pdf",
+        "raw_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "canonical_authority": "MINISTRY OF HEALTH AND FAMILY WELFARE"
+      }
+    ],
+    "document_applies_to": [
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "1_Notification dt 10_03_2026-1.pdf",
+        "jurisdiction": "Central"
+      },
+      {
+        "document": "273797-1.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "6928478129442Final Notification of alcoholic beverages.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "6a1fd30fa8c01prohibition_final.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "6a3c0a8fbaf61273797.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Alcoholic_Beverages_Regulations.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Amendment1_Lic_Reg_10_June_2014-1.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Compendium_Licensing_Regulations_04_08_2021.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Contaminants_Regulations.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "Draft Notification-FSS_FPSFA_Amendment Regulations_2026_Minor seed oils_Edible seeds_Appendix A.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Food_Additives_Regulations-4.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Food_Fortification_Regulations.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "Food_Fortification_Regulations.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Food_Safety_and_Standards_Act_2006.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "FSS_Amendment_Act_1-2008.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "FSS_Amendment_Act_2-2011.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "FSS_Amendment_Act_3-2023.pdf",
+        "jurisdiction": "Republic of"
+      },
+      {
+        "document": "Gazette_Notification_FBO_Extension_Time_26_07_2016(1)-1.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Gazette_Notification_Quality_Vegetable_Oil_03_11_2017-1.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "L-and-R oper content_merged.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "Licensing_Regulations-2.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "LicReg.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      },
+      {
+        "document": "Nutraceuticals_Regulations.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Organic_Food_Regulations.pdf",
+        "jurisdiction": "Central Government of India"
+      },
+      {
+        "document": "Packaging_Labelling_Regulations.pdf",
+        "jurisdiction": "Republic of India (Union)"
+      }
+    ],
+    "section_cooccurrence": [
+      {
+        "sections": [
+          "4",
+          "92"
+        ],
+        "cooccurrence_count": 28,
+        "section_descriptions": {
+          "4": "Duties and responsibilities of food business operators",
+          "92": "Power to make regulations / rules"
+        }
+      },
+      {
+        "sections": [
+          "31",
+          "4"
+        ],
+        "cooccurrence_count": 10,
+        "section_descriptions": {
+          "31": "Offences and penalties",
+          "4": "Duties and responsibilities of food business operators"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "10"
+        ],
+        "cooccurrence_count": 10,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "10": "Procedures for grant / renewal"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "11"
+        ],
+        "cooccurrence_count": 10,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "11": "Appeals against orders refusing licence"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "12"
+        ],
+        "cooccurrence_count": 10,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "12": "Appeals to Appellate Authority"
+        }
+      },
+      {
+        "sections": [
+          "10",
+          "11"
+        ],
+        "cooccurrence_count": 10,
+        "section_descriptions": {
+          "10": "Procedures for grant / renewal",
+          "11": "Appeals against orders refusing licence"
+        }
+      },
+      {
+        "sections": [
+          "31",
+          "92"
+        ],
+        "cooccurrence_count": 8,
+        "section_descriptions": {
+          "31": "Offences and penalties",
+          "92": "Power to make regulations / rules"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "2"
+        ],
+        "cooccurrence_count": 8,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "2": "Definitions (clauses a-z)"
+        }
+      },
+      {
+        "sections": [
+          "10",
+          "12"
+        ],
+        "cooccurrence_count": 8,
+        "section_descriptions": {
+          "10": "Procedures for grant / renewal",
+          "12": "Appeals to Appellate Authority"
+        }
+      },
+      {
+        "sections": [
+          "11",
+          "12"
+        ],
+        "cooccurrence_count": 8,
+        "section_descriptions": {
+          "11": "Appeals against orders refusing licence",
+          "12": "Appeals to Appellate Authority"
+        }
+      },
+      {
+        "sections": [
+          "3",
+          "4"
+        ],
+        "cooccurrence_count": 6,
+        "section_descriptions": {
+          "3": "Powers of the Authority",
+          "4": "Duties and responsibilities of food business operators"
+        }
+      },
+      {
+        "sections": [
+          "31",
+          "55"
+        ],
+        "cooccurrence_count": 6,
+        "section_descriptions": {
+          "31": "Offences and penalties",
+          "55": "Appellate authority"
+        }
+      },
+      {
+        "sections": [
+          "4",
+          "55"
+        ],
+        "cooccurrence_count": 6,
+        "section_descriptions": {
+          "4": "Duties and responsibilities of food business operators",
+          "55": "Appellate authority"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "13"
+        ],
+        "cooccurrence_count": 6,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "13": "Suspension / cancellation of licence"
+        }
+      },
+      {
+        "sections": [
+          "1",
+          "14"
+        ],
+        "cooccurrence_count": 6,
+        "section_descriptions": {
+          "1": "Short title, commencement and extent",
+          "14": "Recall of food"
+        }
+      }
+    ],
+    "canonical_authorities": [
+      {
+        "canonical_name": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+        "type": "regulatory_body",
+        "level": "central",
+        "is_governing": true,
+        "role": "Primary authority under the FSS Act, 2006 - responsible for regulation and enforcement of food safety standards across India.",
+        "doc_count": 10,
+        "normalized_from": [
+          "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+          "FSSAI",
+          "Food Safety and Standards Authority of India",
+          "fssai"
+        ]
+      },
+      {
+        "canonical_name": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+        "type": "ministry",
+        "level": "central_government",
+        "is_governing": false,
+        "role": "Parent ministry of FSSAI; issues notifications and regulations under the FSS Act delegation.",
+        "doc_count": 9,
+        "normalized_from": [
+          "MINISTRY OF HEALTH AND FAMILY WELFARE"
+        ]
+      },
+      {
+        "canonical_name": "MINISTRY OF LAW AND JUSTICE",
+        "type": "ministry",
+        "level": "central_government",
+        "is_governing": false,
+        "role": "Publishes the FSS Act itself and constitutional/statutory amendments through the Legislative Department.",
+        "doc_count": 3,
+        "normalized_from": [
+          "MINISTRY OF LAW AND JUSTICE"
+        ]
+      }
+    ]
+  },
+  "canonical_lookup": {
+    "authorities": {
+      "fssai": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+      "FSSAI": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+      "Food Safety and Standards Authority of India": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+      "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA": "FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA",
+      "MINISTRY OF HEALTH AND FAMILY WELFARE": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+      "MINISTRY OF LAW AND JUSTICE": "MINISTRY OF LAW AND JUSTICE"
+    },
+    "jurisdictions": {
+      "Central\nGovernment": "Central Government of India",
+      "Central Government": "Central Government of India",
+      "Government of India": "Central Government of India",
+      "Government": "Central Government of India",
+      "Republic of India": "Republic of India (Union)",
+      "Republic of\nIndia": "Republic of India (Union)",
+      "India": "Republic of India (Union)",
+      "Government of": "Central Government of India"
+    },
+    "document_types": {
+      "notification": "Administrative/gazette notification - rulemaking, amendment, or policy directive under an existing Act.",
+      "act": "Primary legislation - the FSS Act, 2006 or its formal amendments (Amendment Act 2008/2011/2023).",
+      "regulation": "Statutory instrument - detailed rules issued by the Authority under delegated power."
+    },
+    "sections": {
+      "1": "Short title, commencement and extent",
+      "2": "Definitions (clauses a-z)",
+      "3": "Powers of the Authority",
+      "4": "Duties and responsibilities of food business operators",
+      "5": "Licence to carry on business",
+      "6": "Application for licence",
+      "7": "Grant of licence",
+      "8": "Duration of licences",
+      "9": "Renewal of licences",
+      "10": "Procedures for grant / renewal",
+      "11": "Appeals against orders refusing licence",
+      "12": "Appeals to Appellate Authority",
+      "13": "Suspension / cancellation of licence",
+      "14": "Recall of food",
+      "15": "Withholding of orders",
+      "16": "Powers of entry, inspection and seizure",
+      "17": "Seizure of unsafe food",
+      "18": "Constitution and jurisdiction of authorities",
+      "19": "Powers of officers",
+      "22": "Food safety officers",
+      "23": "Powers of food safety officers",
+      "31": "Offences and penalties",
+      "32": "Cognizance of offences",
+      "36": "Composition of offences",
+      "38": "Appeals to Appellate Authority",
+      "40": "Special provisions for certain offences",
+      "55": "Appellate authority",
+      "92": "Power to make regulations / rules",
+      "100": "Constitution of Central Advisory Committee",
+      "106": "Power to amend Act",
+      "107": "Power to remove difficulties",
+      "110": "Power to amend regulations",
+      "120": "Power to amend orders",
+      "121": "Power to exempt",
+      "122": "Power to modify",
+      "123": "Power to suspend",
+      "124": "Power to cancel",
+      "175": "Transitional provisions",
+      "195": "Repeal and saving",
+      "199": "Amendment of Act",
+      "213": "Amendment of regulations",
+      "542": "Power to amend (Amendment Act 2023)"
+    }
+  },
+  "statistics": {
+    "total_documents": 24,
+    "total_chunks": 13104,
+    "total_citations": 3029,
+    "total_references": 0,
+    "avg_chunks_per_doc": 546.0,
+    "avg_citations_per_doc": 126.2,
+    "document_types": {
+      "notification": 22,
+      "act": 2
+    },
+    "quality_grades": {
+      "A": 0,
+      "B": 0,
+      "C": 13104,
+      "D": 0,
+      "E": 0,
+      "F": 0
+    },
+    "quality_issues": {
+      "chunk_too_short": 18,
+      "missing_content_hash": 22,
+      "chunk_too_long": 8
+    },
+    "unique_sections": 57,
+    "unique_authorities": 3,
+    "unique_jurisdictions": 4,
+    "empty_documents": 2,
+    "largest_document": "Food_Additives_Regulations-4.pdf",
+    "largest_chunk_count": 5913,
+    "most_cited_document": "FSS_Amendment_Act_3-2023.pdf",
+    "most_citations_count": 1441
+  }
+}

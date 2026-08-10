@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 from app.validation.engine import ValidationEngine
@@ -605,5 +606,151 @@ class TestValidationRoutes:
             )
             assert resp.status_code == 200
             assert resp.get_json()["case_type"] == "adjudication"
+        finally:
+            _teardown_test_env(ctx)
+
+
+# --------------------------------------------------------------------------- #
+# Phase 12 UI integration (legal_analysis workbench)
+# --------------------------------------------------------------------------- #
+
+
+class TestValidationUIIntegration:
+    """The "Run Legal Validation" button + drawer in the legal_analysis workbench.
+
+    The workbench UI is client-side: the template renders a case-id input, a
+    case-type select, a validate button, and a results drawer, then POSTs to
+    ``/validation/validate`` and renders the report. These tests pin that
+    contract so the UI cannot silently drift from the engine payload.
+    """
+
+    def test_workbench_renders_validation_ui(self):
+        """GET /legal/ must render the button, inputs, and drawer."""
+        _app, client, ctx = _setup_test_env()
+        try:
+            html = client.get("/legal/").get_data(as_text=True)
+            assert 'id="validate-btn"' in html  # the "Validate case" button
+            assert 'id="val-case-id"' in html  # numeric case-id input
+            assert 'id="val-case-type"' in html  # case_file | adjudication select
+            assert 'id="val-results"' in html  # results drawer
+            # The drawer JS must be wired to the validation endpoint.
+            assert "/validation/validate" in html
+            # The button must be type="button" so it never submits a form.
+            match = re.search(r'<button[^>]*id="validate-btn"[ >]', html)
+            assert match is not None
+            assert 'type="button"' in match.group(0)
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_report_contract_matches_drawer_js(self):
+        """Every field the drawer JS renders must be present in the report."""
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db)
+            resp = client.post(
+                "/validation/validate",
+                json={"case_id": case.id, "case_type": "case_file"},
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            # Keys consumed by renderResults()/gradeColor() in
+            # app/legal_analysis/templates/legal_analysis/index.html.
+            for key in (
+                "score",
+                "grade",
+                "case_number",
+                "case_type",
+                "rules_run",
+                "errors",
+                "warnings",
+                "suggestions",
+            ):
+                assert key in data, f"drawer JS reads report['{key}'] but it is missing"
+            # The drawer JS calls .length / .forEach on these — they must be lists.
+            for key in ("errors", "warnings", "suggestions"):
+                assert isinstance(data[key], list), f"report['{key}'] must be a list"
+            # Findings are rendered via their .message / .field_name / .suggestion.
+            for finding in data["errors"] + data["warnings"]:
+                assert "message" in finding
+        finally:
+            _teardown_test_env(ctx)
+
+
+class TestValidationUIEntryPoints:
+    """Phase 12 validation entry points on the case-file / adjudication index pages.
+
+    Both index pages render per-row "Validate" buttons (``.js-validate-case``
+    with ``data-case-id`` / ``data-case-type``) that open the same shared
+    drawer (``app/static/js/validation_drawer.js``).
+    """
+
+    def test_case_file_index_has_validate_buttons(self):
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db)
+            html = client.get("/case_file_generator/").get_data(as_text=True)
+            assert 'js-validate-case' in html
+            assert f'data-case-id="{case.id}"' in html
+            assert 'data-case-type="case_file"' in html
+            assert 'id="case-file-val-drawer"' in html
+            assert 'id="case-file-val-status"' in html
+            # Shared drawer module included and wired to the validation API.
+            assert "/static/js/validation_drawer.js" in html
+            assert "endpoint: '/validation/validate'" in html
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_editor_page_has_validate_button(self):
+        """The document editor action bar carries a Validate button + drawer."""
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db)
+            html = client.get(f"/case_file_generator/{case.id}/editor").get_data(as_text=True)
+            assert 'js-validate-case' in html
+            assert f'data-case-id="{case.id}"' in html
+            assert 'data-case-type="case_file"' in html
+            assert 'id="editor-val-drawer"' in html
+            assert 'id="editor-val-status"' in html
+            assert '/static/js/validation_drawer.js' in html
+            assert "endpoint: '/validation/validate'" in html
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_editor_page_has_validate_button_adjudication(self):
+        """The adjudication editor serves the same button with its own case type."""
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            adj = _make_adjudication(db)
+            html = client.get(f"/adjudication/{adj.id}/editor").get_data(as_text=True)
+            assert 'js-validate-case' in html
+            assert f'data-case-id="{adj.id}"' in html
+            assert 'data-case-type="adjudication"' in html
+            assert 'id="editor-val-drawer"' in html
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_adjudication_index_has_validate_buttons(self):
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            adj = _make_adjudication(db)
+            html = client.get("/adjudication/").get_data(as_text=True)
+            assert 'js-validate-case' in html
+            assert f'data-case-id="{adj.id}"' in html
+            assert 'data-case-type="adjudication"' in html
+            assert 'id="adjudication-val-drawer"' in html
+            assert 'id="adjudication-val-status"' in html
+            # Shared drawer module included and wired to the validation API.
+            assert "/static/js/validation_drawer.js" in html
+            assert "endpoint: '/validation/validate'" in html
         finally:
             _teardown_test_env(ctx)

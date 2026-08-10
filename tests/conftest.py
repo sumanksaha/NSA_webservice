@@ -23,3 +23,26 @@ os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"  # noqa: S105
 
 # Phase 8: PDF Assembly Engine tests configuration
 os.environ["DISABLE_PDF_GENERATION"] = "1"  # Disable actual PDF generation for testing
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _rag_stub_llm_env(monkeypatch):
+    """Pin RAG grounded-generation to deterministic stub LLM mode.
+
+    The RAG generation/hallucination suites are designed to run offline
+    (``GroundedLLMClient`` stub mode) regardless of the developer's ``.env``
+    — which may set a real ``OPENAI_API_KEY`` with
+    ``RAG_USE_STUB_LLM=false`` (observed 2026-08-09), silently turning
+    stub-oriented tests into slow, non-deterministic live API calls.  Tests
+    that intentionally exercise the real path can re-set the flag in their
+    own body (``monkeypatch.setenv``) since the client reads env at call time.
+    """
+    monkeypatch.setenv("RAG_USE_STUB_LLM", "true")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("RAG_STUB_RESPONSE", raising=False)
+    # GroundedLLMClient now hardcodes poolside/laguna-s-2.1:free, so no
+    # model-related env cleanup is needed beyond the stub mode above.
+    monkeypatch.delenv("RAG_LLM_MODEL", raising=False)

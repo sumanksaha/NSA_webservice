@@ -38,6 +38,7 @@ class OCRPipeline:
         use_gpu: bool = True,
         dpi: int = 300,
         enable_detection: bool = True,
+        engine: OCREngine | None = None,
     ) -> None:
         self._languages = languages or ["english"]
         self._use_gpu = use_gpu
@@ -45,7 +46,11 @@ class OCRPipeline:
         self._enable_detection = enable_detection
 
         self._preprocessor = ImagePreprocessor(dpi=dpi)
-        self._ocr_engine = OCREngine(
+        # Injectable engine (mock-injection pattern): tests substitute a fake
+        # so unit runs never pay for the real model stack — especially
+        # important now that EasyOCR is installed by default (a real CPU OCR
+        # pass on a 300-DPI page takes minutes).
+        self._ocr_engine = engine or OCREngine(
             languages=self._languages,
             use_gpu=self._use_gpu,
             preprocessor=self._preprocessor,

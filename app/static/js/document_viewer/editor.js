@@ -211,6 +211,16 @@ document.addEventListener("DOMContentLoaded", function () {
             .replace(/'/g, "&#39;");
     }
 
+    function setHTML(el, html) {
+        el.replaceChildren();
+        if (html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            while (doc.body.firstChild) {
+                el.append(doc.body.firstChild);
+            }
+        }
+    }
+
     // Mirrors the server-side _ANNEXURE_MARKER_RE in app/toc_generator/engine.py.
     // Matches standalone annexure/appendix/enclosure/attachment markers such
     // as "ANNEXURE A", "APPENDIX I" or a bare "ANNEXURE", but rejects plurals
@@ -230,7 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
      */
     function buildToc(html) {
         var container = document.createElement("div");
-        container.innerHTML = html || "";
+        setHTML(container, html || "");
 
         var headings = container.querySelectorAll("h1, h2, h3, h4, h5, h6");
         var entries = [];
@@ -270,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!liveToc) return;
 
         if (!entries.length) {
-            liveToc.innerHTML = "";
+            liveToc.replaceChildren();
             liveToc.style.display = "none";
             if (tocEmpty) tocEmpty.style.display = "block";
             if (tocCount) tocCount.textContent = "";
@@ -327,7 +337,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         lines.push("</ol>");
 
-        liveToc.innerHTML = lines.join("\n");
+        setHTML(liveToc, lines.join("\n"));
         liveToc.style.display = "";
         if (tocEmpty) tocEmpty.style.display = "none";
         if (tocCount) tocCount.textContent = "(" + entries.length + ")";

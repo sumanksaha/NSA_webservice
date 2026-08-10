@@ -118,6 +118,7 @@ class OCRBatchProcessor:
         use_gpu: bool = True,
         dpi: int = 300,
         enable_detection: bool = True,
+        engine: Any | None = None,
     ) -> None:
         self._input_dir = Path(input_dir)
         self._output_dir = Path(output_dir)
@@ -139,11 +140,15 @@ class OCRBatchProcessor:
             self._dpi,
             self._workers,
         )
+        # Injectable engine (mock-injection pattern, mirrors OCRPipeline):
+        # unit tests substitute a fake so batch runs never pay for the real
+        # model stack when the decision engine flags short-text pages.
         self._pipeline = OCRPipeline(
             languages=self._languages,
             use_gpu=self._use_gpu,
             dpi=self._dpi,
             enable_detection=self._enable_detection,
+            engine=engine,
         )
 
     # ------------------------------------------------------------------

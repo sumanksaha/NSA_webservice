@@ -1,16 +1,23 @@
-"""OCR Engine — primary PaddleOCR with Tesseract fallback.
+"""OCR Engine — EasyOCR primary, PaddleOCR + Tesseract fallbacks.
 
 Supports:
 - English, Hindi (hi), Bengali (bn)
-- GPU acceleration (PaddleOCR) with automatic CPU fallback
+- GPU acceleration (PaddleOCR / EasyOCR) with automatic CPU fallback
 - Per-page confidence scoring
 - Language auto-detection via Tesseract's OSD
+
+Strategy order (2026-08-09): **EasyOCR first** — it is pure-pip (torch-based,
+no system binary, unlike Tesseract) and is the only engine guaranteed
+installed by default. PaddleOCR (GPU-capable) and Tesseract remain as
+fallbacks when EasyOCR is unavailable. Each engine degrades independently;
+``recognize()`` returns the first strategy that produces acceptable text.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+import threading
 from typing import cast
 
 import numpy as np
@@ -34,12 +41,12 @@ _MIN_CONFIDENCE = 0.3
 
 
 class OCREngine:
-    """Orchestrates OCR using PaddleOCR (GPU-capable) with Tesseract fallback.
+    """Orchestrates OCR: EasyOCR primary, PaddleOCR + Tesseract fallbacks.
 
     Usage::
 
         engine = OCREngine(languages=["english", "hindi"])
-        text, confidence, ocr_engine_used = engine.recognize(image_array)
+        text, confidence, ocr_engine_used, language = engine.recognize(image_array)
     """
 
     def __init__(
@@ -56,6 +63,14 @@ class OCREngine:
         self._paddle = None
         self._paddle_lang = None
         self._gpu_available = None
+        self._easyocr = None
+        self._easyocr_langs = None
+        # Guards the shared EasyOCR Reader: batch workers (``OCRBatchProcessor``
+        # ThreadPoolExecutor) call ``recognize`` concurrently, and the lazy
+        # init is not atomic — the lock prevents double construction (double
+        # model download) and serialises concurrent ``readtext`` calls, which
+        # torch Readers do not guarantee thread-safe.
+        self._easyocr_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Public API
@@ -72,19 +87,94 @@ class OCREngine:
             ``engine_name`` is ``"paddle"``, ``"tesseract"``, or ``"none"``.
 
         """
-        # Strategy 1: PaddleOCR (GPU-capable, supports Hindi/Bengali)
+        # Strategy 1: EasyOCR (torch-based, pip-only, English+Hindi+Bengali)
+        text, confidence = self._try_easyocr(image)
+        if text and confidence >= _MIN_CONFIDENCE:
+            detected_lang = self._detect_language(text)
+            return text, confidence, "easyocr", detected_lang
+
+        # Strategy 2: PaddleOCR (GPU-capable, supports Hindi/Bengali)
         text, confidence = self._try_paddle(image)
         if text and confidence >= _MIN_CONFIDENCE:
             detected_lang = self._detect_language(text)
             return text, confidence, "paddle", detected_lang
 
-        # Strategy 2: Tesseract (CPU-only, universal fallback)
+        # Strategy 3: Tesseract (CPU-only, universal fallback)
         text, confidence = self._try_tesseract(image)
         if text:
             detected_lang = self._detect_language(text)
             return text, max(confidence, 0.0), "tesseract", detected_lang
 
         return "", 0.0, "none", _DEFAULT_LANG
+
+    # ------------------------------------------------------------------
+    # EasyOCR
+    # ------------------------------------------------------------------
+
+    def _try_easyocr(self, image: np.ndarray) -> tuple[str, float]:
+        """Attempt OCR with EasyOCR (torch-based, no system binary).
+
+        Lazy-imported and cached per language set; the ``Reader`` is built on
+        first use (downloads its models on first run). Returns
+        ``("", 0.0)`` when easyocr is missing or fails so the next strategy
+        (Paddle / Tesseract) is tried.
+        """
+        try:
+            import easyocr  # type: ignore[import-untyped]
+        except ImportError:
+            logger.debug("easyocr not installed — skipping")
+            return "", 0.0
+
+        try:
+            with self._easyocr_lock:
+                lang_codes = self._to_easyocr_langs()
+                if self._easyocr is None or self._easyocr_langs != lang_codes:
+                    # ``verbose=False`` is REQUIRED on Windows: EasyOCR's progress
+                    # bar prints U+2588 (full block) which raises a ``charmap``
+                    # UnicodeEncodeError on the cp1252 console and aborts OCR
+                    # mid-run (observed 2026-08-09 on the FSSAI scans).
+                    self._easyocr = easyocr.Reader(lang_codes, gpu=self._use_gpu, verbose=False)
+                    self._easyocr_langs = lang_codes
+                    logger.info("Initialized EasyOCR (langs=%s, gpu=%s)", lang_codes, self._use_gpu)
+
+                result = self._easyocr.readtext(image)
+                if not result:
+                    return "", 0.0
+
+                lines: list[str] = []
+                confidences: list[float] = []
+                for detection in result:
+                    if len(detection) < 3:
+                        continue
+                    _bbox, text, conf = detection[0], detection[1], detection[2]
+                    text = (text or "").strip()
+                    if text and conf is not None and conf >= _MIN_CONFIDENCE:
+                        lines.append(text)
+                        confidences.append(float(conf))
+
+                if not lines:
+                    return "", 0.0
+                return "\n".join(lines), sum(confidences) / len(confidences)
+
+        except Exception as exc:  # noqa: BLE001 - fall through to the next engine
+            logger.warning("EasyOCR failed: %s — falling through to next engine", exc)
+            return "", 0.0
+
+    def _to_easyocr_langs(self) -> list[str]:
+        """Map configured languages to EasyOCR codes (en/hi/bn supported)."""
+        codes = []
+        for lang in self._languages:
+            lang_lower = lang.strip().lower()
+            if lang_lower == "english":
+                codes.append("en")
+            elif lang_lower in ("hindi", "hi"):
+                codes.append("hi")
+            elif lang_lower in ("bengali", "bn"):
+                codes.append("bn")
+        # Deduplicate, preserve order; English is a sensible fallback.
+        seen = set()
+        ordered = [c for c in codes if not (c in seen or seen.add(c))]
+        return ordered or ["en"]
 
     # ------------------------------------------------------------------
     # PaddleOCR

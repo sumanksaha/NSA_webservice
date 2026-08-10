@@ -274,6 +274,11 @@
                            class="btn btn-secondary btn-sm" title="Open adjudication timeline">
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
+                        <button type="button" class="btn btn-secondary btn-sm js-validate-case"
+                                data-case-id="{{ c.id }}" data-case-type="adjudication"
+                                title="Run legal validation on this adjudication">
+                            <i class="fa-solid fa-clipboard-check"></i> Validate
+                        </button>
                     </td>
                 </tr>
                 {% else %}
@@ -284,6 +289,11 @@
             </tbody>
         </table>
     </div>
+
+    <div class="mt--md">
+        <span id="adjudication-val-status" class="form-hint"></span>
+    </div>
+    <div id="adjudication-val-drawer" class="mt--md" style="display: none;"></div>
 </div>
 {% endblock %}
 
@@ -531,6 +541,16 @@
             suggestStatus.textContent = "Error: " + err.message;
             suggestStatus.className = "status-indicator status--error";
         }
+    });
+</script>
+
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
+<script>
+    ValidationDrawer.initRowButtons({
+        buttonsSelector: '.js-validate-case',
+        drawerId: 'adjudication-val-drawer',
+        statusId: 'adjudication-val-status',
+        endpoint: '{{ url_for("validation.validate") }}'
     });
 </script>
 {% endblock %}

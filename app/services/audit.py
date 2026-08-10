@@ -63,11 +63,17 @@ def verify_audit_chain(entity_id: str) -> bool:
 
     for i, log in enumerate(audit_logs):
         expected_prev = audit_logs[i - 1].curr_hash if i > 0 else None
+        # Normalize timestamp: SQLite (DateTime column) strips tzinfo on
+        # round-trip, so we may need to re-attach UTC to match the
+        # ``timestamp.isoformat()`` used during ``log_audit``.
+        ts = log.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
         recomputed = compute_hash(
             expected_prev,
             log.entity_id,
             log.action,
-            log.timestamp.isoformat(),
+            ts.isoformat(),
             log.details_json,
         )
         if log.curr_hash != recomputed:

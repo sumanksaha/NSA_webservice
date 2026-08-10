@@ -67,6 +67,18 @@ services:
             sync: false
           - key: ENABLE_EXCEL_SYNC
             value: "false"
+          - key: RAG_QDRANT_URL
+            sync: false
+          - key: RAG_QDRANT_API_KEY
+            sync: false
+          - key: RAG_QDRANT_COLLECTION
+            value: fssai_legal_768
+          - key: RAG_VECTOR_SIZE
+            value: "768"
+          - key: RAG_EMBEDDING_MODEL
+            value: sentence-transformers/all-mpnet-base-v2
+          - key: RAG_FULL_ENRICHMENT
+            value: "false"
 
     - type: worker
       name: food-adjudication-celery-worker
@@ -127,6 +139,18 @@ services:
           - key: MS_SPREADSHEET_ID
             sync: false
           - key: ENABLE_EXCEL_SYNC
+            value: "false"
+          - key: RAG_QDRANT_URL
+            sync: false
+          - key: RAG_QDRANT_API_KEY
+            sync: false
+          - key: RAG_QDRANT_COLLECTION
+            value: fssai_legal_768
+          - key: RAG_VECTOR_SIZE
+            value: "768"
+          - key: RAG_EMBEDDING_MODEL
+            value: sentence-transformers/all-mpnet-base-v2
+          - key: RAG_FULL_ENRICHMENT
             value: "false"
 
 databases:

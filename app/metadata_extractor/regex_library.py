@@ -354,23 +354,75 @@ STATE_PATTERN = _p(
 # 8. Document Type
 # ============================================================================
 
-# Broader/generic patterns first so they are checked before specific act/rule
-# references in the text (e.g., "NOTIFICATION" heading should win over a
-# passing reference to "the Food Safety and Standards Act, 2006").
-# Notification match uses line-anchored patterns to avoid matching common
-# English words like "notification" or "order" in body text.
+# §2.4.1 fix (2026-08-09): instrument patterns (Act/Regulation/Rule/Bill) are
+# checked FIRST.  Every regex candidate scores 0.90 and ``_deduplicate`` uses a
+# STABLE sort by confidence, so list order = priority: a gazette that contains
+# a real instrument title line (e.g. "FOOD SAFETY AND STANDARDS (ALCOHOLIC
+# BEVERAGES) REGULATIONS, 2018") is now classified by the instrument, not by
+# its publication wrapper (previously 20/24 real-corpus docs collapsed to
+# "notification").
+#
+# Performance fix (2026-08-09 evening): the original title-case/all-caps word
+# runs used NESTED lazy quantifiers ``(?:[A-Za-z0-9'&,()\- \t]*?[ \t]+)+``
+# where the space char is BOTH inside the word class and the separator.  That
+# is inherently ambiguous (the engine re-splits every space boundary), and on
+# a token-dense line that does NOT match (e.g. a 63K-char regulation body)
+# ``DocumentClassifier`` catastrophically backtracked — the corpus ingestion
+# hung >25 minutes on one PDF.  The word runs are now FLATTENED to a fixed
+# number of explicit ``X*?[ \t]`` groups (2 for the >=2-word guard, 1 for the
+# all-caps lead-in) — the matched LANGUAGE is identical (X*? may still absorb
+# spaces, so >=2 space chars == the old >=2 space-runs), but worst-case
+# matching is now polynomial instead of exponential.  Verified against the
+# pinned §2.4.1 tests and the real corpus.
+#
+# Each instrument pattern is line-anchored (``^`` ... ``$``), case-scoped via
+# ``(?-i:)``, and the title/keyword text never spans lines (only ``[ \t]``
+# inside the title, never ``\s``).  ``DocumentTypeExtractor`` matches these
+# per-line (see ``extract``) so a pathological single line cannot blow up
+# either.  Three branches cover the real title styles:
+#
+#  * title-case branch -- >=2 leading words + title-case keyword
+#    ("Food Safety and Standards (Alcoholic Beverages) Regulations, 2018"):
+#    the >=2-word guard rejects wrapped body fragments like "Standards Act,
+#    2006" (a continuation of "...of the Food Safety and Standards Act, 2006")
+#    which have only a one-word lead-in.
+#  * all-caps branch -- 0-1 leading word group + ALL-CAPS keyword, so bare
+#    wrapped-title fragments ("REGULATIONS 2011", "ACT, 2026") match while
+#    lowercase body words never do.
+#  * paren-tail branch (added 2026-08-09 evening) -- the line STARTS with one
+#    or more words ending in ``)`` followed by the keyword: "Foods) Regulations,
+#    2017." is the line-wrapped tail of "(Organic Foods) Regulations, 2017" in
+#    gazettes whose title breaks across a parenthetical (Organic/Fortification
+#    docs).  The keyword is type-specific (title-case or all-caps) so the
+#    branch cannot cross-match types.  Verified risk-free on the corpus: the 5
+#    must-stay-Notification docs have zero paren-tail lines.
+#
+# A trailing ``[ \t]*\.?[ \t]*$`` guard requires the year to END the line,
+# rejecting wrapped preamble continuations ("Safety and Standards Act, 2006,
+# the Food ...").  Mid-line references ("...section 92 of the Food Safety and
+# Standards Act, 2006") cannot match because ``^`` anchors at the line start.
 DOCUMENT_TYPE_PATTERNS: list[tuple[str, re.Pattern, str]] = [
+    ("act", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Act)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:ACT)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Act|ACT)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Act"),
+    ("regulation", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Regulations?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:REGULATIONS?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Regulations?|REGULATIONS?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Regulation"),
+    ("rule", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Rules?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:RULES?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Rules?|RULES?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Rule"),
+    ("bill", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Bill)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:BILL)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Bill|BILL)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Bill"),
+    ("judgment", _p(r"(?:JUDGMENT|ORDER|DECREE|AWARD)\s+(?:DATED|IN\s+THE\s+(?:SUPREME|HIGH)\s+COURT)"), "Judgment"),
+    # Case-sensitive + line-anchored + word-boundaried (evaluated 2026-08-09
+    # against the FSSAI corpus): the module compiles patterns with IGNORECASE,
+    # so without the ``(?-i:)`` scope body text like "...the Commission" or
+    # "evaluating policy" would label a document Policy.  Only a proper
+    # uppercase/title-case heading ("National Food Policy...") matches now.
+    # Policy maps to "" in the §5.1 enum, so false positives merely shadow the
+    # real Act/Regulation label.
+    ("policy", _p(r"(?-i:^\s*(?:NATIONAL\s+)?[A-Z][A-Z\s]*\b(?:POLICY|FRAMEWORK|STRATEGY|PLAN|MISSION)\b)"), "Policy"),
+    # Generic publication-format patterns LAST (§2.4.1): they only win when no
+    # instrument title line is present.  Notification uses line-anchored
+    # patterns to avoid matching common English words like "notification" or
+    # "order" in body text.
     ("notification", _p(r"^\s*(?:NOTIFICATION|CIRCULAR|OFFICE\s+MEMORANDUM)\s*$"), "Notification"),
     ("order", _p(r"^\s*ORDER\s+NO\."), "Notification"),
     ("gazette", _p(r"(?:THE\s+)?GAZETTE\s+OF\s+INDIA|GAZETTE\s+NOTIFICATION"), "Gazette Notification"),
-    ("judgment", _p(r"(?:JUDGMENT|ORDER|DECREE|AWARD)\s+(?:DATED|IN\s+THE\s+(?:SUPREME|HIGH)\s+COURT)"), "Judgment"),
-    ("policy", _p(r"(?:NATIONAL\s+)?[A-Z][A-Z\s]*(?:POLICY|FRAMEWORK|STRATEGY|PLAN|MISSION)"), "Policy"),
-    ("act", _p(r"(?:THE\s+)?[A-Z][A-Z\s&,(\)]*(?:ACT)\s*,\s*\d{4}"), "Act"),
-    ("regulation", _p(r"(?:THE\s+)?[A-Z][A-Z\s&,(\)]*(?:REGULATION|REGULATIONS)\s*,\s*\d{4}"), "Regulation"),
-    ("rule", _p(r"(?:THE\s+)?[A-Z][A-Z\s&,(\)]*(?:RULES?)\s*,\s*\d{4}"), "Rule"),
-    ("bill", _p(r"(?:THE\s+)?[A-Z][A-Z\s&]*(?:BILL)\s*,\s*\d{4}"), "Bill"),
 ]
-
 
 # ============================================================================
 # 9. Amendment Status

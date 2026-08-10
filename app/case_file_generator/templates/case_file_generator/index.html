@@ -288,6 +288,11 @@
                            class="btn btn-secondary btn-sm" title="Open case timeline">
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
+                        <button type="button" class="btn btn-secondary btn-sm js-validate-case"
+                                data-case-id="{{ c.id }}" data-case-type="case_file"
+                                title="Run legal validation on this case file">
+                            <i class="fa-solid fa-clipboard-check"></i> Validate
+                        </button>
                     </td>
                 </tr>
                 {% else %}
@@ -298,6 +303,11 @@
             </tbody>
         </table>
     </div>
+
+    <div class="mt--md">
+        <span id="case-file-val-status" class="form-hint"></span>
+    </div>
+    <div id="case-file-val-drawer" class="mt--md" style="display: none;"></div>
 </div>
 {% endblock %}
 
@@ -539,6 +549,16 @@
             statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Case file #' + result.case_file_id +
                 ' created. ' + TaskPoll.downloadLink({ file_path: filePath }, 'Download Case Files (ZIP)');
         });
+    });
+</script>
+
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
+<script>
+    ValidationDrawer.initRowButtons({
+        buttonsSelector: '.js-validate-case',
+        drawerId: 'case-file-val-drawer',
+        statusId: 'case-file-val-status',
+        endpoint: '{{ url_for("validation.validate") }}'
     });
 </script>
 {% endblock %}

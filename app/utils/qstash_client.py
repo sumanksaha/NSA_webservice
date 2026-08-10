@@ -27,6 +27,10 @@ TASK_REGISTRY: dict[str, tuple[str, str]] = {
     "generate_case_file_pdf": ("app.case_file_generator.tasks", "generate_case_file_pdf"),
     "run_ocr_extraction": ("app.inspection.tasks", "run_ocr_extraction"),
     "backup_redundant_sheets": ("app.services.backup_coordinator", "run_backup"),
+    # Agent A Phase 1 (Day 4): QStash-scheduled daily corpus ingestion.
+    "ingest_corpus": ("app.rag.tasks", "ingest_corpus_task"),
+    # Phase 14: Neo4j Aura knowledge-graph sync (async via QStash webhook).
+    "sync_kg_to_neo4j": ("app.knowledge_graph.tasks", "sync_kg_to_neo4j"),
 }
 
 # Path (relative to PUBLIC_BASE_URL) where the webhook accepts QStash deliveries.

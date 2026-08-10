@@ -54,6 +54,16 @@ document.addEventListener("DOMContentLoaded", function () {
             .replace(/'/g, "&#39;");
     }
 
+    function setHTML(el, html) {
+        el.replaceChildren();
+        if (html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            while (doc.body.firstChild) {
+                el.append(doc.body.firstChild);
+            }
+        }
+    }
+
     function formatDate(iso) {
         if (!iso) return "—";
         var d = new Date(iso);
@@ -62,7 +72,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function setStatus(message) {
-        versionList.innerHTML = '<p class="vc-empty">' + escapeHtml(message) + "</p>";
+        setHTML(versionList, '<p class="vc-empty">' + escapeHtml(message) + "</p>");
         if (versionCount) versionCount.textContent = "";
     }
 
@@ -74,8 +84,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!versions.length) {
             setStatus("No saved versions for this document type yet.");
             if (compareFrom) {
-                compareFrom.innerHTML = '<option value="">—</option>';
-                compareTo.innerHTML = '<option value="">—</option>';
+                setHTML(compareFrom, '<option value="">—</option>');
+                setHTML(compareTo, '<option value="">—</option>');
             }
             return;
         }
@@ -117,13 +127,15 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .join("");
 
-        versionList.innerHTML =
+        setHTML(
+            versionList,
             '<table class="vc-table">' +
-            "<thead><tr><th>Version</th><th>Created</th><th>By</th><th>Summary</th><th>Actions</th></tr></thead>" +
-            "<tbody>" +
-            rows +
-            "</tbody>" +
-            "</table>";
+                "<thead><tr><th>Version</th><th>Created</th><th>By</th><th>Summary</th><th>Actions</th></tr></thead>" +
+                "<tbody>" +
+                rows +
+                "</tbody>" +
+                "</table>"
+        );
         if (versionCount)
             versionCount.textContent =
                 versions.length + (versions.length === 1 ? " version" : " versions");
@@ -136,8 +148,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             })
             .join("");
-        compareFrom.innerHTML = options;
-        compareTo.innerHTML = options;
+        setHTML(compareFrom, options);
+        setHTML(compareTo, options);
         if (versions.length >= 2) {
             compareTo.value = versions[0].version_number; // newest
             compareFrom.value = versions[versions.length - 1].version_number; // oldest
@@ -172,26 +184,30 @@ document.addEventListener("DOMContentLoaded", function () {
         var wordDiff = diff.word_count_diff || 0;
 
         if (!diff.content_changed) {
-            diffSummary.innerHTML = "";
-            diffOutput.innerHTML =
-                '<span class="vc-diff-empty">The two versions are identical.</span>';
+            setHTML(diffSummary, "");
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">The two versions are identical.</span>'
+            );
             return;
         }
 
-        diffSummary.innerHTML =
+        setHTML(
+            diffSummary,
             '<span class="vc-stat vc-stat-add"><i class="fa-solid fa-plus"></i> +' +
-            insertions.length +
-            " words</span>" +
-            '<span class="vc-stat vc-stat-del"><i class="fa-solid fa-minus"></i> -' +
-            deletions.length +
-            " words</span>" +
-            '<span class="vc-stat vc-stat-sim">Similarity ' +
-            Math.round((diff.similarity || 0) * 100) +
-            "%</span>" +
-            '<span class="vc-stat vc-stat-sim">Word-count Δ ' +
-            (wordDiff > 0 ? "+" : "") +
-            wordDiff +
-            "</span>";
+                insertions.length +
+                " words</span>" +
+                '<span class="vc-stat vc-stat-del"><i class="fa-solid fa-minus"></i> -' +
+                deletions.length +
+                " words</span>" +
+                '<span class="vc-stat vc-stat-sim">Similarity ' +
+                Math.round((diff.similarity || 0) * 100) +
+                "%</span>" +
+                '<span class="vc-stat vc-stat-sim">Word-count Δ ' +
+                (wordDiff > 0 ? "+" : "") +
+                wordDiff +
+                "</span>"
+        );
 
         var html = "";
         if (deletions.length) {
@@ -209,14 +225,16 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!html) {
             html = '<span class="vc-diff-empty">Content changed but the diff is empty.</span>';
         }
-        diffOutput.innerHTML = html;
+        setHTML(diffOutput, html);
     }
 
     function runCompare() {
         if (!compareFrom.value || !compareTo.value) {
-            diffSummary.innerHTML = "";
-            diffOutput.innerHTML =
-                '<span class="vc-diff-empty">Select both versions to compare.</span>';
+            setHTML(diffSummary, "");
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">Select both versions to compare.</span>'
+            );
             return;
         }
         var url =
@@ -230,8 +248,8 @@ document.addEventListener("DOMContentLoaded", function () {
             "/" +
             compareTo.value +
             kindParam;
-        diffSummary.innerHTML = '<span class="vc-stat vc-stat-sim">Comparing…</span>';
-        diffOutput.innerHTML = "";
+        setHTML(diffSummary, '<span class="vc-stat vc-stat-sim">Comparing…</span>');
+        setHTML(diffOutput, "");
 
         fetch(url)
             .then(function (resp) {
@@ -241,9 +259,11 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(renderDiff)
             .catch(function (err) {
                 console.error("Compare error:", err);
-                diffSummary.innerHTML = "";
-                diffOutput.innerHTML =
-                    '<span class="vc-diff-empty">Could not compare versions.</span>';
+                setHTML(diffSummary, "");
+                setHTML(
+                    diffOutput,
+                    '<span class="vc-diff-empty">Could not compare versions.</span>'
+                );
             });
     }
 
@@ -352,9 +372,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 t.classList.toggle("active", t === tab);
             });
             currentDocType = tab.getAttribute("data-doc-type");
-            diffSummary.innerHTML = "";
-            diffOutput.innerHTML =
-                '<span class="vc-diff-empty">Select two versions above to see what changed.</span>';
+            setHTML(diffSummary, "");
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">Select two versions above to see what changed.</span>'
+            );
             loadHistory();
         });
     });

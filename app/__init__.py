@@ -186,9 +186,7 @@ def create_app():
     # Priority 7 — Multi-Target Sheets Redundancy configuration
     app.config["AIRTABLE_API_KEY"] = os.environ.get("AIRTABLE_API_KEY")
     app.config["AIRTABLE_BASE_ID"] = os.environ.get("AIRTABLE_BASE_ID")
-    app.config["ENABLE_AIRTABLE_SYNC"] = (
-    os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
-    )
+    app.config["ENABLE_AIRTABLE_SYNC"] = os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
 
     # Microsoft Excel Online configuration (Priority 7)
     app.config["MS_TENANT_ID"] = os.environ.get("MS_TENANT_ID")
@@ -196,9 +194,39 @@ def create_app():
     app.config["MS_CLIENT_SECRET"] = os.environ.get("MS_CLIENT_SECRET")
     app.config["MS_DRIVE_ID"] = os.environ.get("MS_DRIVE_ID")
     app.config["MS_SPREADSHEET_ID"] = os.environ.get("MS_SPREADSHEET_ID")
-    app.config["ENABLE_EXCEL_SYNC"] = (
-    os.environ.get("ENABLE_EXCEL_SYNC", "false").lower() == "true"
-    )
+    app.config["ENABLE_EXCEL_SYNC"] = os.environ.get("ENABLE_EXCEL_SYNC", "false").lower() == "true"
+
+    # ------------------------------------------------------------------
+    # Phase 11: AI Assistant configuration
+    # ------------------------------------------------------------------
+    app.config["AI_ASSISTANT_PROVIDER"] = os.environ.get("AI_ASSISTANT_PROVIDER", "")
+    app.config["AI_ASSISTANT_API_KEY"] = os.environ.get("AI_ASSISTANT_API_KEY", "")
+    app.config["AI_ASSISTANT_BASE_URL"] = os.environ.get("AI_ASSISTANT_BASE_URL")
+    app.config["AI_ASSISTANT_MODEL"] = os.environ.get("AI_ASSISTANT_MODEL")
+
+    # ------------------------------------------------------------------
+    # Phase B: RAG (Retrieval / Generation / Evaluation) configuration
+    # ------------------------------------------------------------------
+    app.config["RAG_ENABLED"] = os.environ.get("RAG_ENABLED", "true").lower() == "true"
+    app.config["RAG_QDRANT_URL"] = os.environ.get("RAG_QDRANT_URL", "")
+    app.config["RAG_QDRANT_API_KEY"] = os.environ.get("RAG_QDRANT_API_KEY", "")
+    app.config["RAG_QDRANT_COLLECTION"] = os.environ.get("RAG_QDRANT_COLLECTION", "fssai_legal_768")
+    app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
+    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
+    app.config["RAG_RERANKER_MODEL"] = os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    # BM25 sparse (hybrid) retrieval — local fastembed "Qdrant/bm25" vectors.
+    # On: new collections are created with a named sparse vector and ingestion
+    #     embeds it; existing dense-only collections keep working (dense-only)
+    #     until recreated.
+    app.config["RAG_ENABLE_SPARSE"] = os.environ.get("RAG_ENABLE_SPARSE", "true").lower() == "true"
+    app.config["RAG_SPARSE_MODEL"] = os.environ.get("RAG_SPARSE_MODEL", "Qdrant/bm25")
+    # When true, the production ingestion pipeline (make_ingestion_pipeline)
+    # wires the full Phase 2 adapter chain (metadata / citation / crossref /
+    # quality) in addition to the always-on DocumentClassifier.
+    app.config["RAG_FULL_ENRICHMENT"] = os.environ.get("RAG_FULL_ENRICHMENT", "false").lower() == "true"
+    # LLM model for grounded RAG generation (OpenRouter free tier).
+    # Overrides the GroundedLLMClient default when set.
+    app.config["RAG_LLM_MODEL"] = os.environ.get("RAG_LLM_MODEL")
 
     # ------------------------------------------------------------------
     # Security headers & HTTPS enforcement via Flask-Talisman
@@ -303,6 +331,8 @@ def create_app():
         "tasks_webhook.run_task",
         # QStash failure callback — authenticated by Upstash-Signature, not session
         "tasks_webhook.delivery_failed",
+        # RAG health probe — public for monitoring
+        "rag.health",
     }
 
     @app.before_request
@@ -344,6 +374,16 @@ def create_app():
 
     register_search_hooks()
 
+    # ------------------------------------------------------------------
+    # Wire up Qdrant vector-store event hooks (Agent A Phase 1, Day 3).
+    # Inert until chunk/document models are registered via
+    # app.rag.qdrant_indexer.register_chunk_model / register_document_model
+    # (planned LegalChunk / LegalDocument models — Phase 3, Day 12).
+    # ------------------------------------------------------------------
+    from app.rag.qdrant_indexer import register_qdrant_hooks
+
+    register_qdrant_hooks()
+
     # Register blueprints (auth first so login page is available)
     from app.adjudication.routes import adjudication_bp
     from app.annexure import annexure_bp
@@ -362,6 +402,7 @@ def create_app():
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
     from app.timeline import timeline_bp
+    from app.knowledge_graph import kg_bp
     from app.validation import validation_bp
     from app.version_control import version_control_bp
 
@@ -389,8 +430,16 @@ def create_app():
     app.register_blueprint(validation_bp, url_prefix="/validation")
     app.register_blueprint(health_bp)
     app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
+    app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
+    from app.ai_assistant import ai_bp
+
+    app.register_blueprint(ai_bp, url_prefix="/ai-assistant")
     # timeline_bp carries its own url_prefix ("/timeline") in the Blueprint.
     app.register_blueprint(timeline_bp)
+    # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
+    from app.rag import rag_bp
+
+    app.register_blueprint(rag_bp)
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata
@@ -507,6 +556,24 @@ def create_app():
             app.logger.info("Registered daily backup schedule with QStash: %s", result)
         except Exception as e:
             app.logger.warning(f"QStash backup schedule registration failed: {e}")
+
+    # QStash daily corpus-ingestion schedule (Agent A Phase 1, Day 4).
+    # Dispatches rag.ingest_corpus_task against RAG_CORPUS_DIR. Requires
+    # QStash credentials (paid plan) — publish_recurring returns
+    # {"mode": "disabled"} gracefully when unconfigured.
+    rag_corpus_dir = os.environ.get("RAG_CORPUS_DIR")
+    if os.environ.get("RAG_ENABLE_INGESTION_SCHEDULE", "false").lower() == "true" and rag_corpus_dir:
+        try:
+            from app.utils.qstash_client import publish_recurring
+
+            result = publish_recurring(
+                "ingest_corpus",
+                schedule=os.environ.get("RAG_INGESTION_CRON", "0 3 * * *"),  # daily 03:00 UTC
+                payload={"corpus_dir": rag_corpus_dir},
+            )
+            app.logger.info("Registered daily RAG corpus-ingestion schedule with QStash: %s", result)
+        except Exception as e:
+            app.logger.warning(f"QStash RAG ingestion schedule registration failed: {e}")
 
     # Initialize Celery with Flask app context support
     # Lazy import to avoid ModuleNotFoundError in deployment environments

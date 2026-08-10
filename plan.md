@@ -1,10 +1,10 @@
 # Implementation Plan — NSA Webservice Roadmap (Phases 0–20)
 
-> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard, fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points), **Phase 21 (Food Cell DO Intimation)**, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests pass)**, and 7/7 Performance Quick Wins all implemented & verified. Phases 11–12, 14–15, 17–20 pending.
+> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard, fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points), **Phase 21 (Food Cell DO Intimation)**, **Phase 12 (Legal Validation Engine — 46 tests pass)**, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests pass)**, and 7/7 Performance Quick Wins all implemented & verified. Phases 15, 17, 19-20 pending; **Phase 11 ✅ Complete (2026-08-08)** (23 tests pass, no regressions); **Phase 18 partial** (models + migration + admin UI done; `@role_required` + comment API/UI + `tests/test_rbac.py` pending).
 
 > **Generated:** 2026-08-06  
 > **Source:** Consolidated from `ROADMAP_ALIGNMENT_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `ENGINEERING_ASSESSMENT.md`, and `technical_debt_implementation_plan.md`  
-> **Status:** Phases 0–10 ✅ Complete. Deepening Tasks D1–D5 ✅ Complete. Infrastructure ✅ Complete. Phase 16 ✅ Complete (14 tests pass). Phase A ✅ Complete (OCR services + Celery task + 14 tests pass). Phase 13 ✅ Complete (timeline engine + Gantt UI + global case-picker + entry points across search/evidence/annexure/inspection/audit/version-control/sample — 21 tests pass). **Phase 21 ✅ Complete** (Food Cell DO Intimation — 15 tests pass). S9a ✅ Fully fixed (inspection PUT 409 tuple; `tests/test_concurrency_inspection.py` 4/4 pass). Performance Quick Wins: **7/7 done** (connection pooling ✅, FSO lru_cache ✅, Jinja2 bytecode cache ✅, Flask-Compress ✅, health endpoint ✅, DB indexes ✅, eager loading ✅).
+> **Status:** Phases 0–10 ✅ Complete. Deepening Tasks D1–D5 ✅ Complete. Infrastructure ✅ Complete. Phase 16 ✅ Complete (14 tests pass). Phase A ✅ Complete (OCR services + Celery task + 14 tests pass). Phase 13 ✅ Complete (timeline engine + Gantt UI + global case-picker + entry points across search/evidence/annexure/inspection/audit/version-control/sample — 21 tests pass). **Phase 21 ✅ Complete** (Food Cell DO Intimation — 15 tests pass). **Phase 12 ✅ Complete** (Legal Validation Engine — 7 rules + engine + 2 routes + workbench/index/editor UI via shared `validation_drawer.js`; 46 tests pass). S9a ✅ Fully fixed (inspection PUT 409 tuple; `tests/test_concurrency_inspection.py` 4/4 pass). Performance Quick Wins: **7/7 done** (connection pooling ✅, FSO lru_cache ✅, Jinja2 bytecode cache ✅, Flask-Compress ✅, health endpoint ✅, DB indexes ✅, eager loading ✅).
 
 ---
 
@@ -27,51 +27,51 @@
 
 ### ⏳ Pending (Phases 11–20)
 
-| Phase  | Feature                                                                     | Status                              | Gap                                                                                                                                               |
-| ------ | --------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **10** | Search engine — fuzzy search                                                | ✅                                  | `rapidfuzz` fallback (`fuzzy_search_fallback`), `fuzzy` API/UI toggle, deps declared in `pyproject.toml` — implemented & verified (56 tests pass) |
-| **11** | AI assistant — grammar, legal language, summarize, contradictions, drafting | ❌                                  | Only rule-based `suggester.py` exists                                                                                                             |
-| **12** | Legal rule engine — ValidationEngine (score, warnings, errors, suggestions) | ❌                                  | Only `suggest_sections()` exists                                                                                                                  |
-| **13** | Timeline engine — auto-generated events, Gantt UI                           | ✅                                  | `app/timeline/` — extraction engine, view/API/refresh routes, vertical + Gantt UI + global case-picker + entry points; 21 tests pass |
-| **14** | Knowledge graph — entity/relationship extraction, traversal API             | ⚠️                                  | Entity/Relationship models + migration done; extractor + API pending                                                                              |
-| **15** | Analytics dashboard — aggregate queries, charts, geo map                    | ❌                                  | Only billing + inspection lists exist                                                                                                             |
-| **16** | Backup & export — JSON export, case import, scheduled backups               | ✅                                  | `export_case_as_json()`, `export_case_as_zip()`, `import_case_from_json()` in `app/case_file_generator/services.py`; 3 routes in `routes.py`; Celery beat `daily-db-snapshot` at midnight UTC (`celery_app.py`, `app/utils/backup.py`); settings UI (`settings/backup.html`, `settings/routes.py`). 14 tests in `tests/test_case_backup.py` all pass.                                                            |
-| **17** | Cloud sync — Supabase bridge, annexure sync, conflict resolution            | ⚠️ R2/B2 + Cloudinary + Sheets done | Supabase bridge, conflict resolution, sync-status UI                                                                                              |
-| **18** | Multi-user RBAC — Role model, `@role_required`, comments, approval workflow | ⚠️                                  | Role/UserRole/Comment models + migration done; decorator + comment UI pending                                                                     |
-| **19** | AI case intelligence — evidence strength, traceability, readiness score     | ❌                                  | Not started                                                                                                                                       |
-| **20** | Plugin architecture — OCR/AI/rule/PDF provider interfaces                   | ❌                                  | OCR and rules hardcoded                                                                                                                           |
+| Phase  | Feature                                                                        | Status                              | Gap                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **10** | Search engine — fuzzy search                                                   | ✅                                  | `rapidfuzz` fallback (`fuzzy_search_fallback`), `fuzzy` API/UI toggle, deps declared in `pyproject.toml` — implemented & verified (56 tests pass)                                                                                                                                                                                                                                              |
+| **11** | AI assistant — grammar, legal language, summarize, contradictions, drafting    | ✅                                  | `app/ai_assistant/` (service + routes + tasks + JS sidebar); `httpx`-based `AIAssistantService` (no new deps); `POST /ai-assistant/assist`; editor sidebar; 23 tests pass                                                                                                                                                                                                                      |
+| **12** | Legal rule engine — ValidationEngine (score, warnings, errors, suggestions)    | ✅                                  | `app/validation/` — 7 rules + `ValidationEngine` (score `clamp(100−15·err−5·warn)` + grades) + `POST /validation/validate` + `GET /validation/case/<id>`; blueprint registered; workbench + index/editor UI via shared `validation_drawer.js`; 46 tests pass                                                                                                                                   |
+| **13** | Timeline engine — auto-generated events, Gantt UI                              | ✅                                  | `app/timeline/` — extraction engine, view/API/refresh routes, vertical + Gantt UI + global case-picker + entry points; 21 tests pass                                                                                                                                                                                                                                                           |
+| **14** | Knowledge graph — entity/relationship extraction, traversal API                | ✅                                  | Full engine + Cytoscape.js UI + API + SQL persistence + 21 tests + Neo4j Aura integration (2026-08-10): APOC dynamic labels, 9 uniqueness constraints, 3 property indexes, QStash async + sync fallback route, 15 Neo4j tests pass.                                                                                                                                                            | `app/knowledge_graph/` |
+| **15** | Analytics dashboard — aggregate queries, charts, geo map                       | ❌                                  | Not started — verified 2026-08-07: no `app/analytics/` package, no routes, no nav link, no tests                                                                                                                                                                                                                                                                                               |
+| **16** | Backup & export — JSON export, case import, scheduled backups                  | ✅                                  | `export_case_as_json()`, `export_case_as_zip()`, `import_case_from_json()` in `app/case_file_generator/services.py`; 3 routes in `routes.py`; Celery beat `daily-db-snapshot` at midnight UTC (`celery_app.py`, `app/utils/backup.py`); settings UI (`settings/backup.html`, `settings/routes.py`). 14 tests in `tests/test_case_backup.py` all pass.                                          |
+| **17** | Cloud sync — Supabase bridge, annexure sync, conflict resolution               | ⚠️ R2/B2 + Cloudinary + Sheets done | Supabase bridge, conflict resolution, sync-status UI                                                                                                                                                                                                                                                                                                                                           |
+| **18** | Multi-user RBAC — Role model, `@role_required`, comments, approval workflow    | ⚠️                                  | Role/UserRole/Comment models + migration + `is_admin`-based admin UI (`/auth/users`) done; `@role_required` + comment API/UI + role assignment + `tests/test_rbac.py` pending (verified 2026-08-07)                                                                                                                                                                                            |
+| **19** | AI case intelligence — evidence strength, traceability, readiness score        | ❌                                  | Not started                                                                                                                                                                                                                                                                                                                                                                                    |
+| **20** | Plugin architecture — OCR/AI/rule/PDF provider interfaces                      | ❌                                  | OCR and rules hardcoded                                                                                                                                                                                                                                                                                                                                                                        |
 | **21** | Food Cell — DO Intimation generation, PDF export, forwarding after sample save | ✅                                  | `app/food_cell/` blueprint (`__init__.py`, `routes.py`, `services.py`, `tasks.py`, templates); `DoIntimation` model + `food_cell_forwarded` on `Sample`; post-save Celery hook in `app/sample/routes.py`; integrated with Priority 7 sync chain (Sheets + Airtable + Excel best-effort); `add_food_cell_do_intimation` migration; 15 tests in `tests/test_food_cell_do_intimation.py` all pass |
 
 ### New (Extraction → Storage → Autopopulation Pipeline)
 
-| Phase   | Feature   | Status |
-| ------- | --------- | ------ |
-| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ⚠️     | **Phase A foundation ✅** (models+migration+services+task, 14 tests); Phases B–E pending |
+| Phase   | Feature                                                                                                                  | Status |
+| ------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
+| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ⚠️     | **Phase A foundation ✅** (models+migration+services+task, 14 tests); Phases B–E pending                                                                                                                                                                                                                                                    |
 | **F**   | Food Cell DO Intimation — automated DO letter generation, PDF export, and forwarding after FSO sample save               | ✅     | `app/food_cell/` blueprint; `DoIntimation` model; `generate_and_forward_do_intimation()` service; Celery `send_do_intimation` task; post-save trigger in `app/sample/routes.py`; routes: PDF download, HTML view, status, regenerate; best-effort sync to Sheets + Airtable + Excel; `add_food_cell_do_intimation` migration; 15 tests pass |
 
 ---
 
 ## 2. Recommended Implementation Order
 
-| Step | Phase       | Action                                                                                                                                                 | Key Files                                                                                      |
-| ---- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| 1–8  | Phases 0–10 | ✅ Done — Flask architecture, petition engine, rich editor, local DB, annexures, evidence, cross-ref, TOC, PDF assembly, version control, fuzzy search | (complete)                                                                                     |
-| 9    | **S9a**     | ✅ **Fully fixed (2026-08-06)** — `version_id` + `__mapper_args__` on `Inspection`, `Sample`, `Bill`, `CaseFile`; `StaleDataError` → 409 in case_file/adjudication/bill/sample PUT+DELETE routes. The one-line inspection-PUT bug (`409` inside `jsonify()`) is fixed — `tests/test_concurrency_inspection.py` **4/4 pass**. | `app/models/inspection.py`, `app/models/billing.py`, `app/inspection/routes/inspection_routes.py` |
-| 10   | **Perf**    | ✅ **7/7 done** — SQLAlchemy pool config ✅ (`app/__init__.py:200-210`), FSO `@lru_cache` ✅ (`fso_data.py:27`), Jinja2 `FileSystemBytecodeCache` ✅ (`__init__.py:285-293`), Flask-Compress ✅ (`extensions.py` + `__init__.py:283`), health endpoint ✅ (`health/routes.py`), DB indexes ✅, **eager loading ✅** (`load_only` column trimming in `DocumentCaseManager._list_cases_query()` for the JSON `/cases` endpoints; `lazy="selectin"` on `Bill.samples` + `bills` backref; `distinct()` on the evidence tag-cloud query). | `app/__init__.py`, `app/utils/fso_data.py`, `app/extensions.py`, `app/health/routes.py`, `app/shared/document_case_manager.py`, `app/models/billing.py`, `app/evidence/routes.py` |
-| 11   | **Phase A** | ✅ **Done (2026-08-06)** — OCR extraction services + Celery task + persistence tests. `process_document_ocr()` (regex+NER field extraction), `split_pdf_bundle()` (PyMuPDF), `process_ocr_document_async` Celery task (persists `OCRDocument` + `LabTestParameter`). `tests/test_ocr_extraction.py` — **14/14 pass**. | `app/services/ocr_extraction.py`, `app/services/page_splitter.py`, `app/ocr_pipeline/tasks.py`, `tests/test_ocr_extraction.py` |
-| 12   | Phase 12    | ⚠️ Create `app/validation/` (engine, rules, routes)                                                                                                    | new blueprint                                                                                  |
-| 13   | Phase 13    | ✅ **Done (2026-08-06)** — `TimelineEngine` (extract / refresh / validate_sequence / build_payload), 3 routes (`/timeline/case/<id>`, `/timeline/api/case/<id>`, `/timeline/api/case/<id>/refresh`), vertical-timeline + Gantt UI with document links. case_file events persisted to `timeline_event`; adjudication served ephemerally (FK constraint). Access: global nav case-picker (keyboard-navigable search dropdown), both index-page panels, document-editor button, search results, evidence/annexure/inspection/audit/version-control/sample entry points, sample-detail `case_id`+`timeline_url`. Also wired orphaned `app/audit` routes (audit log viewer was 404) and fixed stale `edit_case_file`/`edit_adjudication` url_for names. `tests/test_timeline.py` — **21/21 pass**. | `app/timeline/engine.py`, `app/timeline/routes.py`, `app/timeline/templates/timeline/index.html`, `app/templates/base.html`, `tests/test_timeline.py` |
-| 14   | Phase 15    | ⚠️ Create `app/analytics/` (aggregate queries, charts)                                                                                                 | new blueprint                                                                                  |
-| 15   | Phase 18    | ⚠️ Role/UserRole/Comment models + migration done; `@role_required` + comment UI pending                                                                | `app/models/auth.py`, `app/decorators.py`                                                      |
-| 16   | Phase 16    | ✅ **Done** — JSON export, ZIP export, case import, daily Celery beat, settings UI, 14 tests pass. | `case_file_generator/routes.py`, `celery_app.py`
-| 17   | Phase 11    | ⚠️ Create `app/ai_assistant/` (LLM service, prompt templates)                                                                                          | new blueprint                                                                                  |
-| 18   | Phase 19    | ⚠️ Create `app/case_intelligence/` (evidence strength, readiness score)                                                                                | new blueprint                                                                                  |
-| 19   | Phase 14    | ⚠️ Entity/Relationship models + migration done; extractor + API pending                                                                                | `app/knowledge_graph/`                                                                         |
-| 20   | Phase 20    | ⚠️ Create `app/plugins/` (registry, base interfaces)                                                                                                   | new blueprint                                                                                  |
-| 21   | Phase 17    | ⚠️ R2/B2 + Cloudinary + Sheets done; Supabase bridge, conflict resolution, sync-status UI pending                                                      | `app/sync/`                                                                                    |
-| 22   | **Phase 21** | Done (2026-08-06) — Food Cell DO Intimation: food_cell blueprint (services, routes, tasks, templates); DoIntimation model + food_cell_forwarded on Sample; HTML-to-PDF via WeasyPrint + stub fallback; Celery send_do_intimation task; post-save hook in sample/routes.py; best-effort sync to Sheets + Airtable + Excel; migration add_food_cell_do_intimation; 15 tests pass | food_cell package, models/food_cell.py, sample/routes.py, init, celery_app.py, test_food_cell_do_intimation.py |
+| Step | Phase        | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Key Files                                                                                                                                                                         |
+| ---- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1–8  | Phases 0–10  | ✅ Done — Flask architecture, petition engine, rich editor, local DB, annexures, evidence, cross-ref, TOC, PDF assembly, version control, fuzzy search                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | (complete)                                                                                                                                                                        |
+| 9    | **S9a**      | ✅ **Fully fixed (2026-08-06)** — `version_id` + `__mapper_args__` on `Inspection`, `Sample`, `Bill`, `CaseFile`; `StaleDataError` → 409 in case_file/adjudication/bill/sample PUT+DELETE routes. The one-line inspection-PUT bug (`409` inside `jsonify()`) is fixed — `tests/test_concurrency_inspection.py` **4/4 pass**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `app/models/inspection.py`, `app/models/billing.py`, `app/inspection/routes/inspection_routes.py`                                                                                 |
+| 10   | **Perf**     | ✅ **7/7 done** — SQLAlchemy pool config ✅ (`app/__init__.py:200-210`), FSO `@lru_cache` ✅ (`fso_data.py:27`), Jinja2 `FileSystemBytecodeCache` ✅ (`__init__.py:285-293`), Flask-Compress ✅ (`extensions.py` + `__init__.py:283`), health endpoint ✅ (`health/routes.py`), DB indexes ✅, **eager loading ✅** (`load_only` column trimming in `DocumentCaseManager._list_cases_query()` for the JSON `/cases` endpoints; `lazy="selectin"` on `Bill.samples` + `bills` backref; `distinct()` on the evidence tag-cloud query).                                                                                                                                                                                                                                                          | `app/__init__.py`, `app/utils/fso_data.py`, `app/extensions.py`, `app/health/routes.py`, `app/shared/document_case_manager.py`, `app/models/billing.py`, `app/evidence/routes.py` |
+| 11   | **Phase A**  | ✅ **Done (2026-08-06)** — OCR extraction services + Celery task + persistence tests. `process_document_ocr()` (regex+NER field extraction), `split_pdf_bundle()` (PyMuPDF), `process_ocr_document_async` Celery task (persists `OCRDocument` + `LabTestParameter`). `tests/test_ocr_extraction.py` — **14/14 pass**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `app/services/ocr_extraction.py`, `app/services/page_splitter.py`, `app/ocr_pipeline/tasks.py`, `tests/test_ocr_extraction.py`                                                    |
+| 12   | Phase 12     | ✅ Done (2026-08-07) — `app/validation/` (7 rules + engine + routes); blueprint registered; shared `validation_drawer.js` UI (workbench + case/adjudication index + document editor); 46 tests pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | new blueprint                                                                                                                                                                     |
+| 13   | Phase 13     | ✅ **Done (2026-08-06)** — `TimelineEngine` (extract / refresh / validate_sequence / build_payload), 3 routes (`/timeline/case/<id>`, `/timeline/api/case/<id>`, `/timeline/api/case/<id>/refresh`), vertical-timeline + Gantt UI with document links. case_file events persisted to `timeline_event`; adjudication served ephemerally (FK constraint). Access: global nav case-picker (keyboard-navigable search dropdown), both index-page panels, document-editor button, search results, evidence/annexure/inspection/audit/version-control/sample entry points, sample-detail `case_id`+`timeline_url`. Also wired orphaned `app/audit` routes (audit log viewer was 404) and fixed stale `edit_case_file`/`edit_adjudication` url_for names. `tests/test_timeline.py` — **21/21 pass**. | `app/timeline/engine.py`, `app/timeline/routes.py`, `app/timeline/templates/timeline/index.html`, `app/templates/base.html`, `tests/test_timeline.py`                             |
+| 14   | Phase 15     | ⚠️ Create `app/analytics/` (aggregate queries, charts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | new blueprint                                                                                                                                                                     |
+| 15   | Phase 18     | ⚠️ Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + `tests/test_rbac.py` pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `app/models/auth.py`, `app/decorators.py`                                                                                                                                         |
+| 16   | Phase 16     | ✅ **Done** — JSON export, ZIP export, case import, daily Celery beat, settings UI, 14 tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `case_file_generator/routes.py`, `celery_app.py`                                                                                                                                  |
+| 17   | Phase 11     | ✅ **Complete (2026-08-08)** — `app/ai_assistant/` (service + routes + tasks + JS sidebar); `httpx`-based `AIAssistantService` (no new deps); `POST /ai-assistant/assist`; editor sidebar; `tests/test_ai_assistant.py` **23/23 pass**, no regressions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `app/ai_assistant/`, `app/static/js/ai_assistant.js`, `tests/test_ai_assistant.py`                                                                                                |
+| 18   | Phase 19     | ⚠️ Create `app/case_intelligence/` (evidence strength, readiness score)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | new blueprint                                                                                                                                                                     |
+| 19   | Phase 14     | ✅ **Done (2026-08-08)** — KnowledgeGraphEngine extracts 8 node types + 6 directed edge types from CaseFile/Adjudication; Cytoscape.js view/API routes; SQL persistence to Entity/Relationship tables (case_file only, idempotent); Neo4j sync adapter available (env-gated, dormant). 21 tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |                                                                                                                                                                                   | `app/knowledge_graph/` |
+| 20   | Phase 20     | ⚠️ Create `app/plugins/` (registry, base interfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | new blueprint                                                                                                                                                                     |
+| 21   | Phase 17     | ⚠️ R2/B2 + Cloudinary + Sheets done; Supabase bridge, conflict resolution, sync-status UI pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `app/sync/`                                                                                                                                                                       |
+| 22   | **Phase 21** | Done (2026-08-06) — Food Cell DO Intimation: food_cell blueprint (services, routes, tasks, templates); DoIntimation model + food_cell_forwarded on Sample; HTML-to-PDF via WeasyPrint + stub fallback; Celery send_do_intimation task; post-save hook in sample/routes.py; best-effort sync to Sheets + Airtable + Excel; migration add_food_cell_do_intimation; 15 tests pass                                                                                                                                                                                                                                                                                                                                                                                                                | food_cell package, models/food_cell.py, sample/routes.py, init, celery_app.py, test_food_cell_do_intimation.py                                                                    |
 
-> **📌 Next 3 steps (highest future impact, smallest effort) — suggested 2026-08-06 (Phase 13 now ✅):** **Phase 12** (Legal Validation Engine — self-contained rule-based engine, no external deps, plugs into the existing `legal_analysis` UI), **Phase 15** (Analytics Dashboard — aggregate queries + Chart.js/Leaflet; also exercises the new `selectin`/`load_only` query patterns), **Phase 18** (Multi-User RBAC — `Role`/`UserRole`/`Comment` models + migration done; only `@role_required`, comment API/UI, and user-role admin UI remain).
+> **📌 Next 3 steps (highest future impact, smallest effort) — updated 2026-08-08 (Phase 14 now ✅, 21 tests):** **Phase 15** (Analytics Dashboard — aggregate queries + Chart.js/Leaflet; also exercises the new `selectin`/`load_only` query patterns; not started — no `app/analytics/` yet), **Phase 18** (finish Multi-User RBAC — models + migration + `is_admin` admin UI done; remaining: `@role_required`, comment API/UI, role assignment, `tests/test_rbac.py`), **Phase 19** (AI case intelligence — evidence strength, readiness score).
 
 ---
 
@@ -85,33 +85,33 @@
 
 ### 3.2 New Blueprints to Create
 
-| Blueprint                | Purpose              | New Files                                                            |
-| ------------------------ | -------------------- | -------------------------------------------------------------------- |
-| `app/validation/`        | Legal rule engine    | `__init__.py`, `engine.py`, `rules.py`                               |
-| `app/timeline/`          | Timeline engine      | ✅ DONE — `__init__.py`, `engine.py`, `routes.py`, `templates/timeline/index.html`; global picker in `base.html` + entry points; 21 tests |
-| `app/food_cell/`        | Food Cell DO Intimation | ✅ DONE — `__init__.py`, `routes.py`, `services.py`, `tasks.py`, `templates/food_cell/do_intimation.html`, `templates/food_cell/do_intimation_inline.html` |
-| `app/analytics/`         | Analytics dashboard  | `__init__.py`, `routes.py`, `templates/`                             |
-| `app/ai_assistant/`      | AI assistant         | `__init__.py`, `service.py`, `routes.py`, `templates/`, `static/js/` |
-| `app/case_intelligence/` | AI case intelligence | `__init__.py`, `engine.py`                                           |
-| `app/knowledge_graph/`   | Knowledge graph      | `__init__.py`, `models.py`, `engine.py`, `routes.py`                 |
-| `app/sync/`              | Cloud sync           | `__init__.py`, `supabase_sync.py`, `routes.py`                       |
-| `app/plugins/`           | Plugin architecture  | `__init__.py`, `registry.py`, `base.py`                              |
+| Blueprint                | Purpose                 | New Files                                                                                                                                                  |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/validation/`        | Legal rule engine       | ✅ DONE — `__init__.py`, `engine.py`, `rules.py`, `routes.py`; shared `validation_drawer.js` UI; 46 tests                                                  |
+| `app/timeline/`          | Timeline engine         | ✅ DONE — `__init__.py`, `engine.py`, `routes.py`, `templates/timeline/index.html`; global picker in `base.html` + entry points; 21 tests                  |
+| `app/food_cell/`         | Food Cell DO Intimation | ✅ DONE — `__init__.py`, `routes.py`, `services.py`, `tasks.py`, `templates/food_cell/do_intimation.html`, `templates/food_cell/do_intimation_inline.html` |
+| `app/analytics/`         | Analytics dashboard     | `__init__.py`, `routes.py`, `templates/`                                                                                                                   |
+| `app/ai_assistant/`      | AI assistant            | `__init__.py`, `service.py`, `routes.py`, `templates/`, `static/js/`                                                                                       |
+| `app/case_intelligence/` | AI case intelligence    | `__init__.py`, `engine.py`                                                                                                                                 |
+| `app/knowledge_graph/`   | Knowledge graph         | `__init__.py`, `engine.py`, `routes.py`, `neo4j_sync.py`, `templates/knowledge_graph/view.html`                                                            |
+| `app/sync/`              | Cloud sync              | `__init__.py`, `supabase_sync.py`, `routes.py`                                                                                                             |
+| `app/plugins/`           | Plugin architecture     | `__init__.py`, `registry.py`, `base.py`                                                                                                                    |
 
 ### 3.3 Existing Files to Extend
 
-| File                                | Extension Needed                                           |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `app/__init__.py`                   | Register new blueprints, add health endpoint               |
-| `app/case_file_generator/routes.py` | JSON export endpoint                                       |
-| `app/adjudication/routes.py`        | StaleDataError handling (S9a), validation                  |
-| `app/inspection/routes/`            | StaleDataError handling (S9a) — see `inspection_routes.py` |
+| File                                | Extension Needed                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `app/__init__.py`                   | Register new blueprints, add health endpoint                                                            |
+| `app/case_file_generator/routes.py` | JSON export endpoint                                                                                    |
+| `app/adjudication/routes.py`        | StaleDataError handling (S9a), validation                                                               |
+| `app/inspection/routes/`            | StaleDataError handling (S9a) — see `inspection_routes.py`                                              |
 | `app/sample/routes.py`              | StaleDataError handling (S9a), post-save Food Cell DO Intimation trigger (`send_do_intimation.delay()`) |
-| `app/__init__.py`                   | Register new blueprints, add health endpoint, register `food_cell_bp` at `url_prefix="/food-cell"` |
-| `app/search/indexer.py`             | Fuzzy search fallback                                      |
-| `app/legal_analysis/routes.py`      | Validation + readiness score                               |
-| `celery_app.py`                     | Beat schedule for backups                                  |
-| `app/templates/base.html`           | Nav links (analytics, version history)                     |
-| `pyproject.toml`                    | `rapidfuzz` + `numpy`, `openai` or `httpx` for Phase 11    |
+| `app/__init__.py`                   | Register new blueprints, add health endpoint, register `food_cell_bp` at `url_prefix="/food-cell"`      |
+| `app/search/indexer.py`             | Fuzzy search fallback                                                                                   |
+| `app/legal_analysis/routes.py`      | Readiness score (Phase 19) — validation UI already wired client-side via `validation_drawer.js`         |
+| `celery_app.py`                     | Beat schedule for backups                                                                               |
+| `app/templates/base.html`           | Nav links (analytics, version history)                                                                  |
+| `pyproject.toml`                    | `rapidfuzz` + `numpy`, `openai` or `httpx` for Phase 11                                                 |
 
 ### 3.4 New Migrations
 
@@ -289,22 +289,22 @@ Primary:  PostgreSQL (Render)
 
 ### New Dependencies
 
-| Package     | Purpose                          | Current Status |
-| ----------- | -------------------------------- | -------------- |
-| `pyairtable` | Airtable API client SDK          | ✅ Added (2026-08-07)            |
-| `msal`       | Microsoft OAuth2 client credentials flow | ✅ Added (2026-08-07)            |
+| Package      | Purpose                                  | Current Status        |
+| ------------ | ---------------------------------------- | --------------------- |
+| `pyairtable` | Airtable API client SDK                  | ✅ Added (2026-08-07) |
+| `msal`       | Microsoft OAuth2 client credentials flow | ✅ Added (2026-08-07) |
 
 ### New Environment Variables
 
-| Variable             | Purpose                          | Required For |
- -------------------- | -------------------------------- | ------------ |
-| `AIRTABLE_API_KEY`   | Airtable API key                 | Airtable sync |
-| `AIRTABLE_BASE_ID`   | Primary Airtable base ID         | Airtable sync |
-| `MS_TENANT_ID`       | Azure AD tenant ID               | Excel sync |
-| `MS_CLIENT_ID`       | Azure AD app registration ID     | Excel sync |
-| `MS_CLIENT_SECRET`   | Azure AD client secret           | Excel sync |
-| `MS_DRIVE_ID`        | SharePoint/OneDrive drive ID     | Excel sync |
-| `MS_SPREADDHEET_ID`  | Excel file ID in OneDrive/Share  | Excel sync |
+| Variable            | Purpose                         | Required For  |
+| ------------------- | ------------------------------- | ------------- |
+| `AIRTABLE_API_KEY`  | Airtable API key                | Airtable sync |
+| `AIRTABLE_BASE_ID`  | Primary Airtable base ID        | Airtable sync |
+| `MS_TENANT_ID`      | Azure AD tenant ID              | Excel sync    |
+| `MS_CLIENT_ID`      | Azure AD app registration ID    | Excel sync    |
+| `MS_CLIENT_SECRET`  | Azure AD client secret          | Excel sync    |
+| `MS_DRIVE_ID`       | SharePoint/OneDrive drive ID    | Excel sync    |
+| `MS_SPREADDHEET_ID` | Excel file ID in OneDrive/Share | Excel sync    |
 
 ### Airtable API Key Management — How the App Gets & Holds the Key
 
@@ -314,12 +314,12 @@ Primary:  PostgreSQL (Render)
 
 **1. Source — Environment Variables (never committed):**
 
-| Variable | Purpose | Source |
-|----------|---------|--------|
-| `AIRTABLE_API_KEY` | Airtable personal access token (starts with `pat…`) | **Production**: Render Dashboard (manually entered). **Local dev**: `.env` (gitignored, loaded via `load_dotenv()`) |
-| `AIRTABLE_BASE_ID` | Primary Airtable base ID (starts with `app…`) | Same as above |
-| `ENABLE_AIRTABLE_SYNC` | Feature flag — defaults to `false` | Set to `"true"` in `render.yaml` for production; `"false"` if unset |
-| `ENABLE_BACKUP_SCHEDULE` | Gates the QStash daily backup schedule | Must be `"true"` to activate; dormant otherwise |
+| Variable                 | Purpose                                             | Source                                                                                                              |
+| ------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `AIRTABLE_API_KEY`       | Airtable personal access token (starts with `pat…`) | **Production**: Render Dashboard (manually entered). **Local dev**: `.env` (gitignored, loaded via `load_dotenv()`) |
+| `AIRTABLE_BASE_ID`       | Primary Airtable base ID (starts with `app…`)       | Same as above                                                                                                       |
+| `ENABLE_AIRTABLE_SYNC`   | Feature flag — defaults to `false`                  | Set to `"true"` in `render.yaml` for production; `"false"` if unset                                                 |
+| `ENABLE_BACKUP_SCHEDULE` | Gates the QStash daily backup schedule              | Must be `"true"` to activate; dormant otherwise                                                                     |
 
 **2. Config Loading (`app/__init__.py::create_app`, ~line 187–191):**
 
@@ -360,18 +360,18 @@ key / missing package / API failure) · Render Dashboard provisioning (`sync: fa
 
 ### Integration Points with Existing Codebase
 
-| Existing File                  | Extension Point                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------- |
-| `app/services/sheets_sync.py`  | Provides `WORKSHEET_MAP`, `SHEET_COLUMNS`, `get_gspread_client()` — reused by both Airtable and Excel services for column/field mapping |
-| `app/utils/storage.py`         | Provides `_get_client()` / `_get_bucket()` — reused by all backup/export scripts |
-| `app/case_file_generator/routes.py` | Add `sync_to_airtable()` + `sync_to_excel()` calls alongside existing `sync_to_sheets()` |
-| `app/adjudication/routes.py`   | Same pattern — parallel sync calls                          |
-| `app/inspection/routes/inspection_routes.py` | Same pattern                          |
-| `app/sample/routes.py`         | Same pattern                          |
-| `app/bill_generator/routes.py` | Same pattern                          |
-| `app/__init__.py`              | Extend startup recovery hook to try new restore sources     |
-| `app/utils/sync.py`            | Extend with `restore_from_airtable_csv()` + `restore_from_excel_csv()` |
-| `celery_app.py`                | No changes needed (QStash handles scheduling)                    |
+| Existing File                                | Extension Point                                                                                                                         |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/services/sheets_sync.py`                | Provides `WORKSHEET_MAP`, `SHEET_COLUMNS`, `get_gspread_client()` — reused by both Airtable and Excel services for column/field mapping |
+| `app/utils/storage.py`                       | Provides `_get_client()` / `_get_bucket()` — reused by all backup/export scripts                                                        |
+| `app/case_file_generator/routes.py`          | Add `sync_to_airtable()` + `sync_to_excel()` calls alongside existing `sync_to_sheets()`                                                |
+| `app/adjudication/routes.py`                 | Same pattern — parallel sync calls                                                                                                      |
+| `app/inspection/routes/inspection_routes.py` | Same pattern                                                                                                                            |
+| `app/sample/routes.py`                       | Same pattern                                                                                                                            |
+| `app/bill_generator/routes.py`               | Same pattern                                                                                                                            |
+| `app/__init__.py`                            | Extend startup recovery hook to try new restore sources                                                                                 |
+| `app/utils/sync.py`                          | Extend with `restore_from_airtable_csv()` + `restore_from_excel_csv()`                                                                  |
+| `celery_app.py`                              | No changes needed (QStash handles scheduling)                                                                                           |
 
 ---
 
@@ -415,6 +415,7 @@ Routes (registered at url_prefix="/food-cell"):
 ### Files Created / Modified
 
 **New files:**
+
 - `app/food_cell/__init__.py` — package init (Blueprint placeholder, delegates to routes.py)
 - `app/food_cell/routes.py` — `food_cell_bp` Blueprint with 4 routes (PDF download, HTML view, status, regenerate)
 - `app/food_cell/services.py` — `generate_and_forward_do_intimation()` service: lazy sync-fn loading, `_next_do_reference_no()`, `_render_html()`, `_render_pdf()` (WeasyPrint + stub fallback), `_store_intimation()`, `_sync_intimation()`, `_build_sync_row()`
@@ -426,6 +427,7 @@ Routes (registered at url_prefix="/food-cell"):
 - `tests/test_food_cell_do_intimation.py` — 15 tests across 8 test classes
 
 **Modified files:**
+
 - `app/__init__.py` — registered `food_cell_bp` at `url_prefix="/food-cell"` alongside existing 14 blueprints
 - `app/models/__init__.py` — added `DoIntimation` to model re-exports
 - `app/models/billing.py` — added `food_cell_forwarded` column (indexed) to `Sample` model
@@ -464,9 +466,9 @@ Sync functions are loaded lazily via `_load_sync_fns()` so the module bootstraps
 
 ### Test Inventory
 
-| File | Tests | Covers |
-|------|-------|--------|
-| `tests/test_food_cell_do_intimation.py` | 15 | HTML rendering, PDF generation, intimation creation, FSO-save trigger (task callable), sync forwarding results, PDF download endpoint, HTML view endpoint, status endpoint (found + not-found), regenerate endpoint, idempotency, force regeneration, sample-not-found, DO reference uniqueness, forwarded timestamp |
+| File                                    | Tests | Covers                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/test_food_cell_do_intimation.py` | 15    | HTML rendering, PDF generation, intimation creation, FSO-save trigger (task callable), sync forwarding results, PDF download endpoint, HTML view endpoint, status endpoint (found + not-found), regenerate endpoint, idempotency, force regeneration, sample-not-found, DO reference uniqueness, forwarded timestamp |
 
 ---
 
@@ -476,22 +478,22 @@ Sync functions are loaded lazily via `_load_sync_fns()` so the module bootstraps
 
 ### Test Suite Results
 
-| Metric | Count |
-|--------|-------|
-| Passed | 783 |
-| Failed | 18 |
-| Errors | 21 |
-| Total | 822 attempted (832 collected, 10 not reached due to cascade) |
+| Metric | Count                                                        |
+| ------ | ------------------------------------------------------------ |
+| Passed | 783                                                          |
+| Failed | 18                                                           |
+| Errors | 21                                                           |
+| Total  | 822 attempted (832 collected, 10 not reached due to cascade) |
 
 ### Failure Breakdown — All Environment-Related
 
-| Test File | Failures | Errors | Root Cause | Fix Priority |
-|-----------|----------|--------|------------|--------------|
-| `test_concurrency_inspection.py` | 4 | 0 | PostgreSQL-specific: advisory locks + `StaleDataError` not raised on SQLite → HTTP 500 instead of 409 | Medium |
-| `test_case_backup.py` | 0 | 14 | PostgreSQL-specific: JSON export/import, zip archives, Celery beat require PG features; SQLite setup fails in fixtures | Medium |
-| `test_food_cell_do_intimation.py` | 7 | 7 | (a) Missing template `food_cell/do_intimation.html`; (b) Redis/Celery not available for async sync dispatch | High |
-| `test_ocr_pipeline.py` | 7 | 0 | Missing `cv2` (OpenCV) — optional OCR preprocessing dependency | Medium |
-| `test_timeline.py` | 11 | 0 | Pre-existing uncommitted `app/__init__.py` change (health endpoint `health_bp` registration + `public_endpoints` addition) interferes with blueprint route initialization → 404 on all `TestTimelineRoutes` endpoints | High |
+| Test File                         | Failures | Errors | Root Cause                                                                                                                                                                                                            | Fix Priority |
+| --------------------------------- | -------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `test_concurrency_inspection.py`  | 4        | 0      | PostgreSQL-specific: advisory locks + `StaleDataError` not raised on SQLite → HTTP 500 instead of 409                                                                                                                 | Medium       |
+| `test_case_backup.py`             | 0        | 14     | PostgreSQL-specific: JSON export/import, zip archives, Celery beat require PG features; SQLite setup fails in fixtures                                                                                                | Medium       |
+| `test_food_cell_do_intimation.py` | 7        | 7      | (a) Missing template `food_cell/do_intimation.html`; (b) Redis/Celery not available for async sync dispatch                                                                                                           | High         |
+| `test_ocr_pipeline.py`            | 7        | 0      | Missing `cv2` (OpenCV) — optional OCR preprocessing dependency                                                                                                                                                        | Medium       |
+| `test_timeline.py`                | 11       | 0      | Pre-existing uncommitted `app/__init__.py` change (health endpoint `health_bp` registration + `public_endpoints` addition) interferes with blueprint route initialization → 404 on all `TestTimelineRoutes` endpoints | High         |
 
 ### Environment Details
 
@@ -511,3 +513,58 @@ Sync functions are loaded lazily via `_load_sync_fns()` so the module bootstraps
 ---
 
 _End of plan.md_
+
+---
+
+## 10. Knowledge Graph for RAG — Discussion & Future Directions
+
+### 10.1 Current State (2026-08-09 Knowledge Graph Extraction)
+
+A **preliminary knowledge graph** was extracted from the 24-document FSSAI corpus evaluation result (`corpus_eval_result.json`):
+
+- **88 nodes**: 24 documents + 57 sections + 3 canonical authorities + 4 jurisdictions
+- **199 edges**: 133 document→section, 24 document→authority, 27 document→jurisdiction, 15 section_cooccurrence pairs
+- **3 canonical authorities** (down from 6 raw variants):
+    - `FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA` — 10 docs (normalized from `FSSAI`, `fssai`, full-name variants)
+    - `MINISTRY OF HEALTH AND FAMILY WELFARE` — 9 docs
+    - `MINISTRY OF LAW AND JUSTICE` — 3 docs
+- **57 sections** with semantic descriptions (50/57 mapped to FSS Act section meanings)
+- **Section co-occurrence hotspots**: Section 4 (duties) + Section 92 (regulations) appear together in 28 documents — the "duties + regulatory power" foundation
+- **Chunk quality**: All 13,104 chunks grade C; 48 quality issues (18 too short, 22 missing content hash, 8 too long)
+- **Empty documents** (OCR needed): `FSS_Amendment_Act_1-2008.pdf`, `LicReg.pdf` — image-only PDFs with 0 extractable text
+
+### 10.2 Neo4j Integration for RAG
+
+**Current state**: No `neo4j` driver is installed; no Neo4j env vars exist in `.env`/`.env.example`. The RAG stack uses Qdrant (vector store + payload filtering) as its sole graph-capable store.
+
+**Decision**: Neo4j integration is **not yet wired into the RAG retrieval pipeline** — Qdrant payloads already contain `document_type`, `authority`, `section_number`, `jurisdiction`, `citations`, `references`, and `entities` enabling filtered retrieval without a graph DB. The knowledge graph JSON (`knowledge_graph.json`) was generated as a **preliminary corpus-level analysis artifact**, not yet wired into the RAG retrieval pipeline. However, the **Phase 14 Knowledge Graph Engine** (`app/knowledge_graph/`) does include a Neo4j sync adapter (`app/knowledge_graph/neo4j_sync.py`) gated by `ENABLE_NEO4J_SYNC=false` (dormant) that mirrors the case-file entity/relationship graph to a Neo4j Aura database — this is separate from the corpus KG and the RAG retrieval path.
+
+**Phase 14 Neo4j sync** (case-file knowledge graph):
+
+1. Install `pip install neo4j` + add `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` / `ENABLE_NEO4J_SYNC` to `.env.example`
+2. `app/knowledge_graph/neo4j_sync.py` — `Neo4jSync` class with `sync_graph(case_id, case_type, nodes, edges)` that runs a single Cypher `UNWIND … MERGE` transaction
+3. Called after `build_graph_for_case()` when `ENABLE_NEO4J_SYNC=true`
+
+**RAG Neo4j future direction** (if graph traversal RAG is needed):
+
+1. Install `pip install neo4j` + add `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` to `.env.example`
+2. Write `scripts/load_kg_to_neo4j.py` (~30 lines) converting `knowledge_graph.json` → Cypher `MERGE` statements
+3. Add graph traversal to `retrieval/hybrid_retriever.py` (e.g., "follow citation chains" for hallucination detection)
+
+**Hybrid approach** (recommended): Keep Qdrant for dense + sparse vector search; use Neo4j as a secondary store for structured graph traversal queries. Sync from Qdrant chunk payloads to Neo4j nodes/edges on ingestion. This avoids migrating the existing 13K chunks out of Qdrant.
+
+### 10.3 Phase 14 Update — Knowledge Graph Engine ✅
+
+> See also `task.md` §Phase 14 (below).
+
+The Phase 14 knowledge graph engine (`app/knowledge_graph/`) is **✅ Complete (2026-08-08)** — the runtime engine extracts entities from individual case-file documents (cases, FBOs, inspectors, samples, lab reports, legal provisions, evidence), not the FSSAI corpus.
+
+**Implementation**: `KnowledgeGraphEngine` extracts 8 node types (Case, FBO, Inspector, Sample, Lab, LegalSection, Evidence, Ancillary) and 6 directed edge types (INSPECTED_BY, SAMPLED_FROM, TESTED_AT, VIOLATED_SECTION, SUPPORTED_BY, REFERENCES) from `CaseFile`/`Adjudication` records. Returns Cytoscape.js-compatible JSON. Persists to `Entity`/`Relationship` tables for case_file only (idempotent). Blueprint registered at `/knowledge-graph` with view + JSON API routes. Neo4j sync adapter in `app/knowledge_graph/neo4j_sync.py` available via `ENABLE_NEO4J_SYNC` flag (dormant by default). `tests/test_knowledge_graph.py` — **21/21 pass**.
+
+**Key distinction**: The corpus KG (§10.1) covers the FSSAI rulebook. The Phase 14 engine (§10.3) covers individual case files and their evidence chain.
+
+### 10.4 Phase 19 Update — AI Case Intelligence
+
+Phase 19 would benefit from both the corpus knowledge graph (for legal provision context) and the runtime knowledge graph (for case-specific entity traversal). The `knowledge_graph.json` artifact provides the authority normalization map and section semantic descriptions that `MetadataAdapter` and `CitationAdapter` could consume.
+
+---

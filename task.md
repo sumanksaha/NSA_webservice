@@ -1,6 +1,6 @@
 # Task List & Detailed Implementation Plan — NSA Webservice
 
-> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard — fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points — fully wired & verified 2026-08-07, 21/21 tests), **Phase 21 (Food Cell DO Intimation — 15/15 tests)**, **ENV-1 + ENV-4 resolved (2026-08-07)**, **Priority 7 (Multi-Target Sheets Redundancy — Airtable + MS Excel ✅ Complete, 43 tests pass)**, and **7/7** Performance Quick Wins all implemented & verified. Phases 11–12, 14–15, 17–20 pending; ENV-2/3/5/6/7/8 open.
+> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard — fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points — fully wired & verified 2026-08-07, 21/21 tests), **Phase 21 (Food Cell DO Intimation — 15/15 tests)**, **Phase 12 (Legal Validation Engine — verified 2026-08-07, `tests/test_validation.py` 46/46 pass)**, **ENV-1 + ENV-4 resolved (2026-08-07)**, **Priority 7 (Multi-Target Sheets Redundancy — Airtable + MS Excel ✅ Complete, 43 tests pass)**, and **7/7** Performance Quick Wins all implemented & verified. Phases 11, 14–15, 17, 19–20 pending; **Phase 18 partial** (models + migration + admin UI done; `@role_required` decorator, comment API/UI, and `tests/test_rbac.py` pending); ENV-2/3/5/6/7/8 open.
 
 > **Purpose:** Consolidated, actionable, highly detailed implementation plan and TODO list for AI agents and developers. Organized by priority with checkboxes, explicit file targets, data schemas, function signatures, routes, acceptance criteria, and testing strategies.
 > **Sources & Alignment:** `SECURITY_TODO.md`, `ALL_TODO_MERGED.md`, `ROADMAP_ALIGNMENT_REPORT.md`, `ENGINEERING_ASSESSMENT.md`, `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md`, `REFACTORING_PLAN.md`.
@@ -22,14 +22,15 @@
 - [x] **Phase A — OCR Pipeline Foundation (2026-08-06).** `app/services/ocr_extraction.py`, `app/services/page_splitter.py`, `app/ocr_pipeline/tasks.py` implemented and polished (clean `db.session` import replacing a `__import__` hack; single `to_flat_dict()` call). `tests/test_ocr_extraction.py` — 14/14 pass.
 - [x] **Phase 13 — Timeline Engine & Gantt UI (completed 2026-08-07).** New `app/timeline/` blueprint: `TimelineEngine` extracts milestones from CaseFile/Adjudication/Inspection/Sample/Annexure/Evidence dates, persists case_file events to `timeline_event` (idempotent), validates chronological sequences, and serves a vertical-timeline + Gantt page with document links. **Access:** global nav case-picker (keyboard-navigable search dropdown with `<mark>` highlighting + server-injected URL bases) in `base.html`, "Case Timelines" panels on both index pages, document-editor button, Timeline buttons in search results / evidence / annexure / inspection (list + detail, when adjudicated) / audit log (CaseFile/Adjudication rows) / version-control history / sample list (batched sample→case map) + `case_id`/`timeline_url` on the sample detail JSON. Also wired the orphaned `app/audit` routes (audit log viewer was unreachable) and fixed stale `edit_case_file`/`edit_adjudication` url_for names → `edit_case`. **Completion note (2026-08-07):** the blueprint was never registered in `create_app()` and the UI entry points were never committed — both were built + wired on this date (see ENV-1 below). `tests/test_timeline.py` — **21/21 pass**; route-collision + app-boot regression green.
 - [x] **Phase 21 — Food Cell DO Intimation (completed 2026-08-07).** New `app/food_cell/` blueprint (`/food-cell`): DO Intimation PDF download / HTML view / regenerate / status routes; `DoIntimation` model + `food_cell_forwarded` on `Sample` (`add_food_cell_do_intimation` migration); HTML→PDF via WeasyPrint with stub fallback; Celery `send_do_intimation` task wired post-save in `app/sample/routes.py::create_sample()`; best-effort sync to Sheets + Airtable + Excel. **Completion note (2026-08-07):** `food_cell_bp` was never registered in `create_app()`, so the blueprint template folder never entered Jinja's search path (see ENV-4 below); registration added on this date. `tests/test_food_cell_do_intimation.py` — **15/15 pass**.
+- [x] **Phase 12 — Legal Validation Engine (status verified 2026-08-07; code on disk since commit `c020fcc`).** `app/validation/` package: `rules.py` (7 rule classes — MandatorySections, SignaturePlaceholder, NumberingFormat, StatutoryReference, DuplicateEvidence, TimelineConsistency, DocumentCompleteness — + `ValidationResult`/`BaseRule`/`RULES` registry), `engine.py` (`ValidationEngine.validate_case()` — `CaseResolver` integration, score `clamp(100 − 15·errors − 5·warnings, 0, 100)` + grades), `routes.py` (`POST /validation/validate` with 400/404 handling; `GET /validation/case/<id>?kind=`), blueprint registered in `app/__init__.py` (import L365, register L389). `tests/test_validation.py` — **46/46 pass** (verified live 2026-08-07). **UI integration (plan step 5) — also done (verified 2026-08-07):** the "Run Legal Validation" button + validation drawer live in the workbench template `app/legal_analysis/templates/legal_analysis/index.html` (client-side JS POSTing to `/validation/validate`; no server-side route needed). Verified end-to-end: `GET /legal/` renders the button/case-id input/case-type select/drawer and a live case scores 100/"Ready" via the API. Covered by `TestValidationUIIntegration` (2 tests). **Entry points extended (2026-08-07):** the drawer logic was extracted into the shared `app/static/js/validation_drawer.js` module (single source of truth — the workbench's inline JS now calls `ValidationDrawer.initForm`, and per-row "Validate" buttons on the case-file (`/case_file_generator/`) and adjudication (`/adjudication/`) index pages call `ValidationDrawer.initRowButtons`), covered by `TestValidationUIEntryPoints` (4 tests — both index pages + both editors). **Correction note (2026-08-07):** an earlier evaluation reported the UI missing because it inspected only `app/legal_analysis/routes.py`; the template has carried the UI since commit `c020fcc`.
 
-### 📌 Suggested Next 3 Steps (2026-08-06)
+### 📌 Suggested Next 3 Steps (updated 2026-08-09)
 
-> Highest future impact, smallest effort — in this order:
+> Highest future impact, smallest effort — in this order. **Phases 12, 13, 14, 16, A are now ✅ DONE** (2026-08-04 through 2026-08-09); the list was re-rolled.
 
-1. **Phase 12 — Legal Validation Engine** (`app/validation/`: `engine.py`, `rules.py`, `routes.py`). Self-contained, rule-based, zero external deps; plugs into the existing `app/legal_analysis` workbench UI. Reuses `app/utils/suggester.py` + `fss_sections.md`. Deliverable: `ValidationResult`/`BaseRule`/`ValidationEngine` + `POST /validation/validate` + `tests/test_validation.py`.
-2. **Phase 15 — Analytics Dashboard** (`app/analytics/`). Aggregate SQL over `CaseFile`/`Adjudication`/`Inspection`/`Sample`/`FboIssue` + Chart.js/Leaflet dashboard. Natural consumer of the new `selectin`/`load_only` query patterns. Deliverable: `GET /analytics/api/metrics` + `tests/test_analytics.py`.
-3. **Phase 18 — Multi-User RBAC & Comments** (`@role_required` decorator + comment API/UI + user-role admin). `Role`/`user_roles`/`Comment` models + migration already done; only the decorator, comment endpoints, and admin UI remain. Deliverable: `app/decorators.py` + comment routes + `tests/test_rbac.py`.
+1. **Phase 15 — Analytics Dashboard** (`app/analytics/`). Aggregate SQL over `CaseFile`/`Adjudication`/`Inspection`/`Sample`/`FboIssue` + Chart.js/Leaflet dashboard. Natural consumer of the new `selectin`/`load_only` query patterns. Deliverable: `GET /analytics/api/metrics` + `tests/test_analytics.py`. **Verified 2026-08-07: not started** — no `app/analytics/` package, no routes, no nav link, no tests.
+2. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator, comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain. Deliverable: `app/decorators.py` + comment routes + `tests/test_rbac.py`.
+3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. **Not started** — no `app/case_intelligence/` package, no routes, no tests.
 
 ---
 
@@ -108,9 +109,11 @@
 
 ---
 
-### Phase 12: Legal Validation Engine
+### Phase 12: Legal Validation Engine — ✅ DONE (verified 2026-08-07)
 
 - **Goal & Rationale:** Build an automated rule-based validation engine that analyzes case documents and adjudications for legal completeness, mandatory section presence, statutory reference accuracy (FSSA 2006), signature placeholders, date sequence consistency, and evidence duplication.
+- **Implemented (verified 2026-08-07):** `app/validation/__init__.py` (`validation_bp`, url_prefix `/validation`); `app/validation/rules.py` — all 7 rules (`MandatorySectionsRule`, `SignaturePlaceholderRule`, `NumberingFormatRule`, `StatutoryReferenceRule`, `DuplicateEvidenceRule`, `TimelineConsistencyRule`, `DocumentCompletenessRule`) + `ValidationResult`/`BaseRule`/`RULES`; `app/validation/engine.py` — `ValidationEngine.validate_case()` resolves via `CaseResolver`, builds a pure-dict `case_data` payload (rules never touch the ORM), runs the registry, and returns `{score, grade, errors, warnings, suggestions, info, rules_run, case_id, adjudication_id, case_type, case_number}`; `app/validation/routes.py` — `POST /validation/validate` (400 on bad payload / 404 on unknown case) + `GET /validation/case/<int:case_id>?kind=`; blueprint registered in `app/__init__.py` (import L365, `register_blueprint` L389). **Provenance note:** the module reached main via commit `c020fcc` ("Track untracked production files") — it was fully built on disk but never reported in task.md and never given a dedicated commit.
+- **UI integration (plan step 5) — done (verified 2026-08-07):** the "Run Legal Validation" button + validation drawer are implemented in the workbench template `app/legal_analysis/templates/legal_analysis/index.html` (second card + second `<script>` block): a numeric case-id input, a case-type select (`case_file` | `adjudication`), a "Validate case" button (`#validate-btn`, `type="button"`) that POSTs JSON to `/validation/validate`, and a drawer (`#val-results`) rendering a circular score badge color-coded by grade, the case summary line (case number · case type · rules evaluated), and errors / warnings / suggestions lists (each finding shows `message`, `field_name`, `suggestion`). No change to `app/legal_analysis/routes.py` is required — the UI is client-side against the existing validation API, mirroring the analyze feature in the same template. **Correction note (2026-08-07):** an earlier evaluation of task.md reported this as missing because it inspected only `app/legal_analysis/routes.py`; the template has contained the UI since commit `c020fcc`. New `TestValidationUIIntegration` (2 tests) pins the render + report contract. **Entry points extended (2026-08-07):** the drawer rendering moved into the shared `app/static/js/validation_drawer.js` module — `ValidationDrawer.initForm` (workbench: `#validate-btn` + `#val-case-id` + `#val-case-type` + `#val-results`) and `ValidationDrawer.initRowButtons` (per-row `#…-val-drawer` on `/case_file_generator/` and `/adjudication/` index pages, buttons carry `data-case-id` + `data-case-type`; the workbench inline JS was refactored onto the module). Covered by `TestValidationUIEntryPoints` (4 tests — index pages + document editors). Suite: **46/46**. Document-viewer suites remain green (66/66) after the editor.html change.
 - **Target Files to Edit/Create:**
     - `app/validation/__init__.py` (new blueprint package)
     - `app/validation/rules.py` (rule classes & registry)
@@ -167,9 +170,7 @@
     5. **Legal Analysis Integration (`app/legal_analysis/routes.py`):**
         - Add "Run Legal Validation" button in UI.
         - Trigger `ValidationEngine` and render validation drawer with score badge and warning list.
-- **Acceptance Criteria & Test Plan:**
-    - `POST /validation/validate` returns HTTP 200 with structured JSON `{score, errors, warnings, suggestions}`.
-    - `tests/test_validation.py` tests all individual rules with valid and invalid case payloads.
+- **Acceptance Criteria & Test Plan:** ✅ MET (2026-08-07) — `POST /validation/validate` returns HTTP 200 with structured `{score, errors, warnings, suggestions}` (400 on malformed payload, 404 on unknown case); every rule is unit-tested with valid and invalid payloads; engine scoring/grading and the HTTP endpoints are verified end-to-end against real CaseFile/Adjudication records. `tests/test_validation.py` — **46/46 pass** (incl. `TestValidationUIIntegration` + `TestValidationUIEntryPoints`).
 
 ---
 
@@ -223,9 +224,10 @@
 
 ## Priority 2 — Core Features (Phases 13–20)
 
-### Phase 15: Analytics Dashboard
+### Phase 15: Analytics Dashboard — ❌ NOT STARTED (verified 2026-08-07)
 
 - **Goal & Rationale:** Provide operational analytics and executive reporting on pending/disposed cases, inspection compliance rates, sample testing pipeline status, legal section frequency, and geographic violation clusters.
+- **Evaluation note (2026-08-07):** Confirmed **not started** — `glob app/analytics/**` returns nothing (no `app/analytics/` package), no `/analytics` routes registered, no `analytics` nav link in `app/templates/base.html`, and no `tests/test_analytics.py`. Greenfield build per the plan below; no existing code to rework.
 - **Target Files to Edit/Create:**
     - `app/analytics/__init__.py` (blueprint package)
     - `app/analytics/routes.py` (aggregate SQL queries & API)
@@ -253,9 +255,10 @@
 
 ---
 
-### Phase 18: Multi-User RBAC & Document Comments
+### Phase 18: Multi-User RBAC & Document Comments — ⚠️ PARTIAL (verified 2026-08-07)
 
 - **Goal & Rationale:** Implement role-based access control (RBAC) to enforce administrative permission boundaries, alongside a document commenting system for multi-user collaboration and approval workflows.
+- **Status (verified 2026-08-07): ~30% complete.** ✅ `Role`, `user_roles`, `Comment` models in `app/models/auth.py` (migration `add_role_user_role_comment_tables.py` + `fix_rbac_tables.py`); ✅ admin user-management UI at `/auth/users` (list / create / reset-password / toggle-admin / delete, guarded by `@admin_required` from `app/utils/auth.py`) — **but it manages the `is_admin` boolean only, with no Role-model assignment UI**. ❌ Not implemented: `app/decorators.py` + `@role_required(*roles)` (the only guard is `admin_required`, which checks `is_admin`, not roles), comment API endpoints in `app/document_viewer/routes.py` (zero matches), the comment sidebar in `document_viewer/editor.html`, and `tests/test_rbac.py` (does not exist). Note `User.roles` is deliberately `lazy="select"` and currently unused — nothing reads roles yet.
 - **Target Files to Edit/Create:**
     - `app/models/auth.py` (add `Role`, `UserRole`, `Comment` models)
     - `migrations/versions/xxxx_add_rbac_and_comment_tables.py` (DB migration)
@@ -343,36 +346,68 @@
 
 ### Phase 11: AI Assistant Integration
 
+- **Status:** ✅ **Complete (2026-08-08)** — `app/ai_assistant/` package (blueprint + service + routes + Celery task + JS sidebar); `httpx`-based `AIAssistantService` (zero new dependencies); `POST /ai-assistant/assist`; editor sidebar with 4 action buttons; `tests/test_ai_assistant.py` **23/23 pass**; no regressions (validation 46/46, food_cell 15/15, timeline 21/21, knowledge graph 21/21 green).
 - **Goal & Rationale:** Embed an AI-powered assistant into the document editor to provide automated summarization, legal terminology refinement, contradiction detection, missing annexure identification, and prayer drafting.
+- **Codebase Evaluation (verified):**
+    - **`httpx>=0.27.0`** is already a declared dependency in `pyproject.toml` — **no new dependency needed** for LLM API calls (OpenAI/OpenRouter both expose HTTP APIs). The `openai` package is NOT available.
+    - **Blueprint pattern** — follow `app/food_cell/__init__.py` (Blueprint with `template_folder` + `static_folder`, routes imported after definition).
+    - **Service layer pattern** — follow `app/food_cell/services.py`: lazy imports of optional deps, `current_app` for config access, `db.session` for persistence.
+    - **Routes pattern** — follow `app/validation/routes.py`: import blueprint from `app.ai_assistant`, use `jsonify` + `request.get_json(silent=True)`.
+    - **Editor integration** — `app/document_viewer/templates/document_viewer/editor.html` already exposes `window.CASE_ID`, `window.QuillEditor` (`getQuill()`, `getDelta()`, `getPreviewHtml()`), and the legal-validation drawer pattern (`#editor-val-drawer` + `ValidationDrawer.initRowButtons`). The AI sidebar mirrors this pattern — docked as an `<aside>` in the `split-view`, with `window.QuillEditor.getQuill().root.innerHTML` as the content source.
+    - **Test pattern** — follow `tests/test_validation.py` (46 tests): `_setup_test_env()` creates app with in-memory SQLite + `db.create_all()`, seeds `User`/`FSO` via `POST /auth/login`.
+    - **Celery pattern** — follow `app/food_cell/tasks.py`: lazy import `from celery_app import celery`, `if celery is not None: fn = celery.task(...)`.
+    - **Config pattern** — follow `app/__init__.py`: read env vars into `app.config` at factory time.
 - **Target Files to Edit/Create:**
-    - `pyproject.toml` (add `openai` or `httpx` dependencies)
-    - `app/ai_assistant/__init__.py` (blueprint package)
-    - `app/ai_assistant/service.py` (LLM provider service)
-    - `app/ai_assistant/routes.py` (AI API endpoints)
-    - `app/ai_assistant/templates/ai_assistant/sidebar.html` (editor UI panel)
-    - `app/__init__.py` (register blueprint)
-    - `tests/test_ai_assistant.py` (test suite with mocks)
+    - `app/ai_assistant/__init__.py` (blueprint package + `ai_bp` Blueprint)
+    - `app/ai_assistant/service.py` (`AIAssistantService` — httpx-based LLM client with token tracking)
+    - `app/ai_assistant/routes.py` (`POST /ai/assist` endpoint)
+    - `app/ai_assistant/tasks.py` (Celery task for async doc-level operations)
+    - `app/static/js/ai_assistant.js` (editor sidebar JS — dockable, mirrors `validation_drawer.js` pattern)
+    - `app/__init__.py` (register `ai_bp` at `/ai-assistant`, add env vars to config)
+    - `.env.example` (add `AI_ASSISTANT_PROVIDER`, `AI_ASSISTANT_API_KEY`, `AI_ASSISTANT_BASE_URL`, `AI_ASSISTANT_MODEL`)
+    - `tests/test_ai_assistant.py` (test suite with mocked HTTP + mocked LLM responses)
 - **Detailed Implementation Plan:**
     1. **Provider Abstraction Service (`app/ai_assistant/service.py`):**
         - Class `AIAssistantService`:
-            - Supports OpenRouter or OpenAI API based on `AI_ASSISTANT_PROVIDER` ('openrouter'|'openai') and `AI_ASSISTANT_API_KEY`.
-            - Implements token usage tracking to satisfy S10c operational monitoring.
-            - Helper methods:
-                - `summarize_text(text: str) -> str`
-                - `refine_legal_language(text: str) -> str`
-                - `detect_contradictions(sections: dict) -> list[str]`
-                - `suggest_missing_annexures(sections: dict) -> list[str]`
-                - `draft_prayers(facts: str, grounds: str) -> str`
-    2. **API Routes (`app/ai_assistant/routes.py`):**
-        - Register `ai_bp = Blueprint('ai', __name__, url_prefix='/ai')`.
-        - Route `POST /ai/assist`: Accepts `{"action": str, "content": str, "context": dict}`. Returns JSON response `{"result": str, "tokens_used": int}`.
-    3. **UI Sidebar (`app/ai_assistant/templates/ai_assistant/sidebar.html`):**
-        - Dockable floating sidebar in document editor with action buttons ("Summarize", "Improve Legal Phrasing", "Find Contradictions", "Suggest Annexures").
+            - Reads config from `current_app`: `AI_ASSISTANT_PROVIDER` ('openrouter'|'openai'|disabled), `AI_ASSISTANT_API_KEY`, `AI_ASSISTANT_BASE_URL` (optional override), `AI_ASSISTANT_MODEL` (default: `poolside/laguna-s-2.1:free` via OpenRouter).
+            - `_request(prompt, max_tokens) -> tuple[str, int]`: single `httpx.Client.post()` to the provider's chat completions endpoint, parses `choices[0].message.content` + `usage.total_tokens` from JSON response. Retries with exponential backoff on 429/503 (3 attempts).
+            - `is_enabled() -> bool`: returns `False` if API key missing or provider not set.
+            - Action methods (each maps to a prompt template):
+                - `summarize_text(text, max_tokens=500) -> str`
+                - `refine_legal_language(text) -> str`
+                - `detect_contradictions(text) -> list[str]`
+                - `suggest_missing_annexures(text) -> list[str]`
+                - `draft_prayers(facts, grounds) -> str`
+            - Each method returns `(result, tokens_used)` via a `_track_usage(n)` helper that accumulates per-request token counts (satisfies S10c operational monitoring).
+        - **LLM prompt templates** — stored as module-level constants (not separate files) following the 'fewest files possible' principle. Each is a focused prompt: system instruction + user content, with explicit JSON output format for structured actions (contradictions, annexures).
+        - **No new dependencies** — `httpx` handles everything. Token usage tracked via `usage.total_tokens` from provider response.
+    2. **Celery Task (`app/ai_assistant/tasks.py`):**
+        - Lazy import pattern from `app/food_cell/tasks.py`: `try: from celery_app import celery; except ImportError: celery = None`.
+        - `run_ai_action(action, content, context=None) -> dict`: wraps `AIAssistantService`, returns `{"result": str, "tokens_used": int}`. Registered as `celery.task` if celery available.
+        - Add `"app.ai_assistant.tasks"` to `TASK_MODULES` in `celery_app.py`.
+    3. **API Routes (`app/ai_assistant/routes.py`):**
+        - Register `ai_bp = Blueprint('ai_assistant', __name__)`.
+        - Route `POST /ai/assist`: Accepts `{"action": str, "content": str, "context": dict}`. Returns JSON `{"result": str, "tokens_used": int, "action": str}`. 400 on missing/invalid action. 503 if AI not configured.
+        - Action whitelist: `summarize`, `refine_legal`, `detect_contradictions`, `suggest_annexures`, `draft_prayers`.
+    4. **Frontend Sidebar (`app/static/js/ai_assistant.js`):**
+        - Mirrors `validation_drawer.js` pattern: IIFE module, `ready()` helper, `esc()` escape function.
+        - Exports `window.AIAssistant = { init: fn, dock: fn }` — `init()` binds action buttons in the editor, calls `POST /ai-assistant/assist` via `fetch`, renders results in a docked `<aside>` drawer.
+        - Action buttons: 'Summarize', 'Improve Legal Phrasing', 'Find Contradictions', 'Suggest Annexures', 'Draft Prayer'.
+        - Content source: `window.QuillEditor.getQuill().root.innerHTML` (current editor content).
+    5. **Editor Integration (`app/document_viewer/templates/document_viewer/editor.html`):**
+        - Add `<aside id="aiAssistantPane">` to the `split-view` (between TOC pane and editor pane, or as a collapsible floating panel).
+        - Add AI action buttons to the `action-bar` (next to Validate button).
+        - Include `<script src=".../ai_assistant.js">` + init call in `extra_js` block.
+    6. **App Registration (`app/__init__.py`):**
+        - Add `AI_ASSISTANT_PROVIDER`, `AI_ASSISTANT_API_KEY`, `AI_ASSISTANT_BASE_URL`, `AI_ASSISTANT_MODEL` to `app.config`.
+        - Import + register: `from app.ai_assistant import ai_bp` / `app.register_blueprint(ai_bp, url_prefix="/ai-assistant")`.
+    7. **Env vars (`.env.example`):** Add the 4 new variables with descriptive comments (no token values).
 - **Acceptance Criteria & Test Plan:**
-    - Editor sidebar allows sending text snippets to AI service and renders returned suggestions.
-    - `pytest tests/test_ai_assistant.py` verifies service functions using mocked API responses.
-
----
+    - `AIAssistantService.is_enabled()` returns `False` when `AI_ASSISTANT_API_KEY` is unset (graceful degradation — app boots, routes return 503).
+    - `POST /ai/assist` with `{"action": "summarize", "content": "..."}` returns 200 + `{"result": str, "tokens_used": int}` when configured, 503 when not.
+    - Editor sidebar renders suggestions/detections from the AI service end-to-end.
+    - `pytest tests/test_ai_assistant.py` — 10+ tests covering: service construction (enabled/disabled), each action method (mocked httpx), token tracking, route 200/400/503 paths, draft blueprint registration (skipped if unregistered).
+    - No regressions: `pytest tests/test_validation.py` (46 tests), `pytest tests/test_food_cell_do_intimation.py` (15 tests), `pytest tests/ -k "editor or legal or document_viewer"` remain green.
 
 ### Phase 19: AI Case Intelligence
 
@@ -399,28 +434,59 @@
 
 ---
 
-### Phase 14: Knowledge Graph Engine
+### Phase 14: Knowledge Graph Engine — ✅ DONE (2026-08-08)
 
 - **Goal & Rationale:** Provide entity extraction and relationship mapping across cases, FBOs, inspectors, samples, lab reports, legal provisions, and evidence items, visualized via an interactive graph node graph.
 - **Target Files to Edit/Create:**
     - `app/knowledge_graph/__init__.py`
-    - `app/knowledge_graph/models.py` (SQL light graph representation or schema)
     - `app/knowledge_graph/engine.py` (entity-relationship extractor)
     - `app/knowledge_graph/routes.py` (API endpoints)
     - `app/knowledge_graph/templates/knowledge_graph/view.html` (Cytoscape.js visualizer)
+    - `app/knowledge_graph/neo4j_sync.py` (Neo4j sync adapter — env-gated, dormant)
     - `tests/test_knowledge_graph.py` (test suite)
-- **Detailed Implementation Plan:**
+- **Detailed Implementation Plan (implemented):**
     1. **Extraction Engine (`app/knowledge_graph/engine.py`):**
-        - Class `KnowledgeGraphEngine`:
-            - `build_graph_for_case(case_id: int) -> dict`:
-                - Extracts Nodes: `CaseNode`, `FBONode`, `InspectorNode`, `SampleNode`, `LabNode`, `SectionNode`, `EvidenceNode`.
-                - Extracts Edges: `INSPECTED_BY`, `SAMPLED_FROM`, `TESTED_AT`, `VIOLATED_SECTION`, `SUPPORTED_BY`.
-                - Formats output as Cytoscape.js compatible JSON: `{nodes: [{data: {id, label, type}}], edges: [{data: {source, target, label}}]}`.
+        - Class `KnowledgeGraphEngine` with `build_graph_for_case(case_id: int, case_type: str = "case_file") -> dict`:
+            - Uses `CaseResolver` (D1) to resolve CaseFile vs Adjudication record by case_id + kind.
+            - Extracts Nodes: Case, FBO, Inspector (FSO), Sample, Lab, LegalSection, Evidence, Ancillary (bills + annexures).
+            - Extracts Edges: `INSPECTED_BY`, `SAMPLED_FROM`, `TESTED_AT`, `VIOLATED_SECTION`, `SUPPORTED_BY`, `REFERENCES`.
+            - Also parses sections from `applicable_sections` string + adjudication flag fields + `problem` text via `_extract_sections()`.
+            - Returns Cytoscape.js-compatible JSON: `{nodes: [{data: {id, label, type, color, shape, icon, ...}}], edges: [{data: {source, target, type, color}}]}`.
+            - Persists to `Entity`/`Relationship` tables for case_file only (idempotent: delete-then-replace). Adjudication graphs are ephemeral (no persistence).
     2. **Routes & Visualization (`routes.py`, `templates/knowledge_graph/view.html`):**
-        - Route `GET /knowledge_graph/case/<int:case_id>`: Renders Cytoscape.js interactive node-edge graph view.
-- **Acceptance Criteria & Test Plan:**
-    - Graph API returns correct node/edge structure representing all case entities and relationships.
-    - `pytest tests/test_knowledge_graph.py` verifies entity extraction logic.
+        - Route `GET /knowledge-graph/case/<int:case_id>?kind=case_file`: Renders Cytoscape.js interactive node-edge graph view with legend, edge list, and node info sidebar.
+        - Route `GET /knowledge-graph/api/case/<int:case_id>?kind=case_file`: Returns JSON payload with Cytoscape elements + case metadata (`case_number`, `case_type`, `node_count`, `edge_count`).
+        - 404 on unknown case_id / case_type mismatch.
+    3. **Neo4j Sync Adapter (`neo4j_sync.py`, dormant by default):**
+        - `Neo4jSync` class with `sync_graph(case_id, case_type, nodes, edges)` — runs a single Cypher `UNWIND $nodes AS n MERGE (e:Entity {id: n.id}) …` transaction against a Neo4j Aura database.
+        - Gated by `ENABLE_NEO4J_SYNC` env var (defaults to `false`); requires `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`.
+        - Called after `build_graph_for_case()` when enabled; uses `neo4j` Python driver (`pip install neo4j`).
+- **Acceptance Criteria & Test Plan:** ✅ MET — Graph API returns correct node/edge structure representing all case entities and relationships (8 node types, 6 edge types). Persistence is idempotent (re-run replaces rows, not appends). Adjudication graphs are ephemeral. `pytest tests/test_knowledge_graph.py` — **21/21 pass** (TestGraphExtraction: 9, TestPersistence: 3, TestRoutes: 6, TestIntegration: 2).
+
+#### Neo4j Integration (discussion, 2026-08-09)
+
+A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`corpus_eval_result.json` → `knowledge_graph.json`): **88 nodes** (24 docs + 57 sections + 3 canonical authorities + 4 jurisdictions) and **199 edges** (document→section, document→authority, document→jurisdiction, section_cooccurrence).
+
+**Current state**: neo4j driver installed in venv (6.2.0). `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` / `NEO4J_DATABASE` env vars set in `.env` and `.env.example`. See Phase 14 Neo4j sync below for APOC dynamic labels, constraints, indexes, and QStash async sync — all implemented and verified against the live Aura instance. RAG uses Qdrant as its primary retrieval store; Neo4j serves as an optional secondary graph store for case-file entity/relationship traversal.
+
+**Decision**: Neo4j integration is **not yet wired into the RAG retrieval pipeline** — Qdrant payloads already carry `document_type`, `authority`, `section_number`, `jurisdiction`, `citations`, `references`, and `entities` enabling filtered retrieval without a graph DB. The `knowledge_graph.json` artifact is a **corpus-level analysis** for authority normalization (6 raw variants → 3 canonical) and section semantic descriptions — not the runtime Phase 14 engine (which extracts entities from individual case-file documents).
+
+**Phase 14 Neo4j sync** (case-file knowledge graph, ✅ DONE 2026-08-07):
+
+- `app/services/neo4j_graph.py` — `Neo4jGraphService` with `push_to_neo4j()`, `query_neo4j()`, `build_cypher_payload()`, `setup_constraints_and_indexes()`, `neo4j_configured()`
+- **APOC dynamic labels**: `apoc.create.node([n.label], {...})` creates nodes with real Neo4j labels (Case, FBO, Section, etc.); fallback to `CREATE (:Entity {...})` if APOC unavailable
+- **Constraints** (9 uniqueness on `local_id` per label) + **indexes** (3 property indexes on `entity_type`, `name`, `relationship_type`)
+- **QStash async**: `sync_kg_to_neo4j` task registered in `TASK_REGISTRY` + `TASK_MODULES`; `POST /knowledge-graph/api/sync-neo4j` (+ `/<case_id>`) route with async/sync fallback
+- Env vars in `.env`/`.env.example`: `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`
+- Verified end-to-end against live Aura instance: schema setup, APOC push, dynamic labels, relationships, constraints
+- Tests: `tests/test_neo4j_kg_sync.py` — **15/15 pass** (4 test classes covering config detection, real connection, task sync, route async/sync, payload builder, constraint/index setup, APOC flag)
+
+**RAG Neo4j future direction** (if graph traversal RAG is needed):
+
+1. `pip install neo4j` + add `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` to `.env.example`
+2. `scripts/load_kg_to_neo4j.py` (~30 lines) converting `knowledge_graph.json` → Cypher `MERGE` statements
+3. Add graph traversal to `retrieval/hybrid_retriever.py` (e.g., citation-chain following for hallucination detection)
+4. **Hybrid approach** (recommended): Keep Qdrant for dense + sparse vector search; use Neo4j as secondary store for structured graph traversal queries. Sync from Qdrant chunk payloads to Neo4j nodes/edges on ingestion.
 
 ---
 
@@ -747,18 +813,21 @@
 - **Dependencies to Add:** `pyairtable>=1.0.0`, `msal>=1.0.0` (verify `requests` already present)
 
 **Completion Summary (2026-08-07):**
+
 - `app/utils/sync.py` — 12 new functions/variables for the restore chain: `restore_from_airtable_csv()`, `restore_from_excel_csv()`, `restore_from_sheets_csv()`, `restore_if_empty()` (orchestrates Airtable → Excel → Sheets), `trigger_backup()` (delegates to `backup_coordinator.run_backup()`), `_restore_from_records()` (dispatches CSV records by module, strips Airtable metadata), `_restore_module()` (maps CSV rows to SQLAlchemy models with type coercion), `_build_column_map()`, `_parse_csv_value()` (Integer/Float/Boolean/Date/DateTime/BigInteger/String coercion), `_is_empty_sqlite_db()` (fixed to use `db.metadata.tables` instead of `inspector.get_table_names()` to exclude `alembic_version`), plus module-level maps: `_AIRTABLE_TABLE_MAP`, `_WORKSHEET_MAP`, `_SHEETS_RESTORE_MAP` (6 modules each). Added `logging` + `logger`.
 - `app/__init__.py` — Fixed doubled indentation on all Priority 7 config lines (were 8 spaces, now 4). Config flags and QStash schedule registration (02:00 UTC, gated behind `ENABLE_BACKUP_SCHEDULE`) confirmed correct.
 - `app/settings/routes.py` — Restored the original `backup_restore` route (was broken: decorator + `def` line were consumed during an earlier edit). Added `backup_redundant_to_r2` POST route and `backup_redundant_to_r2_status` GET route. Compiles cleanly.
 - `tests/test_priority7_redundancy.py` — 43 tests, all passing. Covers CSV parsing, backup coordinator (all/partial/all-fail with isolation verification), restore chain edge cases, `_is_empty_sqlite_db`, settings routes, QStash schedule registration, config flags, and the standalone backup script.
 
 **Test Results:**
+
 ```
 43 passed in 13–16 seconds
 No regressions: test_route_collisions + test_storage = 53 passed, test_food_cell = passing
 ```
 
 **Key implementation findings:**
+
 1. `_is_empty_sqlite_db` bug: Using `inspector.get_table_names()` returns ALL SQLite tables including `alembic_version`, causing false "DB is not empty" results. Fixed to iterate `db.metadata.tables` instead.
 2. `backup_coordinator.run_backup()` uses lazy imports — tests must patch at the source module (`app.services.sheets_sync.export_sheets_to_r2`), not at the coordinator.
 3. QStash `publish_recurring` returns `{"mode": "disabled"}` when `QSTASH_TOKEN` env var is absent — tests verify graceful degradation.
@@ -912,12 +981,12 @@ No regressions: test_route_collisions + test_storage = 53 passed, test_food_cell
 
 **New test files:**
 
-| File                                   | Tests                                                                      | Coverage                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `tests/test_airtable_sync.py`          | 20                                                                         | `sync_to_airtable()`, base rotation, `AirtableBaseMap` tracking, CSV export, limit detection |
+| File                                   | Tests                                                                      | Coverage                                                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `tests/test_airtable_sync.py`          | 20                                                                         | `sync_to_airtable()`, base rotation, `AirtableBaseMap` tracking, CSV export, limit detection                |
 | `tests/test_excel_sync.py`             | 20 (planned — not yet created)                                             | `sync_to_excel()`, `get_excel_token()`, CSV export, type serialization (dormant until M365 creds available) |
-| `tests/test_restore_redundant.py`      | 15                                                                         | Restore functions, priority chain, CSV parsing, `_is_empty_sqlite_db`                        |
-| `tests/test_airtable_base_rotation.py` | 10                                                                         | Multi-base creation, record routing, base capacity checks                                    |
+| `tests/test_restore_redundant.py`      | 15                                                                         | Restore functions, priority chain, CSV parsing, `_is_empty_sqlite_db`                                       |
+| `tests/test_airtable_base_rotation.py` | 10                                                                         | Multi-base creation, record routing, base capacity checks                                                   |
 | `tests/test_sheets_backup.py`          | Already exists (14 tests) — extend to verify integration with new services |
 
 **Test approach:** All cloud API calls (Airtable, MS Graph, R2) are mocked using `unittest.mock.patch`. No real credentials required for CI.

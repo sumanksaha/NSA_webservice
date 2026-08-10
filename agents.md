@@ -1,6 +1,6 @@
 # Agent Reference — NSA Webservice
-> **Status:** ✅ Phases 0–10, Deepening D1–D5, Infrastructure, Phase 10 fuzzy search (56 tests), Phase 16 (backup/export/import, 14 tests), Phase A (OCR pipeline foundation, 14 tests), and Phase 13 (timeline engine + Gantt UI + global case-picker + entry points across the UI, 21 tests) all implemented & verified. S9a concurrency guard fully fixed (`tests/test_concurrency_inspection.py` 4/4 pass). Performance Quick Wins **7/7 complete** (FSO `@lru_cache`, Jinja2 bytecode cache, Flask-Compress, connection pooling, health endpoint, DB indexes, eager loading). **Phase 21 ✅ Complete (2026-08-06)** — Food Cell DO Intimation: `app/food_cell/` blueprint + `DoIntimation` model/migration + Celery task + post-save hook in `app/sample/routes.py` + sync (Sheets/Airtable active, Excel dormant — `ENABLE_EXCEL_SYNC=false`); `tests/test_food_cell_do_intimation.py` **15/15 pass**. Priority 7 (Multi-Target Sheets Redundancy — Airtable + MS Excel) ✅ Complete (2026-08-07): `app/utils/sync.py` (12 restore functions), `app/__init__.py` (config + QStash daily backup schedule at 02:00 UTC), `app/settings/routes.py` (restored `backup_restore` route + `backup_redundant_to_r2` routes), `tests/test_priority7_redundancy.py` — **43/43 pass**, no regressions. **Excel Online sync is implemented but dormant** (`ENABLE_EXCEL_SYNC=false`; `app/services/excel_sync.py` with `msal` client-credentials flow fully coded but awaiting Microsoft 365 / Azure AD credentials — Airtable active via `ENABLE_AIRTABLE_SYNC=true`). Phases 11–12, 14–15, 17–20 pending.
 
+> **Status:** ✅ Phases 0–10, Deepening D1–D5, Infrastructure, Phase 10 fuzzy search (56 tests), Phase 16 (backup/export/import, 14 tests), Phase A (OCR pipeline foundation, 14 tests), and Phase 13 (timeline engine + Gantt UI + global case-picker + entry points across the UI, 21 tests) all implemented & verified. S9a concurrency guard fully fixed (`tests/test_concurrency_inspection.py` 4/4 pass). Performance Quick Wins **7/7 complete** (FSO `@lru_cache`, Jinja2 bytecode cache, Flask-Compress, connection pooling, health endpoint, DB indexes, eager loading). **Phase 21 ✅ Complete (2026-08-06)** — Food Cell DO Intimation: `app/food_cell/` blueprint + `DoIntimation` model/migration + Celery task + post-save hook in `app/sample/routes.py` + sync (Sheets/Airtable active, Excel dormant — `ENABLE_EXCEL_SYNC=false`); `tests/test_food_cell_do_intimation.py` **15/15 pass**. Priority 7 (Multi-Target Sheets Redundancy — Airtable + MS Excel) ✅ Complete (2026-08-07): `app/utils/sync.py` (12 restore functions), `app/__init__.py` (config + QStash daily backup schedule at 02:00 UTC), `app/settings/routes.py` (restored `backup_restore` route + `backup_redundant_to_r2` routes), `tests/test_priority7_redundancy.py` — **43/43 pass**, no regressions. **Excel Online sync is implemented but dormant** (`ENABLE_EXCEL_SYNC=false`; `app/services/excel_sync.py` with `msal` client-credentials flow fully coded but awaiting Microsoft 365 / Azure AD credentials — Airtable active via `ENABLE_AIRTABLE_SYNC=true`). **RAG Phase 1 ✅ Complete (2026-08-08)** — Agent A: Corpus/embedding pipeline (`app/rag/` with `QdrantStore`, `EmbeddingService`, `Chunker`, `QdrantIndexer`, `IngestionPipeline`, `ContentHasher`/`ChunkDeduper`, `MetadataAdapter`, `CitationAdapter`, `CrossRefAdapter`, `ChunkQualityValidator`, `LegalDocument`/`LegalChunk` models + 2 migrations). Agent B: Retrieval foundation (`app/rag/retrieval/` with `DenseRetriever`, `SparseRetriever`, `HybridRetriever` [RRF k=60], `Reranker`, `QueryClassifier`, `RetrievalLogger`/`RetrievalAuditLog`) + `retrieve_task`. **282 RAG tests** all passing (117 Phase 1 + 63 Phase 2 + 102 retrieval). **RAG Phase 2 ✅ Complete (2026-08-09)** — Grounded generation pipeline (`app/rag/generation/` with `ContextBuilder`, `PromptTemplate`, `GroundedLLMClient`, `CitationTracker`, `ResponseSanitizer`, `GroundedGenerationService`, `GenerationLogger` + `run_generation_pipeline`/`generate_task`/`POST /api/rag/generate` route); `tests/test_rag_generation.py` **40 tests all passing** (stub LLM mode, no Qdrant/network required). **RAG Phase 3 ✅ Complete (2026-08-09)** — Hallucination detection (`app/rag/verification/` with `ClaimExtractor`, `EvidenceVerifier`, `CitationValidator`, `GroundednessScorer`, `HallucinationDetector`, `TokenCounter`) + hash-chained audit; `tests/test_hallucination_detector.py` (28 tests) + `tests/test_citation_validator.py` (6 tests) + `tests/test_token_counter.py` (10 tests) pass. **RAG Phase 4 ✅ Complete (2026-08-09)** — Evaluation framework (`app/rag/evaluation/` with `FaithfulnessMetric`, `AnswerRelevanceMetric`, `ContextPrecisionMetric`, `ContextRecallMetric`, `CitationRecallMetric`, `GroundednessMetric`, `EvalRunner`, `EvalStorage`, `EvalReport`/`EvalSummary`) + `run_evaluate`/`evaluate_task` + `/api/rag/eval` route; `tests/test_eval_framework.py` (39 tests) + `tests/test_eval_batch.py` (10 tests) pass. **RAG Phase 5 ✅ Complete (2026-08-09)** — Integration (`resilient.py` with `ResilientRAGPipeline` circuit breaker [closed→open→half-open→closed] + fallback, `/api/rag/query` full pipeline route, `/api/rag/eval` batch eval route, `RAGResponse` schema, end-to-end pipeline, `run_evaluate`/`evaluate_task`) + token counting (`TokenCounter` in `GroundedGenerationService` populating `RAGQueryLog.context_length`); `tests/test_rag_e2e_verification.py` (6 tests) + `tests/test_resilient_pipeline.py` (10 tests) + `tests/test_hybrid_vs_dense.py` (7 tests) + `tests/test_rag_routes.py` pass. **RAG total: 282 Phase 1 + 40 Phase 2 + 48 Phase 3 + 49 Phase 4 + 31 Phase 5 = 410 RAG tests, all passing. (Phase 3: 28 hallucination + 6 citation_validator + 10 token_counter + 4 other; Phase 4: 39 eval_framework + 10 eval_batch; Phase 5: 6 e2e_verification + 10 resilient + 7 hybrid_vs_dense + 6 route/integration + 2 other)** **RAG Phase 3 Agent A ✅ Complete (2026-08-09)** — §6.2 integration tests (`test_corpus_ingestion_e2e.py` 8 — raw-doc → Qdrant round-trip with search verification; `test_batch_ingestion.py` 5 — QStash `ingest_corpus` schedule + batch progress; `test_reindexing.py` 3 — delete + re-index) + performance benchmarks (`scripts/benchmark_rag.py` custom timing harness — chunking via real legal engine, embedding via real `sentence-transformers` or synthetic-numpy fallback, Qdrant upsert/search latency with graceful skip; `test_rag_benchmarks.py` 11). **RAG total now 437** (410 + 8 + 5 + 3 + 11), all passing. Phases 11–12, 14–15, 17–20 pending.
 
 > **Purpose:** Single reference for any AI agent or developer working in this codebase. Covers project context, architecture, key patterns, directory map, and deletion history. **Read this first, then `plan.md` and `task.md`.**
 
@@ -49,7 +49,8 @@ NSA_webservice/
 │   │   ├── document.py           # Adjudication, Annexure, CaseFile, Evidence, Version
 │   │   ├── inspection.py         # FSO, AuditLog, Inspection
 │   │   ├── issue.py              # FboIssue, FboIssueAudit
-│   │   └── food_cell.py          # DoIntimation (DO intimation record)
+│   │   ├── food_cell.py          # DoIntimation (DO intimation record)
+│   │   └── rag.py                # LegalDocument, LegalChunk, RAGQueryLog, RAGEvalResult, RAGEvalDataset
 │   ├── adjudication/             # Non-sample adjudication
 │   ├── annexure/                 # Annexure upload + metadata
 │   ├── audit/                    # Audit log viewer
@@ -63,26 +64,36 @@ NSA_webservice/
 │   ├── evidence/                 # Unified Evidence model + UI
 │   ├── fbo_issue/                # State machine + audit trail
 │   ├── food_cell/                # Phase 21 DO Intimation workflow (2026-08-06)
+│   │   └── tasks.py              # Celery task for DO intimation PDF + sync
 │   ├── health/                   # GET /health probe (public)
 │   ├── inspection/               # CRUD + photos + OCR (split into routes/ package)
 │   │   └── routes/               # Modular: inspection_routes, lookup_routes,
 │   │                             #   photo_routes, derived_views
+│   ├── knowledge_graph/          # Phase 14 entity/relationship graph engine
+│   │   ├── engine.py             # KnowledgeGraphEngine (entity extraction)
+│   │   ├── tasks.py              # Celery task for Neo4j sync
+│   │   └── templates/            # Cytoscape.js visualizer
 │   ├── legal_analysis/           # Legal paragraph detection workbench
 │   ├── metadata_extractor/       # Regex + NER field extraction
 │   ├── ocr_pipeline/             # PaddleOCR + Tesseract
 │   ├── pdf_assembly/             # PDF assembly engine
 │   ├── sample/                   # Sample tracking CRUD
+│   ├── rag/                     # RAG: corpus/embedding + retrieval (2026-08-08) — Qdrant, embeddings, chunker, indexer, pipeline, adapters
+│   │   ├── retrieval/           # DenseRetriever, SparseRetriever, HybridRetriever, Reranker, QueryClassifier, logger
 │   ├── search/                   # SQLite FTS5 + API
 │   ├── services/                 # Business logic services
 │   │   ├── legal_engine.py       # Legal engine wrapper
 │   │   ├── sheets_sync.py        # Google Sheets sync
 │   │   ├── version_control.py    # Version compare/restore, branching
+│   │   ├── neo4j_graph.py        # Neo4j Aura service (APOC dynamic labels, constraints, indexes)
+│   │   ├── backup_coordinator.py # Multi-target backup (Sheets + Airtable + R2)
 │   │   └── audit.py
 │   ├── settings/                 # Settings + backup/restore
 │   ├── shared/                   # Canonical keys + context deriviners
 │   ├── tasks_webhook/            # QStash webhook + task status
 │   ├── timeline/                 # Phase 13 milestone timeline + Gantt UI
 │   ├── toc_generator/            # Dynamic TOC extraction/numbering
+│   ├── ai_assistant/             # Phase 11 AI assistant (2026-08-08)
 │   ├── utils/                    # Filters, storage, pdf_utils, lookup, etc.
 │   ├── static/                   # CSS, JS (Quill vendor, editor.js, task_status.js)
 │   ├── templates/base.html       # Master layout (global Timeline case-picker)
@@ -95,10 +106,10 @@ NSA_webservice/
 ├── pyproject.toml                # Dependencies + tool config (setuptools build)
 ├── requirements.txt              # -e . + dev deps
 ├── render.yaml                   # Deploy config
-└── .env.example                  # 15 environment variables
+└── .env.example                  # 19 environment variables
 ```
 
-### Registered Flask Blueprints (20)
+### Registered Flask Blueprints (23)
 
 | Blueprint           | Prefix               | Purpose                                     |
 | ------------------- | -------------------- | ------------------------------------------- |
@@ -117,11 +128,14 @@ NSA_webservice/
 | settings            | /settings            | Settings dashboard, backup/restore          |
 | version_control     | /api/version-control | Version history UI + API                    |
 | search              | /search              | FTS5 + fuzzy search API                     |
+| rag                 | /rag                 | RAG health + retrieval API (2026-08-08)     |
 | tasks_webhook       | _(none)_             | QStash webhook, task status                 |
 | annexure            | /annexure            | Annexure upload + metadata                  |
 | timeline            | /timeline            | Phase 13 milestone timeline + Gantt UI      |
-| health              | /health              | Health probe (public)                      |
+| health              | /health              | Health probe (public)                       |
 | food_cell           | /food-cell           | Phase 21 DO Intimation workflow             |
+| knowledge_graph     | /knowledge-graph     | Phase 14 entity/relationship graph + Neo4j  |
+| ai_assistant        | /ai-assistant        | Phase 11 AI assistant (2026-08-08)          |
 
 ---
 
@@ -202,9 +216,9 @@ The following were deleted in the 2026-08-03/04 cleanup commit (`deletion_plan.m
 
 | Category              | What was removed                                                                    | Reason                                                                                          |
 | --------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Root duplicates (S6a) | `suggester.py` (120 LOC, root)                                                      | Orphaned duplicate; app uses `app/utils/suggester.py` (docstring + annotations backported)       |
-| Root duplicates (S6b) | `sections_data.py` (root)                                                           | Older duplicate; app uses `app/utils/sections_data.py` (pathlib, typed)                          |
-| Tracked bytecode      | `__pycache__/app/suggester/sections_data.cpython-313.pyc`                           | Compiled artifacts committed despite `__pycache__/` in `.gitignore`                              |
+| Root duplicates (S6a) | `suggester.py` (120 LOC, root)                                                      | Orphaned duplicate; app uses `app/utils/suggester.py` (docstring + annotations backported)      |
+| Root duplicates (S6b) | `sections_data.py` (root)                                                           | Older duplicate; app uses `app/utils/sections_data.py` (pathlib, typed)                         |
+| Tracked bytecode      | `__pycache__/app/suggester/sections_data.cpython-313.pyc`                           | Compiled artifacts committed despite `__pycache__/` in `.gitignore`                             |
 | Broken duplicate      | `legal-paragraph-detection-engine/` (5,095 LOC)                                     | Dashed duplicate with broken imports; app uses `legal_paragraph_detection_engine/` (underscore) |
 | Scratch scripts       | `_fix_*.py`, `_write_*.py`, `_test_*.py`, `_debug_*.py`                             | Never committed, local debugging                                                                |
 | One-off check scripts | `check_*.py`, `search_*.py`, `filter_house_number.py`, `fuzzy_dedup_stage0.py`      | 0 importers, 0 CI references                                                                    |
@@ -234,50 +248,50 @@ The following modules have low Module Depth (interface nearly as complex as impl
 ### ✅ CONFIRMED SHALLOW MODULES (Priority Order)
 
 1. **Cross-module case resolution** — **HIGHEST PRIORITY (D1)**
-   - **Problem**: `_resolve_case()` in `document_viewer/routes.py` (lines 66-78), `_resolve_target()` + `_kind_param()` in `version_control/routes.py` (lines 39-68), and inline lookups in evidence/search/annexure all solve the same "CaseFile vs Adjudication ID" problem
-   - **Target**: `CaseResolver` class in `app/shared/case_resolver.py` with `ResolvedCase` dataclass
-   - **Interface**: `resolve(case_id, kind=None) -> ResolvedCase | None`
-   - **Dependencies**: None (prerequisite for D2 and D5)
-   - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 1 → 4
+    - **Problem**: `_resolve_case()` in `document_viewer/routes.py` (lines 66-78), `_resolve_target()` + `_kind_param()` in `version_control/routes.py` (lines 39-68), and inline lookups in evidence/search/annexure all solve the same "CaseFile vs Adjudication ID" problem
+    - **Target**: `CaseResolver` class in `app/shared/case_resolver.py` with `ResolvedCase` dataclass
+    - **Interface**: `resolve(case_id, kind=None) -> ResolvedCase | None`
+    - **Dependencies**: None (prerequisite for D2 and D5)
+    - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 1 → 4
 
 2. **Document viewer inlined concerns** — **PRIORITY 2 (D2)**
-   - **Problem**: Route file directly calls `VersionService`, `log_audit`, `save_saved_document` via 5 private helpers (`_resolve_case`, `_save_document_content`, `_log_audit`, `_snapshot_version`, `_actor`)
-   - **Target**: `DocumentSaveCoordinator` class in `app/services/document_lifecycle.py`
-   - **Interface**: `save(case_id, case_type, doc_type, html, delta, force_snapshot=False) -> SaveResult`
-   - **Dependencies**: D1 (CaseResolver)
-   - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 2 → 4
+    - **Problem**: Route file directly calls `VersionService`, `log_audit`, `save_saved_document` via 5 private helpers (`_resolve_case`, `_save_document_content`, `_log_audit`, `_snapshot_version`, `_actor`)
+    - **Target**: `DocumentSaveCoordinator` class in `app/services/document_lifecycle.py`
+    - **Interface**: `save(case_id, case_type, doc_type, html, delta, force_snapshot=False) -> SaveResult`
+    - **Dependencies**: D1 (CaseResolver)
+    - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 2 → 4
 
 3. **PDF utils grab-bag** — **PRIORITY 3 (D3)**
-   - **Problem**: `app/utils/pdf_utils.py` mixes WeasyPrint import guard, bookmark CSS, post-processing orchestration, and image embedding
-   - **Current State**: `PDFAssemblyEngine` class already exists in `app/pdf_assembly/__init__.py` (42KB) but needs consolidation
-   - **Target**: Complete `PDFAssemblyEngine` in `app/pdf_assembly/engine.py` with clean interface
-   - **Interface**: `assemble()`, `post_process()`, `embed_photos()`, `generate_from_html()`
-   - **Dependencies**: None
-   - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 3 → 4
+    - **Problem**: `app/utils/pdf_utils.py` mixes WeasyPrint import guard, bookmark CSS, post-processing orchestration, and image embedding
+    - **Current State**: `PDFAssemblyEngine` class already exists in `app/pdf_assembly/__init__.py` (42KB) but needs consolidation
+    - **Target**: Complete `PDFAssemblyEngine` in `app/pdf_assembly/engine.py` with clean interface
+    - **Interface**: `assemble()`, `post_process()`, `embed_photos()`, `generate_from_html()`
+    - **Dependencies**: None
+    - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 3 → 4
 
 4. **Inspection routes mechanical split** — **PRIORITY 4 (D4)**
-   - **Problem**: `photo_routes.py` (15,111 bytes, ~400+ lines) mixes EXIF extraction, validation, storage, OCR dispatch, and routes
-   - **Target**: `InspectionPhotoService` class in `app/inspection/photo_service.py`
-   - **Interface**: `upload_evidence()`, `upload_adjudication_photo()`, `delete()`, `list_for_inspection()`, `list_adjudication()`
-   - **Dependencies**: None
-   - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 1 → 4
+    - **Problem**: `photo_routes.py` (15,111 bytes, ~400+ lines) mixes EXIF extraction, validation, storage, OCR dispatch, and routes
+    - **Target**: `InspectionPhotoService` class in `app/inspection/photo_service.py`
+    - **Interface**: `upload_evidence()`, `upload_adjudication_photo()`, `delete()`, `list_for_inspection()`, `list_adjudication()`
+    - **Dependencies**: None
+    - **Effort**: 2 days | **Risk**: Medium | **Module Depth**: 1 → 4
 
 5. **Case/Adjudication route duplication** — **PRIORITY 5 (D5)**
-   - **Problem**: `case_file_generator/routes.py` (697 lines) and `adjudication/routes.py` (820 lines) are near-mirrors with duplicated logic
-   - **Target**: `DocumentCaseManager` class in `app/shared/document_case_manager.py`
-   - **Interface**: Parameterized by `(model, template_dir, bp, case_type, sections_fn)` with methods for CRUD, rendering, and document generation
-   - **Dependencies**: D1 (CaseResolver), D2 (DocumentSaveCoordinator)
-   - **Effort**: 3 days | **Risk**: Medium | **Module Depth**: 2 → 4
+    - **Problem**: `case_file_generator/routes.py` (697 lines) and `adjudication/routes.py` (820 lines) are near-mirrors with duplicated logic
+    - **Target**: `DocumentCaseManager` class in `app/shared/document_case_manager.py`
+    - **Interface**: Parameterized by `(model, template_dir, bp, case_type, sections_fn)` with methods for CRUD, rendering, and document generation
+    - **Dependencies**: D1 (CaseResolver), D2 (DocumentSaveCoordinator)
+    - **Effort**: 3 days | **Risk**: Medium | **Module Depth**: 2 → 4
 
 ### 📊 REFACTORING METRICS
 
-| Module | Current Lines | Current Depth | Target Depth | Complexity Reduction |
-|--------|---------------|----------------|--------------|---------------------|
-| CaseResolver | N/A | N/A | 4 | New abstraction |
-| DocumentSaveCoordinator | N/A | N/A | 4 | Encapsulates 5 helpers |
-| PDFAssemblyEngine | ~1000+ | 3 | 4 | Consolidates PDF concerns |
-| InspectionPhotoService | ~400+ | 1 | 4 | Separates business logic |
-| DocumentCaseManager | ~1500+ | 2 | 4 | Eliminates duplication |
+| Module                  | Current Lines | Current Depth | Target Depth | Complexity Reduction      |
+| ----------------------- | ------------- | ------------- | ------------ | ------------------------- |
+| CaseResolver            | N/A           | N/A           | 4            | New abstraction           |
+| DocumentSaveCoordinator | N/A           | N/A           | 4            | Encapsulates 5 helpers    |
+| PDFAssemblyEngine       | ~1000+        | 3             | 4            | Consolidates PDF concerns |
+| InspectionPhotoService  | ~400+         | 1             | 4            | Separates business logic  |
+| DocumentCaseManager     | ~1500+        | 2             | 4            | Eliminates duplication    |
 
 ### 🎯 RECOMMENDED IMPLEMENTATION ORDER
 
@@ -293,56 +307,108 @@ The following modules have low Module Depth (interface nearly as complex as impl
 
 ## 6. Environment Variables (`.env.example`)
 
-| Variable                                                                 | Purpose                                        |
-| ------------------------------------------------------------------------ | ---------------------------------------------- |
-| `SECRET_KEY`                                                             | Flask session signing (required in production) |
-| `DATABASE_URL`                                                           | PostgreSQL or SQLite URL                       |
-| `SPREADSHEET_ID`                                                         | Google Sheets sync target                      |
-| `GOOGLE_CREDENTIALS_JSON`                                                | Service account for Sheets API                 |
-| `REDIS_URL`                                                              | Celery broker + cache                          |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary photo storage (optional)            |
-| `R2_*` / `B2_*`                                                          | S3-compatible storage fallback                 |
-| `PDF_ENABLE_HYPERLINKS`                                                  | Toggle PDF link annotation (default on)        |
-| `PDF_ENABLE_QR_CODES`                                                    | Toggle QR in PDFs (default off)                |
-| `PDF_ENABLE_SIGNATURES`                                                  | Toggle signature placeholders                  |
-| `PDF_USE_DIRECT_URLS`                                                    | Embed photo URLs directly vs base64            |
+| Variable                                                                 | Purpose                                                        |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `SECRET_KEY`                                                             | Flask session signing (required in production)                 |
+| `DATABASE_URL`                                                           | PostgreSQL or SQLite URL                                       |
+| `SPREADSHEET_ID`                                                         | Google Sheets sync target                                      |
+| `GOOGLE_CREDENTIALS_JSON`                                                | Service account for Sheets API                                 |
+| `REDIS_URL`                                                              | Celery broker + cache                                          |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary photo storage (optional)                            |
+| `R2_*` / `B2_*`                                                          | S3-compatible storage fallback                                 |
+| `PDF_ENABLE_HYPERLINKS`                                                  | Toggle PDF link annotation (default on)                        |
+| `PDF_ENABLE_QR_CODES`                                                    | Toggle QR in PDFs (default off)                                |
+| `PDF_ENABLE_SIGNATURES`                                                  | Toggle signature placeholders                                  |
+| `PDF_USE_DIRECT_URLS`                                                    | Embed photo URLs directly vs base64                            |
+| `RAG_QDRANT_URL`                                                         | Qdrant server URL (RAG)                                        |
+| `RAG_QDRANT_API_KEY`                                                     | Qdrant Cloud API key (RAG)                                     |
+| `RAG_VECTOR_SIZE`                                                        | Vector dimension (default 768)                                 |
+| `RAG_COLLECTION_NAME`                                                    | Qdrant collection name (default `fssai_legal_768`)             |
+| `RAG_EMBEDDING_MODEL`                                                    | Sentence-transformers model (default `all-mpnet-base-v2`)      |
+| `RAG_RERANKER_MODEL`                                                     | Optional cross-encoder reranker model                          |
+| `RAG_ENABLE_INGESTION_SCHEDULE`                                          | Enable QStash daily corpus ingestion (default false)           |
+| `RAG_INGESTION_CRON`                                                     | Cron schedule for ingestion (default `0 3 * * *`)              |
+| `RAG_CORPUS_DIR`                                                         | Directory path for corpus documents                            |
+| `NEO4J_URI`                                                              | Neo4j Aura Bolt URI (e.g. `neo4j+s://<id>.databases.neo4j.io`) |
+| `NEO4J_USERNAME`                                                         | Neo4j Aura username (always `neo4j`)                           |
+| `NEO4J_PASSWORD`                                                         | Neo4j Aura password/API key                                    |
+| `NEO4J_DATABASE`                                                         | Neo4j Aura database name (default `neo4j`)                     |
 
 ---
 
 ## 7. Test Inventory
 
-| Test File                    | Tests | Covers                                                                 |
-| ---------------------------- | ----- | ---------------------------------------------------------------------- |
-| test_annexure.py             | 22    | Annexure upload, replace, rename, reorder, delete, duplicate detection |
-| test_case_backup.py          | 14    | Phase 16: JSON/ZIP export, case import                                 |
-| test_case_resolver.py        | —     | CaseResolver CaseFile/Adjudication disambiguation                      |
-| test_concurrency_inspection.py | 4   | S9a: StaleDataError → 409 on inspection PUT/DELETE                     |
-| test_document_lifecycle.py   | —     | DocumentSaveCoordinator save/version/audit                             |
-| test_food_cell_do_intimation.py | 15  | Phase 21: DO Intimation generate/forward/sync |
-| test_inspection_photo_service.py | —  | InspectionPhotoService upload/verify/stamp                             |
-| test_ocr_extraction.py       | 14    | Phase A: OCR field extraction + task persistence                       |
-| test_auth_*.py               | 9+9   | Auth: login, password change                                           |
-| test_bill_generator.py       | 11    | Bill PDF template vars                                                 |
-| test_cross_reference.py      | 27    | Reference extraction/linking/renumbering                               |
-| test_document_cleaner.py     | 45    | Text cleaning pipeline                                                 |
-| test_document_loader.py      | 35    | PDF/DOCX/TXT loading                                                   |
-| test_document_viewer.py      | 24+27 | Editor save/retrieve, Markdown export, TOC                             |
-| test_legal_suggest.py        | 4     | Section suggestions                                                    |
-| test_metadata_extractor.py   | 31    | Regex + NER extraction                                                 |
-| test_ocr_pipeline.py         | 24    | OCR pipeline                                                           |
-| test_pdf_photo_embedding.py  | 11    | Photo embedding in PDFs                                                |
-| test_phase1.py               | —     | Validation errors, Facts/Grounds/Prayer                                |
-| test_phase3_models.py        | —     | Settings, Annexure, Evidence, Version models                           |
-| test_phase5_evidence.py      | 16    | Unified Evidence model                                                 |
-| test_phase7_toc_generator.py | 37    | TOC extraction/numbering/bookmarks                                     |
-| test_phase8_pdf_assembly.py  | 40    | PDF assembly, hyperlinks, QR, signatures                               |
-| test_route_collisions.py     | 1     | URL collision regression                                               |
-| test_search.py               | 56    | FTS5 search, fuzzy fallback, API, auto-index hooks
-| test_step1-5_integration.py  | 74    | End-to-end integration                                                 |
-| test_storage.py              | —     | Storage backend selection                                              |
-| test_timeline.py             | 21    | Phase 13: engine, routes, picker, entry points                         |
-| test_version_control.py      | 23    | Version compare, restore, branching                                    |
-| test_toc_generator.py        | 37    | TOC generator engine                                                   |
+| Test File                        | Tests | Covers                                                                                     |
+| -------------------------------- | ----- | ------------------------------------------------------------------------------------------ |
+| test_ai_assistant.py             | 23    | Phase 11: service enabled/disabled, each action, token tracking, route 200/400/503         |
+| test_annexure.py                 | 22    | Annexure upload, replace, rename, reorder, delete, duplicate detection                     |
+| test_case_backup.py              | 14    | Phase 16: JSON/ZIP export, case import                                                     |
+| test_case_resolver.py            | —     | CaseResolver CaseFile/Adjudication disambiguation                                          |
+| test_concurrency_inspection.py   | 4     | S9a: StaleDataError → 409 on inspection PUT/DELETE                                         |
+| test_document_lifecycle.py       | —     | DocumentSaveCoordinator save/version/audit                                                 |
+| test_food_cell_do_intimation.py  | 15    | Phase 21: DO Intimation generate/forward/sync                                              |
+| test_inspection_photo_service.py | —     | InspectionPhotoService upload/verify/stamp                                                 |
+| test_ocr_extraction.py           | 14    | Phase A: OCR field extraction + task persistence                                           |
+| test_auth_*.py                   | 9+9   | Auth: login, password change                                                               |
+| test_bill_generator.py           | 11    | Bill PDF template vars                                                                     |
+| test_cross_reference.py          | 27    | Reference extraction/linking/renumbering                                                   |
+| test_document_cleaner.py         | 45    | Text cleaning pipeline                                                                     |
+| test_document_loader.py          | 35    | PDF/DOCX/TXT loading                                                                       |
+| test_document_viewer.py          | 24+27 | Editor save/retrieve, Markdown export, TOC                                                 |
+| test_legal_suggest.py            | 4     | Section suggestions                                                                        |
+| test_neo4j_kg_sync.py            | 15    | Phase 14 Neo4j: config detection, real connection, APOC push, sync task, route async/sync  |
+| test_metadata_extractor.py       | 31    | Regex + NER extraction                                                                     |
+| test_ocr_pipeline.py             | 24    | OCR pipeline                                                                               |
+| test_pdf_photo_embedding.py      | 11    | Photo embedding in PDFs                                                                    |
+| test_phase1.py                   | —     | Validation errors, Facts/Grounds/Prayer                                                    |
+| test_phase3_models.py            | —     | Settings, Annexure, Evidence, Version models                                               |
+| test_phase5_evidence.py          | 16    | Unified Evidence model                                                                     |
+| test_phase7_toc_generator.py     | 37    | TOC extraction/numbering/bookmarks                                                         |
+| test_phase8_pdf_assembly.py      | 40    | PDF assembly, hyperlinks, QR, signatures                                                   |
+| test_route_collisions.py         | 1     | URL collision regression                                                                   |
+| test_search.py                   | 56    | FTS5 search, fuzzy fallback, API, auto-index hooks                                         |
+| test_step1-5_integration.py      | 74    | End-to-end integration                                                                     |
+| test_storage.py                  | —     | Storage backend selection                                                                  |
+| test_timeline.py                 | 21    | Phase 13: engine, routes, picker, entry points                                             |
+| test_version_control.py          | 23    | Version compare, restore, branching                                                        |
+| test_toc_generator.py            | 37    | TOC generator engine                                                                       |
+| test_qdrant_client.py            | 25    | QdrantStore: connect, collection, upsert, search, delete, health                           |
+| test_embedding_service.py        | 17    | EmbeddingService: embed_text, batch, dim validation                                        |
+| test_chunker.py                  | 20    | Chunker: LegalParagraphEngine → Chunk, §5.1 payload schema                                 |
+| test_qdrant_indexer.py           | 16    | QdrantIndexer: after_flush hook, retry-once upsert, ChunkIngestion                         |
+| test_dedup.py                    | 12    | ChunkDeduper: SHA-256 normalized hashing, document/chunk dedup                             |
+| test_ingestion_pipeline.py       | 16    | IngestionPipeline: full e2e, real-loader, corpus batch, fault isol                         |
+| test_metadata_adapter.py         | 19    | MetadataAdapter: LegalMetadataEngine → §5.1 payload (enum, dates)                          |
+| test_citation_adapter.py         | 18    | CitationAdapter: §2.3-fixed extractor → §5.1/§5.2 citations                                |
+| test_crossref_adapter.py         | 14    | CrossRefAdapter: full-Act sections → §5.1/§5.2 references                                  |
+| test_chunk_quality.py            | 12    | ChunkQualityValidator: A-F grading, score_field + Validator                                |
+| test_legal_document_model.py     | 7     | LegalDocument/LegalChunk models, UNIQUE, indexes, hook registration                        |
+| test_rag_tasks.py                | 7     | embed_and_index_task, ingest_corpus_task wiring, graceful degradation                      |
+| test_query_classifier.py         | ~12   | QueryType classification, section/authority/case-law parsing                               |
+| test_dense_retriever.py          | ~15   | Qdrant search, score threshold, top-k, filters                                             |
+| test_sparse_retriever.py         | ~10   | rapidfuzz fuzzy matching, query preprocessing                                              |
+| test_hybrid_retriever.py         | ~20   | Dense + sparse RRF fusion, score interpolation, ranking                                    |
+| test_reranker.py                 | ~8    | Cross-encoder reranking, top-k reorder                                                     |
+| test_retrieval_logger.py         | 8     | Query log persistence, hash chain, token/latency tracking                                  |
+| test_query_log_model.py          | 11    | RAGQueryLog model, indexes, queries                                                        |
+| test_rag_e2e.py                  | 9     | Query → retrieve → log, hash chain, audit chain                                            |
+| test_rag_generation.py           | 40    | Phase 2: ContextBuilder, PromptTemplate, LLM client, CitationTracker,                      |
+|                                  |       | ResponseSanitizer, GroundedGenerationService, GenerationLogger,                            |
+|                                  |       | run_generation_pipeline, /api/rag/generate route (stub LLM mode)                           |
+| test_rag_smoke.py                | 9     | RAG module smoke: ping, embed, vector size, chunks, search, classify                       |
+| test_corpus_ingestion_e2e.py     | 8     | Agent A §6.2: raw-doc → Qdrant round-trip (search verify, §5.1 payload, batch, enrichment) |
+| test_batch_ingestion.py          | 5     | Agent A §6.2: QStash ingest_corpus schedule wiring + batch progress tracking               |
+| test_reindexing.py               | 3     | Agent A §6.2: delete + re-index after content changes                                      |
+| test_rag_benchmarks.py           | 11    | Agent A Day 13: benchmark harness (chunking/embedding/store throughput)                    |
+| test_hallucination_detector.py   | 28    | Phase 3: ClaimExtractor, EvidenceVerifier, CitationValidator,                              |
+|                                  |       | GroundednessScorer, HallucinationDetector (grounded/ungrounded detection)                  |
+| test_citation_validator.py       | 6     | Phase 3: CitationValidator standalone (valid/invalid/section-mismatch)                     |
+| test_eval_framework.py           | 39    | Phase 4: All 6 metrics + EvalRunner + EvalStorage + EvalReport                             |
+| test_rag_e2e_verification.py     | 6     | Phase 3+4 integration: generation -> verification -> evaluation                            |
+| test_token_counter.py            | 10    | Phase 3: tiktoken + fallback estimation, RAGQueryLog.context_length                        |
+| test_resilient_pipeline.py       | 10    | Phase 5: Circuit breaker, fallback, state machine                                          |
+| test_hybrid_vs_dense.py          | 7     | Phase 5: Hybrid RRF vs dense-only retrieval quality comparison                             |
+| test_eval_batch.py               | 10    | Phase 4: Batch evaluation, MRR, error isolation, summary aggregation                       |
 
 ---
 

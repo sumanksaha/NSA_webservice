@@ -267,7 +267,14 @@ class TestOCRPipeline:
             assert result.error is not None or result.ocr_used is True
 
     def test_process_empty_page(self, empty_pdf: Path):
-        pipeline = OCRPipeline(use_gpu=False)
+        # Inject a fake engine: with EasyOCR installed the real engine would
+        # run a slow CPU OCR pass on the blank 300-DPI page; the test only
+        # pins the decision + orchestration path, not the model.
+        class _FakeEngine:
+            def recognize(self, image):
+                return "", 0.0, "none", "english"
+
+        pipeline = OCRPipeline(use_gpu=False, engine=_FakeEngine())  # type: ignore[arg-type]
         result = pipeline.process_page(empty_pdf, 1)
         # Empty page should require OCR
         assert result.ocr_used is True
@@ -294,15 +301,23 @@ class TestOCRPipeline:
 class TestOCRBatchProcessor:
     """Tests for the batch OCR processor."""
 
+    @staticmethod
+    def _fake_engine():
+        class _FakeEngine:
+            def recognize(self, image):
+                return "batch OCR text", 0.9, "fake", "english"
+
+        return _FakeEngine()
+
     def test_batch_collects_pdfs(self, batch_dir: tuple[Path, Path]):
         input_dir, output_dir = batch_dir
-        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False)
+        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False, engine=self._fake_engine())
         pdfs = bp._collect_pdfs()
         assert len(pdfs) == 3  # 3 doc_*.pdf files
 
     def test_batch_processes_all_pages(self, batch_dir: tuple[Path, Path]):
         input_dir, output_dir = batch_dir
-        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False)
+        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False, engine=self._fake_engine())
         summary = bp.run()
         # 3 docs: doc_0 has 2 pages, doc_1 has 1, doc_2 has 1 = 4 total
         if summary.total_pages > 0:
@@ -312,7 +327,7 @@ class TestOCRBatchProcessor:
 
     def test_batch_output_jsonl(self, batch_dir: tuple[Path, Path]):
         input_dir, output_dir = batch_dir
-        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False)
+        bp = OCRBatchProcessor(input_dir, output_dir, workers=2, use_gpu=False, engine=self._fake_engine())
         bp.run()
         jsonl_files = list(output_dir.glob("ocr_*.jsonl"))
         assert len(jsonl_files) >= 1

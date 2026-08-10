@@ -29,6 +29,9 @@ TASK_MODULES = [
     "app.case_file_generator.tasks",
     "app.inspection.tasks",
     "app.food_cell.tasks",
+    "app.knowledge_graph.tasks",
+    "app.ai_assistant.tasks",
+    "app.rag.tasks",
 ]
 
 # Standalone instance for task decoration — safe to import anywhere.

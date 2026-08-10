@@ -23,30 +23,33 @@
     var selectedFiles = [];
 
     function showStatus(msg, isError) {
-        status.innerHTML = msg;
+        setHTML(status, msg);
         status.className = "info-box " + (isError ? "info-box--error" : "info-box--success");
         status.style.display = "block";
     }
 
     function renderQueue() {
-        queue.innerHTML = "";
+        queue.replaceChildren();
         selectedFiles.forEach(function (file, index) {
             var row = document.createElement("div");
             row.className = "evidence-queue-item";
-            row.innerHTML =
+            var safeName = escapeHtml(file.name);
+            setHTML(
+                row,
                 '<span class="evidence-queue-icon"><i class="fa-solid fa-file"></i></span>' +
-                '<span class="evidence-queue-name" title="' +
-                file.name +
-                '">' +
-                file.name +
-                "</span>" +
-                '<span class="evidence-queue-size">' +
-                formatSize(file.size) +
-                "</span>" +
-                '<button type="button" class="btn btn-secondary btn-sm" data-index="' +
-                index +
-                '" title="Remove">' +
-                '<i class="fa-solid fa-xmark"></i></button>';
+                    '<span class="evidence-queue-name" title="' +
+                    safeName +
+                    '">' +
+                    safeName +
+                    "</span>" +
+                    '<span class="evidence-queue-size">' +
+                    formatSize(file.size) +
+                    "</span>" +
+                    '<button type="button" class="btn btn-secondary btn-sm" data-index="' +
+                    index +
+                    '" title="Remove">' +
+                    '<i class="fa-solid fa-xmark"></i></button>'
+            );
             row.querySelector("button").addEventListener("click", function () {
                 selectedFiles.splice(index, 1);
                 renderQueue();
@@ -123,8 +126,10 @@
         );
 
         var originalText = uploadBtn.innerHTML;
-        uploadBtn.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' + selectedFiles.length + "…";
+        setHTML(
+            uploadBtn,
+            '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' + selectedFiles.length + "…"
+        );
         uploadBtn.disabled = true;
         showStatus('<i class="fa-solid fa-spinner fa-spin"></i> Uploading…', false);
 
@@ -176,12 +181,13 @@
             })
             .catch(function (err) {
                 showStatus(
-                    '<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' + err.message,
+                    '<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' +
+                        escapeHtml(err.message),
                     true
                 );
             })
             .finally(function () {
-                uploadBtn.innerHTML = originalText;
+                setHTML(uploadBtn, originalText);
                 uploadBtn.disabled = false;
             });
     });
@@ -242,6 +248,16 @@
                 });
         });
     });
+
+    function setHTML(el, html) {
+        el.replaceChildren();
+        if (html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            while (doc.body.firstChild) {
+                el.append(doc.body.firstChild);
+            }
+        }
+    }
 
     function escapeHtml(value) {
         var div = document.createElement("div");

@@ -7,6 +7,7 @@ Each extractor implements ``extract(text)``, returning a list of
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 
 import app.metadata_extractor.regex_library as rx
@@ -235,11 +236,61 @@ class DocumentTypeExtractor(BaseExtractor):
 
     field_name = "document_type"
 
+    #: Instrument pattern names that receive a title-region confidence boost.
+    #: A real instrument title in the document header must outrank any generic
+    #: publication-format match (e.g. "THE GAZETTE OF INDIA") and any deep body
+    #: fragment (RAG_AGENT_A_SCOPE §2.4.1).  The boost is deliberately
+    #: instrument-only: boosting the generic patterns would let a header
+    #: gazette wrapper beat a deep paren-tail regulation title — the exact
+    #: regression the Food_Fortification / Nutraceuticals probes warned about.
+    INSTRUMENT_TYPES = frozenset({"act", "regulation", "rule", "bill"})
+
+    #: Max line length fed to the instrument title regexes.  A legal instrument
+    #: title line is well under 300 chars; this guard only skips pathological
+    #: single lines (minified tables / binary-ish noise) that can never be
+    #: titles, and it keeps the per-line worst case bounded.
+    _INSTRUMENT_LINE_BUDGET = 2000
+
+    #: Exact pre-filter: every instrument title pattern ends with a MANDATORY
+    #: ``\d{4}[ \t\r]*\.?[ \t\r]*$`` year anchor, so a line that does not end
+    #: in a 4-digit year can never match.  Checking this cheaply first keeps
+    #: the polynomial per-line regex cost on the handful of year-ending lines
+    #: instead of every token-dense body line (corpus sweep: 30+s per dense
+    #: doc before this filter, <1s after).
+    _INSTRUMENT_YEAR_TAIL = re.compile(r"\d{4}[ \t\r]*\.?[ \t\r]*$")
+
     def extract(self, text: str) -> list[Extraction]:
         results: list[Extraction] = []
+        # Title region = first 10% of the document (chars).  Matches inside it
+        # are overwhelmingly header lines, not wrapped body references.
+        title_region_end = max(1, len(text) // 10) if text else 0
         for name, pattern, doc_type in rx.DOCUMENT_TYPE_PATTERNS:
-            for _match in pattern.finditer(text):
-                results.append((doc_type, 0.90, "regex", name))
+            if name in self.INSTRUMENT_TYPES:
+                # Instrument title patterns are line-anchored by design and are
+                # matched PER-LINE: the title/keyword text never spans lines, so
+                # this is semantically identical to ``finditer`` with MULTILINE,
+                # but it (a) prevents ``^\s*`` from bridging blank lines and
+                # (b) bounds worst-case regex cost to a single line — a token-
+                # dense body line can no longer explode the classifier (observed
+                # 2026-08-09: corpus ingestion hung >25 min on one 63K-char
+                # regulation PDF before the patterns were linearised).
+                for line, line_start in _iter_line_spans(text):
+                    if len(line) > self._INSTRUMENT_LINE_BUDGET:
+                        continue
+                    if not self._INSTRUMENT_YEAR_TAIL.search(line):
+                        continue
+                    match = pattern.match(line)
+                    if not match:
+                        continue
+                    conf = 0.90
+                    # Absolute character offset of the title line in the
+                    # document (``re.match`` starts at the line start).
+                    if title_region_end and line_start < title_region_end:
+                        conf = 0.95
+                    results.append((doc_type, conf, "regex", name))
+            else:
+                for match in pattern.finditer(text):
+                    results.append((doc_type, 0.90, "regex", name))
         if not results:
             results.append(("Notification", 0.50, "heuristic", "default_type"))
         return _deduplicate(results)
@@ -309,6 +360,24 @@ class EffectiveDateExtractor(BaseExtractor):
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+
+def _iter_line_spans(text: str):
+    """Yield ``(line, start_offset)`` pairs for each line of ``text``.
+
+    ``line`` drops the trailing ``\n`` (so ``$`` can anchor at line end) but
+    keeps a trailing ``\r`` (the instrument patterns tolerate it via
+    ``[ \t\r]*`` before ``$``).  ``start_offset`` is the absolute character
+    position of the line in the original text — used for the title-region
+    confidence boost.
+    """
+    pos = 0
+    for line in text.splitlines(keepends=True):
+        if line.endswith("\n"):
+            yield line[:-1], pos
+        else:
+            yield line, pos
+        pos += len(line)
 
 
 def _deduplicate(items: list[Extraction]) -> list[Extraction]:

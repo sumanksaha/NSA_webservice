@@ -6,6 +6,7 @@ import unittest
 from legal_paragraph_detection_engine import (
     SectionParser,
 )
+from legal_paragraph_detection_engine.src.parsers.section_parser import SectionType
 
 
 class TestSectionParser(unittest.TestCase):
@@ -149,6 +150,61 @@ class TestSectionParser(unittest.TestCase):
             ("1(2)(a)", 3),
         ]
 
+        for text, expected in text_cases:
+            section = self.parser._extract_section_info(text, 1)
+            self.assertEqual(section.level, expected, f"Failed for {text}, got {section.level}")
+
+    def test_marker_chain_recognised_not_dropped(self):
+        """Subsection-marker chains are parsed, not silently dropped.
+
+        RAG_AGENT_A_SCOPE §2.3: ``(1)(a)`` previously returned ``None``. It is
+        a SUBSUBSECTION marker with no section number and no title of its own.
+        """
+        section = self.parser._extract_section_info("(1)(a)", 1)
+        self.assertIsNotNone(section)
+        self.assertEqual(section.section_type, SectionType.SUBSUBSECTION)
+        self.assertIsNone(section.section_number)
+        self.assertIsNone(section.title)
+
+    def test_marker_chain_with_content(self):
+        """A marker chain followed by prose yields the prose as the title.
+
+        RAG_AGENT_A_SCOPE §2.3: the ``(1)(a)`` prefix must not leak into the
+        title; ``"First clause."`` is the title and no section number is
+        inherited from the markers.
+        """
+        section = self.parser._extract_section_info("(1)(a) First clause.", 1)
+        self.assertIsNotNone(section)
+        self.assertEqual(section.section_type, SectionType.SUBSUBSECTION)
+        self.assertIsNone(section.section_number)
+        self.assertEqual(section.title, "First clause.")
+
+    def test_subsection_markers_never_section_title(self):
+        """Markers on a ``Section N`` line are not the section title.
+
+        RAG_AGENT_A_SCOPE §2.3: ``Section 3(1)(a)`` previously reported
+        ``"(1)(a)"`` as its title. Marker-only sections have no title; a real
+        title that follows the markers is preserved.
+        """
+        bare = self.parser._extract_section_info("Section 3(1)(a)", 1)
+        self.assertEqual(bare.section_number, "3")
+        self.assertIsNone(bare.title)
+
+        titled = self.parser._extract_section_info("Section 3(1)(a) Powers of the Food Authority", 1)
+        self.assertEqual(titled.section_number, "3")
+        self.assertEqual(titled.title, "Powers of the Food Authority")
+
+    def test_marker_chain_level_assignment(self):
+        """Subsection markers push the level up to 4+ (RAG_AGENT_A_SCOPE §2.3).
+
+        ``Section 3(1)(a)`` (number + two marker groups) is level 4, matching
+        the audit's ``SectionInfo(num=3, level=4)``; deep chains reach 4+.
+        """
+        text_cases = [
+            ("Section 3(1)(a)", 4),
+            ("3(1)(a)(i)", 4),
+            ("(1)(a)", 2),
+        ]
         for text, expected in text_cases:
             section = self.parser._extract_section_info(text, 1)
             self.assertEqual(section.level, expected, f"Failed for {text}, got {section.level}")

@@ -1,0 +1,177 @@
+{
+  "sections": {
+    "1. Prerequisites (corpus + PDF->text)": {
+      "corpus_present": {
+        "status": "OK",
+        "value": "FSSAI_rules documents/ with 24 pdf/docx/txt files",
+        "elapsed_s": 0.0
+      },
+      "FSS Act PDF loads": {
+        "status": "OK",
+        "value": {
+          "pages": 69,
+          "chars": 139953,
+          "head_ascii": "MINISTRY OF LAW AND JUSTICE | (Legislative Department) | New Delhi, the 24th August, 2006/Bhadra2, 1928( Saka) | The following"
+        },
+        "elapsed_s": 8.88
+      },
+      "notification PDF loads": {
+        "status": "OK",
+        "value": {
+          "pages": 5,
+          "chars": 8432,
+          "head_ascii": "????????? ?.? ??.??.- 33004/99 REGD. No. D. L.-33004/99 | xxxGIDHxxx | xxxGIDExxx | ?.? 172] ?? ??????, ??????, ???? 11, 2026/"
+        },
+        "elapsed_s": 1.25
+      },
+      "scanned PDF raw (image-only?)": {
+        "status": "OK",
+        "value": {
+          "pages": 1,
+          "chars": 0,
+          "head_ascii": ""
+        },
+        "elapsed_s": 0.0
+      }
+    },
+    "2. Model stack installed & functioning": {
+      "package versions": {
+        "status": "OK",
+        "value": {
+          "sentence-transformers": "5.7.0",
+          "torch": "2.13.0+cpu",
+          "cuda": false,
+          "easyocr": "1.7.2"
+        },
+        "elapsed_s": 6.84
+      },
+      "EasyOCR real recognition": {
+        "status": "OK",
+        "value": {
+          "lines": 2,
+          "text": "FOOD SAFETY AND STANDARDS ACT 2006 Section 3(1) (a)"
+        },
+        "elapsed_s": 3.53
+      }
+    },
+    "3. Embedding infra (model dim vs RAG_VECTOR_SIZE)": {
+      "embed_text produces dim": {
+        "status": "OK",
+        "value": {
+          "dim": 768,
+          "config_vector_size": 768
+        },
+        "elapsed_s": 5.55
+      },
+      "validate_vector_size(768)": {
+        "status": "OK",
+        "value": true,
+        "elapsed_s": 0.0
+      },
+      "model name resolves": {
+        "status": "OK",
+        "value": "sentence-transformers/all-mpnet-base-v2",
+        "elapsed_s": 0.0
+      }
+    },
+    "4. Chunk + embed a real corpus document": {
+      "real engine chunks Act excerpt": {
+        "status": "OK",
+        "value": {
+          "excerpt_chars": 8000,
+          "chunks": 41,
+          "with_section_number": 12,
+          "sample_sections": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "elapsed_s": 5.81
+      },
+      "embed_chunks over real chunks": {
+        "status": "OK",
+        "value": {
+          "chunks": 2,
+          "vectors": 2,
+          "vec_dims": "{768}"
+        },
+        "elapsed_s": 0.12
+      }
+    },
+    "5. Qdrant online + KG readiness": {
+      "connect + ping + config plumbing": {
+        "status": "OK",
+        "value": {
+          "url_set": true,
+          "configured_collection": "fssai_legal_768",
+          "configured_vector_size": 768,
+          "ping": true,
+          "production_collection_exists": false
+        },
+        "elapsed_s": 1.53
+      },
+      "probe collection round-trip (upsert/search/delete)": {
+        "status": "OK",
+        "value": {
+          "status": "green",
+          "vectors_count": 0,
+          "size": 768,
+          "distance": "Cosine",
+          "created": true,
+          "upserted": 3,
+          "searched_top": 2,
+          "top_score": 1.0,
+          "deleted": 1
+        },
+        "elapsed_s": 5.47
+      },
+      "production collection live config": {
+        "status": "OK",
+        "value": {
+          "exists": false,
+          "note": "production collection not created yet (created on first ingest)"
+        },
+        "elapsed_s": 0.7
+      },
+      "KG-ready enrichment payload (entities/citations/references)": {
+        "status": "OK",
+        "value": {
+          "document_type": "act",
+          "citations": [
+            "Section 14"
+          ],
+          "references": [
+            "Section 14"
+          ],
+          "entities": [
+            "The Food Authority",
+            "Section 14"
+          ],
+          "quality_ok": true,
+          "kg_payload_keys": [
+            "citations",
+            "document_id",
+            "entities",
+            "hierarchy_level",
+            "references",
+            "section_number"
+          ]
+        },
+        "elapsed_s": 0.03
+      },
+      "KG assets present": {
+        "status": "OK",
+        "value": {
+          "knowledge_graph.json": 98137,
+          "scripts/build_kg.py": true,
+          "legal_chunk.entities_column": true
+        },
+        "elapsed_s": 0.0
+      }
+    }
+  }
+}
