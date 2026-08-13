@@ -86,6 +86,11 @@ class Chunk:
     #: SHA-256 of the normalized chunk text (Agent A Day 5 dedup; §5.2
     #: ``LegalChunk.content_hash``).  Empty until the deduper stamps it.
     content_hash: str = ""
+    #: Every in-range section header found in the chunk text (any-position,
+    #: paren-tolerant) — lets multi-section / section-index chunks resolve
+    #: against any covered section (V7-gap fix, 2026-08-13; written by
+    #: ``_l4_section_headers`` and the backfill's L4 layer).
+    sections_covered: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
         """JSON-safe Qdrant payload dict (§5.1 schema)."""
@@ -118,6 +123,7 @@ class Chunk:
             "created_at": self.created_at,
             "embedding_model": self.embedding_model,
             "content_hash": self.content_hash,
+            "sections_covered": list(self.sections_covered),
         }
 
     @classmethod
@@ -145,6 +151,16 @@ class Chunk:
         doc = document or {}
         text = paragraph.get("text", "")
         section = paragraph.get("section")
+        # L4 fallback (2026-08-13): when the engine did not surface a section,
+        # stamp from any-position, act-range-validated headers in the chunk
+        # text (the rule that closed the V7 candidate gap).  The engine's own
+        # section stays authoritative when present; ``sections_covered`` is
+        # always recorded so multi-section chunks resolve against any covered
+        # section.
+        act_name = doc.get("act_name") or ""
+        covered = _l4_section_headers(text, act_name)
+        if not section and covered:
+            section = covered[0]
         return cls(
             chunk_id=str(uuid.uuid4()),
             document_id=str(doc.get("document_id") or uuid.uuid4()),
@@ -164,6 +180,7 @@ class Chunk:
             amended_date=_as_iso(doc.get("amended_date")),
             is_current=bool(doc.get("is_current", True)),
             section_number=str(section) if section else None,
+            sections_covered=covered,
             section_title=_extract_section_title(text),
             subsection=_extract_subsection_markers(text),
             hierarchy_level=int(paragraph.get("hierarchy_depth", 0) or 0),
@@ -175,6 +192,36 @@ class Chunk:
             created_at=datetime.now(UTC).isoformat(),
             embedding_model=embedding_model,
         )
+
+
+#: Any-position section-header pattern (paren-tolerant) — the L4 rule from the
+#: V7-gap backfill (2026-08-13).  Catches mid-line statute headers that the
+#: LegalParagraphEngine's line-anchored detection misses, e.g.
+#: ``…coercion. 73. Compensation for loss…`` and ``45. ( I) The West Bengal…``.
+_L4_HEADER_RE = re.compile(r"(?<![A-Za-z0-9])(\d{1,4})\s*\.\s*(?:\(\s*)?[A-Z]")
+
+
+def _l4_section_headers(text: str, act_name: str | None) -> list[str]:
+    """All section headers in *text* that fall inside the act's known range.
+
+    Fail-closed: when the act is not in ``app.rag.legal_sections``
+    ``ACT_SECTION_RANGES``, returns ``[]`` (an unknown act must never be
+    guessed).  Mirrors the backfill's L4 layer so ingestion and remediation
+    stamp identically.
+    """
+    from app.rag.legal_sections import sections_for_act
+
+    known = sections_for_act(act_name)
+    if not known:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for m in _L4_HEADER_RE.finditer(text or ""):
+        sec = m.group(1)
+        if sec in known and sec not in seen:
+            seen.add(sec)
+            out.append(sec)
+    return out
 
 
 class Chunker:

@@ -214,8 +214,27 @@ def classify_gap_unit(u, payload_idx, fm, registry):
         s = payload_idx[pid].get("section_number")
         if s:
             existing.add(norm_section(s))
-    if section and section not in existing:
-        return "G9", f"section {section} not among stamped - QUERY_REPRESENTATION_FAILURE"
+    if section and section.isdigit() and section not in existing:
+        # Corrected diagnosis (2026-08-13): distinguish a genuine corpus
+        # absence from a stamping gap by searching ALL family chunk text with
+        # the same paren-tolerant, any-position header pattern the L4
+        # backfill (scripts/backfill_payload_identity.py) uses.  If the
+        # section's header text exists but no payload stamps the number, the
+        # failure is STAMPING_GAP (metadata), not query representation.
+        header = re.compile(r"(?<![A-Za-z0-9])" + re.escape(section) + r"\s*\.\s*(?:\(\s*)?[A-Z]")
+        text_present = any(
+            header.search(str(pl.get("chunk_text", "")))
+            for pl in payload_idx.values()
+            if u.family in fm.family_s_for_act(
+                str(pl.get("act_name", "") or pl.get("document_title", ""))
+            )
+        )
+        if text_present:
+            return "G4", (
+                f"section {section} TEXT PRESENT in corpus but not stamped "
+                "(stale/missing section_number) - STAMPING_GAP; L4 backfill recovers"
+            )
+        return "G9", f"section {section} absent from corpus text - QUERY_REPRESENTATION_FAILURE"
     return "G4", "family present but section metadata missing"
 
 
@@ -642,8 +661,15 @@ def run_phase17(gap_units, classifications, measure):
             d, det = "CORPUS/GRANULARITY FAILURE", "Wrong granularity"
         elif code == "G4":
             rec = ba.get("recovered_by_repair") == "yes"
-            d = "METADATA-RECOVERABLE" if rec else "METADATA-UNRECOVERABLE"
-            det = "Section header stamping recovered" if rec else "Section null; no route retrieves"
+            if rec:
+                d, det = "METADATA-RECOVERABLE", "Section header stamping recovered"
+            else:
+                # G4 now means the section TEXT is present but unstamped
+                # (STAMPING_GAP — corrected classification 2026-08-13): the
+                # V7 line-anchored repair recovered 0, but the L4 any-position
+                # backfill (scripts/backfill_payload_identity.py) recovers it.
+                d, det = ("METADATA-RECOVERABLE (L4 stamping backfill)",
+                          "Section text present; stamp via scripts/backfill_payload_identity.py L4")
         elif code == "G9":
             d, det = "QUERY REPRESENTATION FAILURE", "Need new query route"
         elif code == "G10":
@@ -818,10 +844,6 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-
 # --------------------------------------------------------------------------- #
 # Phase 20: Gap remediation deep-dive
 # --------------------------------------------------------------------------- #
@@ -908,3 +930,7 @@ def run_phase21(measure):
     with open(V7_RAW / "v7_crossencoder_readiness.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     return result
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

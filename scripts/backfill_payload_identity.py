@@ -21,15 +21,31 @@ confidence-graded sources — **it never overwrites an existing value**:
                        The "Sec. N" and "N)" forms were validated out: they
                        matched gazette page headers ("[PART III—SEC.4] THE
                        GAZETTE OF INDIA") and subsections respectively.
+    L4  any-position   ``N. <Capital>`` headers anywhere in the chunk text
+        header pass   (paren-tolerant: also ``45. (I) …``), family- and
+        (2026-08-13)  act-range-validated via ``app.rag.legal_sections``
+                       ACT_SECTION_RANGES.  Unlike L3 it (a) tolerates
+                       multi-section chunks (section-index runs, chapter
+                       boundaries) — the chunk's *first* in-range header
+                       becomes ``section_number`` and the full set is recorded
+                       in a new ``sections_covered`` field, and (b) OVERRIDES
+                       a stale ``section_number`` whose base digits are not
+                       among the covered headers (e.g. ``sog:s20``'s body
+                       chunk was stamped ``7`` from a leading residue,
+                       ``kmc:s391`` stamped ``16`` from a cross-reference).
+                       This is the layer that closes the V7 candidate gap
+                       (7 units; validated offline: pool ceiling 91.9% -> 100%).
+                       Same ``document_id`` canonical-Act gate as L3.
 
 `act_name` is already 100% populated (V1 audit), so only `section_number` is
 backfilled; `section_title` is added when the KG provides it.  Everything is
 validated against the frozen gold registry — a missing/unreadable registry
-fails L3 closed (no text stamps at all).
+fails L3/L4 closed (no text stamps at all).
 
 Usage:
-    python scripts/backfill_payload_identity.py                  # dry-run stats
-    python scripts/backfill_payload_identity.py --apply           # write Qdrant
+    python scripts/backfill_payload_identity.py                  # dry-run stats (live scroll)
+    python scripts/backfill_payload_identity.py --from-cache     # dry-run on the frozen payload cache
+    python scripts/backfill_payload_identity.py --apply          # write Qdrant
     python scripts/backfill_payload_identity.py --apply --rebuild-index
 """
 
@@ -72,6 +88,14 @@ _GAZETTE_RE = re.compile(r"GAZETTE OF INDIA|PART [IVX]+\s*[\u2014-]\s*SEC", re.I
 _TOC_RE = re.compile(r"(?m)^\s*(?:CONTENTS|INDEX|S\.?\s*NO\.?)\b", re.IGNORECASE)
 
 _SEC_IN_PROVISION_ID = re.compile(r"_SEC_(\d+)")
+
+#: L4 header pattern (validated 2026-08-13 against the V7 gap units):
+#: any-position ``N. <Capital>`` including parenthesised continuations
+#: (``45. (I) The West Bengal Premises Tenancy Act, 1956 …``) that both the
+#: V2 patterns and V7's line-anchored repair regexes missed.  The lookbehind
+#: prevents matching page/residue numbers glued to other digits (``1980 313.``
+#: is fine, ``...313...`` inside a longer number is not).
+_L4_HEADER_RE = re.compile(r"(?<![A-Za-z0-9])(\d{1,4})\s*\.\s*(?:\(\s*)?[A-Z]")
 
 #: family -> canonical Act document_ids (loaded from the gold registry; see
 #: registry_document_ids for the rationale).  Module-level so the L3 gate in
@@ -325,6 +349,83 @@ def derive_section(point_id: str, payload: dict, kg_map: dict, maxima: dict, fam
     return str(sec), None
 
 
+def family_ranges(family_map) -> dict[str, tuple[int, int]]:
+    """family -> (lo, hi) from ``app.rag.legal_sections.ACT_SECTION_RANGES``.
+
+    Resolves each registered act name to its family(s) via the FamilyMap;
+    families without a registry range are absent (L4 then falls back to the
+    KG/payload maxima ceiling, or skips the chunk).
+    """
+    from app.rag.legal_sections import ACT_SECTION_RANGES
+
+    out: dict[str, tuple[int, int]] = {}
+    for act_name, (lo, hi) in ACT_SECTION_RANGES.items():
+        for fam in family_map.family_s_for_act(act_name):
+            cur = out.get(fam)
+            if cur:
+                out[fam] = (min(cur[0], lo), max(cur[1], hi))
+            else:
+                out[fam] = (lo, hi)
+    return out
+
+
+def derive_section_l4(
+    point_id: str,
+    payload: dict,
+    family_map,
+    ranges: dict[str, tuple[int, int]],
+    maxima: dict[str, int],
+) -> tuple[list[str], list[str]]:
+    """Return (in_range_headers, covering_families) for the L4 any-position pass.
+
+    Headers are the first-occurrence-ordered list of ``N`` from
+    ``_L4_HEADER_RE`` that fall inside a family the chunk resolves to and
+    inside that family's known range (registry range if present, else the
+    KG/payload maxima ceiling).  Sub-instrument chunks are excluded by the
+    same canonical-``document_id`` gate L3 uses — an empty whitelist for the
+    family fails the chunk closed (no L4 stamps without the registry).
+    """
+    act = payload.get("act_name") or payload.get("document_title") or ""
+    fams = family_map.family_s_for_act(act)
+    if not fams:
+        return [], []
+    doc_whitelist = _REGISTRY_DOCIDS or _load_registry_docids()
+    if not _REGISTRY_DOCIDS:
+        _REGISTRY_DOCIDS.update(doc_whitelist)
+    payload_docid = norm_docid(str(payload.get("document_id") or ""))
+    fams = [f for f in fams if doc_whitelist.get(f) and payload_docid in doc_whitelist[f]]
+    if not fams:
+        return [], []
+    text = str(payload.get("chunk_text") or payload.get("text") or "")
+    if not text.strip() or len(text) < 15:
+        return [], []
+    if _GAZETTE_RE.search(text[:120]):
+        return [], []
+    seen: set[int] = set()
+    ordered: list[int] = []
+    for m in _L4_HEADER_RE.finditer(text):
+        try:
+            n = int(m.group(1))
+        except ValueError:
+            continue
+        if n in seen or n < 1:
+            continue
+        for fam in fams:
+            rng = ranges.get(fam)
+            if rng:
+                lo, hi = rng
+            else:
+                ceiling = maxima.get(fam, 0)
+                if ceiling <= 0:
+                    continue
+                lo, hi = 1, ceiling
+            if lo <= n <= hi:
+                seen.add(n)
+                ordered.append(n)
+                break
+    return [str(n) for n in ordered], fams
+
+
 # --------------------------------------------------------------------------- #
 # Apply (Qdrant set_payload — payload-only, vectors untouched)
 # --------------------------------------------------------------------------- #
@@ -370,6 +471,9 @@ def main() -> int:
                         help="rebuild evaluation/out/cache/payload_index.jsonl after apply")
     parser.add_argument("--snapshot-dir", default=str(PROJECT_ROOT / "evaluation" / "out" / "ceiling_v2"),
                         help="dir for the pre-backfill payload snapshot")
+    parser.add_argument("--from-cache", action="store_true",
+                        help="dry-run against the frozen payload cache instead of scrolling live Qdrant "
+                             "(collection provenance unknown -> 'cache'; apply still requires live scroll)")
     args = parser.parse_args()
 
     from app import create_app
@@ -383,8 +487,22 @@ def main() -> int:
         from evaluation.resolution import FamilyMap, matches_gold
         from evaluation.benchmark import load_questions
 
-        payloads, provenance = scroll_payloads(app, collections)
-        logger.info("total points: %d", len(payloads))
+        if args.from_cache:
+            if args.apply:
+                print("--apply requires a live scroll; --from-cache is dry-run only.")
+                return 2
+            payloads: dict[str, dict] = {}
+            provenance: dict[str, str] = {}
+            cache_path = PROJECT_ROOT / "evaluation" / "out" / "cache" / "payload_index.jsonl"
+            with open(cache_path, encoding="utf-8") as f:
+                for line in f:
+                    rec = json.loads(line)
+                    payloads[str(rec["id"])] = rec["payload"]
+                    provenance[str(rec["id"])] = "cache"
+            logger.info("loaded payload cache: %d points", len(payloads))
+        else:
+            payloads, provenance = scroll_payloads(app, collections)
+            logger.info("total points: %d", len(payloads))
         prime_registry_docids(payloads)
 
         family_map = FamilyMap()
@@ -416,6 +534,58 @@ def main() -> int:
             if title:
                 entry["section_title"] = title
             changes[point_id] = entry
+
+        # --- L4 any-position header pass (V7-gap closure, 2026-08-13): runs on
+        # ALL payloads — including ones with a stale stamp — and overrides a
+        # ``section_number`` whose base digits are not among the headers the
+        # chunk text actually contains (e.g. ``sog:s20``'s body chunk stamped
+        # ``7``, ``kmc:s391`` stamped ``16`` from a cross-reference).
+        # ``sections_covered`` records the full in-range header set for
+        # multi-section / section-index chunks, which the resolution layer
+        # (``evaluation/resolution.py``) now consults.
+        ranges = family_ranges(family_map)
+        repair_rows: list[dict] = []
+        for point_id, payload in payloads.items():
+            if point_id in changes:
+                continue  # L1/L2/L3 took precedence
+            covered, fams = derive_section_l4(point_id, payload, family_map, ranges, maxima)
+            if not covered:
+                continue
+            current = base_digits(payload.get("section_number"))
+            if current and current in covered:
+                # stamp already correct — only record the covered set if absent
+                if not payload.get("sections_covered"):
+                    changes[point_id] = {"sections_covered": covered, "source": "L4_covered_add"}
+                    layer_counts["L4_covered_add"] = layer_counts.get("L4_covered_add", 0) + 1
+                continue
+            layer = "L4_override" if current else "L4_text_new"
+            layer_counts[layer] = layer_counts.get(layer, 0) + 1
+            changes[point_id] = {
+                "section_number": covered[0],
+                "sections_covered": covered,
+                "source": layer,
+            }
+            repair_rows.append({
+                "collection": provenance.get(point_id, "cache"),
+                "point_id": point_id,
+                "family": ";".join(fams),
+                "old_section_number": payload.get("section_number") or "",
+                "new_section_number": covered[0],
+                "sections_covered": ";".join(covered),
+                "source": layer,
+                "evidence": str(payload.get("chunk_text") or "")[:200].replace("\n", " "),
+            })
+        repair_csv = snapshot_dir / "repair_sections_l4.csv"
+        with open(repair_csv, "w", newline="", encoding="utf-8") as f:
+            import csv as _csv
+
+            writer = _csv.DictWriter(f, fieldnames=[
+                "collection", "point_id", "family", "old_section_number",
+                "new_section_number", "sections_covered", "source", "evidence",
+            ])
+            writer.writeheader()
+            writer.writerows(repair_rows)
+        logger.info("L4 repair CSV -> %s (%d rows)", repair_csv, len(repair_rows))
 
         before = sum(1 for p in payloads.values() if p.get("section_number"))
         after = before + len(changes)
@@ -495,6 +665,10 @@ def main() -> int:
             "gold_units_resolvable_before": n_resolved_before,
             "gold_units_resolvable_after": n_resolved_after,
             "newly_resolvable_gold_units": sorted(newly_resolved),
+            "l4_repair_rows": len(repair_rows),
+            "l4_repair_csv": str(repair_csv),
+            "note": "L4 any-position section-header pass closes the V7 candidate gap "
+                    "(7 units; validated offline 91.9% -> 100% pool ceiling).",
         }
         summary_name = "backfill_summary_apply.json" if args.apply else "backfill_summary_dryrun.json"
         (snapshot_dir / summary_name).write_text(

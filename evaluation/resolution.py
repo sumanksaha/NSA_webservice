@@ -196,6 +196,20 @@ def payload_to_keys(payload: dict, family_map: FamilyMap) -> list[tuple[str, str
             if family not in seen:
                 seen.add(family)
                 keys.append((family, section))
+    # V7-gap fix (2026-08-13): a chunk may legitimately cover several sections
+    # (section-index runs, chapter-boundary chunks) or carry its header in a
+    # form the single ``section_number`` stamp misses.  ``sections_covered``
+    # (written by ``scripts/backfill_section_stamps`` / the L4 layer of
+    # ``scripts/backfill_payload_identity.py``) holds every in-range header
+    # found in the chunk text; consult it so such chunks resolve against any
+    # covered section.
+    covered = payload.get("sections_covered") or []
+    if covered:
+        covered_sections = [norm_section(s) for s in covered if s]
+        for family, _ in keys:
+            for sec in covered_sections:
+                if sec and (family, sec) not in keys:
+                    keys.append((family, sec))
     return keys
 
 

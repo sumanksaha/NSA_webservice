@@ -45,8 +45,9 @@
   {
    "id": "bda:s480",
    "act": "The Bengal Diseases of Animals (Amendment) Act, 2008",
-   "section": "480",
+   "section": "16",
    "title": "Penalty",
+   "gold_fix_note": "section corrected 480->16 (2026-08-13): '480' was a CrPC cross-reference (s.480/482) inside the amendment text, not a BDA section; the penalty provision is principal-Act s.16",
    "domain": "ANIMAL_SLAUGHTER",
    "chunk_id": null,
    "document_id": "bengal_diseases_animals_amendment_act_2008",
@@ -843,10 +844,22 @@
    "collection": "env_legal_768"
   },
   {
+   "id": "water_act:s33",
+   "act": "Water (Prevention and Control of Pollution) Act, 1974",
+   "section": "33",
+   "title": "Power of Board to make application to courts for restraining apprehended pollution",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "chunk_id": null,
+   "document_id": "water_act_1974",
+   "collection": "env_legal_768",
+   "gold_fix_note": "added 2026-08-13 (Q050 gold audit): Q050 referenced water_act:s7 (Vacation of seats - wrong premise); the pollution-restraint power is s.33 (corpus-confirmed, stamped). Note: the conclusion's direct 'close/regulate the pipe' language maps to s.33A 'Power to give directions' (corpus chunk 34c979ce, currently unstamped) - expert adjudication recommended."
+  },
+  {
    "id": "water_act:s7",
    "act": "Water (Prevention and Control of Pollution) Act, 1974",
    "section": "7",
-   "title": "Powers of Boards",
+   "title": "Vacation of seats by members",
+   "gold_fix_note": "title corrected (2026-08-13): corpus '7. Vacation of seats by members'; 'Powers of Boards' is not s.7 (see Q050/Q060 premise)",
    "domain": "ENVIRONMENT_POLLUTION",
    "chunk_id": null,
    "document_id": "water_act_1974",
@@ -933,6 +946,17 @@
    "collection": "wb_state_legal_768"
   },
   {
+   "id": "wbpt:s20",
+   "act": "West Bengal Premises Tenancy Act, 1997",
+   "section": "20",
+   "title": "Notice of increase of rent",
+   "domain": "LAND_PREMISES",
+   "chunk_id": null,
+   "document_id": "wb_premises_tenancy_1997",
+   "collection": "wb_state_legal_768",
+   "gold_fix_note": "added 2026-08-13 (Q078 gold audit): Q078 referenced wbpt:s32 (Penalty for refusal to give receipt - wrong premise); the rent-enhancement procedure is s.20 'Notice of increase of rent' (corpus-confirmed: '20. Where a landlord intends to increase the rent... thirty days', chunk 6a602b84, stamped)."
+  },
+  {
    "id": "wbpt:s30",
    "act": "West Bengal Premises Tenancy Act, 1997",
    "section": "30",
@@ -946,7 +970,8 @@
    "id": "wbpt:s32",
    "act": "West Bengal Premises Tenancy Act, 1997",
    "section": "32",
-   "title": "Enhancement of rent",
+   "title": "Penalty for refusal to give receipt",
+   "gold_fix_note": "title corrected (2026-08-13): corpus '32. If the landlord refuses to deliver to the tenant a receipt for any rent...'; rent-enhancement lives elsewhere in the Act (Q078 premise may point at the wrong section)",
    "domain": "LAND_PREMISES",
    "chunk_id": null,
    "document_id": "wb_premises_tenancy_1997",
@@ -956,7 +981,8 @@
    "id": "wbpt:s45",
    "act": "West Bengal Premises Tenancy Act, 1997",
    "section": "45",
-   "title": "Notice for eviction",
+   "title": "Repeal and savings",
+   "gold_fix_note": "title corrected (2026-08-13): corpus '45. (I) The West Bengal Premises Tenancy Act, 1956 ... is hereby repealed'; eviction-notice is a different section (Q079 premise may point at the wrong section)",
    "domain": "LAND_PREMISES",
    "chunk_id": null,
    "document_id": "wb_premises_tenancy_1997",

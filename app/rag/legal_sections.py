@@ -44,6 +44,9 @@ ACT_SECTION_RANGES: dict[str, tuple[int, int]] = {
     "Limitation Act, 1963": (1, 32),
     "Specific Relief Act, 1963": (1, 44),
     "Consumer Protection Act, 2019": (1, 107),
+    # State (West Bengal)
+    "Kolkata Municipal Corporation Act, 1980": (1, 636),
+    "West Bengal Premises Tenancy Act, 1997": (1, 60),
     # Criminal (central) — replaces the Indian Penal Code, 1860
     "Bharatiya Nyaya Sanhita, 2023": (1, 358),
 }
