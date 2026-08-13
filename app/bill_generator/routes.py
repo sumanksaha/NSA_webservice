@@ -6,7 +6,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.bill_generator.utils import get_billable_samples, mark_samples_as_billed
 from app.extensions import db
 from app.models import Bill, FboIssue
-from app.services.sheets_sync import sync_to_sheets
+from app.services.sync_orchestrator import sync_row
 from app.utils.filters import parse_date
 
 bill_generator_bp = Blueprint("bill_generator", __name__, template_folder="templates", static_folder="static")
@@ -174,27 +174,11 @@ def generate_bill_route():
     try:
         row_dict = {k: v for k, v in form_data.items() if k in bill_record.__dict__}
         row_dict["created_at"] = bill_record.created_at.isoformat() if bill_record.created_at else ""
-        success = sync_to_sheets("billing", row_dict)
-        if not success:
-            current_app.logger.warning("Bill Generator: Sheets sync returned False - sync failed but not blocking")
+        result = sync_row("billing", row_dict, entity_id=bill_record.id)
+        if not result["sheets"]:
+            current_app.logger.warning("Bill Generator: Sheets sync failed - not blocking")
     except Exception as e:
-        current_app.logger.warning(f"Bill Generator: Sheets sync failed: {e}")
-
-    # Multi-target sync: Airtable (best-effort)
-    try:
-        from app.services.airtable_sync import sync_to_airtable
-
-        sync_to_airtable("billing", row_dict, bill_record.id)
-    except Exception as e:
-        current_app.logger.warning(f"Bill Generator: Airtable sync failed: {e}")
-
-    # Multi-target sync: Excel Online (best-effort)
-    try:
-        from app.services.excel_sync import sync_to_excel
-
-        sync_to_excel("billing", row_dict)
-    except Exception as e:
-        current_app.logger.warning(f"Bill Generator: Excel sync failed: {e}")
+        current_app.logger.warning(f"Bill Generator sync failed: {e}")
 
     # Build template variables for synchronous PDF generation
     allowed_template_vars = {
@@ -233,13 +217,11 @@ def generate_bill_route():
 
     if dispatched["mode"] == "async":
         return (
-            jsonify(
-                {
-                    "message": "Bill created; PDF generation queued",
-                    "bill_id": bill_record.id,
-                    "task_id": dispatched["message_id"],
-                }
-            ),
+            jsonify({
+                "message": "Bill created; PDF generation queued",
+                "bill_id": bill_record.id,
+                "task_id": dispatched["message_id"],
+            }),
             202,
         )
 
@@ -257,12 +239,10 @@ def generate_bill_route():
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify(
-            {
-                "message": "Bill created; PDF generated",
-                "bill_id": bill_record.id,
-                "pdf_result": result,
-            }
-        ),
+        jsonify({
+            "message": "Bill created; PDF generated",
+            "bill_id": bill_record.id,
+            "pdf_result": result,
+        }),
         200,
     )

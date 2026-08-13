@@ -40,7 +40,9 @@ class QueryType(StrEnum):
 
 # Full FSS Act, 2006 section coverage (expanded from the codebase's KNOWN_SECTIONS).
 # Source: The Food Safety and Standards Act, 2006 (as amended) — sections 1–104.
-FSS_ACT_SECTIONS: frozenset[str] = frozenset(str(n) for n in range(1, 105))
+# Canonical source is app/rag/legal_sections.py (multi-domain registry);
+# re-exported here for backward compatibility.
+from app.rag.legal_sections import FSS_ACT_SECTIONS  # noqa: F401  (re-export)
 
 #: Regex patterns for query classification (ordered by priority).
 _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [

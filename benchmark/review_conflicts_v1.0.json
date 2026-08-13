@@ -1,0 +1,64 @@
+{
+ "description": "Independent gold verification (Agent A vs Agent B) for benchmark v1.0",
+ "version": "1.0",
+ "method": "Agent A authored questions + proposed gold. Agent B independently re-derived gold evidence from the source registry (document/act/section/collection), cross-checked against the live Neo4j corpus instrument set. Disagreements are resolved by source evidence, never by majority vote.",
+ "conflicts": [],
+ "resolved_collisions": [
+  {
+   "provision_id": "epa:s3",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "water_act:s8",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "water_act:s9",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "air_act:s6",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "swm_rules:segregation",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "epa:s6",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "air_act:s8",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  },
+  {
+   "provision_id": "water_act:s12",
+   "resolution": "domain-union (same provision declared in env + public_health modules)"
+  }
+ ],
+ "verification_summary": {
+  "live_check": "ok",
+  "matched": 22,
+  "unmatched": [],
+  "total_documents": 22
+ },
+ "known_naming_variants": [
+  {
+   "document_id": "1335c4e2-4c80-43e4-a33a-b4d154984633",
+   "kg_instrument": "fss_act_2006"
+  },
+  {
+   "document_id": "environment_protection_act_1986",
+   "kg_instrument": "env_protection_act_1986"
+  },
+  {
+   "document_id": "specific_relief_act_2017",
+   "kg_instrument": "specific_relief_act_1963"
+  },
+  {
+   "document_id": "wb_premises_tenancy_1997",
+   "kg_instrument": "wb_premises_tenancy_act_1997"
+  }
+ ]
+}

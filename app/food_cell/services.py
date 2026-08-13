@@ -19,8 +19,13 @@ from flask import current_app
 from app.extensions import db
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
+from app.food_cell.renderer import DODocumentRenderer
 
 logger = logging.getLogger(__name__)
+
+#: Module-level renderer instance (shared by generate_and_forward_do_intimation
+#: and the backward-compatible module-level wrapper functions).
+_renderer = DODocumentRenderer()
 
 #: Sync function cache (resolved lazily so optional deps don't break import)
 _sync_to_sheets: Any = None
@@ -71,99 +76,43 @@ def _resolve_sample(sample_id: int, sample: "Sample | None") -> "Sample | None":
     return sample
 
 
-def _next_do_reference_no() -> str:
-    """Generate a unique DO reference number via the CodeSequence table."""
-    from app.models.billing import CodeSequence
+# --- Thin wrappers around DODocumentRenderer (keep module-level functions
+# for backward compatibility with existing tests that import them directly).
 
-    seq: CodeSequence | None = db.session.get(CodeSequence, "do_intimation")
-    if seq is None:
-        seq = CodeSequence(key="do_intimation", last_value=0)
-        db.session.add(seq)
-        db.session.flush()
-    seq.last_value += 1
-    db.session.flush()
-    year = datetime.now(UTC).year
-    return f"DO/{year}/{seq.last_value:06d}"
+
+def _next_do_reference_no() -> str:
+    """Backward-compatible wrapper around DODocumentRenderer.generate_reference."""
+    return _renderer.generate_reference()
 
 
 def _render_html(sample: "Sample") -> str:
-    """Render the DO intimation HTML template for *sample*."""
-    from flask import render_template
-
-    return render_template("food_cell/do_intimation.html", sample=sample)
+    """Backward-compatible wrapper around DODocumentRenderer.render_html."""
+    return _renderer.render_html(sample)
 
 
 def _render_pdf(html: str, sample: "Sample") -> str:
-    """Render *html* to PDF and store it, returning the local filepath.
-
-    When WeasyPrint is unavailable (e.g. in test environments with
-    ``DISABLE_PDF_GENERATION=1``), a minimal valid 1-page PDF stub is
-    written so downstream consumers (download endpoint, file checks) still
-    work.
-    """
-    from app.pdf_assembly import PDFAssemblyEngine
-    from pathlib import Path
-
-    engine = PDFAssemblyEngine()
-    pdf_bytes, error = engine.generate_from_html(html)
-    if pdf_bytes is None:
-        # Fallback: write a minimal valid PDF stub so downstream
-        # consumers (download endpoint, file checks) still function.
-        logger.warning("PDF generation unavailable for sample %s; writing stub: %s", sample.id, error)
-        pdf_bytes = (
-            b"%PDF-1.4\n"
-            b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-            b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
-            b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj\n"
-            b"xref\n0 4\n0000000000 65535 f \n"
-            b"0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n"
-            b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF\n"
-        )
-    filename = f"do_intimation_{sample.id}_{int(datetime.now(UTC).timestamp())}.pdf"
-    upload_dir = Path(current_app.instance_path) / "food_cell" / "pdfs"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    filepath = str(upload_dir / filename)
-    with open(filepath, "wb") as fh:
-        fh.write(pdf_bytes)
-    return filepath
+    """Backward-compatible wrapper around DODocumentRenderer.render_pdf."""
+    return _renderer.render_pdf(html, sample)
 
 
 def _store_intimation(intimation: "DoIntimation", sample: "Sample", html: str, pdf_path: str) -> None:
-    """Persist HTML and PDF paths on the *intimation* record."""
-    from pathlib import Path
-
-    html_dir = Path(current_app.instance_path) / "food_cell" / "html"
-    html_dir.mkdir(parents=True, exist_ok=True)
-    html_filename = f"do_intimation_{sample.id}_{int(datetime.now(UTC).timestamp())}.html"
-    html_path = str(html_dir / html_filename)
-    with open(html_path, "w", encoding="utf-8") as fh:
-        fh.write(html)
-    intimation.html_path = html_path
-    intimation.pdf_url = pdf_path
-    db.session.add(intimation)
-    db.session.flush()
+    """Backward-compatible wrapper around DODocumentRenderer.store."""
+    _renderer.store(intimation, sample, html, pdf_path)
 
 
 def _build_sync_row(sample: "Sample", intimation: "DoIntimation") -> dict[str, Any]:
-    """Build the canonical row dict for Sheets / Airtable / Excel sync."""
-    return {
-        "sample_id": sample.id,
-        "sample_code": getattr(sample, "sample_code", ""),
-        "sample_name": getattr(sample, "sample_name", ""),
-        "fso_name": getattr(sample, "fso_name", ""),
-        "retailer_name": getattr(sample, "retailer_name", ""),
-        "collection_date": sample.collection_date.isoformat() if sample.collection_date else "",
-        "do_reference_no": intimation.do_reference_no,
-        "food_cell_forwarded": (intimation.food_cell_forwarded.isoformat() if intimation.food_cell_forwarded else ""),
-        "status": intimation.status,
-        "pdf_url": intimation.pdf_url or "",
-    }
+    """Backward-compatible wrapper around DODocumentRenderer.build_sync_row."""
+    return _renderer.build_sync_row(sample, intimation)
 
 
 def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, bool]:
     """Best-effort sync to all parallel targets (Sheets, Airtable, Excel).
 
     Returns ``{"sheets": bool, "airtable": bool, "excel": bool}``.
+
+    Uses module-level sync-function caches (set by :func:`_load_sync_fns`)
+    rather than :func:`~app.services.sync_orchestrator.sync_row` because the
+    food_cell tests mock these globals directly.
     """
     _load_sync_fns()
     results: dict[str, bool] = {}
@@ -243,7 +192,9 @@ def generate_and_forward_do_intimation(
         db.session.delete(existing)
         db.session.flush()
 
-    do_ref = _next_do_reference_no()
+    # --- Reference + intimation record ---
+    renderer = DODocumentRenderer()
+    do_ref = renderer.generate_reference()
     intimation = DoIntimation(
         sample_id=sample.id,
         do_reference_no=do_ref,
@@ -252,10 +203,10 @@ def generate_and_forward_do_intimation(
     db.session.add(intimation)
     db.session.flush()
 
-    # --- Render HTML + PDF ---
-    html = _render_html(sample)
-    pdf_path = _render_pdf(html, sample)
-    _store_intimation(intimation, sample, html, pdf_path)
+    # --- Render HTML + PDF (via DODocumentRenderer) ---
+    html = renderer.render_html(sample)
+    pdf_path = renderer.render_pdf(html, sample)
+    renderer.store(intimation, sample, html, pdf_path)
 
     # --- Update Sample forward timestamp ---
     sample.food_cell_forwarded = datetime.now(UTC)

@@ -1,0 +1,904 @@
+{
+ "description": "Canonical source registry for the frozen golden benchmark v1.0 (resolved from benchmark/content/*.py)",
+ "version": "1.0",
+ "jurisdiction": "India (Union + West Bengal state)",
+ "provision_count": 97,
+ "document_count": 22,
+ "collections": {
+  "fssai_legal_768": {
+   "domain": "fssai",
+   "description": "Food Safety and Standards Act, 2006 and FSSAI regulations/notifications",
+   "authority": "Ministry of Health and Family Welfare / Food Safety and Standards Authority of India",
+   "jurisdiction": "Union of India",
+   "document_ids": {
+    "1335c4e2-4c80-43e4-a33a-b4d154984633": {
+     "act": "Food Safety and Standards Act, 2006",
+     "provision_count": 41
+    }
+   }
+  },
+  "env_legal_768": {
+   "domain": "env",
+   "description": "Environment (Protection) Act, 1986; Water/Air pollution Acts; SWM + PWM rules",
+   "authority": "Ministry of Environment, Forest and Climate Change / CPCB",
+   "jurisdiction": "Union of India",
+   "document_ids": {
+    "air_act_1981": {
+     "act": "Air (Prevention and Control of Pollution) Act, 1981",
+     "provision_count": 4
+    },
+    "environment_protection_act_1986": {
+     "act": "Environment (Protection) Act, 1986",
+     "provision_count": 6
+    },
+    "pwm_amendment_rules_2022_aug": {
+     "act": "Plastic Waste Management (Amendment) Rules, 2022",
+     "provision_count": 1
+    },
+    "pwm_amendment_rules_2022_jul": {
+     "act": "Plastic Waste Management (Amendment) Rules, 2022",
+     "provision_count": 1
+    },
+    "pwm_rules_2016": {
+     "act": "Plastic Waste Management Rules",
+     "provision_count": 1
+    },
+    "swm_rules_2026": {
+     "act": "Solid Waste Management Rules, 2026",
+     "provision_count": 1
+    },
+    "water_act_1974": {
+     "act": "Water (Prevention and Control of Pollution) Act, 1974",
+     "provision_count": 5
+    }
+   }
+  },
+  "animal_legal_768": {
+   "domain": "animal",
+   "description": "West Bengal Meat Order, 1966; Prevention of Cruelty to Animals Rules; Bengal Diseases of Animals Acts",
+   "authority": "State Government / Veterinary & Animal Husbandry",
+   "jurisdiction": "West Bengal (state + Union)",
+   "document_ids": {
+    "bengal_diseases_animals_amendment_act_2008": {
+     "act": "The Bengal Diseases of Animals (Amendment) Act, 2008",
+     "provision_count": 1
+    },
+    "bengal_livestock_import_quarantine_rules_1944": {
+     "act": "The Bengal Livestock Import Quarantine Rules, 1944",
+     "provision_count": 1
+    },
+    "prevention_cruelty_animals_rules_2017": {
+     "act": "The Prevention of Cruelty to Animals Rules, 2017",
+     "provision_count": 3
+    },
+    "wb_infectious_diseases_animals_rules_2016": {
+     "act": "WB Prevention and Control of Infectious Diseases in Animals Rules, 2016",
+     "provision_count": 1
+    },
+    "wb_meat_order_1966": {
+     "act": "West Bengal Meat Order, 1966",
+     "provision_count": 4
+    }
+   }
+  },
+  "wb_state_legal_768": {
+   "domain": "wb_state",
+   "description": "Kolkata Municipal Corporation Act, 1980; West Bengal Premises Tenancy Act, 1997",
+   "authority": "Kolkata Municipal Corporation / West Bengal Legislature",
+   "jurisdiction": "West Bengal (Kolkata)",
+   "document_ids": {
+    "kmc_act_1980": {
+     "act": "Kolkata Municipal Corporation Act, 1980",
+     "provision_count": 8
+    },
+    "wb_premises_tenancy_1997": {
+     "act": "West Bengal Premises Tenancy Act, 1997",
+     "provision_count": 5
+    }
+   }
+  },
+  "commercial_legal_768": {
+   "domain": "commercial",
+   "description": "Companies Act, 2013; Contract Act, 1872; Sale of Goods Act, 1930; Partnership Act; CPA 2019; Limitation Act",
+   "authority": "Ministry of Corporate Affairs / Parliament of India",
+   "jurisdiction": "Union of India",
+   "document_ids": {
+    "companies_act_2013": {
+     "act": "Companies Act, 2013",
+     "provision_count": 3
+    },
+    "consumer_protection_act_2019": {
+     "act": "Consumer Protection Act, 2019",
+     "provision_count": 1
+    },
+    "indian_contract_act_1872": {
+     "act": "Indian Contract Act, 1872",
+     "provision_count": 3
+    },
+    "indian_partnership_act_1932": {
+     "act": "Indian Partnership Act, 1932",
+     "provision_count": 2
+    },
+    "limitation_act_1963": {
+     "act": "Limitation Act, 1963",
+     "provision_count": 1
+    },
+    "sale_of_goods_act_1930": {
+     "act": "Sale of Goods Act, 1930",
+     "provision_count": 2
+    },
+    "specific_relief_act_2017": {
+     "act": "Specific Relief Act, 2017",
+     "provision_count": 2
+    }
+   }
+  },
+  "criminal_legal_768": {
+   "domain": "criminal",
+   "description": "Bharatiya Nyaya Sanhita, 2023 (criminal law)",
+   "authority": "Ministry of Home Affairs / Parliament of India",
+   "jurisdiction": "Union of India",
+   "document_ids": {}
+  }
+ },
+ "documents": {
+  "1335c4e2-4c80-43e4-a33a-b4d154984633": {
+   "document_id": "1335c4e2-4c80-43e4-a33a-b4d154984633",
+   "act": "Food Safety and Standards Act, 2006",
+   "collection": "fssai_legal_768",
+   "domain": "FOOD_SAFETY",
+   "provisions": [
+    {
+     "provision_id": "fssai:s16(1)",
+     "section": "16(1)",
+     "title": "Duties and functions of Food Authority",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s22",
+     "section": "22",
+     "title": "Standards of articles of food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s26",
+     "section": "26",
+     "title": "Responsibilities of the food business operator",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s30",
+     "section": "30",
+     "title": "Commissioner of Food Safety",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s31",
+     "section": "31",
+     "title": "Licensing and registration of food business",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s32",
+     "section": "32",
+     "title": "Improvement notices",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s33",
+     "section": "33",
+     "title": "Prohibition orders",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s34",
+     "section": "34",
+     "title": "Emergency prohibition notices and orders",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s37",
+     "section": "37",
+     "title": "Powers of Food Safety Officer",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s38",
+     "section": "38",
+     "title": "Analysis of food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s41",
+     "section": "41",
+     "title": "Sampling and analysis",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s42",
+     "section": "42",
+     "title": "Prosecution to be initiated by FSO with approval of Commissioner",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s43",
+     "section": "43",
+     "title": "Food Analyst",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s44",
+     "section": "44",
+     "title": "Designated Officer",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s48",
+     "section": "48",
+     "title": "General provisions relating to offences",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s51",
+     "section": "51",
+     "title": "Jurisdiction of courts / summary trial",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s52",
+     "section": "52",
+     "title": "Punitive damages",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s53",
+     "section": "53",
+     "title": "Penalty for misleading advertisement",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s55",
+     "section": "55",
+     "title": "Penalty for failure to comply with directions of FSO",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s58",
+     "section": "58",
+     "title": "Penalty for contraventions where no specific penalty",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s59",
+     "section": "59",
+     "title": "Punishment for unsafe food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s60",
+     "section": "60",
+     "title": "Punishment for sub-standard food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s61",
+     "section": "61",
+     "title": "Punishment for misbranded food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s63",
+     "section": "63",
+     "title": "Punishment for carrying business without licence",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s64",
+     "section": "64",
+     "title": "Punishment for subsequent offences",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s65",
+     "section": "65",
+     "title": "Penalty for fine in addition to punishment",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s66",
+     "section": "66",
+     "title": "Offences by companies",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s67",
+     "section": "67",
+     "title": "Penalty for obstructing Food Safety Officer",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s68",
+     "section": "68",
+     "title": "Adjudication",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s69",
+     "section": "69",
+     "title": "Power to compound offences",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s92",
+     "section": "92",
+     "title": "Power of Food Authority to make regulations",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s25",
+     "section": "25",
+     "title": "All imports of articles of food",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s31(1)",
+     "section": "31(1)",
+     "title": "Licensing and registration - no food business without licence",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s31(2)",
+     "section": "31(2)",
+     "title": "Registration of petty food business operators (exempt from licence)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s75",
+     "section": "75",
+     "title": "Establishment of Food Safety Appellate Tribunal",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:s76",
+     "section": "76",
+     "title": "Appeal to the Food Safety Appellate Tribunal",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:regs/licensing",
+     "section": "Reg",
+     "title": "FSS (Licensing and Registration) Regulations, 2011 (instrument-level)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:regs/contaminants",
+     "section": "Reg",
+     "title": "FSS (Contaminants, Toxins and Residues) Regulations, 2011 (instrument-level)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:food_regulations",
+     "section": "Reg",
+     "title": "FSSAI food-safety regulations - hygiene, sanitation, water and transport (instrument-level)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:meat-policy",
+     "section": "Sch/Reg",
+     "title": "Meat safety regulations (FSSAI)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "fssai:labelling",
+     "section": "Reg-Labelling",
+     "title": "Labelling of pre-packed food",
+     "chunk_id": null
+    }
+   ]
+  },
+  "wb_meat_order_1966": {
+   "document_id": "wb_meat_order_1966",
+   "act": "West Bengal Meat Order, 1966",
+   "collection": "animal_legal_768",
+   "domain": "ANIMAL_SLAUGHTER",
+   "provisions": [
+    {
+     "provision_id": "wbmo:order4",
+     "section": "Order 4",
+     "title": "Prohibition of slaughter of certain animals",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbmo:order5",
+     "section": "Order 5",
+     "title": "Slaughter only at licensed slaughter houses",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbmo:order6",
+     "section": "Order 6",
+     "title": "Licensing of meat shops and slaughter houses",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbmo:penalties",
+     "section": "Penalty",
+     "title": "Penalties",
+     "chunk_id": null
+    }
+   ]
+  },
+  "prevention_cruelty_animals_rules_2017": {
+   "document_id": "prevention_cruelty_animals_rules_2017",
+   "act": "The Prevention of Cruelty to Animals Rules, 2017",
+   "collection": "animal_legal_768",
+   "domain": "ANIMAL_SLAUGHTER",
+   "provisions": [
+    {
+     "provision_id": "pcra:s4",
+     "section": "4",
+     "title": "Licensing of slaughter houses",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "pcra:s12",
+     "section": "12",
+     "title": "Prohibition of cruelty",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "pcra:s63",
+     "section": "63",
+     "title": "Prevention of cruelty at slaughter",
+     "chunk_id": null
+    }
+   ]
+  },
+  "bengal_diseases_animals_amendment_act_2008": {
+   "document_id": "bengal_diseases_animals_amendment_act_2008",
+   "act": "The Bengal Diseases of Animals (Amendment) Act, 2008",
+   "collection": "animal_legal_768",
+   "domain": "ANIMAL_SLAUGHTER",
+   "provisions": [
+    {
+     "provision_id": "bda:s480",
+     "section": "480",
+     "title": "Penalty",
+     "chunk_id": null
+    }
+   ]
+  },
+  "bengal_livestock_import_quarantine_rules_1944": {
+   "document_id": "bengal_livestock_import_quarantine_rules_1944",
+   "act": "The Bengal Livestock Import Quarantine Rules, 1944",
+   "collection": "animal_legal_768",
+   "domain": "ANIMAL_SLAUGHTER",
+   "provisions": [
+    {
+     "provision_id": "livestock_quarantine",
+     "section": "N/A",
+     "title": "Import quarantine of livestock",
+     "chunk_id": null
+    }
+   ]
+  },
+  "wb_infectious_diseases_animals_rules_2016": {
+   "document_id": "wb_infectious_diseases_animals_rules_2016",
+   "act": "WB Prevention and Control of Infectious Diseases in Animals Rules, 2016",
+   "collection": "animal_legal_768",
+   "domain": "ANIMAL_SLAUGHTER",
+   "provisions": [
+    {
+     "provision_id": "wb_infectious:rules",
+     "section": "N/A",
+     "title": "Infectious disease control in animals",
+     "chunk_id": null
+    }
+   ]
+  },
+  "environment_protection_act_1986": {
+   "document_id": "environment_protection_act_1986",
+   "act": "Environment (Protection) Act, 1986",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "provisions": [
+    {
+     "provision_id": "epa:s2(e)",
+     "section": "2(e)",
+     "title": "Environmentally sensitive area",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "epa:s3",
+     "section": "3",
+     "title": "Power to take requisite measures",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "epa:s5",
+     "section": "5",
+     "title": "Restrictions on use of forest/substrates",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "epa:s6",
+     "section": "6",
+     "title": "Closure/demolition powers",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "epa:s7",
+     "section": "7",
+     "title": "Offences and penalties",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "epa:s8",
+     "section": "8",
+     "title": "Cognizance of offences",
+     "chunk_id": null
+    }
+   ]
+  },
+  "water_act_1974": {
+   "document_id": "water_act_1974",
+   "act": "Water (Prevention and Control of Pollution) Act, 1974",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "provisions": [
+    {
+     "provision_id": "water_act:s7",
+     "section": "7",
+     "title": "Powers of Boards",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "water_act:s8",
+     "section": "8",
+     "title": "Water quality",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "water_act:s9",
+     "section": "9",
+     "title": "Consent to establish/operate",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "water_act:s12",
+     "section": "12",
+     "title": "Penalty",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "water_act:s13",
+     "section": "13",
+     "title": "Appeals",
+     "chunk_id": null
+    }
+   ]
+  },
+  "air_act_1981": {
+   "document_id": "air_act_1981",
+   "act": "Air (Prevention and Control of Pollution) Act, 1981",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+   "provisions": [
+    {
+     "provision_id": "air_act:s6",
+     "section": "6",
+     "title": "Powers of Boards",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "air_act:s7",
+     "section": "7",
+     "title": "Closure",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "air_act:s8",
+     "section": "8",
+     "title": "Consent to establish/operate",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "air_act:s15",
+     "section": "15",
+     "title": "Penalty",
+     "chunk_id": null
+    }
+   ]
+  },
+  "pwm_rules_2016": {
+   "document_id": "pwm_rules_2016",
+   "act": "Plastic Waste Management Rules",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "provisions": [
+    {
+     "provision_id": "pwm_rules:epr",
+     "section": "N/A",
+     "title": "Extended Producer Responsibility",
+     "chunk_id": null
+    }
+   ]
+  },
+  "swm_rules_2026": {
+   "document_id": "swm_rules_2026",
+   "act": "Solid Waste Management Rules, 2026",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+   "provisions": [
+    {
+     "provision_id": "swm_rules:segregation",
+     "section": "N/A",
+     "title": "Segregation & door-to-door collection",
+     "chunk_id": null
+    }
+   ]
+  },
+  "pwm_amendment_rules_2022_aug": {
+   "document_id": "pwm_amendment_rules_2022_aug",
+   "act": "Plastic Waste Management (Amendment) Rules, 2022",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "provisions": [
+    {
+     "provision_id": "pwm_amendment_rules_2022_aug",
+     "section": "Rules-2022",
+     "title": "Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022)",
+     "chunk_id": null
+    }
+   ]
+  },
+  "pwm_amendment_rules_2022_jul": {
+   "document_id": "pwm_amendment_rules_2022_jul",
+   "act": "Plastic Waste Management (Amendment) Rules, 2022",
+   "collection": "env_legal_768",
+   "domain": "ENVIRONMENT_POLLUTION",
+   "provisions": [
+    {
+     "provision_id": "pwm_amendment_rules_2022_jul",
+     "section": "Rules-2022",
+     "title": "Plastic Waste Management (Amendment) Rules, 2022 (gazette 07-07-2022)",
+     "chunk_id": null
+    }
+   ]
+  },
+  "kmc_act_1980": {
+   "document_id": "kmc_act_1980",
+   "act": "Kolkata Municipal Corporation Act, 1980",
+   "collection": "wb_state_legal_768",
+   "domain": "MUNICIPAL",
+   "provisions": [
+    {
+     "provision_id": "kmc:s392",
+     "section": "392",
+     "title": "Prohibition of building without sanction",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:s196",
+     "section": "196",
+     "title": "Payment of property tax in quarterly instalments",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:s313",
+     "section": "313",
+     "title": "Commissioner not to sanction building plan unless water-supply plan conforms",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:s391",
+     "section": "391",
+     "title": "Municipal Building Committee",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:s330",
+     "section": "330",
+     "title": "Recovery of fees for supply of water",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:s172",
+     "section": "172",
+     "title": "Exemption of lands and buildings from property tax",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:trade_licence",
+     "section": "Ch.Trade",
+     "title": "Trade licensing (municipal)",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "kmc:nuisance",
+     "section": "Ch.Nuisance",
+     "title": "Public nuisance / noxious trades",
+     "chunk_id": null
+    }
+   ]
+  },
+  "wb_premises_tenancy_1997": {
+   "document_id": "wb_premises_tenancy_1997",
+   "act": "West Bengal Premises Tenancy Act, 1997",
+   "collection": "wb_state_legal_768",
+   "domain": "LAND_PREMISES",
+   "provisions": [
+    {
+     "provision_id": "wbpt:s16",
+     "section": "16",
+     "title": "Determination of standard rent",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbpt:s32",
+     "section": "32",
+     "title": "Enhancement of rent",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbpt:s30",
+     "section": "30",
+     "title": "Prohibition of sub-letting without permission",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbpt:s45",
+     "section": "45",
+     "title": "Notice for eviction",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "wbpt:s46",
+     "section": "46",
+     "title": "Recovery of possession",
+     "chunk_id": null
+    }
+   ]
+  },
+  "indian_contract_act_1872": {
+   "document_id": "indian_contract_act_1872",
+   "act": "Indian Contract Act, 1872",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "contract:s73",
+     "section": "73",
+     "title": "Compensation for loss or damage caused by breach of contract",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "contract:s74",
+     "section": "74",
+     "title": "Penalty clause unenforceable",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "contract:consideration",
+     "section": "2(1)(c)",
+     "title": "Consideration (definition)",
+     "chunk_id": null
+    }
+   ]
+  },
+  "sale_of_goods_act_1930": {
+   "document_id": "sale_of_goods_act_1930",
+   "act": "Sale of Goods Act, 1930",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "sog:s16",
+     "section": "16",
+     "title": "Passing of property",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "sog:s20",
+     "section": "20",
+     "title": "Specific goods / risk",
+     "chunk_id": null
+    }
+   ]
+  },
+  "indian_partnership_act_1932": {
+   "document_id": "indian_partnership_act_1932",
+   "act": "Indian Partnership Act, 1932",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "partnership:s22",
+     "section": "22",
+     "title": "Partner's authority to bind firm",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "partnership:s30",
+     "section": "30",
+     "title": "Implied authority of partner",
+     "chunk_id": null
+    }
+   ]
+  },
+  "companies_act_2013": {
+   "document_id": "companies_act_2013",
+   "act": "Companies Act, 2013",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "comp:s179",
+     "section": "179",
+     "title": "Board of Directors: powers",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "comp:s188",
+     "section": "188",
+     "title": "Related party transactions",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "comp:s447",
+     "section": "447",
+     "title": "Punishment for fraud",
+     "chunk_id": null
+    }
+   ]
+  },
+  "consumer_protection_act_2019": {
+   "document_id": "consumer_protection_act_2019",
+   "act": "Consumer Protection Act, 2019",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "cpa:product_liability",
+     "section": "88-92",
+     "title": "Product liability",
+     "chunk_id": null
+    }
+   ]
+  },
+  "limitation_act_1963": {
+   "document_id": "limitation_act_1963",
+   "act": "Limitation Act, 1963",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "limitation:contract",
+     "section": "First Schedule",
+     "title": "Limitation period for contract/tort suits",
+     "chunk_id": null
+    }
+   ]
+  },
+  "specific_relief_act_2017": {
+   "document_id": "specific_relief_act_2017",
+   "act": "Specific Relief Act, 2017",
+   "collection": "commercial_legal_768",
+   "domain": "BUSINESS_CIVIL",
+   "provisions": [
+    {
+     "provision_id": "srf:specific_performance",
+     "section": "10",
+     "title": "Specific performance",
+     "chunk_id": null
+    },
+    {
+     "provision_id": "srf:injunction",
+     "section": "53",
+     "title": "Injunction",
+     "chunk_id": null
+    }
+   ]
+  }
+ }
+}

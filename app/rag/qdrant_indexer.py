@@ -101,6 +101,9 @@ class QdrantIndexer:
         chunker: Optional pre-built :class:`Chunker` (injected).
         sparse_embedder: Optional pre-built :class:`SparseEmbeddingService`
             (injected for tests; built lazily in production).
+        collection_name: Target Qdrant collection (Phase 1 — multi-domain).
+            When no ``store`` is injected, the default store is built against
+            this collection instead of ``RAG_QDRANT_COLLECTION``.
     """
 
     def __init__(
@@ -109,8 +112,9 @@ class QdrantIndexer:
         embedder: EmbeddingService | None = None,
         chunker: Chunker | None = None,
         sparse_embedder: SparseEmbeddingService | None = None,
+        collection_name: str | None = None,
     ) -> None:
-        self._store = store or QdrantStore()
+        self._store = store or QdrantStore(collection_name=collection_name)
         self._embedder = embedder or EmbeddingService()
         self._chunker = chunker or Chunker()
         self._sparse_embedder = sparse_embedder

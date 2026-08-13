@@ -55,6 +55,7 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
 | **Legal RAG (Vector Search)**     | Semantic search over legal corpus via Qdrant (768-dim embeddings), hybrid dense + sparse retrieval, reranking, hash-chained query audit (Phase 1 complete)       |
+| **Knowledge Graph + Neo4j**       | Entity-relationship extraction from case files, interactive Cytoscape.js visualization, and optional Neo4j Aura sync (APOC dynamic labels, constraints, indexes) |
 | **Audit Trail**                   | Tamper-evident hash-chained audit logging for all records and photo evidence                                                                                     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
@@ -174,6 +175,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
 - **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval and reranking (Phase 1 complete — 282 tests).
+- **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 — 15 tests).
 
 | Area                      | Status         | Notes                                                         |
 | ------------------------- | -------------- | ------------------------------------------------------------- |
@@ -254,8 +256,8 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 ### Phase 3: Intelligence (Q1 2027)
 
-- [ ] Neo4j graph database integration
-- [ ] Entity relationship queries
+- [x] Neo4j graph database integration (Phase 14 — APOC dynamic labels, constraints, indexes, QStash async sync, 15 tests)
+- [x] Entity relationship queries (Phase 14 — entity/relationship extraction + sync to Aura)
 - [x] Qdrant vector store for semantic search (Phase 1 complete — 282 tests)
 - [ ] LangGraph workflow orchestration
 - [ ] OpenRouter multi-LLM gateway

@@ -108,6 +108,9 @@ class IngestionPipeline:
             — when set, image-only PDFs (0 selectable chars, e.g. scanned
             acts) are OCR'd so they produce chunks instead of being dropped
             as empty documents. Lazy, best-effort, graceful degradation.
+        collection: Target Qdrant collection (Phase 1 — multi-domain).
+            Threaded into the lazily-built default :class:`QdrantIndexer`
+            when no ``indexer`` is injected.
     """
 
     def __init__(
@@ -123,6 +126,7 @@ class IngestionPipeline:
         entity_extractor: Any | None = None,
         quality_validator: Any | None = None,
         ocr: Any | None = None,
+        collection: str | None = None,
     ) -> None:
         self._indexer = indexer
         self._loader = loader
@@ -135,6 +139,7 @@ class IngestionPipeline:
         self._entity_extractor = entity_extractor
         self._quality_validator = quality_validator
         self._ocr = ocr
+        self._collection = collection
 
     # ------------------------------------------------------------------ #
     # Lazy component accessors
@@ -145,7 +150,7 @@ class IngestionPipeline:
         if self._indexer is None:
             from app.rag.qdrant_indexer import QdrantIndexer
 
-            self._indexer = QdrantIndexer()
+            self._indexer = QdrantIndexer(collection_name=self._collection)
         return self._indexer
 
     @property
@@ -367,7 +372,11 @@ def _full_enrichment_enabled() -> bool:
     return os.environ.get("RAG_FULL_ENRICHMENT", "false").lower() == "true"
 
 
-def make_ingestion_pipeline(full_enrichment: bool | None = None) -> IngestionPipeline:
+def make_ingestion_pipeline(
+    full_enrichment: bool | None = None,
+    collection: str | None = None,
+    cleaner: Any | None = None,
+) -> IngestionPipeline:
     """Build the production-default ingestion pipeline.
 
     Always wires the Phase 2 Day 9 :class:`DocumentClassifier` so every
@@ -388,6 +397,13 @@ def make_ingestion_pipeline(full_enrichment: bool | None = None) -> IngestionPip
     Args:
         full_enrichment: Explicit override; ``None`` resolves the flag from
             ``RAG_FULL_ENRICHMENT`` (Flask config, else env var, default off).
+        collection: Target Qdrant collection (Phase 1 — multi-domain); when
+            given, the pipeline indexes into that collection instead of
+            ``RAG_QDRANT_COLLECTION``.
+        cleaner: Optional pre-built cleaner replacing the default
+            :class:`DocumentCleaner` (Phase 2 — multi-domain; e.g. a wrapper
+            that strips Devanagari before chunking). When ``None`` the
+            default cleaner is used.
     """
     if full_enrichment is None:
         full_enrichment = _full_enrichment_enabled()
@@ -399,7 +415,13 @@ def make_ingestion_pipeline(full_enrichment: bool | None = None) -> IngestionPip
     # being dropped as empty documents. It degrades gracefully: when the OCR
     # deps (easyocr/torch/cv2) are absent, ``should_ocr``/``fill_scanned_pdf``
     # return the loader text unchanged.
-    kwargs: dict[str, Any] = {"classifier": DocumentClassifier(), "ocr": LegalDocumentOCR()}
+    kwargs: dict[str, Any] = {
+        "classifier": DocumentClassifier(),
+        "ocr": LegalDocumentOCR(),
+        "collection": collection,
+    }
+    if cleaner is not None:
+        kwargs["cleaner"] = cleaner
     if full_enrichment:
         from app.rag.chunk_quality import ChunkQualityValidator
         from app.rag.citation_adapter import CitationAdapter

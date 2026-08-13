@@ -25,7 +25,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.extensions import csrf, db
 from app.models import Adjudication, Evidence, FboIssue
 from app.services.audit import log_audit
-from app.services.sheets_sync import sync_to_sheets
+from app.services.sync_orchestrator import sync_row
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
     DERIVED_CASE_TRACK,
@@ -105,14 +105,10 @@ def adjudication_to_dict(adj):
         "fssai_license": adj.fssai_license,
         "concerned_food": adj.concerned_food,
         "problem": adj.problem,
-        "first_inspection_date": (
-            adj.First_inspection_date.isoformat() if adj.First_inspection_date else None
-        ),
+        "first_inspection_date": (adj.First_inspection_date.isoformat() if adj.First_inspection_date else None),
         "compliance_deadline": adj.compliance_deadline.isoformat() if adj.compliance_deadline else None,
         "complaint_date": adj.Complaint_date.isoformat() if adj.Complaint_date else None,
-        "followup_inspection_date": (
-            adj.inspection_date.isoformat() if adj.inspection_date else None
-        ),
+        "followup_inspection_date": (adj.inspection_date.isoformat() if adj.inspection_date else None),
         "authorization_date": adj.authorization_date.isoformat() if adj.authorization_date else None,
         "clean_premise": adj.clean_premise,
         "refrigerator_clean": adj.refrigerator_clean,
@@ -370,7 +366,8 @@ def regenerate_adjudication_documents(case_id):
     flag_override_reason = request.args.get("flag_override_reason", "").strip()
 
     all_photos = (
-        Evidence.query.filter(
+        Evidence.query
+        .filter(
             Evidence.evidence_type == "photo",
             or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
         )
@@ -430,11 +427,9 @@ def regenerate_adjudication_documents(case_id):
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return (
-                jsonify(
-                    {
-                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-                    }
-                ),
+                jsonify({
+                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                }),
                 500,
             )
 
@@ -489,42 +484,53 @@ def generate_all():
 
     # Sheets sync
     allowed_sheets_columns = {
-        "case_number", "food_safety_officer", "non_license",
-        "pre_authorization", "complaint_lodged", "ce_license_no",
-        "ce_trade_name", "ce_proprietor", "ce_address", "ce_status",
-        "fbo_owner", "fbo_name", "fbo_address", "fssai_license",
-        "concerned_food", "problem", "First_inspection_date",
-        "compliance_deadline", "Complaint_date", "inspection_date",
-        "authorization_date", "clean_premise", "refrigerator_clean",
-        "proper_attire", "proper_covered_utensil", "date_tag",
-        "veg_nonveg_separation", "food_segregation", "license_display",
-        "artificial_colour", "Expired_item", "Pest_report", "Water_report",
-        "section_55", "section_56", "section_58", "section_63", "section_64",
+        "case_number",
+        "food_safety_officer",
+        "non_license",
+        "pre_authorization",
+        "complaint_lodged",
+        "ce_license_no",
+        "ce_trade_name",
+        "ce_proprietor",
+        "ce_address",
+        "ce_status",
+        "fbo_owner",
+        "fbo_name",
+        "fbo_address",
+        "fssai_license",
+        "concerned_food",
+        "problem",
+        "First_inspection_date",
+        "compliance_deadline",
+        "Complaint_date",
+        "inspection_date",
+        "authorization_date",
+        "clean_premise",
+        "refrigerator_clean",
+        "proper_attire",
+        "proper_covered_utensil",
+        "date_tag",
+        "veg_nonveg_separation",
+        "food_segregation",
+        "license_display",
+        "artificial_colour",
+        "Expired_item",
+        "Pest_report",
+        "Water_report",
+        "section_55",
+        "section_56",
+        "section_58",
+        "section_63",
+        "section_64",
     }
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
         row_dict["created_at"] = adj.created_at.isoformat() if adj.created_at else ""
-        success = sync_to_sheets("non_sample", row_dict)
-        if not success:
-            current_app.logger.warning("Adjudication: Sheets sync returned False - sync failed but not blocking")
+        result = sync_row("non_sample", row_dict, entity_id=adj.id)
+        if not result["sheets"]:
+            current_app.logger.warning("Adjudication: Sheets sync failed - not blocking")
     except Exception as e:
-        current_app.logger.warning(f"Adjudication: Sheets sync failed: {e}")
-
-    # Multi-target sync: Airtable (best-effort)
-    try:
-        from app.services.airtable_sync import sync_to_airtable
-
-        sync_to_airtable("non_sample", row_dict, adj.id)
-    except Exception as e:
-        current_app.logger.warning(f"Adjudication: Airtable sync failed: {e}")
-
-    # Multi-target sync: Excel Online (best-effort)
-    try:
-        from app.services.excel_sync import sync_to_excel
-
-        sync_to_excel("non_sample", row_dict)
-    except Exception as e:
-        current_app.logger.warning(f"Adjudication: Excel sync failed: {e}")
+        current_app.logger.warning(f"Adjudication sync failed: {e}")
 
     # Prepare context
     context = _prepare_adjudication_context(form_data)
@@ -534,7 +540,8 @@ def generate_all():
     flag_override_reason = request.form.get("flag_override_reason", "").strip()
 
     all_photos = (
-        Evidence.query.filter(
+        Evidence.query
+        .filter(
             Evidence.evidence_type == "photo",
             or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
         )
@@ -594,11 +601,9 @@ def generate_all():
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
             return (
-                jsonify(
-                    {
-                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-                    }
-                ),
+                jsonify({
+                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                }),
                 500,
             )
 

@@ -7,6 +7,108 @@
 
 ---
 
+## Rust Refactoring — 5-Part Implementation Plan (created 2026-08-12)
+
+> **Source:** `docs/RUST_REFACTORING_EVALUATION.md`. Strategy: **PyO3 + maturin
+> extension modules** compiled to a Python-importable `nsa_rust` module, with a
+> **pure-Python fallback** always intact (graceful degradation, matching the
+> project's existing pattern). The 1,757-test suite must pass unchanged.
+> **Ordering rationale:** Part 1 is the *easiest* (pure string functions, clean
+> boundary, 45-test parity net) — done first to prove the build+pipeline end to
+> end with low risk. Part 5 (Legal Engine) is the *highest ROI* but the *hardest*
+> port, so it is last. No Rust toolchain was present on 2026-08-12; it was
+> installed (rustup → rustc/cargo 1.97.1) and `maturin 1.14.1` added to the venv
+> as the first action of Part 1.
+
+### Part 1 — Rust Toolchain + Document Cleaner Port (`nsa_rust::cleaner`) — IN PROGRESS
+
+**Status:** Step 1.1 (toolchain) ✅ DONE. Step 1.2 (workspace scaffold) ✅ DONE.
+Step 1.3 (normalizers Rust port) ✅ DONE. Step 1.4 (removers + `_should_preserve`
+Rust port in `rust/src/removers.rs`) ✅ DONE. Step 1.5 (Python fallback wiring in
+`pipeline.py::_run_removers` / `_run_normalizers` / Phase-2 OCR) ✅ DONE.
+Step 1.6 (maturin build) — **blocked on Windows 10 SDK** (see build note below);
+VS 2022 Build Tools (VCTools) was installed, but the SDK requires admin elevation.
+Step 1.7 (parity) — parity test `tests/test_rust_normalizers.py` extended to cover
+normalizers + removers + OCR + full `clean()`; it skips until the extension is
+built. Steps 1.6/1.7 pending.
+
+**Build note (2026-08-12):** PyO3 extensions on Windows must be compiled with the
+MSVC linker (`link.exe`) against the MSVC-built CPython. VS 2022 Build Tools
+(VCTools workload) was installed — `link.exe`/`cl.exe` are now present — but
+linking also needs the **Windows 10 SDK** (`Windows Kits\10\Lib\…\kernel32.lib`
+etc.), which is **not installed and cannot be installed non-interactively**:
+`setup.exe --quiet` requires admin elevation (exit code 5007, UAC prompt), which
+a headless shell cannot provide. Until the Windows 10 SDK is installed (elevated),
+`cargo build`/`maturin build` fail at the link step. Build command once the SDK is
+present: `maturin develop --manifest-path rust/Cargo.toml` (or
+`maturin build --manifest-path rust/Cargo.toml --release` for a wheel). The
+pure-Python fallback keeps `tests/test_document_cleaner.py` green in the
+meantime.
+
+- **Goal:** Ship the first PyO3 module accelerating the document cleaner, with
+  a Python fallback, verified by the existing 45 `test_document_cleaner.py` tests.
+- **Targets:** `app/document_cleaner/` (`normalizers.py` 9 pure `str→str`
+  functions + `removers.py` line filters + `pipeline.py::DocumentCleaner.clean()`).
+- **Steps:**
+  1. ✅ Install Rust toolchain (`rustup` → rustc/cargo 1.97.1) + `maturin` in venv.
+  2. ✅ Scaffold `rust/` PyO3 workspace (`Cargo.toml`, `src/lib.rs` `#![pymodule] nsa_rust`).
+  3. Port `normalizers.py` → `rust/src/normalizers.rs` (regex `crate` + `unicode-normalization` NFKC + Levenshtein/Indel `fuzz.ratio` for hyphens).
+  4. Port `removers.py` + `_should_preserve` → `rust/src/removers.rs`.
+  5. Wire `DocumentCleaner.clean()` to try `nsa_rust.clean_document` first, fall back to Python.
+  6. Build with `maturin develop --manifest-path rust/Cargo.toml`.
+  7. Prove parity: `tests/test_document_cleaner.py` (45) + a Rust↔Python A/B parity test.
+- **Acceptance:** ≥3× cleaning throughput; 45/45 tests identical output; Python fallback works when `nsa_rust` is absent.
+
+### Part 2 — Search Fuzzy Helpers Port (`nsa_rust::search_fuzzy`)
+
+- **Goal:** Accelerate the pure helper functions behind fuzzy search.
+- **Targets:** `app/search/indexer.py` — `_field_score`, `_find_match_spans`,
+  `_snippet_around_matches`, `_apply_marks`, `_expand_to_word` (pure, ~150 LOC).
+  The main `fuzzy_search_fallback()` stays in Python (it is DB/ORM-coupled); only
+  the pure helpers move to Rust.
+- **Steps:** port helpers → build → wire into `fuzzy_search_fallback()` → parity
+  vs `tests/test_search.py` (56).
+- **Parity risk:** `_field_score` uses rapidfuzz `token_set_ratio` + `partial_ratio`
+  — must reproduce both algorithms exactly (see Part 1 note on Indel ratio).
+- **Acceptance:** ≥2× fuzzy search; 56/56 tests identical.
+
+### Part 3 — TOC Generator + Cross-Reference Port (`nsa_rust::toc`, `nsa_rust::cross_reference`)
+
+- **Goal:** Accelerate HTML pre-processing for PDF generation.
+- **Targets:** `app/toc_generator/engine.py` (293 LOC), `app/cross_reference/engine.py` (495 LOC).
+- **Steps:** port both → build → wire into `PDFAssemblyEngine.post_process()` →
+  parity vs `tests/test_phase7_toc_generator.py` (37) + `tests/test_cross_reference.py` (27).
+- **Acceptance:** ≥2–3× pre-processing; 64/64 tests identical.
+
+### Part 4 — RAG Enrichment + Verification Port (`nsa_rust::enrichment`, `nsa_rust::verification`)
+
+- **Goal:** Accelerate ingestion enrichment and hallucination detection.
+- **Targets:** `app/rag/enrichment/deterministic.py`, `entity_extractor.py`,
+  `citation_adapter.py`, `crossref_adapter.py`, `metadata_adapter.py`;
+  `app/rag/verification/claim_extractor.py`, `evidence_verifier.py`,
+  `hallucination_detector.py`, `citation_validator.py`, `token_counter.py`.
+- **Steps:** port enrichment (+ ray-pll `rayon` for the evidence-verifier per-pair
+  loop) → build → wire into `IngestionPipeline` + `GroundedGenerationService` →
+  parity vs 255 enrichment + 48 verification tests.
+- **Acceptance:** ≥3× enrichment; ≥5× verification; zero test regressions.
+
+### Part 5 — Legal Paragraph Engine Port (`nsa_rust::legal_engine`) — Highest ROI, hardest
+
+- **Goal:** Replace `legal_paragraph_detection_engine` with a Rust crate exposing
+  the same `process_document(text, doc_type) -> list[dict]` API.
+- **Targets:** `legal_paragraph_detection_engine/src/` — `TextNormalizer`,
+  `ParagraphBoundaryDetector`, `HierarchyDetector`, `ClauseParser`,
+  `SectionParser`, `CitationExtractor`, `DocumentTypeClassifier`, and
+  `LegalParagraphEngine.process_document`.
+- **Steps:** port each sub-module → `nsa_rust::legal_engine::process_document` →
+  wire `app/services/legal_engine.py::get_legal_engine()` to prefer Rust, fall
+  back to Python → parity vs 282 RAG tests + `legal_paragraph_detection_engine/tests/`.
+- **Note:** `_make_citation_pattern` uses `(?<!\w)` lookbehind — the Rust `regex`
+  crate lacks lookbehind; use `fancy-regex` or a lookahead-based alternative.
+- **Acceptance:** ≥5× chunking throughput; 100% test parity.
+
+---
+
 ## Completed Milestones
 
 > Items finished and verified are tracked here so agents can trust implementation status at a glance.

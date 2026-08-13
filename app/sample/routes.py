@@ -13,7 +13,7 @@ from app.models import CaseFile, FSO, Sample
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
 from app.sample.sample_utils import generate_sample_code
-from app.services.sheets_sync import sync_to_sheets
+from app.services.sync_orchestrator import sync_row
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
 from app.utils.lookup import lookup_fssai
@@ -209,29 +209,13 @@ def create_sample():
                 "created_at": sample.created_at.isoformat() if sample.created_at else "",
                 "synced_at": "",
             }
-            success = sync_to_sheets("sample_repo", row_dict)
-            if success:
+            result = sync_row("sample_repo", row_dict, entity_id=sample.id)
+            if result["sheets"]:
                 # Update synced_at timestamp
                 sample.synced_at = datetime.now(UTC)
                 db.session.commit()
         except Exception as e:
-            current_app.logger.warning(f"Sample Sheets sync failed: {e}")
-
-        # Multi-target sync: Airtable (best-effort)
-        try:
-            from app.services.airtable_sync import sync_to_airtable
-
-            sync_to_airtable("sample_repo", row_dict, sample.id)
-        except Exception as e:
-            current_app.logger.warning(f"Sample: Airtable sync failed: {e}")
-
-        # Multi-target sync: Excel Online (best-effort)
-        try:
-            from app.services.excel_sync import sync_to_excel
-
-            sync_to_excel("sample_repo", row_dict)
-        except Exception as e:
-            current_app.logger.warning(f"Sample: Excel sync failed: {e}")
+            current_app.logger.warning(f"Sample sync failed: {e}")
 
         # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
         if not sample.food_cell_forwarded:
@@ -349,25 +333,9 @@ def update_sample(sample_id):
                 "created_at": sample.created_at.isoformat() if sample.created_at else "",
                 "synced_at": datetime.now(UTC).isoformat(),
             }
-            sync_to_sheets("sample_repo", row_dict)
+            sync_row("sample_repo", row_dict, entity_id=sample.id)
         except Exception as e:
-            current_app.logger.warning(f"Sample Sheets sync failed: {e}")
-
-        # Multi-target sync: Airtable (best-effort)
-        try:
-            from app.services.airtable_sync import sync_to_airtable
-
-            sync_to_airtable("sample_repo", row_dict, sample.id)
-        except Exception as e:
-            current_app.logger.warning(f"Sample update: Airtable sync failed: {e}")
-
-        # Multi-target sync: Excel Online (best-effort)
-        try:
-            from app.services.excel_sync import sync_to_excel
-
-            sync_to_excel("sample_repo", row_dict)
-        except Exception as e:
-            current_app.logger.warning(f"Sample update: Excel sync failed: {e}")
+            current_app.logger.warning(f"Sample update sync failed: {e}")
 
         return jsonify({"message": "Sample updated successfully"}), 200
     except Exception as e:

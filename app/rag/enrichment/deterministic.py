@@ -80,8 +80,10 @@ _REF_CONTEXT_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: FSSAI-specific terminology likely to appear in user queries.
-_FSSAI_TERMS = frozenset(
+#: General legal terminology likely to appear in user queries (FSSAI terms
+#: kept as a subset — Phase 1 de-FSSAI: the keyword extractor now serves the
+#: multi-domain corpus).
+_LEGAL_TERMS = frozenset(
     """
     fbo food business operator fssai licence license improvement notice
     adjudication adjudicating officer penalty offence compliance recall
@@ -89,6 +91,15 @@ _FSSAI_TERMS = frozenset(
     food safety officer laboratory analysis report appeal tribunal
     registration standards packaging labelling import export advertisement
     claims misbranded unsafe food quality safety hygiene sanitation
+    act section rule regulation rules regulations notification order
+    amendment repeal supersede enforce enforcement liability damages
+    compensation contract breach consideration partnership firm company
+    director shareholder winding insolvency arbitration limitation
+    plaintiff defendant suit decree injunction specific performance
+    pollution environment waste plastic water air emission consent
+    board corporation municipal municipality tenancy tenant landlord
+    livestock animal cruelty slaughter quarantine disease veterinary
+    consumer goods services warranty defect unfair trade
     """.split()
 )
 
@@ -319,15 +330,58 @@ def extract_keywords(text: str) -> list[str]:
         words.append(w)
     for m in _KEYWORD_LOW_RE.finditer(text):
         w = m.group(0)
-        if w.lower() in _FSSAI_TERMS and w.lower() not in seen:
+        if w.lower() in _LEGAL_TERMS and w.lower() not in seen:
             seen.add(w.lower())
             words.append(w)
     return words[:12]
 
 
+def legal_act_of(pl: dict) -> str | None:
+    """Resolve the parent Act for a chunk's ``legal_location.act``.
+
+    Priority (Phase 1 — de-FSSAI):
+      1. Explicit payload ``act_name`` (multi-domain manifest stamp).
+      2. An ``act``-type document's own title (an Act is its own parent).
+      3. The FSS Act family default — backward compatible for the existing
+         FSSAI corpus whose payloads carry no ``act_name``.
+
+    A subordinate instrument (regulation/rule/notification) from another
+    domain without an explicit ``act_name`` yields ``None`` (unknown) rather
+    than guessing a parent Act — unless the document is recognisably FSS
+    (title/URI carries "food safety", "fssai"), which preserves the FSSAI
+    corpus default.
+    """
+    explicit = pl.get("act_name")
+    if explicit:
+        cleaned = str(explicit).strip()
+        return cleaned or None
+    dtype = (pl.get("document_type") or "").lower()
+    if dtype == "act":
+        title = str(pl.get("document_title") or "").strip()
+        if title:
+            return re.sub(r"^(?:the|an|a)\s+", "", title, flags=re.IGNORECASE).strip() or None
+    if dtype in _FSS_ACT_FAMILY and _looks_like_fss_document(pl):
+        return FSS_ACT_NAME
+    return None
+
+
+def _looks_like_fss_document(pl: dict) -> bool:
+    """Whether a document is recognisably part of the FSS Act family.
+
+    Checks the title, document_id and URI for FSS markers — the FSSAI corpus
+    is stamped with "Food Safety and Standards" titles, so this keeps the
+    legacy default without mislabelling other domains' instruments.
+    """
+    haystack = " ".join(
+        str(pl.get(key) or "")
+        for key in ("document_title", "document_id", "document_uri")
+    ).lower()
+    return any(marker in haystack for marker in ("food safety", "fssai", "fss act"))
+
+
 def legal_location_of(pl: dict, attributed: dict) -> dict:
     """Build the ``legal_location`` block (sparse, deterministic)."""
-    act = FSS_ACT_NAME if (pl.get("document_type") or "").lower() in _FSS_ACT_FAMILY else None
+    act = legal_act_of(pl)
     section = attributed.get("section")
     subsection = pl.get("subsection")
     schedule = _SCHEDULE_RE.search(pl.get("chunk_text") or "")

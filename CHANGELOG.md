@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Priority 7 — Multi-Target Sheets Redundancy (Airtable + MS Excel Online)
+
 - **Airtable sync service** (`app/services/airtable_sync.py`): parallel real-time sync to
   Airtable alongside Google Sheets; automatic base rotation at Airtable's 1,200-record
   free-tier limit (new base created via `/v0/meta/bases`); `AirtableBaseMap` tracking model;
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: `tests/test_priority7_redundancy.py` — **43/43 pass** (no regressions)
 
 #### Phase 21 — Food Cell DO Intimation
+
 - **`app/food_cell/` blueprint** (`/food-cell`): `generate_and_forward_do_intimation()`
   service (templated HTML + WeasyPrint PDF with stub fallback), `DoIntimation` model +
   `food_cell_forwarded` column on `Sample`, `send_do_intimation` Celery task wired post-save
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: `tests/test_food_cell_do_intimation.py` — **15/15 pass**
 
 #### Phase 13 — Timeline Engine & Gantt Visualization
+
 - **`app/timeline/` blueprint**: `TimelineEngine` (extract/refresh/validate_sequence/build_payload)
   persisting case_file events to the `timeline_event` table; adjudication timelines served
   ephemerally; vertical timeline + Gantt UI with document links
@@ -56,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: `tests/test_timeline.py` — **21/21 pass**
 
 #### Phase A — OCR Pipeline Foundation
+
 - **`app/services/ocr_extraction.py`**: `process_document_ocr()` (regex + NER field extraction)
 - **`app/services/page_splitter.py`**: `split_pdf_bundle()` via PyMuPDF
 - **`app/ocr_pipeline/tasks.py`**: `process_ocr_document_async` Celery task persisting
@@ -63,17 +67,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: `tests/test_ocr_extraction.py` — **14/14 pass**
 
 #### Phase 16 — Backup & Export
+
 - **`export_case_as_json()` / `export_case_as_zip()` / `import_case_from_json()`** in
   `app/case_file_generator/services.py` + 3 routes in `routes.py`
 - **Celery beat** `daily-db-snapshot` at midnight UTC + settings backup/restore UI;
   `tests/test_case_backup.py` — **14 pass**
 
 #### Phase 10 — Fuzzy Search
+
 - **Fuzzy search fallback** via `rapidfuzz` (`fuzzy_search_fallback()`) with `<mark>` snippet
   highlighting, `fuzzy` API/UI toggle, and `rapidfuzz>=3.0.0` + `numpy` declared in
   `pyproject.toml`; `tests/test_search.py` — **56 pass**
 
 #### Deepening Tasks D1–D5
+
 - **`CaseResolver`** (`app/shared/case_resolver.py`): `ResolvedCase` disambiguation of
   CaseFile vs Adjudication IDs (D1)
 - **`DocumentSaveCoordinator`** (`app/services/document_lifecycle.py`): `save()` encapsulating
@@ -85,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rendering, document generation (D5)
 
 #### Priority 6 — Infrastructure
+
 - **PostgreSQL migration** (Alembic migrations incl. `add_rbac_and_comment_tables`,
   `add_timeline_event_table`, `add_entity_relationship_tables`, `add_ocr_pipeline_models`)
 - **CI** `test-postgres` job in `validation.yml`; multi-stage `Dockerfile` +
@@ -93,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`GET /health`** public probe endpoint
 
 ### Changed
+
 - **Eager-loading & N+1 fixes**: `load_only` column trimming in
   `DocumentCaseManager._list_cases_query()`, `lazy="selectin"` on `Bill.samples` + `bills`
   backref, `distinct()` on the evidence tag-cloud query
@@ -115,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 #### Security
+
 - **S7 — TLS certificate verification** for KMC license lookup: removed insecure SSL settings
   (`check_hostname=False`, `verify_mode=CERT_NONE`) (P0)
 - **S9a — Concurrency guard**: fixed the one-line inspection-PUT bug (`409` was passed inside
@@ -124,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"yes"` (non-compliant) triggers Section 55 instead of the compliant default `"no"`
 
 #### Environment / Webhook
+
 - **ENV-9a**: aligned QStash webhook receiver env-var check with `/health`
   (`qstash_configured()`); **ENV-9b**: `clock_tolerance=5` passed to `Receiver.verify()`
   (prevents valid-webhook 401s from clock skew); **ENV-9d**: added the QStash **DLQ gap fix**
@@ -134,10 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   template (no template was missing — the blueprint was never registered)
 
 ### Performance
+
 - **Performance Quick Wins 7/7**: SQLAlchemy connection pooling, FSO `@lru_cache`, Jinja2
   `FileSystemBytecodeCache`, Flask-Compress, `GET /health`, DB indexes, eager loading
 
 ### Cleanup / Refactor
+
 - **S6a–c**: removed legacy root-level `suggester.py` + `sections_data.py`;
   wired canonical `app/utils/sections_data.py` into the suggester as the single source of
   section IDs
@@ -146,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidated AI planning docs into `agents.md`, `plan.md`, `task.md`
 
 ### Docs
+
 - `agents.md`, `plan.md`, `task.md`, `CHANGELOG.md`, `README.md` updated to reflect all
   implemented phases and status
 
@@ -154,14 +168,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Modular Flask blueprints for:
-  - Inspection module
-  - Sample module
-  - Adjudication module
-  - Case file generator
-  - Bill generator
-  - Billing module
-  - FBO issue management
-  - Settings
+    - Inspection module
+    - Sample module
+    - Adjudication module
+    - Case file generator
+    - Bill generator
+    - Billing module
+    - FBO issue management
+    - Settings
 - OCR pipeline with Celery
 - Photo evidence system with geo-verification
 - Google Sheets integration
@@ -175,10 +189,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-| Version | Date | Description |
-|---------|------|-------------|
-| 1.0.0 | 2026-01-01 | Initial release |
-| 1.0.1 | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix) |
+| Version    | Date       | Description                                                                                                                                                                                                                                                                            |
+| ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0.0      | 2026-01-01 | Initial release                                                                                                                                                                                                                                                                        |
+| 1.0.1      | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix)                                                                                                                                                                                                                                  |
 | Unreleased | 2026-08-07 | Priority 7 (Airtable + Excel redundancy), Phase 21 (Food Cell DO Intimation), Phase 13 (Timeline + Gantt), Phase A (OCR), Phase 16 (Backup/Export), Phase 10 (Fuzzy search), Deepening D1–D5, S9a concurrency guard, Priority 6 infra, Performance Quick Wins 7/7, ENV-9 webhook fixes |
 
 ---

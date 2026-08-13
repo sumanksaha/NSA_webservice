@@ -62,6 +62,9 @@ class Chunk:
     authority: str = ""
     jurisdiction: str = ""
     state: str = ""
+    #: Owning Act name (e.g. "Air (Prevention and Control of Pollution) Act,
+    #: 1981") — multi-domain stamp from the ingestion manifest (Phase 1).
+    act_name: str = ""
     effective_date: str | None = None
     enactment_date: str | None = None
     amended_date: str | None = None
@@ -95,6 +98,7 @@ class Chunk:
             "authority": self.authority,
             "jurisdiction": self.jurisdiction,
             "state": self.state,
+            "act_name": self.act_name,
             "effective_date": self.effective_date,
             "enactment_date": self.enactment_date,
             "amended_date": self.amended_date,
@@ -154,6 +158,7 @@ class Chunk:
             authority=doc.get("authority", ""),
             jurisdiction=doc.get("jurisdiction", ""),
             state=doc.get("state", ""),
+            act_name=doc.get("act_name") or "",
             effective_date=_as_iso(doc.get("effective_date")),
             enactment_date=_as_iso(doc.get("enactment_date")),
             amended_date=_as_iso(doc.get("amended_date")),

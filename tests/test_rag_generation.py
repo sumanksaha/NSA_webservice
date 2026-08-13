@@ -293,6 +293,83 @@ class TestRunGenerationPipeline:
         assert result["groundedness_score"] == 0.0
         assert result["query_type"] == "general_qa"
 
+    def test_kg_contract_fusion_off_by_default(self, monkeypatch):
+        """RAG_KG_FUSION defaults off: no KG contract provisions injected, and
+        no KG call is made."""
+        chunks = [
+            {
+                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
+                "section_number": "55", "document_title": "FSS Act",
+                "document_type": "act", "authority": "FSSAI",
+            }
+        ]
+        called = []
+
+        def _fake_provisions_for_query(*a, **k):
+            called.append(a)
+            return [{"provision_id": "P1", "provision_number": "55", "title": "T"}]
+
+        monkeypatch.setattr("kg.queries.provisions_for_query", _fake_provisions_for_query)
+        result = run_generation_pipeline(query="Section 55?", chunks=chunks, query_type="section_lookup")
+        assert result["kg_contract"] is None
+        assert called == []
+
+    def test_kg_contract_fusion_injects_and_fuses(self, monkeypatch):
+        """RAG_KG_FUSION on: the retrieval contract's provisions become KG
+        chunks and are RRF-fused into the context; the response reports the
+        injection."""
+        chunks = [
+            {
+                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
+                "section_number": "55", "document_title": "FSS Act",
+                "document_type": "act", "authority": "FSSAI",
+            }
+        ]
+
+        def _fake_provisions_for_query(query, kg_queries, limit=10):
+            assert query == "Section 55?"
+            return [
+                {
+                    # Novel provision (Air Act s3) — NOT covered by the vector
+                    # chunks, so it survives the KG-redundancy dedup.
+                    "provision_id": "P1", "provision_number": "3", "title": "Prov 3",
+                    "instrument_title": "Air (Prevention and Control of Pollution) Act, 1981",
+                    "legal_domain": "ENVIRONMENT_POLLUTION",
+                    "status": "current", "text": "Provision 3 body",
+                }
+            ]
+
+        monkeypatch.setattr("kg.queries.provisions_for_query", _fake_provisions_for_query)
+        monkeypatch.setenv("RAG_KG_FUSION", "true")
+        result = run_generation_pipeline(query="Section 55?", chunks=chunks, query_type="section_lookup")
+        assert result["kg_contract"] is not None
+        assert result["kg_contract"]["provisions"] == 1
+        assert result["kg_contract"]["injected"] == 1
+        assert result["kg_contract"]["fused"] is True
+        # The KG provision chunk must be part of the evidence handed to the LLM.
+        ids = [c.get("chunk_id") for c in result["retrieved_chunks"]]
+        assert any(str(i).startswith("KG:") for i in ids)
+
+    def test_kg_contract_fusion_best_effort_on_error(self, monkeypatch):
+        """A failing KG contract degrades to no fusion (never raises)."""
+        chunks = [
+            {
+                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
+                "section_number": "55", "document_title": "FSS Act",
+                "document_type": "act", "authority": "FSSAI",
+            }
+        ]
+
+        def _boom(*a, **k):
+            raise RuntimeError("neo4j down")
+
+        monkeypatch.setattr("kg.queries.provisions_for_query", _boom)
+        monkeypatch.setenv("RAG_KG_FUSION", "true")
+        result = run_generation_pipeline(query="Section 55?", chunks=chunks, query_type="section_lookup")
+        assert result["kg_contract"]["error"] == "neo4j down"
+        assert result["kg_contract"]["fused"] is False
+        assert result["answer"]  # generation still worked
+
 
 class TestRetrievedChunkFromDict:
     def test_round_trip(self):

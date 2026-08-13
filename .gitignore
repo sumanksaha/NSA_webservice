@@ -333,6 +333,36 @@ test-results/
 instance/instance/
 *.backup_*
 *_backup.csv
+
+# ---------------------------------------------------------------------------
+# Scratch / debug / AI agent working artifacts (do not commit)
+# ---------------------------------------------------------------------------
+# Root-level audit scripts and output
+audit_*.py
+audit_*.json
+audit_*.txt
+
+# Root-level temp scripts and output
+tmp_*.py
+tmp_*.json
+tmp_*.txt
+output.txt
+doc_cleaner_output.txt
+doc_result.txt
+
+# Root-level benchmark build / extraction scripts (one-off tools)
+build_benchmark.py
+corpus_identity_extract.py
+corpus_identity_reconcile.json
+corpus_identity_reconcile.py
+
+# Evaluation debug / probe / fix scripts (temporary investigation tools)
+evaluation/_*.py
+evaluation/fix_*.py
+evaluation/out/
+
+# Script debug / probe scripts (temporary investigation tools)
+scripts/_*.py
 smoke_test.py
 nul
 *.db
@@ -361,3 +391,9 @@ instance/jinja2_cache/
 instance/temp_uploads/
 .opencode/
 backups/*.json
+
+# Rust (PyO3) build artifacts
+rust/target/
+rust/Cargo.lock
+*.pyd
+

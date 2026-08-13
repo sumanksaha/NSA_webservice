@@ -37,7 +37,13 @@ def _run_sync_kg_to_neo4j(
     if not neo4j_configured():
         return {"status": "error", "message": "Neo4j not configured in .env"}
 
-    summary = push_to_neo4j(case_type=case_type, case_id=case_id)
+    try:
+        summary = push_to_neo4j(case_type=case_type, case_id=case_id)
+    except RuntimeError as exc:
+        # Fail-closed write guard (NEO4J_ALLOW_WRITE=1) — surface a clean
+        # error status instead of a 500 traceback.
+        logger.warning("Neo4j sync refused: %s", exc)
+        return {"status": "error", "message": str(exc)}
     logger.info(
         "Knowledge graph synced to Neo4j: %d nodes, %d edges",
         summary["nodes"],

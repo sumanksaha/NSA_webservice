@@ -21,6 +21,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NEO4J_AVAILABLE = bool(os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_PASSWORD"))
+
+#: Fail-closed write guard (2026-08-12): ``push_to_neo4j`` clears the WHOLE
+#: graph (``MATCH (n) DETACH DELETE n``) before pushing.  The real-connection
+#: tests below are DESTRUCTIVE — they wiped the 29k-node legal KG from a live
+#: Aura instance in an earlier run.  They now require an explicit
+#: ``NEO4J_ALLOW_WRITE=1`` on top of credentials.
+NEO4J_WRITES_ALLOWED = os.environ.get("NEO4J_ALLOW_WRITE", "0").lower() in ("1", "true", "yes")
+
 neo4j = pytest.importorskip("neo4j", reason="neo4j driver not installed")
 
 
@@ -68,9 +76,17 @@ class TestNeo4jConfig:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.skipif(not NEO4J_AVAILABLE, reason="Neo4j credentials not in .env")
+@pytest.mark.skipif(
+    not NEO4J_AVAILABLE or not NEO4J_WRITES_ALLOWED,
+    reason="Neo4j credentials missing, or NEO4J_ALLOW_WRITE not set "
+    "(push_to_neo4j CLEARS the whole graph with MATCH (n) DETACH DELETE n)",
+)
 class TestNeo4jRealConnection:
-    """End-to-end tests against the real Aura instance."""
+    """End-to-end tests against the real Aura instance.
+
+    DESTRUCTIVE: ``push_to_neo4j`` clears the whole graph before pushing.
+    Runs only when ``NEO4J_ALLOW_WRITE=1`` is set explicitly (default off).
+    """
 
     def test_push_empty_graph(self):
         """Push with no entities — should succeed with 0 nodes/edges."""
@@ -152,6 +168,112 @@ class TestNeo4jRealConnection:
         ):
             result = push_to_neo4j(use_apoc=True)
             assert result["apoc_used"] is True
+
+
+# --------------------------------------------------------------------------- #
+# Write-guard tests (no DB contact needed)
+# --------------------------------------------------------------------------- #
+
+
+class TestNeo4jWriteGuard:
+    """Fail-closed NEO4J_ALLOW_WRITE guard on destructive write paths."""
+
+    @staticmethod
+    def _env_with_creds_without_flag() -> dict:
+        env = dict(os.environ)
+        env["NEO4J_URI"] = "neo4j+s://test.databases.neo4j.io"
+        env["NEO4J_USERNAME"] = "neo4j"
+        env["NEO4J_PASSWORD"] = "secret"
+        env.pop("NEO4J_ALLOW_WRITE", None)
+        return env
+
+    def test_push_to_neo4j_blocked_without_write_flag(self):
+        """push_to_neo4j must refuse to run (and not touch the DB) without the flag."""
+        from app.services.neo4j_graph import push_to_neo4j
+
+        with patch.dict(os.environ, self._env_with_creds_without_flag(), clear=True):
+            with pytest.raises(RuntimeError, match="NEO4J_ALLOW_WRITE"):
+                push_to_neo4j()
+
+    def test_clear_legal_kg_blocked_without_write_flag(self):
+        """clear_legal_kg must refuse to delete the legal KG without the flag."""
+        from kg.schema import clear_legal_kg
+
+        with patch.dict(os.environ, self._env_with_creds_without_flag(), clear=True):
+            with pytest.raises(RuntimeError, match="NEO4J_ALLOW_WRITE"):
+                clear_legal_kg()
+
+    def test_writes_allowed_flag_semantics(self):
+        """neo4j_writes_allowed() is fail-closed: off by default, on with =1."""
+        from app.services.neo4j_graph import neo4j_writes_allowed
+
+        with patch.dict(os.environ, {}, clear=True):
+            assert neo4j_writes_allowed() is False
+        for value in ("1", "true", "YES"):
+            with patch.dict(os.environ, {"NEO4J_ALLOW_WRITE": value}, clear=True):
+                assert neo4j_writes_allowed() is True
+
+    def test_push_clear_is_scoped_to_case_graph(self):
+        """push_to_neo4j must clear ONLY case-file labels — never the legal KG.
+
+        Runs the full push path against a recording fake driver with an
+        empty payload; asserts the pre-push clear is the scoped Cypher and
+        is NOT the bare whole-graph wipe.
+        """
+        from app.services.neo4j_graph import push_to_neo4j
+
+        class RecordingDriver:
+            def __init__(self):
+                self.calls: list[str] = []
+
+            def execute_query(self, cypher, parameters_=None, database_=None):
+                self.calls.append(cypher)
+                return object()
+
+            def close(self):
+                pass
+
+        driver = RecordingDriver()
+        with patch.dict(os.environ, {"NEO4J_ALLOW_WRITE": "1"}, clear=False):
+            with patch(
+                "app.services.neo4j_graph.build_cypher_payload",
+                return_value={"nodes": [], "edges": [], "node_count": 0, "edge_count": 0},
+            ):
+                with patch("app.services.neo4j_graph.setup_constraints_and_indexes"):
+                    with patch("app.services.neo4j_graph._get_driver", return_value=driver):
+                        result = push_to_neo4j()
+
+        from app.services.neo4j_graph import _CASE_GRAPH_LABELS
+
+        assert result["deleted"] == "all"
+        clear_calls = [c for c in driver.calls if "DETACH DELETE" in c]
+        assert clear_calls, "push_to_neo4j should issue a pre-push clear"
+        # The legal-KG destroying bare wipe must NEVER be issued — check EVERY
+        # clear call, not just the first.
+        assert all("MATCH (n) DETACH DELETE n" not in c for c in clear_calls)
+        clear_cypher = clear_calls[0]
+        # The clear is scoped to the case-file labels (derived from the same
+        # source as the push) + the local_id / provision_id guards.
+        assert "n.local_id IS NOT NULL" in clear_cypher
+        assert "n.provision_id IS NULL" in clear_cypher
+        assert set(_CASE_GRAPH_LABELS) <= {"Case", "FBO", "Inspector", "Sample", "Lab", "Section", "Evidence", "Ancillary", "Entity"}
+        for label in _CASE_GRAPH_LABELS:
+            assert f"n:{label}" in clear_cypher
+        for legal_label in ("Act", "LegalProvision", "LegalDomain", "LegalConcept", "Chunk", "Document"):
+            assert f"n:{legal_label}" not in clear_cypher
+
+    def test_sync_task_returns_clean_error_when_writes_blocked(self):
+        """The sync task surfaces the guard as a clean error status, not a 500."""
+        from app.knowledge_graph.tasks import _run_sync_kg_to_neo4j
+
+        with patch("app.services.neo4j_graph.neo4j_configured", return_value=True):
+            with patch(
+                "app.services.neo4j_graph.push_to_neo4j",
+                side_effect=RuntimeError("set NEO4J_ALLOW_WRITE=1"),
+            ):
+                result = _run_sync_kg_to_neo4j()
+                assert result["status"] == "error"
+                assert "NEO4J_ALLOW_WRITE" in result["message"]
 
 
 # --------------------------------------------------------------------------- #

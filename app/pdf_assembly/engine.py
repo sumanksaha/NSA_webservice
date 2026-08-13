@@ -708,312 +708,56 @@ class PDFAssemblyEngine:
             return pdf1
 
     def _create_index_page_html(self, case_id: int, case_data: dict) -> str:
-        """Create HTML for comprehensive case index page."""
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Case {case_id} - Index</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    margin: 40px;
-                    background-color: #f9f9f9;
-                }}
-                .header {{
-                    text-align: center;
-                    background-color: #2c3e50;
-                    color: white;
-                    padding: 30px;
-                    margin-bottom: 40px;
-                    border-radius: 5px;
-                }}
-                .index-container {{
-                    max-width: 800px;
-                    margin: 0 auto;
-                    background-color: white;
-                    padding: 30px;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }}
-                .index-section {{
-                    margin-bottom: 30px;
-                }}
-                .section-title {{
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #2c3e50;
-                    border-bottom: 2px solid #3498db;
-                    padding-bottom: 10px;
-                    margin-bottom: 20px;
-                }}
-                .index-item {{
-                    padding: 8px 0;
-                    border-bottom: 1px solid #eee;
-                    display: flex;
-                    justify-content: space-between;
-                }}
-                .item-title {{
-                    flex: 1;
-                }}
-                .item-page {{
-                    color: #999;
-                    font-family: monospace;
-                }}
-                .important-notice {{
-                    background-color: #fff3cd;
-                    border: 1px solid #ffc107;
-                    border-radius: 5px;
-                    padding: 15px;
-                    margin: 20px 0;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 50px;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                    color: #666;
-                    font-size: 12px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>CASE {case_id} INDEX</h1>
-                <p>Comprehensive Document Index for Legal Adjudication</p>
-            </div>
+        """Create HTML for comprehensive case index page.
 
-            <div class="index-container">
-                <div class="index-section">
-                    <div class="section-title">DOCUMENT STRUCTURE</div>
-                    <div class="index-item">
-                        <span class="item-title">1. Introduction / Statement of Facts</span>
-                        <span class="item-page">Page 1</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">2. GROUNDS Analysis & Legal Citations</span>
-                        <span class="item-page">Page 1</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">3. PRAYER Clauses & Relief Sought</span>
-                        <span class="item-page">Page 2</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">4. Annexure A - Attachments & Evidence</span>
-                        <span class="item-page">Page 3</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">5. Annexure B - Forms & Templates</span>
-                        <span class="item-page">Page 4</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">6. EVIDENCE PHOTOGRAPHS</span>
-                        <span class="item-page">Page 5</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">7. SIGNATORIES & AUTHORIZATION</span>
-                        <span class="item-page">Page 6</span>
-                    </div>
-                </div>
-
-                <div class="index-section">
-                    <div class="section-title">CASE INFORMATION</div>
-                    <div class="index-item">
-                        <span class="item-title">Case Number:</span>
-                        <span class="item-page">{case_data.get("case_number", "")}</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">Sample ID:</span>
-                        <span class="item-page">{case_data.get("sample_code", "")}</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">Food Safety Officer:</span>
-                        <span class="item-page">{case_data.get("food_safety_officer_name", "")}</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">Created On:</span>
-                        <span class="item-page">{datetime.now().strftime("%Y-%m-%d")}</span>
-                    </div>
-                </div>
-
-                <div class="important-notice">
-                    <strong>Important Notice:</strong><br>
-                    This document contains official adjudication materials. Access is restricted to authorized personnel only. <br>
-                    All pages are interconnected. Navigation between sections is maintained throughout the document.
-                </div>
-
-                <div class="index-section">
-                    <div class="section-title">TECHNICAL SPECIFICATIONS</div>
-                    <div class="index-item">
-                        <span class="item-title">Document Format:</span>
-                        <span class="item-page">PDF / A4 Size</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">Security:</span>
-                        <span class="item-page">Digital Signature & QR Code</span>
-                    </div>
-                    <div class="index-item">
-                        <span class="item-title">Generated By:</span>
-                        <span class="item-page">NSA Webservice v0.8.0</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="footer">
-                <p>Page 1 of 1 | Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
-                <p>This is an officially generated document. No manual signatures are required.</p>
-            </div>
-        </body>
-        </html>
+        Delegates to the ``pdf_assembly/index_page.html`` Jinja2 template,
+        eliminating the 155-line f-string that previously lived inline.
         """
+        from flask import render_template
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc)
+        return render_template(
+            "pdf_assembly/index_page.html",
+            case_id=case_id,
+            case_data=case_data,
+            now_date=now.strftime("%Y-%m-%d"),
+            now_datetime=now.strftime("%Y-%m-%d %H:%M:%S"),
+        )
 
     def _create_annexure_page_html(self, annexure: dict) -> str:
-        """Create HTML for a standalone annexure page."""
+        """Create HTML for a standalone annexure page.
+
+        Delegates to the ``pdf_assembly/annexure_page.html`` Jinja2 template.
+        """
+        from flask import render_template
+
         annexure_id = annexure.get("id", 0)
         annexure_letter = chr(64 + (annexure_id % 26)) if annexure_id <= 26 else str(annexure_id)
-        title = annexure.get("title", f"Annexure {annexure_letter}")
-        content = annexure.get("content", "")
-
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{title}</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    margin: 40px;
-                    background-color: #f5f5f5;
-                }}
-                .annexure-header {{
-                    background-color: #34495e;
-                    color: white;
-                    padding: 30px;
-                    margin-bottom: 30px;
-                    text-align: center;
-                    border-radius: 5px;
-                }}
-                .annexure-title {{
-                    font-size: 28px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                }}
-                .annexure-letter {{
-                    font-size: 48px;
-                    font-weight: bold;
-                    color: #3498db;
-                    display: block;
-                    margin-bottom: 10px;
-                }}
-                .annexure-content {{
-                    background-color: white;
-                    padding: 30px;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    min-height: 300px;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                    color: #666;
-                }}
-                .page-number {{
-                    float: right;
-                    font-style: italic;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="annexure-header">
-                <span class="annexure-letter">ANNEXURE {annexure_letter}</span>
-                <div class="annexure-title">{title}</div>
-                <p>ID: {annexure_id} | Type: {annexure.get("type", "Document")}</p>
-            </div>
-
-            <div class="annexure-content">
-                {content}
-            </div>
-
-            <div class="footer">
-                <span class="page-number">Page 1 of 1</span>
-                <p>Official Annexure Document - Confidential</p>
-            </div>
-        </body>
-        </html>
-        """
+        return render_template(
+            "pdf_assembly/annexure_page.html",
+            annexure=annexure,
+            annexure_id=annexure_id,
+            annexure_letter=annexure_letter,
+            title=annexure.get("title", f"Annexure {annexure_letter}"),
+            annexure_type=annexure.get("type", "Document"),
+            content=annexure.get("content", ""),
+        )
 
     def _create_evidence_photo_page(self, image_data: str, image_url: str) -> bytes:
-        """Create PDF page for a single evidence photo."""
-        try:
-            photo_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Evidence Photo</title>
-                <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        margin: 20px;
-                        background-color: #000;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        min-height: 100vh;
-                    }}
-                    .photo-container {{
-                        background: white;
-                        padding: 20px;
-                        border-radius: 10px;
-                        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                        text-align: center;
-                        max-width: 90%;
-                    }}
-                    .photo {{
-                        max-width: 100%;
-                        height: auto;
-                        border-radius: 5px;
-                        margin-bottom: 20px;
-                    }}
-                    .photo-info {{
-                        font-size: 14px;
-                        color: #666;
-                        margin-bottom: 10px;
-                    }}
-                    .photo-source {{
-                        font-size: 12px;
-                        color: #999;
-                        font-style: italic;
-                    }}
-                    .verification-badge {{
-                        background-color: #27ae60;
-                        color: white;
-                        padding: 5px 15px;
-                        border-radius: 20px;
-                        font-size: 12px;
-                        margin-top: 10px;
-                        display: inline-block;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="photo-container">
-                    <img src="{image_data}" alt="Evidence Photo" class="photo" />
-                    <div class="photo-info">
-                        Evidence Photo
-                    </div>
-                    <div class="photo-source">
-                        Source: {image_url}
-                    </div>
-                    <div class="verification-badge">
-                        ✓ Verified
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
+        """Create PDF page for a single evidence photo.
 
+        Delegates to the ``pdf_assembly/evidence_photo_page.html`` Jinja2
+        template, eliminating the 50-line inline f-string.
+        """
+        from flask import render_template
+
+        try:
+            photo_html = render_template(
+                "pdf_assembly/evidence_photo_page.html",
+                image_data=image_data,
+                image_url=image_url,
+            )
             pdf_bytes, error = self.generate_from_html(photo_html)
             if error:
                 self.logger.warning("Failed to generate evidence photo PDF: %s", error)

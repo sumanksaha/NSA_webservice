@@ -7,6 +7,10 @@ Reads connection details from .env file:
 Usage:
     python neo4j_aura_loader.py           # Load the full knowledge graph
     python neo4j_aura_loader.py --test    # Test connection only
+
+WARNING: loading clears the WHOLE graph first (``MATCH (n) DETACH DELETE n``).
+Refuses to run unless ``NEO4J_ALLOW_WRITE=1`` is set (fail-closed guard added
+2026-08-12 after ``push_to_neo4j`` wiped the 29k-node legal KG from a test).
 """
 
 import os
@@ -50,6 +54,13 @@ def load_knowledge_graph(driver, database, clear_first=True):
     # --- Sample data: a mini legal-case knowledge graph ---
     # Nodes: Person, Organization, Act, Case, Section
     # Edges: KNOWN_AS, ENACTED, CITES, FILED_UNDER, PRESIDED_BY
+
+    if clear_first and os.environ.get("NEO4J_ALLOW_WRITE", "0").lower() not in ("1", "true", "yes"):
+        print(
+            "Refusing to clear the graph: set NEO4J_ALLOW_WRITE=1 to run "
+            "neo4j_aura_loader (clear_first wipes ALL nodes)."
+        )
+        raise SystemExit(1)
 
     if clear_first:
         driver.execute_query("MATCH (n) DETACH DELETE n", database=database)

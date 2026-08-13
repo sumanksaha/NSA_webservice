@@ -47,6 +47,32 @@ _EDGE_TYPES: dict[str, str] = {
     "REFERENCES": "REFERENCES",
 }
 
+#: Labels owned by the case-file knowledge graph — the ONLY nodes
+#: ``push_to_neo4j`` deletes on re-push.
+#:
+#: Derived from ``_NODE_LABELS`` (+ the ``Entity`` APOC fallback) so the
+#: clear can never drift from what the push creates — a stale case node
+#: surviving the clear would collide with the ``local_id`` uniqueness
+#: constraints on the next push.  Legal-KG labels (Act, LegalProvision,
+#: LegalDomain, LegalConcept, Jurisdiction, Chunk, Document, Source, ...)
+#: are NEVER cleared here, so a sync can never destroy the legal KG even
+#: when ``NEO4J_ALLOW_WRITE=1`` is set.
+_CASE_GRAPH_LABELS: tuple[str, ...] = tuple(sorted(set(_NODE_LABELS.values()) | {"Entity"}))
+
+#: Scoped clear for the case-file graph.  ``n.local_id IS NOT NULL``
+#: disambiguates the shared ``:Section`` label (case-file nodes always carry
+#: ``local_id`` set by the push; legal-KG ``:Section`` nodes carry
+#: ``provision_id``) and ``n.provision_id IS NULL`` is belt-and-braces for
+#: that shared label.
+_CASE_GRAPH_CLEAR_CYPHER = (
+    "MATCH (n) "
+    "WHERE (" + " OR ".join(f"n:{label}" for label in _CASE_GRAPH_LABELS) + ") "
+    "AND n.local_id IS NOT NULL "
+    "AND n.provision_id IS NULL "
+    "DETACH DELETE n"
+)
+
+
 # Constraints + indexes to set up on first push (idempotent via IF NOT EXISTS)
 _CONSTRAINTS_CYPHER: list[str] = [
     # Uniqueness: each local_id maps to exactly one node
@@ -72,6 +98,21 @@ _INDEXES_CYPHER: list[str] = [
 def neo4j_configured() -> bool:
     """True when all Neo4j Aura env vars are present."""
     return bool(os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_USERNAME") and os.environ.get("NEO4J_PASSWORD"))
+
+
+def neo4j_writes_allowed() -> bool:
+    """Fail-closed write guard for the shared Neo4j Aura instance.
+
+    Destructive operations (full-graph clears / re-pushes) require an
+    explicit ``NEO4J_ALLOW_WRITE=1`` in the environment.  Default is OFF so
+    incidental callers — test suites, misconfigured sync triggers — can never
+    wipe the shared graph.  (Incident 2026-08-12: ``test_neo4j_kg_sync.py``
+    ran ``push_to_neo4j`` against the live Aura instance, whose
+    ``MATCH (n) DETACH DELETE n`` destroyed the 29k-node legal KG.  The push
+    clear is now scoped to case-file labels, so even an authorized sync
+    cannot delete the legal KG.)
+    """
+    return os.environ.get("NEO4J_ALLOW_WRITE", "0").lower() in ("1", "true", "yes")
 
 
 def _get_driver():
@@ -187,7 +228,24 @@ def push_to_neo4j(
                   Falls back to ``CREATE (:Entity {...})`` if APOC fails.
 
     Returns a summary dict with ``nodes``, ``edges``, ``deleted``, ``created``.
+
+    Notes:
+        The pre-push clear is SCOPED to the case-file graph
+        (``_CASE_GRAPH_CLEAR_CYPHER``: ``Case``/``FBO``/... labels carrying
+        ``local_id``) — the legal KG (``Act``, ``LegalProvision``,
+        ``LegalDomain``, ``Chunk``, ...) is never deleted by a sync.
+
+    Raises:
+        RuntimeError: when ``NEO4J_ALLOW_WRITE`` is not ``1`` — this function
+            clears the case-file graph before pushing, so it must be
+            explicitly opted into (fail-closed).
     """
+    if not neo4j_writes_allowed():
+        raise RuntimeError(
+            "Neo4j writes are disabled: set NEO4J_ALLOW_WRITE=1 to allow "
+            "push_to_neo4j() (it clears the case-file graph before pushing)."
+        )
+
     payload = build_cypher_payload()
 
     # Ensure constraints/indexes exist before loading data
@@ -200,9 +258,10 @@ def push_to_neo4j(
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
 
     try:
-        # Clear the graph (idempotent on re-push)
+        # Clear ONLY the case-file graph (labels + ``local_id`` marker) so a
+        # sync can never delete the legal KG.  Idempotent on re-push.
         driver.execute_query(
-            "MATCH (n) DETACH DELETE n",
+            _CASE_GRAPH_CLEAR_CYPHER,
             database_=database,  # type: ignore[call-arg]
         )
 

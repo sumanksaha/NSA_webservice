@@ -211,6 +211,21 @@ def create_app():
     app.config["RAG_QDRANT_URL"] = os.environ.get("RAG_QDRANT_URL", "")
     app.config["RAG_QDRANT_API_KEY"] = os.environ.get("RAG_QDRANT_API_KEY", "")
     app.config["RAG_QDRANT_COLLECTION"] = os.environ.get("RAG_QDRANT_COLLECTION", "fssai_legal_768")
+    # Multi-domain RAG collections (Phase 1 — de-FSSAI, 2026-08-10): per-domain
+    # collection overrides consulted by app/rag/collections.collection_for_domain.
+    # Defaults mirror the multi-domain manifest; the FSSAI corpus stays on
+    # RAG_QDRANT_COLLECTION.
+    app.config["RAG_QDRANT_COLLECTION_ENV"] = os.environ.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768")
+    app.config["RAG_QDRANT_COLLECTION_COMMERCIAL"] = os.environ.get(
+        "RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"
+    )
+    app.config["RAG_QDRANT_COLLECTION_ANIMAL"] = os.environ.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768")
+    app.config["RAG_QDRANT_COLLECTION_WB_STATE"] = os.environ.get(
+        "RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"
+    )
+    app.config["RAG_QDRANT_COLLECTION_CRIMINAL"] = os.environ.get(
+        "RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"
+    )
     app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
     app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
     app.config["RAG_RERANKER_MODEL"] = os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
@@ -227,6 +242,25 @@ def create_app():
     # LLM model for grounded RAG generation (OpenRouter free tier).
     # Overrides the GroundedLLMClient default when set.
     app.config["RAG_LLM_MODEL"] = os.environ.get("RAG_LLM_MODEL")
+    # KG graph expansion (Option F — 2026-08-11): when true, the generation
+    # pipeline expands retrieved chunk IDs through the Neo4j legal KG into
+    # structured legal context (provisions, domains, temporal status).
+    # Best-effort — a missing/unreachable Neo4j degrades to no expansion.
+    app.config["RAG_KG_EXPANSION"] = os.environ.get("RAG_KG_EXPANSION", "false").lower() == "true"
+    # KG contract fusion (2026-08-12, validated by the offline fusion
+    # experiment): when true, the generation pipeline runs the graph-RAG
+    # retrieval contract (query -> provisions via kg.queries.provisions_for_query)
+    # and RRF-fuses those provisions into the ranked context alongside the
+    # retrieved chunks — the production equivalent of eval arm G
+    # (RRF(dense, sparse, KG-contract)).  Best-effort: a missing/unreachable
+    # Neo4j degrades to no KG fusion.
+    app.config["RAG_KG_FUSION"] = os.environ.get("RAG_KG_FUSION", "false").lower() == "true"
+    # Max KG provisions injected into the LLM context (each provision takes
+    # one context slot, displacing the tail of retrieved chunks).
+    try:
+        app.config["RAG_KG_MAX_PROVISIONS"] = int(os.environ.get("RAG_KG_MAX_PROVISIONS", "5"))
+    except ValueError:
+        app.config["RAG_KG_MAX_PROVISIONS"] = 5
 
     # ------------------------------------------------------------------
     # Security headers & HTTPS enforcement via Flask-Talisman

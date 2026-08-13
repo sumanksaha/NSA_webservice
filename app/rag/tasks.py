@@ -15,6 +15,7 @@ available; otherwise they remain plain functions (graceful degradation).
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
 
@@ -255,6 +256,106 @@ def run_generation_pipeline(
         elif isinstance(raw, dict):
             chunk_objects.append(RetrievedChunk.from_dict(raw))
 
+    # KG contract fusion (2026-08-12, validated by the offline fusion
+    # experiment): when RAG_KG_FUSION is enabled, run the graph-RAG
+    # retrieval contract (query -> provisions) and RRF-fuse those provisions
+    # into the ranked context — the production equivalent of eval arm G
+    # (RRF(dense, sparse, KG-contract)), which showed a significant Recall@10
+    # gain over tail-concatenation.  The contract's provisions are
+    # independent of the retrieved chunk IDs (query-to-graph, not
+    # chunk-to-graph), so they can surface gold provisions vector retrieval
+    # missed.  Best-effort by design — never raises, so a missing or
+    # unreachable Neo4j keeps the pipeline functional.  When the contract
+    # injects provisions, the chunk-expansion block below is skipped (the
+    # two KG paths are alternatives — fusing both would re-fuse the list).
+    kg_contract: dict[str, Any] | None = None
+    if _kg_fusion_enabled() and chunk_objects:
+        try:
+            from kg.hybrid import (
+                provisions_to_retrieved_chunks,
+                rrf_fuse_chunks,
+            )
+            from kg.queries import LegalKGQueries, provisions_for_query
+
+            provisions = provisions_for_query(
+                query, LegalKGQueries(), limit=_kg_max_provisions()
+            )
+            logger.info(
+                "run_generation_pipeline: kg_contract provisions=%s", len(provisions)
+            )
+            kg_chunks = provisions_to_retrieved_chunks(
+                provisions, limit=_kg_max_provisions()
+            )
+            if kg_chunks:
+                from app.rag.generation.context_builder import ContextBuilder
+
+                slot_budget = ContextBuilder().max_context_chunks
+                chunk_objects = rrf_fuse_chunks(
+                    [chunk_objects, kg_chunks], rrf_k=60.0, top_k=slot_budget
+                )
+                kg_contract = {
+                    "provisions": len(provisions),
+                    "injected": len(kg_chunks),
+                    "fused": True,
+                }
+                logger.info(
+                    "run_generation_pipeline: RRF-fused %d KG contract provisions "
+                    "into context (slot budget %d)",
+                    len(kg_chunks), slot_budget,
+                )
+        except Exception as exc:  # noqa: BLE001 - best-effort by design
+            logger.warning("run_generation_pipeline: kg contract fusion failed: %s", exc)
+            kg_contract = {"error": str(exc), "provisions": 0, "injected": 0, "fused": False}
+
+    # KG graph expansion (Option F — 2026-08-11; wired into generation
+    # 2026-08-12): when RAG_KG_EXPANSION is enabled, expand the retrieved
+    # chunk IDs through the Neo4j legal KG into structured legal context
+    # (provisions, domains, temporal status, authorities, cross-refs) and
+    # inject the provisions into the LLM prompt as additional [Source n]
+    # blocks. Best-effort by design — never raises, so a missing or
+    # unreachable Neo4j keeps the pipeline functional.
+    kg_expansion: dict[str, Any] | None = None
+    # Skip the chunk-expansion path when contract fusion already injected
+    # provisions: the two KG sources are alternatives, and re-fusing the
+    # already-fused list would muddle ordering/scores (reviewer fix
+    # 2026-08-12).
+    if (kg_contract or {}).get("injected", 0) > 0:
+        pass
+    elif _kg_expansion_enabled() and chunk_objects:
+        from kg.hybrid import KGContextExpander, provisions_to_retrieved_chunks
+
+        kg_expansion = KGContextExpander().expand_chunks(c.chunk_id for c in chunk_objects)
+        logger.info(
+            "run_generation_pipeline: kg_expansion matched_chunks=%s provisions=%s error=%s",
+            kg_expansion.get("matched_chunks", 0),
+            len(kg_expansion.get("provisions", [])),
+            kg_expansion.get("error"),
+        )
+        kg_provisions = kg_expansion.get("provisions") or []
+        if kg_provisions:
+            kg_chunks = provisions_to_retrieved_chunks(
+                kg_provisions, limit=_kg_max_provisions()
+            )
+            if kg_chunks:
+                # Repaired candidate fusion (2026-08-12): instead of
+                # tail-appending KG evidence after the retrieved top-k, fuse
+                # the retrieved chunks and the KG provision chunks with
+                # Reciprocal Rank Fusion so KG evidence interleaves by merit
+                # (its KG retrieval rank) rather than always ranking last.
+                # The prompt keeps the same slot budget as
+                # ContextBuilder.max_context_chunks.
+                from app.rag.generation.context_builder import ContextBuilder
+                from kg.hybrid import rrf_fuse_chunks
+
+                slot_budget = ContextBuilder().max_context_chunks
+                chunk_objects = rrf_fuse_chunks(
+                    [chunk_objects, kg_chunks], rrf_k=60.0, top_k=slot_budget
+                )
+                logger.info(
+                    "run_generation_pipeline: RRF-fused %d KG provisions into context (slot budget %d)",
+                    len(kg_chunks), slot_budget,
+                )
+
     service = GroundedGenerationService()
     rag_response = service.generate(query, chunk_objects, query_type)
 
@@ -282,7 +383,51 @@ def run_generation_pipeline(
         "completion_tokens": rag_response.completion_tokens,
         "token_usage": rag_response.token_usage,
         "debug": rag_response.debug,
+        "kg_expansion": kg_expansion,
+        "kg_contract": kg_contract,
     }
+
+
+def _kg_max_provisions() -> int:
+    """Resolve the KG provision cap (Flask config, else env var, default 5)."""
+    try:
+        from flask import current_app
+
+        if current_app:
+            return int(current_app.config.get("RAG_KG_MAX_PROVISIONS", 5))
+    except Exception:  # noqa: BLE001 - no app context / not installed
+        pass
+    try:
+        return int(os.environ.get("RAG_KG_MAX_PROVISIONS", "5"))
+    except ValueError:
+        return 5
+
+
+def _kg_expansion_enabled() -> bool:
+    """Resolve the RAG_KG_EXPANSION flag (Flask config, else env var, default off).
+
+    Mirrors the ``_full_enrichment_enabled()`` pattern in
+    ``app/rag/ingestion.py`` — Flask config wins when an app context exists
+    (so the value can be toggled per-deploy), otherwise the env var is read.
+    """
+    return _flag_enabled("RAG_KG_EXPANSION")
+
+
+def _kg_fusion_enabled() -> bool:
+    """Resolve the RAG_KG_FUSION flag (Flask config, else env var, default off)."""
+    return _flag_enabled("RAG_KG_FUSION")
+
+
+def _flag_enabled(name: str) -> bool:
+    """Shared bool-flag resolver: Flask config wins, else the env var."""
+    try:
+        from flask import current_app
+
+        if current_app:
+            return bool(current_app.config.get(name, False))
+    except Exception:  # noqa: BLE001 - no app context / not installed
+        pass
+    return os.environ.get(name, "false").lower() == "true"
 
 
 def generate_task(

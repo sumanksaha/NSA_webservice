@@ -34,10 +34,21 @@ _PERCENT_RE = re.compile(r"\b(\d+(?:\.\d+)?)\s*%")
 #: Monetary amounts: "Rs. 5000", "₹5,000".
 _AMOUNT_RE = re.compile(r"\b(Rs\.|\u20b9|INR)\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
 
-#: Act / rule names: "the FSS Act", "FSSAI regulations".
+#: Act / rule names: "the FSS Act", "FSSAI regulations" (Phase 1 — the
+#: FSS alternatives stay; the generic statute pattern below also matches any
+#: capitalized statute name, e.g. "Companies Act, 2013").
 _AUTHORITY_RE = re.compile(
     r"\b(?:FSS[\s]*Act|FSSAI|Food\s*Safety\s*and\s*Standards\s*Act|regulations?)",
     re.IGNORECASE,
+)
+
+#: Generic statute-name pattern: one or more capitalized words (plus optional
+#: parenthetical groups, e.g. "(Prevention and Control of Pollution)") followed
+#: by Act/Rules/Regulations.  Case-sensitive so lowercase boilerplate ("the
+#: Act") does not match; a leading "The" is allowed.
+_STATUTE_RE = re.compile(
+    r"\b[A-Z][A-Za-z0-9&.,()\-]*(?:\s+[A-Z][A-Za-z0-9&.,()\-]*|\s*\([^()]*\)){0,4}\s+"
+    r"(?:Act|Rules?|Regulations?)\b"
 )
 
 
@@ -156,8 +167,15 @@ class ClaimExtractor:
         amounts = [f"{cur}{amt}" for cur, amt in _AMOUNT_RE.findall(sentence)]
         entities["amount"] = amounts
 
-        authorities = _AUTHORITY_RE.findall(sentence)
-        entities["authority"] = authorities
+        authorities = _AUTHORITY_RE.findall(sentence) + _STATUTE_RE.findall(sentence)
+        # Deduplicate (FSS names may be caught by both patterns) preserving order.
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for a in authorities:
+            if a.lower() not in seen:
+                seen.add(a.lower())
+                deduped.append(a)
+        entities["authority"] = deduped
 
         # Remove empty lists.
         return {k: v for k, v in entities.items() if v}

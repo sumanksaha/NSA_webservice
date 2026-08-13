@@ -19,7 +19,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import csrf, db
 from app.models import CaseFile, Sample
-from app.services.sheets_sync import sync_to_sheets
+from app.services.sync_orchestrator import sync_row
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
     DERIVED_CASE_TRACK,
@@ -37,9 +37,7 @@ from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
 
-case_file_generator_bp = Blueprint(
-    "case_file_generator", __name__, template_folder="templates", static_folder="static"
-)
+case_file_generator_bp = Blueprint("case_file_generator", __name__, template_folder="templates", static_folder="static")
 
 
 _REQUIRED_FIELDS: dict[str, str] = {
@@ -192,9 +190,7 @@ def case_file_to_dict(case_file):
         "case_number": case_file.case_number,
         "food_safety_officer_name": case_file.food_safety_officer_name,
         "authorization_date": case_file.authorization_date.isoformat() if case_file.authorization_date else None,
-        "sample_draw_date": (
-            case_file.inspection_date.isoformat() if case_file.inspection_date else None
-        ),
+        "sample_draw_date": (case_file.inspection_date.isoformat() if case_file.inspection_date else None),
         "sample_draw_time": case_file.inspection_time,
         "sample_id": case_file.sample_id,
         "manufacturer_fssai_license": case_file.manufacturer_fssai,
@@ -319,13 +315,11 @@ def _regenerate_case_file(case_id):
 
     if dispatched["mode"] == "async":
         return (
-            jsonify(
-                {
-                    "message": "Case file PDF regeneration queued",
-                    "case_file_id": case_file.id,
-                    "task_id": dispatched["message_id"],
-                }
-            ),
+            jsonify({
+                "message": "Case file PDF regeneration queued",
+                "case_file_id": case_file.id,
+                "task_id": dispatched["message_id"],
+            }),
             202,
         )
 
@@ -336,13 +330,11 @@ def _regenerate_case_file(case_id):
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify(
-            {
-                "message": "Case file PDF regenerated",
-                "case_file_id": case_file.id,
-                "pdf_result": result,
-            }
-        ),
+        jsonify({
+            "message": "Case file PDF regenerated",
+            "case_file_id": case_file.id,
+            "pdf_result": result,
+        }),
         200,
     )
 
@@ -396,12 +388,10 @@ def generate_case_file_route():
     validation_errors = validate_case_file_form(form_data)
     if validation_errors:
         return (
-            jsonify(
-                {
-                    "error": "Please correct the highlighted fields below.",
-                    "errors": validation_errors,
-                }
-            ),
+            jsonify({
+                "error": "Please correct the highlighted fields below.",
+                "errors": validation_errors,
+            }),
             400,
         )
 
@@ -455,35 +445,23 @@ def generate_case_file_route():
         return jsonify({"error": "This case file was modified by another user. Please reload and try again."}), 409
 
     allowed_sheets_columns = set(_REQUIRED_FIELDS.keys()) | {
-        "is_misbranded", "is_substandard", "applicable_regulation",
-        "applicable_clause", "sample_name", "applicable_sections",
+        "is_misbranded",
+        "is_substandard",
+        "applicable_regulation",
+        "applicable_clause",
+        "sample_name",
+        "applicable_sections",
     }
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
         row_dict["created_at"] = case_file_record.created_at.isoformat() if case_file_record.created_at else ""
         row_dict["applicable_sections"] = case_file_record.applicable_sections
         row_dict["sample_id"] = case_file_record.sample_id
-        success = sync_to_sheets("sample", row_dict)
-        if not success:
-            current_app.logger.warning("Case File: Sheets sync returned False - sync failed but not blocking")
+        result = sync_row("sample", row_dict, entity_id=case_file_record.id)
+        if not result["sheets"]:
+            current_app.logger.warning("Case File: Sheets sync failed - sync failed but not blocking")
     except Exception as e:
-        current_app.logger.warning(f"Case File: Sheets sync failed: {e}")
-
-    # Multi-target sync: Airtable (best-effort)
-    try:
-        from app.services.airtable_sync import sync_to_airtable
-
-        sync_to_airtable("sample", row_dict, case_file_record.id)
-    except Exception as e:
-        current_app.logger.warning(f"Case File: Airtable sync failed: {e}")
-
-    # Multi-target sync: Excel Online (best-effort)
-    try:
-        from app.services.excel_sync import sync_to_excel
-
-        sync_to_excel("sample", row_dict)
-    except Exception as e:
-        current_app.logger.warning(f"Case File: Excel sync failed: {e}")
+        current_app.logger.warning(f"Case File sync failed: {e}")
 
     case_data = process_form_data(form_data)
     payload = {"case_file_id": case_file_record.id, "case_data": case_data}
@@ -499,13 +477,11 @@ def generate_case_file_route():
 
     if dispatched["mode"] == "async":
         return (
-            jsonify(
-                {
-                    "message": "Case file created; PDF generation queued",
-                    "case_file_id": case_file_record.id,
-                    "task_id": dispatched["message_id"],
-                }
-            ),
+            jsonify({
+                "message": "Case file created; PDF generation queued",
+                "case_file_id": case_file_record.id,
+                "task_id": dispatched["message_id"],
+            }),
             202,
         )
 
@@ -516,15 +492,14 @@ def generate_case_file_route():
         return jsonify({"error": error_msg}), 500
 
     return (
-        jsonify(
-            {
-                "message": "Case file created; PDF generated",
-                "case_file_id": case_file_record.id,
-                "pdf_result": result,
-            }
-        ),
+        jsonify({
+            "message": "Case file created; PDF generated",
+            "case_file_id": case_file_record.id,
+            "pdf_result": result,
+        }),
         200,
     )
+
 
 @case_file_generator_bp.route("/lookup_sample", methods=["GET"])
 def lookup_sample():
@@ -537,19 +512,15 @@ def lookup_sample():
     if not sample:
         return jsonify({"error": f"Sample with code {sample_code} not found"}), 404
 
-    return jsonify(
-        {
-            "id": sample.id,
-            "sample_code": sample.sample_code,
-            "sample_name": sample.sample_name,
-            "retailer_fssai_license": sample.retailer_fssai or "",
-            "retailer_person_name": sample.retailer_name or "",
-            "sample_submission_date": (
-                sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""
-            ),
-            "total_cost": sample.price or "",
-        }
-    )
+    return jsonify({
+        "id": sample.id,
+        "sample_code": sample.sample_code,
+        "sample_name": sample.sample_name,
+        "retailer_fssai_license": sample.retailer_fssai or "",
+        "retailer_person_name": sample.retailer_name or "",
+        "sample_submission_date": (sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""),
+        "total_cost": sample.price or "",
+    })
 
 
 @case_file_generator_bp.route("/samples", methods=["GET"])
@@ -559,14 +530,10 @@ def list_samples_for_datalist():
     per_page = request.args.get("per_page", 100, type=int)
     per_page = min(per_page, 500)
 
-    paginated = Sample.query.order_by(Sample.sample_code.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
-    return jsonify(
-        {
-            "sample_codes": [s.sample_code for s in paginated.items],
-            "page": paginated.page,
-            "per_page": paginated.per_page,
-            "total": paginated.total,
-        }
-    )
+    paginated = Sample.query.order_by(Sample.sample_code.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        "sample_codes": [s.sample_code for s in paginated.items],
+        "page": paginated.page,
+        "per_page": paginated.per_page,
+        "total": paginated.total,
+    })

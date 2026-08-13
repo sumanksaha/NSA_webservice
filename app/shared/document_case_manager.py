@@ -51,7 +51,8 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.extensions import db
 from app.models import Evidence
 from app.services.audit import log_audit
-from app.services.sheets_sync import sync_to_sheets
+from app.services.sync_orchestrator import sync_row
+from app.shared.case_query_service import CaseQueryService
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
 from app.utils.qstash_client import make_dedup_key, publish_task
 
@@ -116,6 +117,9 @@ class DocumentCaseManager:
         self.validate_form_fn = validate_form_fn
         self.prepare_context_fn = prepare_context_fn or (lambda ctx: ctx)
         self.templates = templates or {}
+        # Query layer extracted into CaseQueryService so callers needing only
+        # lookups avoid the 5-callback constructor (deepening D5).
+        self._query_service = CaseQueryService(model, case_type)
 
     # ------------------------------------------------------------------ #
     # Route registration
@@ -129,9 +133,7 @@ class DocumentCaseManager:
             # Recent cases only — the index page is the landing view for both
             # blueprints, so keep the 'Case Timelines' panel cheap instead of
             # scanning the whole table on every load.
-            recent_cases = (
-                self.model.query.order_by(self.model.created_at.desc()).limit(50).all()
-            )
+            recent_cases = self.model.query.order_by(self.model.created_at.desc()).limit(50).all()
             return render_template(
                 f"{self.template_dir}/index.html",
                 cases=[self._case_summary(c) for c in recent_cases],
@@ -195,9 +197,7 @@ class DocumentCaseManager:
             from app.toc_generator.engine import TocGeneratorEngine
 
             toc_data = generate_toc_data(annotated_html)
-            toc_html = TocGeneratorEngine().build_toc_html(
-                TocGeneratorEngine().extract_toc(annotated_html)
-            )
+            toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
             return render_template(
                 "toc_report.html",
                 case_number=self._get_case_number(case),
@@ -223,17 +223,22 @@ class DocumentCaseManager:
     # ------------------------------------------------------------------ #
 
     def get_case(self, case_id: int) -> Any | None:
-        """Retrieve a case by primary key."""
-        return db.session.get(self.model, case_id)
+        """Retrieve a case by primary key.
+
+        Delegates to the internal :class:`CaseQueryService`.
+        """
+        return self._query_service.get_case(case_id)
 
     def get_case_by_number(self, case_number: str) -> Any | None:
-        """Retrieve a case by case number."""
-        return self.model.query.filter_by(case_number=case_number).first()
+        """Retrieve a case by case number.
+
+        Delegates to the internal :class:`CaseQueryService`.
+        """
+        return self._query_service.get_case_by_number(case_number)
 
     def list_cases(self) -> list[dict]:
         """Return all cases as summary dicts."""
-        cases = self.model.query.order_by(self.model.created_at.desc()).all()
-        return [self._case_summary(c) for c in cases]
+        return self._query_service.list_cases()
 
     # ------------------------------------------------------------------ #
     # Document generation / regeneration
@@ -249,11 +254,7 @@ class DocumentCaseManager:
             render_case_file_document,
         )
 
-        render_fn = (
-            render_case_file_document
-            if self.case_type == "case_file"
-            else render_adjudication_document
-        )
+        render_fn = render_case_file_document if self.case_type == "case_file" else render_adjudication_document
         return render_template(
             "document_viewer/editor.html",
             case_number=case.case_number,
@@ -294,9 +295,7 @@ class DocumentCaseManager:
         from app.toc_generator.engine import TocGeneratorEngine
 
         toc_data = generate_toc_data(annotated_html)
-        toc_html = TocGeneratorEngine().build_toc_html(
-            TocGeneratorEngine().extract_toc(annotated_html)
-        )
+        toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
         return render_template(
             "toc_report.html",
             case_number=self._get_case_number(case),
@@ -324,11 +323,7 @@ class DocumentCaseManager:
             render_case_file_document,
         )
 
-        render_fn = (
-            render_case_file_document
-            if self.case_type == "case_file"
-            else render_adjudication_document
-        )
+        render_fn = render_case_file_document if self.case_type == "case_file" else render_adjudication_document
         return render_fn(case_id, doc_type)
 
     def _generate_xref_report(self, annotated_html: str, case_id: int) -> dict:
@@ -347,9 +342,7 @@ class DocumentCaseManager:
     # Regeneration (shared skeleton, model-specific context prep)
     # ------------------------------------------------------------------ #
 
-    def regenerate(
-        self, case_id: int, context_overrides: dict | None = None
-    ) -> Any:
+    def regenerate(self, case_id: int, context_overrides: dict | None = None) -> Any:
         """Regenerate documents from an existing case.
 
         Delegates context preparation to ``prepare_context_fn`` (injected
@@ -385,7 +378,8 @@ class DocumentCaseManager:
         for tpl, prefix in templates_to_generate:
             rendered_html = render_template(tpl, **context)
             rendered_html = post_process_pdf_html(
-                rendered_html, case_id=case_id if self.case_type == "case_file" else None,
+                rendered_html,
+                case_id=case_id if self.case_type == "case_file" else None,
                 adjudication_id=None if self.case_type == "case_file" else case_id,
             )
             pdf_bytes, error = generate_pdf_from_html(rendered_html)
@@ -394,12 +388,9 @@ class DocumentCaseManager:
             else:
                 current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
                 return (
-                    jsonify(
-                        {
-                            "error": f"PDF generation failed: {error}. "
-                            "Documents cannot be generated without WeasyPrint.",
-                        }
-                    ),
+                    jsonify({
+                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                    }),
                     500,
                 )
 
@@ -408,7 +399,8 @@ class DocumentCaseManager:
     def _build_photos_context(self, case_id: int, context: dict) -> dict:
         """Fetch photos and embed as base64 for template rendering."""
         all_photos = (
-            Evidence.query.filter(
+            Evidence.query
+            .filter(
                 Evidence.evidence_type == "photo",
                 or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
             )
@@ -424,9 +416,7 @@ class DocumentCaseManager:
 
         if include_flagged:
             if not flag_override_reason:
-                return jsonify(
-                    {"error": "flag_override_reason is required when include_flagged=true"}
-                ), 400
+                return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
             final_photos = verified_photos + flagged_photos
             flagged_image_ids = [p.id for p in flagged_photos]
             if flagged_image_ids:
@@ -442,9 +432,7 @@ class DocumentCaseManager:
 
         return {
             "photos": final_photos,
-            "photo_embeds": embed_photos_as_base64(
-                [p.filepath for p in final_photos]
-            ),
+            "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
         }
 
     def _get_templates_to_generate(self, context: dict) -> list[tuple[str, str]] | tuple:
@@ -456,25 +444,23 @@ class DocumentCaseManager:
         ``templates_fn`` callback.
         """
         if self.case_type == "case_file":
-            return [("case_file_generator/petition.html", "Petition"),
-                    ("case_file_generator/permission_letter.html", "Permission_Letter")]
+            return [
+                ("case_file_generator/petition.html", "Petition"),
+                ("case_file_generator/permission_letter.html", "Permission_Letter"),
+            ]
         # Adjudication
         is_pre_auth = str(context.get("pre_authorization", "no")).strip().lower() == "yes"
         if is_pre_auth:
             return [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
         if not context.get("authorization_date"):
-            return jsonify(
-                {"error": "authorization_date is required for non-pre-authorization cases."}
-            ), 400
+            return jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
         return [("adjudication/template_nonsample_petition.html", "Petition")]
 
     def _build_zip_response(self, outputs: list[tuple[str, bytes]], case_id: int) -> Any:
         """Build an in-memory ZIP response from generated PDFs."""
         zip_prefix = "Case" if self.case_type == "case_file" else "Petition"
         if self.case_type != "case_file":
-            is_pre_auth = str(
-                request.form.get("pre_authorization", "no")
-            ).strip().lower() == "yes"
+            is_pre_auth = str(request.form.get("pre_authorization", "no")).strip().lower() == "yes"
             zip_prefix = "PermissionLetter" if is_pre_auth else "Petition"
 
         case_number = outputs[0][0].replace(".pdf", "") if outputs else str(case_id)
@@ -498,8 +484,7 @@ class DocumentCaseManager:
             log_audit(
                 "adjudication_order" if self.case_type == "adjudication" else "case_file",
                 str(case_id),
-                "ADJUDICATION_ORDER_REGENERATED" if self.case_type == "adjudication"
-                else "CASE_FILE_REGENERATED",
+                "ADJUDICATION_ORDER_REGENERATED" if self.case_type == "adjudication" else "CASE_FILE_REGENERATED",
                 actor=form_data.get("food_safety_officer_name", "unknown"),
                 details={"image_ids": image_ids, "statuses": statuses},
             )
@@ -520,8 +505,7 @@ class DocumentCaseManager:
             errors = self.validate_form_fn(form_data)
             if errors:
                 return (
-                    {"error": "Please correct the highlighted fields below.",
-                     "errors": errors},
+                    {"error": "Please correct the highlighted fields below.", "errors": errors},
                     400,
                 )
 
@@ -532,9 +516,7 @@ class DocumentCaseManager:
         except StaleDataError:
             db.session.rollback()
             return (
-                jsonify(
-                    {"error": "This case was modified by another user. Please reload and try again."}
-                ),
+                jsonify({"error": "This case was modified by another user. Please reload and try again."}),
                 409,
             )
 
@@ -553,14 +535,14 @@ class DocumentCaseManager:
         return self._generate_adjudication_pdfs(record, form_data)
 
     def _sync_to_sheets(self, form_data: dict, record: Any) -> None:
-        """Best-effort Google Sheets sync."""
+        """Best-effort multi-target sync (Sheets + Airtable + Excel)."""
         allowed = self._sheets_columns()
         try:
             row_dict = {k: v for k, v in form_data.items() if k in allowed}
             row_dict["created_at"] = record.created_at.isoformat() if record.created_at else ""
-            sync_to_sheets(self.case_type, row_dict)
+            sync_row(self.case_type, row_dict, entity_id=record.id)
         except Exception as exc:
-            current_app.logger.warning(f"{self.case_type}: Sheets sync failed: {exc}")
+            current_app.logger.warning(f"{self.case_type}: sync failed: {exc}")
 
     def _link_inspection(self, adj: Any, from_inspection: str) -> None:
         """Link adjudication back to an inspection (adjudication only)."""
@@ -599,9 +581,11 @@ class DocumentCaseManager:
 
         if dispatched["mode"] == "async":
             return (
-                {"message": "Case file created; PDF generation queued",
-                 "case_file_id": record.id,
-                 "task_id": dispatched["message_id"]},
+                {
+                    "message": "Case file created; PDF generation queued",
+                    "case_file_id": record.id,
+                    "task_id": dispatched["message_id"],
+                },
                 202,
             )
 
@@ -612,9 +596,7 @@ class DocumentCaseManager:
             return {"error": error_msg}, 500
 
         return (
-            {"message": "Case file created; PDF generated",
-             "case_file_id": record.id,
-             "pdf_result": result},
+            {"message": "Case file created; PDF generated", "case_file_id": record.id, "pdf_result": result},
             200,
         )
 
@@ -632,19 +614,16 @@ class DocumentCaseManager:
         outputs: list[tuple[str, bytes]] = []
         for tpl, prefix in templates:
             rendered_html = render_template(tpl, **context)
-            rendered_html = post_process_pdf_html(
-                rendered_html, adjudication_id=adj.id
-            )
+            rendered_html = post_process_pdf_html(rendered_html, adjudication_id=adj.id)
             pdf_bytes, error = generate_pdf_from_html(rendered_html)
             if pdf_bytes:
                 outputs.append((f"{prefix}.pdf", pdf_bytes))
             else:
                 current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
                 return (
-                    jsonify(
-                        {"error": f"PDF generation failed: {error}. "
-                                  "Documents cannot be generated without WeasyPrint."}
-                    ),
+                    jsonify({
+                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint."
+                    }),
                     500,
                 )
 
@@ -655,22 +634,8 @@ class DocumentCaseManager:
     # ------------------------------------------------------------------ #
 
     def _case_summary(self, case) -> dict:
-        """Return a summary dict for list_cases — model-specific."""
-        if self.case_type == "case_file":
-            return {
-                "id": case.id,
-                "case_number": case.case_number,
-                "product_name": case.product_name,
-                "manufacturer_name": case.manufacturer_name,
-                "created_at": case.created_at.isoformat() if case.created_at else None,
-            }
-        return {
-            "id": case.id,
-            "case_number": case.case_number,
-            "fbo_name": case.fbo_name,
-            "food_safety_officer": case.food_safety_officer,
-            "created_at": case.created_at.isoformat() if case.created_at else None,
-        }
+        """Return a summary dict for list_cases — delegates to CaseQueryService."""
+        return self._query_service.case_summary(case)
 
     def _get_case_number(self, case) -> str:
         return case.case_number
@@ -689,31 +654,83 @@ class DocumentCaseManager:
         """Return the set of column names eligible for Sheets sync."""
         if self.case_type == "case_file":
             return {
-                "case_number", "food_safety_officer_name", "authorization_date",
-                "inspection_date", "inspection_time", "sample_id",
-                "manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
-                "manufacturer_address", "retailer_fssai", "retailer_name",
-                "retailer_fbo_name", "retailer_address", "product_name",
-                "batch_no", "sample_quantity", "packet_count", "mfg_date",
-                "expiry_date", "other_food_articles", "total_cost",
-                "cost_in_words", "sample_code", "sample_submission_date",
-                "Lab_Registration_No", "do_receipt_date", "is_misbranded",
-                "is_substandard", "analyst_report_no", "analyst_report_date",
-                "directive_letter_no", "directive_letter_date",
-                "retailer_report_receive_date", "manufacturer_report_receive_date",
-                "applicable_regulation", "applicable_clause", "sample_name",
+                "case_number",
+                "food_safety_officer_name",
+                "authorization_date",
+                "inspection_date",
+                "inspection_time",
+                "sample_id",
+                "manufacturer_fssai",
+                "manufacturer_name",
+                "manufacturer_fbo_name",
+                "manufacturer_address",
+                "retailer_fssai",
+                "retailer_name",
+                "retailer_fbo_name",
+                "retailer_address",
+                "product_name",
+                "batch_no",
+                "sample_quantity",
+                "packet_count",
+                "mfg_date",
+                "expiry_date",
+                "other_food_articles",
+                "total_cost",
+                "cost_in_words",
+                "sample_code",
+                "sample_submission_date",
+                "Lab_Registration_No",
+                "do_receipt_date",
+                "is_misbranded",
+                "is_substandard",
+                "analyst_report_no",
+                "analyst_report_date",
+                "directive_letter_no",
+                "directive_letter_date",
+                "retailer_report_receive_date",
+                "manufacturer_report_receive_date",
+                "applicable_regulation",
+                "applicable_clause",
+                "sample_name",
                 "applicable_sections",
             }
         return {
-            "case_number", "food_safety_officer", "non_license",
-            "pre_authorization", "complaint_lodged", "ce_license_no",
-            "ce_trade_name", "ce_proprietor", "ce_address", "ce_status",
-            "fbo_owner", "fbo_name", "fbo_address", "fssai_license",
-            "concerned_food", "problem", "First_inspection_date",
-            "compliance_deadline", "Complaint_date", "inspection_date",
-            "authorization_date", "clean_premise", "refrigerator_clean",
-            "proper_attire", "proper_covered_utensil", "date_tag",
-            "veg_nonveg_separation", "food_segregation", "license_display",
-            "artificial_colour", "Expired_item", "Pest_report", "Water_report",
-            "section_55", "section_56", "section_58", "section_63", "section_64",
+            "case_number",
+            "food_safety_officer",
+            "non_license",
+            "pre_authorization",
+            "complaint_lodged",
+            "ce_license_no",
+            "ce_trade_name",
+            "ce_proprietor",
+            "ce_address",
+            "ce_status",
+            "fbo_owner",
+            "fbo_name",
+            "fbo_address",
+            "fssai_license",
+            "concerned_food",
+            "problem",
+            "First_inspection_date",
+            "compliance_deadline",
+            "Complaint_date",
+            "inspection_date",
+            "authorization_date",
+            "clean_premise",
+            "refrigerator_clean",
+            "proper_attire",
+            "proper_covered_utensil",
+            "date_tag",
+            "veg_nonveg_separation",
+            "food_segregation",
+            "license_display",
+            "artificial_colour",
+            "Expired_item",
+            "Pest_report",
+            "Water_report",
+            "section_55",
+            "section_56",
+            "section_58",
+            "section_63",
+            "section_64",
         }
