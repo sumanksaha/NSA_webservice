@@ -346,6 +346,11 @@ audit_*.txt
 tmp_*.py
 tmp_*.json
 tmp_*.txt
+_fix_*.py
+_update_*.py
+_diag*.py
+_debug*.py
+_verify*.py
 output.txt
 doc_cleaner_output.txt
 doc_result.txt

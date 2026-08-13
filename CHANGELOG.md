@@ -100,6 +100,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenAPI/Swagger** at `/apidocs/` via `flasgger`; **structured JSON logging** via `structlog`
 - **`GET /health`** public probe endpoint
 
+### Added
+
+#### RAG Phase 2–5, Multi-Domain, KG, Evaluate, Benchmark, Rust
+
+- **Phase 2 — Grounded Generation** (`app/rag/generation/`): `ContextBuilder`, `PromptTemplate`, `GroundedLLMClient`, `CitationTracker`, `ResponseSanitizer`, `GroundedGenerationService`, `GenerationLogger`; `run_generation_pipeline` / `generate_task` + `POST /api/rag/generate` (stub-LLM mode, no Qdrant/network required); `tests/test_rag_generation.py` — **40/40 pass**
+- **Phase 3 — Hallucination Detection** (`app/rag/verification/`): `ClaimExtractor`, `EvidenceVerifier`, `CitationValidator`, `GroundednessScorer`, `HallucinationDetector`, `TokenCounter`; hash-chained audit; 44 tests across 3 modules — all pass
+- **Phase 4 — Evaluation** (`app/rag/evaluation/`): 6 metrics, `EvalRunner`, `EvalStorage`, `EvalReport`/`EvalSummary`; `run_evaluate` / `evaluate_task` + `POST /api/rag/eval`; `tests/test_eval_framework.py` (39) + `tests/test_eval_batch.py` (10) — all pass
+- **Phase 5 — Resilient Integration** (`app/rag/resilient.py`): `ResilientRAGPipeline` circuit breaker (closed→open→half-open→closed) + fallback; `POST /api/rag/query` full pipeline route; token counting in `RAGQueryLog.context_length`; 29 tests — all pass
+- **Agent A §6.2**: corpus ingestion E2E (8), batch ingestion (5), reindexing (3), benchmarks (11) — 27 tests, all pass
+- **Multi-Domain Phase 1**: `app/rag/legal_sections.py` (BNS 1–358), `app/rag/collections.py` (`criminal_legal_768` etc.), `act_name` payload, act-aware crossrefs, domain prompts; `tests/test_multidomain_phase1.py` — **37/37 pass**
+- **Knowledge Graph — Option B + Semantic + Hybrid**: `kg/` (12 modules), `scripts/build_kg_corpus.py` (58 instruments, 1,861 provisions, 27,343 chunks), `scripts/enrich_kg_semantics.py` (751 evidence-backed edges), and 6 additional scripts; `NEO4J_ALLOW_WRITE` fail-closed guard; `RAG_KG_EXPANSION`/`RAG_KG_FUSION`/`RAG_KG_MAX_PROVISIONS` env vars; 49+17 KG tests — all pass
+- **FSSAI Re-ingest (P1-4)**: `scripts/reingest_fssai_from_db.py` (identity-preserving, 12,819 chunks), `scripts/export_fssai_backup.py` (rollback); `tests/test_reingest_fssai.py` — **15/15 pass**
+- **Evaluation Framework** (`evaluation/`): 28 modules — retrieval arms A–G, metrics, ceiling analysis, root-cause analysis, batch orchestration
+- **Benchmark v1.0** (`benchmark/`): 150-question frozen multi-domain JSONL with gold provisions, sources, rubric, review-conflict report
+- **Rust PyO3 Normalizers** (`rust/`): 4 modules with deterministic legal-text normalizers; `docs/RUST_REFACTORING_EVALUATION.md`; `tests/test_rust_normalizers.py`
+- **`app/food_cell/renderer.py`**: DO intimation HTML/PDF renderer service
+- **`app/services/sync_orchestrator.py`**: Multi-target sync orchestration (Sheets + Airtable + Excel)
+- **`app/shared/case_query_service.py`**: Shared case query resolution service
+- **`docs/`**: DEEPENING.md, FSSAI_REINGEST_PLAN.md, INGESTION_READINESS.md, MULTIDOMAIN_INTEGRATION.md, RUST_REFACTORING_EVALUATION.md
+- **Audit reports**: CORPUS_IDENTITY_REPORT.md, KG_READINESS_AUDIT_POST_REBUILD.md, KG_SEMANTIC_REMEDIATION_REPORT.md, NEO4J_QDRANT_AUDIT_REPORT.md
+
 ### Changed
 
 - **Eager-loading & N+1 fixes**: `load_only` column trimming in

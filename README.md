@@ -54,8 +54,11 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Document Generation**           | PDF generation for permission letters, petitions, and legal notices                                                                                              |
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
-| **Legal RAG (Vector Search)**     | Semantic search over legal corpus via Qdrant (768-dim embeddings), hybrid dense + sparse retrieval, reranking, hash-chained query audit (Phase 1 complete)       |
-| **Knowledge Graph + Neo4j**       | Entity-relationship extraction from case files, interactive Cytoscape.js visualization, and optional Neo4j Aura sync (APOC dynamic labels, constraints, indexes) |
+| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete  | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A) |
+| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete  | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests) |
+| **Evaluation Framework**          | ✅ Complete    | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                             |
+| **Benchmark v1.0**                | ✅ Frozen      | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                          |
+| **Rust PyO3 Normalizers**         | ✅ Complete    | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                |
 | **Audit Trail**                   | Tamper-evident hash-chained audit logging for all records and photo evidence                                                                                     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
@@ -142,6 +145,8 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Embeddings**     | sentence-transformers               | latest   | `all-mpnet-base-v2` (768-dim)               |
 | **Fuzzy Matching** | rapidfuzz                           | —        | Sparse retrieval + fuzzy fallback           |
 | **Templates**      | Jinja2                              | —        | Server-side HTML rendering                  |
+| **Rust (PyO3)**    | Rust 1.75+ / PyO3                   | —        | Native legal-text normalizers for performance |
+| **Graph Database** | Neo4j Aura                          | v5.27    | Legal KG (provisions, instruments, domains) |
 
 ### Target Stack (Levels 5–10)
 
@@ -174,8 +179,8 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Version history, branching, cross‑reference & TOC reports** for edited documents, and **backup / export / import** of complete cases.
 - **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
-- **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval and reranking (Phase 1 complete — 282 tests).
-- **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 — 15 tests).
+- **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval, reranking, grounded generation, hallucination detection, and evaluation (Phases 1-5 complete — 437 tests).
+- **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
 
 | Area                      | Status         | Notes                                                         |
 | ------------------------- | -------------- | ------------------------------------------------------------- |
@@ -194,11 +199,15 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                       |
 | OCR Pipeline              | ⚠️ Foundation  | Phase A done; Phases B–E pending                              |
 | Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                           |
-| Legal RAG (Phase 1)       | ✅ Complete    | 282 tests — corpus/embedding + retrieval foundation           |
+| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval  |
+| Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests) |
+| Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                  |
+| Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                     |
+| Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                        |
 | CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                             |
 | RBAC / Roles              | ❌ Not Started | All users have full access                                    |
 | PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                              |
-| Tests                     | ✅ 59+ modules | ~1000+ test cases (700+ existing + 282 RAG), incl. end‑to‑end |
+| Tests                     | ✅ 80+ modules | ~1,757 test cases (694 RAG + 1,063 existing), all passing     |
 
 ---
 
@@ -220,7 +229,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 ### Phase 3 – Intelligence (Q1 2027)
 
 - Neo4j graph database integration for relationship queries
-- ✅ Qdrant vector store for semantic search over legal corpus (Phase 1 complete — 282 tests)
+- ✅ Qdrant vector store for semantic search over legal corpus (Phases 1-5 complete — 437 tests)
 - LangGraph workflow orchestration
 - OpenRouter multi‑LLM gateway for AI‑assisted section suggestion and document drafting
 
@@ -353,8 +362,12 @@ NSA_webservice/
 │   └── utils/                  # Utility modules
 ├── migrations/                 # Alembic database migrations
 ├── tests/                      # Test suite
-├── scripts/                    # Utility scripts
-├── docs/                       # Documentation
+├── kg/                         # Legal Knowledge Graph (schema, ingestion, enrichment, hybrid)
+├── evaluation/                 # RAG evaluation framework (retrieval arms, metrics, reports)
+├── benchmark/                  # Frozen v1.0 benchmark (150-question multi-domain JSONL)
+├── rust/                       # Rust PyO3 legal-text normalizers
+├── scripts/                    # Utility scripts (KG, FSSAI re-ingest, etc.)
+├── docs/                       # Documentation (DEEPENING, MULTIDOMAIN, etc.)
 ├── celery_app.py               # Celery application factory
 ├── render.yaml                 # Render deployment blueprint
 ├── requirements.txt            # Python dependencies
@@ -415,6 +428,13 @@ pytest tests/test_route_collisions.py -v
 | RAG corpus/embedding tests        | 20 files, 254 tests                                          | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality | ✅ All pass |
 | RAG retrieval tests               | 8 files, 102 tests                                           | Dense, sparse, hybrid, reranker, query classifier, logger, e2e           | ✅ All pass |
 | `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15)           |
+| RAG Phase 1 tests                 | 20 files, 254 tests  | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality | ✅ All pass |
+| RAG Phase 2–5 tests               | 15 files, 156 tests | Generation, verification, hallucination, eval, resilient, hybrid-vs-dense | ✅ All pass |
+| RAG Agent A tests                 | 4 files, 27 tests   | Corpus E2E, batch ingestion, reindexing, benchmarks  | ✅ All pass |
+| Multi-domain tests                | 2 files, 37 tests   | legal_sections, collections, act_name, domain prompts | ✅ All pass |
+| KG tests                          | 8 files, 49 tests   | Corpus, enricher, expander, provisions, payload, fusion RRF  | ✅ All pass |
+| FSSAI re-ingest tests             | 1 file, 15 tests    | load_corpus, identity, FSS-scope/backup guards, CLI  | ✅ All pass |
+| Rust normalizer tests             | 1 file             | PyO3 legal-text normalizers  | ✅ All pass |
 
 ---
 
@@ -496,7 +516,8 @@ celery -A celery_app.celery worker --loglevel=info
 | Version Control | `/api/version-control` | Version history UI + API                      |
 | Timeline        | `/timeline`            | Case milestone timeline + Gantt               |
 | Food Cell       | `/food-cell`           | DO Intimation workflow (Phase 21)             |
-| **RAG**         | `/rag`                 | RAG health + retrieval API (Phase 1 complete) |
+| **RAG**         | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete) |
+| **Knowledge Graph** | `/knowledge-graph`   | Entity/relationship graph + Neo4j sync (Phase 14 complete)            |
 | Audit           | `/admin`               | Audit log viewer                              |
 | Settings        | `/settings`            | Admin settings                                |
 | Health          | `/health`              | Health probe (public)                         |
@@ -624,12 +645,19 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - Graph-based pattern detection
 - Case similarity queries
 
-### Level 9: Intelligence ✅ Phase 1 Complete
+### Level 9: Intelligence ✅ Complete
 
 - ✅ Qdrant vector store integration (`app/rag/qdrant_client.py`)
-- ✅ Semantic search over legal corpus (DenseRetriever + SparseRetriever + HybridRetriever)
-- 🔄 AI-powered section suggestion (Qdrant semantic search delivers context; LLM grounding Phase 2)
-- ✅ Document embedding pipeline (`IngestionPipeline`, Celery async, QStash scheduling)
+- ✅ Semantic search over legal corpus (Dense + Sparse + Hybrid + Reranker)
+- ✅ Grounded LLM generation with citation tracking (`/api/rag/generate`)
+- ✅ Hallucination detection (ClaimExtractor, EvidenceVerifier, GroundednessScorer)
+- ✅ Full evaluation framework (6 metrics, batch orchestration, `/api/rag/eval`)
+- ✅ Resilient integration with circuit breaker + fallback (`/api/rag/query`)
+- ✅ Multi-domain corpus (5 domains; env, commercial, animal, wb_state, criminal)
+- ✅ Knowledge graph with Neo4j Aura (corpus ingestion, semantic enrichment, hybrid expansion)
+- ✅ Rust PyO3 normalizers for performance-critical text processing
+- ✅ Benchmark v1.0 frozen (150-question multi-domain golden benchmark)
+- 🔄 LLM-powered section suggestion & document drafting (requires OpenRouter gateway)
 
 ### Level 10: Autonomy ⬜ Planned
 
