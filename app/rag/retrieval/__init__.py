@@ -17,13 +17,14 @@ from app.rag.retrieval.query_classifier import (
     QueryType,
     SectionQueryParser,
 )
-from app.rag.retrieval.reranker import Reranker
+from app.rag.retrieval.reranker import EnsembleReranker, Reranker
 from app.rag.retrieval.sparse_retriever import SparseRetriever
 
 __all__ = [
     "DenseRetriever",
     "HybridRetriever",
     "Reranker",
+    "EnsembleReranker",
     "SparseRetriever",
     "QueryClassifier",
     "QueryType",

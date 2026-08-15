@@ -27,6 +27,7 @@ class RetrievedChunk:
     text: str
     section_number: str | None = None
     document_title: str = ""
+    act_name: str = ""
     document_type: str = ""
     authority: str = ""
     chunk_index: int = 0
@@ -40,6 +41,7 @@ class RetrievedChunk:
             "text": self.text,
             "section_number": self.section_number,
             "document_title": self.document_title,
+            "act_name": self.act_name,
             "document_type": self.document_type,
             "authority": self.authority,
             "chunk_index": self.chunk_index,
@@ -55,6 +57,7 @@ class RetrievedChunk:
             text=data["text"],
             section_number=data.get("section_number"),
             document_title=data.get("document_title", ""),
+            act_name=data.get("act_name", ""),
             document_type=data.get("document_type", ""),
             authority=data.get("authority", ""),
             chunk_index=data.get("chunk_index", 0),

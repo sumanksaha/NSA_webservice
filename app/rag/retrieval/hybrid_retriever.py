@@ -61,6 +61,7 @@ class HybridRetriever:
         dense_weight: float = 0.7,
         sparse_weight: float = 0.3,
         filters: dict[str, Any] | None = None,
+        identifier_query: str | None = None,
     ) -> SearchResult:
         """Retrieve chunks by fusing dense and sparse results.
 
@@ -70,6 +71,17 @@ class HybridRetriever:
             dense_weight: Not currently used in RRF (kept for API compatibility).
             sparse_weight: Same — RRF is rank-based, not score-based.
             filters: Optional payload filters passed to both retrievers.
+            identifier_query: Optional identifier-route query (e.g. ``"Indian
+                Contract Act, 1872 section 73"``) run through the sparse
+                retriever as a *parallel additive* arm and RRF-fused with the
+                dense + sparse results.  This is the production form of the
+                V5.5 identifier route — a lexical query built from the
+                detected Act/section in the user's question — which recovered
+                gold provisions vector retrieval missed (+13.3pp pool
+                ceiling).  Runs without payload ``filters`` (its value is
+                lexical text matching, not payload filtering).  Ignored when
+                the server-side fusion path is taken (the single-roundtrip
+                dense + sparse RRF stays the fast path for plain queries).
 
         Returns:
             A :class:`SearchResult` with fused, optionally re-ranked chunks.
@@ -82,43 +94,59 @@ class HybridRetriever:
         # store with BM25 sparse vectors AND both sides can embed the query,
         # fuse dense + sparse on the cluster with prefetch + RRF in a single
         # round trip (``QdrantStore.hybrid_search``).  Any failure falls back
-        # to the client-side RRF below.
-        sparse_store = getattr(self.sparse, "store", None)
-        dense_embed = getattr(self.dense, "embed_query", None)
-        sparse_embed = getattr(self.sparse, "embed_query", None)
-        if sparse_store is not None and callable(dense_embed) and callable(sparse_embed):
-            try:
-                has_sparse = getattr(sparse_store, "has_sparse_vectors", None)
-                sparse_capable = bool(callable(has_sparse) and has_sparse())
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("HybridRetriever: sparse capability check failed (%s)", exc)
-                sparse_capable = False
-            if sparse_capable:
+        # to the client-side RRF below.  Skipped when an identifier arm is
+        # requested — the three-way (dense + sparse + identifier) client-side
+        # RRF below fuses everything in one place.
+        if identifier_query is None:
+            sparse_store = getattr(self.sparse, "store", None)
+            dense_embed = getattr(self.dense, "embed_query", None)
+            sparse_embed = getattr(self.sparse, "embed_query", None)
+            if sparse_store is not None and callable(dense_embed) and callable(sparse_embed):
                 try:
-                    dense_vector = dense_embed(query)
-                    sparse_vector = sparse_embed(query)
-                    points = sparse_store.hybrid_search(
-                        dense_vector, sparse_vector, top_k=top_k, filters=filters
-                    )
-                    from app.rag.retrieval.dense_retriever import DenseRetriever
+                    has_sparse = getattr(sparse_store, "has_sparse_vectors", None)
+                    sparse_capable = bool(callable(has_sparse) and has_sparse())
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("HybridRetriever: sparse capability check failed (%s)", exc)
+                    sparse_capable = False
+                if sparse_capable:
+                    try:
+                        dense_vector = dense_embed(query)
+                        sparse_vector = sparse_embed(query)
+                        points = sparse_store.hybrid_search(
+                            dense_vector, sparse_vector, top_k=top_k, filters=filters
+                        )
+                        from app.rag.retrieval.dense_retriever import DenseRetriever
 
-                    fused = [DenseRetriever._payload_to_chunk(p) for p in points]
-                    return SearchResult(
-                        query=query,
-                        query_type="",
-                        chunks=fused,
-                        total=len(fused),
-                        latency_ms=int((time.monotonic() - start) * 1000),
-                        source="hybrid",
-                    )
-                except Exception as exc:  # noqa: BLE001 - fall back to client RRF
-                    logger.warning(
-                        "HybridRetriever: server-side RRF fusion failed (%s) — using client-side RRF",
-                        exc,
-                    )
+                        fused = [DenseRetriever._payload_to_chunk(p) for p in points]
+                        return SearchResult(
+                            query=query,
+                            query_type="",
+                            chunks=fused,
+                            total=len(fused),
+                            latency_ms=int((time.monotonic() - start) * 1000),
+                            source="hybrid",
+                        )
+                    except Exception as exc:  # noqa: BLE001 - fall back to client RRF
+                        logger.warning(
+                            "HybridRetriever: server-side RRF fusion failed (%s) — using client-side RRF",
+                            exc,
+                        )
 
         dense_result = self.dense.search(query, top_k=top_k, filters=filters)
         sparse_result = self.sparse.retrieve(query, top_k=top_k, filters=filters)
+
+        # Identifier route arm (V5.5-validated): a lexical identifier query
+        # run through the sparse retriever as a parallel additive arm — the
+        # production form of the evaluation lever that recovered gold
+        # provisions vector retrieval missed (+13.3pp pool ceiling).
+        ident_result = None
+        if identifier_query:
+            try:
+                ident_result = self.sparse.retrieve(
+                    identifier_query, top_k=max(top_k * 2, 20), filters=None
+                )
+            except Exception as exc:  # noqa: BLE001 - identifier arm is best-effort
+                logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
         # RRF fusion — rank-based, so scores from different retrievers are
         # comparable regardless of scale.
@@ -141,6 +169,18 @@ class HybridRetriever:
                 existing = chunk_map[chunk_id]
                 if chunk.score > existing.score:
                     chunk_map[chunk_id] = chunk
+
+        if ident_result is not None:
+            for rank, chunk in enumerate(ident_result.chunks):
+                chunk_id = chunk.chunk_id
+                chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0.0) + 1.0 / (rank + 1 + self._rrf_k)
+                if chunk_id not in chunk_map:
+                    chunk_map[chunk_id] = chunk
+                else:
+                    # Merge: keep the higher score
+                    existing = chunk_map[chunk_id]
+                    if chunk.score > existing.score:
+                        chunk_map[chunk_id] = chunk
 
         # Sort by fused RRF score descending
         fused_ids = sorted(chunk_scores, key=chunk_scores.get, reverse=True)  # type: ignore[arg-type]

@@ -28,14 +28,25 @@ PAIRS = PROJECT_ROOT / "evaluation" / "out" / "cache" / "ce_training_pairs.jsonl
 OUT_DIR = PROJECT_ROOT / "evaluation" / "out" / "models" / "legal_ce_v1"
 BASE_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
-EPOCHS = 4
-BATCH_SIZE = 32
+EPOCHS = 3
+BATCH_SIZE = 24
 LR = 2e-5
+# Mined texts are capped at 1500 chars (~230-300 tokens); 256 is ample and
+# keeps CPU training fast.  Host has 8 GB RAM: batch 24 + bounded threads
+# keep the activation footprint small (a batch-48, unbounded-thread run
+# swap-thrashed to a near-halt on this machine).
+MAX_LEN = 256
 
 
 def main() -> int:
     import torch
     from torch.utils.data import DataLoader
+
+    # Bound the intra-op thread pool.  On Windows, PyTorch defaults to one
+    # thread per core, and for small per-step work the sync overhead
+    # dominates — the run grinds to a near-halt.  4 threads is the sweet
+    # spot for this workload (measured: ~5-10x faster than unbounded).
+    torch.set_num_threads(4)
     from transformers import (
         AutoModelForSequenceClassification,
         AutoTokenizer,
@@ -69,7 +80,7 @@ def main() -> int:
         [p[1] for p in pairs],
         padding=True,
         truncation=True,
-        max_length=512,
+        max_length=MAX_LEN,
         return_tensors="pt",
     )
     ys = torch.tensor([p[2] for p in pairs], dtype=torch.float32).unsqueeze(1)
@@ -120,7 +131,7 @@ def main() -> int:
         "epochs": EPOCHS,
         "batch_size": BATCH_SIZE,
         "lr": LR,
-        "max_length": 512,
+        "max_length": MAX_LEN,
         "elapsed_seconds": round(elapsed, 1),
         "out_dir": OUT_DIR.as_posix(),
         "notes": "drop-in via RAG_RERANKER_MODEL=<out_dir>",

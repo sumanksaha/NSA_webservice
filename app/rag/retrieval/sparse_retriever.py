@@ -182,6 +182,7 @@ class SparseRetriever:
                 text=chunk.get("text", ""),
                 section_number=chunk.get("section_number"),
                 document_title=chunk.get("document_title", ""),
+                act_name=chunk.get("act_name", ""),
                 document_type=chunk.get("document_type", ""),
                 authority=chunk.get("authority", ""),
                 chunk_index=chunk.get("chunk_index", 0),

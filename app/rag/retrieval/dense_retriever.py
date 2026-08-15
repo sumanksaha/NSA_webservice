@@ -149,6 +149,7 @@ class DenseRetriever:
             text=payload.get("chunk_text", payload.get("text", "")),
             section_number=payload.get("section_number"),
             document_title=payload.get("document_title", ""),
+            act_name=payload.get("act_name", ""),
             document_type=payload.get("document_type", ""),
             authority=payload.get("authority", ""),
             chunk_index=payload.get("chunk_index", 0),

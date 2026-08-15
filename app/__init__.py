@@ -247,6 +247,34 @@ def create_app():
     # structured legal context (provisions, domains, temporal status).
     # Best-effort — a missing/unreachable Neo4j degrades to no expansion.
     app.config["RAG_KG_EXPANSION"] = os.environ.get("RAG_KG_EXPANSION", "false").lower() == "true"
+    # Legal-identifier route (2026-08-13): build a lexical "{Act} section {N}"
+    # query from identifiers detected in the question and run it through the
+    # sparse retriever as a parallel additive arm fused with dense+sparse RRF.
+    # Validated by the V5/V5.5 evaluation arc (+13.3pp candidate-pool ceiling;
+    # pool 100% after the section-stamp backfill).  Default true — pure lexical
+    # retrieval, no external dependency.  Set RAG_IDENTIFIER_ROUTE=false to
+    # disable.
+    app.config["RAG_IDENTIFIER_ROUTE"] = os.environ.get("RAG_IDENTIFIER_ROUTE", "true").lower() != "false"
+    # sec_act + cross-encoder ensemble reranker (2026-08-14, validated by the
+    # CE_RERANK_REVIEW): when true, retrieval ranking uses the deterministic
+    # sec_act legal features as primary (strongest single reranker measured:
+    # R@10 0.474 on the P1 head) with the cross-encoder scored only on the
+    # post-sec_act top-K head as a complementary second opinion (union any-hit
+    # R@10 62.0% vs 56.7%).  The deterministic half needs no external
+    # dependency; the CE half degrades to features-only when unavailable.
+    # Set RAG_ENSEMBLE_RERANK=false for the plain (cross-encoder-or-BM25)
+    # Reranker.
+    app.config["RAG_ENSEMBLE_RERANK"] = os.environ.get("RAG_ENSEMBLE_RERANK", "true").lower() != "false"
+    # How many post-sec_act chunks the cross-encoder scores (latency bound).
+    try:
+        app.config["RAG_ENSEMBLE_CE_HEAD"] = int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "20"))
+    except ValueError:
+        app.config["RAG_ENSEMBLE_CE_HEAD"] = 20
+    # Bonus weight applied to the normalized CE scores on the head.
+    try:
+        app.config["RAG_ENSEMBLE_CE_WEIGHT"] = float(os.environ.get("RAG_ENSEMBLE_CE_WEIGHT", "0.5"))
+    except ValueError:
+        app.config["RAG_ENSEMBLE_CE_WEIGHT"] = 0.5
     # KG contract fusion (2026-08-12, validated by the offline fusion
     # experiment): when true, the generation pipeline runs the graph-RAG
     # retrieval contract (query -> provisions via kg.queries.provisions_for_query)

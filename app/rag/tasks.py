@@ -49,7 +49,6 @@ def run_retrieval_pipeline(
         HybridRetriever,
         QueryClassifier,
         QueryParser,
-        Reranker,
         SparseRetriever,
     )
     from app.rag.retrieval.logger import RetrievalLogger
@@ -76,34 +75,68 @@ def run_retrieval_pipeline(
     from app.rag.qdrant_client import QdrantStore
     from app.rag.sparse_embedding import SparseEmbeddingService
 
+    # The sparse store must honour ``collection_name`` (multi-domain fix
+    # 2026-08-14, exposed by the live ensemble re-measure): before this,
+    # ``QdrantStore()`` resolved to RAG_QDRANT_COLLECTION (fssai_legal_768)
+    # even for env/commercial/animal/wb_state questions, so the sparse +
+    # identifier arms searched the wrong collection and fused foreign chunks
+    # into the pool.  ``None`` keeps the config default for the single-domain
+    # path.
     sparse = SparseRetriever(
         corpus={},
-        store=QdrantStore(),
+        store=QdrantStore(collection_name=collection_name or None),
         embedder=SparseEmbeddingService(),
     )
 
-    # 4. Reranker
-    reranker = Reranker()
+    # 4. Reranker — sec_act + cross-encoder ensemble when RAG_ENSEMBLE_RERANK
+    #    is enabled (default true; CE_RERANK_REVIEW 2026-08-14).  The
+    #    deterministic sec_act legal features are the strongest single
+    #    reranker measured (R@10 0.474 on the P1 head); the cross-encoder is
+    #    scored only on the post-sec_act top-K head (bounded latency) as a
+    #    complementary second opinion (union any-hit R@10 62.0% vs 56.7%).
+    #    Degrades to pure sec_act ranking when no cross-encoder is available,
+    #    and to the plain Reranker when the flag is off.  Honours
+    #    RAG_RERANKER_MODEL (the fine-tuned legal CE is a drop-in).
+    reranker = _build_reranker()
 
-    # 5. Hybrid retrieval
+    # 5. Identifier route (2026-08-13, validated by the V5/V5.5 evaluation
+    #    arc): build a lexical "{Act} section {N}" query from the identifiers
+    #    detected in the question text, and hand it to the hybrid retriever
+    #    as a parallel additive arm.  This is the production form of the
+    #    single decisive lever measured offline (+13.3pp candidate-pool
+    #    ceiling; after the section-stamp backfill it lifted the pool to
+    #    100%).  Best-effort: no identifiers -> no arm; retrieval failure
+    #    degrades to the plain hybrid result.
+    identifier = None
+    identifier_query = None
+    if _identifier_route_enabled():
+        from app.rag.retrieval.identifier import identifier_query as build_ident
+
+        identifier_query, identifier = build_ident(query)
+
+    # 6. Hybrid retrieval (dense + sparse [+ identifier arm])
     hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=reranker)
-    result = hybrid.retrieve(query, top_k=top_k, filters=merged_filters)
+    result = hybrid.retrieve(
+        query, top_k=top_k, filters=merged_filters, identifier_query=identifier_query
+    )
 
-    # 6. Log
+    # 7. Log
     log = RetrievalLogger()
     log_entry = log.log(query=query, query_type=query_type.value, result=result)
 
     latency_ms = int((time.monotonic() - start) * 1000)
     logger.info(
-        "run_retrieval_pipeline: completed in %dms, %d chunks",
+        "run_retrieval_pipeline: completed in %dms, %d chunks (identifier=%s)",
         latency_ms,
         len(result.chunks),
+        (identifier or {}).get("form"),
     )
 
     return {
         "query": query,
         "query_type": query_type.value,
         "parsed": merged_filters,
+        "identifier": identifier,
         "chunks": [c.to_dict() for c in result.chunks],
         "total": result.total,
         "latency_ms": latency_ms,
@@ -388,6 +421,94 @@ def run_generation_pipeline(
     }
 
 
+def _build_reranker():
+    """Build the pipeline reranker honouring RAG_ENSEMBLE_RERANK / RAG_RERANKER_MODEL.
+
+    Returns an :class:`app.rag.retrieval.reranker.EnsembleReranker` when the
+    ensemble flag is on (default), else the plain :class:`Reranker`.  Both
+    honour ``RAG_RERANKER_MODEL`` (Flask config, else env, default
+    ``cross-encoder/ms-marco-MiniLM-L-6-v2``) so the fine-tuned legal CE
+    (``evaluation/out/models/legal_ce_v1``) is a drop-in.
+    """
+    # Import through the package re-export so tests that patch
+    # ``app.rag.retrieval.Reranker`` (e.g. the pipeline wiring tests) keep
+    # working for the flag-off path.
+    from app.rag.retrieval import EnsembleReranker, Reranker
+
+    model_name = _reranker_model()
+    if _ensemble_rerank_enabled():
+        return EnsembleReranker(
+            model_name=model_name,
+            ce_head=_ensemble_ce_head(),
+            ce_weight=_ensemble_ce_weight(),
+        )
+    return Reranker(model_name=model_name)
+
+
+def _reranker_model() -> str:
+    """Resolve the cross-encoder model (Flask config, else env var)."""
+    try:
+        from flask import current_app
+
+        if current_app:
+            return str(current_app.config.get(
+                "RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            ))
+    except Exception:  # noqa: BLE001 - no app context / not installed
+        pass
+    return os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+
+def _ensemble_rerank_enabled() -> bool:
+    """Resolve the RAG_ENSEMBLE_RERANK flag (Flask config, else env var).
+
+    Default **true**: the deterministic sec_act feature half has no external
+    dependency (pure lexical detection + payload fields) and was the
+    strongest single reranker measured on the V5.5 P1 head; the CE half is
+    bounded to the top-K head and degrades to features-only when the encoder
+    is unavailable.  Set ``RAG_ENSEMBLE_RERANK=false`` to fall back to the
+    plain (cross-encoder-or-BM25) Reranker.
+    """
+    try:
+        from flask import current_app
+
+        if current_app:
+            return bool(current_app.config.get("RAG_ENSEMBLE_RERANK", True))
+    except Exception:  # noqa: BLE001 - no app context / not installed
+        pass
+    return os.environ.get("RAG_ENSEMBLE_RERANK", "true").lower() != "false"
+
+
+def _ensemble_ce_head() -> int:
+    """Resolve the CE head size (how many post-sec_act chunks the CE scores)."""
+    try:
+        from flask import current_app
+
+        if current_app:
+            return int(current_app.config.get("RAG_ENSEMBLE_CE_HEAD", 20))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "20"))
+    except ValueError:
+        return 20
+
+
+def _ensemble_ce_weight() -> float:
+    """Resolve the CE bonus weight applied to the normalized head scores."""
+    try:
+        from flask import current_app
+
+        if current_app:
+            return float(current_app.config.get("RAG_ENSEMBLE_CE_WEIGHT", 0.5))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return float(os.environ.get("RAG_ENSEMBLE_CE_WEIGHT", "0.5"))
+    except ValueError:
+        return 0.5
+
+
 def _kg_max_provisions() -> int:
     """Resolve the KG provision cap (Flask config, else env var, default 5)."""
     try:
@@ -416,6 +537,25 @@ def _kg_expansion_enabled() -> bool:
 def _kg_fusion_enabled() -> bool:
     """Resolve the RAG_KG_FUSION flag (Flask config, else env var, default off)."""
     return _flag_enabled("RAG_KG_FUSION")
+
+
+def _identifier_route_enabled() -> bool:
+    """Resolve the RAG_IDENTIFIER_ROUTE flag (Flask config, else env var).
+
+    Default **true**: the identifier route is the V5/V5.5-validated production
+    lever (+13.3pp candidate-pool ceiling; pool 100% post-backfill) and needs
+    no external dependency — it is a plain lexical sparse query built from
+    identifiers in the user's question.  Set ``RAG_IDENTIFIER_ROUTE=false``
+    to disable.
+    """
+    try:
+        from flask import current_app
+
+        if current_app:
+            return bool(current_app.config.get("RAG_IDENTIFIER_ROUTE", True))
+    except Exception:  # noqa: BLE001 - no app context / not installed
+        pass
+    return os.environ.get("RAG_IDENTIFIER_ROUTE", "true").lower() != "false"
 
 
 def _flag_enabled(name: str) -> bool:
