@@ -20,5 +20,5 @@
 # ponytail: order matters - before -e . which triggers the isolated build.
 setuptools>=70,<84
 wheel
-pip>=24.0
+pip>=26.2.1
 -e .
