@@ -150,6 +150,33 @@ Deploy the Modal app with `modal deploy app.py` from `modal_deploy/` (see
 `modal_deploy/README.md`); live URLs as of 2026-08-16:
 `https://sumanksaha--embed.modal.run`, `https://sumanksaha--rerank.modal.run`.
 
+### RAG Agent Pipeline (LangGraph, opt-in)
+
+Since 2026-08-16 the RAG query path also offers a **self-correcting
+LangGraph agent** (M3+M4 — plan: `docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md`
+Part C; task: `task.md` ENV-11):
+
+```
+classify ──► retrieve ──► generate ──► verify ──► finalize ──► END
+                  ▲                            │
+                  └──── expand_query ◄─────────┘   (groundedness < 0.7, retries < 2)
+```
+
+- `POST /api/rag/query/agent` runs the graph; the node set is a thin
+  adapter layer over the **same** pipeline services as the legacy route
+  (retrieval with remote CE + Qdrant-side BM25, KG fusion, generation,
+  hallucination detection), so the agent path cannot drift from the
+  production baseline.
+- When the response's groundedness is below **0.7** and the retry budget
+  (default **2**) is not exhausted, the graph rewrites the query
+  (`expand_query_node`, reusing `GroundedLLMClient`) and re-retrieves.
+- Opt-in via `RAG_USE_AGENT_PIPELINE=true` — default `false`, in which
+  case the endpoint delegates to the legacy pipeline and `/api/rag/query`
+  is never affected. Requires `langgraph` (lazy import — the legacy path
+  never touches it).
+- 41 new tests (`tests/test_rag_agent_{state,nodes,graph,routes}.py`),
+  all stub-LLM / no network. M5 (checkpointing + human-in-the-loop) deferred.
+
 ---
 
 ## Technology Stack

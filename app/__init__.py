@@ -345,6 +345,12 @@ def create_app():
     # (RRF(dense, sparse, KG-contract)).  Best-effort: a missing/unreachable
     # Neo4j degrades to no KG fusion.
     app.config["RAG_KG_FUSION"] = os.environ.get("RAG_KG_FUSION", "false").lower() == "true"
+    # LangGraph agent pipeline (M3, docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md
+    # Part C): when true, POST /api/rag/query/agent runs the self-correcting
+    # graph (classify → retrieve → generate → verify → expand-and-retry on
+    # low groundedness).  Default false — the endpoint then delegates to the
+    # legacy pipeline, and /api/rag/query is never affected.
+    app.config["RAG_USE_AGENT_PIPELINE"] = os.environ.get("RAG_USE_AGENT_PIPELINE", "false").lower() == "true"
     # Query-type-aware reranking (CE_RERANK_REVIEW, STEP 7): when true, the
     # ensemble reranker classifies each query into a legal type (prohibition,
     # authority, cross-reference, offence, etc.) and applies the matching

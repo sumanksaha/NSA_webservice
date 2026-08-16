@@ -950,6 +950,21 @@ curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Conte
 
 > **DEPLOYED ✅ (2026-08-16):** `modal deploy app.py` succeeded from the dev sandbox (Modal CLI 1.5.4 — note the SDK renames: `container_idle_timeout`→`scaledown_window`, `web_endpoint`→`fastapi_endpoint`, `allow_concurrent_inputs`→`@modal.concurrent` on the class, `@app.cls()` outermost). **Live URLs: `https://sumanksaha--rerank.modal.run`, `https://sumanksaha--embed.modal.run`, `https://sumanksaha--healthz.modal.run`.** Verified: `/embed` returns 768-dim vectors; `/rerank` ranks Section 50 #1 for the penalty query at −0.82 (matches the local checkpoint's parity reference −0.821). `hf-token` secret created via `modal secret create hf-token HF_TOKEN=<read token>`. `.env` now points at the real URLs. **Remaining: paste the 8 env vars into the Render Dashboard (web + worker) — Step 2 table above — then verify `/rag/query` in production.**
 
+### ENV-11: LangGraph agent pipeline (M3+M4) — ✅ DONE (2026-08-16)
+
+> **Task:** Implement the LangGraph agent layer from `docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md` Part C — a self-correcting RAG pipeline with a conditional groundedness retry loop, behind an opt-in flag.
+
+**Delivered (all tests green):**
+
+- `app/rag/agent/state.py` — `RAGState` TypedDict (query, query_type, chunks, retry_count, audit_trail, groundedness, response, log_id, expanded_query, max_retries) + `initial_state()`; all chunks stored as JSON-serializable dicts (M5 checkpointing-ready).
+- `app/rag/agent/nodes.py` — thin adapters over the existing pipeline: `classify_node` (QueryClassifier, falls back to `general`), `retrieve_node` (`run_retrieval_pipeline` — already uses remote CE + Qdrant-side BM25), `evidence_node` (behind `ENABLE_EVIDENCE_SELECTOR`), `generate_node` (`run_generation_pipeline` with in-state chunks), `verify_node`, `expand_query_node` (reuses `GroundedLLMClient`, stub-LLM testable, keeps original query on failure), `finalize_node` (merges `pipeline: "agent"` + retry/audit metadata).
+- `app/rag/agent/graph.py` — `StateGraph`: classify → retrieve → [evidence] → generate → verify → conditional → expand_query → retrieve loop / finalize → END. Guard: `groundedness < 0.7` and `retry_count < max_retries` (default 2). Compiled once at import; `langgraph` imported only here (lazy — legacy pipeline untouched).
+- `app/rag/agent/routes.py` — `POST /api/rag/query/agent` on `rag_bp` (registered via `app/rag/__init__.py`); 400 validation / 503 RAG-disabled / 503 langgraph-missing; **flag off → delegates to the legacy `query()` route** (zero behaviour change until flip); flag on → runs the graph.
+- Config: `RAG_USE_AGENT_PIPELINE` (default `false`) in `app/__init__.py` + `.env.example`; `langgraph>=1.0.0` added to `pyproject.toml` (lazy import).
+- Tests: `tests/test_rag_agent_state.py` (5) + `test_rag_agent_nodes.py` (17) + `test_rag_agent_graph.py` (12) + `test_rag_agent_routes.py` (7) = **41 new tests, all passing** (stub-LLM, pipeline entry points monkeypatched — no Qdrant/network/torch). Regression: `test_rag_routes.py` + `test_rag_tasks.py` + `test_rag_e2e.py` + `test_route_collisions.py` 33/33 green.
+
+**Flip plan (rollout §8):** A/B `pipeline` (`legacy`/`agent`) on the frozen 150-question benchmark before setting `RAG_USE_AGENT_PIPELINE=true` in prod. M5 (checkpointing + HITL `interrupt()`) deferred — pin latest patched `langgraph-checkpoint-postgres` first.
+
 ### Developer Environment Notes
 
 > Tooling limitations encountered during the PR verification task and workarounds used:

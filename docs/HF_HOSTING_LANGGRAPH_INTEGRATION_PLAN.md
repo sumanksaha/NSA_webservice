@@ -14,6 +14,9 @@
 ### Status
 
 - **M0 done (2026-08-16):** `legal_ce_v2_K500` pushed to `sumanksaha/Foodmultidomain` (public) with library-generated `modules.json`; Hub-reload parity verified (scores identical). `scripts/push_ce_models.py`.
+- **M1+M2 done (2026-08-16) — via Modal, not HF Serverless:** the HF Serverless Inference API for the fine-tuned CE turned out to be **decommissioned** (404), and a Docker Space needs PRO — so the remote CE is served by **Modal** (`modal_deploy/app.py`, `POST https://sumanksaha--rerank.modal.run/rerank`), deployed and live-verified (score −0.821 matches the local checkpoint exactly). Dense embeddings also moved to Modal (`/embed`, `all-mpnet-base-v2`, same 768-dim — no re-index needed) and BM25 is computed **inside Qdrant** (`RAG_QDRANT_BM25=true`, `Qdrant/bm25`). Render now runs **zero local models**. See `task.md` **ENV-10** for the full deployment + the 8 Render env vars.
+- **M3+M4 done (2026-08-16):** LangGraph agent package implemented — `app/rag/agent/` (state/nodes/graph/routes), `POST /api/rag/query/agent`, `RAG_USE_AGENT_PIPELINE` flag (default false → delegates to the legacy pipeline), conditional groundedness retry loop (< 0.7, max 2 retries) with query expansion reusing `GroundedLLMClient`. 41 new tests green; `langgraph>=1.0.0` added to `pyproject.toml` (imported lazily — the legacy path never touches it).
+- **M5 deferred:** checkpointing (`MemorySaver` dev / `PostgresSaver` prod) + human-in-the-loop `interrupt()` — pin latest patched `langgraph-checkpoint-postgres` (2026 checkpointer advisory).
 
 ---
 
@@ -265,21 +268,21 @@ All stub-LLM, no network (mock `RemoteRerankClient` with the same injected-encod
 
 ## 7. Milestones & risk
 
-| Milestone | Effort | Risk | Deliverable |
-|---|---|---|---|
-| M0 — Hub push (v1+v2, cleaned) | 0.5 d | Low | `nsa-webservice/legal-ce-v2-k500` loads from Hub |
-| M1 — TEI Space/Endpoint + smoke test | 1 d | Low | `/rerank` returns scores for legal pairs |
-| M2 — RemoteRerankClient + wiring + fallback + tests | 2 d | Low | CE hosted, app still works with endpoint down |
-| M3 — LangGraph agent package + flag + tests | 1 wk | Med | `/api/rag/query/agent`, opt-in, suite green |
-| M4 — conditional retry loop + query expansion | 2 d | Med | Self-correcting pipeline (highest-value LangGraph feature) |
-| M5 — checkpointing + HITL *(defer)* | — | Med | Resume/interrupt (pin patched checkpointer) |
+| Milestone | Effort | Risk | Deliverable | Status |
+|---|---|---|---|---|
+| M0 — Hub push (v1+v2, cleaned) | 0.5 d | Low | `sumanksaha/Foodmultidomain` loads from Hub | ✅ done (2026-08-16) |
+| M1 — CE hosting + smoke test | 1 d | Low | `/rerank` returns scores for legal pairs | ✅ done — **Modal** (`sumanksaha--rerank.modal.run`), live-verified |
+| M2 — RemoteRerankClient + wiring + fallback + tests | 2 d | Low | CE hosted, app still works with endpoint down | ✅ done — `remote_reranker.py` + `RAG_RERANKER_ENDPOINT` |
+| M3 — LangGraph agent package + flag + tests | 1 wk | Med | `/api/rag/query/agent`, opt-in, suite green | ✅ done (2026-08-16) — 41 new tests |
+| M4 — conditional retry loop + query expansion | 2 d | Med | Self-correcting pipeline (highest-value LangGraph feature) | ✅ done (folded into M3) |
+| M5 — checkpointing + HITL *(defer)* | — | Med | Resume/interrupt (pin patched checkpointer) | ⏸ deferred |
 
-**Total:** ~2.5 weeks to M4, plus deferred M5.
+**Actual:** M0–M4 complete (2026-08-16); M5 deferred. Remote hosting went to **Modal** (not HF Serverless, which is decommissioned for the fine-tuned CE, and not a Docker Space, which now needs PRO) — see §0 status and `task.md` ENV-10.
 
 ---
 
 ## 8. Rollout
 
-1. M0–M2 land behind config only — no behavior change until `RAG_RERANKER_ENDPOINT` is set.
+1. M0–M4 land behind config only — no behavior change until `RAG_RERANKER_ENDPOINT` is set / `RAG_USE_AGENT_PIPELINE=true`.
 2. A/B: add `reranker_source` (`local`/`remote`) and `pipeline` (`legacy`/`agent`) fields to `RAGQueryLog`; compare R@10 / groundedness / latency on the frozen 150-question benchmark before flipping either flag in prod.
-3. Flip `RAG_RERANKER_ENDPOINT` first (biggest win: removes torch/CE from the app runtime). Flip `RAG_USE_AGENT_PIPELINE` only after the agent path matches legacy quality on the benchmark.
+3. Flip `RAG_RERANKER_ENDPOINT` first (done — live on Modal). Flip `RAG_USE_AGENT_PIPELINE` only after the agent path matches legacy quality on the benchmark.

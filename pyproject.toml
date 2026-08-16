@@ -76,6 +76,7 @@ dependencies = [
   "rapidfuzz>=3.0.0",              # fuzzy string matching - search fallback (Phase 10) + document cleaner normalizers
   "numpy>=1.26.0",                 # OCR pipeline runtime dependency (undeclared) - test_ocr_pipeline fails to collect without it
   "qdrant-client>=1.9.0",          # Qdrant vector store (local or Qdrant Cloud via RAG_QDRANT_URL/API_KEY)
+  "langgraph>=1.0.0",              # M3 LangGraph agent pipeline (POST /api/rag/query/agent; imported lazily)
   "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
   "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
   "easyocr>=1.7.0",                # OCR engine 1 for scanned legal PDFs (English + Hindi)
