@@ -363,8 +363,10 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
     )
     from app.rag.retrieval.identifier import identifier_query
 
-    import torch
-    torch.set_num_threads(4)
+    # Bound torch threads before the app import (which pulls in torch models).
+    from evaluation.ranking_loss_trainer import configure_threads
+
+    configure_threads()
 
     app = create_app()
     results = {}
@@ -555,7 +557,16 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true", help="Use frozen caches instead of live Qdrant")
     parser.add_argument("--top-k", type=int, default=500, help="Retrieval depth per question")
     parser.add_argument("--max-negatives", type=int, default=20, help="Max negatives per question")
+    parser.add_argument("--threads", type=int, default=4,
+                        help="Torch intra-op thread cap for live mode (default 4; offline mode is pure Python)")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Only mine this many questions (testing/spot checks on a laptop)")
     args = parser.parse_args()
+
+    # Bound threads before any torch import (live mode pulls in app modules).
+    from evaluation.ranking_loss_trainer import configure_threads
+
+    configure_threads(args.threads)
 
     from evaluation.benchmark import load_questions
     from evaluation.resolution import FamilyMap
@@ -582,12 +593,18 @@ def main() -> int:
 
     done = load_checkpoint()
     todo = [q for q in questions if q.question_id not in done]
-    print(f"[hard_negative_miner] {len(done)} cached, {len(todo)} to mine", file=sys.stderr)
+    if args.limit:
+        todo = todo[: args.limit]
+    print(
+        f"[hard_negative_miner] {len(done)} cached, {len(todo)} to mine"
+        + (f" (limited to {args.limit})" if args.limit else ""),
+        file=sys.stderr,
+    )
 
     if args.offline:
-        results = mine_offline(questions, payload_index, family_map, args.top_k, args.max_negatives)
+        results = mine_offline(todo, payload_index, family_map, args.top_k, args.max_negatives)
     else:
-        results = mine_live(questions, payload_index, family_map, args.top_k, args.max_negatives)
+        results = mine_live(todo, payload_index, family_map, args.top_k, args.max_negatives)
 
     # Merge and write
     done.update(results)

@@ -90,6 +90,11 @@ class EmbeddingService:
                 "Install it (with a matching model) to enable dense retrieval."
             )
             return None
+        # Bound the torch thread pools before the model is built so a single
+        # embedding call does not peg every core on a laptop (RAG_TORCH_THREADS).
+        from app.rag.torch_runtime import cap_torch_threads
+
+        cap_torch_threads()
         self._encoder = SentenceTransformer(self.model_name)
         return self._encoder
 

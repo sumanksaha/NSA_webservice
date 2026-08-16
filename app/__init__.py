@@ -229,6 +229,14 @@ def create_app():
     app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
     app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
     app.config["RAG_RERANKER_MODEL"] = os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    # Torch thread cap for RAG inference (embedding + CE reranking).  On
+    # laptops the torch default (one thread per core) pegs every core during
+    # a single query; 4 threads is the measured sweet spot (i5-1135G7 class)
+    # and leaves the machine usable while a query runs.
+    try:
+        app.config["RAG_TORCH_THREADS"] = int(os.environ.get("RAG_TORCH_THREADS", "4"))
+    except ValueError:
+        app.config["RAG_TORCH_THREADS"] = 4
     # BM25 sparse (hybrid) retrieval — local fastembed "Qdrant/bm25" vectors.
     # On: new collections are created with a named sparse vector and ingestion
     #     embeds it; existing dense-only collections keep working (dense-only)
@@ -266,15 +274,69 @@ def create_app():
     # Reranker.
     app.config["RAG_ENSEMBLE_RERANK"] = os.environ.get("RAG_ENSEMBLE_RERANK", "true").lower() != "false"
     # How many post-sec_act chunks the cross-encoder scores (latency bound).
+    # Validated by the CE weight/head sweep (2026-08-09): h=30 yields the best
+    # R@10=0.4267 (+5.1pp over h=20's 0.3761 at w=0.5); weight tuning within
+    # h=30 plateaus at 0.4267 for w=0.5-0.8, so weight stays at 0.5.
     try:
-        app.config["RAG_ENSEMBLE_CE_HEAD"] = int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "20"))
+        app.config["RAG_ENSEMBLE_CE_HEAD"] = int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "30"))
     except ValueError:
-        app.config["RAG_ENSEMBLE_CE_HEAD"] = 20
+        app.config["RAG_ENSEMBLE_CE_HEAD"] = 30
     # Bonus weight applied to the normalized CE scores on the head.
     try:
         app.config["RAG_ENSEMBLE_CE_WEIGHT"] = float(os.environ.get("RAG_ENSEMBLE_CE_WEIGHT", "0.5"))
     except ValueError:
         app.config["RAG_ENSEMBLE_CE_WEIGHT"] = 0.5
+    # Remote cross-encoder hosting (docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md
+    # Part B): when RAG_RERANKER_ENDPOINT is set, the ensemble reranker's CE
+    # head is scored via a TEI (text-embeddings-inference) /rerank HTTP endpoint
+    # (HF Docker Space / Inference Endpoint) instead of a local torch model.
+    # The endpoint is a drop-in for the local encoder — the sec_act feature
+    # half and all reranker scoring logic are unchanged.  Empty endpoint ⇒
+    # local CE as before.
+    app.config["RAG_RERANKER_ENDPOINT"] = os.environ.get("RAG_RERANKER_ENDPOINT", "")
+    app.config["RAG_RERANKER_TOKEN"] = os.environ.get("RAG_RERANKER_TOKEN", "")
+    try:
+        app.config["RAG_RERANKER_TIMEOUT"] = float(os.environ.get("RAG_RERANKER_TIMEOUT", "5"))
+    except ValueError:
+        app.config["RAG_RERANKER_TIMEOUT"] = 5.0
+    # Remote CE backend: "tei" (default — TEI /rerank, one batched POST per
+    # query) or "serverless" (HF Serverless Inference API — per-pair [SEP]
+    # requests, free tier, no Docker Space / Endpoint needed).  Ignored when
+    # RAG_RERANKER_ENDPOINT is empty.
+    app.config["RAG_RERANKER_MODE"] = os.environ.get("RAG_RERANKER_MODE", "tei")
+    # Fall back to the local CE (lazy — built only on first remote failure)
+    # when the remote endpoint errors.  False ⇒ remote failure degrades
+    # straight to sec_act features-only.
+    app.config["RAG_RERANKER_REMOTE_FALLBACK"] = (
+        os.environ.get("RAG_RERANKER_REMOTE_FALLBACK", "true").lower() != "false"
+    )
+    # Remote dense-embedding hosting (Modal / TEI-style /embed — see
+    # app/rag/retrieval/remote_embedder.py): when RAG_EMBED_ENDPOINT is set,
+    # DenseRetriever embeds queries over HTTP instead of loading
+    # all-mpnet-base-v2 + torch locally (Render free tier cannot hold them).
+    # The endpoint returns {"vectors": [...]} in the same embedding space as
+    # the local model, so retrieval logic is unchanged.  Empty ⇒ local encoder
+    # as before.  Ingestion-side embedding stays local (one-off scripts).
+    app.config["RAG_EMBED_ENDPOINT"] = os.environ.get("RAG_EMBED_ENDPOINT", "")
+    app.config["RAG_EMBED_TOKEN"] = os.environ.get("RAG_EMBED_TOKEN", "")
+    try:
+        app.config["RAG_EMBED_TIMEOUT"] = float(os.environ.get("RAG_EMBED_TIMEOUT", "5"))
+    except ValueError:
+        app.config["RAG_EMBED_TIMEOUT"] = 5.0
+    # Fall back to a local SentenceTransformer (lazy) when the remote embedder
+    # errors.  False ⇒ remote failure degrades to sparse-only — the required
+    # setting on Render free tier (a local torch build would OOM 512 MB).
+    app.config["RAG_EMBED_REMOTE_FALLBACK"] = (
+        os.environ.get("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
+    )
+    # Qdrant-side BM25 (server-side sparse inference, ``Qdrant/bm25``): when
+    # on, the sparse retriever sends the raw query text and the cluster
+    # computes the BM25 vector in-cluster — removing the last local model
+    # (fastembed) from the query path.  Verified live 2026-08-16 against the
+    # provisioned cluster; free on the free tier.  Requires qdrant-client
+    # >= 1.12 and a collection whose ``text_sparse`` vector has
+    # ``modifier: idf`` (both true for fssai_legal_768).  Default off — opt-in.
+    app.config["RAG_QDRANT_BM25"] = os.environ.get("RAG_QDRANT_BM25", "false").lower() == "true"
     # KG contract fusion (2026-08-12, validated by the offline fusion
     # experiment): when true, the generation pipeline runs the graph-RAG
     # retrieval contract (query -> provisions via kg.queries.provisions_for_query)
@@ -283,6 +345,12 @@ def create_app():
     # (RRF(dense, sparse, KG-contract)).  Best-effort: a missing/unreachable
     # Neo4j degrades to no KG fusion.
     app.config["RAG_KG_FUSION"] = os.environ.get("RAG_KG_FUSION", "false").lower() == "true"
+    # Query-type-aware reranking (CE_RERANK_REVIEW, STEP 7): when true, the
+    # ensemble reranker classifies each query into a legal type (prohibition,
+    # authority, cross-reference, offence, etc.) and applies the matching
+    # per-type QueryTypeConfig weight overrides (e.g. prohibition → no
+    # hierarchy boost, authority → larger CE head).  Default true.
+    app.config["RAG_LEGAL_QUERY_TYPING"] = os.environ.get("RAG_LEGAL_QUERY_TYPING", "true").lower() != "false"
     # Max KG provisions injected into the LLM context (each provision takes
     # one context slot, displacing the tail of retrieved chunks).
     try:

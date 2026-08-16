@@ -41,6 +41,11 @@ class SparseRetriever:
         store: Optional :class:`QdrantStore` for the BM25 sparse-vector path.
         embedder: Optional :class:`SparseEmbeddingService` for query-side BM25
             embedding (built lazily when ``None``).
+        server_bm25: When True (and the store is sparse-capable), the query
+            is sent as text and **Qdrant computes the BM25 vector in-cluster**
+            (``Qdrant/bm25`` — no local fastembed at query time).  Gated by
+            ``RAG_QDRANT_BM25``; requires qdrant-client >= 1.12 and a cluster
+            with BM25-in-cluster support (verified on the provisioned one).
     """
 
     def __init__(
@@ -48,10 +53,12 @@ class SparseRetriever:
         corpus: dict[str, dict[str, Any]] | None = None,
         store: Any | None = None,
         embedder: Any | None = None,
+        server_bm25: bool = False,
     ) -> None:
         self._corpus = corpus or {}
         self._store = store
         self._embedder = embedder
+        self.server_bm25 = server_bm25
 
     @property
     def store(self) -> Any | None:
@@ -131,12 +138,22 @@ class SparseRetriever:
                 sparse_capable = False
             if sparse_capable:
                 try:
-                    sparse_vector = self.embed_query(query)
-                    # BM25 scores are unbounded similarity (not 0-1 like dense
-                    # cosine); hybrid fusion consumes them rank-based (RRF).
-                    points = self._store.search_sparse(
-                        sparse_vector, top_k=top_k, filters=filters
-                    )
+                    if self.server_bm25:
+                        # Qdrant-side BM25: the cluster tokenizes + weights the
+                        # query text (no local fastembed).  Verified live
+                        # 2026-08-16 — free on the free tier.
+                        search = getattr(self._store, "search_sparse_text", None)
+                        if not callable(search):
+                            raise RuntimeError("store lacks search_sparse_text (RAG_QDRANT_BM25 requires qdrant-client >= 1.12)")
+                        points = search(query, top_k=top_k, filters=filters)
+                    else:
+                        sparse_vector = self.embed_query(query)
+                        # BM25 scores are unbounded similarity (not 0-1 like
+                        # dense cosine); hybrid fusion consumes them rank-based
+                        # (RRF).
+                        points = self._store.search_sparse(
+                            sparse_vector, top_k=top_k, filters=filters
+                        )
                     from app.rag.retrieval.dense_retriever import DenseRetriever
 
                     chunks = [DenseRetriever._payload_to_chunk(p) for p in points]

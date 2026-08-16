@@ -48,6 +48,11 @@ class Reranker:
         try:
             from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
 
+            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
+            # so a rerank call does not peg every core on a laptop.
+            from app.rag.torch_runtime import cap_torch_threads
+
+            cap_torch_threads()
             self._encoder = CrossEncoder(self.model_name)
             return self._encoder
         except ImportError:
@@ -58,11 +63,14 @@ class Reranker:
         query: str,
         chunks: list[RetrievedChunk],
         top_k: int | None = None,
+        query_type: str | None = None,
     ) -> list[RetrievedChunk]:
         """Re-rank ``chunks`` by relevance to ``query``.
 
         Uses the cross-encoder if available; otherwise falls back to
-        deterministic text-overlap scoring.
+        deterministic text-overlap scoring.  *query_type* is accepted for
+        API symmetry with :class:`EnsembleReranker` but is not used by the
+        plain reranker.
         """
         if not chunks:
             return []
@@ -232,6 +240,11 @@ class EnsembleReranker:
         try:
             from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
 
+            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
+            # so the CE head does not peg every core on a laptop.
+            from app.rag.torch_runtime import cap_torch_threads
+
+            cap_torch_threads()
             self._encoder = CrossEncoder(self.model_name)
             return self._encoder
         except Exception as exc:  # noqa: BLE001 - optional dependency / bad path
@@ -243,10 +256,44 @@ class EnsembleReranker:
         query: str,
         chunks: list[RetrievedChunk],
         top_k: int | None = None,
+        query_type: str | None = None,
     ) -> list[RetrievedChunk]:
-        """Re-rank ``chunks`` with sec_act features primary + CE head bonus."""
+        """Re-rank ``chunks`` with sec_act features primary + CE head bonus.
+
+        When *query_type* is provided (from the legal query-type classifier),
+        applies the matching :class:`~app.rag.retrieval.legal_query_classifier.QueryTypeConfig`
+        weight overrides instead of the default measured grid.  This is the
+        CE_RERANK_REVIEW query-type-aware reranking layer (STEP 7): e.g.
+        prohibition queries regress with hierarchy boosting (hierarchy=0),
+        authority queries need a larger CE head, cross-reference queries
+        rely on identifier recovery.
+        """
         if not chunks:
             return []
+
+        from app.rag.retrieval.legal_query_classifier import get_config
+
+        w_sec = self._W_SEC
+        w_act = self._W_ACT
+        w_exact = self._W_EXACT
+        w_hierarchy = self._W_HIERARCHY
+        ce_head = self.ce_head
+        ce_weight = self.ce_weight
+        skip_ce = False
+
+        if query_type is not None:
+            try:
+                cfg = get_config(query_type)
+                fw = cfg.feature_weight
+                w_sec = self._W_SEC * fw
+                w_act = self._W_ACT * fw
+                w_exact = self._W_EXACT * fw
+                w_hierarchy = cfg.hierarchy_weight
+                ce_head = cfg.ce_head
+                ce_weight = cfg.ce_weight
+                skip_ce = cfg.skip_ce
+            except Exception:  # noqa: BLE001 - any config lookup failure → defaults
+                pass
 
         from app.rag.retrieval.identifier import detect_act, detect_section
 
@@ -262,29 +309,28 @@ class EnsembleReranker:
             exact = 1.0 if (sec and act) else 0.0
             exact_flags.append(bool(exact))
             hier = self._hierarchy_boost(chunk.hierarchy_level)
-            primary.append(
-                chunk.score + self._W_SEC * sec + self._W_ACT * act + self._W_EXACT * exact + self._W_HIERARCHY * hier
-            )
+            primary.append(chunk.score + w_sec * sec + w_act * act + w_exact * exact + w_hierarchy * hier)
 
         # 2. CE scores for the head only
-        head_idx = sorted(range(len(chunks)), key=lambda i: primary[i], reverse=True)[: self.ce_head]
+        head_idx = sorted(range(len(chunks)), key=lambda i: primary[i], reverse=True)[:ce_head]
         ce_bonus: dict[int, float] = {}
         encoder = self._get_encoder()
-        # ponytail: dynamic CE skipping � when the entire sec_act head has
+        # ponytail: dynamic CE skipping — when the entire sec_act head has
         # exact matches, the features already decided the ranking; skip the
         # ~5-9s CE cost.  Only triggers when BOTH section + Act detected.
-        skip_ce = (
-            self.skip_ce_when_confident
-            and q_sec is not None
-            and q_act is not None
-            and all(exact_flags[i] for i in head_idx)
-        )
+        if not skip_ce:
+            skip_ce = (
+                self.skip_ce_when_confident
+                and q_sec is not None
+                and q_act is not None
+                and all(exact_flags[i] for i in head_idx)
+            )
         if encoder is not None and not skip_ce:
             try:
                 pairs = [(query, chunks[i].text) for i in head_idx]
                 scores = encoder.predict(pairs)
                 norm = self._minmax([float(s) for s in scores])
-                ce_bonus = {i: self.ce_weight * n for i, n in zip(head_idx, norm)}
+                ce_bonus = {i: ce_weight * n for i, n in zip(head_idx, norm)}
             except Exception as exc:  # noqa: BLE001 - CE is best-effort
                 logger.warning("EnsembleReranker: CE scoring failed (%s) — sec_act features only", exc)
 

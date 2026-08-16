@@ -38,6 +38,13 @@ DEFAULT_COLLECTION = "fssai_legal_768"
 DENSE_VECTOR_NAME = "dense"
 SPARSE_VECTOR_NAME = "text_sparse"
 
+#: In-cluster BM25 inference model for server-side sparse queries (no local
+#: fastembed needed).  Verified live against the provisioned cluster
+#: (2026-08-16): ``{"query": {"text": ..., "model": "Qdrant/bm25"},
+#: "using": "text_sparse"}`` returns ranked points and is free on the free
+#: tier (BM25 is deterministic, computed inside the cluster).
+BM25_TEXT_MODEL = "Qdrant/bm25"
+
 #: Max points per ``upsert`` request.  Qdrant Cloud (and intermediaries such
 #: as corporate proxies) drops oversized upsert payloads — observed live
 #: 2026-08-09: a single 2523-point hybrid upsert failed with "An existing
@@ -698,6 +705,125 @@ class QdrantStore:
                     using=SPARSE_VECTOR_NAME,
                     limit=prefetch_limit,
                 ),
+            ]
+            kwargs["query"] = models.FusionQuery(fusion=models.Fusion.RRF)
+        if filters:
+            kwargs["query_filter"] = self._build_filter(filters)
+        response = query_points(**kwargs)
+        return [
+            {
+                "id": str(p.id),
+                "score": float(getattr(p, "score", 0.0) or 0.0),
+                "payload": getattr(p, "payload", None) or {},
+            }
+            for p in (getattr(response, "points", None) or [])
+        ]
+
+    # ------------------------------------------------------------------ #
+    # Qdrant-side BM25 (server-side sparse inference) — no local fastembed
+    # ------------------------------------------------------------------ #
+
+    def search_sparse_text(
+        self,
+        text: str,
+        top_k: int = 10,
+        score_threshold: float | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """BM25 text search — the cluster computes the sparse query vector.
+
+        Uses the collection's ``text_sparse`` vector (configured with
+        ``modifier: idf``) and Qdrant's in-cluster BM25 inference
+        (``Qdrant/bm25``): the query text is sent as a ``Document`` and the
+        sparse vector is computed server-side, so no local fastembed is needed
+        at query time.  Verified live against the provisioned cluster
+        (2026-08-16) — free on the free tier.  Requires ``qdrant-client``
+        >= 1.12 (``query_points``) and a cluster with BM25-in-cluster support.
+
+        Returns:
+            List of ``{"id", "score", "payload"}`` dicts.
+        """
+        client = self._require_client()
+        query_points = getattr(client, "query_points", None)
+        if not callable(query_points):
+            raise RuntimeError("search_sparse_text requires qdrant-client >= 1.12 (query_points)")
+        models = self._get_models()
+        query = (
+            models.Document(text=text, model=BM25_TEXT_MODEL)
+            if models is not None
+            else {"text": text, "model": BM25_TEXT_MODEL}
+        )
+        kwargs: dict[str, Any] = {
+            "collection_name": self.collection_name,
+            "query": query,
+            "using": SPARSE_VECTOR_NAME,
+            "limit": top_k,
+            "with_payload": True,
+            "with_vectors": False,
+        }
+        if score_threshold is not None:
+            kwargs["score_threshold"] = score_threshold
+        if filters:
+            kwargs["query_filter"] = self._build_filter(filters)
+        response = query_points(**kwargs)
+        return [
+            {
+                "id": str(p.id),
+                "score": float(getattr(p, "score", 0.0) or 0.0),
+                "payload": getattr(p, "payload", None) or {},
+            }
+            for p in (getattr(response, "points", None) or [])
+        ]
+
+    def hybrid_search_text(
+        self,
+        dense_vector: list[float],
+        text: str,
+        top_k: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Server-side hybrid: dense vector + Qdrant-computed BM25 text.
+
+        Same single-roundtrip prefetch + RRF fusion as :meth:`hybrid_search`,
+        but the sparse arm is a text ``Document`` (``Qdrant/bm25``) instead of
+        a locally-embedded sparse vector — the query text is tokenized and
+        weighted on the cluster.  Requires ``qdrant-client`` >= 1.12.
+
+        Args:
+            dense_vector: Dense query embedding.
+            text: Raw query text for the server-side BM25 arm.
+            top_k: Maximum number of fused results.
+            filters: Optional ``{field: value}`` payload filter for both prefetches.
+
+        Returns:
+            List of ``{"id", "score", "payload"}`` dicts, fused and ranked.
+        """
+        client = self._require_client()
+        query_points = getattr(client, "query_points", None)
+        if not callable(query_points):
+            raise RuntimeError("hybrid_search_text requires qdrant-client >= 1.12 (query_points)")
+        models = self._get_models()
+        prefetch_limit = max(top_k * 5, 50)
+        sparse_query = (
+            models.Document(text=text, model=BM25_TEXT_MODEL)
+            if models is not None
+            else {"text": text, "model": BM25_TEXT_MODEL}
+        )
+        kwargs: dict[str, Any] = {
+            "collection_name": self.collection_name,
+            "prefetch": [
+                {"query": dense_vector, "using": DENSE_VECTOR_NAME, "limit": prefetch_limit},
+                {"query": sparse_query, "using": SPARSE_VECTOR_NAME, "limit": prefetch_limit},
+            ],
+            "query": {"fusion": "rrf"},
+            "limit": top_k,
+            "with_payload": True,
+            "with_vectors": False,
+        }
+        if models is not None:
+            kwargs["prefetch"] = [
+                models.Prefetch(query=dense_vector, using=DENSE_VECTOR_NAME, limit=prefetch_limit),
+                models.Prefetch(query=sparse_query, using=SPARSE_VECTOR_NAME, limit=prefetch_limit),
             ]
             kwargs["query"] = models.FusionQuery(fusion=models.Fusion.RRF)
         if filters:

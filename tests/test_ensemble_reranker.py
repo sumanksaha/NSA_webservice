@@ -10,6 +10,10 @@ the constructor, and the legal features are pure lexical detection.
 
 from __future__ import annotations
 
+import os
+
+import pytest
+
 from app.rag.retrieval.result import RetrievedChunk
 from app.rag.retrieval.reranker import EnsembleReranker, Reranker
 
@@ -407,7 +411,7 @@ class TestEnsemblePipelineWiring:
             def __init__(self, dense, sparse, reranker=None):
                 recorded["reranker"] = reranker
 
-            def retrieve(self, query, top_k=10, filters=None, identifier_query=None):
+            def retrieve(self, query, top_k=10, filters=None, identifier_query=None, query_type=None):
                 recorded["identifier_query"] = identifier_query
                 return SearchResult(query=query, query_type="", chunks=[_chunk("c1", 0.9)], total=1, latency_ms=1)
 
@@ -425,3 +429,93 @@ class TestEnsemblePipelineWiring:
         result = run_retrieval_pipeline("What does Section 55 say about adulteration?", top_k=5)
         assert isinstance(recorded["reranker"], EnsembleReranker)
         assert result["identifier"]["form"] == "section"
+
+        # Parallel legal-structure layer (default flags: legal_identities on,
+        # evidence_set/expansion off)
+        assert "legal_identities" in result
+        assert isinstance(result["legal_identities"], list)
+        assert "evidence_set" in result
+        assert "expanded_candidates" in result
+        # Evidence selector is off by default
+        assert result["evidence_set"] is None
+
+
+class TestLegalStructureLayerInPipeline:
+    """The parallel legal-structure layer is wired behind feature flags."""
+
+    def test_evidence_selector_flag_off_by_default(self):
+        from app.rag.tasks import _evidence_selector_enabled
+        assert _evidence_selector_enabled() is False
+
+    def test_evidence_selector_flag_on(self, monkeypatch):
+        from app.rag.tasks import _evidence_selector_enabled
+        monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "true")
+        # Need to reimport or call with env — the function reads env directly
+        # so we need to use a monkeypatched Flask config approach.
+        # Since _evidence_selector_enabled falls back to env when no app
+        # context, setting the env var should work.
+        import importlib
+        import app.rag.tasks as t
+        importlib.reload(t)
+        assert t._evidence_selector_enabled() is True
+
+    def test_legal_identity_flag_on_by_default(self, monkeypatch):
+        from app.rag.retrieval.legal_identity import _legal_identity_enabled
+        # Default is True
+        assert _legal_identity_enabled() is True
+
+    def test_reference_expansion_flag_off_by_default(self):
+        from app.rag.retrieval.reference_graph import _reference_expansion_enabled
+        # Need env set for test — in tasks.py it calls reference_graph's function
+        # which reads ENABLE_REFERENCE_EXPANSION env var (default false)
+        old = os.environ.pop("ENABLE_REFERENCE_EXPANSION", None)
+        try:
+            assert _reference_expansion_enabled() is False
+        finally:
+            if old is not None:
+                os.environ["ENABLE_REFERENCE_EXPANSION"] = old
+
+    def test_pipeline_returns_legal_identities(self, monkeypatch):
+        """When legal identity is enabled, pipeline returns identity dicts."""
+        import app.rag.retrieval as retrieval_mod
+        from app.rag.retrieval.result import SearchResult
+        from app.rag.tasks import run_retrieval_pipeline
+
+        class FakeClassifier:
+            @staticmethod
+            def classify(query):
+                return retrieval_mod.QueryType.SECTION_LOOKUP
+
+        class FakeParser:
+            @staticmethod
+            def parse(query, qtype):
+                return {}
+
+        class FakeHybrid:
+            def __init__(self, *a, **kw):
+                pass
+            def retrieve(self, query, **kw):
+                from app.rag.retrieval.result import RetrievedChunk
+                chunk = RetrievedChunk(
+                    chunk_id="c1", score=0.9, text="Section 55 adulteration",
+                    section_number="55", act_name="Food Safety and Standards Act, 2006",
+                    document_title="Food Safety and Standards Act, 2006",
+                )
+                return SearchResult(query=query, query_type="", chunks=[chunk], total=1, latency_ms=1)
+
+        class FakeLogger:
+            def log(self, **kw):
+                return None
+
+        monkeypatch.setattr(retrieval_mod, "HybridRetriever", FakeHybrid)
+        monkeypatch.setattr(retrieval_mod, "QueryClassifier", FakeClassifier)
+        monkeypatch.setattr(retrieval_mod, "QueryParser", FakeParser)
+        monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
+        monkeypatch.setattr("app.rag.tasks._identifier_route_enabled", lambda: False)
+        monkeypatch.setattr("app.rag.tasks._ensemble_rerank_enabled", lambda: False)
+
+        result = run_retrieval_pipeline("Section 55", top_k=5)
+        assert "legal_identities" in result
+        assert isinstance(result["legal_identities"], list)
+        # Legal identity should be parsed (default enabled)
+        assert len(result["legal_identities"]) >= 1

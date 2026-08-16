@@ -14,6 +14,7 @@ pattern used by ``app/ai_assistant/service.py``.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
@@ -50,6 +51,8 @@ class DenseRetriever:
         self._encoder = encoder
         #: Cache for :meth:`_collection_has_sparse` (one get_collection call).
         self._has_sparse: bool | None = None
+        #: Cache for the remote embedder (built lazily when RAG_EMBED_ENDPOINT set).
+        self._remote_embed: Any | None = None
 
     @property
     def embedding_model(self) -> str:
@@ -121,13 +124,64 @@ class DenseRetriever:
     def embed_query(self, text: str) -> list[float]:
         """Embed a query string into a dense vector.
 
-        Raises ``RuntimeError`` when sentence-transformers is unavailable.
+        Uses the remote embedder when ``RAG_EMBED_ENDPOINT`` is configured
+        (hosted inference — no local torch), else the local
+        ``SentenceTransformer``.  Raises ``RuntimeError`` when neither is
+        available.
         """
+        remote = self._get_remote_embedder()
+        if remote is not None:
+            return remote.embed([text])[0]
         encoder = self._get_encoder()
         if encoder is None:
             raise RuntimeError("sentence-transformers is not installed; cannot embed query.")
         vec = encoder.encode(text)
         return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+
+    def _get_remote_embedder(self) -> Any | None:
+        """Return a cached :class:`RemoteEmbedClient` when ``RAG_EMBED_ENDPOINT``
+        is configured (hosted dense inference — see
+        ``app/rag/retrieval/remote_embedder.py``).
+
+        Empty endpoint ⇒ ``None`` (local encoder as before).  Reads Flask
+        config, falling back to env vars, consistent with the reranker wiring
+        in ``app/rag/tasks.py``.  The lazy local fallback inside the client is
+        controlled by ``RAG_EMBED_REMOTE_FALLBACK`` (off on Render free tier —
+        a dead endpoint must degrade to sparse-only, never build torch).
+        """
+        if self._remote_embed is not None:
+            return self._remote_embed
+        endpoint = self._embed_config("RAG_EMBED_ENDPOINT")
+        if not endpoint:
+            return None
+        from app.rag.retrieval.remote_embedder import RemoteEmbedClient
+
+        fallback = self._embed_config("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
+        self._remote_embed = RemoteEmbedClient(
+            endpoint=endpoint,
+            token=self._embed_config("RAG_EMBED_TOKEN") or None,
+            timeout=float(self._embed_config("RAG_EMBED_TIMEOUT", "5") or 5.0),
+            # ``_embed_config`` (env fallback) instead of the ``embedding_model``
+            # property so this works outside an app context (unit tests).
+            local_model=(
+                self._embed_config("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
+                if fallback
+                else None
+            ),
+        )
+        return self._remote_embed
+
+    @staticmethod
+    def _embed_config(key: str, default: str = "") -> str:
+        """Read a RAG embed config from Flask config, else env var."""
+        try:
+            from flask import current_app
+
+            if current_app:
+                return str(current_app.config.get(key, default) or default)
+        except Exception:  # noqa: BLE001 - no app context / not installed
+            pass
+        return os.environ.get(key, default)
 
     @staticmethod
     def _payload_to_chunk(point: Any) -> RetrievedChunk:

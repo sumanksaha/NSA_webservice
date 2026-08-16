@@ -882,6 +882,74 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 **Files:** `app/tasks_webhook/routes.py:44-49` (warning site), `app/utils/qstash_client.py:106-113` (`qstash_configured()`), `app/__init__.py:111` (`load_dotenv`), `app/__init__.py:286-287` (public_endpoints), `app/health/routes.py:52-54` (health check), `render.yaml:55-64` (env var declarations), `.env.example` (empty values).
 
+### ENV-10: Render free-tier RAG inference — Modal hosting + Qdrant-side BM25 — ⚠️ CODE DONE, DEPLOY PENDING (2026-08-16)
+
+> **Problem:** Render free tier (512 MB RAM / 0.1 CPU) cannot load any local torch model — `all-mpnet-base-v2` (~420 MB fp32) alone exceeds the budget, and the CE reranker (~90 MB) pushes it over. **Decision:** run **zero local models** in production: dense embeddings + CE reranking on **Modal** (free $30/mo credits, serverless, scales to zero), BM25 sparse computed **in-cluster by Qdrant** (`Qdrant/bm25` — verified live 2026-08-16, free on the free tier). The HF Serverless Inference API (`api-inference.huggingface.co`) was **decommissioned** (410/404 since late 2025 — replaced by Inference Providers which only serve an allowlisted catalog; this custom CE is not in it), so the old `mode="serverless"` path and `scripts/test_hf_inference.py` are **dead ends** — do not debug them.
+
+**Code state — ALL IMPLEMENTED & TESTED (2026-08-16):**
+
+- `modal_deploy/app.py` — Modal app hosting `POST /rerank` (TEI-compatible: `{"query", "texts"}` → `[{"index", "score"}]`, backed by `sumanksaha/Foodmultidomain`) + `POST /embed` (`{"texts"}` → `{"vectors": [[...]]}`, backed by `all-mpnet-base-v2`, no normalization — matches the 768-dim index) + `GET /healthz`. Models downloaded at **image build time** (`.run_function(_download_models, secrets=[hf_secret])`), so containers start warm. Requires a workspace Secret named `hf-token` (Hugging Face template, `HF_TOKEN` = read token with gate accepted). Deploy: `modal deploy app.py` from `modal_deploy/`. README: `modal_deploy/README.md`.
+- `app/rag/retrieval/remote_embedder.py` — `RemoteEmbedClient` (encoder-seam HTTP client, lazy local fallback) — mirrors `remote_reranker.py`.
+- `app/rag/retrieval/dense_retriever.py` — `_get_remote_embedder()` / `embed_query` branch behind `RAG_EMBED_ENDPOINT` (covers both the dense-only search path and the server-side hybrid fusion path).
+- `app/rag/qdrant_client.py` — `BM25_TEXT_MODEL = "Qdrant/bm25"` + `search_sparse_text()` + `hybrid_search_text()` (Document-query prefetch + RRF; no local fastembed at query time).
+- `app/rag/retrieval/sparse_retriever.py` — `server_bm25` constructor flag → `search_sparse_text` path.
+- `app/rag/retrieval/hybrid_retriever.py` — server-side fusion uses `hybrid_search_text(dense_vector, query)` when `sparse.server_bm25` is on.
+- `app/rag/tasks.py` — `_qdrant_bm25_enabled()` + `SparseRetriever(..., server_bm25=_qdrant_bm25_enabled())`.
+- `app/__init__.py` — config: `RAG_EMBED_ENDPOINT`, `RAG_EMBED_TOKEN`, `RAG_EMBED_TIMEOUT`, `RAG_EMBED_REMOTE_FALLBACK`, `RAG_QDRANT_BM25`.
+- Tests: `tests/test_remote_embedder.py` (17), `tests/test_qdrant_bm25.py` (13), conftest autouse `_rag_remote_inference_env` isolation. All green; live cluster probe returns §50/§51/§58 for the penalty query.
+
+**Step 1 — Deploy models to Modal (from a networked machine):**
+
+```bash
+pip install modal
+modal setup                 # browser auth — no secrets typed
+cd modal_deploy
+modal deploy app.py         # first build ~minutes (torch + both models baked in)
+```
+
+- Modal account: sign up at modal.com, verify phone, add a card to unlock the **$30/month free credits**, then set a **monthly spend limit of $30** (Settings) so it can never exceed the credit.
+- **Secret:** Modal → Secrets → Hugging Face template → name it **`hf-token`** → `HF_TOKEN` = the read token (account must have accepted the `sumanksaha/Foodmultidomain` gate conditions on the model page).
+- Deploy prints three URLs like `https://<workspace>--nsa-legal-inference-{rerank,embed,healthz}.modal.run` — record the `rerank` and `embed` ones.
+- Verify (cold start 10–30 s on first call):
+
+```bash
+curl -X POST https://<workspace>--nsa-legal-inference-embed.modal.run -H "Content-Type: application/json" \
+  -d '{"texts": ["penalty for selling substandard food"]}'            # → {"vectors": [[768 floats]]}
+curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Content-Type: application/json" \
+  -d '{"query": "penalty for selling substandard food", "texts": ["Section 50: General penalty for unsafe food"]}'  # → [{"index": 0, "score": ~4.2}]
+```
+
+**Step 2 — Set env vars on Render (web service + Celery worker; Dashboard → Environment, or add to `render.yaml` with `sync: false`):**
+
+| Var | Value to enter | Why |
+| --- | --- | --- |
+| `RAG_EMBED_ENDPOINT` | `https://<workspace>--nsa-legal-inference-embed.modal.run` | dense queries embed over HTTP — no local torch |
+| `RAG_EMBED_TOKEN` | *(empty)* | Modal endpoint is public; Space/endpoint auth uses its own secret |
+| `RAG_EMBED_TIMEOUT` | `5` | per-request timeout (s) |
+| `RAG_EMBED_REMOTE_FALLBACK` | **`false`** | ⚠️ required — `true` would lazily build local torch on failure and OOM 512 MB; `false` degrades to sparse-only |
+| `RAG_RERANKER_ENDPOINT` | `https://<workspace>--nsa-legal-inference-rerank.modal.run` | CE head scores over HTTP |
+| `RAG_RERANKER_MODE` | `tei` | TEI `/rerank` contract (the `serverless` mode targets the decommissioned API — do not use) |
+| `RAG_RERANKER_TOKEN` | *(empty)* | — |
+| `RAG_RERANKER_REMOTE_FALLBACK` | **`false`** | ⚠️ required — `true` would build local CE on failure and OOM; `false` degrades to sec_act features-only |
+| `RAG_QDRANT_BM25` | **`true`** | Qdrant computes BM25 in-cluster — removes the last local model (fastembed) |
+| `RAG_ENSEMBLE_RERANK` | `true` | sec_act features local (pure Python) + remote CE head |
+
+**Step 3 — Verify in production:**
+
+1. Redeploy both Render services, then run a `/rag/query` (or `GET /rag/health`) — logs should show the CE head + dense embedding scoring over HTTP, no torch import errors, no OOM kills.
+2. Confirm graceful degradation: stop the Modal app (or use a wrong URL) → retrieval still returns results (features-only / sparse-only), never crashes.
+3. Watch Render memory in the dashboard — should stay well under the 512 MB free-tier ceiling.
+
+**Rollback:** set `RAG_EMBED_ENDPOINT` / `RAG_RERANKER_ENDPOINT` empty and `RAG_QDRANT_BM25=false` → returns to local-torch behavior (works only if Render is upgraded off the free tier). `RAG_EMBED_REMOTE_FALLBACK`/`RAG_RERANKER_REMOTE_FALLBACK` default `true` for dev machines; Render must keep them `false`.
+
+**Cost guardrail:** free tier = $30/mo Modal credits; ~1 s embed + ~2 s rerank ≈ $0.00006/query ≈ 500 K queries/month. Qdrant BM25 is free (deterministic, in-cluster).
+
+**Acceptance criteria:** `modal deploy` succeeds and both curl checks above return correct shapes; all five RAG env vars set on web + worker; `/rag/query` returns grounded results in production with Render memory < 512 MB and no torch in the process; full offline suite (incl. `tests/test_remote_embedder.py` 17 + `tests/test_qdrant_bm25.py` 13) green.
+
+**Files:** `modal_deploy/` (new), `app/rag/retrieval/remote_embedder.py` (new), `app/rag/retrieval/dense_retriever.py`, `app/rag/qdrant_client.py`, `app/rag/retrieval/sparse_retriever.py`, `app/rag/retrieval/hybrid_retriever.py`, `app/rag/tasks.py`, `app/__init__.py`, `.env` (real URLs now set), `.env.example`, `tests/test_remote_embedder.py`, `tests/test_qdrant_bm25.py`, `tests/conftest.py`.
+
+> **DEPLOYED ✅ (2026-08-16):** `modal deploy app.py` succeeded from the dev sandbox (Modal CLI 1.5.4 — note the SDK renames: `container_idle_timeout`→`scaledown_window`, `web_endpoint`→`fastapi_endpoint`, `allow_concurrent_inputs`→`@modal.concurrent` on the class, `@app.cls()` outermost). **Live URLs: `https://sumanksaha--rerank.modal.run`, `https://sumanksaha--embed.modal.run`, `https://sumanksaha--healthz.modal.run`.** Verified: `/embed` returns 768-dim vectors; `/rerank` ranks Section 50 #1 for the penalty query at −0.82 (matches the local checkpoint's parity reference −0.821). `hf-token` secret created via `modal secret create hf-token HF_TOKEN=<read token>`. `.env` now points at the real URLs. **Remaining: paste the 8 env vars into the Render Dashboard (web + worker) — Step 2 table above — then verify `/rag/query` in production.**
+
 ### Developer Environment Notes
 
 > Tooling limitations encountered during the PR verification task and workarounds used:

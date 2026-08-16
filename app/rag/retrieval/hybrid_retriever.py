@@ -62,6 +62,7 @@ class HybridRetriever:
         sparse_weight: float = 0.3,
         filters: dict[str, Any] | None = None,
         identifier_query: str | None = None,
+        query_type: str | None = None,
     ) -> SearchResult:
         """Retrieve chunks by fusing dense and sparse results.
 
@@ -111,10 +112,16 @@ class HybridRetriever:
                 if sparse_capable:
                     try:
                         dense_vector = dense_embed(query)
-                        sparse_vector = sparse_embed(query)
-                        points = sparse_store.hybrid_search(
-                            dense_vector, sparse_vector, top_k=top_k, filters=filters
-                        )
+                        if getattr(self.sparse, "server_bm25", False):
+                            # Qdrant-side BM25: the sparse arm is the raw query
+                            # text — the cluster computes the BM25 vector.
+                            hybrid = getattr(sparse_store, "hybrid_search_text", None)
+                            if not callable(hybrid):
+                                raise RuntimeError("store lacks hybrid_search_text (server BM25 requires qdrant-client >= 1.12)")
+                            points = hybrid(dense_vector, query, top_k=top_k, filters=filters)
+                        else:
+                            sparse_vector = sparse_embed(query)
+                            points = sparse_store.hybrid_search(dense_vector, sparse_vector, top_k=top_k, filters=filters)
                         from app.rag.retrieval.dense_retriever import DenseRetriever
 
                         fused = [DenseRetriever._payload_to_chunk(p) for p in points]
@@ -142,9 +149,7 @@ class HybridRetriever:
         ident_result = None
         if identifier_query:
             try:
-                ident_result = self.sparse.retrieve(
-                    identifier_query, top_k=max(top_k * 2, 20), filters=None
-                )
+                ident_result = self.sparse.retrieve(identifier_query, top_k=max(top_k * 2, 20), filters=None)
             except Exception as exc:  # noqa: BLE001 - identifier arm is best-effort
                 logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
@@ -200,7 +205,7 @@ class HybridRetriever:
         # Optional reranking
         if self.reranker is not None and fused_chunks:
             try:
-                fused_chunks = self.reranker.rerank(query, fused_chunks, top_k=top_k)
+                fused_chunks = self.reranker.rerank(query, fused_chunks, top_k=top_k, query_type=query_type)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Reranker failed, returning unfused results: %s", exc)
 
