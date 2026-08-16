@@ -120,6 +120,36 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Optimistic Concurrency** | `version_id` columns with `StaleDataError` handling prevent lost updates during concurrent edits                                    |
 | **Storage Abstraction**    | S3-compatible interface (R2/B2) for photo evidence decouples storage from application logic                                         |
 
+### RAG Remote Inference (Render free tier = zero local models)
+
+Render's free tier (512 MB RAM / 0.1 CPU) cannot hold any torch model
+(`all-mpnet-base-v2` alone is ~420 MB). Since 2026-08-16 the RAG query path
+runs **no local models in production** — every model is hosted elsewhere
+(details + deploy task in `task.md` ENV-10):
+
+| Component | Where it runs | Config |
+| --- | --- | --- |
+| Dense embeddings (`all-mpnet-base-v2`, 768-dim) | **Modal** serverless — `modal_deploy/app.py` → `https://<ws>--embed.modal.run` | `RAG_EMBED_ENDPOINT` |
+| CE reranker (`sumanksaha/Foodmultidomain`) | **Modal** serverless — `https://<ws>--rerank.modal.run` (TEI-compatible `/rerank`) | `RAG_RERANKER_ENDPOINT` + `RAG_RERANKER_MODE=tei` |
+| BM25 sparse | **In-cluster by Qdrant** (`Qdrant/bm25` — no local fastembed) | `RAG_QDRANT_BM25=true` |
+| sec_act rerank features | Local (pure Python, no torch) | `RAG_ENSEMBLE_RERANK=true` |
+
+Client wiring: `app/rag/retrieval/remote_embedder.py` (`RemoteEmbedClient`,
+injected into `DenseRetriever`), `app/rag/retrieval/remote_reranker.py`
+(`RemoteRerankClient`, injected as the ensemble's CE encoder), and
+`QdrantStore.search_sparse_text`/`hybrid_search_text` for server-side BM25.
+Both remote clients lazily fall back to the local model when the endpoint
+fails — set `RAG_*_REMOTE_FALLBACK=false` on Render so a failure degrades to
+features-only/sparse-only instead of building torch (OOM).
+
+> ⚠️ **HF Serverless Inference API is decommissioned** (410/404 since late
+> 2025; Inference Providers serve an allowlisted catalog only) — the
+> `mode="serverless"` path and `scripts/test_hf_inference.py` are dead ends.
+
+Deploy the Modal app with `modal deploy app.py` from `modal_deploy/` (see
+`modal_deploy/README.md`); live URLs as of 2026-08-16:
+`https://sumanksaha--embed.modal.run`, `https://sumanksaha--rerank.modal.run`.
+
 ---
 
 ## Technology Stack
