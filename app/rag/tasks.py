@@ -36,6 +36,7 @@ def run_retrieval_pipeline(
     top_k: int = 10,
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
+    pipeline: str | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 1 retrieval pipeline for *query*.
 
@@ -43,6 +44,10 @@ def run_retrieval_pipeline(
 
     Returns a JSON-serializable dict with ``chunks``, ``query_type``,
     ``latency_ms``, and ``error`` (if any).
+
+    *pipeline* stamps the ``RAGQueryLog`` row with the calling pipeline
+    (``"legacy"`` / ``"agent"``) for the rollout §8 A/B comparison —
+    ``None`` leaves it unstamped.
 
     This is the plain (non-Celery) entry point so that tests and routes
     can call it without going through the task wrapper.
@@ -144,7 +149,12 @@ def run_retrieval_pipeline(
 
     # 7. Log
     log = RetrievalLogger()
-    log_entry = log.log(query=query, query_type=query_type.value, result=result)
+    log_entry = log.log(
+        query=query,
+        query_type=query_type.value,
+        result=result,
+        pipeline=pipeline,
+    )
 
     latency_ms = int((time.monotonic() - start) * 1000)
     logger.info(
@@ -327,12 +337,17 @@ def run_generation_pipeline(
     top_k: int = 10,
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
+    pipeline: str | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 2 grounded-generation pipeline for *query*.
 
     If *chunks* is None, runs the Phase 1 retrieval pipeline first
     (via run_retrieval_pipeline) to obtain chunks, then generates
     a grounded response.  If chunks are provided, skips retrieval.
+
+    *pipeline* is forwarded to the internal retrieval run (stamping the
+    ``RAGQueryLog`` row) and echoed back in the result dict under
+    ``"pipeline"`` (rollout §8 A/B).
     """
     from dataclasses import asdict
     from app.rag.retrieval.result import RetrievedChunk
@@ -346,6 +361,7 @@ def run_generation_pipeline(
             top_k=top_k,
             collection_name=collection_name,
             filters=filters,
+            pipeline=pipeline,
         )
         raw_chunks = retrieval_data.get("chunks", [])
         query_type = retrieval_data.get("query_type", query_type)
@@ -481,6 +497,7 @@ def run_generation_pipeline(
         "debug": rag_response.debug,
         "kg_expansion": kg_expansion,
         "kg_contract": kg_contract,
+        "pipeline": pipeline or "legacy",
     }
 
 

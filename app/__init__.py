@@ -351,6 +351,16 @@ def create_app():
     # low groundedness).  Default false — the endpoint then delegates to the
     # legacy pipeline, and /api/rag/query is never affected.
     app.config["RAG_USE_AGENT_PIPELINE"] = os.environ.get("RAG_USE_AGENT_PIPELINE", "false").lower() == "true"
+    # M5 human-in-the-loop (2026-08-16): when true, the agent graph pauses
+    # at a review interrupt before finalize (POST /api/rag/query/agent → 202
+    # awaiting_review; POST /api/rag/query/agent/resume with approved bool).
+    # Default false — the graph runs end-to-end.  Requires a checkpointer
+    # for resume (RAG_AGENT_CHECKPOINTER).
+    app.config["RAG_AGENT_HITL"] = os.environ.get("RAG_AGENT_HITL", "false").lower() == "true"
+    # M5 checkpointer (2026-08-16): "memory" (default — MemorySaver, dev/
+    # tests, in-process only) or "postgres" (PostgresSaver against
+    # DATABASE_URL; requires langgraph-checkpoint-postgres + psycopg-binary).
+    app.config["RAG_AGENT_CHECKPOINTER"] = os.environ.get("RAG_AGENT_CHECKPOINTER", "memory").lower()
     # Query-type-aware reranking (CE_RERANK_REVIEW, STEP 7): when true, the
     # ensemble reranker classifies each query into a legal type (prohibition,
     # authority, cross-reference, offence, etc.) and applies the matching

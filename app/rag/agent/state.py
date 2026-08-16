@@ -53,6 +53,9 @@ class RAGState(TypedDict, total=False):
     expanded_query: str | None
     max_retries: int
 
+    # --- M5 human-in-the-loop (review node) ---
+    approved: bool
+
     # --- Audit ---
     audit_trail: list[AuditEntry]
 

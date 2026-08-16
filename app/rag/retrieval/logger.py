@@ -62,6 +62,7 @@ class RetrievalLogger:
         hallucinated_claims: list[str] | None = None,
         total_latency_ms: int | None = None,
         error: str | None = None,
+        pipeline: str | None = None,
     ) -> RAGQueryLog | None:
         """Persist a retrieval-event record.
 
@@ -98,6 +99,7 @@ class RetrievalLogger:
                 hallucinated_claims=hallucinated_claims or [],
                 total_latency_ms=total_latency_ms,
                 error=error,
+                pipeline=pipeline,
                 content_hash=_content_hash(query, response_text),
                 created_at=datetime.now(UTC),
             )

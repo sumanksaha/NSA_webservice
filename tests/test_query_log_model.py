@@ -67,6 +67,26 @@ class TestRAGQueryLogModel:
         assert log.cited_chunk_ids == []
         assert log.hallucinated_claims == []
         assert log.hallucination_detected is False
+        assert log.pipeline is None  # unstamped by default (rollout §8)
+
+    def test_pipeline_field_round_trip(self, env):
+        log = RAGQueryLog(
+            query="Who appoints the FSO?",
+            query_type="provision_search",
+            content_hash="pipe1",
+            pipeline="agent",
+        )
+        db.session.add(log)
+        db.session.commit()
+        assert log.pipeline == "agent"
+        # legacy stamp
+        log2 = RAGQueryLog(query="q", query_type="general_qa", content_hash="pipe2", pipeline="legacy")
+        db.session.add(log2)
+        db.session.commit()
+        assert log2.pipeline == "legacy"
+        # filterable for the A/B comparison
+        agents = db.session.query(RAGQueryLog).filter_by(pipeline="agent").all()
+        assert [a.id for a in agents] == [log.id]
 
     def test_content_hash_is_sha256(self, env):
         log = RAGQueryLog(

@@ -42,14 +42,16 @@ def _patch_agent_graph(monkeypatch, result=None):
     import app.rag.agent.graph as graph_mod
 
     fake = result or {
-        "query": "q",
-        "answer": "agent answer",
-        "groundedness_score": 0.9,
-        "query_type": "offence",
-        "pipeline": "agent",
-        "agent": {"retry_count": 0, "expanded_query": None, "audit_trail": []},
+        "response": {
+            "query": "q",
+            "answer": "agent answer",
+            "groundedness_score": 0.9,
+            "query_type": "offence",
+            "pipeline": "agent",
+            "agent": {"retry_count": 0, "expanded_query": None, "audit_trail": []},
+        }
     }
-    monkeypatch.setattr(graph_mod, "run_agent", lambda state: fake)
+    monkeypatch.setattr(graph_mod, "run_agent", lambda state, **kw: fake)
 
 
 # ---------------------------------------------------------------------- #
@@ -128,13 +130,16 @@ def test_agent_route_propagates_collection_and_filters(monkeypatch, _app_env):
 
     import app.rag.agent.graph as graph_mod
 
-    def fake_run_agent(state):
+    def fake_run_agent(state, **kw):
         captured["collection_name"] = state.get("collection_name")
         captured["filters"] = state.get("filters")
         captured["top_k"] = state.get("top_k")
-        return {"pipeline": "agent", "answer": "ok", "agent": {"retry_count": 0}}
+        return {
+            "response": {"pipeline": "agent", "answer": "ok", "agent": {"retry_count": 0}}
+        }
 
     monkeypatch.setattr(graph_mod, "run_agent", fake_run_agent)
+
 
     resp = client.post(
         "/api/rag/query/agent",

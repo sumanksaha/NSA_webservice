@@ -73,6 +73,7 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         top_k=state.get("top_k", 10),
         collection_name=state.get("collection_name"),
         filters=state.get("filters"),
+        pipeline="agent",
     )
     return {
         "chunks": result.get("chunks", []),
@@ -146,6 +147,7 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         top_k=state.get("top_k", 10),
         collection_name=state.get("collection_name"),
         filters=state.get("filters"),
+        pipeline="agent",
     )
     return {
         "answer": result.get("answer", ""),

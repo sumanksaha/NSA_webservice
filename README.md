@@ -174,8 +174,18 @@ classify ──► retrieve ──► generate ──► verify ──► finali
   case the endpoint delegates to the legacy pipeline and `/api/rag/query`
   is never affected. Requires `langgraph` (lazy import — the legacy path
   never touches it).
-- 41 new tests (`tests/test_rag_agent_{state,nodes,graph,routes}.py`),
-  all stub-LLM / no network. M5 (checkpointing + human-in-the-loop) deferred.
+- **M5 — human-in-the-loop + checkpointing (2026-08-16):** with
+  `RAG_AGENT_HITL=true` the graph pauses at a `review` interrupt before
+  finalize — the route returns `202 awaiting_review` with a `thread_id`,
+  and `POST /api/rag/query/agent/resume` (`{thread_id, approved}`)
+  resumes it (approved → finalize; rejected → re-generate via
+  expand-and-retry). Thread state lives in a checkpointer
+  (`RAG_AGENT_CHECKPOINTER=memory` default / `postgres` for prod).
+- **A/B (rollout §8):** `RAGQueryLog.pipeline` stamps every query
+  `legacy`/`agent`; `scripts/ab_agent_vs_legacy.py` runs the frozen
+  benchmark through both paths against the live stack.
+- 56 tests across `tests/test_rag_agent_{state,nodes,graph,routes,m5}.py`
+  + pipeline-field tests, all stub-LLM / no network.
 
 ---
 

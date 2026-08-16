@@ -16,7 +16,7 @@
 - **M0 done (2026-08-16):** `legal_ce_v2_K500` pushed to `sumanksaha/Foodmultidomain` (public) with library-generated `modules.json`; Hub-reload parity verified (scores identical). `scripts/push_ce_models.py`.
 - **M1+M2 done (2026-08-16) — via Modal, not HF Serverless:** the HF Serverless Inference API for the fine-tuned CE turned out to be **decommissioned** (404), and a Docker Space needs PRO — so the remote CE is served by **Modal** (`modal_deploy/app.py`, `POST https://sumanksaha--rerank.modal.run/rerank`), deployed and live-verified (score −0.821 matches the local checkpoint exactly). Dense embeddings also moved to Modal (`/embed`, `all-mpnet-base-v2`, same 768-dim — no re-index needed) and BM25 is computed **inside Qdrant** (`RAG_QDRANT_BM25=true`, `Qdrant/bm25`). Render now runs **zero local models**. See `task.md` **ENV-10** for the full deployment + the 8 Render env vars.
 - **M3+M4 done (2026-08-16):** LangGraph agent package implemented — `app/rag/agent/` (state/nodes/graph/routes), `POST /api/rag/query/agent`, `RAG_USE_AGENT_PIPELINE` flag (default false → delegates to the legacy pipeline), conditional groundedness retry loop (< 0.7, max 2 retries) with query expansion reusing `GroundedLLMClient`. 41 new tests green; `langgraph>=1.0.0` added to `pyproject.toml` (imported lazily — the legacy path never touches it).
-- **M5 deferred:** checkpointing (`MemorySaver` dev / `PostgresSaver` prod) + human-in-the-loop `interrupt()` — pin latest patched `langgraph-checkpoint-postgres` (2026 checkpointer advisory).
+- **M5 done (2026-08-16):** checkpointing + human-in-the-loop implemented. `build_graph(hitl=True)` inserts a `review` node that pauses via `interrupt()` before finalize; `POST /api/rag/query/agent` returns **202 awaiting_review** (thread_id + review payload), `POST /api/rag/query/agent/resume` takes `{thread_id, approved}` — approved → finalize, rejected → expand-and-retry. Checkpointers: `RAG_AGENT_CHECKPOINTER=memory` (default, `MemorySaver` singleton — dev/tests) or `postgres` (`PostgresSaver` against `DATABASE_URL`, requires `langgraph-checkpoint-postgres>=3.0` + `psycopg-binary`, pinned in `pyproject.toml`). `RAG_AGENT_HITL` flag (default false). 15 new M5 tests (`tests/test_rag_agent_m5.py`).
 
 ---
 
@@ -275,9 +275,9 @@ All stub-LLM, no network (mock `RemoteRerankClient` with the same injected-encod
 | M2 — RemoteRerankClient + wiring + fallback + tests | 2 d | Low | CE hosted, app still works with endpoint down | ✅ done — `remote_reranker.py` + `RAG_RERANKER_ENDPOINT` |
 | M3 — LangGraph agent package + flag + tests | 1 wk | Med | `/api/rag/query/agent`, opt-in, suite green | ✅ done (2026-08-16) — 41 new tests |
 | M4 — conditional retry loop + query expansion | 2 d | Med | Self-correcting pipeline (highest-value LangGraph feature) | ✅ done (folded into M3) |
-| M5 — checkpointing + HITL *(defer)* | — | Med | Resume/interrupt (pin patched checkpointer) | ⏸ deferred |
+| M5 — checkpointing + HITL | 2 d | Med | Resume/interrupt (pin patched checkpointer) | ✅ done (2026-08-16) — 15 new tests |
 
-**Actual:** M0–M4 complete (2026-08-16); M5 deferred. Remote hosting went to **Modal** (not HF Serverless, which is decommissioned for the fine-tuned CE, and not a Docker Space, which now needs PRO) — see §0 status and `task.md` ENV-10.
+**Actual:** M0–M5 complete (2026-08-16). Remote hosting went to **Modal** (not HF Serverless, which is decommissioned for the fine-tuned CE, and not a Docker Space, which now needs PRO) — see §0 status and `task.md` ENV-10.
 
 ---
 

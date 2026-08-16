@@ -57,6 +57,7 @@ class RAGQueryLog(db.Model):
     total_latency_ms = db.Column(db.Integer, nullable=True)
     error = db.Column(db.Text, nullable=True)
     content_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of query + response
+    pipeline = db.Column(db.String(16), nullable=True)  # "legacy" | "agent" (LangGraph M3; A/B rollout §8)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (

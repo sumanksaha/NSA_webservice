@@ -963,7 +963,16 @@ curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Conte
 - Config: `RAG_USE_AGENT_PIPELINE` (default `false`) in `app/__init__.py` + `.env.example`; `langgraph>=1.0.0` added to `pyproject.toml` (lazy import).
 - Tests: `tests/test_rag_agent_state.py` (5) + `test_rag_agent_nodes.py` (17) + `test_rag_agent_graph.py` (12) + `test_rag_agent_routes.py` (7) = **41 new tests, all passing** (stub-LLM, pipeline entry points monkeypatched — no Qdrant/network/torch). Regression: `test_rag_routes.py` + `test_rag_tasks.py` + `test_rag_e2e.py` + `test_route_collisions.py` 33/33 green.
 
-**Flip plan (rollout §8):** A/B `pipeline` (`legacy`/`agent`) on the frozen 150-question benchmark before setting `RAG_USE_AGENT_PIPELINE=true` in prod. M5 (checkpointing + HITL `interrupt()`) deferred — pin latest patched `langgraph-checkpoint-postgres` first.
+**A/B (2026-08-16):** `scripts/ab_agent_vs_legacy.py` — 15 frozen questions against the **live** Qdrant + Modal stack (stub LLM): gold-hit@10 **0.233 both** (retrieval parity by construction — shared `run_retrieval_pipeline`), groundedness 1.0 both, latency agent 10.22 s vs legacy 10.85 s, 0 retries (stub always grounded — retry loop covered by unit tests). Per-question rows: `reports/ab_agent_vs_legacy.jsonl`; report: `reports/ab_agent_vs_legacy_2026-08-16.md`. **Caveat:** the quality gate needs `OPENROUTER_API_KEY` (real groundedness) — run after the Render deploy before flipping the flag.
+
+**A/B pipeline stamping:** `RAGQueryLog.pipeline` column (`legacy`/`agent`, migration `add_rag_query_log_pipeline`) — `run_retrieval_pipeline(pipeline=)` / `run_generation_pipeline(pipeline=)` stamp the row; the agent nodes always pass `pipeline="agent"`; response dict carries `pipeline` too.
+
+**M5 — checkpointing + human-in-the-loop ✅ DONE (2026-08-16):**
+
+- `build_graph(hitl=True)` inserts a `review` node (interrupts via `langgraph.types.interrupt`) between `verify` and the conditional edge; resume value `{approved: bool}` → approved → `finalize`, rejected → `expand_query` (re-generate with rewritten query).
+- `POST /api/rag/query/agent` with `RAG_AGENT_HITL=true` → **202 awaiting_review** (`thread_id`, review payload incl. answer + groundedness); `POST /api/rag/query/agent/resume` `{thread_id, approved}` → final `RAGResponse` (200) or another 202 if it pauses again.
+- Checkpointers: `RAG_AGENT_CHECKPOINTER=memory` (default — `MemorySaver` singleton so threads survive across HTTP calls; dev/tests) or `postgres` (`PostgresSaver` vs `DATABASE_URL`; requires `langgraph-checkpoint-postgres>=3.0` + `psycopg-binary`, both pinned in `pyproject.toml`). `RAG_AGENT_HITL` default false — graph runs end-to-end until flipped.
+- Tests: `tests/test_rag_agent_m5.py` (15) — review payload/resume value, checkpointer selection (memory/none/postgres-degrades), approved→finalize, rejected→retry→finalize, route 202→resume 200, resume validation/flag-off 400s. Full agent suite 75/75 green.
 
 ### Developer Environment Notes
 
