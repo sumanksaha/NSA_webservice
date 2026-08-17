@@ -145,10 +145,39 @@ ignore = [
   "S101", # Use of assert (allowed in tests)
   "B008", # Do not perform function calls in argument defaults (Flask pattern)
   "N818", # Exception name should be named with an Error suffix (false positives)
+  # Best-effort exception swallowing is a deliberate pattern across the
+  # RAG/backup layers (e.g. `except Exception: pass` on optional network
+  # calls that must not take the app down) — already annotated BLE001/noqa
+  # where an alternative exists.
+  "S110", # try-except-pass
+  "S112", # try-except-continue
+  # Ambiguous unicode characters in legal text (en-dashes in Act titles,
+  # ×/∪/∨ in set notation) are meaningful content, not typos — replacing
+  # them would alter quoted legal wording.
+  "RUF001",
+  "RUF002",
+  "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S108", "S311", "T20", "B017", "SIM117"]
+"tests/*" = ["S101", "S105", "S106", "S108", "S311", "T20", "B017", "SIM117", "N806", "N814", "N817"]
+# Experiment/research scripts: compact one-liners, loop-var reuse and
+# dataset-sampling randomness are deliberate; style churn is not valuable.
+"evaluation/*" = [
+  "E701", "E702", "E741",
+  "B007", "B023",
+  "N802", "N806",
+  "F841",
+  "S311", "S607",
+  "I001",
+  "SIM102", "SIM108", "SIM110", "SIM113", "SIM115",
+]
+# Step 0 CE-v2 regression harness: the console tables ARE the report output
+# (diffed against the preserved v1/v2 logs), so print is deliberate here.
+"evaluation/ce_v2_eval.py" = ["T201"]
+"evaluation/ce_v2_error_analysis.py" = ["T201"]
+"evaluation/ce_v2_gate.py" = ["T201"]
+"benchmark/*" = ["N802", "B007", "B023", "E741"]
 "migrations/versions/*" = ["E402", "F401", "I001", "S110", "SIM105"]
 "app/__init__.py" = ["E402", "F401", "S105"]
 "app/models.py" = ["E402"]

@@ -58,6 +58,21 @@ repos:
         require_serial: true
         pass_filenames: false
 
+      # ─── CE-v2 regression gate ────────────────────────────────────────
+      # Runs the cross-encoder regression harness (evaluation/ce_v2_gate.py)
+      # whenever a model checkpoint or the training data is newer than the
+      # frozen baseline (i.e. after every retrain).  Skips fast otherwise,
+      # and exits 0 on fresh checkouts where the gitignored models are absent.
+      # Note: the first commit after a retrain pays ~3-5 min of CPU scoring.
+      - id: ce-v2-gate
+        name: ce-v2 regression gate
+        description: "Fails the commit if a CE retrain regresses vs the frozen baseline (hierarchy <= 4 / same-section <= 1 are targets; enforce with --strict-targets)."
+        entry: python -m evaluation.ce_v2_gate --skip-if-unavailable --label pre-commit
+        language: system
+        require_serial: true
+        pass_filenames: false
+        always_run: true
+
       # ─── JS lint (ESLint) ────────────────────────────────────────────
       # Uses the same npm scripts as the CI js-lint job, so local runs and
       # CI stay in sync. Runs when any .js file under the repo changes.

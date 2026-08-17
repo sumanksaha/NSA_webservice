@@ -1,0 +1,90 @@
+# CE-v2 Regression Gate — validates the gate logic in CI on every change to
+# the harness/gate scripts or the frozen baseline.
+#
+# Why fixture mode: the cross-encoder checkpoints and the training data live
+# in the gitignored `evaluation/out/` tree (~1.3 GB), so the *real* gate run
+# happens locally on the machine that owns the models — wired as the
+# `ce-v2-gate` pre-commit hook (runs automatically after every retrain).
+# This workflow exercises the gate's pure comparison logic (torch-free) via
+# `tests/test_ce_v2_gate.py`, and runs the real gate with
+# `--skip-if-unavailable` so it stays green here and becomes a real gate the
+# day the models/training data are published (e.g. to Hugging Face).
+#
+# Manual runs: use the "Run workflow" button (workflow_dispatch).  A future
+# enhancement can download published checkpoints + a regenerated test set and
+# drop --skip-if-unavailable.
+
+name: CE-v2 Regression Gate
+
+on:
+  push:
+    paths:
+      - "evaluation/ce_v2_eval.py"
+      - "evaluation/ce_v2_error_analysis.py"
+      - "evaluation/ce_v2_gate.py"
+      - "evaluation/ce_v2_baseline.json"
+      - "tests/test_ce_v2_gate.py"
+  pull_request:
+    paths:
+      - "evaluation/ce_v2_eval.py"
+      - "evaluation/ce_v2_error_analysis.py"
+      - "evaluation/ce_v2_gate.py"
+      - "evaluation/ce_v2_baseline.json"
+      - "tests/test_ce_v2_gate.py"
+  workflow_dispatch:
+    # Manual trigger from the GitHub UI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  gate-logic:
+    name: Gate logic (fixture mode)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install pytest and ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest ruff
+
+      - name: Run gate logic tests
+        run: |
+          pytest tests/test_ce_v2_gate.py -q --no-header
+
+      - name: Lint the harness + gate scripts
+        run: |
+          ruff check evaluation/ce_v2_eval.py evaluation/ce_v2_error_analysis.py evaluation/ce_v2_gate.py
+
+  real-gate:
+    name: Real gate (skips without models)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run the regression gate (exits 0 when models are absent)
+        run: |
+          python -m evaluation.ce_v2_gate --skip-if-unavailable --label ci

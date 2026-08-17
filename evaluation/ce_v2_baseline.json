@@ -1,0 +1,803 @@
+{
+  "baseline": "v1-vs-v2 pairwise + ranking regression (Step 0, 2026-08-17)",
+  "frozen_at": "2026-08-17T04:12:54+00:00",
+  "git_rev": "56adb7b",
+  "models": {
+    "v1": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v1",
+    "v2": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v2_K500"
+  },
+  "n_test_pairs": 2362,
+  "n_test_queries": 21,
+  "pairs_hash": "70c7f538f5c69da7",
+  "candidate_pool": "pairs",
+  "eval": {
+    "pairwise": {
+      "v1": {
+        "n": 2362,
+        "acc": 0.5825571549534293,
+        "margin": 0.15326382486156767
+      },
+      "v2": {
+        "n": 2362,
+        "acc": 0.5478408128704487,
+        "margin": 0.5981689811156625
+      }
+    },
+    "ranking": {
+      "v1": {
+        "r_at": {
+          "1": 0.2381,
+          "5": 0.8571,
+          "10": 1.0,
+          "20": 1.0
+        },
+        "mrr": 0.5134,
+        "ndcg": 0.6321
+      },
+      "v2": {
+        "r_at": {
+          "1": 0.4286,
+          "5": 0.8095,
+          "10": 1.0,
+          "20": 1.0
+        },
+        "mrr": 0.5942,
+        "ndcg": 0.6901
+      }
+    },
+    "bootstrap_ci": {
+      "10": {
+        "v1": [
+          1.0,
+          1.0
+        ],
+        "v2": [
+          1.0,
+          1.0
+        ],
+        "delta": [
+          0.0,
+          0.0
+        ]
+      },
+      "20": {
+        "v1": [
+          1.0,
+          1.0
+        ],
+        "v2": [
+          1.0,
+          1.0
+        ],
+        "delta": [
+          0.0,
+          0.0
+        ]
+      },
+      "mrr": {
+        "v1": [
+          0.3879,
+          0.6534
+        ],
+        "v2": [
+          0.4358,
+          0.7696
+        ],
+        "delta": [
+          -0.1152,
+          0.2681
+        ]
+      },
+      "ndcg": {
+        "v1": [
+          0.5348,
+          0.7386
+        ],
+        "v2": [
+          0.5705,
+          0.8244
+        ],
+        "delta": [
+          -0.0931,
+          0.2036
+        ]
+      }
+    },
+    "per_domain": [
+      {
+        "domain": "comp",
+        "pairs": 96,
+        "v1": 0.9375,
+        "v2": 0.8229166666666666,
+        "delta": -0.11458333333333337
+      },
+      {
+        "domain": "contract",
+        "pairs": 208,
+        "v1": 0.2980769230769231,
+        "v2": 0.3942307692307692,
+        "delta": 0.09615384615384615
+      },
+      {
+        "domain": "epa",
+        "pairs": 304,
+        "v1": 0.39144736842105265,
+        "v2": 0.5723684210526315,
+        "delta": 0.18092105263157887
+      },
+      {
+        "domain": "fssai",
+        "pairs": 1608,
+        "v1": 0.6187810945273632,
+        "v2": 0.5534825870646766,
+        "delta": -0.06529850746268662
+      },
+      {
+        "domain": "kmc",
+        "pairs": 40,
+        "v1": 0.65,
+        "v2": 0.3,
+        "delta": -0.35000000000000003
+      },
+      {
+        "domain": "srf",
+        "pairs": 10,
+        "v1": 0.9,
+        "v2": 0.4,
+        "delta": -0.5
+      },
+      {
+        "domain": "water_act",
+        "pairs": 70,
+        "v1": 0.8,
+        "v2": 0.5,
+        "delta": -0.30000000000000004
+      },
+      {
+        "domain": "wbpt",
+        "pairs": 26,
+        "v1": 0.7307692307692307,
+        "v2": 0.6923076923076923,
+        "delta": -0.038461538461538436
+      }
+    ],
+    "per_tier": [
+      {
+        "tier": "T1",
+        "pairs": 288,
+        "v1": 0.5,
+        "v2": 0.5069444444444444,
+        "delta": 0.00694444444444442
+      },
+      {
+        "tier": "T2",
+        "pairs": 1080,
+        "v1": 0.6046296296296296,
+        "v2": 0.5907407407407408,
+        "delta": -0.01388888888888884
+      },
+      {
+        "tier": "T3",
+        "pairs": 994,
+        "v1": 0.5824949698189135,
+        "v2": 0.5130784708249497,
+        "delta": -0.06941649899396374
+      }
+    ],
+    "per_difficulty": [
+      {
+        "difficulty": "adversarial",
+        "pairs": 448,
+        "v1": 0.5334821428571429,
+        "v2": 0.5625,
+        "delta": 0.029017857142857095
+      },
+      {
+        "difficulty": "hard",
+        "pairs": 1210,
+        "v1": 0.5380165289256198,
+        "v2": 0.5801652892561984,
+        "delta": 0.04214876033057857
+      },
+      {
+        "difficulty": "moderate",
+        "pairs": 704,
+        "v1": 0.6903409090909091,
+        "v2": 0.48295454545454547,
+        "delta": -0.2073863636363636
+      }
+    ]
+  },
+  "error_analysis": {
+    "per_query": [
+      {
+        "qid": "Q014",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 96,
+        "v1_rank": 1,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 26,
+        "n_gold": 6,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q016",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 128,
+        "v1_rank": 2,
+        "v2_rank": 2,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          }
+        }
+      },
+      {
+        "qid": "Q018",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 128,
+        "v1_rank": 4,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.25,
+            "ndcg": 0.43067655807339306
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q020",
+        "domain": "fssai",
+        "difficulty": "moderate",
+        "pairs": 128,
+        "v1_rank": 4,
+        "v2_rank": 2,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.25,
+            "ndcg": 0.43067655807339306
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          }
+        }
+      },
+      {
+        "qid": "Q049",
+        "domain": "epa",
+        "difficulty": "moderate",
+        "pairs": 48,
+        "v1_rank": 1,
+        "v2_rank": 10,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 23,
+        "n_gold": 3,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.1,
+            "ndcg": 0.2890648263178879
+          }
+        }
+      },
+      {
+        "qid": "Q050",
+        "domain": "water_act",
+        "difficulty": "moderate",
+        "pairs": 70,
+        "v1_rank": 1,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 25,
+        "n_gold": 5,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q054",
+        "domain": "epa",
+        "difficulty": "moderate",
+        "pairs": 128,
+        "v1_rank": 2,
+        "v2_rank": 2,
+        "type": "same_section_hard_neg",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          }
+        }
+      },
+      {
+        "qid": "Q078",
+        "domain": "wbpt",
+        "difficulty": "hard",
+        "pairs": 16,
+        "v1_rank": 7,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 17,
+        "n_gold": 1,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.14285714285714285,
+            "ndcg": 0.3333333333333333
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q080",
+        "domain": "wbpt",
+        "difficulty": "moderate",
+        "pairs": 10,
+        "v1_rank": 2,
+        "v2_rank": 9,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 11,
+        "n_gold": 1,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.1111111111111111,
+            "ndcg": 0.3010299956639812
+          }
+        }
+      },
+      {
+        "qid": "Q085",
+        "domain": "epa",
+        "difficulty": "hard",
+        "pairs": 128,
+        "v1_rank": 9,
+        "v2_rank": 3,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.1111111111111111,
+            "ndcg": 0.3010299956639812
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.3333333333333333,
+            "ndcg": 0.5
+          }
+        }
+      },
+      {
+        "qid": "Q097",
+        "domain": "srf",
+        "difficulty": "hard",
+        "pairs": 10,
+        "v1_rank": 2,
+        "v2_rank": 7,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 11,
+        "n_gold": 1,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.14285714285714285,
+            "ndcg": 0.3333333333333333
+          }
+        }
+      },
+      {
+        "qid": "Q100",
+        "domain": "contract",
+        "difficulty": "hard",
+        "pairs": 128,
+        "v1_rank": 9,
+        "v2_rank": 3,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.1111111111111111,
+            "ndcg": 0.3010299956639812
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.3333333333333333,
+            "ndcg": 0.5
+          }
+        }
+      },
+      {
+        "qid": "Q102",
+        "domain": "fssai",
+        "difficulty": "moderate",
+        "pairs": 160,
+        "v1_rank": 3,
+        "v2_rank": 8,
+        "type": "hierarchy_version",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.3333333333333333,
+            "ndcg": 0.5
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.125,
+            "ndcg": 0.31546487678572877
+          }
+        }
+      },
+      {
+        "qid": "Q118",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 160,
+        "v1_rank": 2,
+        "v2_rank": 4,
+        "type": "same_section_hard_neg",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.25,
+            "ndcg": 0.43067655807339306
+          }
+        }
+      },
+      {
+        "qid": "Q120",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 160,
+        "v1_rank": 2,
+        "v2_rank": 4,
+        "type": "same_section_hard_neg",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.25,
+            "ndcg": 0.43067655807339306
+          }
+        }
+      },
+      {
+        "qid": "Q122",
+        "domain": "fssai",
+        "difficulty": "moderate",
+        "pairs": 160,
+        "v1_rank": 4,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.25,
+            "ndcg": 0.43067655807339306
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q131",
+        "domain": "comp",
+        "difficulty": "hard",
+        "pairs": 96,
+        "v1_rank": 2,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 26,
+        "n_gold": 6,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q134",
+        "domain": "fssai",
+        "difficulty": "adversarial",
+        "pairs": 128,
+        "v1_rank": 1,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q143",
+        "domain": "fssai",
+        "difficulty": "adversarial",
+        "pairs": 160,
+        "v1_rank": 1,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q148",
+        "domain": "fssai",
+        "difficulty": "adversarial",
+        "pairs": 160,
+        "v1_rank": 2,
+        "v2_rank": 1,
+        "type": "correct",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.5,
+            "ndcg": 0.6309297535714575
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 1.0,
+            "ndcg": 1.0
+          }
+        }
+      },
+      {
+        "qid": "Q150",
+        "domain": "fssai",
+        "difficulty": "hard",
+        "pairs": 160,
+        "v1_rank": 3,
+        "v2_rank": 3,
+        "type": "other",
+        "ret_fail": "-",
+        "rerank_fail": "-",
+        "n_candidates": 28,
+        "n_gold": 8,
+        "metrics": {
+          "v1": {
+            "r10": 1,
+            "mrr": 0.3333333333333333,
+            "ndcg": 0.5
+          },
+          "v2": {
+            "r10": 1,
+            "mrr": 0.3333333333333333,
+            "ndcg": 0.5
+          }
+        }
+      }
+    ],
+    "failure_taxonomy": [
+      {
+        "category": "correct",
+        "count": 9,
+        "pct_total": 0.4286,
+        "pct_fail": 0.75,
+        "r10_delta": 0.0,
+        "mrr_delta": 0.373,
+        "ndcg_delta": 0.2826,
+        "v2_plus": 5,
+        "v2_minus": 0
+      },
+      {
+        "category": "hierarchy_version",
+        "count": 8,
+        "pct_total": 0.381,
+        "pct_fail": 0.6667,
+        "r10_delta": 0.0,
+        "mrr_delta": -0.145,
+        "ndcg_delta": -0.1156,
+        "v2_plus": 3,
+        "v2_minus": 4
+      },
+      {
+        "category": "same_section_hard_neg",
+        "count": 3,
+        "pct_total": 0.1429,
+        "pct_fail": 0.25,
+        "r10_delta": 0.0,
+        "mrr_delta": -0.1667,
+        "ndcg_delta": -0.1335,
+        "v2_plus": 0,
+        "v2_minus": 2
+      },
+      {
+        "category": "other",
+        "count": 1,
+        "pct_total": 0.0476,
+        "pct_fail": 0.0833,
+        "r10_delta": 0.0,
+        "mrr_delta": 0.0,
+        "ndcg_delta": 0.0,
+        "v2_plus": 0,
+        "v2_minus": 0
+      }
+    ],
+    "failures_total": 12,
+    "categories": {
+      "correct": 9,
+      "hierarchy_version": 8,
+      "same_section_hard_neg": 3,
+      "other": 1
+    }
+  },
+  "gates": {
+    "hierarchy_version_queries": 8,
+    "same_section_queries": 3,
+    "target_hierarchy": "<= 4 (P1 gate)",
+    "target_same_section": "<= 1 (P2 gate)"
+  },
+  "notes": [
+    "difficulty: normalized benchmark difficulty (original medium=1200/hard=1162 buckets unrecoverable)",
+    "ambiguous: no per-question label source; bucket empty unless --ambiguous-qids is wired"
+  ]
+}
