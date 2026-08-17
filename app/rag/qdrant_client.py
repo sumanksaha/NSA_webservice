@@ -66,6 +66,7 @@ DEFAULT_PAYLOAD_INDEX_FIELDS: tuple[str, ...] = (
     "section_number",
     "section_title",
     "subsection",
+    "clause_number",
     "hierarchy_level",
 )
 

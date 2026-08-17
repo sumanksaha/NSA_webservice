@@ -38,6 +38,7 @@ PAYLOAD_INDEX_FIELDS: tuple[str, ...] = (
     "section_number",
     "section_title",
     "subsection",
+    "clause_number",
     "hierarchy_level",
 )
 
@@ -72,6 +73,12 @@ class Chunk:
     section_number: str | None = None
     section_title: str | None = None
     subsection: str | None = None
+    #: Leading dotted regulatory clause number (``2.4.15``, ``3.04``) — the
+    #: FSSAI-regulation / rules-style numbering that the parenthetical
+    #: ``subsection`` regex cannot see (G6, 2026-08-17).  Semantically distinct
+    #: from ``subsection`` (clause numbers are NOT section subsections), so it
+    #: lives in its own payload field.
+    clause_number: str | None = None
     hierarchy_level: int = 0
     parent_chunk_id: str | None = None
     citations: list[str] = field(default_factory=list)
@@ -114,6 +121,7 @@ class Chunk:
             "section_number": self.section_number,
             "section_title": self.section_title,
             "subsection": self.subsection,
+            "clause_number": self.clause_number,
             "hierarchy_level": self.hierarchy_level,
             "parent_chunk_id": self.parent_chunk_id,
             "citations": list(self.citations),
@@ -183,6 +191,7 @@ class Chunk:
             sections_covered=covered,
             section_title=_extract_section_title(text),
             subsection=_extract_subsection_markers(text),
+            clause_number=_extract_clause_number(text),
             hierarchy_level=int(paragraph.get("hierarchy_depth", 0) or 0),
             parent_chunk_id=parent_chunk_id,
             citations=[c.get("reference", "") for c in (paragraph.get("citations") or []) if c.get("reference")],
@@ -332,6 +341,30 @@ def _extract_subsection_markers(text: str) -> str | None:
     if match:
         return match.group(1)
     return None
+
+
+#: Leading dotted regulatory clause-number pattern (G6, 2026-08-17).
+#:
+#: Matches ``2.4.15`` / ``3.04`` / ``5.2.4`` style clause numbers that anchor
+#: FSSAI-regulation / rules paragraphs, validated against the 27,345-chunk
+#: corpus: the guard ``(?=\s*[A-Z])`` (uppercase letter after optional space)
+#: excludes the false positives the bare dotted pattern would capture —
+#: measurements (``0.75 g-1.25 g``), dates (``23.3.2001``, ``22.12.1997``),
+#: standalone numbers (``0.001``), ranges (``6.5-7.5``) and OCR residue
+#: (``1.2 1.2 1.2``).  Segments after the first are capped at 2 digits so a
+#: 4-digit year can never be consumed as a clause segment.
+_DOTTED_CLAUSE_RE = re.compile(r"^\s*(\d{1,3}(?:\.\d{1,2}){1,3})(?=(?:\s*:\s*|\s*)[A-Z])")
+
+
+def _extract_clause_number(text: str) -> str | None:
+    """Extract a leading dotted regulatory clause number, e.g. ``2.4.15``.
+
+    Returns ``None`` for anything the guard rejects (dates, measurements,
+    bare numbers) — ``clause_number`` must never be polluted with a value
+    that is not a clause identifier.
+    """
+    match = _DOTTED_CLAUSE_RE.match(text or "")
+    return match.group(1) if match else None
 
 
 # End of chunker.py

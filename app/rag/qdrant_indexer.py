@@ -349,6 +349,7 @@ _CHUNK_PAYLOAD_ATTRS = (
     "section_number",
     "section_title",
     "subsection",
+    "clause_number",
     "hierarchy_level",
     "parent_chunk_id",
     "citations",
