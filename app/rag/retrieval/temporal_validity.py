@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -377,4 +377,3 @@ if __name__ == "__main__":
     # score returns 0.5 (unknown) because document_id isn't in any graph/payload
     assert sc == 0.5 or sc == 0.0  # depends on graph availability
 
-    print("Self-check passed.")

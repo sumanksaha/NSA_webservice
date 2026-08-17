@@ -20,4 +20,4 @@ ai_bp = Blueprint(
 
 # Import routes after the blueprint is defined so route decorators register
 # (same pattern as app/validation/__init__.py and app/food_cell/__init__.py).
-from app.ai_assistant import routes  # noqa: F401, E402
+from app.ai_assistant import routes  # noqa: F401

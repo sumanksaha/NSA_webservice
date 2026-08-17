@@ -41,7 +41,7 @@ def classify_node(state: dict[str, Any]) -> dict[str, Any]:
         from app.rag.retrieval import QueryClassifier
 
         query_type = QueryClassifier().classify(query).value
-    except Exception as exc:  # noqa: BLE001 - best-effort adapter
+    except Exception as exc:
         logger.warning("classify_node: classification failed (%s)", exc)
         detail = {"fallback": True, "error": str(exc)}
     return {
@@ -115,7 +115,7 @@ def evidence_node(state: dict[str, Any]) -> dict[str, Any]:
         try:
             es = select_evidence_set(_query_for_retrieval(state), state["chunks"], max_size=5, min_size=2)
             evidence_set = es.to_dict()
-        except Exception as exc:  # noqa: BLE001 - best-effort by design
+        except Exception as exc:
             logger.warning("evidence_node: evidence selection failed (%s)", exc)
     return {
         "evidence_set": evidence_set,
@@ -215,7 +215,7 @@ def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
         if resp.success and resp.text.strip():
             expanded = resp.text.strip()
             detail = {"changed": expanded != original}
-    except Exception as exc:  # noqa: BLE001 - best-effort adapter
+    except Exception as exc:
         logger.warning("expand_query_node: query expansion failed (%s)", exc)
         detail = {"changed": False, "error": str(exc)}
 

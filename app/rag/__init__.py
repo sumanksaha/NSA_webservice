@@ -20,10 +20,10 @@ rag_bp = Blueprint(
 
 # Import routes after the blueprint is defined so route decorators register
 # (same pattern as app/ai_assistant/__init__.py).
-from app.rag import routes  # noqa: F401, E402
+from app.rag import routes  # noqa: F401
 
 # M3 LangGraph agent endpoint (POST /api/rag/query/agent).  Imported
 # unconditionally so the route exists, but it delegates to the legacy
 # pipeline until RAG_USE_AGENT_PIPELINE=true; langgraph itself is imported
 # lazily inside app/rag/agent/graph.py, so the app boots without it.
-from app.rag.agent import routes as agent_routes  # noqa: F401, E402
+from app.rag.agent import routes as agent_routes  # noqa: F401

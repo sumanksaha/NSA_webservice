@@ -367,7 +367,7 @@ def _full_enrichment_enabled() -> bool:
             if isinstance(value, bool):
                 return value
             return str(value).lower() == "true"
-    except Exception:  # noqa: BLE001 - outside an app context
+    except Exception:
         pass
     return os.environ.get("RAG_FULL_ENRICHMENT", "false").lower() == "true"
 
@@ -500,7 +500,7 @@ def ingest_corpus_dir(
             else:
                 summary["failed"] += 1
             summary["results"].append(res.to_dict())
-        except Exception as exc:  # noqa: BLE001 - one bad file must not abort the corpus
+        except Exception as exc:
             logger.warning("ingest_corpus_dir: %s failed: %s", path, exc)
             summary["total"] += 1
             summary["failed"] += 1

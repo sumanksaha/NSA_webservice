@@ -115,7 +115,7 @@ class ClaimExtractor:
         sentences = self._split_sentences(response_text)
         claims: list[ExtractedClaim] = []
 
-        for i, sent in enumerate(sentences):
+        for _i, sent in enumerate(sentences):
             if not self._is_claim(sent):
                 continue
             entities = self._extract_entities(sent)
@@ -149,9 +149,7 @@ class ClaimExtractor:
             return False
         # Filter out pure navigation / formatting sentences.
         lower = sentence.lower().strip()
-        if lower in ("yes", "no", "based on the provided context.", ""):
-            return False
-        return True
+        return lower not in ("yes", "no", "based on the provided context.", "")
 
     @staticmethod
     def _extract_entities(sentence: str) -> dict[str, list[str]]:

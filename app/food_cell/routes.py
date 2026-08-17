@@ -6,7 +6,6 @@ import os
 
 from flask import (
     abort,
-    current_app,
     jsonify,
     render_template,
     send_file,
@@ -48,7 +47,7 @@ def view_do_intimation_html(sample_id: int):
     html_path = intimation.html_path
     if not os.path.isfile(html_path):
         abort(404, description="DO intimation HTML file not found on disk.")
-    with open(html_path, "r", encoding="utf-8") as fh:
+    with open(html_path, encoding="utf-8") as fh:
         html_content = fh.read()
     sample = db.session.get(Sample, sample_id)
     return render_template(

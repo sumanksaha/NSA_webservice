@@ -29,8 +29,8 @@ from typing import Any
 
 from flask import current_app, render_template
 
-from app.models.billing import CodeSequence
 from app.extensions import db
+from app.models.billing import CodeSequence
 
 logger = logging.getLogger(__name__)
 

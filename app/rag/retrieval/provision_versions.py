@@ -381,7 +381,7 @@ if __name__ == "__main__":
 
     families = group_versions([c1, c2])
     assert len(families) == 1, f"Expected 1 family, got {len(families)}"
-    fam = list(families.values())[0]
+    fam = next(iter(families.values()))
     assert len(fam.versions) == 2
     assert fam.is_current("c1") is True
     assert fam.is_current("c2") is False
@@ -390,4 +390,3 @@ if __name__ == "__main__":
     assert v.is_current is True
     assert v.effective_from == "2020-01-01"
 
-    print("Self-check passed.")

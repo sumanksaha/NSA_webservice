@@ -106,10 +106,7 @@ class GroundednessScorer:
             claim_ratio = 1.0
 
         # Citation validity ratio.
-        if citation_result is not None and citation_result.detail:
-            citation_ratio = citation_result.score
-        else:
-            citation_ratio = 1.0
+        citation_ratio = citation_result.score if citation_result is not None and citation_result.detail else 1.0
 
         score = (
             self.claim_weight * claim_ratio

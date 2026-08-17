@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from app.rag.generation.citation_tracker import CitationTracker
 from app.rag.generation.context_builder import BuiltContext, ContextBuilder

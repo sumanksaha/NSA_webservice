@@ -133,7 +133,7 @@ class SparseRetriever:
             try:
                 has_sparse = getattr(self._store, "has_sparse_vectors", None)
                 sparse_capable = bool(callable(has_sparse) and has_sparse())
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("SparseRetriever: sparse capability check failed (%s)", exc)
                 sparse_capable = False
             if sparse_capable:
@@ -161,7 +161,7 @@ class SparseRetriever:
                         query=query, query_type="", chunks=chunks, total=len(chunks),
                         latency_ms=int((time.monotonic() - start) * 1000), source="sparse",
                     )
-                except Exception as exc:  # noqa: BLE001 - degrade to rapidfuzz
+                except Exception as exc:
                     logger.warning(
                         "SparseRetriever: BM25 Qdrant path failed (%s) — using rapidfuzz fallback",
                         exc,

@@ -100,7 +100,7 @@ def _get_token() -> str | None:
     except ImportError:
         logger.warning("msal not installed - Excel sync disabled")
         return None
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Failed to acquire Excel access token: %s", e)
         return None
 
@@ -136,7 +136,7 @@ def _worksheet_name(module: str) -> str | None:
         from app.services.sheets_sync import WORKSHEET_MAP
 
         return WORKSHEET_MAP.get(module, module)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return module
 
 
@@ -193,7 +193,7 @@ def sync_to_excel(
         from app.services.sheets_sync import SHEET_COLUMNS
 
         cols = SHEET_COLUMNS.get(module)
-    except Exception:  # noqa: BLE001
+    except Exception:
         cols = None
 
     if cols:
@@ -224,7 +224,7 @@ def sync_to_excel(
             resp.text[:200],
         )
         return False
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Excel sync failed [%s]: %s", module, e)
         return False
 
@@ -253,7 +253,7 @@ def export_excel_to_r2() -> str | None:
         from app.services.sheets_sync import WORKSHEET_MAP
 
         modules = list(WORKSHEET_MAP.keys())
-    except Exception:  # noqa: BLE001
+    except Exception:
         modules = ["food_cell_do_intimations"]
 
     rows: list[dict] = []
@@ -284,7 +284,7 @@ def export_excel_to_r2() -> str | None:
                 row = {"module": module}
                 row.update(record)
                 rows.append(row)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning("Excel export failed for %s: %s", module, e)
 
     if not rows:
@@ -307,7 +307,8 @@ def export_excel_to_r2() -> str | None:
 
     # Upload to R2
     try:
-        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+        from app.utils.storage import _get_bucket
+        from app.utils.storage import _get_client as _get_r2_client
 
         r2 = _get_r2_client()
         ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -315,7 +316,7 @@ def export_excel_to_r2() -> str | None:
         r2.put_object(Bucket=_get_bucket(), Key=key, Body=csv_content)
         logger.info("Exported Excel data to R2: %s", key)
         return key
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Failed to upload Excel CSV to R2: %s", e)
 
     # Fallback: save locally

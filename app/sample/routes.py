@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from flask import current_app, jsonify, render_template, request
 
 from app.extensions import db
-from app.models import CaseFile, FSO, Sample
+from app.models import FSO, CaseFile, Sample
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp

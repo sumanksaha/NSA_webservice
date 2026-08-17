@@ -24,10 +24,10 @@ from typing import Any
 
 from app.rag.generation.llm_client import GroundedLLMClient
 from app.rag.retrieval.result import Citation, RetrievedChunk
-from app.rag.verification.claim_extractor import ClaimExtractor, ExtractedClaim
 from app.rag.verification.citation_validator import CitationValidator
+from app.rag.verification.claim_extractor import ClaimExtractor, ExtractedClaim
 from app.rag.verification.evidence_verifier import EvidenceVerifier
-from app.rag.verification.scorer import GroundednessScorer, GroundednessScore
+from app.rag.verification.scorer import GroundednessScore, GroundednessScorer
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class HallucinationDetector:
             A :class:`HallucinationReport`.
         """
         if not response_text or not chunks:
-            score = GroundednessScore(score=0.0)
+            GroundednessScore(score=0.0)
             return HallucinationReport(
                 detected=True,
                 groundedness_score=0.0,
@@ -202,7 +202,7 @@ class HallucinationDetector:
         """Split claims into (verified, unverified) based on verifications."""
         verified: list[ExtractedClaim] = []
         unverified: list[ExtractedClaim] = []
-        for claim, ver in zip(claims, verifications):
+        for claim, ver in zip(claims, verifications, strict=False):
             if ver.verified:
                 verified.append(claim)
             else:

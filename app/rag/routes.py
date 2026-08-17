@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, render_template, request
 
 from app.rag import rag_bp
 
@@ -34,6 +34,34 @@ def _rag_enabled() -> bool:
 def health():
     """RAG pipeline health probe (public — no auth required)."""
     return jsonify({"status": "ok", "phase": "5", "phase_name": "ingestion_api"})
+
+
+@rag_bp.route("/", methods=["GET"])
+def query_ui():
+    """Render the RAG query interface (HTML page).
+
+    Serves the interactive legal-RAG query UI with a single-button query,
+    domain/collection picker, and agent-pipeline toggle.  The page's JS
+    (``app/static/js/rag_query.js``) posts to ``/api/rag/query/agent`` and
+    renders the ``RAGResponse`` schema.
+
+    Fail-closed: returns **404** when ``RAG_ENABLED=false`` so the nav link
+    disappears from the UI in environments without RAG configured.
+    """
+    if not _rag_enabled():
+        return render_template("errors/404.html"), 404
+
+    # Pass domain->collection map so the template can render the domain
+    # dropdown without an extra AJAX round-trip.
+    from app.rag.collections import DOMAIN_COLLECTIONS
+
+    domains = sorted(DOMAIN_COLLECTIONS.keys())
+
+    return render_template(
+        "rag/query.html",
+        domains=domains,
+        default_collection="fssai_legal_768",
+    )
 
 
 @rag_bp.route("/ingest", methods=["POST"])
@@ -81,7 +109,7 @@ def ingest():
         result = run_ingest_document(source or text, document=document, pipeline=pipeline)
     except FileNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
-    except Exception as exc:  # noqa: BLE001 - surface as a 500 with details
+    except Exception as exc:
         logger.error("RAG ingest failed: %s", exc)
         return jsonify({"error": f"Ingestion failed: {exc}"}), 500
     return jsonify(result)
@@ -122,7 +150,7 @@ def ingest_corpus():
     try:
         pipeline = make_ingestion_pipeline(full_enrichment=full_enrichment)
         summary = ingest_corpus_dir(corpus_dir, document=document, pipeline=pipeline)
-    except Exception as exc:  # noqa: BLE001 - surface as a 500 with details
+    except Exception as exc:
         logger.error("RAG corpus ingest failed: %s", exc)
         return jsonify({"error": f"Corpus ingestion failed: {exc}"}), 500
     return jsonify(summary)

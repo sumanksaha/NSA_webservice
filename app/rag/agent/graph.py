@@ -29,7 +29,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.rag.agent.nodes import GROUNDEDNESS_THRESHOLD
 from app.rag.agent.state import RAGState
@@ -44,7 +45,7 @@ def _evidence_enabled() -> bool:
 
         if has_app_context() and "ENABLE_EVIDENCE_SELECTOR" in current_app.config:
             return bool(current_app.config["ENABLE_EVIDENCE_SELECTOR"])
-    except Exception:  # noqa: BLE001 - fall through to env
+    except Exception:
         pass
     return os.environ.get("ENABLE_EVIDENCE_SELECTOR", "false").lower() == "true"
 
@@ -94,10 +95,7 @@ def review_node(state: RAGState) -> dict[str, Any]:
             "retry_count": state.get("retry_count", 0),
         }
     )
-    if isinstance(decision, dict):
-        approved = bool(decision.get("approved", True))
-    else:
-        approved = bool(decision)
+    approved = bool(decision.get("approved", True)) if isinstance(decision, dict) else bool(decision)
     return {"approved": approved}
 
 
@@ -108,7 +106,7 @@ def _checkpointer_kind() -> str:
 
         if has_app_context() and "RAG_AGENT_CHECKPOINTER" in current_app.config:
             return str(current_app.config["RAG_AGENT_CHECKPOINTER"]).lower()
-    except Exception:  # noqa: BLE001 - fall through to env
+    except Exception:
         pass
     return os.environ.get("RAG_AGENT_CHECKPOINTER", "memory").lower()
 
@@ -147,7 +145,7 @@ def _build_checkpointer(kind: str | None = None) -> Any | None:
             saver = PostgresSaver(conn)
             saver.setup()  # idempotent CREATE TABLE IF NOT EXISTS
             return saver
-        except Exception as exc:  # noqa: BLE001 - best-effort
+        except Exception as exc:
             logger.warning("PostgresSaver unavailable — no checkpointing (%s)", exc)
             return None
     try:
@@ -159,7 +157,7 @@ def _build_checkpointer(kind: str | None = None) -> Any | None:
         if _memory_saver is None:
             _memory_saver = MemorySaver()
         return _memory_saver
-    except Exception:  # noqa: BLE001 - best-effort
+    except Exception:
         return None
 
 

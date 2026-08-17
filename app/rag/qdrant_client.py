@@ -290,7 +290,7 @@ class QdrantStore:
             from flask import current_app
 
             return current_app.config.get("RAG_QDRANT_COLLECTION", DEFAULT_COLLECTION)
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return DEFAULT_COLLECTION
 
     @property
@@ -302,7 +302,7 @@ class QdrantStore:
             from flask import current_app
 
             return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return 768
 
     # ------------------------------------------------------------------ #
@@ -326,7 +326,7 @@ class QdrantStore:
             from flask import current_app
 
             url = current_app.config.get("RAG_QDRANT_URL", "")
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             url = ""
         if not url:
             logger.warning("QdrantStore: RAG_QDRANT_URL not configured; vector store unavailable.")
@@ -396,13 +396,13 @@ class QdrantStore:
                 continue
             try:
                 return bool(method())
-            except Exception as exc:  # noqa: BLE001 - try the next health surface
+            except Exception as exc:
                 logger.warning("QdrantStore.ping (%s) failed: %s", method_name, exc)
         # Last resort: any collection-level call proves the service answers.
         try:
             client.collection_cluster_info(self.collection_name)
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("QdrantStore.ping (cluster info) failed: %s", exc)
             return False
 
@@ -413,7 +413,7 @@ class QdrantStore:
             return False
         try:
             return bool(client.collection_exists(self.collection_name))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("QdrantStore.has_collection failed: %s", exc)
             return False
 
@@ -479,7 +479,7 @@ class QdrantStore:
                 for field_name in DEFAULT_PAYLOAD_INDEX_FIELDS:
                     self.create_payload_index(field_name)
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("QdrantStore.ensure_collection failed: %s", exc)
             return False
 
@@ -501,7 +501,7 @@ class QdrantStore:
             sparse = getattr(params, "sparse_vectors", None) if params is not None else None
             self._has_sparse = bool(sparse)
             return self._has_sparse
-        except Exception as exc:  # noqa: BLE001 - unconfigured/mock clients
+        except Exception as exc:
             # Deliberately NOT cached: a transient failure (e.g. cluster
             # restarting) must not permanently mask a sparse-capable
             # collection until the next ensure_collection() call.
@@ -518,7 +518,7 @@ class QdrantStore:
                 field_schema=field_schema,
             )
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("QdrantStore.create_payload_index(%s) failed: %s", field_name, exc)
             return False
 
@@ -544,10 +544,10 @@ class QdrantStore:
             structs = [self._point_struct(p, models) for p in batch]
             try:
                 client.upsert(collection_name=self.collection_name, points=structs)
-            except Exception as exc:  # noqa: BLE001 - retry once, then surface
+            except Exception:
                 try:
                     client.upsert(collection_name=self.collection_name, points=structs)
-                except Exception as exc2:  # noqa: BLE001
+                except Exception as exc2:
                     raise RuntimeError(
                         f"Qdrant upsert batch #{start // UPSERT_BATCH_SIZE} "
                         f"({len(batch)} points) failed after retry: {exc2}"

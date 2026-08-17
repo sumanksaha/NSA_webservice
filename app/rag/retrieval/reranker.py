@@ -96,12 +96,12 @@ class Reranker:
         pairs = [(query, chunk.text) for chunk in chunks]
         try:
             scores = encoder.predict(pairs)
-            scored = list(zip(scores, chunks))
+            scored = list(zip(scores, chunks, strict=False))
             scored.sort(key=lambda x: float(x[0]), reverse=True)
             for score, chunk in scored:
                 chunk.score = float(score)
             result = [chunk for _, chunk in scored]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Cross-encoder reranking failed, falling back: %s", exc)
             return self._rerank_fallback(query, chunks, top_k)
 
@@ -247,7 +247,7 @@ class EnsembleReranker:
             cap_torch_threads()
             self._encoder = CrossEncoder(self.model_name)
             return self._encoder
-        except Exception as exc:  # noqa: BLE001 - optional dependency / bad path
+        except Exception as exc:
             logger.warning("EnsembleReranker: cross-encoder unavailable (%s)", exc)
             return None
 
@@ -292,7 +292,7 @@ class EnsembleReranker:
                 ce_head = cfg.ce_head
                 ce_weight = cfg.ce_weight
                 skip_ce = cfg.skip_ce
-            except Exception:  # noqa: BLE001 - any config lookup failure → defaults
+            except Exception:
                 pass
 
         from app.rag.retrieval.identifier import detect_act, detect_section
@@ -330,8 +330,8 @@ class EnsembleReranker:
                 pairs = [(query, chunks[i].text) for i in head_idx]
                 scores = encoder.predict(pairs)
                 norm = self._minmax([float(s) for s in scores])
-                ce_bonus = {i: ce_weight * n for i, n in zip(head_idx, norm)}
-            except Exception as exc:  # noqa: BLE001 - CE is best-effort
+                ce_bonus = {i: ce_weight * n for i, n in zip(head_idx, norm, strict=False)}
+            except Exception as exc:
                 logger.warning("EnsembleReranker: CE scoring failed (%s) — sec_act features only", exc)
 
         # 3. final = primary + CE bonus, stable re-sort

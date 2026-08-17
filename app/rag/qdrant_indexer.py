@@ -145,7 +145,7 @@ class QdrantIndexer:
             from flask import current_app
 
             return bool(current_app.config.get("RAG_ENABLE_SPARSE", True))
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return True
 
     def ensure_collection(self, create_payload_indexes: bool = True) -> bool:
@@ -234,7 +234,7 @@ class QdrantIndexer:
                     Point(id=c.chunk_id, vector=v, payload=c.to_payload())
                     for c, v in zip(chunks, vectors, strict=True)
                 ]
-        except Exception as exc:  # noqa: BLE001 - surface as an ingestion error
+        except Exception as exc:
             # Covers embedding failures AND a mismatched vector/chunk count.
             result.errors.append(f"embedding failed: {exc}")
             result.latency_ms = int((time.monotonic() - start) * 1000)
@@ -278,7 +278,7 @@ class QdrantIndexer:
                     getattr(self._store, "collection_name", "?"),
                 )
                 return None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("QdrantIndexer: sparse capability check failed (%s)", exc)
             return None
         embedder = self._sparse_embedder or SparseEmbeddingService()
@@ -289,7 +289,7 @@ class QdrantIndexer:
             return None
         try:
             return embedder.embed_chunks(chunks)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("QdrantIndexer: sparse embedding failed (%s) — dense-only", exc)
             return None
 
@@ -298,11 +298,11 @@ class QdrantIndexer:
         try:
             self._store.upsert_points(points)
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception:
             try:
                 self._store.upsert_points(points)
                 return True
-            except Exception as exc2:  # noqa: BLE001
+            except Exception as exc2:
                 result.errors.append(f"Qdrant upsert failed after retry: {exc2}")
                 return False
 
@@ -430,7 +430,7 @@ def _chunk_payload(obj: Any) -> dict[str, Any] | None:
             payload = dict(to_payload())
             if payload.get("chunk_text") is not None or payload.get("document_id"):
                 return payload
-        except Exception:  # noqa: BLE001 - fall through to duck-typing
+        except Exception:
             pass
 
     payload = {
@@ -441,7 +441,7 @@ def _chunk_payload(obj: Any) -> dict[str, Any] | None:
     if not payload.get("chunk_text") and not payload.get("document_id"):
         return None
     if "chunk_id" not in payload and hasattr(obj, "id"):
-        payload["chunk_id"] = str(getattr(obj, "id"))
+        payload["chunk_id"] = str(obj.id)
     return payload
 
 
@@ -492,7 +492,7 @@ def _on_after_flush(session, _flush_context):
             indexer.remove_chunks(delete_ids)
         for doc_id in delete_docs:
             indexer.remove_document(doc_id)
-    except Exception as exc:  # noqa: BLE001 - never break the outer transaction
+    except Exception as exc:
         logger.warning("Qdrant index auto-update failed: %s", exc)
 
 

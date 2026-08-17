@@ -134,7 +134,7 @@ class Chunk:
         chunk_index: int = 0,
         parent_chunk_id: str | None = None,
         embedding_model: str = "",
-    ) -> "Chunk":
+    ) -> Chunk:
         """Build a :class:`Chunk` from one engine paragraph dict.
 
         Args:
@@ -248,7 +248,7 @@ class Chunker:
             from flask import current_app
 
             return current_app.config.get("RAG_EMBEDDING_MODEL", "")
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return ""
 
     def _get_engine(self) -> Any:

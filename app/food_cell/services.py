@@ -14,12 +14,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from flask import current_app
-
 from app.extensions import db
+from app.food_cell.renderer import DODocumentRenderer
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
-from app.food_cell.renderer import DODocumentRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +44,7 @@ def _load_sync_fns() -> None:
         from app.services.sheets_sync import sync_to_sheets
 
         _sync_to_sheets = sync_to_sheets
-    except Exception:  # noqa: BLE001
+    except Exception:
         _sync_to_sheets = None
         logger.warning("sync_to_sheets unavailable; DO intimation won't sync to Sheets")
 
@@ -54,7 +52,7 @@ def _load_sync_fns() -> None:
         from app.services.airtable_sync import sync_to_airtable
 
         _sync_to_airtable = sync_to_airtable
-    except Exception:  # noqa: BLE001
+    except Exception:
         _sync_to_airtable = None
         logger.warning("sync_to_airtable unavailable")
 
@@ -62,14 +60,14 @@ def _load_sync_fns() -> None:
         from app.services.excel_sync import sync_to_excel
 
         _sync_to_excel = sync_to_excel
-    except Exception:  # noqa: BLE001
+    except Exception:
         _sync_to_excel = None
         logger.warning("sync_to_excel unavailable")
 
     _sync_lock = True
 
 
-def _resolve_sample(sample_id: int, sample: "Sample | None") -> "Sample | None":
+def _resolve_sample(sample_id: int, sample: Sample | None) -> Sample | None:
     """Return the Sample record, optionally using a pre-fetched object."""
     if sample is None:
         sample = db.session.get(Sample, sample_id)
@@ -85,27 +83,27 @@ def _next_do_reference_no() -> str:
     return _renderer.generate_reference()
 
 
-def _render_html(sample: "Sample") -> str:
+def _render_html(sample: Sample) -> str:
     """Backward-compatible wrapper around DODocumentRenderer.render_html."""
     return _renderer.render_html(sample)
 
 
-def _render_pdf(html: str, sample: "Sample") -> str:
+def _render_pdf(html: str, sample: Sample) -> str:
     """Backward-compatible wrapper around DODocumentRenderer.render_pdf."""
     return _renderer.render_pdf(html, sample)
 
 
-def _store_intimation(intimation: "DoIntimation", sample: "Sample", html: str, pdf_path: str) -> None:
+def _store_intimation(intimation: DoIntimation, sample: Sample, html: str, pdf_path: str) -> None:
     """Backward-compatible wrapper around DODocumentRenderer.store."""
     _renderer.store(intimation, sample, html, pdf_path)
 
 
-def _build_sync_row(sample: "Sample", intimation: "DoIntimation") -> dict[str, Any]:
+def _build_sync_row(sample: Sample, intimation: DoIntimation) -> dict[str, Any]:
     """Backward-compatible wrapper around DODocumentRenderer.build_sync_row."""
     return _renderer.build_sync_row(sample, intimation)
 
 
-def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, bool]:
+def _sync_intimation(sample: Sample, intimation: DoIntimation) -> dict[str, bool]:
     """Best-effort sync to all parallel targets (Sheets, Airtable, Excel).
 
     Returns ``{"sheets": bool, "airtable": bool, "excel": bool}``.
@@ -123,7 +121,7 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
         try:
             _sync_to_sheets("food_cell_do_intimations", row)
             results["sheets"] = True
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("sync_to_sheets failed for sample %s", sample.id)
             results["sheets"] = False
     else:
@@ -134,7 +132,7 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
         try:
             _sync_to_airtable("food_cell_do_intimations", row, intimation.id)
             results["airtable"] = True
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("sync_to_airtable failed for sample %s", sample.id)
             results["airtable"] = False
     else:
@@ -145,7 +143,7 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
         try:
             _sync_to_excel("FoodCellDOIntimations", row)
             results["excel"] = True
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("sync_to_excel failed for sample %s", sample.id)
             results["excel"] = False
     else:
@@ -156,9 +154,9 @@ def _sync_intimation(sample: "Sample", intimation: "DoIntimation") -> dict[str, 
 
 def generate_and_forward_do_intimation(
     sample_id: int,
-    sample: "Sample | None" = None,
+    sample: Sample | None = None,
     force: bool = False,
-) -> "DoIntimation | None":
+) -> DoIntimation | None:
     """Generate a DO intimation for *sample_id* and forward to Food Cell.
 
     Called from:

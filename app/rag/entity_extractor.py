@@ -208,7 +208,7 @@ class LegalEntityExtractor:
             from app.rag.generation.llm_client import GroundedLLMClient
 
             self._llm = GroundedLLMClient()
-        except Exception as exc:  # noqa: BLE001 - fallback is best-effort
+        except Exception as exc:
             logger.warning("LegalEntityExtractor LLM fallback unavailable: %s", exc)
             self._llm = False
         return self._llm if self._llm is not False else None
@@ -277,10 +277,7 @@ class LegalEntityExtractor:
         cache.
         """
         merged = dict(document)
-        if text:
-            extraction = self.extract(text)
-        else:
-            extraction = EntityExtraction()
+        extraction = self.extract(text) if text else EntityExtraction()
         if extraction.entities:
             merged.setdefault("entities", [e.to_dict() for e in extraction.entities])
         merged.setdefault("entity_extraction", extraction.to_dict())
@@ -318,7 +315,7 @@ class LegalEntityExtractor:
     def _spacy_entities(self, ner: Any, text: str) -> list[LegalEntity]:
         try:
             grouped = ner.extract_entities(text) or {}
-        except Exception as exc:  # noqa: BLE001 - best-effort NER
+        except Exception as exc:
             logger.warning("LegalEntityExtractor spaCy NER failed: %s", exc)
             return []
         entities: list[LegalEntity] = []
@@ -357,7 +354,7 @@ class LegalEntityExtractor:
         user_prompt = f"Extract legal entities from this text:\n\n{text[:8_000]}"
         try:
             response = llm.call(system_prompt, user_prompt, max_tokens=600)
-        except Exception as exc:  # noqa: BLE001 - best-effort LLM
+        except Exception as exc:
             logger.warning("LegalEntityExtractor LLM failed: %s", exc)
             return []
         payload = str(getattr(response, "text", "") or "")

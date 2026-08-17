@@ -54,7 +54,7 @@ class LegalDocumentOCR:
                 from app.ocr_pipeline.pipeline import OCRPipeline
 
                 self._pipeline = OCRPipeline(use_gpu=False)
-            except Exception as exc:  # noqa: BLE001 - OCR must never break ingestion
+            except Exception as exc:
                 logger.warning("LegalDocumentOCR: OCR pipeline unavailable (%s)", exc)
                 self._pipeline = False
         return self._pipeline or None
@@ -79,7 +79,7 @@ class LegalDocumentOCR:
             return ""
         try:
             results = pipeline.process_document(str(pdf_path))
-        except Exception as exc:  # noqa: BLE001 - best-effort OCR
+        except Exception as exc:
             logger.warning("LegalDocumentOCR.extract_document_text failed: %s", exc)
             return ""
         if not results:

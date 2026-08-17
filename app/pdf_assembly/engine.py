@@ -27,7 +27,7 @@ import io
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
@@ -713,10 +713,10 @@ class PDFAssemblyEngine:
         Delegates to the ``pdf_assembly/index_page.html`` Jinja2 template,
         eliminating the 155-line f-string that previously lived inline.
         """
-        from flask import render_template
-        from datetime import timezone
 
-        now = datetime.now(timezone.utc)
+        from flask import render_template
+
+        now = datetime.now(UTC)
         return render_template(
             "pdf_assembly/index_page.html",
             case_id=case_id,

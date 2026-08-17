@@ -51,7 +51,7 @@ def split_pdf_bundle(pdf_path: str | Path) -> list[Path]:
             return [pdf_path]
 
         for page_num in range(total_pages):
-            page = doc[page_num]
+            doc[page_num]
             new_doc = fitz.open()  # empty document
             new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
             out_path = output_dir / f"{_PAGE_PREFIX}{page_num + 1}.pdf"

@@ -40,7 +40,7 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.rag.qdrant_client import Point, QdrantStore
@@ -117,7 +117,7 @@ def backup_collection(
 
     archive: dict[str, Any] = {
         "collection": store.collection_name,
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "vector_size": store.vector_size,
         "has_sparse": has_sparse,
         "point_count": len(points),
@@ -200,7 +200,7 @@ def restore_collection(
         else:
             try:
                 client.delete_collection(store.collection_name)
-            except Exception as exc:  # noqa: BLE001 - missing collection is fine
+            except Exception as exc:
                 logger.warning("restore: drop existing collection failed: %s", exc)
 
     # Recreate with the same sparse layout as the archive (no-op if the
@@ -244,7 +244,7 @@ def restore_collection(
         chunk = structs[i : i + batch_size]
         try:
             restored += store.upsert_points(chunk)
-        except Exception as exc:  # noqa: BLE001 - report per-batch, keep going
+        except Exception as exc:
             errors.append(f"batch {i // batch_size} upsert failed: {exc}")
 
     return {

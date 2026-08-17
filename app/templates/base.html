@@ -214,6 +214,12 @@
                    class="nav-link {% if request.blueprint == 'search' %}active{% endif %}">
                     <i class="fa-solid fa-magnifying-glass"></i> Search
                 </a>
+                {% if current_app.config.get('RAG_ENABLED', True) %}
+                <a href="{{ url_for('rag.query_ui') }}"
+                   class="nav-link {% if request.blueprint == 'rag' %}active{% endif %}">
+                    <i class="fa-solid fa-robot"></i> Legal RAG
+                </a>
+                {% endif %}
                 <a href="{{ url_for('annexure.index') }}"
                    class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}">
                     <i class="fa-solid fa-paperclip"></i> Annexures

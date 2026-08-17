@@ -18,6 +18,7 @@ machine usable during a query.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 
@@ -32,7 +33,7 @@ def resolve_torch_threads() -> int:
         if current_app:
             val = current_app.config.get("RAG_TORCH_THREADS", 4)
             return max(1, int(val))
-    except Exception:  # noqa: BLE001 - no app context / unparsable value
+    except Exception:
         pass
     try:
         return max(1, int(os.environ.get("RAG_TORCH_THREADS", "4")))
@@ -55,10 +56,8 @@ def cap_torch_threads() -> None:
         import torch
 
         torch.set_num_threads(threads)
-        try:
+        with contextlib.suppress(Exception):
             torch.set_num_interop_threads(1)
-        except Exception:  # noqa: BLE001 - interop pool already initialised
-            pass
         if os.environ.get("OMP_NUM_THREADS") is None:
             os.environ["OMP_NUM_THREADS"] = str(threads)
     except ImportError:

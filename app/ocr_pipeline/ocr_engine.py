@@ -156,7 +156,7 @@ class OCREngine:
                     return "", 0.0
                 return "\n".join(lines), sum(confidences) / len(confidences)
 
-        except Exception as exc:  # noqa: BLE001 - fall through to the next engine
+        except Exception as exc:
             logger.warning("EasyOCR failed: %s — falling through to next engine", exc)
             return "", 0.0
 

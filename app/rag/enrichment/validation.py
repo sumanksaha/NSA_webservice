@@ -20,7 +20,6 @@ rule 4 is trivially satisfied; the validator still downgrades any
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass

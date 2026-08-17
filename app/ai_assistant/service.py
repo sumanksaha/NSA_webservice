@@ -254,4 +254,4 @@ class AIAssistantService:
         raise RuntimeError("LLM request failed after 3 attempts: " + str(last_exc)) from last_exc
 
 
-__all__ = ["AIAssistantService", "ACTIONS"]
+__all__ = ["ACTIONS", "AIAssistantService"]

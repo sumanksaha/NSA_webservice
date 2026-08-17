@@ -23,9 +23,7 @@ from typing import Any
 
 from app.rag.retrieval.reference_extractor import (
     CONFIDENCE_HIGH,
-    Reference,
     extract_references,
-    high_confidence_refs,
     resolve_ref_to_provision,
 )
 
@@ -166,7 +164,7 @@ class ReferenceGraph:
                 target_id = ref.section or ref.rule or ref.schedule or ref.chapter
                 if not target_id:
                     continue
-                if not ref.confidence == CONFIDENCE_HIGH:
+                if ref.confidence != CONFIDENCE_HIGH:
                     continue
 
                 # Map relation to edge type
@@ -404,4 +402,3 @@ if __name__ == "__main__":
     expansion = expand_references("chunk1", depth=1, graph=g)
     assert len(expansion) >= 1
 
-    print(f"Self-check passed: {count} edges, {len(expansion)} expansion results")

@@ -103,7 +103,7 @@
                 if (isList) {
                     try {
                         result = JSON.parse(result);
-                    } catch (e) {
+                    } catch {
                         result = [];
                     }
                 }
@@ -137,7 +137,7 @@
                     if (context) {
                         try {
                             context = JSON.parse(context);
-                        } catch (e) {
+                        } catch {
                             context = null;
                         }
                     }

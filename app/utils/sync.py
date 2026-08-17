@@ -137,7 +137,8 @@ def _list_r2_csv_backups(prefix: str) -> list[str]:
 
     keys: list[str] = []
     try:
-        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+        from app.utils.storage import _get_bucket
+        from app.utils.storage import _get_client as _get_r2_client
 
         r2 = _get_r2_client()
         prefix_path = f"nsa_backups/{prefix}_csv/"
@@ -158,10 +159,10 @@ def _list_r2_csv_backups(prefix: str) -> list[str]:
 
 def _download_r2_csv(key: str) -> str | None:
     """Download a CSV file from R2 (or local fallback) and return its content."""
-    from flask import current_app
 
     try:
-        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+        from app.utils.storage import _get_bucket
+        from app.utils.storage import _get_client as _get_r2_client
 
         r2 = _get_r2_client()
         resp = r2.get_object(Bucket=_get_bucket(), Key=key)
@@ -202,12 +203,11 @@ def _parse_csv_value(value: str, field_type: str = "str"):
     if field_type == "Boolean":
         return value.lower() in ("true", "1", "yes")
     if field_type in ("Date", "DateTime", "TIMESTAMP"):
-        from datetime import timezone
 
         try:
             parsed = datetime.fromisoformat(value)
             if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
+                parsed = parsed.replace(tzinfo=UTC)
             return parsed
         except (ValueError, TypeError):
             return None
@@ -221,9 +221,11 @@ def _is_empty_sqlite_db() -> bool:
 
     for table_name in db.metadata.tables:
         try:
+            # table_name comes from db.metadata.tables — the fixed set of
+            # SQLAlchemy-registered tables, never user input.
             count = db.session.execute(
-                db.text(f"SELECT COUNT(*) FROM {table_name}")
-            ).scalar() or 0  # noqa: S608
+                db.text(f"SELECT COUNT(*) FROM {table_name}")  # noqa: S608
+            ).scalar() or 0
             if count > 0:
                 return False
         except Exception:

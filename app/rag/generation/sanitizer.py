@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 from app.rag.retrieval.result import Citation, RetrievedChunk
 
@@ -100,10 +99,7 @@ class ResponseSanitizer:
 
         # Groundedness — fraction of cited sources backed by evidence.
         total = len(citations)
-        if total > 0:
-            groundedness = len(valid) / total
-        else:
-            groundedness = 0.0
+        groundedness = len(valid) / total if total > 0 else 0.0
 
         # Hallucination flag — any invalid citation or low groundedness.
         hallucination = len(invalid) > 0 or groundedness < self.groundedness_threshold

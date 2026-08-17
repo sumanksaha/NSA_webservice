@@ -45,6 +45,10 @@ jobs:
         run: pip install ruff>=0.6.0
 
       - name: Run ruff format check (informational only)
+        # The repo is Black-formatted ([tool.black] + black pinned in
+        # requirements-dev.txt); ruff format disagrees on ~268 files.  This
+        # job is intentionally non-blocking — see pyproject.toml [tool.black].
+        continue-on-error: true
         run: ruff format --check --diff
 
   js-lint:

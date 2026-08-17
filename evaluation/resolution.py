@@ -20,11 +20,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-from pathlib import Path
 from typing import Any
 
 from evaluation.benchmark import GoldUnit, load_gold_registry
-from evaluation.config import CACHE_DIR, RAW_DIR
+from evaluation.config import CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +185,15 @@ def payload_to_keys(payload: dict, family_map: FamilyMap) -> list[tuple[str, str
     the pcra family).  A zero-effect regression against V4 is recorded in
     ``evaluation/out/ceiling_v5/payload_to_keys_regression.json``.
     """
-    section = norm_section(payload.get("section_number") or payload.get("subsection"))
+    # G6 fix (2026-08-17): ``subsection`` is a leading marker chain
+    # (``(1)``, ``(1)(a)``) — never a section number.  The old
+    # ``section_number or subsection`` fallback was a latent cross-section
+    # collision: it parsed nothing for parenthetical values today (verified:
+    # 0/12,599 subsection values survive ``norm_section``), but a dotted
+    # clause number (``2.4.15`` → ``"2"``) would have collided with real
+    # section 2 once the subsection backfill lands.  Section identity comes
+    # from ``section_number`` (or ``sections_covered``) only.
+    section = norm_section(payload.get("section_number"))
     keys: list[tuple[str, str | None]] = []
     seen: set[str] = set()
     for source in (payload.get("act_name"), payload.get("document_title")):

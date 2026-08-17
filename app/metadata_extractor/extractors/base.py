@@ -289,7 +289,7 @@ class DocumentTypeExtractor(BaseExtractor):
                         conf = 0.95
                     results.append((doc_type, conf, "regex", name))
             else:
-                for match in pattern.finditer(text):
+                for _match in pattern.finditer(text):
                     results.append((doc_type, 0.90, "regex", name))
         if not results:
             results.append(("Notification", 0.50, "heuristic", "default_type"))

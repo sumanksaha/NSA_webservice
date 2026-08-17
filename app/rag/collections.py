@@ -60,7 +60,7 @@ def collection_for_domain(domain: str | None, config: dict[str, Any] | None = No
     if config is not None:
         try:
             override = config.get(f"RAG_QDRANT_COLLECTION_{canonical.upper()}")
-        except Exception:  # noqa: BLE001 - arbitrary Mapping may not have .get
+        except Exception:
             override = None
         if override:
             return str(override)

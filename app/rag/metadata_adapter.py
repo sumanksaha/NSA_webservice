@@ -128,10 +128,7 @@ class MetadataAdapter:
         ``jurisdiction`` / ``state`` / dates / ``is_current`` / ``version``).
         """
         merged = dict(document)
-        if text:
-            extraction = self.extract(text)
-        else:
-            extraction = MetadataExtraction()
+        extraction = self.extract(text) if text else MetadataExtraction()
         # title / document_title
         if extraction.document_title:
             merged.setdefault("title", extraction.document_title)

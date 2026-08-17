@@ -106,7 +106,7 @@ class HybridRetriever:
                 try:
                     has_sparse = getattr(sparse_store, "has_sparse_vectors", None)
                     sparse_capable = bool(callable(has_sparse) and has_sparse())
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.warning("HybridRetriever: sparse capability check failed (%s)", exc)
                     sparse_capable = False
                 if sparse_capable:
@@ -133,7 +133,7 @@ class HybridRetriever:
                             latency_ms=int((time.monotonic() - start) * 1000),
                             source="hybrid",
                         )
-                    except Exception as exc:  # noqa: BLE001 - fall back to client RRF
+                    except Exception as exc:
                         logger.warning(
                             "HybridRetriever: server-side RRF fusion failed (%s) — using client-side RRF",
                             exc,
@@ -150,7 +150,7 @@ class HybridRetriever:
         if identifier_query:
             try:
                 ident_result = self.sparse.retrieve(identifier_query, top_k=max(top_k * 2, 20), filters=None)
-            except Exception as exc:  # noqa: BLE001 - identifier arm is best-effort
+            except Exception as exc:
                 logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
         # RRF fusion — rank-based, so scores from different retrievers are
@@ -192,7 +192,7 @@ class HybridRetriever:
         fused_chunks = [chunk_map[cid] for cid in fused_ids[:top_k]]
 
         # Update scores to the RRF score
-        for i, chunk in enumerate(fused_chunks):
+        for _i, chunk in enumerate(fused_chunks):
             chunk.score = chunk_scores[chunk.chunk_id]
 
         error = None
@@ -206,7 +206,7 @@ class HybridRetriever:
         if self.reranker is not None and fused_chunks:
             try:
                 fused_chunks = self.reranker.rerank(query, fused_chunks, top_k=top_k, query_type=query_type)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("Reranker failed, returning unfused results: %s", exc)
 
         return SearchResult(

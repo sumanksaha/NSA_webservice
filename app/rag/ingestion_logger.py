@@ -112,7 +112,7 @@ class IngestionLogger:
         # 2. Best-effort hash-chained audit row.
         try:
             self._audit(event)
-        except Exception as exc:  # noqa: BLE001 - best-effort observability
+        except Exception as exc:
             logger.warning("IngestionLogger audit failed (best-effort): %s", exc)
             ok = False
         return ok

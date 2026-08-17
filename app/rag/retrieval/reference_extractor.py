@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.rag.retrieval.legal_hierarchy import parse_section_chain, section_base
+from app.rag.retrieval.legal_hierarchy import section_base
 
 # --------------------------------------------------------------------------- #
 # Confidence levels
@@ -175,15 +175,15 @@ def extract_references(
     refs: list[Reference] = []
     seen_spans: set[tuple[int, int]] = set()
 
-    _CONFIDENCE_RANK = {CONFIDENCE_HIGH: 3, CONFIDENCE_MEDIUM: 2, CONFIDENCE_LOW: 1}
-    min_rank = _CONFIDENCE_RANK.get(min_confidence, 1)
+    _confidence_rank = {CONFIDENCE_HIGH: 3, CONFIDENCE_MEDIUM: 2, CONFIDENCE_LOW: 1}
+    min_rank = _confidence_rank.get(min_confidence, 1)
 
     def _add(ref: Reference) -> None:
         span = (ref.span_start, ref.span_end)
         if span in seen_spans:
             return
         seen_spans.add(span)
-        if _CONFIDENCE_RANK.get(ref.confidence, 0) >= min_rank:
+        if _confidence_rank.get(ref.confidence, 0) >= min_rank:
             refs.append(ref)
 
     # 1. Section references (with optional subsection chain)
@@ -318,6 +318,5 @@ if __name__ == "__main__":
     assert any(r.relation == "subject_to" for r in relation_refs), \
         f"Expected 'subject_to' relation, got: {[r.relation for r in relation_refs]}"
 
-    print("Self-check passed. References found:")
-    for r in refs:
-        print(f"  {r.confidence}: {r.canonical_ref()}")
+    for _r in refs:
+        pass

@@ -189,7 +189,7 @@ def run_retrieval_pipeline(
                 "run_retrieval_pipeline: reference expansion found %d candidates",
                 len(expanded_candidates),
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("run_retrieval_pipeline: reference expansion failed: %s", exc)
 
     # Optional: evidence-set selection
@@ -204,7 +204,7 @@ def run_retrieval_pipeline(
                 len(es.items),
                 [it["evidence_type"] for it in evidence_set_data["items"]],
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("run_retrieval_pipeline: evidence selector failed: %s", exc)
 
     return {
@@ -350,8 +350,9 @@ def run_generation_pipeline(
     ``"pipeline"`` (rollout §8 A/B).
     """
     from dataclasses import asdict
-    from app.rag.retrieval.result import RetrievedChunk
+
     from app.rag.generation import GroundedGenerationService
+    from app.rag.retrieval.result import RetrievedChunk
 
     start = time.monotonic()
 
@@ -415,7 +416,7 @@ def run_generation_pipeline(
                     len(kg_chunks),
                     slot_budget,
                 )
-        except Exception as exc:  # noqa: BLE001 - best-effort by design
+        except Exception as exc:
             logger.warning("run_generation_pipeline: kg contract fusion failed: %s", exc)
             kg_contract = {"error": str(exc), "provisions": 0, "injected": 0, "fused": False}
 
@@ -552,7 +553,7 @@ def _reranker_model() -> str:
 
         if current_app:
             return str(current_app.config.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
@@ -569,7 +570,7 @@ def _reranker_endpoint() -> str:
 
         if current_app:
             return str(current_app.config.get("RAG_RERANKER_ENDPOINT", "") or "")
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_RERANKER_ENDPOINT", "")
 
@@ -581,7 +582,7 @@ def _reranker_token() -> str | None:
 
         if current_app:
             return current_app.config.get("RAG_RERANKER_TOKEN") or None
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_RERANKER_TOKEN") or None
 
@@ -598,7 +599,7 @@ def _reranker_mode() -> str:
 
         if current_app:
             return str(current_app.config.get("RAG_RERANKER_MODE", "tei"))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_RERANKER_MODE", "tei")
 
@@ -610,7 +611,7 @@ def _reranker_timeout() -> float:
 
         if current_app:
             return float(current_app.config.get("RAG_RERANKER_TIMEOUT", 5.0))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     try:
         return float(os.environ.get("RAG_RERANKER_TIMEOUT", "5"))
@@ -625,7 +626,7 @@ def _remote_rerank_fallback_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("RAG_RERANKER_REMOTE_FALLBACK", True))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_RERANKER_REMOTE_FALLBACK", "true").lower() != "false"
 
@@ -645,7 +646,7 @@ def _ensemble_rerank_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("RAG_ENSEMBLE_RERANK", True))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_ENSEMBLE_RERANK", "true").lower() != "false"
 
@@ -667,7 +668,7 @@ def _qdrant_bm25_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("RAG_QDRANT_BM25", False))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_QDRANT_BM25", "false").lower() == "true"
 
@@ -679,7 +680,7 @@ def _ensemble_ce_head() -> int:
 
         if current_app:
             return int(current_app.config.get("RAG_ENSEMBLE_CE_HEAD", 20))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         return int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "20"))
@@ -694,7 +695,7 @@ def _ensemble_ce_weight() -> float:
 
         if current_app:
             return float(current_app.config.get("RAG_ENSEMBLE_CE_WEIGHT", 0.5))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         return float(os.environ.get("RAG_ENSEMBLE_CE_WEIGHT", "0.5"))
@@ -709,7 +710,7 @@ def _kg_max_provisions() -> int:
 
         if current_app:
             return int(current_app.config.get("RAG_KG_MAX_PROVISIONS", 5))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     try:
         return int(os.environ.get("RAG_KG_MAX_PROVISIONS", "5"))
@@ -730,7 +731,7 @@ def _legal_query_typing_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("RAG_LEGAL_QUERY_TYPING", True))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_LEGAL_QUERY_TYPING", "true").lower() != "false"
 
@@ -748,7 +749,7 @@ def _evidence_selector_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("ENABLE_EVIDENCE_SELECTOR", False))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("ENABLE_EVIDENCE_SELECTOR", "false").lower() == "true"
 
@@ -782,7 +783,7 @@ def _identifier_route_enabled() -> bool:
 
         if current_app:
             return bool(current_app.config.get("RAG_IDENTIFIER_ROUTE", True))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get("RAG_IDENTIFIER_ROUTE", "true").lower() != "false"
 
@@ -794,7 +795,7 @@ def _flag_enabled(name: str) -> bool:
 
         if current_app:
             return bool(current_app.config.get(name, False))
-    except Exception:  # noqa: BLE001 - no app context / not installed
+    except Exception:
         pass
     return os.environ.get(name, "false").lower() == "true"
 

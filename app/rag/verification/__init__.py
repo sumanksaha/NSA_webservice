@@ -19,11 +19,11 @@ Reuses:
 - ``score_field`` confidence pattern from ``app/metadata_extractor/confidence.py``
 """
 
-from app.rag.verification.claim_extractor import ClaimExtractor, ExtractedClaim
 from app.rag.verification.citation_validator import (
     CitationValidationResult,
     CitationValidator,
 )
+from app.rag.verification.claim_extractor import ClaimExtractor, ExtractedClaim
 from app.rag.verification.evidence_verifier import (
     EvidenceVerification,
     EvidenceVerifier,
@@ -36,16 +36,16 @@ from app.rag.verification.scorer import GroundednessScore, GroundednessScorer
 from app.rag.verification.token_counter import TokenCounter, TokenUsage
 
 __all__ = [
-    "ClaimExtractor",
-    "ExtractedClaim",
-    "EvidenceVerifier",
-    "EvidenceVerification",
-    "CitationValidator",
     "CitationValidationResult",
+    "CitationValidator",
+    "ClaimExtractor",
+    "EvidenceVerification",
+    "EvidenceVerifier",
+    "ExtractedClaim",
     "GroundednessScore",
     "GroundednessScorer",
-    "TokenCounter",
-    "TokenUsage",
     "HallucinationDetector",
     "HallucinationReport",
+    "TokenCounter",
+    "TokenUsage",
 ]

@@ -86,7 +86,7 @@ class RemoteRerankClient:
             return []
         try:
             return self._remote_predict(pairs)
-        except Exception as exc:  # noqa: BLE001 - any remote failure → local
+        except Exception as exc:
             local = self._get_local_encoder()
             if local is not None:
                 logger.warning(
@@ -218,7 +218,7 @@ class RemoteRerankClient:
 
             cap_torch_threads()
             self._local_encoder = CrossEncoder(self.local_model)
-        except Exception as exc:  # noqa: BLE001 - optional dependency / bad path
+        except Exception as exc:
             logger.warning("RemoteRerankClient: local CE fallback unavailable (%s)", exc)
             self._local_encoder = None
         return self._local_encoder

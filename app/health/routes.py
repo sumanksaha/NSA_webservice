@@ -42,7 +42,7 @@ def health():
         import weasyprint
 
         weasyprint = f"ok ({weasyprint.__version__})"
-    except Exception as exc:  # noqa: BLE001 — report any import failure
+    except Exception as exc:
         weasyprint = f"unavailable: {exc!s}"
 
     # QStash status — reports whether the serverless task-queue webhook

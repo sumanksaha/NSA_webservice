@@ -56,7 +56,7 @@ def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> SyncR
         from app.services.sheets_sync import sync_to_sheets
 
         results["sheets"] = sync_to_sheets(module, row_dict)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning("Sheets sync failed [%s]: %s", module, e)
 
     # Airtable (redundant target)
@@ -64,7 +64,7 @@ def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> SyncR
         from app.services.airtable_sync import sync_to_airtable
 
         results["airtable"] = sync_to_airtable(module, row_dict, entity_id)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning("Airtable sync failed [%s]: %s", module, e)
 
     # Excel Online (dormant — ENABLE_EXCEL_SYNC=false)
@@ -72,7 +72,7 @@ def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> SyncR
         from app.services.excel_sync import sync_to_excel
 
         results["excel"] = sync_to_excel(module, row_dict, entity_id)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning("Excel sync failed [%s]: %s", module, e)
 
     return results

@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import threading
 from datetime import UTC, datetime
@@ -324,7 +326,8 @@ def export_sheets_to_r2() -> str | None:
 
     # Upload to R2
     try:
-        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+        from app.utils.storage import _get_bucket
+        from app.utils.storage import _get_client as _get_r2_client
 
         r2 = _get_r2_client()
         ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")

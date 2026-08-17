@@ -53,7 +53,7 @@ def main() -> int:
 def _analyze() -> int:
     from evaluation.arms import _dense
     from evaluation.benchmark import load_questions
-    from evaluation.config import ARMS, OUT_DIR, RAW_DIR
+    from evaluation.config import ARMS, OUT_DIR
     from evaluation.metrics import build_ranked_items, item_covers
     from evaluation.report import load_raw
     from evaluation.resolution import FamilyMap, build_payload_index, matches_gold, norm_section
@@ -178,7 +178,7 @@ def _analyze() -> int:
             continue
         try:
             res = _dense(collection).search(q.question, top_k=50)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("deep dense failed %s: %s", qid, exc)
             continue
         top50 = [c.chunk_id for c in res.chunks]
@@ -202,7 +202,11 @@ def _analyze() -> int:
                 )
                 if u.family not in fam or u.section is None:
                     continue
-                sec_meta = norm_section(pl.get("section_number") or pl.get("subsection"))
+                # G6 fix (2026-08-17): ``subsection`` is a leading marker
+                # chain, not a section number — drop the old fallback so a
+                # dotted clause value (``2.4.15`` → ``"2"``) can never collide
+                # with a real section identity.
+                sec_meta = norm_section(pl.get("section_number"))
                 text = str(pl.get("chunk_text") or "")
                 m = _SECTION_MARKER_RE.search(text)
                 if sec_meta == u.section:
@@ -270,7 +274,6 @@ def _analyze() -> int:
         w.writeheader()
         w.writerows(rows)
 
-    print(json.dumps(diagnosis, indent=1, sort_keys=True))
     return 0
 
 
@@ -281,14 +284,14 @@ def _recall_at(arm: dict, items: list, relevant, k: int) -> float:
         return 0.0
     hit = 0
     for u in relevant:
-        for i, item in enumerate(items[:k], 1):
+        for _i, item in enumerate(items[:k], 1):
             if item_covers(item, u):
                 hit += 1
                 break
     return hit / len(relevant)
 
 
-def _kg_item(p: dict, family_map: FamilyMap):
+def _kg_item(p: dict, family_map: FamilyMap):  # noqa: F821 - resolved lazily (evaluation.resolution)
     from evaluation.metrics import RankedItem
     from evaluation.resolution import norm_section
 
@@ -301,7 +304,7 @@ def _kg_item(p: dict, family_map: FamilyMap):
     )
 
 
-def _kg_families(p: dict, family_map: FamilyMap) -> list[str]:
+def _kg_families(p: dict, family_map: FamilyMap) -> list[str]:  # noqa: F821 - resolved lazily
     return family_map.family_s_for_act(p.get("instrument_title") or p.get("title"))
 
 
@@ -322,7 +325,7 @@ def _neo4j_probes() -> dict[str, Any]:
 
         rows = LegalKGQueries()._execute("MATCH (n) RETURN count(n) AS c")
         out["live_total_nodes"] = rows[0]["c"] if rows else None
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         out["live_total_nodes"] = f"error: {str(exc)[:100]}"
 
     # Cached readiness measurements
@@ -342,7 +345,7 @@ def _neo4j_probes() -> dict[str, Any]:
                 "authority_coverage": data.get("authority_coverage"),
             }
             out["readiness"] = {k: v for k, v in keep.items() if v is not None}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             out["readiness_error"] = str(exc)[:100]
     else:
         out["readiness"] = "missing"

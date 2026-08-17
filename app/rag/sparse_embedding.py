@@ -51,7 +51,7 @@ class SparseEmbeddingService:
             from flask import current_app
 
             return current_app.config.get("RAG_SPARSE_MODEL", DEFAULT_SPARSE_MODEL)
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return DEFAULT_SPARSE_MODEL
 
     # ------------------------------------------------------------------ #
@@ -82,7 +82,7 @@ class SparseEmbeddingService:
                 return None
         try:
             self._embedder = _SparseCls(model_name=self.model_name)
-        except Exception as exc:  # noqa: BLE001 - model download/load failure
+        except Exception as exc:
             logger.warning("SparseEmbeddingService: failed to load %s: %s", self.model_name, exc)
             return None
         return self._embedder

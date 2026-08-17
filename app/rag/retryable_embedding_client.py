@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +179,7 @@ class RetryableEmbeddingClient:
                 return result
             except CircuitOpenError:
                 raise
-            except Exception as exc:  # noqa: BLE001 - classify by type/status
+            except Exception as exc:
                 last_exc = exc
                 if not self._is_transient(exc):
                     # Permanent errors (bad input, auth) raise immediately and

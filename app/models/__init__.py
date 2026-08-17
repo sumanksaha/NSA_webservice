@@ -21,20 +21,20 @@ from app.models.document import (
     TimelineEvent,
     Version,
 )
-from app.models.inspection import FSO, AuditLog, Inspection
-from app.models.issue import FboIssue, FboIssueAudit
-from app.models.food_cell import DoIntimation
-from app.models.ocr import (
-        ConflictLog,
-    FieldAuthority,
-    LabTestParameter,
-    OCRCorrection,
-    OCRDocument,
-)
-from app.models.rag import LegalChunk, LegalDocument, RAGEvalDataset, RAGEvalResult, RAGQueryLog
 from app.models.enrichment import (
     ChunkCrossReference,
     ChunkEnrichment,
     EnrichmentCheckpoint,
     ResourceUsage,
 )
+from app.models.food_cell import DoIntimation
+from app.models.inspection import FSO, AuditLog, Inspection
+from app.models.issue import FboIssue, FboIssueAudit
+from app.models.ocr import (
+    ConflictLog,
+    FieldAuthority,
+    LabTestParameter,
+    OCRCorrection,
+    OCRDocument,
+)
+from app.models.rag import LegalChunk, LegalDocument, RAGEvalDataset, RAGEvalResult, RAGQueryLog

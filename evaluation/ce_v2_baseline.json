@@ -1,7 +1,7 @@
 {
   "baseline": "v1-vs-v2 pairwise + ranking regression (Step 0, 2026-08-17)",
-  "frozen_at": "2026-08-17T04:12:54+00:00",
-  "git_rev": "56adb7b",
+  "frozen_at": "2026-08-17T05:16:04+00:00",
+  "git_rev": "854c805",
   "models": {
     "v1": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v1",
     "v2": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v2_K500"
@@ -15,12 +15,12 @@
       "v1": {
         "n": 2362,
         "acc": 0.5825571549534293,
-        "margin": 0.15326382486156767
+        "margin": 0.15326386833192196
       },
       "v2": {
         "n": 2362,
         "acc": 0.5478408128704487,
-        "margin": 0.5981689811156625
+        "margin": 0.5981690156646914
       }
     },
     "ranking": {

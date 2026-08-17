@@ -166,10 +166,7 @@ class DocumentClassifier:
         key (for the ``LegalDocument.metadata_json`` cache).
         """
         merged = dict(document)
-        if text:
-            classification = self.classify(text)
-        else:
-            classification = DocumentClassification()
+        classification = self.classify(text) if text else DocumentClassification()
         if classification.document_type:
             merged.setdefault("type", classification.document_type)
             merged.setdefault("document_type", classification.document_type)
@@ -207,7 +204,7 @@ class DocumentClassifier:
         """
         try:
             candidates = extractor.extract(text) or []
-        except Exception as exc:  # noqa: BLE001 - best-effort classification
+        except Exception as exc:
             logger.warning("DocumentClassifier extractor failed: %s", exc)
             candidates = []
         if not candidates:

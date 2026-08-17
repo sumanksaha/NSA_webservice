@@ -32,9 +32,7 @@ Key findings from k500 analysis that drove the configuration:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any
-
+from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
 # Legal query types — aligned with the evaluation framework taxonomy
@@ -457,24 +455,24 @@ def classify_with_confidence(query: str) -> tuple[str, float]:
 # ---------------------------------------------------------------------------
 
 __all__ = [
-    "LEGAL_QUERY_TYPES",
-    "QueryTypeConfig",
-    "DEFAULT_CONFIG",
-    "PENALTY_CONFIG",
-    "PROHIBITION_CONFIG",
-    "AUTHORITY_CONFIG",
-    "DIRECT_PROVISION_CONFIG",
-    "EXCEPTION_CONFIG",
-    "OBLIGATION_CONFIG",
-    "PROCEDURE_CONFIG",
-    "CROSS_REFERENCE_CONFIG",
-    "OFFENCE_CONFIG",
-    "ENFORCEMENT_CONFIG",
-    "INSUFFICIENT_EVIDENCE_CONFIG",
-    "TEMPORAL_CONFIG",
     "AMBIGUOUS_CONFIG",
+    "AUTHORITY_CONFIG",
+    "CROSS_REFERENCE_CONFIG",
+    "DEFAULT_CONFIG",
+    "DIRECT_PROVISION_CONFIG",
+    "ENFORCEMENT_CONFIG",
+    "EXCEPTION_CONFIG",
+    "INSUFFICIENT_EVIDENCE_CONFIG",
+    "LEGAL_QUERY_TYPES",
+    "OBLIGATION_CONFIG",
+    "OFFENCE_CONFIG",
+    "PENALTY_CONFIG",
+    "PROCEDURE_CONFIG",
+    "PROHIBITION_CONFIG",
     "QUERY_TYPE_CONFIGS",
-    "get_config",
+    "TEMPORAL_CONFIG",
+    "QueryTypeConfig",
     "classify_legal_query",
     "classify_with_confidence",
+    "get_config",
 ]

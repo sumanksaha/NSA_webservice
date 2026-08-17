@@ -300,4 +300,3 @@ if __name__ == "__main__":
     assert ident.subsection == ["2"], ident.to_dict()
     assert ident.clause == ["a"], ident.to_dict()
     assert "Food Safety" in ident.canonical_id()
-    print("Self-check passed:", ident.canonical_id())

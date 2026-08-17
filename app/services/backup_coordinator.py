@@ -37,7 +37,7 @@ def run_backup() -> dict:
             results["r2_keys"].append(key)
         else:
             logger.warning("Sheets export returned None (not configured or no data)")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Sheets backup failed: %s", e)
 
     # --- Airtable ---
@@ -50,7 +50,7 @@ def run_backup() -> dict:
             results["r2_keys"].append(key)
         else:
             logger.warning("Airtable export returned None (not configured or no data)")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Airtable backup failed: %s", e)
 
     # --- Excel Online ---
@@ -63,7 +63,7 @@ def run_backup() -> dict:
             results["r2_keys"].append(key)
         else:
             logger.warning("Excel export returned None (not configured or no data)")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error("Excel backup failed: %s", e)
 
     logger.info(

@@ -47,7 +47,7 @@ class EmbeddingService:
             from flask import current_app
 
             return current_app.config.get("RAG_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return DEFAULT_EMBEDDING_MODEL
 
     @property
@@ -61,13 +61,13 @@ class EmbeddingService:
         if encoder is not None and hasattr(encoder, "get_sentence_embedding_dimension"):
             try:
                 return int(encoder.get_sentence_embedding_dimension())
-            except Exception:  # noqa: BLE001 - some test doubles lack the method
+            except Exception:
                 pass
         try:
             from flask import current_app
 
             return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:  # noqa: BLE001 - outside an app context
+        except Exception:
             return 768
 
     # ------------------------------------------------------------------ #
@@ -185,7 +185,7 @@ class EmbeddingService:
             from flask import current_app
 
             return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:  # noqa: BLE001
+        except Exception:
             return 768
 
 

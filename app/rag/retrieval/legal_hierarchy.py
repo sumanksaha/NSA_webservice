@@ -22,7 +22,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-
 # --------------------------------------------------------------------------- #
 # Section-string parsing
 # --------------------------------------------------------------------------- #
@@ -116,7 +115,7 @@ def _relationship(a: str | None, b: str | None) -> SectionRelationship:
 
     # Determine common prefix length
     common_len = 0
-    for x, y in zip(ca, cb):
+    for x, y in zip(ca, cb, strict=False):
         if x == y:
             common_len += 1
         else:
@@ -298,4 +297,3 @@ if __name__ == "__main__":
     assert hierarchy_proximity("31", "32") == 0.25
     assert hierarchy_proximity("31", "99") == 0.0
 
-    print("All self-checks passed.")

@@ -32,7 +32,7 @@ def _run_sync_kg_to_neo4j(
 
     Delegates to :func:`app.services.neo4j_graph.push_to_neo4j`.
     """
-    from app.services.neo4j_graph import push_to_neo4j, neo4j_configured
+    from app.services.neo4j_graph import neo4j_configured, push_to_neo4j
 
     if not neo4j_configured():
         return {"status": "error", "message": "Neo4j not configured in .env"}

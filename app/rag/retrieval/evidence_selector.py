@@ -21,11 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.rag.retrieval.legal_hierarchy import (
-    hierarchy_proximity,
     section_base,
-    section_base as _section_base,
 )
-from app.rag.retrieval.reference_extractor import Reference
 
 logger = logging.getLogger(__name__)
 
@@ -285,11 +282,10 @@ def _compute_complementarity(item: EvidenceItem, existing: list[EvidenceItem]) -
     # Different section → moderate complementarity
     if item.section_number and existing:
         existing_sections = {ex.section_number for ex in existing if ex.section_number}
-        if item.section_number not in existing_sections:
-            if item.section_number and section_base(item.section_number) != section_base(
-                existing[0].section_number or ""
-            ):
-                return 0.75
+        if item.section_number not in existing_sections and section_base(item.section_number) != section_base(
+            existing[0].section_number or ""
+        ):
+            return 0.75
 
     # Text novelty
     if item.text_snippet and existing:
@@ -350,7 +346,7 @@ def select_evidence_set(
     query_section = _get_query_section(query)
     items: list[EvidenceItem] = []
 
-    for i, chunk in enumerate(ranked_chunks):
+    for _i, chunk in enumerate(ranked_chunks):
         text = getattr(chunk, "text", "") or ""
         if isinstance(chunk, dict):
             text = chunk.get("text", "") or ""

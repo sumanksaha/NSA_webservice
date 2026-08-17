@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Versioning / corpus constants
@@ -40,14 +41,7 @@ _FSS_ACT_FAMILY = {"act", "regulation", "rule", "notification", "circular", "ord
 
 #: Common legal/English stopwords excluded from keyword extraction.
 _STOPWORDS = frozenset(
-    """
-    a an the and or of to in for on with shall may must not be is are was were
-    as by from at this that these those any all each every such other than its
-    his her their our your i we you he she it they them me us him her shall
-    under over within into upon where when while which who whom whose
-    provided subject accordance respect thereof therewith hereinbefore
-    hereinafter notwithstanding pursuant aforesaid
-    """.split()
+    ["a", "an", "the", "and", "or", "of", "to", "in", "for", "on", "with", "shall", "may", "must", "not", "be", "is", "are", "was", "were", "as", "by", "from", "at", "this", "that", "these", "those", "any", "all", "each", "every", "such", "other", "than", "its", "his", "her", "their", "our", "your", "i", "we", "you", "he", "she", "it", "they", "them", "me", "us", "him", "her", "shall", "under", "over", "within", "into", "upon", "where", "when", "while", "which", "who", "whom", "whose", "provided", "subject", "accordance", "respect", "thereof", "therewith", "hereinbefore", "hereinafter", "notwithstanding", "pursuant", "aforesaid"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -84,23 +78,7 @@ _REF_CONTEXT_RE = re.compile(
 #: kept as a subset — Phase 1 de-FSSAI: the keyword extractor now serves the
 #: multi-domain corpus).
 _LEGAL_TERMS = frozenset(
-    """
-    fbo food business operator fssai licence license improvement notice
-    adjudication adjudicating officer penalty offence compliance recall
-    seizure sample inspection authority commissioner designated officer
-    food safety officer laboratory analysis report appeal tribunal
-    registration standards packaging labelling import export advertisement
-    claims misbranded unsafe food quality safety hygiene sanitation
-    act section rule regulation rules regulations notification order
-    amendment repeal supersede enforce enforcement liability damages
-    compensation contract breach consideration partnership firm company
-    director shareholder winding insolvency arbitration limitation
-    plaintiff defendant suit decree injunction specific performance
-    pollution environment waste plastic water air emission consent
-    board corporation municipal municipality tenancy tenant landlord
-    livestock animal cruelty slaughter quarantine disease veterinary
-    consumer goods services warranty defect unfair trade
-    """.split()
+    ["fbo", "food", "business", "operator", "fssai", "licence", "license", "improvement", "notice", "adjudication", "adjudicating", "officer", "penalty", "offence", "compliance", "recall", "seizure", "sample", "inspection", "authority", "commissioner", "designated", "officer", "food", "safety", "officer", "laboratory", "analysis", "report", "appeal", "tribunal", "registration", "standards", "packaging", "labelling", "import", "export", "advertisement", "claims", "misbranded", "unsafe", "food", "quality", "safety", "hygiene", "sanitation", "act", "section", "rule", "regulation", "rules", "regulations", "notification", "order", "amendment", "repeal", "supersede", "enforce", "enforcement", "liability", "damages", "compensation", "contract", "breach", "consideration", "partnership", "firm", "company", "director", "shareholder", "winding", "insolvency", "arbitration", "limitation", "plaintiff", "defendant", "suit", "decree", "injunction", "specific", "performance", "pollution", "environment", "waste", "plastic", "water", "air", "emission", "consent", "board", "corporation", "municipal", "municipality", "tenancy", "tenant", "landlord", "livestock", "animal", "cruelty", "slaughter", "quarantine", "disease", "veterinary", "consumer", "goods", "services", "warranty", "defect", "unfair", "trade"]
 )
 
 # --------------------------------------------------------------------------- #

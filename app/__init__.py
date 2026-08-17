@@ -542,13 +542,13 @@ def create_app():
     from app.food_cell import food_cell_bp
     from app.health import health_bp
     from app.inspection.routes import inspection_bp
+    from app.knowledge_graph import kg_bp
     from app.legal_analysis import legal_analysis_bp
     from app.sample.routes import sample_bp
     from app.search import search_bp
     from app.settings.routes import settings_bp
     from app.tasks_webhook import tasks_webhook_bp
     from app.timeline import timeline_bp
-    from app.knowledge_graph import kg_bp
     from app.validation import validation_bp
     from app.version_control import version_control_bp
 

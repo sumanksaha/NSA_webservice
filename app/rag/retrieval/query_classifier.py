@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +246,7 @@ class JurisdictionQueryParser:
 class QueryParser:
     """Dispatch query parsing to the appropriate sub-parser based on QueryType."""
 
-    _PARSERS = {
+    _PARSERS: ClassVar[dict[QueryType, type]] = {
         QueryType.SECTION_LOOKUP: SectionQueryParser,
         QueryType.AMENDMENT_QUERY: SectionQueryParser,
         QueryType.PROVISION_SEARCH: AuthorityQueryParser,

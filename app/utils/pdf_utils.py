@@ -10,13 +10,12 @@ no changes.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from app.pdf_assembly.engine import PDFAssemblyEngine
 
 logger = logging.getLogger(__name__)
 
-_ENGINE: Optional[PDFAssemblyEngine] = None
+_ENGINE: PDFAssemblyEngine | None = None
 
 
 def _engine() -> PDFAssemblyEngine:
@@ -46,7 +45,7 @@ def generate_pdf_from_html(html_content: str) -> tuple:
 
 
 def post_process_pdf_html(
-    html_content: str, case_id: Optional[int] = None, adjudication_id: Optional[int] = None
+    html_content: str, case_id: int | None = None, adjudication_id: int | None = None
 ) -> str:
     """Phase 6 + Phase 7 post-processing pass over rendered HTML.
 

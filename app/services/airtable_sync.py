@@ -30,8 +30,7 @@ logger = logging.getLogger(__name__)
 # Import config dicts from sheets_sync to avoid 2x duplication.
 # sheets_sync holds the canonical WORKSHEET_MAP and SHEET_COLUMNS; airtable
 # reuses them (excel already did -- airtable now follows suit).
-from app.services.sheets_sync import SHEET_COLUMNS
-from app.services.sheets_sync import WORKSHEET_MAP
+from app.services.sheets_sync import SHEET_COLUMNS, WORKSHEET_MAP
 
 # Aliases kept for call-site compatibility (some code references these names).
 AIRTABLE_TABLE_MAP = WORKSHEET_MAP
@@ -127,13 +126,11 @@ def _base_near_capacity(client, base_id: str, module: str) -> bool:
     if not table_name:
         return False
     try:
-        count = 0
         table = client.table(base_id, table_name)
-        for _ in table.iter_all(page_size=100):
-            count += 1
-            if count >= BASE_ROTATION_THRESHOLD:
-                return True
-        return False
+        return any(
+            count >= BASE_ROTATION_THRESHOLD
+            for count, _ in enumerate(table.iter_all(page_size=100), start=1)
+        )
     except Exception as e:
         logger.debug("Capacity check failed for base %s: %s", base_id, e)
         return False
@@ -338,7 +335,8 @@ def export_airtable_all_bases_to_r2() -> str | None:
 
     # Upload to R2
     try:
-        from app.utils.storage import _get_client as _get_r2_client, _get_bucket
+        from app.utils.storage import _get_bucket
+        from app.utils.storage import _get_client as _get_r2_client
 
         r2 = _get_r2_client()
         ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")

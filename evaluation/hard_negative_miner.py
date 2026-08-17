@@ -26,16 +26,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -127,10 +125,19 @@ def legal_similarity_score(
         == str(neg_payload.get("document_title", "")).lower()
     )
 
-    # Subsection overlap
+    # Subsection overlap (G5: only meaningful ANDed with same_section — a
+    # standalone match is noise because values repeat across sections).
     gold_sub = str(gold_payload.get("subsection", "") or "")
     neg_sub = str(neg_payload.get("subsection", "") or "")
     same_subsection = bool(gold_sub and neg_sub and gold_sub == neg_sub)
+
+    # Regulation clause-number overlap (G6, 2026-08-17): the dotted clause
+    # number (``2.4.15``) is the identity of regulation fragments that have
+    # NO section_number.  ``same_clause`` gives tier-3 a regulation-level
+    # discriminator without forcing Act sections onto regulations.
+    gold_clause = str(gold_payload.get("clause_number", "") or "")
+    neg_clause = str(neg_payload.get("clause_number", "") or "")
+    same_clause = bool(gold_clause and neg_clause and gold_clause == neg_clause)
 
     # Authority match
     gold_auth = str(gold_payload.get("authority", "")).lower()
@@ -144,6 +151,7 @@ def legal_similarity_score(
         "word_overlap": word_sim,
         "same_document": float(same_doc),
         "same_subsection": float(same_subsection),
+        "same_clause": float(same_clause),
         "same_authority": float(same_authority),
     }
 
@@ -160,8 +168,12 @@ def assign_tier(features: dict[str, float]) -> int:
         features["same_section"] or features["section_proximity"] >= 0.7
     ):
         return 3
-    # Tier 3 also: same family + same subsection
-    if features["same_family"] and features["same_subsection"]:
+    # Tier 3 also: same family + same subsection (section-anchored; the
+    # subsection value alone is never enough — G5) OR same family + same
+    # dotted clause number (regulation fragments with no section — G6).
+    if features["same_family"] and features["same_subsection"] and features["same_section"]:
+        return 3
+    if features["same_family"] and features["same_clause"]:
         return 3
     # Tier 2: same family OR high word overlap (>= 0.3)
     if features["same_family"] or features["word_overlap"] >= 0.3:
@@ -185,6 +197,7 @@ def hard_negative_rank(
         + 2.0 * features["same_section"]
         + 1.5 * features["section_proximity"]
         + 1.0 * features["same_subsection"]
+        + 1.0 * features["same_clause"]
         + 0.5 * features["word_overlap"]
         + 0.3 * features["same_document"]
         - 0.001 * pool_rank  # slight preference for higher-ranked negatives
@@ -357,11 +370,15 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
     """Mine via live Qdrant retrieval at K=top_k."""
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
-    from app.rag.sparse_embedding import SparseEmbeddingService
     from app.rag.retrieval import (
-        DenseRetriever, HybridRetriever, QueryClassifier, QueryParser, SparseRetriever,
+        DenseRetriever,
+        HybridRetriever,
+        QueryClassifier,
+        QueryParser,
+        SparseRetriever,
     )
     from app.rag.retrieval.identifier import identifier_query
+    from app.rag.sparse_embedding import SparseEmbeddingService
 
     # Bound torch threads before the app import (which pulls in torch models).
     from evaluation.ranking_loss_trainer import configure_threads
@@ -398,11 +415,10 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
                 mined = mine_question(q, result.chunks, payload_index, family_map, max_neg)
                 if mined:
                     results[q.question_id] = mined
-            except Exception as exc:
-                print(f"  [{q.question_id}] retrieval failed: {exc}", file=sys.stderr)
+            except Exception:
                 continue
             if (i + 1) % 10 == 0:
-                print(f"  [{i+1}/{len(questions)}] mined", file=sys.stderr)
+                pass
     return results
 
 
@@ -420,7 +436,7 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
 
     Pre-builds a family→chunk index for O(1) per-question lookups.
     """
-    from evaluation.resolution import matches_gold, payload_to_keys
+    from evaluation.resolution import payload_to_keys
 
     # Pre-build family index: family -> list of (pid, payload) for fast lookup
     family_index: dict[str, list[tuple[str, dict]]] = {}
@@ -433,8 +449,6 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
         # Index by (family, section) for fast gold matching
         for fam, sec in payload_to_keys(payload, family_map):
             positive_index.setdefault((fam, sec), []).append((pid, payload))
-    print(f"  [mine_offline] family index: {len(family_index)} families, {sum(len(v) for v in family_index.values())} chunks", file=sys.stderr)
-    print(f"  [mine_offline] positive index: {len(positive_index)} (family,section) keys", file=sys.stderr)
 
     results = {}
     n_done = 0
@@ -547,7 +561,7 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
         }
         n_done += 1
         if n_done % 30 == 0:
-            print(f"  [mine_offline] {n_done}/{len(questions)} questions mined", file=sys.stderr)
+            pass
 
     return results
 
@@ -580,9 +594,7 @@ def main() -> int:
                 for line in f:
                     rec = json.loads(line)
                     payload_index[str(rec["id"])] = rec["payload"]
-            print(f"[hard_negative_miner] payload index loaded from cache: {len(payload_index)} points", file=sys.stderr)
         else:
-            print("[hard_negative_miner] cache not found, falling back to live load", file=sys.stderr)
             from evaluation.report_ceiling import load_payload_index
             payload_index = load_payload_index()
     else:
@@ -595,11 +607,6 @@ def main() -> int:
     todo = [q for q in questions if q.question_id not in done]
     if args.limit:
         todo = todo[: args.limit]
-    print(
-        f"[hard_negative_miner] {len(done)} cached, {len(todo)} to mine"
-        + (f" (limited to {args.limit})" if args.limit else ""),
-        file=sys.stderr,
-    )
 
     if args.offline:
         results = mine_offline(todo, payload_index, family_map, args.top_k, args.max_negatives)
@@ -633,7 +640,6 @@ def main() -> int:
         "mode": "offline" if args.offline else "live",
     }
     STATS_FILE.write_text(json.dumps(stats, indent=2), encoding="utf-8")
-    print(json.dumps(stats, indent=1))
     return 0
 
 

@@ -12,7 +12,6 @@ All tests are offline — no Qdrant, no sentence-transformers, no GPU.
 from __future__ import annotations
 
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -22,22 +21,21 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluation.failure_taxonomy import (
-    classify_failure,
-    _word_overlap,
-    _is_provisional,
+    CATEGORIES,
     _is_definition,
     _is_exception,
-    CATEGORIES,
+    _is_provisional,
+    _word_overlap,
+    classify_failure,
 )
 from evaluation.hard_negative_miner import (
-    legal_similarity_score,
     assign_tier,
     hard_negative_rank,
-    word_overlap,
+    legal_similarity_score,
     section_proximity,
+    word_overlap,
 )
 from evaluation.pairwise_dataset import build_pairwise_examples, split_dataset
-
 
 # --------------------------------------------------------------------------- #
 # Fixtures
@@ -221,11 +219,32 @@ class TestHardNegativeMiner:
         features = legal_similarity_score(gold, neg, fm, unit)
         assert features["same_family"] == 0.0
 
+    def test_legal_similarity_same_clause(self):
+        """Regulation fragments with no section share the dotted clause number."""
+        fm = FakeFamilyMap()
+        unit = FakeGoldUnit("fssai:c2.4.15", "fssai")
+        gold = {"clause_number": "2.4.15", "act_name": "Food Safety and Standards Act, 2006",
+                "chunk_text": "2.4.15 BAKERY PRODUCTS shall comply"}
+        neg = {"clause_number": "2.4.15", "act_name": "Food Safety and Standards Act, 2006",
+               "chunk_text": "2.4.15 BAKERY PRODUCTS standards"}
+        features = legal_similarity_score(gold, neg, fm, unit)
+        assert features["same_clause"] == 1.0
+        assert features["same_section"] == 0.0
+
+    def test_legal_similarity_clause_mismatch(self):
+        """Different dotted clause numbers do not match."""
+        fm = FakeFamilyMap()
+        unit = FakeGoldUnit("fssai:c2.4.15", "fssai")
+        gold = {"clause_number": "2.4.15", "act_name": "Food Safety and Standards Act, 2006"}
+        neg = {"clause_number": "3.04", "act_name": "Food Safety and Standards Act, 2006"}
+        features = legal_similarity_score(gold, neg, fm, unit)
+        assert features["same_clause"] == 0.0
+
     def test_assign_tier_same_family_same_section(self):
         features = {
             "same_family": 1.0, "same_section": 1.0, "section_proximity": 1.0,
             "word_overlap": 0.3, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         assert assign_tier(features) == 3
 
@@ -233,7 +252,7 @@ class TestHardNegativeMiner:
         features = {
             "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.4,
             "word_overlap": 0.2, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         assert assign_tier(features) == 2
 
@@ -241,7 +260,7 @@ class TestHardNegativeMiner:
         features = {
             "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
             "word_overlap": 0.4, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         assert assign_tier(features) == 2
 
@@ -249,23 +268,61 @@ class TestHardNegativeMiner:
         features = {
             "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
             "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         assert assign_tier(features) == 1
+
+    def test_assign_tier_same_clause_tier3(self):
+        """Same family + same dotted clause number => adversarial tier 3."""
+        features = {
+            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
+            "word_overlap": 0.2, "same_document": 1.0, "same_subsection": 0.0,
+            "same_authority": 0.0, "same_clause": 1.0,
+        }
+        assert assign_tier(features) == 3
+
+    def test_assign_tier_clause_without_family_tier1(self):
+        """A clause match outside the gold family is not adversarial."""
+        features = {
+            "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
+            "word_overlap": 0.0, "same_document": 0.0, "same_subsection": 0.0,
+            "same_authority": 0.0, "same_clause": 1.0,
+        }
+        # Falls through to tier 1 (no family, no overlap, no same doc)
+        assert assign_tier(features) == 1
+
+    def test_assign_tier_subsection_needs_section_anchor(self):
+        """G5: same subsection alone must NOT escalate to tier 3."""
+        features = {
+            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
+            "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 1.0,
+            "same_authority": 0.0, "same_clause": 0.0,
+        }
+        assert assign_tier(features) == 2
 
     def test_hard_negative_rank_orders_correctly(self):
         """Adversarial negatives rank higher than random."""
         adversarial = {
             "same_family": 1.0, "same_section": 1.0, "section_proximity": 1.0,
             "word_overlap": 0.5, "same_document": 1.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         random_neg = {
             "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
             "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
         }
         assert hard_negative_rank(adversarial, 0) > hard_negative_rank(random_neg, 0)
+
+    def test_hard_negative_rank_clause_bonus(self):
+        """A clause match adds difficulty weight to the composite score."""
+        base = {
+            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
+            "word_overlap": 0.2, "same_document": 1.0, "same_subsection": 0.0,
+            "same_authority": 0.0, "same_clause": 0.0,
+        }
+        with_clause = dict(base, same_clause=1.0)
+        assert hard_negative_rank(with_clause, 0) > hard_negative_rank(base, 0)
 
 
 # --------------------------------------------------------------------------- #
@@ -317,7 +374,7 @@ class TestPairwiseDataset:
             {"query": "q2", "positive": "p2", "negative": "n3", "tier": 3, "question_id": "Q002"},
             {"query": "q3", "positive": "p3", "negative": "n4", "tier": 1, "question_id": "Q003"},
         ]
-        splits, info = split_dataset(examples, seed=42)
+        splits, _info = split_dataset(examples, seed=42)
         # All Q001 pairs should be in the same split
         q001_splits = [
             s for s in ("train", "val", "test")
@@ -343,7 +400,7 @@ class TestPairwiseDataset:
              "tier": 2, "question_id": f"Q{i:03d}"}
             for i in range(100)
         ]
-        splits, info = split_dataset(examples, seed=42)
+        _splits, info = split_dataset(examples, seed=42)
         assert 0.6 <= info["train_questions"] / 100 <= 0.8
         assert 0.1 <= info["val_questions"] / 100 <= 0.25
         assert 0.1 <= info["test_questions"] / 100 <= 0.25

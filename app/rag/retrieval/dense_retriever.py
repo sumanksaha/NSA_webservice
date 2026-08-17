@@ -72,9 +72,8 @@ class DenseRetriever:
         """Return a QdrantClient, importing qdrant-client lazily."""
         if self._client is not None:
             return self._client
-        from qdrant_client import QdrantClient  # type: ignore[import-untyped]
-
         from flask import current_app
+        from qdrant_client import QdrantClient  # type: ignore[import-untyped]
         url = current_app.config.get("RAG_QDRANT_URL", "")
         if not url:
             logger.warning("DenseRetriever: RAG_QDRANT_URL not configured; dense retrieval unavailable.")
@@ -111,7 +110,7 @@ class DenseRetriever:
             sparse = getattr(params, "sparse_vectors", None) if params is not None else None
             self._has_sparse = bool(sparse)
             return self._has_sparse
-        except Exception as exc:  # noqa: BLE001 - mock/unconfigured clients
+        except Exception as exc:
             # Not cached: a transient failure must not permanently mask a
             # sparse-capable collection for the lifetime of the retriever.
             logger.warning("DenseRetriever._collection_has_sparse failed: %s", exc)
@@ -179,7 +178,7 @@ class DenseRetriever:
 
             if current_app:
                 return str(current_app.config.get(key, default) or default)
-        except Exception:  # noqa: BLE001 - no app context / not installed
+        except Exception:
             pass
         return os.environ.get(key, default)
 
@@ -269,7 +268,7 @@ class DenseRetriever:
                 latency_ms=int((time.monotonic() - start) * 1000),
                 source="dense",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("DenseRetriever.search failed: %s", exc)
             return SearchResult(
                 query=query, query_type="", chunks=[], total=0,

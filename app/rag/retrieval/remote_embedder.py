@@ -74,7 +74,7 @@ class RemoteEmbedClient:
             return []
         try:
             return self._remote_embed(texts)
-        except Exception as exc:  # noqa: BLE001 - any remote failure → local
+        except Exception as exc:
             local = self._get_local_encoder()
             if local is not None:
                 logger.warning(
@@ -142,7 +142,7 @@ class RemoteEmbedClient:
 
             cap_torch_threads()
             self._local_encoder = SentenceTransformer(self.local_model)
-        except Exception as exc:  # noqa: BLE001 - optional dependency / bad path
+        except Exception as exc:
             logger.warning("RemoteEmbedClient: local encoder fallback unavailable (%s)", exc)
             self._local_encoder = None
         return self._local_encoder

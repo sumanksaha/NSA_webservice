@@ -22,8 +22,8 @@ from typing import Any
 
 from app.extensions import db
 from app.models.rag import RAGQueryLog
-from app.services.audit import log_audit
 from app.rag.retrieval.result import SearchResult
+from app.services.audit import log_audit
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class RetrievalLogger:
             db.session.add(log_entry)
             db.session.commit()
             return log_entry
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("RetrievalLogger.log failed (best-effort): %s", exc)
             db.session.rollback()
             return None
@@ -172,6 +172,6 @@ class RetrievalAuditLog:
                 details=details,
             )
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("RetrievalAuditLog.log_retrieval failed: %s", exc)
             return False

@@ -107,10 +107,7 @@ def evidence_set_f1(
     prec = evidence_set_precision(selected_ids, gold_ids)
     rec = evidence_set_recall(selected_ids, gold_ids)
 
-    if prec.value + rec.value == 0:
-        f1 = 0.0
-    else:
-        f1 = 2 * prec.value * rec.value / (prec.value + rec.value)
+    f1 = 0.0 if prec.value + rec.value == 0 else 2 * prec.value * rec.value / (prec.value + rec.value)
 
     return EvidenceMetricResult(
         "evidence_set_f1", f1,
@@ -279,4 +276,3 @@ if __name__ == "__main__":
     r = evidence_set_recall(["a"], [])
     assert r.value == 1.0
 
-    print("Self-check passed.")

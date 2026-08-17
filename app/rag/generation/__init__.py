@@ -17,8 +17,8 @@ Each component follows a documented reuse pattern:
 - ``GenerationLogger``    → ``RetrievalLogger`` + ``compute_hash`` (R0/R1)
 """
 
-from app.rag.generation.context_builder import BuiltContext, ContextBuilder
 from app.rag.generation.citation_tracker import CitationTracker
+from app.rag.generation.context_builder import BuiltContext, ContextBuilder
 from app.rag.generation.grounded_service import GroundedGenerationService
 from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
 from app.rag.generation.logger import GenerationLogger
@@ -26,14 +26,14 @@ from app.rag.generation.prompt_template import PromptTemplate
 from app.rag.generation.sanitizer import ResponseSanitizer, SanitizedResponse
 
 __all__ = [
-    "ContextBuilder",
     "BuiltContext",
-    "PromptTemplate",
+    "CitationTracker",
+    "ContextBuilder",
+    "GenerationLogger",
+    "GroundedGenerationService",
     "GroundedLLMClient",
     "GroundedLLMResponse",
-    "GroundedGenerationService",
-    "CitationTracker",
+    "PromptTemplate",
     "ResponseSanitizer",
     "SanitizedResponse",
-    "GenerationLogger",
 ]
