@@ -65,9 +65,7 @@ class _FakeLocalEncoder:
 class TestPredictContract:
     def test_returns_scores_in_pair_order(self):
         """Object-form TEI response (index field) maps back to pair order."""
-        handler = _json_handler(
-            payload=[{"index": 1, "score": 0.2}, {"index": 0, "score": 4.1}]
-        )
+        handler = _json_handler(payload=[{"index": 1, "score": 0.2}, {"index": 0, "score": 4.1}])
         client = RemoteRerankClient("https://ce.example", transport=_transport(handler))
         scores = client.predict([("q", "a"), ("q", "b")])
         assert scores == [4.1, 0.2]
@@ -128,9 +126,7 @@ class TestPredictContract:
 class TestAuthAndErrors:
     def test_bearer_token_sent(self):
         handler = _json_handler(payload=[{"index": 0, "score": 1.0}])
-        client = RemoteRerankClient(
-            "https://ce.example", token="sekret", transport=_transport(handler)
-        )
+        client = RemoteRerankClient("https://ce.example", token="sekret", transport=_transport(handler))
         client.predict([("q", "a")])
         assert handler.requests[0].headers["Authorization"] == "Bearer sekret"
 
@@ -210,6 +206,7 @@ class TestServerlessMode:
 
     def test_serverless_unexpected_response_raises(self):
         """A non-score response (e.g. model not served) surfaces for fallback."""
+
         def _handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"error": "Model not served"})
 
@@ -229,6 +226,7 @@ class TestServerlessMode:
 class TestLocalFallback:
     def test_falls_back_to_local_encoder_on_remote_failure(self):
         """Remote down → local CE scores the pairs (lazy, built on demand)."""
+
         def _boom(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("down", request=request)
 
@@ -254,6 +252,7 @@ class TestLocalFallback:
 
     def test_ensemble_reranker_uses_remote_client_as_encoder(self):
         """End-to-end through EnsembleReranker: remote fails → local scores decide."""
+
         def _boom(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("down", request=request)
 
@@ -326,7 +325,9 @@ class TestBuildRerankerRemoteWiring:
         from app.rag.retrieval.remote_reranker import RemoteRerankClient as RRC
         from app.rag.tasks import _build_reranker
 
-        monkeypatch.setenv("RAG_RERANKER_ENDPOINT", "https://api-inference.huggingface.co/models/sumanksaha/Foodmultidomain")
+        monkeypatch.setenv(
+            "RAG_RERANKER_ENDPOINT", "https://api-inference.huggingface.co/models/sumanksaha/Foodmultidomain"
+        )
         monkeypatch.setenv("RAG_RERANKER_MODE", "serverless")
         monkeypatch.delenv("RAG_ENSEMBLE_RERANK", raising=False)
         reranker = _build_reranker()

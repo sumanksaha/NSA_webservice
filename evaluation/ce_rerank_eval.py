@@ -23,6 +23,7 @@ resumes where it left off.  On completion the aggregate is written to
 
 Output: evaluation/out/ceiling_v5/ce_rerank_eval.json
 """
+
 from __future__ import annotations
 
 import json
@@ -134,7 +135,6 @@ def main() -> int:
                 continue
             per_q[qid] = (q, head, rrf)
 
-
         done = load_checkpoint()
         todo = [qid for qid in per_q if qid not in done]
 
@@ -172,18 +172,13 @@ def main() -> int:
             # head (which is base-RRF order)?  Stored once so conversions can
             # be aggregated later without re-ranking the head.
             rel = q.relevant_units()
-            base_any_10 = any(
-                (rank_of(head, u, payload_index, family_map) or 1 << 30) <= 10
-                for u in rel
-            )
+            base_any_10 = any((rank_of(head, u, payload_index, family_map) or 1 << 30) <= 10 for u in rel)
             rec = {"question_id": qid, "base_any_10": base_any_10, "rerankers": {}}
 
             def _one(items):
                 return _measure_one(items, q, payload_index, family_map)
 
-            rec["rerankers"]["sec_act"] = _one(
-                rerank(head, q.question, family_map, rrf, sec_act_w)
-            )
+            rec["rerankers"]["sec_act"] = _one(rerank(head, q.question, family_map, rrf, sec_act_w))
             for name, ce in ce_models.items():
                 rec["rerankers"][name] = _one(rank_with_ce(head, q.question, ce))
 

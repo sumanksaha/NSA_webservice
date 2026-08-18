@@ -30,6 +30,7 @@ Usage:
     python -m evaluation.train_legal_ce_v2 --status          # print current progress
     python -m evaluation.train_legal_ce_v2 --watch           # poll progress until done
 """
+
 from __future__ import annotations
 
 import argparse
@@ -183,8 +184,7 @@ def main() -> int:
     parser.add_argument(
         "--status",
         action="store_true",
-        help="Print the current training-status JSON and exit (works while "
-        "training runs in another process).",
+        help="Print the current training-status JSON and exit (works while training runs in another process).",
     )
     parser.add_argument(
         "--watch",
@@ -227,17 +227,17 @@ def main() -> int:
         ram_gb = "?"
     if CHECKPOINT_FILE.exists() and not args.fresh:
         try:
-            ck = json.loads(
-                CHECKPOINT_FILE.with_name("training_status.json").read_text(encoding="utf-8")
-            ) if STATUS_FILE.exists() else {}
+            ck = (
+                json.loads(CHECKPOINT_FILE.with_name("training_status.json").read_text(encoding="utf-8"))
+                if STATUS_FILE.exists()
+                else {}
+            )
             ck.get("global_step", "?")
         except Exception:
             pass
 
     t0 = time.time()
-    trainer = MarginRankingLossTrainer(
-        model_name=BASE_MODEL, max_len=MAX_LEN, margin=MARGIN, device=args.device
-    )
+    trainer = MarginRankingLossTrainer(model_name=BASE_MODEL, max_len=MAX_LEN, margin=MARGIN, device=args.device)
     result = trainer.train(
         train_pairs=train_pairs,
         val_pairs=val_pairs,

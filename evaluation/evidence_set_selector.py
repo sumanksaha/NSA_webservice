@@ -40,14 +40,74 @@ from evaluation.resolution import FamilyMap, payload_to_keys
 logger = logging.getLogger(__name__)
 
 _LEGAL_STOPWORDS: frozenset[str] = frozenset({
-    "the", "of", "and", "to", "in", "a", "an", "is", "for", "with",
-    "under", "shall", "may", "be", "on", "that", "this", "by", "or",
-    "as", "at", "from", "not", "but", "all", "any", "such", "has",
-    "have", "been", "will", "would", "can", "should", "do", "does",
-    "did", "if", "then", "than", "so", "no", "nor", "its", "it",
-    "which", "who", "whom", "whose", "where", "when", "how", "what",
-    "each", "every", "both", "few", "more", "most", "other", "some",
-    "only", "own", "same", "too", "very", "just", "also",
+    "the",
+    "of",
+    "and",
+    "to",
+    "in",
+    "a",
+    "an",
+    "is",
+    "for",
+    "with",
+    "under",
+    "shall",
+    "may",
+    "be",
+    "on",
+    "that",
+    "this",
+    "by",
+    "or",
+    "as",
+    "at",
+    "from",
+    "not",
+    "but",
+    "all",
+    "any",
+    "such",
+    "has",
+    "have",
+    "been",
+    "will",
+    "would",
+    "can",
+    "should",
+    "do",
+    "does",
+    "did",
+    "if",
+    "then",
+    "than",
+    "so",
+    "no",
+    "nor",
+    "its",
+    "it",
+    "which",
+    "who",
+    "whom",
+    "whose",
+    "where",
+    "when",
+    "how",
+    "what",
+    "each",
+    "every",
+    "both",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "only",
+    "own",
+    "same",
+    "too",
+    "very",
+    "just",
+    "also",
 })
 _TOKEN_RE = re.compile(r"[a-z0-9]{3,}")
 
@@ -73,6 +133,7 @@ class CandidateItem:
     ``payload`` holds the full chunk payload dict (chunks) or the full
     KG provision dict (KG items) so ``candidates_to_arm_result`` can round-trip.
     """
+
     rank: int
     score: float
     kind: str
@@ -145,14 +206,26 @@ def build_candidates(
         ci = payload.get("chunk_index") or i + 1
         auth = payload.get("authority")
         inst_id = payload.get("instrument_id")
-        candidates.append(CandidateItem(
-            rank=i + 1, score=_score(i + 1), kind="chunk", key=cid,
-            family=family, section=section, section_keys=list(keys), text=text,
-            document_id=doc_id, hierarchy_level=int(hl) if hl else 0,
-            parent_key=parent, chunk_index=int(ci) if ci else i + 1,
-            authority=auth, instrument_id=inst_id,
-            text_tokens=_tokenize(text), payload=payload,
-        ))
+        candidates.append(
+            CandidateItem(
+                rank=i + 1,
+                score=_score(i + 1),
+                kind="chunk",
+                key=cid,
+                family=family,
+                section=section,
+                section_keys=list(keys),
+                text=text,
+                document_id=doc_id,
+                hierarchy_level=int(hl) if hl else 0,
+                parent_key=parent,
+                chunk_index=int(ci) if ci else i + 1,
+                authority=auth,
+                instrument_id=inst_id,
+                text_tokens=_tokenize(text),
+                payload=payload,
+            )
+        )
 
     # --- KG provisions ---
     for j, prov in enumerate(kg_provisions):
@@ -172,15 +245,26 @@ def build_candidates(
         doc_id = prov.get("instrument_title")
         auth = prov.get("instrument_title") or prov.get("legal_domain") or ""
         inst_id = prov.get("instrument_id") or pid
-        candidates.append(CandidateItem(
-            rank=len(chunk_ids) + j + 1,
-            score=_score(len(chunk_ids) + j + 1),
-            kind="kg", key=pid, family=family, section=section,
-            section_keys=list(keys), text=text, document_id=doc_id,
-            hierarchy_level=0, parent_key=None,
-            chunk_index=len(chunk_ids) + j + 1, authority=auth,
-            instrument_id=inst_id, text_tokens=_tokenize(text), payload=prov,
-        ))
+        candidates.append(
+            CandidateItem(
+                rank=len(chunk_ids) + j + 1,
+                score=_score(len(chunk_ids) + j + 1),
+                kind="kg",
+                key=pid,
+                family=family,
+                section=section,
+                section_keys=list(keys),
+                text=text,
+                document_id=doc_id,
+                hierarchy_level=0,
+                parent_key=None,
+                chunk_index=len(chunk_ids) + j + 1,
+                authority=auth,
+                instrument_id=inst_id,
+                text_tokens=_tokenize(text),
+                payload=prov,
+            )
+        )
 
     return candidates
 
@@ -220,15 +304,18 @@ def _build_hierarchy_map(
 
     return parent_map, dict(children_map)
 
+
 # Strategy A and B selectors
 @dataclass
 class TopKSelector:
     def select(self, candidates, k):
         return list(candidates[:k])
 
+
 @dataclass
 class MMRSelector:
     lambda_param: float = 0.7
+
     def select(self, candidates, k):
         if len(candidates) <= k:
             return list(candidates)
@@ -252,8 +339,6 @@ class MMRSelector:
         return selected
 
 
-
-
 @dataclass
 class LegalStructureDiversitySelector:
     def select(self, candidates, k):
@@ -273,7 +358,6 @@ class LegalStructureDiversitySelector:
             remaining.sort(key=lambda c: (-c.score, c.rank))
             selected.extend(remaining[: k - len(selected)])
         return selected
-
 
 
 @dataclass
@@ -313,7 +397,6 @@ class HierarchyAwareSelector:
                         selected.append(child)
                         selected_keys.add(child.key)
         return selected
-
 
 
 @dataclass
@@ -391,7 +474,6 @@ class HybridEvidenceSetSelector:
         selected.append(item)
         selected_keys.add(item.key)
         covered_sections.update(item.sections_only)
-
 
 
 # --------------------------------------------------------------------------- #

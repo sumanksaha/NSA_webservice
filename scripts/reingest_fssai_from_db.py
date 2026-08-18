@@ -62,9 +62,7 @@ def _is_fss_document(doc: dict[str, Any]) -> bool:
     (title + document_id + URI markers); on this corpus titles are empty so the
     URI is the decisive field.
     """
-    haystack = " ".join(
-        str(doc.get(key) or "") for key in ("title", "source_uri")
-    ).lower()
+    haystack = " ".join(str(doc.get(key) or "") for key in ("title", "source_uri")).lower()
     return any(marker in haystack for marker in _FSS_MARKERS)
 
 
@@ -77,9 +75,7 @@ def _app_context():
     app.config["RAG_QDRANT_API_KEY"] = os.environ.get("RAG_QDRANT_API_KEY", "")
     app.config["RAG_QDRANT_COLLECTION"] = COLLECTION
     app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
-    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get(
-        "RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2"
-    )
+    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
     app.config["RAG_FULL_ENRICHMENT"] = True
     app.config["RAG_ENABLE_SPARSE"] = os.environ.get("RAG_ENABLE_SPARSE", "true").lower() == "true"
     for key, val in os.environ.items():
@@ -151,23 +147,21 @@ def build_payload(chunk: dict[str, Any], doc: dict[str, Any]) -> dict[str, Any]:
         payload = dict(_json.loads(chunk.get("metadata_json") or "{}"))
     except Exception:
         payload = {}
-    payload.update(
-        {
-            "chunk_id": str(chunk["id"]),
-            "document_id": str(chunk["document_id"]),
-            "document_uri": str(doc.get("source_uri") or ""),
-            "document_title": str(doc.get("title") or ""),
-            "document_type": str(chunk.get("document_type") or doc.get("document_type") or "unknown"),
-            "chunk_index": int(chunk.get("chunk_index") or 0),
-            "chunk_text": str(chunk.get("text") or ""),
-            "chunk_char_count": int(chunk.get("char_count") or 0),
-            "word_count": int(chunk.get("word_count") or 0),
-            "section_number": chunk.get("section_number") or None,
-            "content_hash": str(chunk.get("content_hash") or ""),
-            "created_at": str(chunk.get("created_at") or ""),
-            "act_name": FSS_ACT_NAME,
-        }
-    )
+    payload.update({
+        "chunk_id": str(chunk["id"]),
+        "document_id": str(chunk["document_id"]),
+        "document_uri": str(doc.get("source_uri") or ""),
+        "document_title": str(doc.get("title") or ""),
+        "document_type": str(chunk.get("document_type") or doc.get("document_type") or "unknown"),
+        "chunk_index": int(chunk.get("chunk_index") or 0),
+        "chunk_text": str(chunk.get("text") or ""),
+        "chunk_char_count": int(chunk.get("char_count") or 0),
+        "word_count": int(chunk.get("word_count") or 0),
+        "section_number": chunk.get("section_number") or None,
+        "content_hash": str(chunk.get("content_hash") or ""),
+        "created_at": str(chunk.get("created_at") or ""),
+        "act_name": FSS_ACT_NAME,
+    })
     return payload
 
 

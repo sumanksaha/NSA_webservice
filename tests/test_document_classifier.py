@@ -37,9 +37,7 @@ class _FakeTypeExtractor:
 class _FakeAuthorityExtractor:
     def __init__(self, candidates=None):
         if candidates is None:
-            candidates = [
-                ("Ministry of Health and Family Welfare", 0.95, "regex", "known_authority")
-            ]
+            candidates = [("Ministry of Health and Family Welfare", 0.95, "regex", "known_authority")]
         self._candidates = [tuple(c) for c in candidates]
         self.calls = 0
 
@@ -129,7 +127,9 @@ class TestNormalizeType:
 
 class TestEnrichDocument:
     def test_fills_missing_keys(self):
-        enriched = _make_classifier().enrich_document({"document_id": "doc-1"}, "The Food Safety and Standards Act, 2006")
+        enriched = _make_classifier().enrich_document(
+            {"document_id": "doc-1"}, "The Food Safety and Standards Act, 2006"
+        )
         assert enriched["document_id"] == "doc-1"
         assert enriched["type"] == "act"
         assert enriched["document_type"] == "act"
@@ -255,8 +255,7 @@ class TestRealExtractors:
     def test_notification_text_classification(self):
         classifier = DocumentClassifier()
         result = classifier.classify(
-            "NOTIFICATION\nNew Delhi, dated the 5th August, 2020\n"
-            "Ministry of Health and Family Welfare\n"
+            "NOTIFICATION\nNew Delhi, dated the 5th August, 2020\nMinistry of Health and Family Welfare\n"
         )
         assert result.document_type == "notification"
         assert result.authority

@@ -116,9 +116,7 @@ class TestEvidenceVerifier:
 
     def test_verify_claims_returns_list(self):
         chunks = _make_chunks(3)
-        claims = ClaimExtractor().extract(
-            "Section 55 requires X. Unrelated claim about unicorns."
-        )
+        claims = ClaimExtractor().extract("Section 55 requires X. Unrelated claim about unicorns.")
         vers = EvidenceVerifier().verify_claims(claims, chunks)
         assert len(vers) == len(claims)
         assert all(isinstance(v.verified, bool) for v in vers)
@@ -131,10 +129,26 @@ class TestCitationValidator:
     def test_all_valid(self):
         chunks = _make_chunks(2)
         cits = [
-            Citation(chunk_id="c0", section_number="55", document_title="FSS Act",
-                     document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.85),
-            Citation(chunk_id="c1", section_number=None, document_title="FSS Act",
-                     document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.85),
+            Citation(
+                chunk_id="c0",
+                section_number="55",
+                document_title="FSS Act",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.85,
+            ),
+            Citation(
+                chunk_id="c1",
+                section_number=None,
+                document_title="FSS Act",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.85,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.valid) == 2
@@ -144,8 +158,16 @@ class TestCitationValidator:
     def test_invalid_citation(self):
         chunks = _make_chunks(1)
         cits = [
-            Citation(chunk_id="fake", section_number="99", document_title="Fake",
-                     document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.5),
+            Citation(
+                chunk_id="fake",
+                section_number="99",
+                document_title="Fake",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.5,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.invalid) == 1
@@ -154,8 +176,16 @@ class TestCitationValidator:
     def test_section_mismatch(self):
         chunks = [RetrievedChunk(chunk_id="c0", score=0.9, text="text", section_number="55")]
         cits = [
-            Citation(chunk_id="c0", section_number="56", document_title="FSS Act",
-                     document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.85),
+            Citation(
+                chunk_id="c0",
+                section_number="56",
+                document_title="FSS Act",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.85,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.section_mismatches) == 1
@@ -169,8 +199,16 @@ class TestCitationValidator:
     def test_detail_recorded(self):
         chunks = _make_chunks(1)
         cits = [
-            Citation(chunk_id="c0", section_number="55", document_title="FSS Act",
-                     document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.85),
+            Citation(
+                chunk_id="c0",
+                section_number="55",
+                document_title="FSS Act",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.85,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert result.detail[0]["status"] == "valid"
@@ -202,6 +240,7 @@ class TestGroundednessScorer:
 
     def test_with_citation_result(self):
         from app.rag.verification.citation_validator import CitationValidationResult
+
         chunks = _make_chunks(1)
         claim = ClaimExtractor().extract("Section 55 requires a license.")[0]
         ver = EvidenceVerifier().verify_claim(claim, chunks)
@@ -220,8 +259,18 @@ class TestHallucinationDetector:
     def test_grounded_response_no_hallucination(self):
         chunks = _make_chunks(2, section_base="55")
         response = "Section 55 requires a food business license. [1]"
-        cits = [Citation(chunk_id="c0", section_number="55", document_title="FSS Act",
-                         document_type="act", authority="FSSAI", url=None, snippet="t", confidence=0.85)]
+        cits = [
+            Citation(
+                chunk_id="c0",
+                section_number="55",
+                document_title="FSS Act",
+                document_type="act",
+                authority="FSSAI",
+                url=None,
+                snippet="t",
+                confidence=0.85,
+            )
+        ]
         report = HallucinationDetector().detect(response, chunks, citations=cits)
         assert not report.detected
         assert report.groundedness_score > 0.3

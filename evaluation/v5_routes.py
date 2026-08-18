@@ -20,6 +20,7 @@ Usage:
     python -m evaluation.v5_routes --run --scope unit --shard 1/2 --routes ...
     python -m evaluation.v5_routes --analyze
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,23 +36,102 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from dotenv import load_dotenv
 
 _STOP = frozenset({
-    "the", "a", "an", "of", "and", "or", "to", "in", "for", "under", "with",
-    "from", "as", "that", "this", "its", "it", "not", "by", "on", "at", "is",
-    "are", "be", "shall", "may", "act", "section", "order", "rule", "regulation",
-    "food", "safety", "standards", "act,", "1966", "1980", "2013", "2006", "1986",
-    "1974", "1930", "1872", "2019", "1997", "2016", "2022", "2017",
+    "the",
+    "a",
+    "an",
+    "of",
+    "and",
+    "or",
+    "to",
+    "in",
+    "for",
+    "under",
+    "with",
+    "from",
+    "as",
+    "that",
+    "this",
+    "its",
+    "it",
+    "not",
+    "by",
+    "on",
+    "at",
+    "is",
+    "are",
+    "be",
+    "shall",
+    "may",
+    "act",
+    "section",
+    "order",
+    "rule",
+    "regulation",
+    "food",
+    "safety",
+    "standards",
+    "act,",
+    "1966",
+    "1980",
+    "2013",
+    "2006",
+    "1986",
+    "1974",
+    "1930",
+    "1872",
+    "2019",
+    "1997",
+    "2016",
+    "2022",
+    "2017",
 })
 
-_ACTION_TERMS = ["prohibit", "license", "penalise", "punish", "regulate", "require",
-                 "authorize", "empower", "impose", "compensate", "define", "extend",
-                 "exempt", "provide", "sanction", "restrict", "ban", "control"]
-_TYPE_TERMS = ["penalty", "prohibition", "power", "duty", "offence", "offenses",
-               "procedure", "licensing", "license", "inspection", "sampling",
-               "notice", "registration", "liability", "compensation", "appeal"]
+_ACTION_TERMS = [
+    "prohibit",
+    "license",
+    "penalise",
+    "punish",
+    "regulate",
+    "require",
+    "authorize",
+    "empower",
+    "impose",
+    "compensate",
+    "define",
+    "extend",
+    "exempt",
+    "provide",
+    "sanction",
+    "restrict",
+    "ban",
+    "control",
+]
+_TYPE_TERMS = [
+    "penalty",
+    "prohibition",
+    "power",
+    "duty",
+    "offence",
+    "offenses",
+    "procedure",
+    "licensing",
+    "license",
+    "inspection",
+    "sampling",
+    "notice",
+    "registration",
+    "liability",
+    "compensation",
+    "appeal",
+]
 
 _ROUTE_RETRIEVER = {
-    "C_identifier": "sparse", "E_document": "sparse", "F_identifier_only": "sparse",
-    "G_concept": "both", "H_authority_action": "sparse", "I_provision_type": "both",
+    "C_identifier": "sparse",
+    "E_document": "sparse",
+    "F_identifier_only": "sparse",
+    "G_concept": "both",
+    "H_authority_action": "sparse",
+    "I_provision_type": "both",
     "J_parent": "sparse",
 }
 
@@ -114,7 +194,7 @@ def route_queries(unit, rec: dict, question: str) -> dict[str, str]:
         q["F_identifier_only"] = f"{marker} {num}"
         if num.isdigit():
             n = int(num)
-            q["J_parent"] = f"{act} {marker} {n-1} {marker} {n} {marker} {n+1}"
+            q["J_parent"] = f"{act} {marker} {n - 1} {marker} {n} {marker} {n + 1}"
         else:
             q["J_parent"] = title
     else:
@@ -230,7 +310,7 @@ def run(scope: str, routes: list[str], shard: str, limit: int = 0) -> int:
         else:
             items = _workset(questions, registry)
         idx, nshards = (int(x) for x in shard.split("/"))
-        items = items[idx - 1::nshards]
+        items = items[idx - 1 :: nshards]
         if limit:
             items = items[:limit]
         for _i, (key, q, unit, rec) in enumerate(items, 1):
@@ -253,8 +333,13 @@ def run(scope: str, routes: list[str], shard: str, limit: int = 0) -> int:
                     rec_result = _retrieve(collection, query, _ROUTE_RETRIEVER[route])
                 except Exception as exc:
                     rec_result = {"chunk_ids": [], "retriever": "error", "error": str(exc)}
-                rec_result.update({"key": key, "route": route, "scope": scope,
-                                   "query": query, "collection": collection})
+                rec_result.update({
+                    "key": key,
+                    "route": route,
+                    "scope": scope,
+                    "query": query,
+                    "collection": collection,
+                })
                 with open(CACHE / f"{scope}_{route}.jsonl", "a", encoding="utf-8") as f:
                     f.write(json.dumps(rec_result, ensure_ascii=False) + "\n")
     return 0
@@ -304,9 +389,18 @@ def analyze() -> int:
         kg_cache = load_raw("D_kg")
 
         # ---- Task 8: per-route R@K on the workset
-        routes = ["A_original", "B_gold_text", "C_identifier", "E_document",
-                  "F_identifier_only", "G_concept", "H_authority_action",
-                  "I_provision_type", "J_parent", "K_kg"]
+        routes = [
+            "A_original",
+            "B_gold_text",
+            "C_identifier",
+            "E_document",
+            "F_identifier_only",
+            "G_concept",
+            "H_authority_action",
+            "I_provision_type",
+            "J_parent",
+            "K_kg",
+        ]
         q_caches = {r: _load_cache("q", r) for r in _ROUTE_RETRIEVER}
         u_caches = {r: _load_cache("unit", r) for r in _ROUTE_RETRIEVER}
 
@@ -317,16 +411,19 @@ def analyze() -> int:
             for pid, q, unit, rec in workset:
                 rec_ids = []
                 if route == "A_original":
-                    rec_ids = list(a_dense.get(q.question_id, {}).get("chunk_ids", [])) + \
-                              list(b_sparse.get(q.question_id, {}).get("chunk_ids", []))
+                    rec_ids = list(a_dense.get(q.question_id, {}).get("chunk_ids", [])) + list(
+                        b_sparse.get(q.question_id, {}).get("chunk_ids", [])
+                    )
                 elif route == "B_gold_text":
-                    rec_ids = list(o_dense.get(q.question_id, {}).get("chunk_ids", [])) + \
-                              list(o_sparse.get(q.question_id, {}).get("chunk_ids", []))
+                    rec_ids = list(o_dense.get(q.question_id, {}).get("chunk_ids", [])) + list(
+                        o_sparse.get(q.question_id, {}).get("chunk_ids", [])
+                    )
                 elif route == "K_kg":
                     pass
                 else:
-                    rec_ids = list(u_caches.get(route, {}).get(pid, {}).get("chunk_ids", [])) or \
-                              list(q_caches.get(route, {}).get(q.question_id, {}).get("chunk_ids", []))
+                    rec_ids = list(u_caches.get(route, {}).get(pid, {}).get("chunk_ids", [])) or list(
+                        q_caches.get(route, {}).get(q.question_id, {}).get("chunk_ids", [])
+                    )
                 for k in hits:
                     if route == "K_kg":
                         if _kg_hit(kg_cache.get(q.question_id), unit, family_map):
@@ -346,8 +443,11 @@ def analyze() -> int:
             w.writerow(["Route", "R@5", "R@10", "R@20", "R@50", "R@100", "R@200", "R@500", "recovered_units"])
             for route in routes:
                 r = per_route[route]
-                w.writerow([route] + [f"{r[f'R@{k}']:.3f}" for k in (5, 10, 20, 50, 100, 200, 500)] +
-                           [len(recoveries.get(route, []))])
+                w.writerow(
+                    [route]
+                    + [f"{r[f'R@{k}']:.3f}" for k in (5, 10, 20, 50, 100, 200, 500)]
+                    + [len(recoveries.get(route, []))]
+                )
 
         # ---- Task 9: failure taxonomy per workset unit (route evidence)
         best_route = {}
@@ -378,7 +478,12 @@ def analyze() -> int:
                 marker, num = parse_identifier(sec)
                 if marker == "order" or "order" in str(rec.get("id", "")).lower():
                     cls = "order-clause granularity"
-                elif num and not _unit_hit(_route_ids("E_document", pid, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches), unit, payload_index, family_map):
+                elif num and not _unit_hit(
+                    _route_ids("E_document", pid, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches),
+                    unit,
+                    payload_index,
+                    family_map,
+                ):
                     cls = "missing section metadata / chunk fragmentation"
                 elif num:
                     cls = "sparse lexical mismatch / embedding failure"
@@ -392,18 +497,31 @@ def analyze() -> int:
             pass
 
         # ---- Task 11: multi-route ablation on the FULL benchmark (pool ceiling)
-        ablation_order = ["A_original", "C_identifier", "G_concept", "H_authority_action",
-                          "I_provision_type", "E_document", "F_identifier_only", "J_parent", "K_kg"]
+        ablation_order = [
+            "A_original",
+            "C_identifier",
+            "G_concept",
+            "H_authority_action",
+            "I_provision_type",
+            "E_document",
+            "F_identifier_only",
+            "J_parent",
+            "K_kg",
+        ]
         pool = {r: set() for r in ablation_order}
         for qid, q in questions.items():
             for route in ablation_order:
-                ids = set(_route_ids(route, None, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)) \
-                    if route != "K_kg" else set()
+                ids = (
+                    set(_route_ids(route, None, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches))
+                    if route != "K_kg"
+                    else set()
+                )
                 pool[route] |= ids
         # per-question incremental union coverage
         step_rows = [["step", "routes", "pool_R500_ceiling", "questions_with_gold_in_pool"]]
         acc_routes = []
         from evaluation.ceiling_config import DEPTHS
+
         for route in ablation_order:
             acc_routes.append(route)
             r500 = 0.0
@@ -420,17 +538,23 @@ def analyze() -> int:
                 for u in q.relevant_units():
                     ranks[u.provision_id] = 1 if _unit_hit(rec_ids, u, payload_index, family_map) else None
                 from evaluation.report_ceiling import metrics_from_ranks as mfr
+
                 m = mfr(ranks, q, DEPTHS)
                 r500 += m.get("recall@500", 0)
                 qcov += int(any(v == 1 for v in ranks.values()))
                 n += 1
-            step_rows.append([len(acc_routes), "+".join(acc_routes),
-                              round(r500 / max(n, 1), 4), round(qcov / max(n, 1), 4)])
+            step_rows.append([
+                len(acc_routes),
+                "+".join(acc_routes),
+                round(r500 / max(n, 1), 4),
+                round(qcov / max(n, 1), 4),
+            ])
         with open(OUT / "v5_route_ablation.csv", "w", encoding="utf-8", newline="") as f:
             csv.writer(f).writerows(step_rows)
 
         # ---- Task 12: domain analysis of the workset + V5 domain recall
         from collections import Counter
+
         dom = Counter(q.domains[0] if q.domains else "?" for _, q, _, _ in workset)
         for _d, n in dom.most_common():
             pass
@@ -439,14 +563,33 @@ def analyze() -> int:
         ws_pids = {pid for pid, _, _, _ in workset}
         recovered_any = {p for r in routes for p in recoveries.get(r, [])} & ws_pids
         recovered_orig = set(recoveries.get("A_original", [])) & ws_pids
-        len({qid for _, q, _, _ in workset
-                            if any(_unit_hit(_route_ids("A_original", None, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)[:500], u, payload_index, family_map)
-                                   for _, _, u, _ in workset if u.provision_id in {x[0] for x in workset})})
+        len({
+            qid
+            for _, q, _, _ in workset
+            if any(
+                _unit_hit(
+                    _route_ids("A_original", None, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)[:500],
+                    u,
+                    payload_index,
+                    family_map,
+                )
+                for _, _, u, _ in workset
+                if u.provision_id in {x[0] for x in workset}
+            )
+        })
         # count questions with >=1 gold unit in the any-route 500-pool
         n_q_recovered_any = 0
         for pid, q, u, _ in workset:
-            if any(_unit_hit(_route_ids(r, pid, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)[:500], u, payload_index, family_map)
-                   for r in routes if r != "K_kg"):
+            if any(
+                _unit_hit(
+                    _route_ids(r, pid, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)[:500],
+                    u,
+                    payload_index,
+                    family_map,
+                )
+                for r in routes
+                if r != "K_kg"
+            ):
                 n_q_recovered_any += 1
         readiness = {
             "workset_units": len(workset),
@@ -459,9 +602,13 @@ def analyze() -> int:
         }
         (OUT / "v5_crossencoder_readiness.json").write_text(json.dumps(readiness, indent=2), encoding="utf-8")
 
-        (OUT / "v5_route_results.json").write_text(json.dumps({
-            "workset_n": len(workset), "per_route": per_route,
-            "recoveries": recoveries, "taxonomy": tax_counts}, indent=2), encoding="utf-8")
+        (OUT / "v5_route_results.json").write_text(
+            json.dumps(
+                {"workset_n": len(workset), "per_route": per_route, "recoveries": recoveries, "taxonomy": tax_counts},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
     return 0
 
 
@@ -486,13 +633,17 @@ if __name__ == "__main__":
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--analyze", action="store_true")
     parser.add_argument("--scope", default="q", choices=["q", "unit"])
-    parser.add_argument("--routes",
-                        default="C_identifier,E_document,F_identifier_only,G_concept,H_authority_action,I_provision_type,J_parent")
+    parser.add_argument(
+        "--routes",
+        default="C_identifier,E_document,F_identifier_only,G_concept,H_authority_action,I_provision_type,J_parent",
+    )
     parser.add_argument("--shard", default="1/1")
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
     if args.run:
-        raise SystemExit(run(args.scope, [r.strip() for r in args.routes.split(",") if r.strip()], args.shard, args.limit))
+        raise SystemExit(
+            run(args.scope, [r.strip() for r in args.routes.split(",") if r.strip()], args.shard, args.limit)
+        )
     if args.analyze:
         raise SystemExit(analyze())
     raise SystemExit(1)

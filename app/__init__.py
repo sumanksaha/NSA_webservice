@@ -326,9 +326,7 @@ def create_app():
     # Fall back to a local SentenceTransformer (lazy) when the remote embedder
     # errors.  False ⇒ remote failure degrades to sparse-only — the required
     # setting on Render free tier (a local torch build would OOM 512 MB).
-    app.config["RAG_EMBED_REMOTE_FALLBACK"] = (
-        os.environ.get("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
-    )
+    app.config["RAG_EMBED_REMOTE_FALLBACK"] = os.environ.get("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
     # Qdrant-side BM25 (server-side sparse inference, ``Qdrant/bm25``): when
     # on, the sparse retriever sends the raw query text and the cluster
     # computes the BM25 vector in-cluster — removing the last local model
@@ -345,6 +343,11 @@ def create_app():
     # (RRF(dense, sparse, KG-contract)).  Best-effort: a missing/unreachable
     # Neo4j degrades to no KG fusion.
     app.config["RAG_KG_FUSION"] = os.environ.get("RAG_KG_FUSION", "false").lower() == "true"
+    # CE section-prefix for legal-identity signal (CV2 P1, 2026-08-18).
+    # When true, the cross-encoder reranker prefixes each passage with its
+    # legal identity (§<section> or §<clause>) before scoring — matching the
+    # training data format from `pairwise_dataset --section-prefix`.
+    app.config["RAG_CE_SECTION_PREFIX"] = os.environ.get("RAG_CE_SECTION_PREFIX", "false").lower() == "true"
     # LangGraph agent pipeline (M3, docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md
     # Part C): when true, POST /api/rag/query/agent runs the self-correcting
     # graph (classify → retrieve → generate → verify → expand-and-retry on
@@ -586,6 +589,12 @@ def create_app():
     from app.rag import rag_bp
 
     app.register_blueprint(rag_bp)
+
+    # Phase 20: Register default plugin providers (OCR, AI, Rules, PDF)
+    # Lazy-imported so the app boots without optional deps (torch, httpx, etc.)
+    from app.plugins import register_default_plugins
+
+    register_default_plugins()
 
     # Initialize database tables (models must be imported first)
     # Import models so they're registered with SQLAlchemy metadata

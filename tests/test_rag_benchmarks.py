@@ -165,7 +165,9 @@ class TestMeasureStore:
 
     def test_live_with_in_memory_client(self):
         store = QdrantStore(client=InMemoryQdrantClient(), collection_name="bench_coll", vector_size=768)
-        points = [Point(id=f"p{i}", vector=[0.1] * 768, payload={"document_id": "d1", "chunk_index": i}) for i in range(5)]
+        points = [
+            Point(id=f"p{i}", vector=[0.1] * 768, payload={"document_id": "d1", "chunk_index": i}) for i in range(5)
+        ]
         report = bench.measure_store(points, [0.1] * 768, store=store, iterations=3)
         assert report["mode"] == "live"
         assert report["points_per_batch"] == 5

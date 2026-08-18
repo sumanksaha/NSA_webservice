@@ -54,11 +54,11 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Document Generation**           | PDF generation for permission letters, petitions, and legal notices                                                                                              |
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
-| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete  | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A) |
-| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete  | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests) |
-| **Evaluation Framework**          | ✅ Complete    | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                             |
-| **Benchmark v1.0**                | ✅ Frozen      | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                          |
-| **Rust PyO3 Normalizers**         | ✅ Complete    | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                |
+| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete                                                                                                                                           | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A)                                                                                         |
+| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                             | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests) |
+| **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                          |
+| **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                 |
+| **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                       |
 | **Audit Trail**                   | Tamper-evident hash-chained audit logging for all records and photo evidence                                                                                     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
@@ -127,12 +127,12 @@ Render's free tier (512 MB RAM / 0.1 CPU) cannot hold any torch model
 runs **no local models in production** — every model is hosted elsewhere
 (details + deploy task in `task.md` ENV-10):
 
-| Component | Where it runs | Config |
-| --- | --- | --- |
-| Dense embeddings (`all-mpnet-base-v2`, 768-dim) | **Modal** serverless — `modal_deploy/app.py` → `https://<ws>--embed.modal.run` | `RAG_EMBED_ENDPOINT` |
-| CE reranker (`sumanksaha/Foodmultidomain`) | **Modal** serverless — `https://<ws>--rerank.modal.run` (TEI-compatible `/rerank`) | `RAG_RERANKER_ENDPOINT` + `RAG_RERANKER_MODE=tei` |
-| BM25 sparse | **In-cluster by Qdrant** (`Qdrant/bm25` — no local fastembed) | `RAG_QDRANT_BM25=true` |
-| sec_act rerank features | Local (pure Python, no torch) | `RAG_ENSEMBLE_RERANK=true` |
+| Component                                       | Where it runs                                                                      | Config                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Dense embeddings (`all-mpnet-base-v2`, 768-dim) | **Modal** serverless — `modal_deploy/app.py` → `https://<ws>--embed.modal.run`     | `RAG_EMBED_ENDPOINT`                              |
+| CE reranker (`sumanksaha/Foodmultidomain`)      | **Modal** serverless — `https://<ws>--rerank.modal.run` (TEI-compatible `/rerank`) | `RAG_RERANKER_ENDPOINT` + `RAG_RERANKER_MODE=tei` |
+| BM25 sparse                                     | **In-cluster by Qdrant** (`Qdrant/bm25` — no local fastembed)                      | `RAG_QDRANT_BM25=true`                            |
+| sec_act rerank features                         | Local (pure Python, no torch)                                                      | `RAG_ENSEMBLE_RERANK=true`                        |
 
 Client wiring: `app/rag/retrieval/remote_embedder.py` (`RemoteEmbedClient`,
 injected into `DenseRetriever`), `app/rag/retrieval/remote_reranker.py`
@@ -185,7 +185,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
   `legacy`/`agent`; `scripts/ab_agent_vs_legacy.py` runs the frozen
   benchmark through both paths against the live stack.
 - 56 tests across `tests/test_rag_agent_{state,nodes,graph,routes,m5}.py`
-  + pipeline-field tests, all stub-LLM / no network.
+    - pipeline-field tests, all stub-LLM / no network.
 
 ---
 
@@ -193,27 +193,27 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ### Current Stack
 
-| Layer              | Technology                          | Version  | Purpose                                     |
-| ------------------ | ----------------------------------- | -------- | ------------------------------------------- |
-| **Runtime**        | Python                              | 3.12+    | Application runtime                         |
-| **Web Framework**  | Flask                               | 2.x      | HTTP server and routing                     |
-| **ORM**            | SQLAlchemy                          | 2.x      | Database abstraction                        |
-| **Migrations**     | Alembic                             | 1.13+    | Schema version control                      |
-| **Database**       | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence                            |
-| **Task Queue**     | Celery                              | 5.4+     | Async background jobs                       |
-| **Message Broker** | Redis                               | 5.x      | Celery broker + cache                       |
-| **PDF Generation** | WeasyPrint                          | —        | HTML-to-PDF rendering                       |
-| **Excel Export**   | openpyxl                            | —        | Billing reports                             |
-| **Object Storage** | Cloudflare R2 / Backblaze B2        | —        | Photo evidence storage                      |
-| **Auth**           | Flask-Login                         | 0.6+     | Session-based authentication                |
-| **Security**       | Flask-Talisman                      | 1.1+     | CSP, HSTS, secure headers                   |
-| **OCR**            | Tesseract (pytesseract)             | —        | Text extraction from images                 |
-| **Vector Store**   | Qdrant                              | latest   | Semantic search over legal corpus (768-dim) |
-| **Embeddings**     | sentence-transformers               | latest   | `all-mpnet-base-v2` (768-dim)               |
-| **Fuzzy Matching** | rapidfuzz                           | —        | Sparse retrieval + fuzzy fallback           |
-| **Templates**      | Jinja2                              | —        | Server-side HTML rendering                  |
+| Layer              | Technology                          | Version  | Purpose                                       |
+| ------------------ | ----------------------------------- | -------- | --------------------------------------------- |
+| **Runtime**        | Python                              | 3.12+    | Application runtime                           |
+| **Web Framework**  | Flask                               | 2.x      | HTTP server and routing                       |
+| **ORM**            | SQLAlchemy                          | 2.x      | Database abstraction                          |
+| **Migrations**     | Alembic                             | 1.13+    | Schema version control                        |
+| **Database**       | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence                              |
+| **Task Queue**     | Celery                              | 5.4+     | Async background jobs                         |
+| **Message Broker** | Redis                               | 5.x      | Celery broker + cache                         |
+| **PDF Generation** | WeasyPrint                          | —        | HTML-to-PDF rendering                         |
+| **Excel Export**   | openpyxl                            | —        | Billing reports                               |
+| **Object Storage** | Cloudflare R2 / Backblaze B2        | —        | Photo evidence storage                        |
+| **Auth**           | Flask-Login                         | 0.6+     | Session-based authentication                  |
+| **Security**       | Flask-Talisman                      | 1.1+     | CSP, HSTS, secure headers                     |
+| **OCR**            | Tesseract (pytesseract)             | —        | Text extraction from images                   |
+| **Vector Store**   | Qdrant                              | latest   | Semantic search over legal corpus (768-dim)   |
+| **Embeddings**     | sentence-transformers               | latest   | `all-mpnet-base-v2` (768-dim)                 |
+| **Fuzzy Matching** | rapidfuzz                           | —        | Sparse retrieval + fuzzy fallback             |
+| **Templates**      | Jinja2                              | —        | Server-side HTML rendering                    |
 | **Rust (PyO3)**    | Rust 1.75+ / PyO3                   | —        | Native legal-text normalizers for performance |
-| **Graph Database** | Neo4j Aura                          | v5.27    | Legal KG (provisions, instruments, domains) |
+| **Graph Database** | Neo4j Aura                          | v5.27    | Legal KG (provisions, instruments, domains)   |
 
 ### Target Stack (Levels 5–10)
 
@@ -249,32 +249,33 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval, reranking, grounded generation, hallucination detection, and evaluation (Phases 1-5 complete — 437 tests).
 - **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
 
-| Area                      | Status         | Notes                                                         |
-| ------------------------- | -------------- | ------------------------------------------------------------- |
-| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                              |
-| Sample Management         | ✅ Complete    | Code generation, lab tracking                                 |
-| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                  |
-| Adjudication              | ✅ Complete    | Section suggestion, document generation                       |
-| FBO Issue State Machine   | ✅ Complete    | With audit trail                                              |
-| Billing Dashboard         | ✅ Complete    | Excel export, filtering                                       |
-| Authentication            | ✅ Complete    | Flask‑Login, global gate                                      |
-| Audit Trail               | ✅ Complete    | Hash‑chained + RecordAudit                                    |
-| Security Hardening        | ✅ Complete    | CSP, HSTS, CSRF, session hardening                            |
-| Timeline Engine + Gantt   | ✅ Complete    | Phase 13 — 21 tests, global picker + entry points             |
-| Search (FTS5 + fuzzy)     | ✅ Complete    | Phase 10 — 56 tests                                           |
-| Version Control           | ✅ Complete    | Compare/restore/branch, history UI                            |
-| Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                       |
-| OCR Pipeline              | ⚠️ Foundation  | Phase A done; Phases B–E pending                              |
-| Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                           |
-| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval  |
-| Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests) |
-| Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                  |
-| Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                     |
-| Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                        |
-| CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                             |
-| RBAC / Roles              | ❌ Not Started | All users have full access                                    |
-| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                              |
-| Tests                     | ✅ 80+ modules | ~1,757 test cases (694 RAG + 1,063 existing), all passing     |
+| Area                      | Status         | Notes                                                                                                                              |
+| ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                                                                                                   |
+| Sample Management         | ✅ Complete    | Code generation, lab tracking                                                                                                      |
+| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                                                                                       |
+| Adjudication              | ✅ Complete    | Section suggestion, document generation                                                                                            |
+| FBO Issue State Machine   | ✅ Complete    | With audit trail                                                                                                                   |
+| Billing Dashboard         | ✅ Complete    | Excel export, filtering                                                                                                            |
+| Authentication            | ✅ Complete    | Flask‑Login, global gate                                                                                                           |
+| Audit Trail               | ✅ Complete    | Hash‑chained + RecordAudit                                                                                                         |
+| Security Hardening        | ✅ Complete    | CSP, HSTS, CSRF, session hardening                                                                                                 |
+| Timeline Engine + Gantt   | ✅ Complete    | Phase 13 — 21 tests, global picker + entry points                                                                                  |
+| Search (FTS5 + fuzzy)     | ✅ Complete    | Phase 10 — 56 tests                                                                                                                |
+| Version Control           | ✅ Complete    | Compare/restore/branch, history UI                                                                                                 |
+| Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                                                                                            |
+| OCR Pipeline              | ⚠️ Foundation  | Phase A done; Phases B–E pending                                                                                                   |
+| Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                                                                                                |
+| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval                                                                     |
+| Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests)                                                              |
+| Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                                                                                      |
+| Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                                                                                         |
+| Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                            |
+| CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                                                                                                  |
+| RBAC / Roles              | ❌ Not Started | All users have full access                                                                                                         |
+| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                                                                                                   |
+| Tests                     | ✅ 80+ modules | ~1,780 test cases (694 RAG + 23 plugins + 1,063 existing), all passing                                                             |
+| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests) |
 
 ---
 
@@ -419,6 +420,7 @@ NSA_webservice/
 │   ├── bill_generator/         # Bill generation blueprint
 │   ├── case_file_generator/    # Case file blueprint
 │   ├── fbo_issue/              # FBO issue tracking blueprint
+│   ├── plugins/                # Phase 20: plugin architecture (base, registry, ocr/ai/rules/pdf plugins)
 │   ├── inspection/             # Inspection blueprint
 │   ├── sample/                 # Sample management blueprint
 │   ├── services/               # Shared services
@@ -479,29 +481,30 @@ pytest tests/test_route_collisions.py -v
 
 ### Test Structure
 
-| Test File                         | Coverage                                                     |
-| --------------------------------- | ------------------------------------------------------------ |
-| `test_step1.py`                   | FSO model, markdown sync, Sample model, code generation      |
-| `test_step2.py`                   | Billing utilities, Excel export, filtering                   |
-| `test_step3.py`                   | Inspection model, code generation, deadline calculation      |
-| `test_step4.py`                   | Derived-state queries, dismiss action, adjudication linkage  |
-| `test_step5_integration.py`       | Cross-module integration scenarios                           |
-| `test_route_collisions.py`        | Regression: duplicate route detection                        |
-| `test_bill_generator.py`          | Bill generation logic                                        |
-| `test_pdf_photo_embedding.py`     | PDF photo embedding edge cases                               |
-| `test_timeline.py`                | Phase 13: timeline engine, routes, picker, entry points (21) |
-| `test_case_backup.py`             | Phase 16: JSON/ZIP export, case import (14)                  |
-| `test_ocr_extraction.py`          | Phase A: OCR extraction + task persistence (14)              |
-| RAG corpus/embedding tests        | 20 files, 254 tests                                          | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality | ✅ All pass |
-| RAG retrieval tests               | 8 files, 102 tests                                           | Dense, sparse, hybrid, reranker, query classifier, logger, e2e           | ✅ All pass |
-| `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15)           |
-| RAG Phase 1 tests                 | 20 files, 254 tests  | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality | ✅ All pass |
-| RAG Phase 2–5 tests               | 15 files, 156 tests | Generation, verification, hallucination, eval, resilient, hybrid-vs-dense | ✅ All pass |
-| RAG Agent A tests                 | 4 files, 27 tests   | Corpus E2E, batch ingestion, reindexing, benchmarks  | ✅ All pass |
-| Multi-domain tests                | 2 files, 37 tests   | legal_sections, collections, act_name, domain prompts | ✅ All pass |
-| KG tests                          | 8 files, 49 tests   | Corpus, enricher, expander, provisions, payload, fusion RRF  | ✅ All pass |
-| FSSAI re-ingest tests             | 1 file, 15 tests    | load_corpus, identity, FSS-scope/backup guards, CLI  | ✅ All pass |
-| Rust normalizer tests             | 1 file             | PyO3 legal-text normalizers  | ✅ All pass |
+| Test File                         | Coverage                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------- |
+| `test_step1.py`                   | FSO model, markdown sync, Sample model, code generation                           |
+| `test_step2.py`                   | Billing utilities, Excel export, filtering                                        |
+| `test_step3.py`                   | Inspection model, code generation, deadline calculation                           |
+| `test_step4.py`                   | Derived-state queries, dismiss action, adjudication linkage                       |
+| `test_step5_integration.py`       | Cross-module integration scenarios                                                |
+| `test_route_collisions.py`        | Regression: duplicate route detection                                             |
+| `test_bill_generator.py`          | Bill generation logic                                                             |
+| `test_pdf_photo_embedding.py`     | PDF photo embedding edge cases                                                    |
+| `test_timeline.py`                | Phase 13: timeline engine, routes, picker, entry points (21)                      |
+| `test_case_backup.py`             | Phase 16: JSON/ZIP export, case import (14)                                       |
+| `test_ocr_extraction.py`          | Phase A: OCR extraction + task persistence (14)                                   |
+| RAG corpus/embedding tests        | 20 files, 254 tests                                                               | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality  | ✅ All pass |
+| RAG retrieval tests               | 8 files, 102 tests                                                                | Dense, sparse, hybrid, reranker, query classifier, logger, e2e            | ✅ All pass |
+| `test_food_cell_do_intimation.py` | Phase 21: DO intimation generate/forward/sync (15)                                |
+| `test_plugins.py`                 | Phase 20: PluginRegistry, provider delegation, lazy imports, backward compat (23) |
+| RAG Phase 1 tests                 | 20 files, 254 tests                                                               | Qdrant, embeddings, chunker, indexer, dedup, pipeline, adapters, quality  | ✅ All pass |
+| RAG Phase 2–5 tests               | 15 files, 156 tests                                                               | Generation, verification, hallucination, eval, resilient, hybrid-vs-dense | ✅ All pass |
+| RAG Agent A tests                 | 4 files, 27 tests                                                                 | Corpus E2E, batch ingestion, reindexing, benchmarks                       | ✅ All pass |
+| Multi-domain tests                | 2 files, 37 tests                                                                 | legal_sections, collections, act_name, domain prompts                     | ✅ All pass |
+| KG tests                          | 8 files, 49 tests                                                                 | Corpus, enricher, expander, provisions, payload, fusion RRF               | ✅ All pass |
+| FSSAI re-ingest tests             | 1 file, 15 tests                                                                  | load_corpus, identity, FSS-scope/backup guards, CLI                       | ✅ All pass |
+| Rust normalizer tests             | 1 file                                                                            | PyO3 legal-text normalizers                                               | ✅ All pass |
 
 ---
 
@@ -537,25 +540,29 @@ celery -A celery_app.celery worker --loglevel=info
 
 ### Environment Variables
 
-| Variable                  | Required            | Description                               |
-| ------------------------- | ------------------- | ----------------------------------------- |
-| `DATABASE_URL`            | Yes                 | PostgreSQL connection string              |
-| `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)           |
-| `REDIS_URL`               | For Celery          | Redis connection string                   |
-| `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON               |
-| `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                 |
-| `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                          |
-| `R2_SECRET_KEY`           | For Storage         | R2/B2 secret key                          |
-| `R2_BUCKET`               | For Storage         | Storage bucket name                       |
-| `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                      |
-| `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                  |
-| `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                          |
-| `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full) |
-| `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                        |
-| `MS_CLIENT_ID`            | For Excel backup    | Azure AD app registration ID              |
-| `MS_CLIENT_SECRET`        | For Excel backup    | Azure AD client secret                    |
-| `MS_DRIVE_ID`             | For Excel backup    | OneDrive/SharePoint drive ID              |
-| `MS_SPREADSHEET_ID`       | For Excel backup    | Excel file ID in OneDrive                 |
+| Variable                  | Required            | Description                                   |
+| ------------------------- | ------------------- | --------------------------------------------- |
+| `DATABASE_URL`            | Yes                 | PostgreSQL connection string                  |
+| `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)               |
+| `REDIS_URL`               | For Celery          | Redis connection string                       |
+| `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON                   |
+| `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                     |
+| `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                              |
+| `R2_SECRET_KEY`           | For Storage         | R2/B2 secret key                              |
+| `R2_BUCKET`               | For Storage         | Storage bucket name                           |
+| `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                          |
+| `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                      |
+| `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                              |
+| `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full)     |
+| `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                            |
+| `MS_CLIENT_ID`            | For Excel backup    | Azure AD app registration ID                  |
+| `MS_CLIENT_SECRET`        | For Excel backup    | Azure AD client secret                        |
+| `MS_DRIVE_ID`             | For Excel backup    | OneDrive/SharePoint drive ID                  |
+| `MS_SPREADSHEET_ID`       | For Excel backup    | Excel file ID in OneDrive                     |
+| `OCR_PROVIDER`            | Phase 20            | Active OCR provider (default: easyocr)        |
+| `AI_PROVIDER`             | Phase 20            | Active AI provider (default: openrouter)      |
+| `RULES_PROVIDER`          | Phase 20            | Active rule provider (default: fssai_default) |
+| `PDF_PROVIDER`            | Phase 20            | Active PDF provider (default: weasyprint)     |
 
 ---
 
@@ -565,29 +572,29 @@ celery -A celery_app.celery worker --loglevel=info
 
 ### Blueprint Prefixes
 
-| Blueprint       | Prefix                 | Description                                   |
-| --------------- | ---------------------- | --------------------------------------------- |
-| Auth            | `/auth`                | Login/logout                                  |
-| Inspection      | `/inspection`          | Inspection CRUD + photo evidence              |
-| Sample          | `/sample`              | Sample management                             |
-| Case File       | `/case_file_generator` | Case file generation                          |
-| Adjudication    | `/adjudication`        | Adjudication management                       |
-| Billing         | `/billing`             | Billing summary + export                      |
-| Bill Generator  | `/bill_generator`      | Bill PDF (async via QStash)                   |
-| FBO Issue       | `/fbo-issue`           | FBO issue state machine                       |
-| Annexure        | `/annexure`            | Annexure upload + metadata                    |
-| Evidence        | `/evidence`            | Evidence library (photos, reports, etc.)      |
-| Document Viewer | `/document_viewer`     | Quill editor, save/restore, PDF               |
-| Legal Analysis  | `/legal`               | Legal paragraph detection workbench           |
-| Search          | `/search`              | FTS5 + fuzzy search API                       |
-| Version Control | `/api/version-control` | Version history UI + API                      |
-| Timeline        | `/timeline`            | Case milestone timeline + Gantt               |
-| Food Cell       | `/food-cell`           | DO Intimation workflow (Phase 21)             |
-| **RAG**         | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete) |
-| **Knowledge Graph** | `/knowledge-graph`   | Entity/relationship graph + Neo4j sync (Phase 14 complete)            |
-| Audit           | `/admin`               | Audit log viewer                              |
-| Settings        | `/settings`            | Admin settings                                |
-| Health          | `/health`              | Health probe (public)                         |
+| Blueprint           | Prefix                 | Description                                                                |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| Auth                | `/auth`                | Login/logout                                                               |
+| Inspection          | `/inspection`          | Inspection CRUD + photo evidence                                           |
+| Sample              | `/sample`              | Sample management                                                          |
+| Case File           | `/case_file_generator` | Case file generation                                                       |
+| Adjudication        | `/adjudication`        | Adjudication management                                                    |
+| Billing             | `/billing`             | Billing summary + export                                                   |
+| Bill Generator      | `/bill_generator`      | Bill PDF (async via QStash)                                                |
+| FBO Issue           | `/fbo-issue`           | FBO issue state machine                                                    |
+| Annexure            | `/annexure`            | Annexure upload + metadata                                                 |
+| Evidence            | `/evidence`            | Evidence library (photos, reports, etc.)                                   |
+| Document Viewer     | `/document_viewer`     | Quill editor, save/restore, PDF                                            |
+| Legal Analysis      | `/legal`               | Legal paragraph detection workbench                                        |
+| Search              | `/search`              | FTS5 + fuzzy search API                                                    |
+| Version Control     | `/api/version-control` | Version history UI + API                                                   |
+| Timeline            | `/timeline`            | Case milestone timeline + Gantt                                            |
+| Food Cell           | `/food-cell`           | DO Intimation workflow (Phase 21)                                          |
+| **RAG**             | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete) |
+| **Knowledge Graph** | `/knowledge-graph`     | Entity/relationship graph + Neo4j sync (Phase 14 complete)                 |
+| Audit               | `/admin`               | Audit log viewer                                                           |
+| Settings            | `/settings`            | Admin settings                                                             |
+| Health              | `/health`              | Health probe (public)                                                      |
 
 ### Response Format
 

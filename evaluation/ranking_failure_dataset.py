@@ -6,6 +6,7 @@ master plan Section 7 schema.
 
 Output: evaluation/out/cache/ranking_failures.jsonl
 """
+
 from __future__ import annotations
 
 import json
@@ -104,19 +105,25 @@ def build_ranking_failures() -> int:
                 gold_payload = {}
                 for pos in positives:
                     if pos.get("gold_unit") == gold_unit.provision_id:
-                        gold_payload = payload_index.get(pos["chunk_id"], {
-                            "chunk_text": pos.get("text", ""),
-                            "section_number": pos.get("section"),
-                            "act_name": pos.get("act_name", ""),
-                        })
+                        gold_payload = payload_index.get(
+                            pos["chunk_id"],
+                            {
+                                "chunk_text": pos.get("text", ""),
+                                "section_number": pos.get("section"),
+                                "act_name": pos.get("act_name", ""),
+                            },
+                        )
                         break
 
-                neg_payload = payload_index.get(neg["chunk_id"], {
-                    "chunk_text": neg.get("text", ""),
-                    "section_number": neg.get("section"),
-                    "act_name": neg.get("act_name", ""),
-                    "document_title": neg.get("document_title", ""),
-                })
+                neg_payload = payload_index.get(
+                    neg["chunk_id"],
+                    {
+                        "chunk_text": neg.get("text", ""),
+                        "section_number": neg.get("section"),
+                        "act_name": neg.get("act_name", ""),
+                        "document_title": neg.get("document_title", ""),
+                    },
+                )
 
                 # Classify the failure
                 category = classify_failure(gold_unit, gold_payload, neg_payload, family_map)
@@ -183,10 +190,7 @@ def build_ranking_failures() -> int:
         "total_failures": len(failures),
         "questions_with_failures": len({r["question_id"] for r in failures}),
         "category_counts": cat_counts,
-        "tier_counts": {
-            str(t): sum(1 for r in failures if r.get("negative_tier") == t)
-            for t in range(1, 4)
-        },
+        "tier_counts": {str(t): sum(1 for r in failures if r.get("negative_tier") == t) for t in range(1, 4)},
     }
     STATS_FILE.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return 0

@@ -417,13 +417,15 @@ class TestBranching:
 
         with app_ctx.application.app_context():
             mainline_max = (
-                Version.query.filter_by(case_id=1, doc_type="petition", branch_name=None)
+                Version.query
+                .filter_by(case_id=1, doc_type="petition", branch_name=None)
                 .order_by(Version.version_number.desc())
                 .first()
             )
             assert mainline_max.version_number == 3
             branch_max = (
-                Version.query.filter_by(case_id=1, doc_type="petition", branch_name="draft-a")
+                Version.query
+                .filter_by(case_id=1, doc_type="petition", branch_name="draft-a")
                 .order_by(Version.version_number.desc())
                 .first()
             )
@@ -528,7 +530,8 @@ class TestCaseAdjudicationDisambiguation:
             count = Version.query.filter_by(adjudication_id=adj_id, doc_type="petition").count()
             assert count == 3
             assert "Restored to version 1" in (
-                Version.query.filter_by(adjudication_id=adj_id, doc_type="petition")
+                Version.query
+                .filter_by(adjudication_id=adj_id, doc_type="petition")
                 .order_by(Version.version_number.desc())
                 .first()
                 .change_summary

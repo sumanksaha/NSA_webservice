@@ -137,9 +137,30 @@ class TestFusion:
 class TestGoldResolution:
     def _enrichment(self) -> dict[str, dict]:
         return {
-            "c1": {"section": "32", "keywords": ["notice"], "cross_ref_targets": [], "summary": "", "text": "If the Designated Officer has reasonable ground for believing that any food business operator has failed to comply.", "document_id": "docA"},
-            "c2": {"section": "32", "keywords": [], "cross_ref_targets": [], "summary": "", "text": "The concerned Food Safety Officer shall with the approval of the Designated Officer issue a certificate.", "document_id": "docA"},
-            "c3": {"section": "22", "keywords": [], "cross_ref_targets": [], "summary": "", "text": "No insecticide shall be used directly on article of food.", "document_id": "docB"},
+            "c1": {
+                "section": "32",
+                "keywords": ["notice"],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "If the Designated Officer has reasonable ground for believing that any food business operator has failed to comply.",
+                "document_id": "docA",
+            },
+            "c2": {
+                "section": "32",
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "The concerned Food Safety Officer shall with the approval of the Designated Officer issue a certificate.",
+                "document_id": "docA",
+            },
+            "c3": {
+                "section": "22",
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "No insecticide shall be used directly on article of food.",
+                "document_id": "docB",
+            },
         }
 
     def test_phrase_matches_single_chunk(self):
@@ -198,9 +219,30 @@ class TestGoldResolution:
         # A distinctive answer phrase may appear in more than one chunk — ALL
         # matches must join gold (not just the first encountered).
         enrichment = {
-            "c1": {"section": "32", "keywords": [], "cross_ref_targets": [], "summary": "", "text": "An improvement notice may be issued by the Designated Officer.", "document_id": "docA"},
-            "c2": {"section": "32", "keywords": [], "cross_ref_targets": [], "summary": "", "text": "The improvement notice procedure continues under this section.", "document_id": "docA"},
-            "c3": {"section": "32", "keywords": [], "cross_ref_targets": [], "summary": "", "text": "Unrelated text.", "document_id": "docA"},
+            "c1": {
+                "section": "32",
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "An improvement notice may be issued by the Designated Officer.",
+                "document_id": "docA",
+            },
+            "c2": {
+                "section": "32",
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "The improvement notice procedure continues under this section.",
+                "document_id": "docA",
+            },
+            "c3": {
+                "section": "32",
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": "Unrelated text.",
+                "document_id": "docA",
+            },
         }
         q = {"id": "q6", "document_id": "docA", "gold_phrases": ["improvement notice"]}
         gold, unmatched = resolve_gold(q, enrichment)
@@ -218,9 +260,9 @@ class TestSyntheticRetrieval:
         lexical path can find it."""
         texts = [
             "Alpha beta gamma delta epsilon zeta eta theta",  # c0 (noise)
-            "iota kappa lambda mu nu xi omicron pi rho",     # c1 (noise)
-            "sigma tau upsilon phi chi psi omega",           # c2 (answer text, unrelated wording)
-            "A B C D E F G H I J K L M N O P Q R S T",       # c3 (noise)
+            "iota kappa lambda mu nu xi omicron pi rho",  # c1 (noise)
+            "sigma tau upsilon phi chi psi omega",  # c2 (answer text, unrelated wording)
+            "A B C D E F G H I J K L M N O P Q R S T",  # c3 (noise)
         ]
         n = len(texts)
         dim = 16
@@ -230,10 +272,38 @@ class TestSyntheticRetrieval:
         ids = [f"c{i}" for i in range(n)]
         payloads = {f"c{i}": {"chunk_text": t} for i, t in enumerate(texts)}
         enrichment = {
-            "c0": {"section": None, "keywords": [], "cross_ref_targets": [], "summary": "", "text": texts[0], "document_id": "d"},
-            "c1": {"section": None, "keywords": [], "cross_ref_targets": [], "summary": "", "text": texts[1], "document_id": "d"},
-            "c2": {"section": None, "keywords": ["improvement", "notice"], "cross_ref_targets": [], "summary": "improvement notice issued by the officer", "text": texts[2], "document_id": "d"},
-            "c3": {"section": None, "keywords": [], "cross_ref_targets": [], "summary": "", "text": texts[3], "document_id": "d"},
+            "c0": {
+                "section": None,
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": texts[0],
+                "document_id": "d",
+            },
+            "c1": {
+                "section": None,
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": texts[1],
+                "document_id": "d",
+            },
+            "c2": {
+                "section": None,
+                "keywords": ["improvement", "notice"],
+                "cross_ref_targets": [],
+                "summary": "improvement notice issued by the officer",
+                "text": texts[2],
+                "document_id": "d",
+            },
+            "c3": {
+                "section": None,
+                "keywords": [],
+                "cross_ref_targets": [],
+                "summary": "",
+                "text": texts[3],
+                "document_id": "d",
+            },
         }
         return matrix, ids, payloads, enrichment, texts
 
@@ -246,8 +316,16 @@ class TestSyntheticRetrieval:
 
         b = baseline_retrieve(qvec, matrix, ids, top_k=4)
         e = enriched_retrieve(
-            "Who can issue an improvement notice?", qvec, matrix, ids,
-            enrichment, kw_phrases, kw_idf, sum_phrases, sum_idf, top_k=4,
+            "Who can issue an improvement notice?",
+            qvec,
+            matrix,
+            ids,
+            enrichment,
+            kw_phrases,
+            kw_idf,
+            sum_phrases,
+            sum_idf,
+            top_k=4,
         )
         assert "c2" in e  # lexical keywords must surface c2 in enriched
         # The enriched path must rank c2 strictly higher than the baseline does
@@ -263,13 +341,29 @@ class TestSyntheticRetrieval:
         qvec /= np.linalg.norm(qvec)
 
         no_kw = enriched_retrieve(
-            "Who can issue an improvement notice?", qvec, matrix, ids,
-            enrichment, kw_phrases, kw_idf, sum_phrases, sum_idf, top_k=4,
+            "Who can issue an improvement notice?",
+            qvec,
+            matrix,
+            ids,
+            enrichment,
+            kw_phrases,
+            kw_idf,
+            sum_phrases,
+            sum_idf,
+            top_k=4,
             features=frozenset(),
         )
         with_kw = enriched_retrieve(
-            "Who can issue an improvement notice?", qvec, matrix, ids,
-            enrichment, kw_phrases, kw_idf, sum_phrases, sum_idf, top_k=4,
+            "Who can issue an improvement notice?",
+            qvec,
+            matrix,
+            ids,
+            enrichment,
+            kw_phrases,
+            kw_idf,
+            sum_phrases,
+            sum_idf,
+            top_k=4,
             features=frozenset({FEATURE_KEYWORDS}),
         )
         # With no features the pool is dense-only; keywords must be able to

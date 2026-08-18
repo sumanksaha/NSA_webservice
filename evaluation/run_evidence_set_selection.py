@@ -121,12 +121,8 @@ def _evaluate_question(
         "retriever": arm_result.get("retriever", "reranker"),
     }
     b_metrics = score_question(question, baseline_result, payload_index, family_map)
-    b_redundancy = compute_redundancy(
-        [c for c in candidates if c.kind == "chunk"][:K]
-    )
-    rows["F_baseline_k10"] = _metrics_row(
-        question, "F_baseline_k10", b_metrics, b_redundancy, K
-    )
+    b_redundancy = compute_redundancy([c for c in candidates if c.kind == "chunk"][:K])
+    rows["F_baseline_k10"] = _metrics_row(question, "F_baseline_k10", b_metrics, b_redundancy, K)
 
     return rows
 
@@ -153,7 +149,7 @@ def _metrics_row(
             "duplicate_provision_rate": redundancy["duplicate_provision_rate"],
             "same_section_concentration": redundancy["same_section_concentration"],
             "same_document_concentration": redundancy["same_document_concentration"],
-                        "n_items": n_items,
+            "n_items": n_items,
             "n_ranked_items": metrics.n_items,
         }
     ]
@@ -169,9 +165,15 @@ def _aggregate(rows: list[dict]) -> list[dict]:
         by_strategy[r["strategy"]].append(r)
 
     metric_fields = [
-        "recall_at_5", "recall_at_10", "mrr", "ndcg_at_10",
-        "precision_at_5", "precision_at_10", "answer_support_coverage",
-        "duplicate_provision_rate", "same_section_concentration",
+        "recall_at_5",
+        "recall_at_10",
+        "mrr",
+        "ndcg_at_10",
+        "precision_at_5",
+        "precision_at_10",
+        "answer_support_coverage",
+        "duplicate_provision_rate",
+        "same_section_concentration",
         "same_document_concentration",
     ]
     summary = []
@@ -183,9 +185,7 @@ def _aggregate(rows: list[dict]) -> list[dict]:
             vals = [r[field_name] for r in qrows if field_name in r]
             if vals:
                 row[f"mean_{field_name}"] = round(statistics.mean(vals), 4)
-                row[f"std_{field_name}"] = (
-                    round(statistics.stdev(vals), 4) if len(vals) > 1 else 0.0
-                )
+                row[f"std_{field_name}"] = round(statistics.stdev(vals), 4) if len(vals) > 1 else 0.0
                 row[f"min_{field_name}"] = round(min(vals), 4)
                 row[f"max_{field_name}"] = round(max(vals), 4)
         summary.append(row)
@@ -196,11 +196,20 @@ def _aggregate(rows: list[dict]) -> list[dict]:
 # CSV writers
 # --------------------------------------------------------------------------- #
 _CSV_FIELDS = [
-    "question_id", "strategy",
-    "recall_at_5", "recall_at_10", "mrr", "ndcg_at_10",
-    "precision_at_5", "precision_at_10", "answer_support_coverage",
-    "duplicate_provision_rate", "same_section_concentration",
-    "same_document_concentration", "n_items", "n_ranked_items",
+    "question_id",
+    "strategy",
+    "recall_at_5",
+    "recall_at_10",
+    "mrr",
+    "ndcg_at_10",
+    "precision_at_5",
+    "precision_at_10",
+    "answer_support_coverage",
+    "duplicate_provision_rate",
+    "same_section_concentration",
+    "same_document_concentration",
+    "n_items",
+    "n_ranked_items",
 ]
 
 
@@ -270,13 +279,10 @@ def _write_report(
         dup = s.get("mean_duplicate_provision_rate", 0.0)
         sec_c = s.get("mean_same_section_concentration", 0.0)
         doc_c = s.get("mean_same_document_concentration", 0.0)
-        beats = sum(
-            1 for r in by_strat.get(name, []) if r["recall_at_10"] > bl_r10
-        )
+        beats = sum(1 for r in by_strat.get(name, []) if r["recall_at_10"] > bl_r10)
         total = len(by_strat.get(name, []))
         lines.append(
-            f"| {name} | {r10:.4f} | {mrr:.4f} | {ndcg:.4f} | "
-            f"{dup:.4f} | {sec_c:.4f} | {doc_c:.4f} | {beats}/{total} |"
+            f"| {name} | {r10:.4f} | {mrr:.4f} | {ndcg:.4f} | {dup:.4f} | {sec_c:.4f} | {doc_c:.4f} | {beats}/{total} |"
         )
 
     lines.extend([
@@ -370,9 +376,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-
-
-
-

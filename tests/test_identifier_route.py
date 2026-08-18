@@ -8,6 +8,7 @@ cover the detector module, the hybrid-retriever fusion, and the
 run_retrieval_pipeline wiring (all offline with stubs — no Qdrant /
 sentence-transformers required).
 """
+
 from __future__ import annotations
 
 import sys
@@ -22,6 +23,7 @@ from app.rag.retrieval.result import RetrievedChunk, SearchResult
 # --------------------------------------------------------------------------- #
 # Detector unit tests
 # --------------------------------------------------------------------------- #
+
 
 class TestDetectAct:
     def test_canonical_name(self):
@@ -89,6 +91,7 @@ class TestIdentifierQuery:
 # HybridRetriever identifier-arm fusion
 # --------------------------------------------------------------------------- #
 
+
 def _chunk(cid: str, text: str = "") -> RetrievedChunk:
     return RetrievedChunk(chunk_id=cid, score=1.0, text=text or cid)
 
@@ -111,7 +114,9 @@ class _FakeSparse:
     def retrieve(self, query, top_k=10, filters=None, **kw):
         self.calls.append(("sparse", query, filters))
         return SearchResult(
-            query=query, query_type="", chunks=self._by_query.get(query, [])[:top_k],
+            query=query,
+            query_type="",
+            chunks=self._by_query.get(query, [])[:top_k],
             total=len(self._by_query.get(query, [])),
         )
 
@@ -173,6 +178,7 @@ class TestHybridIdentifierArm:
 # run_retrieval_pipeline wiring
 # --------------------------------------------------------------------------- #
 
+
 class TestPipelineIdentifier:
     def _patch(self, monkeypatch):
         """Replace the pipeline's lazily-imported classes with recorders."""
@@ -183,7 +189,9 @@ class TestPipelineIdentifier:
         class FakeClassifier:
             @staticmethod
             def classify(query):
-                return retrieval_mod.QueryType.SECTION_LOOKUP if "Section" in query else retrieval_mod.QueryType.GENERAL_QA
+                return (
+                    retrieval_mod.QueryType.SECTION_LOOKUP if "Section" in query else retrieval_mod.QueryType.GENERAL_QA
+                )
 
         class FakeParser:
             @staticmethod
@@ -201,9 +209,7 @@ class TestPipelineIdentifier:
             def retrieve(self, query, top_k=10, filters=None, identifier_query=None):
                 recorded["query"] = query
                 recorded["identifier_query"] = identifier_query
-                return SearchResult(
-                    query=query, query_type="", chunks=[_chunk("c1")], total=1, latency_ms=1
-                )
+                return SearchResult(query=query, query_type="", chunks=[_chunk("c1")], total=1, latency_ms=1)
 
         class FakeLogger:
             def log(self, **kw):
@@ -221,9 +227,7 @@ class TestPipelineIdentifier:
         from app.rag.tasks import run_retrieval_pipeline
 
         recorded = self._patch(monkeypatch)
-        result = run_retrieval_pipeline(
-            "What is the penalty under Section 73 of the Indian Contract Act?", top_k=5
-        )
+        result = run_retrieval_pipeline("What is the penalty under Section 73 of the Indian Contract Act?", top_k=5)
         assert recorded["identifier_query"] == "Indian Contract Act, 1872 section 73"
         assert result["identifier"]["form"] == "act+section"
         assert result["identifier"]["section"] == "73"

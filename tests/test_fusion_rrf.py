@@ -61,17 +61,26 @@ class TestRrfFuseChunks:
         from kg.hybrid import rrf_fuse_chunks
 
         vec = RetrievedChunk(
-            chunk_id="v1", score=0.9, text="",
-            document_title="Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="v1",
+            score=0.9,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="16",
         )
         kg = RetrievedChunk(
-            chunk_id="KG:prov1", score=0.0, text="",
-            document_title="Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="KG:prov1",
+            score=0.0,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="16",
             document_type="KG-Provision",
         )
         novel = RetrievedChunk(
-            chunk_id="KG:prov2", score=0.0, text="",
-            document_title="Air (Prevention and Control of Pollution) Act, 1981", section_number="3",
+            chunk_id="KG:prov2",
+            score=0.0,
+            text="",
+            document_title="Air (Prevention and Control of Pollution) Act, 1981",
+            section_number="3",
             document_type="KG-Provision",
         )
         fused = rrf_fuse_chunks([[vec], [kg, novel]], rrf_k=60.0, top_k=10)
@@ -85,12 +94,18 @@ class TestRrfFuseChunks:
         from kg.hybrid import rrf_fuse_chunks
 
         vec = RetrievedChunk(
-            chunk_id="v1", score=0.9, text="",
-            document_title="Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="v1",
+            score=0.9,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="16",
         )
         kg = RetrievedChunk(
-            chunk_id="KG:prov1", score=0.0, text="",
-            document_title="Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="KG:prov1",
+            score=0.0,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="16",
             document_type="KG-Provision",
         )
         fused = rrf_fuse_chunks([[vec], [kg]], rrf_k=60.0, top_k=10, dedupe_kg=False)
@@ -101,12 +116,18 @@ class TestRrfFuseChunks:
         from kg.hybrid import rrf_fuse_chunks
 
         vec = RetrievedChunk(
-            chunk_id="v1", score=0.9, text="",
-            document_title="Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="v1",
+            score=0.9,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="16",
         )
         kg = RetrievedChunk(
-            chunk_id="KG:prov1", score=0.0, text="",
-            document_title="The Food Safety and Standards Act, 2006", section_number="16",
+            chunk_id="KG:prov1",
+            score=0.0,
+            text="",
+            document_title="The Food Safety and Standards Act, 2006",
+            section_number="16",
             document_type="KG-Provision",
         )
         fused = rrf_fuse_chunks([[vec], [kg]], rrf_k=60.0, top_k=10)
@@ -131,8 +152,8 @@ class TestRrfFuseChunks:
         item — deterministic across runs."""
         from kg.hybrid import rrf_fuse_chunks
 
-        dense = [_chunk("d1"), _chunk("d2")]      # rank 1, 2
-        kg = [_chunk("k1")]                        # rank 1
+        dense = [_chunk("d1"), _chunk("d2")]  # rank 1, 2
+        kg = [_chunk("k1")]  # rank 1
         # d1@1 and k1@1 both score 1/61 -> tie.  Stable sort must keep d1
         # (first in input order) above k1; d2@2 (1/62) trails both.
         fused = rrf_fuse_chunks([dense, kg], rrf_k=60.0, top_k=5)
@@ -214,7 +235,13 @@ class TestBuildRankedItemsFused:
         # Legacy shape: 3 vector chunks + 1 KG provision tail-appended.
         return {
             "chunk_ids": ["p1", "p2", "p3"],
-            "kg_provisions": [{"provision_id": "KG_1", "provision_number": "9", "instrument_title": "Food Safety and Standards Act, 2006"}],
+            "kg_provisions": [
+                {
+                    "provision_id": "KG_1",
+                    "provision_number": "9",
+                    "instrument_title": "Food Safety and Standards Act, 2006",
+                }
+            ],
         }
 
     def test_legacy_tail_appends_kg_after_chunks(self):
@@ -259,7 +286,11 @@ class TestBuildRankedItemsFused:
             "arm": "G_ds_kg_rrf",
             "chunk_ids": [],
             "kg_provisions": [
-                {"provision_id": "KG_1", "provision_number": "9", "instrument_title": "Food Safety and Standards Act, 2006"}
+                {
+                    "provision_id": "KG_1",
+                    "provision_number": "9",
+                    "instrument_title": "Food Safety and Standards Act, 2006",
+                }
             ],
             "fused_items": [{"kind": "kg", "key": "KG_1", "family": "fssai", "section": "9"}],
         }

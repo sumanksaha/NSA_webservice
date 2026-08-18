@@ -415,11 +415,7 @@ def enriched_retrieve(
         score = dense_score[cid]
         if lex_norm:
             score += 0.10 * (lex_by_id.get(cid, 0.0) / lex_norm)
-        if (
-            FEATURE_SECTION in features
-            and cited
-            and str(enrichment.get(cid, {}).get("section") or "") == str(cited)
-        ):
+        if FEATURE_SECTION in features and cited and str(enrichment.get(cid, {}).get("section") or "") == str(cited):
             score += 0.20
         # Explicitly gated: ``incoming`` is only populated by the expansion
         # block above, but gate here too so no future edit can silently apply
@@ -598,8 +594,15 @@ def run_eval(
             continue
         b_ranked = baseline_retrieve(qvecs[i], matrix, ids)
         e_ranked = enriched_retrieve(
-            q["question"], qvecs[i], matrix, ids, enrichment,
-            kw_phrases, kw_idf, sum_phrases, sum_idf,
+            q["question"],
+            qvecs[i],
+            matrix,
+            ids,
+            enrichment,
+            kw_phrases,
+            kw_idf,
+            sum_phrases,
+            sum_idf,
             # Production recommendation from the Phase 15 ablation: the
             # section boost + cross-reference expansion are the two features
             # with net-positive deltas; the keyword credit and (deterministic-
@@ -636,22 +639,29 @@ def run_eval(
         "baseline": baseline_agg,
         "enriched": enriched_agg,
         "delta_enriched_minus_baseline": {
-            k: round(enriched_agg[k] - baseline_agg[k], 4) for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
+            k: round(enriched_agg[k] - baseline_agg[k], 4)
+            for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
         },
         "core_queries": {
             "ids": sorted(core_ids),
             "baseline": baseline_core,
             "enriched": enriched_core,
             "delta_enriched_minus_baseline": {
-                k: round(enriched_core[k] - baseline_core[k], 4) for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
-            } if baseline_core else {},
+                k: round(enriched_core[k] - baseline_core[k], 4)
+                for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
+            }
+            if baseline_core
+            else {},
         },
         "section_citing_queries": {
             "baseline": baseline_citing,
             "enriched": enriched_citing,
             "delta_enriched_minus_baseline": {
-                k: round(enriched_citing[k] - baseline_citing[k], 4) for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
-            } if baseline_citing else {},
+                k: round(enriched_citing[k] - baseline_citing[k], 4)
+                for k in ("recall_at_5", "recall_at_10", "precision_at_5", "mrr", "ndcg_at_10")
+            }
+            if baseline_citing
+            else {},
         },
         "baseline_by_archetype": by_archetype(baseline_rows),
         "enriched_by_archetype": by_archetype(enriched_rows),
@@ -659,12 +669,19 @@ def run_eval(
     }
 
     with open(report_dir / "evaluation_baseline.json", "w", encoding="utf-8") as f:
-        json.dump({"aggregate": baseline_agg, "by_archetype": by_archetype(baseline_rows), "queries": baseline_rows}, f, indent=2)
+        json.dump(
+            {"aggregate": baseline_agg, "by_archetype": by_archetype(baseline_rows), "queries": baseline_rows},
+            f,
+            indent=2,
+        )
     with open(report_dir / "evaluation_enriched.json", "w", encoding="utf-8") as f:
-        json.dump({"aggregate": enriched_agg, "by_archetype": by_archetype(enriched_rows), "queries": enriched_rows}, f, indent=2)
+        json.dump(
+            {"aggregate": enriched_agg, "by_archetype": by_archetype(enriched_rows), "queries": enriched_rows},
+            f,
+            indent=2,
+        )
     with open(report_dir / "evaluation_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
-
 
     if seed_db:
         _seed_eval_dataset(db_path, dataset, gold_by_q)
@@ -724,8 +741,15 @@ def run_ablation(
         # Multi-word variant swaps in the filtered index for keywords
         kw_p, kw_i = (mw_phrases, mw_idf) if variant == "keywords_multiword" else (kw_phrases, kw_idf)
         return enriched_retrieve(
-            q["question"], qvecs[i], matrix, ids, enrichment,
-            kw_p, kw_i, sum_phrases, sum_idf,
+            q["question"],
+            qvecs[i],
+            matrix,
+            ids,
+            enrichment,
+            kw_p,
+            kw_i,
+            sum_phrases,
+            sum_idf,
             features=features,
         )
 
@@ -758,9 +782,7 @@ def run_ablation(
         "queries_skipped_no_gold": skipped,
         "variants": results,
         "delta_vs_baseline": deltas,
-        "by_archetype": {
-            variant: by_archetype(per_query[variant]) for variant in results
-        },
+        "by_archetype": {variant: by_archetype(per_query[variant]) for variant in results},
         "elapsed_seconds": round(time.monotonic() - t0, 1),
     }
     with open(report_dir / "ablation_results.json", "w", encoding="utf-8") as f:
@@ -781,9 +803,7 @@ def _seed_eval_dataset(db_path: str, dataset: dict, gold_by_q: dict[str, tuple[s
 
     app = create_app()
     with app.app_context():
-        existing = {
-            r.query: r for r in db.session.query(RAGEvalDataset).filter_by(is_active=True).all()
-        }
+        existing = {r.query: r for r in db.session.query(RAGEvalDataset).filter_by(is_active=True).all()}
         added = updated = 0
         for q in dataset["questions"]:
             gold, _ = gold_by_q.get(q["id"], (set(), []))
@@ -819,7 +839,11 @@ def main() -> None:
     ap.add_argument("--report-dir", default="reports")
     ap.add_argument("--model", default="sentence-transformers/all-mpnet-base-v2")
     ap.add_argument("--seed-db", action="store_true", help="persist dataset into rag_eval_dataset")
-    ap.add_argument("--ablate", action="store_true", help="run the Phase 15 ablation matrix instead of the baseline-vs-enriched eval")
+    ap.add_argument(
+        "--ablate",
+        action="store_true",
+        help="run the Phase 15 ablation matrix instead of the baseline-vs-enriched eval",
+    )
     args = ap.parse_args()
 
     if args.ablate:

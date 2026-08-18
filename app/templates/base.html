@@ -1,519 +1,672 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}KMC Work Portal{% endblock %}</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}KMC Work Portal{% endblock %}</title>
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Georgia&family=Merriweather&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Georgia&family=Merriweather&family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
 
-    <!-- FontAwesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- FontAwesome for icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
 
-    <!-- CSRF token for AJAX requests (injected by Flask-WTF) -->
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+        <!-- CSRF token for AJAX requests (injected by Flask-WTF) -->
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
 
-    <!-- Theme CSS (single source of truth for all styles) -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+        <!-- Theme CSS (single source of truth for all styles) -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
 
-    <!-- Global Timeline case-picker styles -->
-    <style>
-        .tl-picker-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.55);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1200;
-            padding: 16px;
-        }
-        .tl-picker-overlay.open { display: flex; }
+        <!-- Global Timeline case-picker styles -->
+        <style>
+            .tl-picker-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.55);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 1200;
+                padding: 16px;
+            }
+            .tl-picker-overlay.open {
+                display: flex;
+            }
 
-        .tl-picker-card {
-            background: var(--bg-card, #ffffff);
-            border-radius: 12px;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
-            width: min(560px, 94vw);
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+            .tl-picker-card {
+                background: var(--bg-card, #ffffff);
+                border-radius: 12px;
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+                width: min(560px, 94vw);
+                max-height: 80vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
 
-        .tl-picker-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 16px 20px;
-            background: linear-gradient(135deg, #0b3d91 0%, #1550a8 100%);
-            color: #fff;
-        }
-        .tl-picker-header h3 {
-            margin: 0;
-            font-family: 'Merriweather', Georgia, serif;
-            font-size: 1.1rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .tl-picker-close {
-            background: rgba(255, 255, 255, 0.15);
-            border: none;
-            color: #fff;
-            font-size: 1.3rem;
-            line-height: 1;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: background-color 0.12s ease;
-        }
-        .tl-picker-close:hover { background: rgba(255, 255, 255, 0.3); }
+            .tl-picker-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 16px 20px;
+                background: linear-gradient(135deg, #0b3d91 0%, #1550a8 100%);
+                color: #fff;
+            }
+            .tl-picker-header h3 {
+                margin: 0;
+                font-family: "Merriweather", Georgia, serif;
+                font-size: 1.1rem;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .tl-picker-close {
+                background: rgba(255, 255, 255, 0.15);
+                border: none;
+                color: #fff;
+                font-size: 1.3rem;
+                line-height: 1;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                cursor: pointer;
+                transition: background-color 0.12s ease;
+            }
+            .tl-picker-close:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
 
-        .tl-picker-body {
-            padding: 16px 20px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            overflow-y: auto;
-        }
-        .tl-picker-row {
-            display: flex;
-            gap: 10px;
-        }
-        .tl-picker-row select {
-            flex: 0 0 160px;
-        }
-        .tl-picker-row input {
-            flex: 1;
-        }
+            .tl-picker-body {
+                padding: 16px 20px 18px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                overflow-y: auto;
+            }
+            .tl-picker-row {
+                display: flex;
+                gap: 10px;
+            }
+            .tl-picker-row select {
+                flex: 0 0 160px;
+            }
+            .tl-picker-row input {
+                flex: 1;
+            }
 
-        .tl-results {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 44vh;
-            overflow-y: auto;
-        }
-        .tl-result {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            width: 100%;
-            text-align: left;
-            padding: 10px 12px;
-            border: 1px solid var(--border, #d7dde8);
-            border-radius: 8px;
-            background: var(--bg-card, #fff);
-            cursor: pointer;
-            transition: border-color 0.12s ease, background-color 0.12s ease;
-            font: inherit;
-        }
-        .tl-result:hover, .tl-result--active {
-            border-color: #0b3d91;
-            background: #f0f5ff;
-        }
-        .tl-result-id {
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            color: #0b3d91;
-            min-width: 42px;
-        }
-        .tl-result-body {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .tl-result-no { font-weight: 600; color: var(--text-primary, #1f2937); }
-        .tl-result-label {
-            font-size: 0.82rem;
-            color: var(--text-secondary, #6b7280);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .tl-result mark {
-            background: rgba(11, 61, 145, 0.12);
-            color: #0b3d91;
-            border-radius: 3px;
-            padding: 0 2px;
-        }
-        .tl-result-arrow { color: var(--text-secondary, #6b7280); }
+            .tl-results {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                max-height: 44vh;
+                overflow-y: auto;
+            }
+            .tl-result {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+                border: 1px solid var(--border, #d7dde8);
+                border-radius: 8px;
+                background: var(--bg-card, #fff);
+                cursor: pointer;
+                transition:
+                    border-color 0.12s ease,
+                    background-color 0.12s ease;
+                font: inherit;
+            }
+            .tl-result:hover,
+            .tl-result--active {
+                border-color: #0b3d91;
+                background: #f0f5ff;
+            }
+            .tl-result-id {
+                font-weight: 700;
+                font-variant-numeric: tabular-nums;
+                color: #0b3d91;
+                min-width: 42px;
+            }
+            .tl-result-body {
+                flex: 1;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .tl-result-no {
+                font-weight: 600;
+                color: var(--text-primary, #1f2937);
+            }
+            .tl-result-label {
+                font-size: 0.82rem;
+                color: var(--text-secondary, #6b7280);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .tl-result mark {
+                background: rgba(11, 61, 145, 0.12);
+                color: #0b3d91;
+                border-radius: 3px;
+                padding: 0 2px;
+            }
+            .tl-result-arrow {
+                color: var(--text-secondary, #6b7280);
+            }
 
-        .tl-empty {
-            text-align: center;
-            color: var(--text-secondary, #6b7280);
-            font-style: italic;
-            padding: 18px 10px;
-            border: 1px dashed var(--border, #d7dde8);
-            border-radius: 8px;
-        }
-        .tl-hint {
-            margin: 0;
-            font-size: 0.78rem;
-        }
-    </style>
+            .tl-empty {
+                text-align: center;
+                color: var(--text-secondary, #6b7280);
+                font-style: italic;
+                padding: 18px 10px;
+                border: 1px dashed var(--border, #d7dde8);
+                border-radius: 8px;
+            }
+            .tl-hint {
+                margin: 0;
+                font-size: 0.78rem;
+            }
+        </style>
 
-    {% block extra_css %}{% endblock %}
-</head>
-<body>
-    <header>
-        <div class="nav-container nav-container--desktop">
-
-            <a href="/" class="logo">
-                <div class="logo-icon">
-                    <i class="fa-solid fa-shield-halved"></i>
-                </div>
-                <div class="logo-text">KMC Work Portal</div>
-            </a>
-
-            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
-                <span class="bar"></span>
-                <span class="bar"></span>
-                <span class="bar"></span>
-            </button>
-
-            <nav class="nav-tabs" id="navList">
-                <a href="{{ url_for('case_file_generator.index') }}"
-                   class="nav-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}">
-                    <i class="fa-solid fa-folder-open"></i> Sample -adjudication
+        {% block extra_css %}{% endblock %}
+    </head>
+    <body>
+        <header>
+            <div class="nav-container nav-container--desktop">
+                <a href="/" class="logo">
+                    <div class="logo-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div class="logo-text">KMC Work Portal</div>
                 </a>
-                <a href="{{ url_for('sample.index') }}"
-                   class="nav-link {% if request.blueprint == 'sample' %}active{% endif %}">
-                    <i class="fa-solid fa-vial"></i> Sample
-                </a>
-                <a href="{{ url_for('inspection.index') }}"
-                   class="nav-link {% if request.blueprint == 'inspection' %}active{% endif %}">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
-                </a>
-                <a href="{{ url_for('billing.index') }}"
-                   class="nav-link {% if request.blueprint == 'billing' %}active{% endif %}">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> Billing
-                </a>
-                <a href="{{ url_for('adjudication.index') }}"
-                   class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}">
-                    <i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication
-                </a>
-                <a href="{{ url_for('bill_generator.index') }}"
-                   class="nav-link {% if request.blueprint == 'bill_generator' %}active{% endif %}">
-                    <i class="fa-solid fa-receipt"></i> Bill Generator
-                </a>
-                <a href="{{ url_for('settings.index') }}"
-                   class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}">
-                    <i class="fa-solid fa-gear"></i> Settings
-                </a>
-                <a href="{{ url_for('search.index') }}"
-                   class="nav-link {% if request.blueprint == 'search' %}active{% endif %}">
-                    <i class="fa-solid fa-magnifying-glass"></i> Search
-                </a>
-                {% if current_app.config.get('RAG_ENABLED', True) %}
-                <a href="{{ url_for('rag.query_ui') }}"
-                   class="nav-link {% if request.blueprint == 'rag' %}active{% endif %}">
-                    <i class="fa-solid fa-robot"></i> Legal RAG
-                </a>
-                {% endif %}
-                <a href="{{ url_for('annexure.index') }}"
-                   class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}">
-                    <i class="fa-solid fa-paperclip"></i> Annexures
-                </a>
-                <a href="{{ url_for('evidence.index') }}"
-                   class="nav-link {% if request.blueprint == 'evidence' %}active{% endif %}">
-                    <i class="fa-solid fa-folder-open"></i> Evidence
-                </a>
-            </nav>
 
-            <div class="nav-user">
-                {% if current_user.is_authenticated %}
-                <button type="button" id="tlOpenBtn" class="btn btn-secondary btn-sm"
-                        title="Open a case timeline" aria-haspopup="dialog">
-                    <i class="fa-solid fa-timeline"></i> Timeline
+                <button
+                    class="nav-toggle"
+                    id="navToggle"
+                    aria-label="Toggle navigation"
+                    aria-expanded="false"
+                >
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
                 </button>
-                <span class="user-name">
-                    <i class="fa-solid fa-user"></i> {{ current_user.username }}
-                </span>
-                {% if current_user.is_admin %}
-                <a href="{{ url_for('auth.users') }}" class="btn btn-secondary btn-sm"
-                   title="Manage users">
-                    <i class="fa-solid fa-users-gear"></i>
-                </a>
-                {% endif %}
-                <a href="{{ url_for('auth.change_password') }}" class="btn btn-secondary btn-sm"
-                   title="Change password">
-                    <i class="fa-solid fa-key"></i>
-                </a>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </a>
-                {% endif %}
-            </div>
-        </div>
-    </header>
 
-    <div class="nav-overlay" id="navOverlay"></div>
+                <nav class="nav-tabs" id="navList">
+                    <a
+                        href="{{ url_for('case_file_generator.index') }}"
+                        class="nav-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-folder-open"></i> Sample -adjudication
+                    </a>
+                    <a
+                        href="{{ url_for('sample.index') }}"
+                        class="nav-link {% if request.blueprint == 'sample' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-vial"></i> Sample
+                    </a>
+                    <a
+                        href="{{ url_for('inspection.index') }}"
+                        class="nav-link {% if request.blueprint == 'inspection' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
+                    </a>
+                    <a
+                        href="{{ url_for('billing.index') }}"
+                        class="nav-link {% if request.blueprint == 'billing' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Billing
+                    </a>
+                    <a
+                        href="{{ url_for('adjudication.index') }}"
+                        class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication
+                    </a>
+                    <a
+                        href="{{ url_for('bill_generator.index') }}"
+                        class="nav-link {% if request.blueprint == 'bill_generator' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-receipt"></i> Bill Generator
+                    </a>
+                    <a
+                        href="{{ url_for('settings.index') }}"
+                        class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-gear"></i> Settings
+                    </a>
+                    <a
+                        href="{{ url_for('search.index') }}"
+                        class="nav-link {% if request.blueprint == 'search' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-magnifying-glass"></i> Search
+                    </a>
+                    {% if config.get('RAG_ENABLED', True) %}
+                    <a
+                        href="{{ url_for('rag.query_ui') }}"
+                        class="nav-link {% if request.blueprint == 'rag' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-robot"></i> Legal RAG
+                    </a>
+                    {% endif %}
+                    <a
+                        href="{{ url_for('annexure.index') }}"
+                        class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-paperclip"></i> Annexures
+                    </a>
+                    <a
+                        href="{{ url_for('evidence.index') }}"
+                        class="nav-link {% if request.blueprint == 'evidence' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-folder-open"></i> Evidence
+                    </a>
+                </nav>
 
-    <main class="layout-container">
-        {% block content %}{% endblock %}
-    </main>
-
-    <!-- Global Timeline case-picker modal -->
-    <div id="timelinePicker" class="tl-picker-overlay" role="dialog" aria-modal="true"
-         aria-labelledby="tlPickerTitle">
-        <div class="tl-picker-card">
-            <div class="tl-picker-header">
-                <h3 id="tlPickerTitle"><i class="fa-solid fa-timeline"></i> Open Case Timeline</h3>
-                <button type="button" class="tl-picker-close" id="tlPickerClose" aria-label="Close">&times;</button>
-            </div>
-            <div class="tl-picker-body">
-                <div class="tl-picker-row">
-                    <select id="tlKind" class="form-input" aria-label="Case type">
-                        <option value="case_file">Case File</option>
-                        <option value="adjudication">Adjudication</option>
-                    </select>
-                    <input type="search" id="tlSearch" class="form-input" autocomplete="off"
-                           placeholder="Search case number, FBO, or ID…">
+                <div class="nav-user">
+                    {% if current_user.is_authenticated %}
+                    <button
+                        type="button"
+                        id="tlOpenBtn"
+                        class="btn btn-secondary btn-sm"
+                        title="Open a case timeline"
+                        aria-haspopup="dialog"
+                    >
+                        <i class="fa-solid fa-timeline"></i> Timeline
+                    </button>
+                    <span class="user-name">
+                        <i class="fa-solid fa-user"></i> {{ current_user.username }}
+                    </span>
+                    {% if current_user.is_admin %}
+                    <a
+                        href="{{ url_for('auth.users') }}"
+                        class="btn btn-secondary btn-sm"
+                        title="Manage users"
+                    >
+                        <i class="fa-solid fa-users-gear"></i>
+                    </a>
+                    {% endif %}
+                    <a
+                        href="{{ url_for('auth.change_password') }}"
+                        class="btn btn-secondary btn-sm"
+                        title="Change password"
+                    >
+                        <i class="fa-solid fa-key"></i>
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </a>
+                    {% endif %}
                 </div>
-                <div id="tlResults" class="tl-results" role="listbox" aria-label="Matching cases"></div>
-                <div id="tlEmpty" class="tl-empty" hidden>No matching cases.</div>
-                <p class="tl-hint form-hint">
-                    Type a case number, FBO name, or numeric ID — use &uarr;/&darr; to navigate and Enter to open.
-                </p>
+            </div>
+        </header>
+
+        <div class="nav-overlay" id="navOverlay"></div>
+
+        <main class="layout-container">{% block content %}{% endblock %}</main>
+
+        <!-- Global Timeline case-picker modal -->
+        <div
+            id="timelinePicker"
+            class="tl-picker-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tlPickerTitle"
+        >
+            <div class="tl-picker-card">
+                <div class="tl-picker-header">
+                    <h3 id="tlPickerTitle">
+                        <i class="fa-solid fa-timeline"></i> Open Case Timeline
+                    </h3>
+                    <button
+                        type="button"
+                        class="tl-picker-close"
+                        id="tlPickerClose"
+                        aria-label="Close"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <div class="tl-picker-body">
+                    <div class="tl-picker-row">
+                        <select id="tlKind" class="form-input" aria-label="Case type">
+                            <option value="case_file">Case File</option>
+                            <option value="adjudication">Adjudication</option>
+                        </select>
+                        <input
+                            type="search"
+                            id="tlSearch"
+                            class="form-input"
+                            autocomplete="off"
+                            placeholder="Search case number, FBO, or ID…"
+                        />
+                    </div>
+                    <div
+                        id="tlResults"
+                        class="tl-results"
+                        role="listbox"
+                        aria-label="Matching cases"
+                    ></div>
+                    <div id="tlEmpty" class="tl-empty" hidden>No matching cases.</div>
+                    <p class="tl-hint form-hint">
+                        Type a case number, FBO name, or numeric ID — use &uarr;/&darr; to navigate
+                        and Enter to open.
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <footer>
-        <p>&copy; 2026 Kolkata Municipal Corporation, Food Safety Department. All Rights Reserved. Built with <i class="fa-solid fa-heart heart"></i> using Flask & WeasyPrint.</p>
-    </footer>
+        <footer>
+            <p>
+                &copy; 2026 Kolkata Municipal Corporation, Food Safety Department. All Rights
+                Reserved. Built with <i class="fa-solid fa-heart heart"></i> using Flask &
+                WeasyPrint.
+            </p>
+        </footer>
 
-    <script>
-        // Hamburger menu toggle for mobile
-        (function() {
-            var toggle = document.getElementById('navToggle');
-            var navList = document.getElementById('navList');
-            var overlay = document.getElementById('navOverlay');
+        <script>
+            // Hamburger menu toggle for mobile
+            (function () {
+                var toggle = document.getElementById("navToggle");
+                var navList = document.getElementById("navList");
+                var overlay = document.getElementById("navOverlay");
 
-            function toggleNav(open) {
-                var isOpening = typeof open === 'boolean' ? open : !navList.classList.contains('show');
-                navList.classList.toggle('show', isOpening);
-                overlay.classList.toggle('show', isOpening);
-                toggle.setAttribute('aria-expanded', isOpening);
-            }
+                function toggleNav(open) {
+                    var isOpening =
+                        typeof open === "boolean" ? open : !navList.classList.contains("show");
+                    navList.classList.toggle("show", isOpening);
+                    overlay.classList.toggle("show", isOpening);
+                    toggle.setAttribute("aria-expanded", isOpening);
+                }
 
-            toggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleNav();
-            });
+                toggle.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    toggleNav();
+                });
 
-            overlay.addEventListener('click', function() {
-                toggleNav(false);
-            });
-
-            // Close nav on resize if desktop
-            window.addEventListener('resize', function() {
-                if (window.innerWidth >= 768) {
+                overlay.addEventListener("click", function () {
                     toggleNav(false);
-                }
-            });
-        })();
-
-        // Auto-attach CSRF token (X-CSRFToken header) to every fetch() call
-        // that performs a state-changing request (POST / PUT / DELETE / PATCH).
-        (function() {
-            var csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfToken) return;
-            var token = csrfToken.getAttribute('content');
-            if (!token) return;
-
-            var originalFetch = window.fetch;
-            window.fetch = function(url, options) {
-                options = options || {};
-                var method = (options.method || 'GET').toUpperCase();
-                if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(method) !== -1) {
-                    options.headers = options.headers || {};
-                    options.headers['X-CSRFToken'] = token;
-                }
-                return originalFetch.call(this, url, options);
-            };
-        })();
-    </script>
-
-    <script>
-        // Global Timeline case-picker: keyboard-navigable search over the
-        // /cases JSON feeds. URL bases are server-injected so prefix changes
-        // never break the picker.
-        (function () {
-            var picker = document.getElementById('timelinePicker');
-            var openBtn = document.getElementById('tlOpenBtn');
-            var closeBtn = document.getElementById('tlPickerClose');
-            var kindSel = document.getElementById('tlKind');
-            var search = document.getElementById('tlSearch');
-            var resultsEl = document.getElementById('tlResults');
-            var emptyEl = document.getElementById('tlEmpty');
-            if (!picker || !openBtn) return;
-
-            // Server-injected URL bases for the case feeds + timeline view.
-            var FEEDS = {
-                case_file: '{{ url_for("case_file_generator.list_cases") }}',
-                adjudication: '{{ url_for("adjudication.list_cases") }}'
-            };
-            var TL_BASE = '/timeline/case/';
-
-            var feedCache = {};
-            var items = [];
-            var activeIdx = -1;
-
-            function esc(s) {
-                var d = document.createElement('div');
-                d.textContent = s == null ? '' : String(s);
-                return d.innerHTML;
-            }
-
-            function highlight(text, q) {
-                var s = text == null ? '' : String(text);
-                if (!q) return esc(s);
-                var idx = s.toLowerCase().indexOf(q.toLowerCase());
-                if (idx === -1) return esc(s);
-                return esc(s.slice(0, idx)) + '<mark>' + esc(s.slice(idx, idx + q.length)) + '</mark>' +
-                    esc(s.slice(idx + q.length));
-            }
-
-            function fetchFeed(kind) {
-                if (!feedCache[kind]) {
-                    feedCache[kind] = fetch(FEEDS[kind], { headers: { 'Accept': 'application/json' } })
-                        .then(function (r) { return r.ok ? r.json() : []; })
-                        .catch(function () { return []; });
-                }
-                return feedCache[kind];
-            }
-
-            function openTimeline(item, kind) {
-                window.location.href = TL_BASE + item.id + '?kind=' + encodeURIComponent(kind);
-            }
-
-            function setActive(i) {
-                activeIdx = i;
-                var rows = resultsEl.querySelectorAll('.tl-result');
-                rows.forEach(function (row, idx) {
-                    row.classList.toggle('tl-result--active', idx === activeIdx);
-                });
-                var active = rows[activeIdx];
-                if (active) active.scrollIntoView({ block: 'nearest' });
-            }
-
-            function render() {
-                var q = search.value.trim().toLowerCase();
-                var kind = kindSel.value;
-                var filtered = items.filter(function (it) {
-                    if (!q) return true;
-                    if (/^\d+$/.test(q)) return String(it.id).indexOf(q) === 0;
-                    var hay = ((it.case_number || '') + ' ' + (it.manufacturer_name || '') + ' ' +
-                        (it.fbo_name || '') + ' ' + (it.product_name || '')).toLowerCase();
-                    return hay.indexOf(q) !== -1;
                 });
 
-                resultsEl.innerHTML = '';
-                activeIdx = -1;
-
-                if (!filtered.length) {
-                    emptyEl.hidden = false;
-                    emptyEl.textContent = q ? 'No cases match "' + search.value.trim() + '".' : 'No ' + kind + 's found.';
-                    return;
-                }
-                emptyEl.hidden = true;
-
-                filtered.forEach(function (it, i) {
-                    var label = it.manufacturer_name || it.fbo_name || it.product_name || '';
-                    var row = document.createElement('button');
-                    row.type = 'button';
-                    row.className = 'tl-result';
-                    row.setAttribute('role', 'option');
-                    row.innerHTML =
-                        '<span class="tl-result-id">#' + it.id + '</span>' +
-                        '<span class="tl-result-body">' +
-                        '<span class="tl-result-no">' + highlight(it.case_number || '', search.value.trim()) + '</span>' +
-                        (label ? '<span class="tl-result-label">' + highlight(label, search.value.trim()) + '</span>' : '') +
-                        '</span>' +
-                        '<span class="tl-result-arrow"><i class="fa-solid fa-arrow-right"></i></span>';
-                    row.addEventListener('click', function () { openTimeline(it, kind); });
-                    row.addEventListener('mouseenter', function () { setActive(i); });
-                    resultsEl.appendChild(row);
+                // Close nav on resize if desktop
+                window.addEventListener("resize", function () {
+                    if (window.innerWidth >= 768) {
+                        toggleNav(false);
+                    }
                 });
+            })();
 
-                // Direct numeric-ID open: pressing Enter with a bare ID goes straight there.
-                if (/^\d+$/.test(search.value.trim()) && filtered.length === 1 && String(filtered[0].id) === search.value.trim()) {
-                    setActive(0);
+            // Auto-attach CSRF token (X-CSRFToken header) to every fetch() call
+            // that performs a state-changing request (POST / PUT / DELETE / PATCH).
+            (function () {
+                var csrfToken = document.querySelector('meta[name="csrf-token"]');
+                if (!csrfToken) return;
+                var token = csrfToken.getAttribute("content");
+                if (!token) return;
+
+                var originalFetch = window.fetch;
+                window.fetch = function (url, options) {
+                    options = options || {};
+                    var method = (options.method || "GET").toUpperCase();
+                    if (["POST", "PUT", "DELETE", "PATCH"].indexOf(method) !== -1) {
+                        options.headers = options.headers || {};
+                        options.headers["X-CSRFToken"] = token;
+                    }
+                    return originalFetch.call(this, url, options);
+                };
+            })();
+        </script>
+
+        <script>
+            // Global Timeline case-picker: keyboard-navigable search over the
+            // /cases JSON feeds. URL bases are server-injected so prefix changes
+            // never break the picker.
+            (function () {
+                var picker = document.getElementById("timelinePicker");
+                var openBtn = document.getElementById("tlOpenBtn");
+                var closeBtn = document.getElementById("tlPickerClose");
+                var kindSel = document.getElementById("tlKind");
+                var search = document.getElementById("tlSearch");
+                var resultsEl = document.getElementById("tlResults");
+                var emptyEl = document.getElementById("tlEmpty");
+                if (!picker || !openBtn) return;
+
+                // Server-injected URL bases for the case feeds + timeline view.
+                var FEEDS = {
+                    case_file: '{{ url_for("case_file_generator.list_cases") }}',
+                    adjudication: '{{ url_for("adjudication.list_cases") }}',
+                };
+                var TL_BASE = "/timeline/case/";
+
+                var feedCache = {};
+                var items = [];
+                var activeIdx = -1;
+
+                function highlightToDom(text, q) {
+                    var s = text == null ? "" : String(text);
+                    var frag = document.createDocumentFragment();
+                    if (!q) {
+                        frag.appendChild(document.createTextNode(s));
+                        return frag;
+                    }
+                    var idx = s.toLowerCase().indexOf(q.toLowerCase());
+                    if (idx === -1) {
+                        frag.appendChild(document.createTextNode(s));
+                        return frag;
+                    }
+                    frag.appendChild(document.createTextNode(s.slice(0, idx)));
+                    var mark = document.createElement("mark");
+                    mark.textContent = s.slice(idx, idx + q.length);
+                    frag.appendChild(mark);
+                    frag.appendChild(document.createTextNode(s.slice(idx + q.length)));
+                    return frag;
                 }
-            }
 
-            function openPicker() {
-                picker.classList.add('open');
-                search.value = '';
-                resultsEl.innerHTML = '';
-                emptyEl.hidden = true;
-                items = [];
-                activeIdx = -1;
-                var kind = kindSel.value;
-                // Refetch on every open so freshly created cases show up.
-                feedCache[kind] = null;
-                fetchFeed(kind).then(function (list) {
-                    if (picker.classList.contains('open')) {
+                function fetchFeed(kind) {
+                    if (!feedCache[kind]) {
+                        feedCache[kind] = fetch(FEEDS[kind], {
+                            headers: { Accept: "application/json" },
+                        })
+                            .then(function (r) {
+                                return r.ok ? r.json() : [];
+                            })
+                            .catch(function () {
+                                return [];
+                            });
+                    }
+                    return feedCache[kind];
+                }
+
+                function openTimeline(item, kind) {
+                    // Guard against non-numeric IDs and validate the URL is
+                    // relative to prevent open-redirect / path-traversal.
+                    var id = parseInt(item.id, 10);
+                    if (!isFinite(id) || id < 1) return;
+                    var url = TL_BASE + id + "?kind=" + encodeURIComponent(kind);
+                    if (url.startsWith("/")) {
+                        window.location.assign(url);
+                    }
+                }
+
+                function setActive(i) {
+                    activeIdx = i;
+                    var rows = resultsEl.querySelectorAll(".tl-result");
+                    rows.forEach(function (row, idx) {
+                        row.classList.toggle("tl-result--active", idx === activeIdx);
+                    });
+                    var active = rows[activeIdx];
+                    if (active) active.scrollIntoView({ block: "nearest" });
+                }
+
+                function render() {
+                    var q = search.value.trim().toLowerCase();
+                    var kind = kindSel.value;
+                    var filtered = items.filter(function (it) {
+                        if (!q) return true;
+                        if (/^\d+$/.test(q)) return String(it.id).indexOf(q) === 0;
+                        var hay = (
+                            (it.case_number || "") +
+                            " " +
+                            (it.manufacturer_name || "") +
+                            " " +
+                            (it.fbo_name || "") +
+                            " " +
+                            (it.product_name || "")
+                        ).toLowerCase();
+                        return hay.indexOf(q) !== -1;
+                    });
+
+                    resultsEl.replaceChildren();
+                    activeIdx = -1;
+
+                    if (!filtered.length) {
+                        emptyEl.hidden = false;
+                        emptyEl.textContent = q
+                            ? 'No cases match "' + search.value.trim() + '".'
+                            : "No " + kind + "s found.";
+                        return;
+                    }
+                    emptyEl.hidden = true;
+
+                    filtered.forEach(function (it, i) {
+                        var label = it.manufacturer_name || it.fbo_name || it.product_name || "";
+                        var row = document.createElement("button");
+                        row.type = "button";
+                        row.className = "tl-result";
+                        row.setAttribute("role", "option");
+                        // Build row content via DOM API (no innerHTML) — all
+                        // text nodes use textContent which auto-escapes HTML.
+                        var idSpan = document.createElement("span");
+                        idSpan.className = "tl-result-id";
+                        idSpan.textContent = "#" + String(it.id);
+
+                        var bodySpan = document.createElement("span");
+                        bodySpan.className = "tl-result-body";
+
+                        var noSpan = document.createElement("span");
+                        noSpan.className = "tl-result-no";
+                        noSpan.appendChild(
+                            highlightToDom(it.case_number || "", search.value.trim())
+                        );
+                        bodySpan.appendChild(noSpan);
+
+                        if (label) {
+                            var labelSpan = document.createElement("span");
+                            labelSpan.className = "tl-result-label";
+                            labelSpan.appendChild(highlightToDom(label, search.value.trim()));
+                            bodySpan.appendChild(labelSpan);
+                        }
+
+                        var arrowSpan = document.createElement("span");
+                        arrowSpan.className = "tl-result-arrow";
+                        var icon = document.createElement("i");
+                        icon.className = "fa-solid fa-arrow-right";
+                        arrowSpan.appendChild(icon);
+
+                        row.appendChild(idSpan);
+                        row.appendChild(bodySpan);
+                        row.appendChild(arrowSpan);
+                        row.addEventListener("click", function () {
+                            openTimeline(it, kind);
+                        });
+                        row.addEventListener("mouseenter", function () {
+                            setActive(i);
+                        });
+                        resultsEl.appendChild(row);
+                    });
+
+                    // Direct numeric-ID open: pressing Enter with a bare ID goes straight there.
+                    if (
+                        /^\d+$/.test(search.value.trim()) &&
+                        filtered.length === 1 &&
+                        String(filtered[0].id) === search.value.trim()
+                    ) {
+                        setActive(0);
+                    }
+                }
+
+                function openPicker() {
+                    picker.classList.add("open");
+                    search.value = "";
+                    resultsEl.replaceChildren();
+                    emptyEl.hidden = true;
+                    items = [];
+                    activeIdx = -1;
+                    var kind = kindSel.value;
+                    // Refetch on every open so freshly created cases show up.
+                    feedCache[kind] = null;
+                    fetchFeed(kind).then(function (list) {
+                        if (picker.classList.contains("open")) {
+                            items = list;
+                            render();
+                        }
+                    });
+                    setTimeout(function () {
+                        search.focus();
+                    }, 30);
+                }
+
+                function closePicker() {
+                    picker.classList.remove("open");
+                }
+
+                openBtn.addEventListener("click", openPicker);
+                closeBtn.addEventListener("click", closePicker);
+                picker.addEventListener("click", function (e) {
+                    if (e.target === picker) closePicker();
+                });
+                document.addEventListener("keydown", function (e) {
+                    if (e.key === "Escape" && picker.classList.contains("open")) {
+                        closePicker();
+                        return;
+                    }
+                    if (!picker.classList.contains("open")) return;
+                    var rows = resultsEl.querySelectorAll(".tl-result");
+                    if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setActive(activeIdx < rows.length - 1 ? activeIdx + 1 : 0);
+                    } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setActive(activeIdx > 0 ? activeIdx - 1 : rows.length - 1);
+                    } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        var q = search.value.trim();
+                        if (/^\d+$/.test(q)) {
+                            var exact = items.filter(function (it) {
+                                return String(it.id) === q;
+                            })[0];
+                            if (exact) {
+                                openTimeline(exact, kindSel.value);
+                                return;
+                            }
+                        }
+                        if (activeIdx >= 0 && rows[activeIdx]) {
+                            rows[activeIdx].click();
+                        }
+                    }
+                });
+                kindSel.addEventListener("change", function () {
+                    items = [];
+                    fetchFeed(kindSel.value).then(function (list) {
                         items = list;
                         render();
-                    }
+                    });
                 });
-                setTimeout(function () { search.focus(); }, 30);
-            }
+                search.addEventListener("input", render);
+            })();
+        </script>
 
-            function closePicker() {
-                picker.classList.remove('open');
-            }
-
-            openBtn.addEventListener('click', openPicker);
-            closeBtn.addEventListener('click', closePicker);
-            picker.addEventListener('click', function (e) {
-                if (e.target === picker) closePicker();
-            });
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && picker.classList.contains('open')) {
-                    closePicker();
-                    return;
-                }
-                if (!picker.classList.contains('open')) return;
-                var rows = resultsEl.querySelectorAll('.tl-result');
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setActive(activeIdx < rows.length - 1 ? activeIdx + 1 : 0);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setActive(activeIdx > 0 ? activeIdx - 1 : rows.length - 1);
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    var q = search.value.trim();
-                    if (/^\d+$/.test(q)) {
-                        var exact = items.filter(function (it) { return String(it.id) === q; })[0];
-                        if (exact) { openTimeline(exact, kindSel.value); return; }
-                    }
-                    if (activeIdx >= 0 && rows[activeIdx]) {
-                        rows[activeIdx].click();
-                    }
-                }
-            });
-            kindSel.addEventListener('change', function () {
-                items = [];
-                fetchFeed(kindSel.value).then(function (list) { items = list; render(); });
-            });
-            search.addEventListener('input', render);
-        })();
-    </script>
-
-    {% block extra_js %}{% endblock %}
-</body>
+        {% block extra_js %}{% endblock %}
+    </body>
 </html>

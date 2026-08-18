@@ -12,6 +12,7 @@ Produces:
     evaluation/out/ceiling_v5/failure_taxonomy.json  — per-question failure records
     evaluation/out/ceiling_v5/failure_taxonomy_summary.json — aggregate stats
 """
+
 from __future__ import annotations
 
 import json
@@ -62,10 +63,44 @@ def _count_subsections(text: str) -> int:
 
 def _word_overlap(a: str, b: str) -> float:
     """Jaccard-like word overlap."""
-    stop = {"the", "a", "an", "of", "and", "or", "to", "in", "for", "under",
-            "what", "which", "who", "how", "is", "are", "does", "do", "be",
-            "by", "on", "at", "with", "from", "as", "that", "this", "its",
-            "it", "not", "shall", "may", "act", "section", "sec", "rule"}
+    stop = {
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "for",
+        "under",
+        "what",
+        "which",
+        "who",
+        "how",
+        "is",
+        "are",
+        "does",
+        "do",
+        "be",
+        "by",
+        "on",
+        "at",
+        "with",
+        "from",
+        "as",
+        "that",
+        "this",
+        "its",
+        "it",
+        "not",
+        "shall",
+        "may",
+        "act",
+        "section",
+        "sec",
+        "rule",
+    }
     wa = {w for w in re.findall(r"[a-z0-9]+", str(a).lower()) if w not in stop}
     wb = {w for w in re.findall(r"[a-z09]+", str(b).lower()) if w not in stop}
     if not wa or not wb:
@@ -76,9 +111,22 @@ def _word_overlap(a: str, b: str) -> float:
 def _is_provisional(text: str) -> bool:
     """Heuristic: does the text discuss procedures/remedies rather than rights?"""
     proc_markers = [
-        "shall apply", "application", "procedure", "notice", "hearing",
-        "appeal", "tribunal", "court", "filing", "petition", "complaint",
-        "proceeding", "compliance", "inspection", "seizure", "detention",
+        "shall apply",
+        "application",
+        "procedure",
+        "notice",
+        "hearing",
+        "appeal",
+        "tribunal",
+        "court",
+        "filing",
+        "petition",
+        "complaint",
+        "proceeding",
+        "compliance",
+        "inspection",
+        "seizure",
+        "detention",
     ]
     text_lower = text.lower()
     return sum(1 for m in proc_markers if m in text_lower) >= 2
@@ -87,8 +135,12 @@ def _is_provisional(text: str) -> bool:
 def _is_definition(text: str) -> bool:
     """Heuristic: does the text define terms?"""
     def_markers = [
-        '"means"', "'means'", "definition", "for the purposes of",
-        "shall have the meaning", "shall be deemed",
+        '"means"',
+        "'means'",
+        "definition",
+        "for the purposes of",
+        "shall have the meaning",
+        "shall be deemed",
     ]
     text_lower = text.lower()
     return any(m in text_lower for m in def_markers)
@@ -97,16 +149,19 @@ def _is_definition(text: str) -> bool:
 def _is_exception(text: str) -> bool:
     """Heuristic: does the text carve out an exception?"""
     exc_markers = [
-        "provided that", "provided further", "notwithstanding",
-        "except", "save as", "subject to", "excepting",
+        "provided that",
+        "provided further",
+        "notwithstanding",
+        "except",
+        "save as",
+        "subject to",
+        "excepting",
     ]
     text_lower = text.lower()
     return any(m in text_lower for m in exc_markers)
 
 
-def _temporal_conflict(
-    gold_payload: dict, negative_payload: dict
-) -> bool:
+def _temporal_conflict(gold_payload: dict, negative_payload: dict) -> bool:
     """Check for temporal version mismatch (simplified)."""
     gold_status = str(gold_payload.get("temporal_status", "")).lower()
     neg_status = str(negative_payload.get("temporal_status", "")).lower()
@@ -136,9 +191,11 @@ def classify_failure(
     neg_sub = str(negative_payload.get("subsection", "") or "")
 
     # Family match
-    neg_fams = set(family_map.family_s_for_act(
-        str(negative_payload.get("act_name") or negative_payload.get("document_title") or "")
-    ))
+    neg_fams = set(
+        family_map.family_s_for_act(
+            str(negative_payload.get("act_name") or negative_payload.get("document_title") or "")
+        )
+    )
     same_family = gold_unit.family in neg_fams
 
     gold_text = str(gold_payload.get("chunk_text", "") or "")
@@ -234,10 +291,7 @@ def classify_ranking_failures(
         # For each gold unit, check if it's resolvable in the payload index
         gold_resolved = {}
         for unit in rel:
-            pts = [
-                pid for pid, payload in payload_index.items()
-                if matches_gold(payload, unit, family_map)
-            ]
+            pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map)]
             gold_resolved[unit.provision_id] = {
                 "unit": unit,
                 "point_ids": pts,
@@ -290,9 +344,7 @@ def main() -> int:
         ),
     }
 
-    (OUT / "failure_taxonomy.json").write_text(
-        json.dumps(all_failures, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    (OUT / "failure_taxonomy.json").write_text(json.dumps(all_failures, indent=2, ensure_ascii=False), encoding="utf-8")
     (OUT / "failure_taxonomy_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )

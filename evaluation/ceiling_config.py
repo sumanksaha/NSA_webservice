@@ -47,6 +47,7 @@ RAW_DIR = PROJECT_ROOT / "evaluation" / "out" / os.environ.get("CEILING_RAW_DIR"
 DEPTHS = (5, 10, 20, 50, 100, 200, 500)
 NDCG_KS = (10, 20, 50)
 
+
 # --------------------------------------------------------------------------- #
 # Retrieval depths per arm (env-overridable — V5 runs the full 500-depth
 # candidate pipeline per RANKING_CEILING_V5 protocol Task 1)
@@ -58,12 +59,12 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DENSE_DEPTH = 500        # ARM A
-SPARSE_DEPTH = 500       # ARM B
-HYBRID_DEPTH = 500       # ARM C  (frozen fusion, just deeper)
-KG_DEPTH = _env_int("CEILING_KG_DEPTH", 200)      # ARM D (diagnostic extends)
-ORACLE_DEPTH = 500       # §13 gold-text oracle
-EXACT_DEPTH = 100        # §14 exact legal identifier test
+DENSE_DEPTH = 500  # ARM A
+SPARSE_DEPTH = 500  # ARM B
+HYBRID_DEPTH = 500  # ARM C  (frozen fusion, just deeper)
+KG_DEPTH = _env_int("CEILING_KG_DEPTH", 200)  # ARM D (diagnostic extends)
+ORACLE_DEPTH = 500  # §13 gold-text oracle
+EXACT_DEPTH = 100  # §14 exact legal identifier test
 
 # ARM E union composition (protocol §6): dense@D + sparse@D + KG@D.
 # V4 measured 200→500 slice growth: ceiling 55.6% → 65.8%; V5 runs D=500.
@@ -86,13 +87,13 @@ KG_DIAGNOSTIC_LIMIT = KG_DEPTH
 # Live arms (ran by run_ceiling.py)
 # --------------------------------------------------------------------------- #
 LIVE_ARMS = [
-    "A_dense",           # dense Qdrant @500
-    "B_sparse",          # sparse / BM25 @500
-    "C_hybrid",          # dense+sparse (frozen fusion) @500
-    "D_kg",              # KG graph-RAG contract @200 (diagnostic depth)
-    "O_dense",           # §13 oracle: gold provision title -> dense @500
-    "O_sparse",          # §13 oracle: gold provision title -> sparse @500
-    "X_exact",           # §14 exact identifier query -> dense@100 + sparse@100
+    "A_dense",  # dense Qdrant @500
+    "B_sparse",  # sparse / BM25 @500
+    "C_hybrid",  # dense+sparse (frozen fusion) @500
+    "D_kg",  # KG graph-RAG contract @200 (diagnostic depth)
+    "O_dense",  # §13 oracle: gold provision title -> dense @500
+    "O_sparse",  # §13 oracle: gold provision title -> sparse @500
+    "X_exact",  # §14 exact identifier query -> dense@100 + sparse@100
 ]
 
 # Offline arms (built by report_ceiling.py from the live caches):
@@ -100,6 +101,7 @@ LIVE_ARMS = [
 #   E_union_rrf     — RRF(dense@200, sparse@200, KG@200) interleaved
 #   E_union_pool    — the dedup union pool as one unranked set (ceiling)
 #   O_hybrid        — RRF(O_dense, O_sparse) — §13 oracle hybrid
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -116,7 +118,10 @@ def git_head() -> dict:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=10,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            timeout=10,
         )
         commit = out.stdout.strip()
     except Exception:
@@ -124,7 +129,10 @@ def git_head() -> dict:
     try:
         out = subprocess.run(
             ["git", "log", "-1", "--format=%ci"],
-            capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=10,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            timeout=10,
         )
         date = out.stdout.strip()
     except Exception:
@@ -231,9 +239,7 @@ def collect_freeze(app) -> dict:
         "llm": {"used": False, "note": "retrieval-only experiment — no generative LLM calls"},
         "protocol": "master retrieval-ceiling prompt v1 — no production code modified",
     }
-    freeze["freeze_hash"] = hashlib.sha256(
-        json.dumps(freeze, sort_keys=True, default=str).encode("utf-8")
-    ).hexdigest()
+    freeze["freeze_hash"] = hashlib.sha256(json.dumps(freeze, sort_keys=True, default=str).encode("utf-8")).hexdigest()
     return freeze
 
 

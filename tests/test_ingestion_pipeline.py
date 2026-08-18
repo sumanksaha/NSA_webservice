@@ -378,7 +378,14 @@ class TestFullEnrichmentFlag:
         result = pipeline.ingest_text(_SAMPLE_TEXT, {"document_id": "doc-1"})
         assert result.ok
         assert result.quality_summary is not None
-        assert chunker.last_document["document_type"] in {"act", "rule", "regulation", "notification", "circular", "case_law"}
+        assert chunker.last_document["document_type"] in {
+            "act",
+            "rule",
+            "regulation",
+            "notification",
+            "circular",
+            "case_law",
+        }
 
     def test_run_ingest_document_uses_production_default(self, monkeypatch):
         """Without an explicit pipeline, the factory's (classifier-wired) default is used."""

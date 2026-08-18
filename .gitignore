@@ -144,6 +144,7 @@ Dockerfile.dev
 neo4j-data/
 data/neo4j/
 plugins/
+!app/plugins/
 logs/neo4j/
 import/
 certificates/

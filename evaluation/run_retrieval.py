@@ -71,9 +71,7 @@ def main() -> int:
     with app.app_context():
         questions = load_questions()
         collections = _all_collections(app)
-        payload_index = build_payload_index(
-            lambda coll: _store_factory(coll), collections, force=args.force
-        )
+        payload_index = build_payload_index(lambda coll: _store_factory(coll), collections, force=args.force)
         logger.info("payload index: %d points", len(payload_index))
         (OUT_DIR / "payload_index_meta.json").write_text(
             json.dumps({"n_points": len(payload_index), "collections": collections}),
@@ -83,7 +81,7 @@ def main() -> int:
         # shard slice
         idx_str, n_str = args.shard.split("/")
         shard_idx, n_shards = int(idx_str), int(n_str)
-        questions = questions[shard_idx - 1::n_shards] if n_shards > 1 else questions
+        questions = questions[shard_idx - 1 :: n_shards] if n_shards > 1 else questions
         logger.info("shard %s: %d questions", args.shard, len(questions))
 
         arms = [a.strip() for a in args.arms.split(",") if a.strip()]
@@ -120,7 +118,10 @@ def main() -> int:
                         elapsed = time.monotonic() - started
                         logger.info(
                             "arm %s %d/%d (%.0fs, last %.0fms)",
-                            arm, i, len(questions), elapsed,
+                            arm,
+                            i,
+                            len(questions),
+                            elapsed,
                             result.get("latency_ms", 0),
                         )
             logger.info("arm %s complete", arm)

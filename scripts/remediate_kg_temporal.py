@@ -117,10 +117,7 @@ def remediate(drv, database: str, dry_run: bool = False) -> dict:
     """
     result: dict = {"dry_run": dry_run}
     result["risk_before"] = _one(_RISK_CYPHER, drv, database)
-    fixes = [
-        {"instrument_id": iid, "effective_date": date}
-        for iid, date in FIXED_INSTRUMENT_EFFECTIVE_DATES.items()
-    ]
+    fixes = [{"instrument_id": iid, "effective_date": date} for iid, date in FIXED_INSTRUMENT_EFFECTIVE_DATES.items()]
     if dry_run:
         # Preview inside a rolled-back transaction so the live graph is never
         # touched.  Each statement runs ONCE; counts are read from that run.
@@ -144,7 +141,9 @@ def remediate(drv, database: str, dry_run: bool = False) -> dict:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="P3 temporal remediation of the legal KG (status propagation + effective_from).")
+    p = argparse.ArgumentParser(
+        description="P3 temporal remediation of the legal KG (status propagation + effective_from)."
+    )
     p.add_argument("--dry-run", action="store_true", help="Preview counts in a rolled-back transaction — no writes.")
     p.add_argument("--out-dir", type=Path, default=Path("reports"), help="Where to write the summary JSON.")
     return p

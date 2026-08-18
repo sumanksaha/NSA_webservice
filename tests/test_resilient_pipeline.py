@@ -15,9 +15,11 @@ from app.rag.resilient import CircuitOpenError, ResilientRAGPipeline
 class TestCircuitBreaker:
     def test_success_first_try(self):
         calls = []
+
         def good_pipeline(query, **kw):
             calls.append(query)
             return {"query": query, "answer": "ok", "groundedness_score": 0.9}
+
         rp = ResilientRAGPipeline(pipeline_fn=good_pipeline, cooldown_seconds=0.1)
         result = rp.run("test query")
         assert result["answer"] == "ok"
@@ -27,6 +29,7 @@ class TestCircuitBreaker:
     def test_failure_then_fallback(self):
         def bad_pipeline(query, **kw):
             raise RuntimeError("Qdrant is down")
+
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
             fallback_fn=lambda q, **kw: {"query": q, "answer": "fallback", "degraded_mode": True},
@@ -41,9 +44,11 @@ class TestCircuitBreaker:
 
     def test_circuit_opens_after_threshold(self):
         attempts = []
+
         def bad_pipeline(query, **kw):
             attempts.append(query)
             raise RuntimeError("service down")
+
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
             fallback_fn=lambda q, **kw: {"query": q, "answer": "fallback"},
@@ -59,11 +64,14 @@ class TestCircuitBreaker:
 
     def test_circuit_stays_open_during_cooldown(self):
         fallback_calls = []
+
         def bad_pipeline(query, **kw):
             raise RuntimeError("down")
+
         def fallback(query, **kw):
             fallback_calls.append(query)
             return {"query": query, "answer": "fallback"}
+
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
             fallback_fn=fallback,
@@ -83,8 +91,10 @@ class TestCircuitBreaker:
     def test_half_open_after_cooldown(self):
         def bad_pipeline(query, **kw):
             raise RuntimeError("down")
+
         def good_fallback(query, **kw):
             return {"query": query, "answer": "fallback"}
+
         # Use a very short cooldown
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
@@ -103,13 +113,16 @@ class TestCircuitBreaker:
 
     def test_circuit_closes_after_success_in_half_open(self):
         call_count = [0]
+
         def flaky_pipeline(query, **kw):
             call_count[0] += 1
             if call_count[0] <= 1:
                 raise RuntimeError("flaky")
             return {"query": query, "answer": "recovered"}
+
         def fallback(query, **kw):
             return {"query": query, "answer": "fallback", "degraded_mode": True}
+
         rp = ResilientRAGPipeline(
             pipeline_fn=flaky_pipeline,
             fallback_fn=fallback,
@@ -129,6 +142,7 @@ class TestCircuitBreaker:
     def test_reset(self):
         def bad_pipeline(query, **kw):
             raise RuntimeError("down")
+
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
             fallback_fn=lambda q, **kw: {"query": q, "answer": "fb"},
@@ -144,11 +158,13 @@ class TestCircuitBreaker:
     def test_circuit_state_serializable(self):
         def good_pipeline(query, **kw):
             return {"query": query, "answer": "ok"}
+
         rp = ResilientRAGPipeline(pipeline_fn=good_pipeline)
         rp.run("q")
         state = rp.circuit_state()
         # Must be JSON-serializable
         import json
+
         json_str = json.dumps(state)
         assert "open" in json_str
         assert "failure_threshold" in json_str
@@ -157,8 +173,10 @@ class TestCircuitBreaker:
 class TestDefaultFallback:
     def test_default_fallback_returns_stub_response(self):
         """The default fallback should use GroundedLLMClient stub mode."""
+
         def bad_pipeline(query, **kw):
             raise RuntimeError("always fails")
+
         rp = ResilientRAGPipeline(
             pipeline_fn=bad_pipeline,
             failure_threshold=1,

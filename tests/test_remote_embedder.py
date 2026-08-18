@@ -152,6 +152,7 @@ class TestAuthAndErrors:
 class TestLocalFallback:
     def test_falls_back_to_local_encoder_on_remote_failure(self):
         """Remote down → local encoder embeds (lazy, built on demand)."""
+
         def _boom(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("down", request=request)
 

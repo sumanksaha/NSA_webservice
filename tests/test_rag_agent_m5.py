@@ -281,6 +281,4 @@ def test_resume_route_validation(app_env):
     app, client = app_env
     app.config["RAG_AGENT_HITL"] = True
     assert client.post("/api/rag/query/agent/resume", json={}).status_code == 400
-    assert (
-        client.post("/api/rag/query/agent/resume", json={"thread_id": "t", "approved": "yes"}).status_code == 400
-    )
+    assert client.post("/api/rag/query/agent/resume", json={"thread_id": "t", "approved": "yes"}).status_code == 400

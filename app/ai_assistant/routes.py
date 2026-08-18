@@ -10,7 +10,6 @@ import logging
 from flask import jsonify, request
 
 from app.ai_assistant import ai_bp
-from app.ai_assistant.service import AIAssistantService
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,13 @@ def assist():
     # draft_prayers uses context for facts/grounds; other actions use content.
     context = payload.get("context") or {}
 
-    service = AIAssistantService()
+    # Resolve the active AI provider via the plugin registry (Phase 20).
+    # The OpenRouterAIPlugin proxies unknown attribute access to the underlying
+    # AIAssistantService, so service.is_enabled(), service.summarize_text(),
+    # service.tokens_used, etc. all work transparently through the plugin.
+    from app.plugins.registry import PluginRegistry
+
+    service = PluginRegistry.get_instance().get_active("ai")
 
     if not service.is_enabled():
         return jsonify({"error": "AI Assistant is not configured."}), 503

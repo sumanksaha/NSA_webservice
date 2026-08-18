@@ -205,9 +205,7 @@ def main() -> int:
                     dense_rec = cached[dense_arm].get(q.question_id) if dense_arm else None
                     sparse_rec = cached[sparse_arm].get(q.question_id) if sparse_arm else None
                     kg_rec = cached[kg_arm].get(q.question_id) if kg_arm else None
-                    rec = build_fused_arm(
-                        arm, dense_rec, sparse_rec, kg_rec, payload_index, family_map
-                    )
+                    rec = build_fused_arm(arm, dense_rec, sparse_rec, kg_rec, payload_index, family_map)
                     rec["arm"] = arm
                     rec["question_id"] = q.question_id
                     out.write(json.dumps(rec, ensure_ascii=False) + "\n")

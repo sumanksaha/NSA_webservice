@@ -95,14 +95,16 @@ def scroll_payloads(app, collections) -> dict[str, dict]:
 
 def collections_from_config(app) -> list[str]:
     cfg = app.config
-    return list(dict.fromkeys([
-        cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-    ]))
+    return list(
+        dict.fromkeys([
+            cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+        ])
+    )
 
 
 def derive_clause_propagation(
@@ -181,11 +183,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--live", action="store_true", help="scroll Qdrant (default: frozen payload cache)")
     parser.add_argument("--no-db", action="store_true", help="apply to Qdrant only; skip DB metadata_json")
     parser.add_argument("--limit", type=int, default=None, help="only process first N points (testing)")
-    parser.add_argument("--no-clause-propagation", action="store_true",
-                        help="disable the L6 clause-propagation pass (marker fills only)")
-    parser.add_argument("--clause-doc-types", default=",".join(DEFAULT_CLAUSE_DOC_TYPES),
-                        help="comma-separated document_type values that may receive propagated "
-                             "clause numbers (default: %(default)s)")
+    parser.add_argument(
+        "--no-clause-propagation",
+        action="store_true",
+        help="disable the L6 clause-propagation pass (marker fills only)",
+    )
+    parser.add_argument(
+        "--clause-doc-types",
+        default=",".join(DEFAULT_CLAUSE_DOC_TYPES),
+        help="comma-separated document_type values that may receive propagated clause numbers (default: %(default)s)",
+    )
     args = parser.parse_args(argv)
 
     clause_doc_types = tuple(t.strip() for t in args.clause_doc_types.split(",") if t.strip())
@@ -265,13 +272,19 @@ def main(argv: list[str] | None = None) -> int:
             clause_added += prop_added
             logger.info("clause propagation: +%d fills", prop_added)
 
-        logger.info("derived changes: %d points (subsection +%d, clause_number +%d "
-                    "incl. %d propagated)", len(changes), sub_added, clause_added, prop_added)
+        logger.info(
+            "derived changes: %d points (subsection +%d, clause_number +%d incl. %d propagated)",
+            len(changes),
+            sub_added,
+            clause_added,
+            prop_added,
+        )
 
         # provenance (which collection each point lives in) for reporting
         prov: dict[str, str] = {}
         if use_live:
             from app.rag.qdrant_client import QdrantStore
+
             for coll in collections:
                 store = QdrantStore(collection_name=coll)
                 pts = store.scroll_all(batch_size=500)
@@ -298,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
             "changes": len(changes),
             "by_collection": dict(by_coll),
             "note": "identity-preserving payload backfill (G6+G8): fills missing subsection, "
-                    "adds guarded dotted clause_number, L6 clause propagation. Vectors untouched.",
+            "adds guarded dotted clause_number, L6 clause propagation. Vectors untouched.",
         }
 
         if args.apply:
@@ -321,8 +334,7 @@ def main(argv: list[str] | None = None) -> int:
                 logger.info("collection %s: %d updates", coll, n)
 
             if applied == 0 and changes:
-                logger.error("apply wrote 0 updates for %d changes — aborting before DB mirror",
-                             len(changes))
+                logger.error("apply wrote 0 updates for %d changes — aborting before DB mirror", len(changes))
                 return 1
 
             if not args.no_db:
@@ -350,7 +362,7 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
     for key, ids in groups.items():
         payload = changes[ids[0]]
         for i in range(0, len(ids), batch_size):
-            batch = ids[i:i + batch_size]
+            batch = ids[i : i + batch_size]
             try:
                 client.set_payload(collection_name=collection, payload=payload, points=batch)
                 applied += len(batch)

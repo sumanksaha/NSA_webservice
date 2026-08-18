@@ -287,9 +287,7 @@ class QdrantPayloadStamper:
         created = 0
         for field in INDEX_FIELDS:
             try:
-                client.create_payload_index(
-                    collection_name=collection, field_name=field, field_schema="keyword"
-                )
+                client.create_payload_index(collection_name=collection, field_name=field, field_schema="keyword")
                 created += 1
             except Exception as exc:
                 logger.info("payload index %s on %s: %s", field, collection, exc)

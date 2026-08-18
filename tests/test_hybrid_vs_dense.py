@@ -14,9 +14,13 @@ from app.rag.retrieval.result import RetrievedChunk, SearchResult
 
 def _make_chunk(chunk_id, score, text, section=None):
     return RetrievedChunk(
-        chunk_id=chunk_id, score=score, text=text,
-        section_number=section, document_title="FSS Act",
-        document_type="act", authority="FSSAI",
+        chunk_id=chunk_id,
+        score=score,
+        text=text,
+        section_number=section,
+        document_title="FSS Act",
+        document_type="act",
+        authority="FSSAI",
     )
 
 
@@ -109,9 +113,9 @@ class TestHybridVsDense:
     def test_hybrid_rrf_ranking_consistency(self):
         """HybridRetriever with same inputs produces consistent ranking."""
         chunks = [
-            _make_chunk(f"c{i}", 0.9 - i * 0.1,
-                        "Section 55 licensing" if i < 2 else "other text",
-                        "55" if i < 2 else None)
+            _make_chunk(
+                f"c{i}", 0.9 - i * 0.1, "Section 55 licensing" if i < 2 else "other text", "55" if i < 2 else None
+            )
             for i in range(5)
         ]
         ids1 = _hybrid_results(chunks)
@@ -127,13 +131,13 @@ class TestHybridVsDense:
     def test_hybrid_better_than_dense_for_low_score_relevant(self):
         """Hybrid surfaces textually-relevant chunks that dense misses."""
         import copy
+
         chunks = [
             _make_chunk("irrelevant", 0.95, "unrelated cooking text", None),
             _make_chunk("relevant", 0.40, "Section 55 licensing food business", "55"),
         ]
         # Compute dense ranking first (before hybrid mutates scores)
-        dense_ids = [c.chunk_id for c in
-                     sorted(chunks, key=lambda c: c.score, reverse=True)]
+        dense_ids = [c.chunk_id for c in sorted(chunks, key=lambda c: c.score, reverse=True)]
         # Dense ranks irrelevant first (higher score)
         assert dense_ids[0] == "irrelevant"
         # Hybrid should still surface the relevant chunk

@@ -144,7 +144,9 @@ class TestReferenceGraph:
 
     def test_graph_neighbors(self):
         chunks = [
-            FakeChunk(chunk_id="c1", text="Section 31(2)(a) applies subject to Section 55(1).", act_name="FSS Act, 2006"),
+            FakeChunk(
+                chunk_id="c1", text="Section 31(2)(a) applies subject to Section 55(1).", act_name="FSS Act, 2006"
+            ),
         ]
         g = ReferenceGraph()
         g.seed_from_chunks(chunks)

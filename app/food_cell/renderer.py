@@ -71,10 +71,10 @@ class DODocumentRenderer:
         written so downstream consumers (download endpoint, file checks)
         still work.
         """
-        from app.pdf_assembly import PDFAssemblyEngine
+        from app.plugins.registry import PluginRegistry
 
-        engine = PDFAssemblyEngine()
-        pdf_bytes, error = engine.generate_from_html(html)
+        pdf_provider = PluginRegistry.get_instance().get_active("pdf")
+        pdf_bytes, error = pdf_provider.render_pdf_safe(html)
         if pdf_bytes is None:
             logger.warning(
                 "PDF generation unavailable for sample %s; writing stub: %s",

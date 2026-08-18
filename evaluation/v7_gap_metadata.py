@@ -1,4 +1,5 @@
 """V7_GAP_METADATA_V1 - Metadata-driven gap analysis of 15.7% candidate-generation gap."""
+
 from __future__ import annotations
 
 import csv
@@ -13,7 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
-from dotenv import load_dotenv; load_dotenv(ROOT / ".env")
+from dotenv import load_dotenv
+
+load_dotenv(ROOT / ".env")
 import contextlib
 
 from evaluation.benchmark import load_gold_registry, load_questions
@@ -24,17 +27,35 @@ V5_RAW = ROOT / "evaluation" / "out" / "ceiling_v5" / "raw"
 V5_RUN_CONFIG = ROOT / "evaluation" / "out" / "ceiling_v5" / "run_config.json"
 PAYLOAD_CACHE = CACHE_DIR / "payload_index.jsonl"
 V7_DIR = ROOT / "evaluation" / "out" / "ceiling_v7"
-V7_RAW = V7_DIR / "raw"; V7_RAW.mkdir(parents=True, exist_ok=True)
+V7_RAW = V7_DIR / "raw"
+V7_RAW.mkdir(parents=True, exist_ok=True)
 EXP_ID = "V7_GAP_METADATA_V1"
 TS = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 G_DEPTH = 500
-ARM_FILES = ["A_dense","B_sparse","C_hybrid","D_kg","O_dense","O_sparse","X_exact"]
-ROUTE_NAMES = ["C_identifier","E_document","F_identifier_only","G_concept",
-               "H_authority_action","I_provision_type","J_parent"]
-G_NAMES = {"G1":"DOC_ABSENT","G2":"WRONG_IDENTITY","G3":"WRONG_GRANULARITY",
-           "G4":"MISSING_METADATA","G5":"WRONG_DOC_META","G6":"TEMPORAL_FAILURE",
-           "G7":"JURISDICTION_FAILURE","G8":"CROSSREF_FAILURE","G9":"QUERY_REP_FAILURE",
-           "G10":"EMBEDDING_FAILURE","G11":"GOLD_MAPPING","G12":"OTHER"}
+ARM_FILES = ["A_dense", "B_sparse", "C_hybrid", "D_kg", "O_dense", "O_sparse", "X_exact"]
+ROUTE_NAMES = [
+    "C_identifier",
+    "E_document",
+    "F_identifier_only",
+    "G_concept",
+    "H_authority_action",
+    "I_provision_type",
+    "J_parent",
+]
+G_NAMES = {
+    "G1": "DOC_ABSENT",
+    "G2": "WRONG_IDENTITY",
+    "G3": "WRONG_GRANULARITY",
+    "G4": "MISSING_METADATA",
+    "G5": "WRONG_DOC_META",
+    "G6": "TEMPORAL_FAILURE",
+    "G7": "JURISDICTION_FAILURE",
+    "G8": "CROSSREF_FAILURE",
+    "G9": "QUERY_REP_FAILURE",
+    "G10": "EMBEDDING_FAILURE",
+    "G11": "GOLD_MAPPING",
+    "G12": "OTHER",
+}
 _SEC_PATTERNS = [
     re.compile(r"(?:^|\n)\s*(?:section|sec\.)?\s*(\d{1,4})\b", re.I),
     re.compile(r"(?:^|\n)\s*(\d{1,4})\.\s+[A-Z]"),
@@ -42,8 +63,6 @@ _SEC_PATTERNS = [
 ]
 
 NL = chr(10)  # newline constant for report generation (avoids f-string escaping issues)
-
-
 
 
 # --------------------------------------------------------------------------- #
@@ -187,8 +206,11 @@ def compute_unit_ranks(caches, questions):
 # --------------------------------------------------------------------------- #
 def classify_gap_unit(u, payload_idx, fm, registry):
     registry.get(u.provision_id, {})
-    fam_pids = [pid for pid, pl in payload_idx.items()
-                if u.family in fm.family_s_for_act(str(pl.get("act_name","") or pl.get("document_title","")))]
+    fam_pids = [
+        pid
+        for pid, pl in payload_idx.items()
+        if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))
+    ]
     section = u.section or ""
     if not fam_pids:
         return "G1", f"family {u.family} has no payloads in Qdrant"
@@ -227,9 +249,7 @@ def classify_gap_unit(u, payload_idx, fm, registry):
         text_present = any(
             header.search(str(pl.get("chunk_text", "")))
             for pl in payload_idx.values()
-            if u.family in fm.family_s_for_act(
-                str(pl.get("act_name", "") or pl.get("document_title", ""))
-            )
+            if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))
         )
         if text_present:
             return "G4", (
@@ -244,17 +264,34 @@ def run_phase3(gap_units, payload_idx, fm, registry):
     rows = []
     for u in gap_units:
         code, expl = classify_gap_unit(u, payload_idx, fm, registry)
-        fam_pids = [pid for pid, pl in payload_idx.items()
-                    if u.family in fm.family_s_for_act(str(pl.get("act_name","") or pl.get("document_title","")))]
+        fam_pids = [
+            pid
+            for pid, pl in payload_idx.items()
+            if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))
+        ]
         stamped = sum(1 for pid in fam_pids if payload_idx[pid].get("section_number") is not None)
-        rows.append({"gold_unit": u.provision_id, "family": u.family,
-                     "gold_section": u.section or "", "gold_document": u.act,
-                     "failure_class": code, "explanation": expl,
-                     "family_payloads": len(fam_pids), "section_numbers_stamped": stamped})
+        rows.append({
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "gold_section": u.section or "",
+            "gold_document": u.act,
+            "failure_class": code,
+            "explanation": expl,
+            "family_payloads": len(fam_pids),
+            "section_numbers_stamped": stamped,
+        })
     for _r in rows:
         pass
-    cols = ["gold_unit", "family", "gold_section", "gold_document", "failure_class",
-            "explanation", "family_payloads", "section_numbers_stamped"]
+    cols = [
+        "gold_unit",
+        "family",
+        "gold_section",
+        "gold_document",
+        "failure_class",
+        "explanation",
+        "family_payloads",
+        "section_numbers_stamped",
+    ]
     with open(V7_DIR / "v7_failure_taxonomy.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -266,8 +303,11 @@ def run_phase3(gap_units, payload_idx, fm, registry):
 def run_phase4(gap_units, payload_idx, fm):
     rows = []
     for u in gap_units:
-        fam_pids = [pid for pid, pl in payload_idx.items()
-                    if u.family in fm.family_s_for_act(str(pl.get("act_name","") or pl.get("document_title","")))]
+        fam_pids = [
+            pid
+            for pid, pl in payload_idx.items()
+            if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))
+        ]
         matched = [pid for pid in fam_pids if matches_gold(payload_idx[pid], u, fm)]
         sec_in_text = False
         if u.section and u.section.isdigit():
@@ -276,22 +316,33 @@ def run_phase4(gap_units, payload_idx, fm):
                 if re.search(rf"section\s{re.escape(u.section)}\b", ct, re.I):
                     sec_in_text = True
                     break
-        rows.append({"gold_unit": u.provision_id, "family": u.family,
-                     "source_document": u.act, "canonical_document_id": u.document_id or "",
-                     "document_in_qdrant": "yes" if fam_pids else "no",
-                     "matching_chunks": len(matched),
-                     "section_in_chunk_text": "yes" if sec_in_text else "no",
-                     "qdrant_exists": "yes" if fam_pids else "no",
-                     "neo4j_exists": "no (wiped 2026-08-12)"})
-    cols = ["gold_unit", "family", "source_document", "canonical_document_id",
-            "document_in_qdrant", "matching_chunks", "section_in_chunk_text",
-            "qdrant_exists", "neo4j_exists"]
+        rows.append({
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "source_document": u.act,
+            "canonical_document_id": u.document_id or "",
+            "document_in_qdrant": "yes" if fam_pids else "no",
+            "matching_chunks": len(matched),
+            "section_in_chunk_text": "yes" if sec_in_text else "no",
+            "qdrant_exists": "yes" if fam_pids else "no",
+            "neo4j_exists": "no (wiped 2026-08-12)",
+        })
+    cols = [
+        "gold_unit",
+        "family",
+        "source_document",
+        "canonical_document_id",
+        "document_in_qdrant",
+        "matching_chunks",
+        "section_in_chunk_text",
+        "qdrant_exists",
+        "neo4j_exists",
+    ]
     with open(V7_DIR / "v7_provenance_audit.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
     return rows
-
 
 
 def _extract_year(title):
@@ -305,15 +356,18 @@ def run_phase5(registry):
     for _pid, rec in registry.items():
         did = rec.get("document_id", "")
         if did not in doc_ids:
-            doc_ids[did] = {"canonical_document_id": did,
-                            "document_title": rec.get("act", ""),
-                            "instrument_type": "act",
-                            "collection": rec.get("collection", ""),
-                            "jurisdiction": "India (Union)",
-                            "issuing_authority": "",
-                            "year": _extract_year(rec.get("act", "")),
-                            "effective_from": "UNKNOWN",
-                            "effective_to": "UNKNOWN", "status": "unknown"}
+            doc_ids[did] = {
+                "canonical_document_id": did,
+                "document_title": rec.get("act", ""),
+                "instrument_type": "act",
+                "collection": rec.get("collection", ""),
+                "jurisdiction": "India (Union)",
+                "issuing_authority": "",
+                "year": _extract_year(rec.get("act", "")),
+                "effective_from": "UNKNOWN",
+                "effective_to": "UNKNOWN",
+                "status": "unknown",
+            }
     with open(V7_DIR / "v7_canonical_identity_audit.json", "w", encoding="utf-8") as f:
         json.dump(list(doc_ids.values()), f, indent=2, default=str)
     return doc_ids
@@ -327,9 +381,12 @@ def _provision_key(family, section, rec):
     if not section.isdigit():
         marker = "section"
         rid = str(rec.get("id", "")).lower()
-        if "order" in rid: marker = "order_clause"
-        elif "rule" in rid: marker = "rule"
-        elif "reg" in rid: marker = "regulation"
+        if "order" in rid:
+            marker = "order_clause"
+        elif "rule" in rid:
+            marker = "rule"
+        elif "reg" in rid:
+            marker = "regulation"
         slug = re.sub(r"[^a-z0-9]+", "_", section.lower()).strip("_")
         return f"{family}::{marker}_{slug}"
     return f"{family}::section_{section}"
@@ -345,8 +402,12 @@ def run_phase6(registry):
             m = re.match(r"(\d+)", rest)
             if m:
                 section = m.group(1)
-        keys[pid] = {"canonical_provision_key": _provision_key(family, section, rec),
-                     "family": family, "section": section, "title": rec.get("title", "")}
+        keys[pid] = {
+            "canonical_provision_key": _provision_key(family, section, rec),
+            "family": family,
+            "section": section,
+            "title": rec.get("title", ""),
+        }
     with open(V7_DIR / "v7_provision_identity.json", "w", encoding="utf-8") as f:
         json.dump(keys, f, indent=2, default=str)
     return keys
@@ -355,17 +416,38 @@ def run_phase6(registry):
 # Phase 7: Metadata coverage audit
 def run_phase7(payload_idx, fm):
     n = len(payload_idx)
-    fields = ["document_id", "document_title", "act_name", "section_number",
-              "subsection", "citations", "references", "hierarchy_level",
-              "parent_chunk_id", "provision_id", "effective_date",
-              "enactment_date", "amended_date", "is_current", "jurisdiction",
-              "state", "legal_domain", "status", "document_type", "authority"]
+    fields = [
+        "document_id",
+        "document_title",
+        "act_name",
+        "section_number",
+        "subsection",
+        "citations",
+        "references",
+        "hierarchy_level",
+        "parent_chunk_id",
+        "provision_id",
+        "effective_date",
+        "enactment_date",
+        "amended_date",
+        "is_current",
+        "jurisdiction",
+        "state",
+        "legal_domain",
+        "status",
+        "document_type",
+        "authority",
+    ]
     rows = []
     for fld in fields:
-        nn = sum(1 for pl in payload_idx.values()
-                 if pl.get(fld) not in (None, "", [], False))
-        rows.append({"field": fld, "total": n, "non_null": nn,
-                     "null_count": n - nn, "coverage_percent": round(nn / n * 100, 1)})
+        nn = sum(1 for pl in payload_idx.values() if pl.get(fld) not in (None, "", [], False))
+        rows.append({
+            "field": fld,
+            "total": n,
+            "non_null": nn,
+            "null_count": n - nn,
+            "coverage_percent": round(nn / n * 100, 1),
+        })
     null_sec = sum(1 for pl in payload_idx.values() if pl.get("section_number") is None)
     repairable = 0
     for _pid, pl in payload_idx.items():
@@ -395,19 +477,34 @@ def run_phase8(payload_idx):
         for pat in _SEC_PATTERNS:
             m = pat.search(ct)
             if m:
-                repairs.append({"repair_id": f"v7_{str(pid)[:12]}", "chunk_id": pid,
-                                "field": "section_number", "old_value": "null",
-                                "new_value": m.group(1), "repair_method": "deterministic_regex",
-                                "evidence": ct[:120], "confidence": "HIGH", "timestamp": TS})
+                repairs.append({
+                    "repair_id": f"v7_{str(pid)[:12]}",
+                    "chunk_id": pid,
+                    "field": "section_number",
+                    "old_value": "null",
+                    "new_value": m.group(1),
+                    "repair_method": "deterministic_regex",
+                    "evidence": ct[:120],
+                    "confidence": "HIGH",
+                    "timestamp": TS,
+                })
                 break
-    cols = ["repair_id", "chunk_id", "field", "old_value", "new_value",
-            "repair_method", "evidence", "confidence", "timestamp"]
+    cols = [
+        "repair_id",
+        "chunk_id",
+        "field",
+        "old_value",
+        "new_value",
+        "repair_method",
+        "evidence",
+        "confidence",
+        "timestamp",
+    ]
     with open(V7_DIR / "v7_metadata_repairs.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(repairs)
     return repairs
-
 
 
 # Phase 9: Provision inheritance
@@ -419,10 +516,12 @@ def run_phase9(payload_idx):
         if sec and doc:
             key = (doc, str(sec))
             if key not in leaders:
-                leaders[key] = {"act_name": pl.get("act_name", ""),
-                                "jurisdiction": pl.get("jurisdiction", ""),
-                                "legal_domain": pl.get("legal_domain", ""),
-                                "status": pl.get("status", "")}
+                leaders[key] = {
+                    "act_name": pl.get("act_name", ""),
+                    "jurisdiction": pl.get("jurisdiction", ""),
+                    "legal_domain": pl.get("legal_domain", ""),
+                    "status": pl.get("status", ""),
+                }
     inh = []
     for pid, pl in payload_idx.items():
         if pl.get("section_number") is not None:
@@ -437,13 +536,22 @@ def run_phase9(payload_idx):
         key = (doc, parent_sec)
         if key in leaders:
             ld = leaders[key]
-            inh.append({"child_chunk_id": pid, "parent_section": parent_sec,
-                        "inherited_act_name": ld["act_name"],
-                        "inherited_jurisdiction": ld["jurisdiction"],
-                        "inherited_legal_domain": ld["legal_domain"],
-                        "inherited_status": ld["status"]})
-    cols = ["child_chunk_id", "parent_section", "inherited_act_name",
-            "inherited_jurisdiction", "inherited_legal_domain", "inherited_status"]
+            inh.append({
+                "child_chunk_id": pid,
+                "parent_section": parent_sec,
+                "inherited_act_name": ld["act_name"],
+                "inherited_jurisdiction": ld["jurisdiction"],
+                "inherited_legal_domain": ld["legal_domain"],
+                "inherited_status": ld["status"],
+            })
+    cols = [
+        "child_chunk_id",
+        "parent_section",
+        "inherited_act_name",
+        "inherited_jurisdiction",
+        "inherited_legal_domain",
+        "inherited_status",
+    ]
     with open(V7_DIR / "v7_inheritance.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -458,14 +566,24 @@ def run_phase10(payload_idx):
         parent_id = pl.get("parent_chunk_id")
         if parent_id:
             parent_pl = payload_idx.get(str(parent_id), {})
-            edges.append({"parent_chunk_id": parent_id, "child_chunk_id": pid,
-                          "parent_section": parent_pl.get("section_number", "") or "",
-                          "child_section": str(pl.get("section_number", "")) or "",
-                          "child_subsection": pl.get("subsection", "") or "",
-                          "hierarchy_level": pl.get("hierarchy_level", ""),
-                          "parent_in_corpus": "yes" if parent_id in payload_idx else "no"})
-    cols = ["parent_chunk_id", "child_chunk_id", "parent_section", "child_section",
-            "child_subsection", "hierarchy_level", "parent_in_corpus"]
+            edges.append({
+                "parent_chunk_id": parent_id,
+                "child_chunk_id": pid,
+                "parent_section": parent_pl.get("section_number", "") or "",
+                "child_section": str(pl.get("section_number", "")) or "",
+                "child_subsection": pl.get("subsection", "") or "",
+                "hierarchy_level": pl.get("hierarchy_level", ""),
+                "parent_in_corpus": "yes" if parent_id in payload_idx else "no",
+            })
+    cols = [
+        "parent_chunk_id",
+        "child_chunk_id",
+        "parent_section",
+        "child_section",
+        "child_subsection",
+        "hierarchy_level",
+        "parent_in_corpus",
+    ]
     with open(V7_DIR / "v7_chunk_hierarchy.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -480,10 +598,13 @@ def run_phase11(payload_idx):
         cites = pl.get("citations", []) or []
         refs = pl.get("references", []) or []
         if cites or refs:
-            xrefs.append({"chunk_id": pid, "document_id": pl.get("document_id", ""),
-                          "section_number": str(pl.get("section_number", "")) or "",
-                          "citations": "; ".join(str(c) for c in cites)[:200],
-                          "references": "; ".join(str(r) for r in refs)[:200]})
+            xrefs.append({
+                "chunk_id": pid,
+                "document_id": pl.get("document_id", ""),
+                "section_number": str(pl.get("section_number", "")) or "",
+                "citations": "; ".join(str(c) for c in cites)[:200],
+                "references": "; ".join(str(r) for r in refs)[:200],
+            })
     cols = ["chunk_id", "document_id", "section_number", "citations", "references"]
     with open(V7_DIR / "v7_cross_references.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
@@ -521,7 +642,6 @@ def run_phase13(payload_idx, fm):
     return rows
 
 
-
 # Phase 14: Virtual reindex (in-memory patch)
 def run_phase14(payload_idx, repairs):
     repaired = {pid: dict(pl) for pid, pl in payload_idx.items()}
@@ -551,32 +671,50 @@ def run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q):
                 if not rec:
                     continue
                 if first_rank_in_list(rec.get("chunk_ids", []), repaired_idx, u, fm):
-                    after = True; rby.append(f"arm:{arm}"); break
+                    after = True
+                    rby.append(f"arm:{arm}")
+                    break
                 if arm == "D_kg" and first_kg_rank(rec.get("kg_provisions", []), u, fm):
-                    after = True; rby.append("kg:D_kg"); break
+                    after = True
+                    rby.append("kg:D_kg")
+                    break
             if after:
                 break
             for rn in ROUTE_NAMES:
                 qrec = routes.get(f"q_{rn}", {}).get(qid)
                 if qrec and first_rank_in_list(qrec.get("chunk_ids", []), repaired_idx, u, fm):
-                    after = True; rby.append(f"qroute:{rn}"); break
+                    after = True
+                    rby.append(f"qroute:{rn}")
+                    break
             if after:
                 break
         if not after:
             for rn in ROUTE_NAMES:
                 urec = routes.get(f"unit_{rn}", {}).get(u.provision_id)
                 if urec and first_rank_in_list(urec.get("chunk_ids", []), repaired_idx, u, fm):
-                    after = True; rby.append(f"uroute:{rn}"); break
+                    after = True
+                    rby.append(f"uroute:{rn}")
+                    break
         if after:
             n_recovered += 1
-        results.append({"gold_unit": u.provision_id, "family": u.family,
-                        "gold_section": u.section or "",
-                        "before_repair": "no",
-                        "after_repair": "yes" if after else "no",
-                        "recovered_by_repair": "yes" if after else "no",
-                        "recovered_by": "; ".join(rby)})
-    cols = ["gold_unit", "family", "gold_section", "before_repair",
-            "after_repair", "recovered_by_repair", "recovered_by"]
+        results.append({
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "gold_section": u.section or "",
+            "before_repair": "no",
+            "after_repair": "yes" if after else "no",
+            "recovered_by_repair": "yes" if after else "no",
+            "recovered_by": "; ".join(rby),
+        })
+    cols = [
+        "gold_unit",
+        "family",
+        "gold_section",
+        "before_repair",
+        "after_repair",
+        "recovered_by_repair",
+        "recovered_by",
+    ]
     with open(V7_DIR / "v7_before_after_results.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -585,9 +723,15 @@ def run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q):
     n_in = n_total - len(gap_units) + n_recovered
     cb = (n_total - len(gap_units)) / n_total
     ca = n_in / n_total
-    return {"n_total": n_total, "n_gap": len(gap_units), "n_in_pool": n_in,
-            "n_recovered": n_recovered, "ceiling_before": round(cb, 4),
-            "ceiling_after": round(ca, 4), "results": results}
+    return {
+        "n_total": n_total,
+        "n_gap": len(gap_units),
+        "n_in_pool": n_in,
+        "n_recovered": n_recovered,
+        "ceiling_before": round(cb, 4),
+        "ceiling_after": round(ca, 4),
+        "results": results,
+    }
 
 
 # Phase 17: Decision tree
@@ -613,8 +757,10 @@ def run_phase17(gap_units, classifications, measure):
                 # (STAMPING_GAP — corrected classification 2026-08-13): the
                 # V7 line-anchored repair recovered 0, but the L4 any-position
                 # backfill (scripts/backfill_payload_identity.py) recovers it.
-                d, det = ("METADATA-RECOVERABLE (L4 stamping backfill)",
-                          "Section text present; stamp via scripts/backfill_payload_identity.py L4")
+                d, det = (
+                    "METADATA-RECOVERABLE (L4 stamping backfill)",
+                    "Section text present; stamp via scripts/backfill_payload_identity.py L4",
+                )
         elif code == "G9":
             d, det = "QUERY REPRESENTATION FAILURE", "Need new query route"
         elif code == "G10":
@@ -623,15 +769,19 @@ def run_phase17(gap_units, classifications, measure):
             d, det = "METADATA-RECOVERABLE", "Field repair needed"
         else:
             d, det = "OTHER", "Unclassified"
-        results.append({"gold_unit": u.provision_id, "family": u.family,
-                        "gold_section": u.section or "", "failure_class": code,
-                        "decision": d, "detail": det,
-                        "recovered_by_repair": ba.get("recovered_by_repair", "no")})
+        results.append({
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "gold_section": u.section or "",
+            "failure_class": code,
+            "decision": d,
+            "detail": det,
+            "recovered_by_repair": ba.get("recovered_by_repair", "no"),
+        })
     dc = Counter(r["decision"] for r in results)
     for d, _n in dc.most_common():
         pass
-    cols = ["gold_unit", "family", "gold_section", "failure_class", "decision",
-            "detail", "recovered_by_repair"]
+    cols = ["gold_unit", "family", "gold_section", "failure_class", "decision", "detail", "recovered_by_repair"]
     with open(V7_DIR / "v7_decision_tree.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -639,12 +789,11 @@ def run_phase17(gap_units, classifications, measure):
     return results, dc
 
 
-
 # Phase 18-19: Report generation
 
+
 # Phase 18-19: Report generation
-def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure,
-                   all_units, gap_units):
+def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure, all_units, gap_units):
     n_total = len(all_units)
     n_gap = len(gap_units)
     cb = measure["ceiling_before"]
@@ -656,22 +805,45 @@ def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure,
     else:
         fc = ""
     for r in metadata_audit["rows"]:
-        fc += "| " + r["field"] + " | " + str(r["non_null"]) + " | " + str(r["total"]) + " | " + str(r["coverage_percent"]) + "% |" + NL
+        fc += (
+            "| "
+            + r["field"]
+            + " | "
+            + str(r["non_null"])
+            + " | "
+            + str(r["total"])
+            + " | "
+            + str(r["coverage_percent"])
+            + "% |"
+            + NL
+        )
     cl = ""
     for code_key in sorted(cls_counts.keys()):
         n = cls_counts[code_key]
-        if code_key == "G1": det = "Document absent from Qdrant - re-ingestion"
-        elif code_key == "G2": det = "Wrong identity stamp"
-        elif code_key == "G3": det = "Wrong granularity"
-        elif code_key == "G4": det = str(metadata_audit["repairable"]) + " repairable; recovered " + str(n_rec)
-        elif code_key == "G5": det = "Wrong document metadata"
-        elif code_key == "G6": det = "Temporal metadata failure"
-        elif code_key == "G7": det = "Jurisdiction metadata failure"
-        elif code_key == "G8": det = "Cross-reference not represented"
-        elif code_key == "G9": det = "Query representation gap"
-        elif code_key == "G10": det = "Embedding/index failure"
-        elif code_key == "G11": det = "Gold mapping ambiguity"
-        else: det = "Other"
+        if code_key == "G1":
+            det = "Document absent from Qdrant - re-ingestion"
+        elif code_key == "G2":
+            det = "Wrong identity stamp"
+        elif code_key == "G3":
+            det = "Wrong granularity"
+        elif code_key == "G4":
+            det = str(metadata_audit["repairable"]) + " repairable; recovered " + str(n_rec)
+        elif code_key == "G5":
+            det = "Wrong document metadata"
+        elif code_key == "G6":
+            det = "Temporal metadata failure"
+        elif code_key == "G7":
+            det = "Jurisdiction metadata failure"
+        elif code_key == "G8":
+            det = "Cross-reference not represented"
+        elif code_key == "G9":
+            det = "Query representation gap"
+        elif code_key == "G10":
+            det = "Embedding/index failure"
+        elif code_key == "G11":
+            det = "Gold mapping ambiguity"
+        else:
+            det = "Other"
         cl += "| " + code_key + " | " + G_NAMES.get(code_key, code_key) + " | " + str(n) + " | " + det + " |" + NL
     dl = ""
     for d, n in dc.most_common():
@@ -684,25 +856,31 @@ def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure,
     report += "**Neo4j:** wiped 2026-08-12 - all KG analysis on cached data" + NL
     report += NL + "## 1. Executive Summary" + NL
     report += f"V5 multi-route candidate ceiling: **{cb:.1%}** at K=500 ({n_total - n_gap}/{n_total})." + NL
-    report += f"Gap: {n_gap} units ({n_gap/n_total:.1%})." + NL
+    report += f"Gap: {n_gap} units ({n_gap / n_total:.1%})." + NL
     report += NL + "| Root cause | Count |" + NL
     report += "|---|" + NL
-    for gk in ["G1","G2","G3","G4","G9","G10","G11"]:
+    for gk in ["G1", "G2", "G3", "G4", "G9", "G10", "G11"]:
         report += f"| {gk} | {cls_counts.get(gk, 0)} |" + NL
-    other = sum(cls_counts.get(c,0) for c in ["G5","G6","G7","G8","G12"])
+    other = sum(cls_counts.get(c, 0) for c in ["G5", "G6", "G7", "G8", "G12"])
     report += f"| Other | {other} |" + NL
     report += NL + "## 2. Metadata repair impact" + NL
     report += f"Section header stamping: {len(repairs)} chunks repaired." + NL
     report += NL + "| Metric | Before | After | Change |" + NL
     report += "|---|---|---|---|" + NL
-    report += f"| Pool ceiling @500 | {cb:.1%} | {ca:.1%} | +{(ca-cb)*100:.1f}pp |" + NL
+    report += f"| Pool ceiling @500 | {cb:.1%} | {ca:.1%} | +{(ca - cb) * 100:.1f}pp |" + NL
     report += f"| Gap units recovered | 0 | {n_rec} |" + NL
-    report += f"| Gap rate | {n_gap/n_total*100:.1f}% | {(n_gap-n_rec)/n_total*100:.1f}% | -{n_rec/n_total*100:.1f}pp |" + NL
+    report += (
+        f"| Gap rate | {n_gap / n_total * 100:.1f}% | {(n_gap - n_rec) / n_total * 100:.1f}% | -{n_rec / n_total * 100:.1f}pp |"
+        + NL
+    )
     report += NL + "## 3. Metadata coverage" + NL
     report += "| Field | Non-null | Total | Coverage |" + NL
     report += "|---|---|---|---|" + NL
     report += fc
-    report += f"**Repairable:** {metadata_audit[chr(114)+chr(101)+chr(112)+chr(97)+chr(105)+chr(114)+chr(97)+chr(98)+chr(108)+chr(101)]} of {metadata_audit[chr(110)+chr(117)+chr(108)+chr(108)+chr(95)+chr(115)+chr(101)+chr(99)]} chunks repairable." + NL
+    report += (
+        f"**Repairable:** {metadata_audit[chr(114) + chr(101) + chr(112) + chr(97) + chr(105) + chr(114) + chr(97) + chr(98) + chr(108) + chr(101)]} of {metadata_audit[chr(110) + chr(117) + chr(108) + chr(108) + chr(95) + chr(115) + chr(101) + chr(99)]} chunks repairable."
+        + NL
+    )
     report += NL + "## 4. Failure classification" + NL
     report += "| Class | Failure | Count | Action |" + NL
     report += "|---|---|---|---|" + NL
@@ -723,13 +901,21 @@ def main():
     caches = load_all_caches()
     payload_idx = caches["payload"]
     unit_ranks, all_units, unit_to_q, _q_by_id, fm, gap_units = compute_unit_ranks(caches, questions)
-    gap_rows = [{"gold_unit": u.provision_id, "family": u.family,
-                 "gold_section": u.section or "", "gold_document": u.act,
-                 "best_rank": unit_ranks[u.provision_id]["best"] or "",
-                 "in_pool": "yes" if unit_ranks[u.provision_id]["in_pool"] else "no"}
-                for u in all_units]
+    gap_rows = [
+        {
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "gold_section": u.section or "",
+            "gold_document": u.act,
+            "best_rank": unit_ranks[u.provision_id]["best"] or "",
+            "in_pool": "yes" if unit_ranks[u.provision_id]["in_pool"] else "no",
+        }
+        for u in all_units
+    ]
     with open(V7_DIR / "v7_candidate_gap.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["gold_unit","family","gold_section","gold_document","best_rank","in_pool"])
+        w = csv.DictWriter(
+            f, fieldnames=["gold_unit", "family", "gold_section", "gold_document", "best_rank", "in_pool"]
+        )
         w.writeheader()
         w.writerows(gap_rows)
     classifications, cls_counts = run_phase3(gap_units, payload_idx, fm, registry)
@@ -752,17 +938,23 @@ def main():
     v5c = {}
     if V5_RUN_CONFIG.exists():
         v5c = json.loads(V5_RUN_CONFIG.read_text())
-    freeze = {"experiment_id": EXP_ID, "timestamp": TS,
-              "v5_experiment_id": v5c.get("experiment_id"),
-              "benchmark_questions": len(questions), "gold_units_total": len(all_units),
-              "gold_units_in_pool": len(all_units) - len(gap_units) + measure["n_recovered"],
-              "gold_units_in_gap": len(gap_units) - measure["n_recovered"],
-              "ceiling_before_repair": measure["ceiling_before"],
-              "ceiling_after_repair": measure["ceiling_after"],
-              "n_recovered_by_metadata": measure["n_recovered"],
-              "n_gap_original": len(gap_units), "n_repairs": len(repairs),
-              "failure_classes": dict(cls_counts), "decisions": dict(dc),
-              "qdrant_points": len(payload_idx)}
+    freeze = {
+        "experiment_id": EXP_ID,
+        "timestamp": TS,
+        "v5_experiment_id": v5c.get("experiment_id"),
+        "benchmark_questions": len(questions),
+        "gold_units_total": len(all_units),
+        "gold_units_in_pool": len(all_units) - len(gap_units) + measure["n_recovered"],
+        "gold_units_in_gap": len(gap_units) - measure["n_recovered"],
+        "ceiling_before_repair": measure["ceiling_before"],
+        "ceiling_after_repair": measure["ceiling_after"],
+        "n_recovered_by_metadata": measure["n_recovered"],
+        "n_gap_original": len(gap_units),
+        "n_repairs": len(repairs),
+        "failure_classes": dict(cls_counts),
+        "decisions": dict(dc),
+        "qdrant_points": len(payload_idx),
+    }
     with open(V7_RAW / "v7_freeze.json", "w", encoding="utf-8") as f:
         json.dump(freeze, f, indent=2)
     return 0
@@ -775,8 +967,11 @@ def run_phase20(gap_units, payload_idx, fm):
     """Deep-dive on the 7 gap units: what sections ARE stamped, what's missing."""
     rows = []
     for u in gap_units:
-        fam_pids = [pid for pid, pl in payload_idx.items()
-                    if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))]
+        fam_pids = [
+            pid
+            for pid, pl in payload_idx.items()
+            if u.family in fm.family_s_for_act(str(pl.get("act_name", "") or pl.get("document_title", "")))
+        ]
         stamped_secs = set()
         for pid in fam_pids:
             s = payload_idx[pid].get("section_number")
@@ -805,16 +1000,30 @@ def run_phase20(gap_units, payload_idx, fm):
                         variants.append(vpat.replace("\\s", " ").replace("\\.", ".").replace("\\b", ""))
                         break
         recommendation = "re-stamp section metadata" if variants else "add query route + corpus repair"
-        rows.append({"gold_unit": u.provision_id, "family": u.family,
-                     "gold_section": gold_sec, "gold_document": u.act,
-                     "family_payloads": len(fam_pids), "stamped_sections_count": len(stamped_secs),
-                     "stamped_sections_sample": "; ".join(sorted(stamped_secs)[:10]),
-                     "gold_in_text": "yes" if in_text else "no",
-                     "text_variants_found": "; ".join(variants) if variants else "(none)",
-                     "recommendation": recommendation})
-    cols = ["gold_unit", "family", "gold_section", "gold_document",
-            "family_payloads", "stamped_sections_count", "stamped_sections_sample",
-            "gold_in_text", "text_variants_found", "recommendation"]
+        rows.append({
+            "gold_unit": u.provision_id,
+            "family": u.family,
+            "gold_section": gold_sec,
+            "gold_document": u.act,
+            "family_payloads": len(fam_pids),
+            "stamped_sections_count": len(stamped_secs),
+            "stamped_sections_sample": "; ".join(sorted(stamped_secs)[:10]),
+            "gold_in_text": "yes" if in_text else "no",
+            "text_variants_found": "; ".join(variants) if variants else "(none)",
+            "recommendation": recommendation,
+        })
+    cols = [
+        "gold_unit",
+        "family",
+        "gold_section",
+        "gold_document",
+        "family_payloads",
+        "stamped_sections_count",
+        "stamped_sections_sample",
+        "gold_in_text",
+        "text_variants_found",
+        "recommendation",
+    ]
     with open(V7_DIR / "v7_gap_remediation.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -837,8 +1046,7 @@ def run_phase21(measure):
         verdict = "CONDITIONAL: Pool ceiling >= 85% but > 10 gap units. Address query representation gaps first."
     else:
         verdict = "NO GO: Pool ceiling < 85% or too many gap units. Fix candidate generation first."
-    result = {"pool_ceiling": ca, "gap_units": n_gap,
-              "metadata_recoverable": n_rec, "verdict": verdict}
+    result = {"pool_ceiling": ca, "gap_units": n_gap, "metadata_recoverable": n_rec, "verdict": verdict}
     with open(V7_RAW / "v7_crossencoder_readiness.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     return result

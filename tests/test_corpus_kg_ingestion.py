@@ -74,7 +74,9 @@ class FakeQdrant:
     def get_collections(self):
         return type("R", (), {"collections": self.collections})()
 
-    def scroll(self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None):
+    def scroll(
+        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None
+    ):
         points = {
             "env_legal_768": [
                 {
@@ -245,7 +247,10 @@ class TestMappings:
         assert engine.resolve_authority("Some Totally New Board", "env") == aid
 
     def test_instrument_id_map(self, engine):
-        assert engine.resolve_instrument_id({"document_id": "environment_protection_act_1986"}) == "ENV_PROTECTION_ACT_1986"
+        assert (
+            engine.resolve_instrument_id({"document_id": "environment_protection_act_1986"})
+            == "ENV_PROTECTION_ACT_1986"
+        )
         assert engine.resolve_instrument_id({"document_id": "bharatiya_nyaya_sanhita_2023"}) == "BNS_2023"
         # Unknown docs must slug from the UNIQUE document_id — act_name is
         # shared by many documents of the same Act and would collide.
@@ -294,7 +299,12 @@ class TestSectionValidation:
 class TestProvisionBuilding:
     def test_provisions_from_qdrant_sections(self, engine):
         chunks = [
-            {"chunk_id": "a", "chunk_text": "Section 5: Power to give directions.", "section_number": "5", "section_title": "Power to give directions"},
+            {
+                "chunk_id": "a",
+                "chunk_text": "Section 5: Power to give directions.",
+                "section_number": "5",
+                "section_title": "Power to give directions",
+            },
             {"chunk_id": "b", "chunk_text": "Body.", "section_number": "5", "section_title": None},
             {"chunk_id": "c", "chunk_text": "Cross-ref 1986.", "section_number": "1986", "section_title": None},
             {"chunk_id": "d", "chunk_text": "Section 12: Misc.", "section_number": "12", "section_title": None},
@@ -309,9 +319,7 @@ class TestProvisionBuilding:
         assert "directions" in sec5["text"]
 
     def test_stub_fallback_provisions(self, engine):
-        provs = engine.build_provisions(
-            "PFA_1954", None, [], fallback_stubs={"1": ("Short title", "PFA 1954 text.")}
-        )
+        provs = engine.build_provisions("PFA_1954", None, [], fallback_stubs={"1": ("Short title", "PFA 1954 text.")})
         assert provs[0]["provision_id"] == "PFA_1954_SEC_1"
         assert provs[0]["source"] == "stub"
         assert provs[0]["confidence"] == 0.6
@@ -331,8 +339,14 @@ class TestEngine:
         # Every provision row carries legal_domain
         for p in collected["provisions"]:
             assert p["legal_domain"] in {
-                "FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION",
-                "MUNICIPAL", "PUBLIC_HEALTH", "BUSINESS_CIVIL", "LAND_PREMISES", "CRIMINAL",
+                "FOOD_SAFETY",
+                "ANIMAL_SLAUGHTER",
+                "ENVIRONMENT_POLLUTION",
+                "MUNICIPAL",
+                "PUBLIC_HEALTH",
+                "BUSINESS_CIVIL",
+                "LAND_PREMISES",
+                "CRIMINAL",
             }
 
     def test_collect_documents_and_instruments(self, engine):
@@ -354,13 +368,19 @@ class TestEngine:
     def test_cross_domain_edges_only_for_existing_endpoints(self, engine):
         collected = engine.collect()
         written, skipped = [], []
-        for src, rel, tgt, _ev in __import__("kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"]).CORPUS_CROSS_DOMAIN_EDGES:
+        for src, rel, tgt, _ev in __import__(
+            "kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"]
+        ).CORPUS_CROSS_DOMAIN_EDGES:
             if src in collected["provision_ids"] and tgt in collected["provision_ids"]:
                 written.append((src, rel, tgt))
             else:
                 skipped.append(src)
         # EP s.5 exists in the fake corpus -> edge kept
-        assert ("ENV_PROTECTION_ACT_1986_SEC_5", "COMPLEMENTS", "FSS_ACT_2006_SEC_31") not in written  # FSS not in fake DB
+        assert (
+            "ENV_PROTECTION_ACT_1986_SEC_5",
+            "COMPLEMENTS",
+            "FSS_ACT_2006_SEC_31",
+        ) not in written  # FSS not in fake DB
         # FSS_ACT_2006_SEC_31 does not exist in unit tests (FSS loader stubbed) -> edge skipped
 
     def test_dry_run_writes_nothing(self, engine):

@@ -95,7 +95,6 @@ def main() -> int:
             if hit_at_10 == 0:
                 targets.append((qid, entry, qtypes))
 
-
         encoder = reranker_on._get_encoder()
         results = []
 

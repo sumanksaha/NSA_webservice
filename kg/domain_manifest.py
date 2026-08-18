@@ -141,9 +141,7 @@ AUTHORITIES: dict[str, Authority] = {
     "MOFAHD": Authority(
         "MOFAHD", "Ministry of Fisheries, Animal Husbandry and Dairying", "MoFAH&D", "INDIA", "department"
     ),
-    "WB_GOVT": Authority(
-        "WB_GOVT", "Government of West Bengal", "WB Government", "WEST_BENGAL", "government"
-    ),
+    "WB_GOVT": Authority("WB_GOVT", "Government of West Bengal", "WB Government", "WEST_BENGAL", "government"),
 }
 
 

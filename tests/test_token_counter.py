@@ -22,8 +22,10 @@ class TestTokenEstimation:
         assert result >= 1
 
     def test_longer_text(self):
-        text = "Section 55 of the FSS Act, 2006 requires food businesses " \
-               "to obtain a license from the competent authority." * 10
+        text = (
+            "Section 55 of the FSS Act, 2006 requires food businesses "
+            "to obtain a license from the competent authority." * 10
+        )
         short = TokenCounter().estimate("Hello")
         long_est = TokenCounter().estimate(text)
         assert long_est > short

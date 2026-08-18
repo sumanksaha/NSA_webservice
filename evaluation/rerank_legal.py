@@ -30,10 +30,44 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from evaluation.query_expansion import detect_act, detect_section
 
 _STOP = frozenset({
-    "the", "a", "an", "of", "and", "or", "to", "in", "for", "under", "what",
-    "which", "who", "how", "is", "are", "does", "do", "be", "by", "on", "at",
-    "with", "from", "as", "that", "this", "its", "it", "not", "shall", "may",
-    "act", "section", "sec", "food", "safety", "standards",
+    "the",
+    "a",
+    "an",
+    "of",
+    "and",
+    "or",
+    "to",
+    "in",
+    "for",
+    "under",
+    "what",
+    "which",
+    "who",
+    "how",
+    "is",
+    "are",
+    "does",
+    "do",
+    "be",
+    "by",
+    "on",
+    "at",
+    "with",
+    "from",
+    "as",
+    "that",
+    "this",
+    "its",
+    "it",
+    "not",
+    "shall",
+    "may",
+    "act",
+    "section",
+    "sec",
+    "food",
+    "safety",
+    "standards",
 })
 
 
@@ -80,8 +114,9 @@ def rrf_scores(item_lists: list[list[dict]], rrf_k: float = 60.0) -> dict[str, f
     return scores
 
 
-def build_pool(dense_rec, sparse_rec, kg_rec, payload_index, family_map,
-               slice_depth: int | None = None, kg_slice: int = 200) -> list[dict]:
+def build_pool(
+    dense_rec, sparse_rec, kg_rec, payload_index, family_map, slice_depth: int | None = None, kg_slice: int = 200
+) -> list[dict]:
     """Union pool items with kind/key/payload access; dedup by key.
 
     ``slice_depth`` (when not None) truncates dense/sparse chunk_ids to the
@@ -116,18 +151,19 @@ def build_pool(dense_rec, sparse_rec, kg_rec, payload_index, family_map,
     return items
 
 
-def rerank(pool: list[dict], query: str, family_map,
-           rrf: dict[str, float], weights: dict[str, float]) -> list[dict]:
+def rerank(pool: list[dict], query: str, family_map, rrf: dict[str, float], weights: dict[str, float]) -> list[dict]:
     """Score every pool candidate and return pool sorted by score desc."""
     scored = []
     for it in pool:
         feats = legal_features(it["payload"], query, family_map)
         r = rrf.get(it["key"], 0.0)
-        s = (r
-             + weights["sec"] * feats["sec_match"]
-             + weights["act"] * feats["act_match"]
-             + weights["exact"] * feats["exact"]
-             + weights["lex"] * feats["lex"])
+        s = (
+            r
+            + weights["sec"] * feats["sec_match"]
+            + weights["act"] * feats["act_match"]
+            + weights["exact"] * feats["exact"]
+            + weights["lex"] * feats["lex"]
+        )
         it = dict(it)
         it["score"] = s
         it["feats"] = feats
@@ -275,9 +311,7 @@ def main() -> int:
                     fl = rerank(pool, q.question, family_map, rrf, grids["full_legal"])
                     if {it["key"] for it in fl[:10]} != {it["key"] for it in reranked[:10]}:
                         top10_diff += 1
-            out[gname] = {
-                f"R@{k}": round(recall[k] / max(n, 1), 4) for k in (10, 20, 50)
-            }
+            out[gname] = {f"R@{k}": round(recall[k] / max(n, 1), 4) for k in (10, 20, 50)}
             out[gname]["any_hit_R@10"] = round(any_hits[10] / max(n, 1), 4)
             out[gname]["any_hit_R@20"] = round(any_hits[20] / max(n, 1), 4)
             out[gname]["n"] = n
@@ -287,7 +321,6 @@ def main() -> int:
             "slice_depth": slice_depth,
             "full_legal_vs_lex_heavy_top10_diffs": top10_diff,
         }
-
 
         # write deliverable next to the raw arms (keeps each experiment dir
         # self-contained and never overwrites a prior experiment's files)

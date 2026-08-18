@@ -11,6 +11,7 @@ Mocking pattern mirrors ``tests/test_rag_e2e.py::test_pipeline_retrieve_task``
 (``DenseRetriever._get_client`` / ``_get_encoder`` patched so construction is
 network-free; ``_build_reranker`` patched so no torch model loads).
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -66,7 +67,8 @@ def _patched_pipeline(retrieve_mock):
         mock.patch.object(HybridRetriever, "retrieve", retrieve_mock),
         mock.patch.object(DenseRetriever, "_get_client", return_value=SimpleNamespace()),
         mock.patch.object(
-            DenseRetriever, "_get_encoder",
+            DenseRetriever,
+            "_get_encoder",
             return_value=SimpleNamespace(encode=lambda text: [0.5] * 768),
         ),
         mock.patch.object(rag_tasks, "_build_reranker", return_value=SimpleNamespace()),
@@ -88,9 +90,16 @@ class TestRetrievalCache:
         app, ctx = _setup_test_env()
         try:
             app.config["RAG_RETRIEVAL_CACHE"] = True
-            retrieve_mock = mock.Mock(return_value=SearchResult(
-                query=QUERY, query_type="section_lookup", chunks=_fake_chunks(),
-                total=1, latency_ms=42, source="hybrid"))
+            retrieve_mock = mock.Mock(
+                return_value=SearchResult(
+                    query=QUERY,
+                    query_type="section_lookup",
+                    chunks=_fake_chunks(),
+                    total=1,
+                    latency_ms=42,
+                    source="hybrid",
+                )
+            )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 r1 = run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
@@ -111,9 +120,16 @@ class TestRetrievalCache:
         """With RAG_RETRIEVAL_CACHE unset, identical queries are twice-run."""
         _, ctx = _setup_test_env()
         try:
-            retrieve_mock = mock.Mock(return_value=SearchResult(
-                query=QUERY, query_type="section_lookup", chunks=_fake_chunks(),
-                total=1, latency_ms=42, source="hybrid"))
+            retrieve_mock = mock.Mock(
+                return_value=SearchResult(
+                    query=QUERY,
+                    query_type="section_lookup",
+                    chunks=_fake_chunks(),
+                    total=1,
+                    latency_ms=42,
+                    source="hybrid",
+                )
+            )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
@@ -127,9 +143,16 @@ class TestRetrievalCache:
         app, ctx = _setup_test_env()
         try:
             app.config["RAG_RETRIEVAL_CACHE"] = True
-            retrieve_mock = mock.Mock(return_value=SearchResult(
-                query=QUERY, query_type="section_lookup", chunks=_fake_chunks(),
-                total=1, latency_ms=42, source="hybrid"))
+            retrieve_mock = mock.Mock(
+                return_value=SearchResult(
+                    query=QUERY,
+                    query_type="section_lookup",
+                    chunks=_fake_chunks(),
+                    total=1,
+                    latency_ms=42,
+                    source="hybrid",
+                )
+            )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
@@ -148,9 +171,16 @@ class TestRetrievalCache:
         app, ctx = _setup_test_env()
         try:
             app.config["RAG_RETRIEVAL_CACHE"] = True
-            retrieve_mock = mock.Mock(return_value=SearchResult(
-                query=QUERY, query_type="section_lookup", chunks=_fake_chunks(),
-                total=1, latency_ms=42, source="hybrid"))
+            retrieve_mock = mock.Mock(
+                return_value=SearchResult(
+                    query=QUERY,
+                    query_type="section_lookup",
+                    chunks=_fake_chunks(),
+                    total=1,
+                    latency_ms=42,
+                    source="hybrid",
+                )
+            )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")

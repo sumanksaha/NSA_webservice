@@ -31,6 +31,7 @@ NEO4J_AVAILABLE = bool(os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_PAS
 # Mock driver fixture — for unit tests that can't reach Neo4j
 # --------------------------------------------------------------------------- #
 
+
 class MockResult:
     def __init__(self, records):
         self._records = records
@@ -79,18 +80,21 @@ def mock_driver():
 @pytest.fixture
 def kg_queries(mock_driver):
     from kg.queries import LegalKGQueries
+
     return LegalKGQueries(driver=mock_driver)
 
 
 @pytest.fixture
 def kg_validator(mock_driver):
     from kg.validation import KGValidator
+
     return KGValidator(driver=mock_driver)
 
 
 @pytest.fixture
 def kg_ingester(mock_driver):
     from kg.ingestion import LegalKGIngestionEngine
+
     return LegalKGIngestionEngine(driver=mock_driver)
 
 
@@ -104,37 +108,54 @@ class TestDomainManifest:
 
     def test_all_domains_defined(self):
         from kg.domain_manifest import DOMAINS
+
         # CRIMINAL added 2026-08-11 (Option B) to align the KG taxonomy with
         # the Qdrant corpus collections (Bharatiya Nyaya Sanhita, 2023).
-        expected = {"FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION",
-                     "MUNICIPAL", "PUBLIC_HEALTH", "BUSINESS_CIVIL", "LAND_PREMISES",
-                     "CRIMINAL"}
+        expected = {
+            "FOOD_SAFETY",
+            "ANIMAL_SLAUGHTER",
+            "ENVIRONMENT_POLLUTION",
+            "MUNICIPAL",
+            "PUBLIC_HEALTH",
+            "BUSINESS_CIVIL",
+            "LAND_PREMISES",
+            "CRIMINAL",
+        }
         assert set(DOMAINS.keys()) == expected
 
     def test_domains_have_unique_priorities(self):
         from kg.domain_manifest import DOMAINS
+
         priorities = [d.priority for d in DOMAINS.values()]
         assert len(priorities) == len(set(priorities)), "Domain priorities must be unique"
 
     def test_fssai_is_primary(self):
         from kg.domain_manifest import DOMAINS
+
         assert DOMAINS["FOOD_SAFETY"].priority == 1
 
     def test_all_authorities_have_jurisdictions(self):
         from kg.domain_manifest import AUTHORITIES, JURISDICTIONS
+
         for auth in AUTHORITIES.values():
             assert auth.jurisdiction in JURISDICTIONS, f"{auth.authority_id} references unknown jurisdiction"
 
     def test_all_instrument_authorities_exist(self):
         from kg.domain_manifest import AUTHORITIES, PILOT_INSTRUMENTS
+
         for inst in PILOT_INSTRUMENTS:
-            assert inst.issuing_authority in AUTHORITIES, \
+            assert inst.issuing_authority in AUTHORITIES, (
                 f"Instrument {inst.instrument_id} references unknown authority {inst.issuing_authority}"
+            )
 
     def test_cross_domain_relationships_are_valid(self):
         from kg.domain_manifest import CROSS_DOMAIN_RELATIONSHIPS, PILOT_INSTRUMENTS, PROVISION_STUBS
-        all_pids = {f"{inst.instrument_id}_SEC_{s}" for inst in PILOT_INSTRUMENTS
-                     for s in PROVISION_STUBS.get(inst.instrument_id, {})}
+
+        all_pids = {
+            f"{inst.instrument_id}_SEC_{s}"
+            for inst in PILOT_INSTRUMENTS
+            for s in PROVISION_STUBS.get(inst.instrument_id, {})
+        }
         # Also include FSS Act sections
         all_pids.update(f"FSS_ACT_2006_SEC_{s}" for s in PILOT_INSTRUMENTS[0].provisions)
         for src, _rel, tgt, ev in CROSS_DOMAIN_RELATIONSHIPS:
@@ -143,13 +164,13 @@ class TestDomainManifest:
 
     def test_provision_concept_map_references_exist(self):
         from kg.domain_manifest import AUTHORITIES, CONCEPTS, PROVISION_CONCEPT_MAP
+
         # Authority is a node label, also valid as a target
         valid_ids = set(CONCEPTS.keys()) | set(AUTHORITIES.keys()) | {"Authority"}
         for pid, mappings in PROVISION_CONCEPT_MAP.items():
             for concept_id, _rel_type, evidence in mappings:
                 # Concept must exist OR be an authority (FSO, WB_FODDER_DEPT, etc.) or "Authority" label
-                assert concept_id in valid_ids, \
-                    f"Unknown concept/authority: {concept_id} in {pid}"
+                assert concept_id in valid_ids, f"Unknown concept/authority: {concept_id} in {pid}"
                 assert evidence and len(evidence) > 5, f"Empty evidence for {pid}->{concept_id}"
 
 
@@ -158,19 +179,23 @@ class TestSchema:
 
     def test_constraints_count(self):
         from kg.schema import CONSTRAINTS_CYPHER
+
         assert len(CONSTRAINTS_CYPHER) >= 30, "Should have at least 30 constraints"
 
     def test_indexes_count(self):
         from kg.schema import INDEXES_CYPHER
+
         assert len(INDEXES_CYPHER) >= 15, "Should have at least 15 indexes"
 
     def test_all_constraints_use_if_not_exists(self):
         from kg.schema import CONSTRAINTS_CYPHER
+
         for cypher in CONSTRAINTS_CYPHER:
             assert "IF NOT EXISTS" in cypher, f"Constraint must be idempotent: {cypher}"
 
     def test_all_indexes_use_if_not_exists(self):
         from kg.schema import INDEXES_CYPHER
+
         for cypher in INDEXES_CYPHER:
             assert "IF NOT EXISTS" in cypher, f"Index must be idempotent: {cypher}"
 
@@ -193,10 +218,18 @@ class TestQueries:
     def test_get_domain_provisions_query(self, kg_queries):
         # Set up mock return with proper keys
         kg_queries._driver.set_default([
-            {"provision_id": "FSS_ACT_2006_SEC_31", "provision_number": "31",
-             "title": "Licence", "status": "current", "effective_from": None,
-             "confidence": 0.95, "instrument_id": "FSS_ACT_2006",
-             "instrument_title": "FSS Act", "authority": "FSSAI", "source_uri": "/doc.pdf"}
+            {
+                "provision_id": "FSS_ACT_2006_SEC_31",
+                "provision_number": "31",
+                "title": "Licence",
+                "status": "current",
+                "effective_from": None,
+                "confidence": 0.95,
+                "instrument_id": "FSS_ACT_2006",
+                "instrument_title": "FSS Act",
+                "authority": "FSSAI",
+                "source_uri": "/doc.pdf",
+            }
         ])
         result = kg_queries.get_domain_provisions("FOOD_SAFETY")
         assert isinstance(result, list)
@@ -205,10 +238,16 @@ class TestQueries:
 
     def test_search_provisions_query(self, kg_queries):
         kg_queries._driver.set_default([
-            {"provision_id": "FSS_ACT_2006_SEC_32", "provision_number": "32",
-             "title": "Powers of FSO", "snippet": "...",
-             "instrument_title": "FSS Act", "instrument_id": "FSS_ACT_2006",
-             "legal_domain": "FOOD_SAFETY", "source_uri": "/doc.pdf"}
+            {
+                "provision_id": "FSS_ACT_2006_SEC_32",
+                "provision_number": "32",
+                "title": "Powers of FSO",
+                "snippet": "...",
+                "instrument_title": "FSS Act",
+                "instrument_id": "FSS_ACT_2006",
+                "legal_domain": "FOOD_SAFETY",
+                "source_uri": "/doc.pdf",
+            }
         ])
         result = kg_queries.search_provisions("inspection", domain="FOOD_SAFETY")
         assert len(result) == 1
@@ -216,6 +255,7 @@ class TestQueries:
 
     def test_build_llm_contract_empty_graph(self):
         from kg.queries import LegalKGQueries, build_llm_retrieval_contract
+
         kg = LegalKGQueries(driver=MockDriver())
         contract = build_llm_retrieval_contract(
             "What laws apply to a slaughterhouse as a food business?",
@@ -229,6 +269,7 @@ class TestQueries:
 
     def test_classify_query_domain(self):
         from kg.queries import _classify_query_domain
+
         assert _classify_query_domain("fssai food licence requirements") == "FOOD_SAFETY"
         assert _classify_query_domain("slaughterhouse animal welfare") == "ANIMAL_SLAUGHTER"
         assert _classify_query_domain("water pollution consent") == "ENVIRONMENT_POLLUTION"
@@ -239,6 +280,7 @@ class TestQueries:
 
     def test_extract_concept_mentions(self):
         from kg.queries import _extract_concept_mentions
+
         concepts = _extract_concept_mentions("slaughterhouse food business licence wastewater")
         assert "Slaughterhouse" in concepts
         assert "FoodBusiness" in concepts
@@ -251,6 +293,7 @@ class TestValidation:
 
     def test_validator_creates_valid_driver(self, mock_driver):
         from kg.validation import KGValidator
+
         v = KGValidator(driver=mock_driver)
         assert v._driver is mock_driver
 
@@ -281,7 +324,9 @@ class TestValidation:
         assert len(result["domains"]) == 0
 
     def test_check_cross_domain_retrieval_multi_domain(self, kg_validator):
-        kg_validator._driver.set_return("domains", [{"domains": ["FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION", "MUNICIPAL"]}])
+        kg_validator._driver.set_return(
+            "domains", [{"domains": ["FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION", "MUNICIPAL"]}]
+        )
         result = kg_validator.check_cross_domain_retrieval("Slaughterhouse")
         assert result["passed"]
         assert len(result["domains"]) >= 4
@@ -292,6 +337,7 @@ class TestIngestion:
 
     def test_engine_initialization(self, mock_driver):
         from kg.ingestion import LegalKGIngestionEngine
+
         engine = LegalKGIngestionEngine(driver=mock_driver)
         assert engine._driver is mock_driver
 
@@ -361,6 +407,7 @@ class TestNeo4jIntegration:
     def test_schema_constraints_exist(self):
         """Verify all legal KG constraints were created."""
         from app.services.neo4j_graph import query_neo4j
+
         results = query_neo4j("SHOW CONSTRAINTS")
         constraint_names = {r["name"] for r in results}
         # Check at least the instrument + provision constraints exist
@@ -369,6 +416,7 @@ class TestNeo4jIntegration:
     def test_domains_loaded(self):
         """Test 1 (acceptance) — domain nodes exist."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         domains = q.get_all_domains()
         domain_names = {d["domain_name"] for d in domains}
@@ -382,18 +430,19 @@ class TestNeo4jIntegration:
     def test_1_domain_separation(self):
         """FSSAI provisions do not indiscriminately return land-revenue provisions."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         provisions = q.get_domain_provisions("FOOD_SAFETY")
         assert len(provisions) > 0, "Should have FSSAI provisions"
         for p in provisions:
-            assert p["legal_domain"] != "LAND_PREMISES", \
-                f"FSSAI provision {p['provision_id']} has wrong domain"
+            assert p["legal_domain"] != "LAND_PREMISES", f"FSSAI provision {p['provision_id']} has wrong domain"
 
     # --- Acceptance Test 2: Cross-domain retrieval ---
 
     def test_2_cross_domain_slaughterhouse(self):
         """Slaughterhouse query retrieves provisions from 4+ domains."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         result = q.get_applicable_laws("FoodBusiness")
         # FoodBusiness should have provisions in FOOD_SAFETY at minimum
@@ -403,6 +452,7 @@ class TestNeo4jIntegration:
     def test_2_cross_domain_concepts(self):
         """Concepts like Slaughterhouse appear in multiple domains."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         # Slaughterhouse concept should appear in both FOOD_SAFETY and ANIMAL_SLAUGHTER
         provisions = q.get_cross_domain_laws("Slaughterhouse")
@@ -414,6 +464,7 @@ class TestNeo4jIntegration:
     def test_3_provenance_chain(self):
         """Every provision traces back to Instrument → Chunk → Document."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         evidence = q.get_source_evidence("FSS_ACT_2006_SEC_31")
         assert evidence is not None, "Should find provenance for FSS Act Section 31"
@@ -426,6 +477,7 @@ class TestNeo4jIntegration:
     def test_4_authority_identification(self):
         """Provision → authority is source-supported."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         auths = q.get_authorities("FSS_ACT_2006_SEC_32")
         assert len(auths) > 0, "Section 32 should have an authority"
@@ -438,6 +490,7 @@ class TestNeo4jIntegration:
     def test_5_temporal_distinction(self):
         """Current vs repealed provisions are distinguishable."""
         from kg.queries import LegalKGQueries
+
         q = LegalKGQueries()
         provisions = q.get_current_provisions("FoodBusiness")
         assert len(provisions) > 0, "Should find current provisions"
@@ -450,6 +503,7 @@ class TestNeo4jIntegration:
     def test_6_no_hallucinated_relationships(self):
         """No CONFLICTS_WITH / OVERRIDES / INVALIDATES / APPLIES edges exist."""
         from app.services.neo4j_graph import query_neo4j
+
         forbidden = ["CONFLICTS_WITH", "OVERRIDES", "INVALIDATES", "APPLIES"]
         for rel in forbidden:
             results = query_neo4j(f"MATCH ()-[r:{rel}]->() RETURN count(r) AS c")
@@ -460,6 +514,7 @@ class TestNeo4jIntegration:
     def test_final_demonstration(self):
         """The acceptance query: slaughterhouse food business → 4 domains."""
         from app.services.neo4j_graph import query_neo4j
+
         # Check that FOOD_SAFETY, ANIMAL_SLAUGHTER, ENVIRONMENT, MUNICIPAL exist
         domains = query_neo4j("MATCH (d:LegalDomain) RETURN d.domain_name AS name")
         domain_names = {d["name"] for d in domains}
@@ -484,7 +539,6 @@ class TestNeo4jIntegration:
 
         # Verify provenance chain: at least one provision → chunk → document
         provenance = query_neo4j(
-            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk)<-[:HAS_CHUNK]-(doc:Document)"
-            " RETURN count(*) AS c"
+            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk)<-[:HAS_CHUNK]-(doc:Document) RETURN count(*) AS c"
         )
         assert provenance[0]["c"] > 0, "Should have provenance chains"

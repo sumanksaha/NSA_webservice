@@ -297,9 +297,13 @@ class TestRunGenerationPipeline:
         no KG call is made."""
         chunks = [
             {
-                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
-                "section_number": "55", "document_title": "FSS Act",
-                "document_type": "act", "authority": "FSSAI",
+                "chunk_id": "c1",
+                "score": 0.9,
+                "text": "Section 55 text",
+                "section_number": "55",
+                "document_title": "FSS Act",
+                "document_type": "act",
+                "authority": "FSSAI",
             }
         ]
         called = []
@@ -319,9 +323,13 @@ class TestRunGenerationPipeline:
         injection."""
         chunks = [
             {
-                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
-                "section_number": "55", "document_title": "FSS Act",
-                "document_type": "act", "authority": "FSSAI",
+                "chunk_id": "c1",
+                "score": 0.9,
+                "text": "Section 55 text",
+                "section_number": "55",
+                "document_title": "FSS Act",
+                "document_type": "act",
+                "authority": "FSSAI",
             }
         ]
 
@@ -331,10 +339,13 @@ class TestRunGenerationPipeline:
                 {
                     # Novel provision (Air Act s3) — NOT covered by the vector
                     # chunks, so it survives the KG-redundancy dedup.
-                    "provision_id": "P1", "provision_number": "3", "title": "Prov 3",
+                    "provision_id": "P1",
+                    "provision_number": "3",
+                    "title": "Prov 3",
                     "instrument_title": "Air (Prevention and Control of Pollution) Act, 1981",
                     "legal_domain": "ENVIRONMENT_POLLUTION",
-                    "status": "current", "text": "Provision 3 body",
+                    "status": "current",
+                    "text": "Provision 3 body",
                 }
             ]
 
@@ -353,9 +364,13 @@ class TestRunGenerationPipeline:
         """A failing KG contract degrades to no fusion (never raises)."""
         chunks = [
             {
-                "chunk_id": "c1", "score": 0.9, "text": "Section 55 text",
-                "section_number": "55", "document_title": "FSS Act",
-                "document_type": "act", "authority": "FSSAI",
+                "chunk_id": "c1",
+                "score": 0.9,
+                "text": "Section 55 text",
+                "section_number": "55",
+                "document_title": "FSS Act",
+                "document_type": "act",
+                "authority": "FSSAI",
             }
         ]
 

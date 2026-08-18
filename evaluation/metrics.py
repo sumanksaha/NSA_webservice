@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 @dataclass
 class RankedItem:
-    kind: str          # "chunk" | "kg"
-    key: str           # unique-ish id (chunk point id / kg provision_id)
+    kind: str  # "chunk" | "kg"
+    key: str  # unique-ish id (chunk point id / kg provision_id)
     family: str | None = None
     section: str | None = None
 
@@ -127,9 +127,9 @@ class QuestionMetrics:
     question_id: str
     arm: str
     unit_ranks: dict[str, int | None] = field(default_factory=dict)  # provision_id -> 1-based rank
-    pool_covered: set[str] = field(default_factory=set)              # provision ids in union pool
-    recall: dict[int, float] = field(default_factory=dict)           # strict (primary+acceptable)
-    recall_all: dict[int, float] = field(default_factory=dict)       # all gold units
+    pool_covered: set[str] = field(default_factory=set)  # provision ids in union pool
+    recall: dict[int, float] = field(default_factory=dict)  # strict (primary+acceptable)
+    recall_all: dict[int, float] = field(default_factory=dict)  # all gold units
     mrr: float = 0.0
     ndcg: dict[int, float] = field(default_factory=dict)
     precision: dict[int, float] = field(default_factory=dict)
@@ -257,9 +257,7 @@ def legal_evidence(
 
     # instrument / provision / authority / jurisdiction / temporal
     gold_families = {u.family for u in units}
-    instrument_correct = any(
-        item.family in gold_families for item in top20
-    ) and bool(gold_families)
+    instrument_correct = any(item.family in gold_families for item in top20) and bool(gold_families)
 
     provision_hits = [u.provision_id for u in units if item_covers_any(u, top20)]
     provision_correct = bool(provision_hits)

@@ -51,7 +51,9 @@ class TestGapBucket:
         assert _gap_bucket({"chunk_text": "40 THE GAZETTE OF INDIA : EXTRAORDINARY [PART II"}) == "gazette_header"
 
     def test_rule_header(self):
-        assert _gap_bucket({"document_type": "rule", "chunk_text": "4 Rural areas 1 With a population"}) == "rule_header"
+        assert (
+            _gap_bucket({"document_type": "rule", "chunk_text": "4 Rural areas 1 With a population"}) == "rule_header"
+        )
 
     def test_dotted_unstamped(self):
         assert _gap_bucket({"chunk_text": "2.4.15 BAKERY PRODUCTS"}) == "dotted_unstamped"
@@ -70,21 +72,54 @@ class TestAudit:
     def _payloads(self):
         return [
             # act doc: section-stamped chunk + fillable paren fragment
-            {"document_id": "d1", "document_type": "act", "hierarchy_level": 2,
-             "chunk_text": "3. Definitions", "section_number": "3", "legal_domain": "BUSINESS_CIVIL"},
-            {"document_id": "d1", "document_type": "act", "hierarchy_level": 3,
-             "chunk_text": "(a) \"adulterant\" means", "legal_domain": "BUSINESS_CIVIL"},
+            {
+                "document_id": "d1",
+                "document_type": "act",
+                "hierarchy_level": 2,
+                "chunk_text": "3. Definitions",
+                "section_number": "3",
+                "legal_domain": "BUSINESS_CIVIL",
+            },
+            {
+                "document_id": "d1",
+                "document_type": "act",
+                "hierarchy_level": 3,
+                "chunk_text": '(a) "adulterant" means',
+                "legal_domain": "BUSINESS_CIVIL",
+            },
             # regulation with clause + unstamped fragment
-            {"document_id": "d2", "document_type": "regulation", "hierarchy_level": 3,
-             "chunk_text": "2.4.15 BAKERY PRODUCTS", "clause_number": "2.4.15", "legal_domain": "FOOD_SAFETY"},
-            {"document_id": "d2", "document_type": "regulation", "hierarchy_level": 3,
-             "chunk_text": "(1) Biscuits shall be made", "legal_domain": "FOOD_SAFETY"},
+            {
+                "document_id": "d2",
+                "document_type": "regulation",
+                "hierarchy_level": 3,
+                "chunk_text": "2.4.15 BAKERY PRODUCTS",
+                "clause_number": "2.4.15",
+                "legal_domain": "FOOD_SAFETY",
+            },
+            {
+                "document_id": "d2",
+                "document_type": "regulation",
+                "hierarchy_level": 3,
+                "chunk_text": "(1) Biscuits shall be made",
+                "legal_domain": "FOOD_SAFETY",
+            },
             # hl1 noise — never counted as missing
-            {"document_id": "d3", "document_type": "rule", "hierarchy_level": 1,
-             "chunk_text": "Address:", "legal_domain": "FOOD_SAFETY"},
+            {
+                "document_id": "d3",
+                "document_type": "rule",
+                "hierarchy_level": 1,
+                "chunk_text": "Address:",
+                "legal_domain": "FOOD_SAFETY",
+            },
             # rule with noise section_number only — NOT identified (G8)
-            {"document_id": "d4", "document_type": "rule", "hierarchy_level": 2,
-             "chunk_text": "6 Summary of the mechanisms", "section_number": "6", "legal_domain": "FOOD_SAFETY"},
+            {
+                "document_id": "d4",
+                "document_type": "rule",
+                "hierarchy_level": 2,
+                "chunk_text": "6 Summary of the mechanisms",
+                "section_number": "6",
+                "legal_domain": "FOOD_SAFETY",
+            },
         ]
 
     def test_counts(self):

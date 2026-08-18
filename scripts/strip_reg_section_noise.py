@@ -97,14 +97,16 @@ def scroll_payloads(app, collections) -> dict[str, dict]:
 
 def collections_from_config(app) -> list[str]:
     cfg = app.config
-    return list(dict.fromkeys([
-        cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-    ]))
+    return list(
+        dict.fromkeys([
+            cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+        ])
+    )
 
 
 def set_payload_batched(client, collection: str, changes: dict[str, dict], batch_size: int = 200) -> int:
@@ -116,7 +118,7 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
     for key, ids in groups.items():
         payload = changes[ids[0]]
         for i in range(0, len(ids), batch_size):
-            batch = ids[i:i + batch_size]
+            batch = ids[i : i + batch_size]
             try:
                 client.set_payload(collection_name=collection, payload=payload, points=batch)
                 applied += len(batch)
@@ -241,8 +243,7 @@ def main(argv: list[str] | None = None) -> int:
                 deletions[pid] = ch
                 by_type[pl.get("document_type")] += 1
 
-        logger.info("stripping section_number from %d points %s",
-                    len(deletions), dict(by_type))
+        logger.info("stripping section_number from %d points %s", len(deletions), dict(by_type))
 
         # provenance (which collection each point lives in) for reporting
         prov: dict[str, str] = {}
@@ -267,8 +268,8 @@ def main(argv: list[str] | None = None) -> int:
             "by_document_type": dict(by_type),
             "by_collection": dict(by_coll),
             "note": "identity-preserving strip (G8 step 1): deletes spurious section_number "
-                    "from regulation/notification chunks (page numbers, def-list numbers, "
-                    "cross-references). Vectors untouched.",
+            "from regulation/notification chunks (page numbers, def-list numbers, "
+            "cross-references). Vectors untouched.",
         }
 
         # --- evidence CSV (a sample of what was stripped, for review)
@@ -288,10 +289,17 @@ def main(argv: list[str] | None = None) -> int:
         import csv as _csv
 
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = _csv.DictWriter(f, fieldnames=[
-                "collection", "point_id", "document_type", "old_section_number",
-                "clause_number", "evidence",
-            ])
+            writer = _csv.DictWriter(
+                f,
+                fieldnames=[
+                    "collection",
+                    "point_id",
+                    "document_type",
+                    "old_section_number",
+                    "clause_number",
+                    "evidence",
+                ],
+            )
             writer.writeheader()
             writer.writerows(rows)
         logger.info("evidence CSV -> %s (%d rows)", csv_path, len(rows))
@@ -316,8 +324,7 @@ def main(argv: list[str] | None = None) -> int:
                 logger.info("collection %s: %d updates", coll, n)
 
             if applied == 0 and deletions:
-                logger.error("apply wrote 0 updates for %d deletions — aborting before DB mirror",
-                             len(deletions))
+                logger.error("apply wrote 0 updates for %d deletions — aborting before DB mirror", len(deletions))
                 return 1
 
             if not args.no_db:

@@ -41,11 +41,15 @@ os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Semantic enrichment of the legal KG (duty/offence/penalty/prohibition tags).")
+    p = argparse.ArgumentParser(
+        description="Semantic enrichment of the legal KG (duty/offence/penalty/prohibition tags)."
+    )
     p.add_argument("--dry-run", action="store_true", help="Tag provisions and report planned edges — no Neo4j writes.")
     p.add_argument("--limit", type=int, default=None, help="Only tag the first N provisions (ORDER BY provision_id).")
     p.add_argument("--domain", type=str, default=None, help="Only tag provisions in this domain (e.g. FOOD_SAFETY).")
-    p.add_argument("--min-confidence", type=float, default=0.7, help="Minimum rule confidence for an edge (default 0.7).")
+    p.add_argument(
+        "--min-confidence", type=float, default=0.7, help="Minimum rule confidence for an edge (default 0.7)."
+    )
     p.add_argument("--out-dir", type=Path, default=Path("reports"), help="Where to write the summary JSON.")
     p.add_argument("--pretty", action="store_true", help="Pretty-print the summary.")
     return p

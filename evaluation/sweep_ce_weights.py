@@ -136,7 +136,6 @@ def sweep_fast(args, weights, heads):
     if not debug_recs:
         return
 
-
     # Load gold units + payload_index for hit checking
     from evaluation.benchmark import load_questions
     from evaluation.report_ceiling import load_payload_index

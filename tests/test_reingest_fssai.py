@@ -73,18 +73,42 @@ def make_db(tmp_path) -> str:
         "INSERT INTO legal_chunk VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             (
-                "chunk_0001", "doc_fss_act", "act", "3", 0,
+                "chunk_0001",
+                "doc_fss_act",
+                "act",
+                "3",
+                0,
                 "Section 3. The Central Government shall make rules.",
-                45, 8, 3, None, '[]', '["Section 55"]', '["rule"]',
+                45,
+                8,
+                3,
+                None,
+                "[]",
+                '["Section 55"]',
+                '["rule"]',
                 json.dumps({"chunk_id": "chunk_0001", "chunk_text": "old", "document_id": "doc_fss_act"}),
-                "hash_0001", "chunk_0001", "2026-08-10T10:00:01Z",
+                "hash_0001",
+                "chunk_0001",
+                "2026-08-10T10:00:01Z",
             ),
             (
-                "chunk_0002", "doc_fss_act", "act", "55", 1,
+                "chunk_0002",
+                "doc_fss_act",
+                "act",
+                "55",
+                1,
                 "Section 55. Penalty for carrying out business without licence.",
-                60, 11, 3, None, '[]', '[]', '[]',
+                60,
+                11,
+                3,
+                None,
+                "[]",
+                "[]",
+                "[]",
                 json.dumps({"chunk_id": "chunk_0002", "chunk_text": "old", "document_id": "doc_fss_act"}),
-                "hash_0002", "chunk_0002", "2026-08-10T10:00:02Z",
+                "hash_0002",
+                "chunk_0002",
+                "2026-08-10T10:00:02Z",
             ),
         ],
     )
@@ -140,15 +164,13 @@ def sample_chunk() -> dict:
         "citations": "[]",
         "references": '["Section 55"]',
         "entities": "[]",
-        "metadata_json": json.dumps(
-            {
-                "chunk_id": "chunk_0001",
-                "chunk_text": "old",
-                "document_id": "doc_fss_act",
-                "citations": '["FSS Act s.3"]',
-                "references": '["Section 55"]',
-            }
-        ),
+        "metadata_json": json.dumps({
+            "chunk_id": "chunk_0001",
+            "chunk_text": "old",
+            "document_id": "doc_fss_act",
+            "citations": '["FSS Act s.3"]',
+            "references": '["Section 55"]',
+        }),
         "content_hash": "hash_0001",
         "qdrant_point_id": "chunk_0001",
         "created_at": "2026-08-10T10:00:01Z",
@@ -221,14 +243,12 @@ class TestFssScopeGuard:
     def _corpus(self, with_foreign: bool):
         docs = [sample_doc()]
         if with_foreign:
-            docs.append(
-                {
-                    "id": "doc_foreign",
-                    "source_uri": "other domain/some_act.pdf",
-                    "title": "Some Other Act",
-                    "document_type": "act",
-                }
-            )
+            docs.append({
+                "id": "doc_foreign",
+                "source_uri": "other domain/some_act.pdf",
+                "title": "Some Other Act",
+                "document_type": "act",
+            })
         chunks = {"doc_fss_act": [sample_chunk()]}
         return docs, chunks
 
@@ -266,7 +286,10 @@ class TestBackupGuard:
 
     def test_delete_proceeds_with_backup(self, monkeypatch, tmp_path):
         """With the backup present, the run reaches the indexer (fake)."""
-        docs, chunks = [sample_doc()], {"doc_fss_act": [sample_chunk(), dict(sample_chunk(), id="chunk_0002", content_hash="hash_0002")]}
+        docs, chunks = (
+            [sample_doc()],
+            {"doc_fss_act": [sample_chunk(), dict(sample_chunk(), id="chunk_0002", content_hash="hash_0002")]},
+        )
         monkeypatch.setattr(rdb, "load_corpus", lambda *a, **k: (docs, chunks))
         backup = tmp_path / "backup.json"
         backup.write_text("[]")
@@ -336,14 +359,12 @@ class TestCli:
 
     def test_only_restricts_documents(self, monkeypatch, capsys):
         docs, chunks = self._corpus()
-        docs.append(
-            {
-                "id": "doc_other",
-                "source_uri": "FSSAI_rules documents/Other.pdf",
-                "title": "",
-                "document_type": "regulation",
-            }
-        )
+        docs.append({
+            "id": "doc_other",
+            "source_uri": "FSSAI_rules documents/Other.pdf",
+            "title": "",
+            "document_type": "regulation",
+        })
         chunks["doc_other"] = [dict(sample_chunk(), id="chunk_9001", document_id="doc_other")]
         monkeypatch.setattr(rdb, "load_corpus", lambda *a, **k: (docs, chunks))
         code = rdb.main(["--only", "doc_other", "--dry-run"])
@@ -385,9 +406,7 @@ class TestCli:
             def sync_payloads(self, payloads):
                 from app.rag.qdrant_indexer import ChunkIngestionResult
 
-                return ChunkIngestionResult(
-                    chunk_count=len(payloads), points_upserted=0, errors=["upsert failed"]
-                )
+                return ChunkIngestionResult(chunk_count=len(payloads), points_upserted=0, errors=["upsert failed"])
 
         import qdrant_client
 

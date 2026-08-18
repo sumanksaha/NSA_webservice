@@ -25,8 +25,7 @@ def _make_mock_point(point_id="c1", score=0.91, **payload_extra):
 
 def _make_mock_client(has_collection=True, points=None):
     """Mock QdrantClient recording every call for assertion."""
-    calls = {"created": [], "indexed": [], "upserted": [], "deleted": [],
-             "searched": [], "scrolled": []}
+    calls = {"created": [], "indexed": [], "upserted": [], "deleted": [], "searched": [], "scrolled": []}
 
     def search(**kwargs):
         calls["searched"].append(kwargs)
@@ -58,13 +57,30 @@ def _make_search_client(accepts: str, points=None):
     """
     if accepts == "search_filter":
 
-        def search(collection_name, query_vector, limit=10, with_payload=True,
-                   with_vectors=False, score_threshold=None, search_filter=None, **kw):
+        def search(
+            collection_name,
+            query_vector,
+            limit=10,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            search_filter=None,
+            **kw,
+        ):
             return points or []
+
     else:
 
-        def search(collection_name, query_vector, limit=10, with_payload=True,
-                   with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def search(
+            collection_name,
+            query_vector,
+            limit=10,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             return points or []
 
     return SimpleNamespace(search=search)
@@ -291,9 +307,7 @@ class TestQdrantStorePoints:
         sparse_cfg = models.SparseVectorParams(modifier=models.Modifier.IDF)
         assert sparse_cfg.modifier == models.Modifier.IDF
 
-        prefetch = models.Prefetch(
-            query={"indices": [1], "values": [1.0]}, using="text_sparse", limit=50
-        )
+        prefetch = models.Prefetch(query={"indices": [1], "values": [1.0]}, using="text_sparse", limit=50)
         assert prefetch.using == "text_sparse"
 
         fusion = models.FusionQuery(fusion=models.Fusion.RRF)
@@ -303,16 +317,14 @@ class TestQdrantStorePoints:
         """Real PointStruct produced by upsert_points for hybrid points."""
         client = _make_mock_client()
         store = QdrantStore(client=client)  # _models left as-is (real client)
-        store.upsert_points(
-            [
-                Point(
-                    id="c1",
-                    vector=[0.1] * 768,
-                    sparse_vector={"indices": [1, 5], "values": [0.9, 0.4]},
-                    payload={"document_id": "d1"},
-                )
-            ]
-        )
+        store.upsert_points([
+            Point(
+                id="c1",
+                vector=[0.1] * 768,
+                sparse_vector={"indices": [1, 5], "values": [0.9, 0.4]},
+                payload={"document_id": "d1"},
+            )
+        ])
         struct = client.calls["upserted"][0]["points"][0]
         assert struct.vector["dense"] == [0.1] * 768
         assert struct.vector["text_sparse"].indices == [1, 5]
@@ -405,7 +417,11 @@ class TestQdrantStorePoints:
         assert kwargs["limit"] == 5
         assert kwargs["with_payload"] is True
         assert kwargs["with_vectors"] is False
-        assert results[0] == {"id": "c1", "score": 0.91, "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"}}
+        assert results[0] == {
+            "id": "c1",
+            "score": 0.91,
+            "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"},
+        }
 
     def test_search_points_score_threshold_included(self):
         client = _make_mock_client(points=[_make_mock_point()])
@@ -424,8 +440,16 @@ class TestQdrantStorePoints:
     def test_search_points_uses_search_filter_when_accepted(self):
         received = {}
 
-        def search(collection_name, query_vector, limit=10, with_payload=True,
-                   with_vectors=False, score_threshold=None, search_filter=None, **kw):
+        def search(
+            collection_name,
+            query_vector,
+            limit=10,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            search_filter=None,
+            **kw,
+        ):
             received.update(search_filter=search_filter, **kw)
             return [_make_mock_point()]
 
@@ -441,12 +465,24 @@ class TestQdrantStorePoints:
         points = [_make_mock_point("c1", 0.91, section_number="55")]
         received = {}
 
-        def query_points(collection_name, query, limit=10, with_payload=True,
-                         with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def query_points(
+            collection_name,
+            query,
+            limit=10,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             received.update(
-                collection_name=collection_name, query=query, limit=limit,
-                query_filter=query_filter, with_payload=with_payload,
-                with_vectors=with_vectors, score_threshold=score_threshold,
+                collection_name=collection_name,
+                query=query,
+                limit=limit,
+                query_filter=query_filter,
+                with_payload=with_payload,
+                with_vectors=with_vectors,
+                score_threshold=score_threshold,
             )
             return SimpleNamespace(points=points)
 
@@ -457,13 +493,25 @@ class TestQdrantStorePoints:
         assert received["limit"] == 5
         assert received["score_threshold"] == 0.7
         assert received["query_filter"]["must"][0] == {"key": "section_number", "match": {"value": "55"}}
-        assert results[0] == {"id": "c1", "score": 0.91, "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"}}
+        assert results[0] == {
+            "id": "c1",
+            "score": 0.91,
+            "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"},
+        }
 
     def test_search_points_query_points_without_filter(self):
         received = {}
 
-        def query_points(collection_name, query, limit=10, with_payload=True,
-                         with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def query_points(
+            collection_name,
+            query,
+            limit=10,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             received.update(query=query, query_filter=query_filter)
             return SimpleNamespace(points=[])
 
@@ -485,10 +533,18 @@ class TestQdrantStorePoints:
 
         client = SimpleNamespace(search=search, query_points=query_points)
         results = dense_search(client, collection_name="c", vector=[0.1], limit=2)
-        assert calls == [("search", {
-            "collection_name": "c", "query_vector": [0.1], "limit": 2,
-            "with_payload": True, "with_vectors": False,
-        })]
+        assert calls == [
+            (
+                "search",
+                {
+                    "collection_name": "c",
+                    "query_vector": [0.1],
+                    "limit": 2,
+                    "with_payload": True,
+                    "with_vectors": False,
+                },
+            )
+        ]
         assert results[0].id == "c1"
 
     def test_search_sparse_uses_query_points_with_sparse_vector(self):
@@ -496,18 +552,33 @@ class TestQdrantStorePoints:
         points = [_make_mock_point("c1", 0.87)]
         received = {}
 
-        def query_points(collection_name, query, limit=10, using=None, with_payload=True,
-                         with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def query_points(
+            collection_name,
+            query,
+            limit=10,
+            using=None,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             received.update(
-                collection_name=collection_name, query=query, limit=limit,
-                using=using, query_filter=query_filter, score_threshold=score_threshold,
+                collection_name=collection_name,
+                query=query,
+                limit=limit,
+                using=using,
+                query_filter=query_filter,
+                score_threshold=score_threshold,
             )
             return SimpleNamespace(points=points)
 
         store = QdrantStore(client=SimpleNamespace(query_points=query_points))
         results = store.search_sparse(
             {"indices": [3, 9], "values": [0.8, 0.2]},
-            top_k=4, score_threshold=0.5, filters={"document_type": "act"},
+            top_k=4,
+            score_threshold=0.5,
+            filters={"document_type": "act"},
         )
         assert received["collection_name"] == DEFAULT_COLLECTION
         # Raw dict converted to models.SparseVector for the real client.
@@ -524,15 +595,15 @@ class TestQdrantStorePoints:
         from app.rag.qdrant_client import _sparse_query
 
         assert _sparse_query({"indices": [1], "values": [0.5]}, None) == {
-            "indices": [1], "values": [0.5],
+            "indices": [1],
+            "values": [0.5],
         }
 
     def test_search_sparse_legacy_search_path(self):
         """Clients without query_points fall back to search(query_vector=...)."""
         received = {}
 
-        def search(collection_name, query_vector, limit=10, using=None, with_payload=True,
-                   with_vectors=False, **kw):
+        def search(collection_name, query_vector, limit=10, using=None, with_payload=True, with_vectors=False, **kw):
             received.update(query_vector=query_vector, using=using, limit=limit)
             return []
 
@@ -546,11 +617,15 @@ class TestQdrantStorePoints:
         points = [_make_mock_point("c1", 0.99)]
         received = {}
 
-        def query_points(collection_name, prefetch, query, limit=10, with_payload=True,
-                         with_vectors=False, query_filter=None, **kw):
+        def query_points(
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+        ):
             received.update(
-                collection_name=collection_name, prefetch=prefetch, query=query,
-                limit=limit, query_filter=query_filter,
+                collection_name=collection_name,
+                prefetch=prefetch,
+                query=query,
+                limit=limit,
+                query_filter=query_filter,
             )
             return SimpleNamespace(points=points)
 
@@ -579,8 +654,9 @@ class TestQdrantStorePoints:
         points = [_make_mock_point("c1", 0.99)]
         received = {}
 
-        def query_points(collection_name, prefetch, query, limit=10, with_payload=True,
-                         with_vectors=False, query_filter=None, **kw):
+        def query_points(
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+        ):
             received.update(prefetch=prefetch, query=query)
             return SimpleNamespace(points=points)
 
@@ -656,8 +732,7 @@ class TestQdrantStorePoints:
         ]
         calls = []
 
-        def scroll(collection_name, limit=100, offset=None, with_payload=True,
-                   with_vectors=False, scroll_filter=None):
+        def scroll(collection_name, limit=100, offset=None, with_payload=True, with_vectors=False, scroll_filter=None):
             calls.append((limit, offset, with_vectors))
             if offset is None:
                 return points[:1], "page2"

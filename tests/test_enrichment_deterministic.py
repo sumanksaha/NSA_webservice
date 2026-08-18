@@ -17,19 +17,37 @@ from app.rag.enrichment.deterministic import (
 from app.rag.enrichment.validation import validate_record
 
 
-def _point(cid: str, doc: str = "doc-1", *, text: str = "Body text.", index: int = 0,
-           section: str | None = None, title: str | None = None,
-           doc_type: str = "regulation", citations: list | None = None,
-           references: list | None = None, entities: list | None = None,
-           uri: str = "file:///corpus/a.pdf", content_hash: str | None = None) -> dict:
+def _point(
+    cid: str,
+    doc: str = "doc-1",
+    *,
+    text: str = "Body text.",
+    index: int = 0,
+    section: str | None = None,
+    title: str | None = None,
+    doc_type: str = "regulation",
+    citations: list | None = None,
+    references: list | None = None,
+    entities: list | None = None,
+    uri: str = "file:///corpus/a.pdf",
+    content_hash: str | None = None,
+) -> dict:
     payload = {
-        "chunk_id": cid, "document_id": doc, "document_uri": uri,
+        "chunk_id": cid,
+        "document_id": doc,
+        "document_uri": uri,
         "document_title": "Food Safety and Standards (Licensing) Regulations, 2011",
-        "document_type": doc_type, "chunk_text": text, "chunk_index": index,
-        "chunk_char_count": len(text), "word_count": len(text.split()),
-        "section_number": section, "section_title": title,
-        "citations": citations or [], "references": references or [],
-        "entities": entities or [], "hierarchy_level": 0,
+        "document_type": doc_type,
+        "chunk_text": text,
+        "chunk_index": index,
+        "chunk_char_count": len(text),
+        "word_count": len(text.split()),
+        "section_number": section,
+        "section_title": title,
+        "citations": citations or [],
+        "references": references or [],
+        "entities": entities or [],
+        "hierarchy_level": 0,
         "content_hash": content_hash or sha256(text),
     }
     return {"id": cid, "payload": payload}
@@ -118,10 +136,22 @@ def test_crossref_resolution_same_doc_then_act() -> None:
         ("act-9", "55"): ["t2"],
     }
     cands = [
-        {"target": "Section 55", "section": "55", "relation": "REFERS_TO",
-         "resolved": False, "source": "deterministic", "evidence": "Section 55"},
-        {"target": "Section 12", "section": "12", "relation": "REFERS_TO",
-         "resolved": False, "source": "deterministic", "evidence": "Section 12"},
+        {
+            "target": "Section 55",
+            "section": "55",
+            "relation": "REFERS_TO",
+            "resolved": False,
+            "source": "deterministic",
+            "evidence": "Section 55",
+        },
+        {
+            "target": "Section 12",
+            "section": "12",
+            "relation": "REFERS_TO",
+            "resolved": False,
+            "source": "deterministic",
+            "evidence": "Section 12",
+        },
     ]
     # same-doc wins; unknown section stays unresolved; act fallback only for doc-1
     out1 = resolve_cross_references(cands, index, "doc-1", "act-9")
@@ -142,8 +172,14 @@ def test_self_reference_and_duplicate_edges_dropped() -> None:
     # A section-32 chunk that cites section 32 (own section) must not produce
     # a self-loop; two mentions resolving to the same target collapse to one.
     pts = [
-        _point("c32", doc="doc-1", text="Under section 32 no court shall take cognizance.",
-               section="32", citations=["Section 32", "Section 32"], index=0),
+        _point(
+            "c32",
+            doc="doc-1",
+            text="Under section 32 no court shall take cognizance.",
+            section="32",
+            citations=["Section 32", "Section 32"],
+            index=0,
+        ),
     ]
     index = {("doc-1", "32"): ["c32"]}
     records = enrich_document(pts, index, None)
@@ -155,9 +191,7 @@ def test_duplicate_resolved_target_collapses() -> None:
     # Two mentions of the same target section (payload citation + body text)
     # resolve to one edge.
     pts = [
-        _point("a", doc="doc-1",
-               text="This is subject to section 55 of the Act.",
-               citations=["Section 55"], index=0),
+        _point("a", doc="doc-1", text="This is subject to section 55 of the Act.", citations=["Section 55"], index=0),
     ]
     index = {("doc-1", "55"): ["t55"]}
     records = enrich_document(pts, index, None)
@@ -168,8 +202,7 @@ def test_duplicate_resolved_target_collapses() -> None:
 
 def test_section_index_and_act_discovery() -> None:
     pts = [
-        _point("a", doc="act-9", doc_type="act", text="Food Safety and Standards Act, 2006",
-               section="32", index=0),
+        _point("a", doc="act-9", doc_type="act", text="Food Safety and Standards Act, 2006", section="32", index=0),
         _point("b", doc="reg-1", text="...", section="4", index=0),
         _point("c", doc="reg-1", text="...", index=1),
     ]
@@ -182,8 +215,14 @@ def test_crossref_multi_chunk_section_anchors_first() -> None:
     # A section spanning several chunks resolves to its first (header) chunk
     # with a confidence penalty + anchor marker, not to "ambiguous".
     cands = [
-        {"target": "Section 55", "section": "55", "relation": "REFERS_TO",
-         "resolved": False, "source": "deterministic", "evidence": "Section 55"},
+        {
+            "target": "Section 55",
+            "section": "55",
+            "relation": "REFERS_TO",
+            "resolved": False,
+            "source": "deterministic",
+            "evidence": "Section 55",
+        },
     ]
     index = {("doc-1", "55"): [("t55a", 3), ("t55h", 0), ("t55c", 7)]}
     out = resolve_cross_references(cands, index, "doc-1", None)
@@ -195,8 +234,14 @@ def test_crossref_multi_chunk_section_anchors_first() -> None:
 
 def test_crossref_zero_targets_not_ambiguous() -> None:
     cands = [
-        {"target": "Section 999", "section": "999", "relation": "REFERS_TO",
-         "resolved": False, "source": "deterministic", "evidence": "Section 999"},
+        {
+            "target": "Section 999",
+            "section": "999",
+            "relation": "REFERS_TO",
+            "resolved": False,
+            "source": "deterministic",
+            "evidence": "Section 999",
+        },
     ]
     out = resolve_cross_references(cands, {}, "doc-1", "act-9")
     assert out[0]["resolved"] is False
@@ -285,8 +330,14 @@ def test_validation_llm_explicit_needs_evidence() -> None:
 def test_validation_resolved_requires_target() -> None:
     rec = _record()
     rec["cross_references"] = [
-        {"target": "Section 55", "section": "55", "relation": "REFERS_TO",
-         "resolved": True, "target_chunk_id": None, "confidence": 0.5}
+        {
+            "target": "Section 55",
+            "section": "55",
+            "relation": "REFERS_TO",
+            "resolved": True,
+            "target_chunk_id": None,
+            "confidence": 0.5,
+        }
     ]
     vr = validate_record(rec, _point("x", section="32")["payload"])
     assert not vr.ok
@@ -296,8 +347,7 @@ def test_validation_resolved_requires_target() -> None:
 def test_validation_unresolved_must_not_carry_target() -> None:
     rec = _record()
     rec["cross_references"] = [
-        {"target": "Section 55", "relation": "REFERS_TO", "resolved": False,
-         "target_chunk_id": "t1", "confidence": 0.5}
+        {"target": "Section 55", "relation": "REFERS_TO", "resolved": False, "target_chunk_id": "t1", "confidence": 0.5}
     ]
     vr = validate_record(rec, _point("x", section="32")["payload"])
     assert not vr.ok

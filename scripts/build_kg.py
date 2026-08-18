@@ -362,4 +362,3 @@ try:
         json.dump(kg, f, indent=2, ensure_ascii=False, default=str)
 except OSError:
     raise
-

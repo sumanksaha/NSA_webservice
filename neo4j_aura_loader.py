@@ -102,12 +102,10 @@ def load_knowledge_graph(driver, database, clear_first=True):
 def main():
     uri, username, password, database = load_env()
 
-
     try:
         driver = get_driver(uri, username, password, database)
     except Exception:
         raise SystemExit(1) from None
-
 
     if "--test" in sys.argv:
         driver.close()

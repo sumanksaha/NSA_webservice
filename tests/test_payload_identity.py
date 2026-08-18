@@ -53,9 +53,7 @@ class FakeClient:
         return page[:limit], None
 
     def set_payload(self, collection_name=None, payload=None, points=None):
-        self.set_payload_calls.append(
-            {"collection": collection_name, "payload": payload, "points": list(points or [])}
-        )
+        self.set_payload_calls.append({"collection": collection_name, "payload": payload, "points": list(points or [])})
         # Apply the payload to the stored points so a second run sees them.
         for pt in self.points_by_collection.get(collection_name, []):
             if pt["id"] in (points or []):
@@ -249,9 +247,7 @@ class TestFieldsForPoint:
         assert fields["status"] == "draft"
 
     def test_unknown_document_collection_domain_only(self, stamper):
-        fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "unknown_doc_123", "section_number": "7"}
-        )
+        fields = stamper._fields_for_point("env_legal_768", {"document_id": "unknown_doc_123", "section_number": "7"})
         assert fields == {"legal_domain": "ENVIRONMENT_POLLUTION"}  # no guessed IDs
 
     def test_subsection_cleaned(self, stamper):

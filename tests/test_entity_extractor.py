@@ -143,14 +143,12 @@ class TestRuleBased:
 
 class TestSpacyFallback:
     def test_ner_entities_mapped_and_merged(self):
-        fake = _FakeNER(
-            {
-                "PERSON": [("Justice A. Kumar", 0.8)],
-                "ORG": [("FSSAI", 0.7)],
-                "LAW": [("Food Safety and Standards Act", 0.6)],
-                "DATE": [("2006", 0.9)],  # unmapped -> dropped
-            }
-        )
+        fake = _FakeNER({
+            "PERSON": [("Justice A. Kumar", 0.8)],
+            "ORG": [("FSSAI", 0.7)],
+            "LAW": [("Food Safety and Standards Act", 0.6)],
+            "DATE": [("2006", 0.9)],  # unmapped -> dropped
+        })
         extractor = LegalEntityExtractor(ner=fake)
         result = extractor.extract("Justice A. Kumar and FSSAI under the Food Safety and Standards Act.")
         assert fake.calls == 1

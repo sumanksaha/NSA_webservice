@@ -45,8 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--drop-existing",
         action="store_true",
-        help="Delete the destination collection before restoring (required when the "
-        "sparse layout changed).",
+        help="Delete the destination collection before restoring (required when the sparse layout changed).",
     )
     parser.add_argument(
         "--batch-size",

@@ -502,9 +502,9 @@ class TestPDFAssemblyHyperlinks:
         from app.pdf_assembly import PDFAssemblyEngine
 
         engine = PDFAssemblyEngine()
-        html = "<html><body><p>See https://example.com/annexure.pdf for details</p>" "</body></html>"
+        html = "<html><body><p>See https://example.com/annexure.pdf for details</p></body></html>"
         out = engine._linkify_plain_urls(html)
-        assert '<a href="https://example.com/annexure.pdf">' "https://example.com/annexure.pdf</a>" in out
+        assert '<a href="https://example.com/annexure.pdf">https://example.com/annexure.pdf</a>' in out
 
     def test_attribute_urls_not_double_wrapped(self):
         """URLs already inside href/src attributes are left untouched."""
@@ -545,7 +545,7 @@ class TestPDFAssemblyHyperlinks:
 
                 engine = PDFAssemblyEngine()
                 mock_post.side_effect = lambda h, **kw: (
-                    '<html><body><a href="#toc-1">1. Facts</a>' '<h1 id="toc-1">Facts</h1>' "</body></html>"
+                    '<html><body><a href="#toc-1">1. Facts</a><h1 id="toc-1">Facts</h1></body></html>'
                 )
                 # The other Phase 8 passes are mocked out (as in the
                 # existing page-number integration test) so only the

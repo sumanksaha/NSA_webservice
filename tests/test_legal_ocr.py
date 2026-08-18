@@ -31,9 +31,7 @@ class _FakePipeline:
         self.calls.append(str(pdf_path))
         if self._error:
             raise self._error
-        return [
-            type("_R", (), {"page": int(p), "text": t})() for p, t in sorted(self._page_texts.items())
-        ]
+        return [type("_R", (), {"page": int(p), "text": t})() for p, t in sorted(self._page_texts.items())]
 
 
 class _FakePageResult:

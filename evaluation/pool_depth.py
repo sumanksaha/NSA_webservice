@@ -11,6 +11,7 @@ exactly, which makes the truncation-cost numbers directly comparable.
 Usage:
     python -m evaluation.pool_depth [--raw ceiling_v3/raw] [--out ceiling_v3/pool_depth.json]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,7 +73,7 @@ def main() -> int:
         results = {}
         for d in DEPTHS_RUN:
             n = 0
-            r500_sum = 0.0   # mean of per-question recall@500 (report convention)
+            r500_sum = 0.0  # mean of per-question recall@500 (report convention)
             r10_sum = 0.0
             q_pool_coverage = 0
             pool_sizes = []
@@ -81,8 +82,14 @@ def main() -> int:
                 if not (a and b and k):
                     continue
                 union = build_union_arms(
-                    a, b, k, payload_index, family_map,
-                    dense_n=d, sparse_n=d, kg_n=UNION_KG_DEPTH,
+                    a,
+                    b,
+                    k,
+                    payload_index,
+                    family_map,
+                    dense_n=d,
+                    sparse_n=d,
+                    kg_n=UNION_KG_DEPTH,
                 )
                 pool_rec = union["E_union_pool"]
                 pool_sizes.append(len(pool_rec.get("fused_items", [])))
@@ -94,9 +101,7 @@ def main() -> int:
                 n += 1
                 r500_sum += m.get("recall@500", 0)
                 r10_sum += m.get("recall@10", 0)
-                unit_hits = sum(
-                    1 for u in rel if collapsed.get(u.provision_id) is not None
-                )
+                unit_hits = sum(1 for u in rel if collapsed.get(u.provision_id) is not None)
                 q_pool_coverage += int(unit_hits > 0)
             results[d] = {
                 "n_questions": n,
@@ -105,7 +110,7 @@ def main() -> int:
                 "questions_with_gold_in_pool": round(q_pool_coverage / max(n, 1), 4),
                 "mean_pool_size": round(sum(pool_sizes) / max(len(pool_sizes), 1), 1),
                 "note": "R@K is the mean of per-question unit recall (report convention); "
-                        "the pool is unranked, so R@10 == R@500 == pool coverage.",
+                "the pool is unranked, so R@10 == R@500 == pool coverage.",
             }
 
         out = Path(args.out)

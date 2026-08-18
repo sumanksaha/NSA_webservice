@@ -302,7 +302,13 @@ class TestStatutoryReferenceRule:
     def test_selected_without_checklist_support_warns(self):
         case_data = _base_case_data(
             case_type="adjudication",
-            fields={"section_55": "yes", "section_56": "no", "section_58": "no", "section_63": "no", "section_64": "no"},
+            fields={
+                "section_55": "yes",
+                "section_56": "no",
+                "section_58": "no",
+                "section_63": "no",
+                "section_64": "no",
+            },
             suggested_sections={"sections": [], "reasoning": {}},
         )
         results = StatutoryReferenceRule().evaluate(case_data)
@@ -311,7 +317,13 @@ class TestStatutoryReferenceRule:
     def test_selected_matches_suggestion_clean(self):
         case_data = _base_case_data(
             case_type="adjudication",
-            fields={"section_55": "no", "section_56": "no", "section_58": "no", "section_63": "yes", "section_64": "no"},
+            fields={
+                "section_55": "no",
+                "section_56": "no",
+                "section_58": "no",
+                "section_63": "yes",
+                "section_64": "no",
+            },
             suggested_sections={"sections": ["63"], "reasoning": {"63": "FBO is non-licensed."}},
         )
         results = StatutoryReferenceRule().evaluate(case_data)
@@ -414,7 +426,9 @@ class TestTimelineConsistencyRule:
 
 class TestDocumentCompletenessRule:
     def test_unlinked_annexure_errors(self):
-        case_data = _base_case_data(annexures=[{"id": "x", "caption": "Report", "case_id": None, "adjudication_id": None}])
+        case_data = _base_case_data(
+            annexures=[{"id": "x", "caption": "Report", "case_id": None, "adjudication_id": None}]
+        )
         results = DocumentCompletenessRule().evaluate(case_data)
         assert any(r.severity == "ERROR" and "not linked" in r.message for r in results)
 
@@ -550,7 +564,9 @@ class TestValidationRoutes:
         _app, client, ctx = _setup_test_env()
         try:
             assert client.post("/validation/validate", json={}).status_code == 400
-            assert client.post("/validation/validate", json={"case_id": "x", "case_type": "case_file"}).status_code == 400
+            assert (
+                client.post("/validation/validate", json={"case_id": "x", "case_type": "case_file"}).status_code == 400
+            )
             assert client.post("/validation/validate", json={"case_id": 1, "case_type": "bogus"}).status_code == 400
             assert client.post("/validation/validate", data="not json").status_code == 400
         finally:
@@ -693,7 +709,7 @@ class TestValidationUIEntryPoints:
         try:
             case = _make_case_file(db)
             html = client.get("/case_file_generator/").get_data(as_text=True)
-            assert 'js-validate-case' in html
+            assert "js-validate-case" in html
             assert f'data-case-id="{case.id}"' in html
             assert 'data-case-type="case_file"' in html
             assert 'id="case-file-val-drawer"' in html
@@ -712,12 +728,12 @@ class TestValidationUIEntryPoints:
         try:
             case = _make_case_file(db)
             html = client.get(f"/case_file_generator/{case.id}/editor").get_data(as_text=True)
-            assert 'js-validate-case' in html
+            assert "js-validate-case" in html
             assert f'data-case-id="{case.id}"' in html
             assert 'data-case-type="case_file"' in html
             assert 'id="editor-val-drawer"' in html
             assert 'id="editor-val-status"' in html
-            assert '/static/js/validation_drawer.js' in html
+            assert "/static/js/validation_drawer.js" in html
             assert "endpoint: '/validation/validate'" in html
         finally:
             _teardown_test_env(ctx)
@@ -730,7 +746,7 @@ class TestValidationUIEntryPoints:
         try:
             adj = _make_adjudication(db)
             html = client.get(f"/adjudication/{adj.id}/editor").get_data(as_text=True)
-            assert 'js-validate-case' in html
+            assert "js-validate-case" in html
             assert f'data-case-id="{adj.id}"' in html
             assert 'data-case-type="adjudication"' in html
             assert 'id="editor-val-drawer"' in html
@@ -744,7 +760,7 @@ class TestValidationUIEntryPoints:
         try:
             adj = _make_adjudication(db)
             html = client.get("/adjudication/").get_data(as_text=True)
-            assert 'js-validate-case' in html
+            assert "js-validate-case" in html
             assert f'data-case-id="{adj.id}"' in html
             assert 'data-case-type="adjudication"' in html
             assert 'id="adjudication-val-drawer"' in html

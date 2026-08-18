@@ -15,6 +15,7 @@ Usage:
     python -m evaluation.hard_neg_eval
     python -m evaluation.hard_neg_eval --k 100 --variants baseline,model_d
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,13 +44,13 @@ def _ndcg_at_k(relevances: list[float], k: int = 10) -> float:
     # DCG
     dcg = 0.0
     for i, rel in enumerate(relevances[:k]):
-        dcg += (2 ** rel - 1) / math.log2(i + 2)
+        dcg += (2**rel - 1) / math.log2(i + 2)
 
     # Ideal DCG
     ideal = sorted(relevances, reverse=True)[:k]
     idcg = 0.0
     for i, rel in enumerate(ideal):
-        idcg += (2 ** rel - 1) / math.log2(i + 2)
+        idcg += (2**rel - 1) / math.log2(i + 2)
 
     return dcg / idcg if idcg > 0 else 0.0
 
@@ -78,6 +79,7 @@ def evaluate_model(
         Full metric dict.
     """
     import torch
+
     torch.set_num_threads(4)
 
     from app import create_app
@@ -99,7 +101,7 @@ def evaluate_model(
         "pool_k": pool_k,
         "top_k": top_k,
         "n_questions": 0,
-        "r_at": {},      # R@1, R@5, R@10
+        "r_at": {},  # R@1, R@5, R@10
         "any_hit_at": {},  # per-question any-hit
         "mrr": 0.0,
         "ndcg_at": {},
@@ -242,10 +244,8 @@ def build_eval_fn(model_path: str | None = None, ce_weight: float = 0.5, ce_head
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Hard-negative evaluation")
-    parser.add_argument("--k", type=str, default="50,100,200,500",
-                        help="Comma-separated K values")
-    parser.add_argument("--variants", type=str, default="baseline",
-                        help="Comma-separated model variants to evaluate")
+    parser.add_argument("--k", type=str, default="50,100,200,500", help="Comma-separated K values")
+    parser.add_argument("--variants", type=str, default="baseline", help="Comma-separated model variants to evaluate")
     parser.add_argument("--ce-weight", type=float, default=0.5)
     parser.add_argument("--ce-head", type=int, default=20)
     args = parser.parse_args()
@@ -302,8 +302,16 @@ def main() -> int:
     with open(csv_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "model", "pool_k", "R@1", "R@5", "R@10", "MRR", "NDCG@10",
-            "any_hit_R@10", "latency_ms_avg", "n_questions",
+            "model",
+            "pool_k",
+            "R@1",
+            "R@5",
+            "R@10",
+            "MRR",
+            "NDCG@10",
+            "any_hit_R@10",
+            "latency_ms_avg",
+            "n_questions",
         ])
         for _name, r in sorted(all_results.items()):
             writer.writerow([

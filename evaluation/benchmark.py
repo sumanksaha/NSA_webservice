@@ -46,14 +46,14 @@ _PROTOCOL_FIELDS: dict[str, str] = {
 class GoldUnit:
     """A single gold provision referenced by a question."""
 
-    provision_id: str          # benchmark scheme, e.g. "fssai:s16(1)"
-    family: str                # id prefix, e.g. "fssai"
-    section: str | None        # registry section number (None for whole-instrument refs)
-    act: str                   # full act name from the registry
-    collection: str | None     # qdrant collection from the registry
-    document_id: str | None    # registry document id
-    gain: float                # 2 primary / 1 acceptable / 0 supporting
-    role: str                  # "primary" | "acceptable" | "supporting"
+    provision_id: str  # benchmark scheme, e.g. "fssai:s16(1)"
+    family: str  # id prefix, e.g. "fssai"
+    section: str | None  # registry section number (None for whole-instrument refs)
+    act: str  # full act name from the registry
+    collection: str | None  # qdrant collection from the registry
+    document_id: str | None  # registry document id
+    gain: float  # 2 primary / 1 acceptable / 0 supporting
+    role: str  # "primary" | "acceptable" | "supporting"
 
 
 @dataclass
@@ -236,8 +236,8 @@ def _section_from_id(provision_id: str) -> str | None:
     rest = provision_id.split(":", 1)[1] if ":" in provision_id else provision_id
     rest = rest.lower()
     for marker in ("s", "sec", "rule", "order"):
-        if rest.startswith(marker) and rest[len(marker):].lstrip("(")[:1].isdigit():
-            return _norm_section(rest[len(marker):])
+        if rest.startswith(marker) and rest[len(marker) :].lstrip("(")[:1].isdigit():
+            return _norm_section(rest[len(marker) :])
     return _norm_section(rest)
 
 

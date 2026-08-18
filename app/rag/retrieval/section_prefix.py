@@ -24,6 +24,7 @@ Flag
 context exists, else the env var.  Off = zero behavior change for v1 /
 unprefixed models.
 """
+
 from __future__ import annotations
 
 import os
@@ -52,6 +53,7 @@ def prefix_passage(
     text: str,
     section_number: str | None = None,
     clause_number: str | None = None,
+    force: bool = False,
 ) -> str:
     """Prefix *text* with its legal identity when one is known.
 
@@ -59,8 +61,14 @@ def prefix_passage(
     specific).  Returns *text* unchanged when the prefix flag is off or no
     identity is available.  Idempotent — an already-prefixed passage is never
     double-prefixed.
+
+    *force* bypasses the ``RAG_CE_SECTION_PREFIX`` gate.  The dataset builder
+    (``--section-prefix``) passes ``force=True`` so training data is baked
+    regardless of the runtime flag — the two toggles are independent by
+    design: ``--section-prefix`` controls what the model is *trained* on,
+    ``RAG_CE_SECTION_PREFIX`` controls what the *served* model receives.
     """
-    if not ce_section_prefix_enabled():
+    if not force and not ce_section_prefix_enabled():
         return text
     identity = _pick_identity(section_number, clause_number)
     if not identity:

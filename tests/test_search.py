@@ -305,9 +305,7 @@ class TestIndexAll:
             # matching, which may surface unrelated near-matches — so assert
             # on the deleted record itself, not on the result count.)
             results = search("Ghost")
-            assert not any(
-                r["entity_type"] == ENTITY_CASE_FILE and r["title"] == "GHOST001" for r in results
-            )
+            assert not any(r["entity_type"] == ENTITY_CASE_FILE and r["title"] == "GHOST001" for r in results)
 
 
 # ---------------------------------------------------------------------------
@@ -397,9 +395,7 @@ class TestSearch:
         """Exact searches should highlight the query in the result title too."""
         with test_client.application.app_context():
             results = search("ADJ001")
-            adj = next(
-                r for r in results if r["entity_type"] == ENTITY_ADJUDICATION
-            )
+            adj = next(r for r in results if r["entity_type"] == ENTITY_ADJUDICATION)
             assert "<mark>ADJ001</mark>" in adj["title"]
 
     def test_like_path_highlights_snippet(self, test_client):
@@ -601,9 +597,7 @@ class TestFuzzySearch:
         """A multi-word typo query should highlight each corrected term."""
         with test_client.application.app_context():
             results = search("hevay metals", fuzzy=True)
-            annexure_hits = [
-                r for r in results if r["entity_type"] == ENTITY_ANNEXURE
-            ]
+            annexure_hits = [r for r in results if r["entity_type"] == ENTITY_ANNEXURE]
             assert annexure_hits
             snippet = annexure_hits[0]["snippet"]
             assert "<mark>heavy</mark>" in snippet
@@ -625,9 +619,7 @@ class TestFuzzySearch:
     def test_fuzzy_snippet_fallback_when_no_word_match(self, test_client):
         """Without any whole-word match, the fallback snippet has no marks."""
         with test_client.application.app_context():
-            snippet = _snippet_around_matches(
-                "zzzqx", "the quick brown fox jumps over the lazy dog"
-            )
+            snippet = _snippet_around_matches("zzzqx", "the quick brown fox jumps over the lazy dog")
             assert isinstance(snippet, str)
             assert snippet
             assert "<mark>" not in snippet
@@ -636,9 +628,7 @@ class TestFuzzySearch:
         """Fuzzy results should highlight the query in the title too."""
         with test_client.application.app_context():
             results = search("ADJ001", fuzzy=True)
-            adj = next(
-                r for r in results if r["entity_type"] == ENTITY_ADJUDICATION
-            )
+            adj = next(r for r in results if r["entity_type"] == ENTITY_ADJUDICATION)
             assert "<mark>ADJ001</mark>" in adj["title"]
 
     def test_fuzzy_title_unmarked_for_content_only_match(self, test_client):

@@ -99,14 +99,10 @@ def prepare() -> dict[str, Any]:
     write_run_config()
     questions = load_questions()
     q_by_id = {q.question_id: q for q in questions}
-    payload_index = build_payload_index(
-        lambda coll: _store(coll), _collections()
-    )
+    payload_index = build_payload_index(lambda coll: _store(coll), _collections())
     family_map = FamilyMap()
 
-    arm_order = list(ARMS) + [
-        a for a in FUSION_ARMS if (RAW_DIR / f"{a}.jsonl").exists()
-    ]
+    arm_order = list(ARMS) + [a for a in FUSION_ARMS if (RAW_DIR / f"{a}.jsonl").exists()]
     raw = {arm: load_raw(arm) for arm in arm_order}
     scores: dict[str, dict[str, Any]] = {}
     for arm in arm_order:
@@ -175,8 +171,12 @@ def prepare() -> dict[str, Any]:
             continue
         grade = grades["retrieved"].get(qid, {})
         failures[qid] = decompose(
-            q, arm_f_metrics, legal.get(qid, {}), grade,
-            corpus.get(qid, {}), kg_inc.get(qid, {}),
+            q,
+            arm_f_metrics,
+            legal.get(qid, {}),
+            grade,
+            corpus.get(qid, {}),
+            kg_inc.get(qid, {}),
         )
 
     data = {
@@ -274,16 +274,23 @@ def deliverables_1_3(data: dict[str, Any]) -> None:
 
 def deliverables_6_7(data: dict[str, Any]) -> None:
     """domain_performance.csv + question_type_performance.csv."""
-    domains = ["FOOD_SAFETY", "BUSINESS_CIVIL", "MUNICIPAL", "ENVIRONMENT_POLLUTION",
-               "ANIMAL_SLAUGHTER", "LAND_PREMISES", "CRIMINAL", "CROSS_DOMAIN"]
+    domains = [
+        "FOOD_SAFETY",
+        "BUSINESS_CIVIL",
+        "MUNICIPAL",
+        "ENVIRONMENT_POLLUTION",
+        "ANIMAL_SLAUGHTER",
+        "LAND_PREMISES",
+        "CRIMINAL",
+        "CROSS_DOMAIN",
+    ]
     rows = []
     for arm in data["arm_order"]:
         for domain in domains:
             qids = [
-                q.question_id for q in data["questions"]
-                if (domain == "CROSS_DOMAIN"
-                and len(q.domains) >= 2)
-                or domain in q.domains
+                q.question_id
+                for q in data["questions"]
+                if (domain == "CROSS_DOMAIN" and len(q.domains) >= 2) or domain in q.domains
             ]
             agg = aggregate([data["scores"][arm][qid] for qid in qids if qid in data["scores"][arm]])
             if not agg:
@@ -300,16 +307,26 @@ def deliverables_6_7(data: dict[str, Any]) -> None:
             })
     write_csv(OUT_DIR / "domain_performance.csv", rows)
 
-    qtypes = ["Direct provision", "Obligation", "Prohibition", "Penalty", "Authority",
-              "Procedure", "Exception", "Cross-reference", "Temporal",
-              "Insufficient-evidence", "Cross-domain"]
+    qtypes = [
+        "Direct provision",
+        "Obligation",
+        "Prohibition",
+        "Penalty",
+        "Authority",
+        "Procedure",
+        "Exception",
+        "Cross-reference",
+        "Temporal",
+        "Insufficient-evidence",
+        "Cross-domain",
+    ]
     rows = []
     for arm in data["arm_order"]:
         for qt in qtypes:
             qids = [
-                q.question_id for q in data["questions"]
-                if (qt == "Cross-domain" and len(q.domains) >= 2)
-                or qt in q.question_types
+                q.question_id
+                for q in data["questions"]
+                if (qt == "Cross-domain" and len(q.domains) >= 2) or qt in q.question_types
             ]
             agg = aggregate([data["scores"][arm][qid] for qid in qids if qid in data["scores"][arm]])
             if not agg:
@@ -398,17 +415,15 @@ def deliverable_10(data: dict[str, Any]) -> None:
             "score2_rate": round(sum(1 for v in vals if v["score"] == 2) / max(len(vals), 1), 4),
             "score1_rate": round(sum(1 for v in vals if v["score"] == 1) / max(len(vals), 1), 4),
             "score0_rate": round(sum(1 for v in vals if v["score"] == 0) / max(len(vals), 1), 4),
-            "provision_correct_rate": round(
-                sum(1 for v in vals if v["provision_correct"]) / max(len(vals), 1), 4),
-            "citation_correct_rate": round(
-                sum(1 for v in vals if v["citation_correct"]) / max(len(vals), 1), 4),
-            "hallucination_rate": round(
-                sum(1 for v in vals if v["hallucination_detected"]) / max(len(vals), 1), 4),
+            "provision_correct_rate": round(sum(1 for v in vals if v["provision_correct"]) / max(len(vals), 1), 4),
+            "citation_correct_rate": round(sum(1 for v in vals if v["citation_correct"]) / max(len(vals), 1), 4),
+            "hallucination_rate": round(sum(1 for v in vals if v["hallucination_detected"]) / max(len(vals), 1), 4),
             "abstention_correct_rate": round(
                 sum(1 for v in vals if v.get("abstention_correct") is True)
-                / max(sum(1 for v in vals if v.get("abstention_correct") is not None), 1), 4),
-            "critical_error_rate": round(
-                sum(1 for v in vals if v["critical_error"]) / max(len(vals), 1), 4),
+                / max(sum(1 for v in vals if v.get("abstention_correct") is not None), 1),
+                4,
+            ),
+            "critical_error_rate": round(sum(1 for v in vals if v["critical_error"]) / max(len(vals), 1), 4),
         }
 
     kgv = list(data["kg_inc"].values())
@@ -425,9 +440,7 @@ def deliverable_10(data: dict[str, Any]) -> None:
     fails = list(data["failures"].values())
     agg["failures"]["bottlenecks"] = bottleneck_tally(fails)
     agg["failures"]["label_counts"] = label_tally(fails)
-    (OUT_DIR / "aggregate_metrics.json").write_text(
-        json.dumps(agg, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    (OUT_DIR / "aggregate_metrics.json").write_text(json.dumps(agg, indent=2, sort_keys=True), encoding="utf-8")
     return agg
 
 
@@ -474,9 +487,11 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
     lines.append("- `E_ds_kg_rrf`   = RRF(dense, sparse, KG-expansion) — the repaired E")
     lines.append("- `G_ds_kg_rrf`   = RRF(dense, sparse, KG-contract) — repaired full fusion")
     lines.append("- `H_dense_kg_rrf`= RRF(dense, KG-contract) — KG on top of dense alone")
-    lines.append("- `G_ds_kg_rrf_dedup`  = G with provision-level dedup — a KG item whose "
-                 "(family, section) a vector chunk already covers is dropped before fusing "
-                 "(frees slots for novel candidates)")
+    lines.append(
+        "- `G_ds_kg_rrf_dedup`  = G with provision-level dedup — a KG item whose "
+        "(family, section) a vector chunk already covers is dropped before fusing "
+        "(frees slots for novel candidates)"
+    )
     lines.append("- `H_dense_kg_rrf_dedup` = H with the same dedup")
     lines.append("")
     lines.append("| System | R@1 | R@5 | R@10 | R@20 | MRR | nDCG@10 |")
@@ -538,8 +553,11 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         if qid not in scores.get("G_ds_kg_rrf", {}) or qid not in raw.get("G_ds_kg_rrf", {}):
             continue
         inc = kg_incremental(
-            scores["C_dense_sparse"][qid], scores["G_ds_kg_rrf"][qid],
-            raw["G_ds_kg_rrf"][qid], q_by_id[qid], fam,
+            scores["C_dense_sparse"][qid],
+            scores["G_ds_kg_rrf"][qid],
+            raw["G_ds_kg_rrf"][qid],
+            q_by_id[qid],
+            fam,
         )
         n_kg += 1
         total_prov += inc["kg_provision_count"]
@@ -551,12 +569,18 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
             noisy += 1
     n_kg = max(n_kg, 1)
     lines.append(f"- Questions with KG evidence: **{n_kg}** (avg {total_prov / n_kg:.1f} provisions)")
-    lines.append(f"- **KG help rate**: {helped} / {n_kg} = **{100 * helped / n_kg:.1f}%** "
-                 "(gold units the KG covers that hybrid missed)")
-    lines.append(f"- **KG harm rate**: {harmed} / {n_kg} = **{100 * harmed / n_kg:.1f}%** "
-                 "(KG returned provisions from a non-gold family)")
-    lines.append(f"- **KG noise rate**: {noisy} / {n_kg} = **{100 * noisy / n_kg:.1f}%** "
-                 "(questions where >=1 KG provision matched no gold unit)")
+    lines.append(
+        f"- **KG help rate**: {helped} / {n_kg} = **{100 * helped / n_kg:.1f}%** "
+        "(gold units the KG covers that hybrid missed)"
+    )
+    lines.append(
+        f"- **KG harm rate**: {harmed} / {n_kg} = **{100 * harmed / n_kg:.1f}%** "
+        "(KG returned provisions from a non-gold family)"
+    )
+    lines.append(
+        f"- **KG noise rate**: {noisy} / {n_kg} = **{100 * noisy / n_kg:.1f}%** "
+        "(questions where >=1 KG provision matched no gold unit)"
+    )
     lines.append(f"- **KG net value** (help − harm): **{(helped - harmed) / n_kg:+.3f}**")
     lines.append("")
 

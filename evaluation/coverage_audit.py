@@ -92,20 +92,20 @@ def _gap_bucket(payload: dict) -> str:
     if not t:
         return "empty_text"
     if _PAREN_RE.match(t):
-        return "paren_fragment"          # "(a) ..." body fragment, no own marker
+        return "paren_fragment"  # "(a) ..." body fragment, no own marker
     if _DOTTED_RE.match(t):
-        return "dotted_unstamped"        # dotted clause the guard/derive missed
+        return "dotted_unstamped"  # dotted clause the guard/derive missed
     if dt in ("rule", "circular") and _NUMHEAD_RE.match(t) and not _GAZETTE_RE.match(t):
-        return "rule_header"             # "4 Rural areas" style dot-less rule heading
+        return "rule_header"  # "4 Rural areas" style dot-less rule heading
     if _GAZETTE_RE.match(t):
-        return "gazette_header"          # "40 THE GAZETTE OF INDIA : EXTRAORDINARY"
+        return "gazette_header"  # "40 THE GAZETTE OF INDIA : EXTRAORDINARY"
     if _STRIPPED_RE.match(t):
-        return "stripped_ocr"            # space-stripped OCR prose (BNS)
+        return "stripped_ocr"  # space-stripped OCR prose (BNS)
     if re.match(r"^[A-Za-zāīūṛḷṅñṭḍḥṣś]{3,}[\s\-\.]", t) and re.search(r"[āīūṛḷṅñṭḍḥṣś]", t):
-        return "transliterated"          # Romanized-Hindi (Nutraceuticals)
+        return "transliterated"  # Romanized-Hindi (Nutraceuticals)
     if len(t) <= 2:
         return "short_noise"
-    return "prose"                       # plain continuation prose
+    return "prose"  # plain continuation prose
 
 
 def load_payloads(live: bool) -> list[dict]:
@@ -121,17 +121,20 @@ def load_payloads(live: bool) -> list[dict]:
 
     app = create_app()
     with app.app_context():
-        collections = list(dict.fromkeys([
-            app.config.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ]))
+        collections = list(
+            dict.fromkeys([
+                app.config.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+            ])
+        )
         index = build_payload_index(
             lambda coll: QdrantStore(collection_name=coll),
-            collections, force=True,
+            collections,
+            force=True,
         )
         return list(index.values())
 
@@ -149,7 +152,8 @@ def audit(payloads: list[dict]) -> dict:
         pls = [p for p in substantive if _collection_of(p) == coll]
         idn = sum(1 for p in pls if is_identified(p))
         coll_rows[coll] = {
-            "chunks": len(pls), "identified": idn,
+            "chunks": len(pls),
+            "identified": idn,
             "pct": round(idn / len(pls) * 100, 1) if pls else 0.0,
         }
     type_rows: dict[str, dict] = {}
@@ -157,7 +161,8 @@ def audit(payloads: list[dict]) -> dict:
         pls = [p for p in substantive if p.get("document_type") == dt]
         idn = sum(1 for p in pls if is_identified(p))
         type_rows[dt] = {
-            "chunks": len(pls), "identified": idn,
+            "chunks": len(pls),
+            "identified": idn,
             "pct": round(idn / len(pls) * 100, 1) if pls else 0.0,
         }
 
@@ -202,8 +207,9 @@ def audit(payloads: list[dict]) -> dict:
         if uri and did and did not in uri_map:
             uri_map[did] = uri
     title_missing = sum(1 for p in payloads if not p.get("document_title"))
-    title_recoverable = sum(1 for p in payloads
-                            if not p.get("document_title") and uri_map.get(str(p.get("document_id") or "")))
+    title_recoverable = sum(
+        1 for p in payloads if not p.get("document_title") and uri_map.get(str(p.get("document_id") or ""))
+    )
 
     return {
         "n_chunks": total,
@@ -231,10 +237,14 @@ def render(report: dict) -> str:
     lines = []
     lines.append(f"Corpus identity coverage audit  ({report['n_chunks']:,} chunks)")
     lines.append("=" * 76)
-    lines.append(f"  identified (act-sec + reg-clause) : {report['identified']:,}/{report['n_chunks']:,} "
-                 f"({report['pct_identified']}%)")
-    lines.append(f"  substantive (hl>=2) identified    : {report['substantive_identified']:,}/"
-                 f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)")
+    lines.append(
+        f"  identified (act-sec + reg-clause) : {report['identified']:,}/{report['n_chunks']:,} "
+        f"({report['pct_identified']}%)"
+    )
+    lines.append(
+        f"  substantive (hl>=2) identified    : {report['substantive_identified']:,}/"
+        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)"
+    )
     lines.append(f"  hl1 header/boilerplate floor      : {report['hl1_chunks']:,} (semantically N/A)")
     lines.append("")
     lines.append(f"{'collection':<20}{'subst':>7}{'idn':>7}{'%':>7}")
@@ -248,15 +258,19 @@ def render(report: dict) -> str:
     lines.append("Worst documents (by unidentified substantive chunks):")
     lines.append(f"{'uri':<34}{'type':<13}{'subst':>6}{'idn':>6}{'miss':>6}{'%':>6}{'hl1':>6}")
     for r in report["documents"][:14]:
-        lines.append(f"{r['uri'][:32]:<34}{r['document_type']!s:<13}{r['substantive']:>6}"
-                     f"{r['identified']:>6}{r['unidentified_substantive']:>6}{r['pct']:>5.0f}%{r['hl1']:>6}")
+        lines.append(
+            f"{r['uri'][:32]:<34}{r['document_type']!s:<13}{r['substantive']:>6}"
+            f"{r['identified']:>6}{r['unidentified_substantive']:>6}{r['pct']:>5.0f}%{r['hl1']:>6}"
+        )
     lines.append("")
     lines.append("Remaining gap buckets (unidentified substantive chunks):")
     for g in report["gap_buckets"]:
         lines.append(f"  {g['bucket']:<20}{g['chunks']:>6}")
     lines.append("")
-    lines.append(f"document_title missing: {report['document_title_missing']:,} "
-                 f"(recoverable from document_uri: {report['document_title_recoverable_from_uri']:,})")
+    lines.append(
+        f"document_title missing: {report['document_title_missing']:,} "
+        f"(recoverable from document_uri: {report['document_title_recoverable_from_uri']:,})"
+    )
     return "\n".join(lines)
 
 

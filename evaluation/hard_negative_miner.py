@@ -22,6 +22,7 @@ Usage:
     python -m evaluation.hard_negative_miner --offline
     python -m evaluation.hard_negative_miner --top-k 500 --max-negatives 20
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,11 +54,44 @@ STATS_FILE = CACHE_DIR / "hard_negative_mining_stats.json"
 
 def _stop_words() -> set[str]:
     return {
-        "the", "a", "an", "of", "and", "or", "to", "in", "for", "under",
-        "what", "which", "who", "how", "is", "are", "does", "do", "be",
-        "by", "on", "at", "with", "from", "as", "that", "this", "its",
-        "it", "not", "shall", "may", "act", "section", "sec", "rule",
-        "order", "regulation",
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "for",
+        "under",
+        "what",
+        "which",
+        "who",
+        "how",
+        "is",
+        "are",
+        "does",
+        "do",
+        "be",
+        "by",
+        "on",
+        "at",
+        "with",
+        "from",
+        "as",
+        "that",
+        "this",
+        "its",
+        "it",
+        "not",
+        "shall",
+        "may",
+        "act",
+        "section",
+        "sec",
+        "rule",
+        "order",
+        "regulation",
     }
 
 
@@ -106,9 +140,7 @@ def legal_similarity_score(
 
     # Family match
     neg_fams = set(
-        family_map.family_s_for_act(
-            str(neg_payload.get("act_name") or neg_payload.get("document_title") or "")
-        )
+        family_map.family_s_for_act(str(neg_payload.get("act_name") or neg_payload.get("document_title") or ""))
     )
     same_family = gold_unit.family in neg_fams
     same_section = bool(gold_sec and neg_sec and gold_sec == neg_sec)
@@ -120,10 +152,7 @@ def legal_similarity_score(
     word_sim = word_overlap(gold_text, neg_text)
 
     # Document-level overlap
-    same_doc = (
-        str(gold_payload.get("document_title", "")).lower()
-        == str(neg_payload.get("document_title", "")).lower()
-    )
+    same_doc = str(gold_payload.get("document_title", "")).lower() == str(neg_payload.get("document_title", "")).lower()
 
     # Subsection overlap (G5: only meaningful ANDed with same_section — a
     # standalone match is noise because values repeat across sections).
@@ -164,9 +193,7 @@ def assign_tier(features: dict[str, float]) -> int:
     Tier 3 (adversarial): same section family, adjacent sections, high similarity
     """
     # Tier 3: same family + same section OR section proximity >= 0.7
-    if features["same_family"] and (
-        features["same_section"] or features["section_proximity"] >= 0.7
-    ):
+    if features["same_family"] and (features["same_section"] or features["section_proximity"] >= 0.7):
         return 3
     # Tier 3 also: same family + same subsection (section-anchored; the
     # subsection value alone is never enough — G5) OR same family + same
@@ -185,9 +212,7 @@ def assign_tier(features: dict[str, float]) -> int:
     return 1
 
 
-def hard_negative_rank(
-    features: dict[str, float], pool_rank: int
-) -> float:
+def hard_negative_rank(features: dict[str, float], pool_rank: int) -> float:
     """Composite score for ranking negatives by difficulty.
 
     Higher = harder (more likely to confuse the reranker).
@@ -303,9 +328,7 @@ def mine_question(
             cid = neg["chunk_id"]
             if cid in seen_ids:
                 continue
-            features = legal_similarity_score(
-                gold_payload, neg["payload"], family_map, unit
-            )
+            features = legal_similarity_score(gold_payload, neg["payload"], family_map, unit)
             tier = assign_tier(features)
             score = hard_negative_rank(features, neg["rank"])
 
@@ -330,17 +353,14 @@ def mine_question(
         for unit in rel:
             unit_negs = [n for n in all_negatives if n["gold_unit"] == unit.provision_id]
             and_matches = [
-                n for n in unit_negs
-                if n["features"].get("same_section") and n["features"].get("same_subsection")
+                n for n in unit_negs if n["features"].get("same_section") and n["features"].get("same_subsection")
             ]
             if and_matches:
                 kept.extend(and_matches)
             else:
                 # Fallback: same-section-different-chunk (no subsection match
                 # required) — fssai has 32.6% subsection coverage.
-                kept.extend(
-                    [n for n in unit_negs if n["features"].get("same_section")]
-                )
+                kept.extend([n for n in unit_negs if n["features"].get("same_section")])
         all_negatives = kept
 
     # Sort by difficulty score, take top max_negatives
@@ -399,8 +419,14 @@ def load_checkpoint() -> dict[str, dict]:
     return done
 
 
-def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20,
-              subsection_filter: bool = False) -> dict[str, dict]:
+def mine_live(
+    questions: list,
+    payload_index: dict,
+    family_map,
+    top_k: int = 500,
+    max_neg: int = 20,
+    subsection_filter: bool = False,
+) -> dict[str, dict]:
     """Mine via live Qdrant retrieval at K=top_k."""
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
@@ -447,7 +473,11 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
                 ident_q, _meta = identifier_query(q.question)
                 result = hybrid.retrieve(q.question, top_k=top_k, filters=parsed, identifier_query=ident_q)
                 mined = mine_question(
-                    q, result.chunks, payload_index, family_map, max_neg,
+                    q,
+                    result.chunks,
+                    payload_index,
+                    family_map,
+                    max_neg,
                     subsection_filter=subsection_filter,
                 )
                 if mined:
@@ -459,8 +489,14 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
     return results
 
 
-def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20,
-                 subsection_filter: bool = False) -> dict[str, dict]:
+def mine_offline(
+    questions: list,
+    payload_index: dict,
+    family_map,
+    top_k: int = 500,
+    max_neg: int = 20,
+    subsection_filter: bool = False,
+) -> dict[str, dict]:
     """Mine from the payload index only (no live Qdrant).
 
     For each question:
@@ -541,9 +577,7 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
             if pid in seen_ids:
                 continue
             seen_ids.add(pid)
-            features = legal_similarity_score(
-                primary_payload, payload, family_map, primary_unit
-            )
+            features = legal_similarity_score(primary_payload, payload, family_map, primary_unit)
             tier = assign_tier(features)
             score = hard_negative_rank(features, 0)
 
@@ -566,8 +600,7 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
         # AND same_subsection, falling back to same-section-only.
         if subsection_filter:
             and_matches = [
-                n for n in negatives
-                if n["features"].get("same_section") and n["features"].get("same_subsection")
+                n for n in negatives if n["features"].get("same_section") and n["features"].get("same_subsection")
             ]
             if and_matches:
                 negatives = and_matches
@@ -621,10 +654,15 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true", help="Use frozen caches instead of live Qdrant")
     parser.add_argument("--top-k", type=int, default=500, help="Retrieval depth per question")
     parser.add_argument("--max-negatives", type=int, default=20, help="Max negatives per question")
-    parser.add_argument("--threads", type=int, default=4,
-                        help="Torch intra-op thread cap for live mode (default 4; offline mode is pure Python)")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Only mine this many questions (testing/spot checks on a laptop)")
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=4,
+        help="Torch intra-op thread cap for live mode (default 4; offline mode is pure Python)",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Only mine this many questions (testing/spot checks on a laptop)"
+    )
     parser.add_argument(
         "--subsection-filter",
         action="store_true",
@@ -652,9 +690,11 @@ def main() -> int:
                     payload_index[str(rec["id"])] = rec["payload"]
         else:
             from evaluation.report_ceiling import load_payload_index
+
             payload_index = load_payload_index()
     else:
         from evaluation.report_ceiling import load_payload_index
+
         payload_index = load_payload_index()
     family_map = FamilyMap()
     questions = load_questions()
@@ -666,12 +706,20 @@ def main() -> int:
 
     if args.offline:
         results = mine_offline(
-            todo, payload_index, family_map, args.top_k, args.max_negatives,
+            todo,
+            payload_index,
+            family_map,
+            args.top_k,
+            args.max_negatives,
             subsection_filter=args.subsection_filter,
         )
     else:
         results = mine_live(
-            todo, payload_index, family_map, args.top_k, args.max_negatives,
+            todo,
+            payload_index,
+            family_map,
+            args.top_k,
+            args.max_negatives,
             subsection_filter=args.subsection_filter,
         )
 

@@ -443,6 +443,7 @@ class TestLegalStructureLayerInPipeline:
 
     def test_evidence_selector_flag_off_by_default(self):
         from app.rag.tasks import _evidence_selector_enabled
+
         assert _evidence_selector_enabled() is False
 
     def test_evidence_selector_flag_on(self, monkeypatch):
@@ -454,16 +455,19 @@ class TestLegalStructureLayerInPipeline:
         import importlib
 
         import app.rag.tasks as t
+
         importlib.reload(t)
         assert t._evidence_selector_enabled() is True
 
     def test_legal_identity_flag_on_by_default(self, monkeypatch):
         from app.rag.retrieval.legal_identity import _legal_identity_enabled
+
         # Default is True
         assert _legal_identity_enabled() is True
 
     def test_reference_expansion_flag_off_by_default(self):
         from app.rag.retrieval.reference_graph import _reference_expansion_enabled
+
         # Need env set for test — in tasks.py it calls reference_graph's function
         # which reads ENABLE_REFERENCE_EXPANSION env var (default false)
         old = os.environ.pop("ENABLE_REFERENCE_EXPANSION", None)
@@ -492,11 +496,16 @@ class TestLegalStructureLayerInPipeline:
         class FakeHybrid:
             def __init__(self, *a, **kw):
                 pass
+
             def retrieve(self, query, **kw):
                 from app.rag.retrieval.result import RetrievedChunk
+
                 chunk = RetrievedChunk(
-                    chunk_id="c1", score=0.9, text="Section 55 adulteration",
-                    section_number="55", act_name="Food Safety and Standards Act, 2006",
+                    chunk_id="c1",
+                    score=0.9,
+                    text="Section 55 adulteration",
+                    section_number="55",
+                    act_name="Food Safety and Standards Act, 2006",
                     document_title="Food Safety and Standards Act, 2006",
                 )
                 return SearchResult(query=query, query_type="", chunks=[chunk], total=1, latency_ms=1)
