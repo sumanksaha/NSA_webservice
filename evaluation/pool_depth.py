@@ -21,15 +21,15 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.benchmark import load_questions  # noqa: E402
-from evaluation.report_ceiling import (  # noqa: E402
-    load_payload_index,
+from evaluation.benchmark import load_questions
+from evaluation.ceiling_config import DEPTHS, UNION_KG_DEPTH
+from evaluation.report_ceiling import (
     build_union_arms,
-    unit_first_ranks,
+    load_payload_index,
     metrics_from_ranks,
+    unit_first_ranks,
 )
-from evaluation.resolution import FamilyMap  # noqa: E402
-from evaluation.ceiling_config import DEPTHS, UNION_KG_DEPTH  # noqa: E402
+from evaluation.resolution import FamilyMap
 
 DEPTHS_RUN = (100, 200, 300, 400, 500)
 
@@ -107,14 +107,10 @@ def main() -> int:
                 "note": "R@K is the mean of per-question unit recall (report convention); "
                         "the pool is unranked, so R@10 == R@500 == pool coverage.",
             }
-            print(f"depth {d:4d}: ceiling R@500={results[d]['pool_ceiling_R500']:.4f} "
-                  f"q-coverage={results[d]['questions_with_gold_in_pool']:.4f} "
-                  f"pool_size={results[d]['mean_pool_size']}")
 
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(results, indent=2), encoding="utf-8")
-        print("wrote", out)
     return 0
 
 

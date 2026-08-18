@@ -84,7 +84,7 @@ def build_dashboard() -> dict:
     for rec in mining_records:
         qid = rec["question_id"]
         positives = rec.get("positives", [])
-        pool_size = rec.get("pool_size", -1)
+        rec.get("pool_size", -1)
 
         if not positives:
             no_gold_in_pool.append(qid)
@@ -262,13 +262,6 @@ def main() -> int:
     report = generate_report(dashboard)
     OUT_MD.write_text(report, encoding="utf-8")
 
-    print(f"Dashboard written to: {OUT_JSON}", file=sys.stderr)
-    print(f"Report written to: {OUT_MD}", file=sys.stderr)
-    print(json.dumps({
-        "total_failures": dashboard["failure_categories"]["total_failures"],
-        "top_categories": list(dashboard["failure_categories"]["frequency"].keys())[:5],
-        "improvement_opportunities": len(dashboard["improvement_opportunities"]),
-    }, indent=1))
     return 0
 
 

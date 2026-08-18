@@ -37,17 +37,15 @@ def inventory(did: str, label: str, sections: list[str]) -> None:
         v = sec.get("value")
         if v:
             by_sec.setdefault(str(v), []).append(r)
-    print(f"\n=== {label} ===")
     for s in sections:
         rs = sorted(by_sec.get(s, []), key=lambda r: r.get("chunk_index") or 0)
         if not rs:
             continue
         first = rs[0]
         t = (first.get("original_text") or "").strip().replace("\n", " ")
-        hdr = header_of(t) or t[:90]
+        header_of(t) or t[:90]
         n = len(rs)
-        sample = (rs[1].get("original_text", "") if n > 1 else t)[:100].replace("\n", " ")
-        print(f"  sec {s} ({n}): {hdr[:70]}")
+        (rs[1].get("original_text", "") if n > 1 else t)[:100].replace("\n", " ")
 
 
 inventory(FSS_ACT, "FSS Act — remaining sections", [

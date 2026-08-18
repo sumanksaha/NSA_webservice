@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.rag.retrieval.result import Citation, RetrievedChunk
-from app.rag.verification import CitationValidator, CitationValidationResult
+from app.rag.verification import CitationValidationResult, CitationValidator
 
 
 def _chunks(n=3):

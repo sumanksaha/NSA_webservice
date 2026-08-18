@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import ClassVar
 
 from app.rag.chunker import Chunk
 from app.rag.dedup import MemoryHashStore
@@ -329,7 +330,6 @@ class TestFullEnrichmentFlag:
     def test_flask_config_wins_over_env_inside_app_context(self, monkeypatch):
         """Inside an app context, current_app.config takes precedence."""
         from app import create_app
-        from app.extensions import db
 
         app = create_app()
         app.config["TESTING"] = True
@@ -488,7 +488,7 @@ class TestAllAdaptersTogether:
     result summary.
     """
 
-    _SPECS = [
+    _SPECS: ClassVar[list[tuple[str, str]]] = [
         ("c0", "The Food Safety and Standards Act, 2006"),
         ("c1", "3(1)(a) The Food Authority shall ensure food safety. Section 14 of the Act."),
     ]

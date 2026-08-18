@@ -22,7 +22,7 @@ import re
 from typing import Any
 
 from evaluation.benchmark import BenchmarkQuestion
-from evaluation.resolution import FamilyMap, norm_act_name, norm_section
+from evaluation.resolution import FamilyMap, norm_act_name
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 _AMOUNT_RE = re.compile(

@@ -11,8 +11,8 @@ from app.rag.evaluation import EvalRunner
 from app.rag.generation import GroundedGenerationService
 from app.rag.generation.llm_client import GroundedLLMClient
 from app.rag.retrieval.result import RetrievedChunk
-from app.rag.verification import HallucinationDetector
 from app.rag.tasks import run_generation_pipeline
+from app.rag.verification import HallucinationDetector
 
 
 def _stub_chunks():
@@ -90,7 +90,7 @@ class TestGenerationPlusVerification:
 
     def test_empty_chunks_detection(self, monkeypatch):
         self._force_stub(monkeypatch)
-        chunks = _stub_chunks()
+        _stub_chunks()
         stub_response = "Section 55 requires a license."
         client = GroundedLLMClient(stub_response=stub_response)
         service = GroundedGenerationService(llm_client=client)

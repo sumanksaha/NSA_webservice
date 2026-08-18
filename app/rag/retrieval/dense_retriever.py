@@ -201,6 +201,7 @@ class DenseRetriever:
             score=float(score or 0.0),
             text=payload.get("chunk_text", payload.get("text", "")),
             section_number=payload.get("section_number"),
+            clause_number=payload.get("clause_number"),
             document_title=payload.get("document_title", ""),
             act_name=payload.get("act_name", ""),
             document_type=payload.get("document_type", ""),

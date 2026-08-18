@@ -17,9 +17,12 @@ available; otherwise they remain plain functions (graceful degradation).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 # Lazy import so the module boots even when Celery isn't installed.
@@ -29,6 +32,91 @@ except ImportError:
     celery = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Retrieval cache (Legal_AI_implementation.md §12.1)
+# Memoizes the deterministic, LLM-free retrieval step
+# (QueryClassifier -> HybridRetriever.retrieve) so repeated identical legal
+# questions skip the Qdrant round-trip within the TTL. Gated by
+# RAG_RETRIEVAL_CACHE (default off — test-safe; the hash-chained audit is
+# unaffected because RetrievalLogger.log still runs on every call, cache hit
+# or not). cachetools is an optional dep — if missing the cache is
+# silently disabled (graceful), mirroring the lazy-celery pattern above.
+# Stdlib TTL + LRU cache (no external dependency): an OrderedDict of
+# ``key -> (expires_at, SearchResult)``.  TTL and max-size are enforced on
+# write, expiry is checked on read (lazy reaping, no sweeper thread).
+_RETRIEVAL_CACHE_TTL = 600
+_RETRIEVAL_CACHE_MAX = 512
+_RETRIEVAL_CACHE: OrderedDict = OrderedDict()
+_CACHE_LOCK = threading.Lock()
+
+
+def _retrieval_cache_enabled() -> bool:
+    """Whether identical retrieval results are memoized (RAG_RETRIEVAL_CACHE).
+
+    Flask config wins when an app context exists (so it can be toggled
+    per-deploy); otherwise the env var is read.  Matches the
+    ``_flag_enabled`` pattern used by RAG_KG_EXPANSION / RAG_KG_FUSION.
+    """
+    return _RETRIEVAL_CACHE_MAX > 0 and _flag_enabled("RAG_RETRIEVAL_CACHE")
+
+
+def _cache_get(key):
+    """Return the cached value for *key*, or ``None`` (miss / expired).
+
+    Fresh hits are promoted to most-recently-used (LRU).  Expiry is checked
+    on read so stale entries are lazily reaped without a sweeper.
+    """
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        entry = _RETRIEVAL_CACHE.get(key)
+        if entry is None:
+            return None
+        expires_at, value = entry
+        if now >= expires_at:
+            _RETRIEVAL_CACHE.pop(key, None)
+            return None
+        _RETRIEVAL_CACHE.move_to_end(key)
+        return value
+
+
+def _cache_put(key, value) -> None:
+    """Store *value* under *key* with TTL, evicting the LRU entry if over cap."""
+    with _CACHE_LOCK:
+        _RETRIEVAL_CACHE[key] = (time.monotonic() + _RETRIEVAL_CACHE_TTL, value)
+        if len(_RETRIEVAL_CACHE) > _RETRIEVAL_CACHE_MAX:
+            _RETRIEVAL_CACHE.popitem(last=False)
+
+
+def clear_retrieval_cache() -> None:
+    """Drop every cached retrieval result (admin re-ingest, tests)."""
+    with _CACHE_LOCK:
+        _RETRIEVAL_CACHE.clear()
+
+
+def _retrieval_cache_key(
+    query: str,
+    top_k: int,
+    collection_name: str | None,
+    filters: dict[str, Any] | None,
+    query_type: str,
+    legal_qt: str | None,
+    identifier: dict[str, Any] | None,
+) -> tuple | None:
+    """Build a hashable cache key, or ``None`` if the inputs are uncacheable."""
+    try:
+        return (
+            query.strip().lower(),
+            int(top_k),
+            collection_name or "",
+            query_type,
+            legal_qt or None,
+            (identifier or {}).get("form"),
+            json.dumps(filters or {}, sort_keys=True, default=str),
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 def run_retrieval_pipeline(
@@ -138,16 +226,56 @@ def run_retrieval_pipeline(
         identifier_query, identifier = build_ident(query)
 
     # 6. Hybrid retrieval (dense + sparse [+ identifier arm])
+    #     Cached (§12.1): retrieval is deterministic and LLM-free, so an
+    #     identical query repeated within the TTL skips the Qdrant round-trip.
+    #     The cache stores the HybridRetriever.retrieve() SearchResult; a fresh
+    #     copy is returned on hits so the cached object is never mutated.
     hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=reranker)
-    result = hybrid.retrieve(
-        query,
-        top_k=top_k,
-        filters=merged_filters,
-        identifier_query=identifier_query,
-        query_type=legal_qt,
+    cache_key = (
+        _retrieval_cache_key(
+            query,
+            top_k,
+            collection_name,
+            merged_filters,
+            query_type.value,
+            legal_qt,
+            identifier,
+        )
+        if _retrieval_cache_enabled()
+        else None
     )
+    cached = None
+    if cache_key is not None:
+        cached = _cache_get(cache_key)
+    if cached is not None:
+        from app.rag.retrieval.result import SearchResult
 
-    # 7. Log
+        # Rebuild rather than return the shared object: copy the chunks list
+        # (chunks themselves are read-only downstream) and flag the hit in
+        # source/latency for the audit log + UI gauges.
+        result = SearchResult(
+            query=cached.query,
+            query_type=cached.query_type,
+            chunks=list(cached.chunks),
+            total=cached.total,
+            latency_ms=0,
+            source="cache",
+            error=cached.error,
+        )
+        logger.info("run_retrieval_pipeline: CACHE HIT query=%r top_k=%s", query, top_k)
+    else:
+        result = hybrid.retrieve(
+            query,
+            top_k=top_k,
+            filters=merged_filters,
+            identifier_query=identifier_query,
+            query_type=legal_qt,
+        )
+        if cache_key is not None:
+            _cache_put(cache_key, result)
+
+    # 7. Log (runs on every call — cache hits included — so the hash-chained
+    #    audit trail records each query invocation, not just misses).
     log = RetrievalLogger()
     log_entry = log.log(
         query=query,

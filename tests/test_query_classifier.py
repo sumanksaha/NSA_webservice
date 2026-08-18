@@ -9,8 +9,6 @@ for pure-logic components, but uses ``create_app()`` context where needed.
 
 from __future__ import annotations
 
-import pytest
-
 from app.rag.retrieval.query_classifier import (
     AuthorityQueryParser,
     CaseLawQueryParser,

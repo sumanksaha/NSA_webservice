@@ -13,17 +13,16 @@ from __future__ import annotations
 import hashlib
 
 from app.rag.generation import (
+    CitationTracker,
     ContextBuilder,
+    GenerationLogger,
     GroundedGenerationService,
     GroundedLLMClient,
     GroundedLLMResponse,
     PromptTemplate,
-    CitationTracker,
     ResponseSanitizer,
-    GenerationLogger,
 )
-from app.rag.generation.context_builder import BuiltContext
-from app.rag.retrieval.result import RetrievedChunk, Citation
+from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.tasks import run_generation_pipeline
 
 
@@ -97,13 +96,13 @@ class TestPromptTemplate:
     def test_unknown_action_raises(self):
         try:
             PromptTemplate().render("unknown", query="q", context="c")
-            assert False, "Should raise"
+            raise AssertionError("Should raise")
         except ValueError:
             pass
 
     def test_extra_vars_merged(self):
         tpl = PromptTemplate()
-        sys_p, usr_p = tpl.render("grounded_qa", query="q", context="c", extra_vars={"foo": "bar"})
+        _sys_p, usr_p = tpl.render("grounded_qa", query="q", context="c", extra_vars={"foo": "bar"})
         assert "q" in usr_p
 
 
@@ -442,7 +441,7 @@ class TestGenerationLogger:
             self._teardown(ctx)
 
     def test_missing_log_returns_none(self):
-        ctx, log = self._setup()
+        ctx, _log = self._setup()
         try:
             gl = GenerationLogger()
             assert gl.log_generation("nonexistent-id", query="q", response_text="r") is None

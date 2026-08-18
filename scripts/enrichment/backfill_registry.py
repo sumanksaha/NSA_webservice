@@ -29,13 +29,13 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPTS_DIR.parents[1]))  # project root
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from audit_chunks import _resolve_source  # noqa: E402
+from audit_chunks import _resolve_source
 
 
 def _doc_hash(uri: str, document_id: str) -> str:
     # Includes the document id so duplicate source URIs (re-ingested files
     # with fresh document ids) never collide on the UNIQUE file_hash.
-    return hashlib.sha256(f"{document_id}:{uri}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{document_id}:{uri}".encode()).hexdigest()
 
 
 def _upsert_document(pl: dict, chunk_count: int, used_uris: set[str]) -> str:
@@ -134,8 +134,6 @@ def main(argv: list[str] | None = None) -> int:
             chunks += len(pts)
             db.session.commit()
             groups[did] = []  # release
-            print(f"  doc {did[:8]}… {len(pts)} chunks")
-        print(f"backfill complete: {documents} documents, {chunks} chunks")
     return 0
 
 

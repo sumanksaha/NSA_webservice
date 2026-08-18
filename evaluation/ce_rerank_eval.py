@@ -35,9 +35,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Imported at module level so _measure() can use it (importing rerank_legal
 # is cheap and side-effect free).
-from evaluation.rerank_legal import rank_of  # noqa: E402
-
 from dotenv import load_dotenv
+
+from evaluation.rerank_legal import rank_of
 
 OUT = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -89,9 +89,9 @@ def main() -> int:
 
     from app import create_app
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap
     from evaluation.report_ceiling import load_payload_index
-    from evaluation.rerank_legal import build_pool, rrf_scores, rerank
+    from evaluation.rerank_legal import build_pool, rerank, rrf_scores
+    from evaluation.resolution import FamilyMap
 
     app = create_app()
     with app.app_context():
@@ -134,15 +134,9 @@ def main() -> int:
                 continue
             per_q[qid] = (q, head, rrf)
 
-        print(f"[ce_rerank_eval] {len(per_q)} questions, pool head = {POOL_HEAD}", file=sys.stderr)
 
         done = load_checkpoint()
         todo = [qid for qid in per_q if qid not in done]
-        print(
-            f"[ce_rerank_eval] checkpoint has {len(done)} questions; "
-            f"{len(todo)} to compute",
-            file=sys.stderr,
-        )
 
         # ---- rerankers ----
         from sentence_transformers import CrossEncoder
@@ -153,12 +147,21 @@ def main() -> int:
         }
 
         def rank_with_ce(items: list[dict], query: str, ce) -> list[dict]:
+            from app.rag.retrieval.section_prefix import prefix_passage
+
             pairs = [
-                (query, str(it["payload"].get("chunk_text") or it["payload"].get("text") or ""))
+                (
+                    query,
+                    prefix_passage(
+                        str(it["payload"].get("chunk_text") or it["payload"].get("text") or ""),
+                        it["payload"].get("section_number"),
+                        it["payload"].get("clause_number"),
+                    ),
+                )
                 for it in items
             ]
             scores = ce.predict(pairs, batch_size=CE_BATCH)
-            scored = sorted(zip(scores, items), key=lambda x: float(x[0]), reverse=True)
+            scored = sorted(zip(scores, items, strict=False), key=lambda x: float(x[0]), reverse=True)
             return [it for _, it in scored]
 
         t0 = time.time()
@@ -188,12 +191,7 @@ def main() -> int:
             done[qid] = rec
             n_done += 1
             if n_done % 10 == 0 or n_done == len(per_q):
-                eta = (time.time() - t0) / n_done * (len(per_q) - n_done)
-                print(
-                    f"[ce_rerank_eval] {n_done}/{len(per_q)} questions "
-                    f"({time.time() - t0:.0f}s elapsed, ETA {eta:.0f}s)",
-                    file=sys.stderr,
-                )
+                (time.time() - t0) / n_done * (len(per_q) - n_done)
 
         # ---- aggregate ----
         results = {name: _aggregate(done, name) for name in ("sec_act", "ce_base", "ce_finetuned")}
@@ -209,7 +207,6 @@ def main() -> int:
         }
 
         (OUT / "ce_rerank_eval.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-        print(json.dumps(results, indent=1))
     return 0
 
 
@@ -241,7 +238,7 @@ def _aggregate(done: dict[str, dict], name: str) -> dict:
     any_hits = {10: 0, 20: 0, 50: 0}
     conversions = 0
     n = 0
-    for qid, rec in done.items():
+    for _qid, rec in done.items():
         rr = rec["rerankers"].get(name)
         if rr is None:
             continue

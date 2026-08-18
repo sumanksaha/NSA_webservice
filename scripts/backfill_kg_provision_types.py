@@ -40,11 +40,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 
-from neo4j import GraphDatabase, basic_auth  # noqa: E402
+from neo4j import GraphDatabase, basic_auth
 
 _LOAD_CYPHER = "MATCH (p:LegalProvision) RETURN p.provision_id AS provision_id, coalesce(p.provision_number,'') AS provision_number"
 
@@ -148,8 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
     try:
         summary = backfill(drv, database, dry_run=args.dry_run)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: backfill failed: {exc}", file=sys.stderr)
+    except Exception:
         return 1
     finally:
         drv.close()
@@ -158,14 +157,11 @@ def main(argv: list[str] | None = None) -> int:
         args.out_dir.mkdir(parents=True, exist_ok=True)
         name = "kg_provision_types_dryrun.json" if args.dry_run else "kg_provision_types_backfill.json"
         (args.out_dir / name).write_text(json.dumps(summary, indent=2), encoding="utf-8")
-        print(f"summary -> {args.out_dir / name}")
-    except OSError as exc:
-        print(f"warning: could not write summary: {exc}", file=sys.stderr)
+    except OSError:
+        pass
 
-    print(json.dumps(summary, indent=2))
     v = summary["verify"]
     if not args.dry_run and v["with_provision_type"] != v["total"]:
-        print(f"error: verification failed — {v['with_provision_type']}/{v['total']} provisions typed", file=sys.stderr)
         return 2
     return 0
 

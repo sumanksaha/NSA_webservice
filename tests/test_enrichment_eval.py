@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.enrichment.evaluate_retrieval import (  # noqa: E402
+from scripts.enrichment.evaluate_retrieval import (
     ABLATION_VARIANTS,
     ALL_FEATURES,
     FEATURE_CROSSREFS,
@@ -238,7 +238,7 @@ class TestSyntheticRetrieval:
         return matrix, ids, payloads, enrichment, texts
 
     def test_baseline_vs_enriched(self):
-        matrix, ids, payloads, enrichment, texts = self._make_corpus()
+        matrix, ids, _payloads, enrichment, _texts = self._make_corpus()
         kw_phrases, kw_idf, sum_phrases, sum_idf = build_lexical_index(ids, enrichment)
         # Query vector unrelated to c2 text (synthetic: same dim, random unit)
         qvec = np.random.default_rng(1).normal(size=(16,)).astype(np.float32)
@@ -257,7 +257,7 @@ class TestSyntheticRetrieval:
         """Phase 15: without the keywords feature the lexical tie-break must not
         fire; with it, the keyword-rich chunk must be re-ranked above the
         baseline."""
-        matrix, ids, payloads, enrichment, texts = self._make_corpus()
+        matrix, ids, _payloads, enrichment, _texts = self._make_corpus()
         kw_phrases, kw_idf, sum_phrases, sum_idf = build_lexical_index(ids, enrichment)
         qvec = np.random.default_rng(2).normal(size=(16,)).astype(np.float32)
         qvec /= np.linalg.norm(qvec)

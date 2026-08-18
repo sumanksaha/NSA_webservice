@@ -14,12 +14,12 @@ through the public ``QdrantStore`` API with no optional dependencies.
 
 from __future__ import annotations
 
+from test_corpus_ingestion_e2e import FakeEmbedder, InMemoryQdrantClient
+
 from app.rag.dedup import ChunkDeduper
 from app.rag.ingestion import IngestionPipeline
 from app.rag.qdrant_client import QdrantStore
 from app.rag.qdrant_indexer import QdrantIndexer
-
-from test_corpus_ingestion_e2e import FakeEmbedder, InMemoryQdrantClient
 
 _DIM = 768
 

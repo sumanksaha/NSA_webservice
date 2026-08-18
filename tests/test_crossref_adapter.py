@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 
-from app.cross_reference import CrossReference, CrossReferenceEngine, ReferenceKind
+from app.cross_reference import CrossReference, ReferenceKind
 from app.rag.crossref_adapter import AdaptedReference, CrossRefAdapter
 
 
@@ -151,7 +151,7 @@ class TestSectionKnowledge:
         """The adapter must NOT expand the app's pinned KNOWN_SECTIONS."""
         from app.cross_reference.engine import KNOWN_SECTIONS
 
-        assert KNOWN_SECTIONS == frozenset({"3", "26", "37", "46", "51", "52", "55", "56", "58", "63", "64"})
+        assert frozenset({"3", "26", "37", "46", "51", "52", "55", "56", "58", "63", "64"}) == KNOWN_SECTIONS
         assert "1" not in KNOWN_SECTIONS  # app set stays small; adapter has full Act
 
 

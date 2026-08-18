@@ -210,8 +210,21 @@ def mine_question(
     payload_index: dict[str, dict],
     family_map,
     max_negatives: int = 20,
+    subsection_filter: bool = False,
 ) -> dict | None:
     """Mine hard negatives for a single question from its K=500 pool.
+
+    Args:
+        q: benchmark question
+        raw_chunks: retrieved candidate chunks (K=500 pool)
+        payload_index: chunk_id → payload map
+        family_map: FamilyMap instance
+        max_negatives: max negatives kept per question
+        subsection_filter: P2 (G5): keep only negatives that share the gold's
+            section AND subsection (never subsection alone — values repeat
+            across sections).  Falls back to same-section-different-subsection
+            negatives when no AND-match exists (fssai has 33% subsection
+            coverage), preserving tier-3 recall.
 
     Returns a dict with query, positives, tiered negatives, and metadata.
     Returns None if no gold provision is resolvable.
@@ -310,6 +323,26 @@ def mine_question(
             })
             seen_ids.add(cid)
 
+    # P2 subsection filter (G5): same_section AND same_subsection, with a
+    # same-section-only fallback when no AND-match exists per gold unit.
+    if subsection_filter:
+        kept: list[dict] = []
+        for unit in rel:
+            unit_negs = [n for n in all_negatives if n["gold_unit"] == unit.provision_id]
+            and_matches = [
+                n for n in unit_negs
+                if n["features"].get("same_section") and n["features"].get("same_subsection")
+            ]
+            if and_matches:
+                kept.extend(and_matches)
+            else:
+                # Fallback: same-section-different-chunk (no subsection match
+                # required) — fssai has 32.6% subsection coverage.
+                kept.extend(
+                    [n for n in unit_negs if n["features"].get("same_section")]
+                )
+        all_negatives = kept
+
     # Sort by difficulty score, take top max_negatives
     all_negatives.sort(key=lambda x: x["score"], reverse=True)
 
@@ -366,7 +399,8 @@ def load_checkpoint() -> dict[str, dict]:
     return done
 
 
-def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20) -> dict[str, dict]:
+def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20,
+              subsection_filter: bool = False) -> dict[str, dict]:
     """Mine via live Qdrant retrieval at K=top_k."""
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
@@ -412,7 +446,10 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
                 parsed = parser.parse(q.question, qtype) or {}
                 ident_q, _meta = identifier_query(q.question)
                 result = hybrid.retrieve(q.question, top_k=top_k, filters=parsed, identifier_query=ident_q)
-                mined = mine_question(q, result.chunks, payload_index, family_map, max_neg)
+                mined = mine_question(
+                    q, result.chunks, payload_index, family_map, max_neg,
+                    subsection_filter=subsection_filter,
+                )
                 if mined:
                     results[q.question_id] = mined
             except Exception:
@@ -422,7 +459,8 @@ def mine_live(questions: list, payload_index: dict, family_map, top_k: int = 500
     return results
 
 
-def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20) -> dict[str, dict]:
+def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 500, max_neg: int = 20,
+                 subsection_filter: bool = False) -> dict[str, dict]:
     """Mine from the payload index only (no live Qdrant).
 
     For each question:
@@ -524,6 +562,18 @@ def mine_offline(questions: list, payload_index: dict, family_map, top_k: int = 
 
         negatives.sort(key=lambda x: x["score"], reverse=True)
 
+        # P2 subsection filter (G5) — same logic as mine_question: same_section
+        # AND same_subsection, falling back to same-section-only.
+        if subsection_filter:
+            and_matches = [
+                n for n in negatives
+                if n["features"].get("same_section") and n["features"].get("same_subsection")
+            ]
+            if and_matches:
+                negatives = and_matches
+            else:
+                negatives = [n for n in negatives if n["features"].get("same_section")]
+
         # Ensure tier diversity: take top from each tier first, then fill
         tier_counts = {1: 0, 2: 0, 3: 0}
         selected = []
@@ -575,6 +625,12 @@ def main() -> int:
                         help="Torch intra-op thread cap for live mode (default 4; offline mode is pure Python)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Only mine this many questions (testing/spot checks on a laptop)")
+    parser.add_argument(
+        "--subsection-filter",
+        action="store_true",
+        help="P2 (G5): keep only same_section AND same_subsection negatives "
+        "(fallback: same-section-only when no AND-match exists).",
+    )
     args = parser.parse_args()
 
     # Bound threads before any torch import (live mode pulls in app modules).
@@ -609,9 +665,15 @@ def main() -> int:
         todo = todo[: args.limit]
 
     if args.offline:
-        results = mine_offline(todo, payload_index, family_map, args.top_k, args.max_negatives)
+        results = mine_offline(
+            todo, payload_index, family_map, args.top_k, args.max_negatives,
+            subsection_filter=args.subsection_filter,
+        )
     else:
-        results = mine_live(todo, payload_index, family_map, args.top_k, args.max_negatives)
+        results = mine_live(
+            todo, payload_index, family_map, args.top_k, args.max_negatives,
+            subsection_filter=args.subsection_filter,
+        )
 
     # Merge and write
     done.update(results)

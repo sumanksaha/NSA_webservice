@@ -92,8 +92,8 @@ def test_client(tmp_path, test_db_uri):
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
-            admin = User(username="admin", password_hash="x", is_admin=True)  # noqa: S106
-            regular = User(username="regular", password_hash="x", is_admin=False)  # noqa: S106
+            admin = User(username="admin", password_hash="x", is_admin=True)
+            regular = User(username="regular", password_hash="x", is_admin=False)
             db.session.add_all([admin, regular])
             db.session.add(_make_case_file())
             db.session.add(_make_adjudication())

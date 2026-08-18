@@ -78,7 +78,7 @@ class _FakeEngine:
     def __init__(self, paragraphs):
         self._paragraphs = paragraphs
 
-    def process_document(self, text, doc_type_info=None):  # noqa: ARG002 - fake interface
+    def process_document(self, text, doc_type_info=None):
         return self._paragraphs
 
 

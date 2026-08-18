@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
@@ -45,19 +45,16 @@ def main(argv: list[str] | None = None) -> int:
     linker = ConceptLinker()
     try:
         summary = linker.link(dry_run=args.dry_run)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: concept linking failed: {exc}", file=sys.stderr)
+    except Exception:
         return 1
 
     try:
         args.out_dir.mkdir(parents=True, exist_ok=True)
         name = "kg_concept_links_dryrun.json" if args.dry_run else "kg_concept_links.json"
         (args.out_dir / name).write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-        print(f"summary -> {args.out_dir / name}")
-    except OSError as exc:
-        print(f"warning: could not write summary: {exc}", file=sys.stderr)
+    except OSError:
+        pass
 
-    print(json.dumps(summary, indent=2 if args.pretty else None, default=str))
     return 0
 
 

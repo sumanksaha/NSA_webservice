@@ -9,6 +9,8 @@ tests deterministic (no real sleeping).
 
 from __future__ import annotations
 
+import contextlib
+
 import httpx
 
 from app.rag.retryable_embedding_client import (
@@ -125,10 +127,8 @@ class TestCircuitBreaker:
         embedder = _FakeEmbedder(failures=99)
         client = _client(embedder, max_attempts=1, failure_threshold=3, cooldown_seconds=60)
         for _ in range(3):
-            try:
+            with contextlib.suppress(RuntimeError):
                 client.embed_text("q")
-            except RuntimeError:
-                pass
         state = client.circuit_state()
         assert state["open"] is True
         assert state["consecutive_failures"] == 3
@@ -137,10 +137,8 @@ class TestCircuitBreaker:
         embedder = _FakeEmbedder(failures=99)
         client = _client(embedder, max_attempts=1, failure_threshold=2, cooldown_seconds=60)
         for _ in range(2):
-            try:
+            with contextlib.suppress(RuntimeError):
                 client.embed_text("q")
-            except RuntimeError:
-                pass
         # Circuit is open -> the embedder must NOT be called again.
         calls_before = embedder.calls
         try:
@@ -154,27 +152,21 @@ class TestCircuitBreaker:
         embedder = _FakeEmbedder(failures=99)
         client = _client(embedder, max_attempts=1, failure_threshold=2, cooldown_seconds=10)
         for _ in range(2):
-            try:
+            with contextlib.suppress(RuntimeError):
                 client.embed_text("q")
-            except RuntimeError:
-                pass
         assert client.circuit_open() is True
         _advance(11)  # cooldown elapsed
         assert client.circuit_open() is False  # half-open probe allowed
-        try:
+        with contextlib.suppress(RuntimeError):
             client.embed_text("q")  # still failing -> re-opens
-        except RuntimeError:
-            pass
         assert client.circuit_state()["consecutive_failures"] == 3
 
     def test_success_resets_circuit(self):
         embedder = _FakeEmbedder(failures=2)
         client = _client(embedder, max_attempts=2, failure_threshold=2, cooldown_seconds=60)
         for _ in range(2):
-            try:
+            with contextlib.suppress(RuntimeError):
                 client.embed_text("q")
-            except RuntimeError:
-                pass
         assert client.circuit_open() is True
         _advance(61)
         # Next attempt succeeds -> breaker resets.
@@ -187,10 +179,8 @@ class TestCircuitBreaker:
     def test_reset_closes_circuit_manually(self):
         embedder = _FakeEmbedder(failures=99)
         client = _client(embedder, max_attempts=1, failure_threshold=1, cooldown_seconds=60)
-        try:
+        with contextlib.suppress(RuntimeError):
             client.embed_text("q")
-        except RuntimeError:
-            pass
         assert client.circuit_open() is True
         client.reset()
         assert client.circuit_open() is False
@@ -200,18 +190,14 @@ class TestCircuitBreaker:
         """circuit_open()/circuit_state() are pure — polling must not probe."""
         embedder = _FakeEmbedder(failures=99)
         client = _client(embedder, max_attempts=1, failure_threshold=1, cooldown_seconds=60)
-        try:
+        with contextlib.suppress(RuntimeError):
             client.embed_text("q")
-        except RuntimeError:
-            pass
         assert client.circuit_open() is True
         _advance(61)  # cooldown elapsed...
         # ...but merely observing does NOT transition to half-open:
         assert client.circuit_state()["open"] is False
-        try:
+        with contextlib.suppress(RuntimeError):
             client.embed_text("q")
-        except RuntimeError:
-            pass
         # The probe call re-opened the circuit with a fresh cooldown.
         assert client.circuit_open() is True
         assert client.circuit_state()["consecutive_failures"] == 2
@@ -221,10 +207,8 @@ class TestCircuitBreaker:
         embedder = _FakeEmbedder(failures=99, error=ValueError("bad payload"))
         client = _client(embedder, max_attempts=1, failure_threshold=2, cooldown_seconds=60)
         for _ in range(3):
-            try:
+            with contextlib.suppress(ValueError):
                 client.embed_text("q")
-            except ValueError:
-                pass
         state = client.circuit_state()
         assert state["open"] is False
         assert state["consecutive_failures"] == 0  # breaker only counts transient

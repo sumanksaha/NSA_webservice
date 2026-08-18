@@ -7,8 +7,7 @@ with the Proven / Observed / Inferred / Unknown discipline of §25.
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from evaluation.config import OUT_DIR, config_hash
@@ -134,7 +133,7 @@ def _verdicts(data: dict[str, Any]) -> dict[str, str]:
     def mrr(a: str) -> float:
         return agg.get(a, {}).get("mrr", 0.0)
 
-    dense, sparse, hybrid, kg, ek, fk = r10("A_dense"), r10("B_sparse"), r10("C_dense_sparse"), r10("D_kg_retrieval"), r10("E_dense_sparse_kg"), r10("F_dense_sparse_kg_rerank")
+    dense, sparse, hybrid, _kg, ek, fk = r10("A_dense"), r10("B_sparse"), r10("C_dense_sparse"), r10("D_kg_retrieval"), r10("E_dense_sparse_kg"), r10("F_dense_sparse_kg_rerank")
 
     # KG verdict — fusion-aware (2026-08-12): the legacy tail-concatenation
     # structurally hid the KG's rank-level value; the RRF-fused arms measure it.
@@ -210,7 +209,7 @@ def _verdicts(data: dict[str, Any]) -> dict[str, str]:
 def write_main_report(data: dict[str, Any]) -> None:
     v = _verdicts(data)
     schema = data["_schema_report"]
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     agg = {arm: aggregate(list(data["scores"][arm].values())) for arm in data["scores"]}
     f_agg = agg["F_dense_sparse_kg_rerank"]
     legal_vals = [l for l in data["legal"].values()]
@@ -388,7 +387,7 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append("")
     mdl.append("### Proven (measured directly)")
     mdl.append("")
-    mdl.append(f"- Retrieval Recall@10 for all six arms (§7.1).")
+    mdl.append("- Retrieval Recall@10 for all six arms (§7.1).")
     mdl.append(f"- ARM F legal-evidence composite {le_score}/1 and per-axis rates (§10).")
     mdl.append(f"- Oracle vs retrieved answer accuracy gap of {_pct(oracle_acc - retr_acc)} (§5).")
     mdl.append(f"- KG help rate {_pct(data['_kg_agg'].get('help_rate', 0))} / harm rate {_pct(data['_kg_agg'].get('harm_rate', 0))} (§3).")
@@ -568,7 +567,7 @@ def write_readiness(data: dict[str, Any]) -> None:
                  "incomplete evidence cannot be legally relied on.")
     lines.append(f"2. Retrieved-evidence answers are correct only {_pct(retr_acc)} of the time (heuristic grader; "
                  "true legal accuracy is *Unknown* without expert adjudication).")
-    lines.append("3. The answer grader and the single free-tier LLM have not been validated against a lawyer.") 
+    lines.append("3. The answer grader and the single free-tier LLM have not been validated against a lawyer.")
     lines.append("4. Temporal gold labels are absent from the benchmark; the KG retrieval contract is wired "
                  "behind `RAG_KG_FUSION` (default off) and measured via the `retrieved_kg` answer "
                  "condition (§5) — its answer-level gain (+0.7pp) is not yet significant because the "

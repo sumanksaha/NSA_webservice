@@ -53,7 +53,7 @@ def inspection(test_app):
     from datetime import datetime
 
     from app.extensions import db
-    from app.models import Adjudication, FSO, Inspection
+    from app.models import FSO, Adjudication, Inspection
 
     fso = FSO(fso_name="Test FSO")
     db.session.add(fso)
@@ -139,7 +139,6 @@ class TestValidation:
         """Non-whitelisted extension raises ValueError."""
         import io
 
-        from app.models import Evidence
 
         _, adj = inspection
 
@@ -167,7 +166,6 @@ class TestDeleteMethod:
 
     def test_delete_nonexistent_photo_raises_filenotfound(self, service, test_app):
         """Deleting a photo ID that doesn't exist raises FileNotFoundError."""
-        from app.models import Evidence
 
         with pytest.raises(FileNotFoundError):
             service.delete("nonexistent-id")

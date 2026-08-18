@@ -20,8 +20,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -29,7 +27,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -84,11 +82,15 @@ def evaluate_model(
 
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
-    from app.rag.sparse_embedding import SparseEmbeddingService
     from app.rag.retrieval import (
-        DenseRetriever, HybridRetriever, QueryClassifier, QueryParser, SparseRetriever,
+        DenseRetriever,
+        HybridRetriever,
+        QueryClassifier,
+        QueryParser,
+        SparseRetriever,
     )
     from app.rag.retrieval.identifier import identifier_query
+    from app.rag.sparse_embedding import SparseEmbeddingService
     from evaluation.resolution import matches_gold
 
     app = create_app()
@@ -211,7 +213,7 @@ def evaluate_model(
             metrics["n_questions"] = n
             metrics["latency_ms_avg"] = round(total_lat / n, 1)
 
-            for t, d in metrics["by_type"].items():
+            for _t, d in metrics["by_type"].items():
                 if d["n"] > 0:
                     d["R@10"] = round(d["r10"] / d["n"], 4)
                     d["any_hit_R@10"] = round(d["any10"] / d["n"], 4)
@@ -249,8 +251,8 @@ def main() -> int:
     args = parser.parse_args()
 
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap
     from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap
 
     payload_index = load_payload_index()
     family_map = FamilyMap()
@@ -275,14 +277,12 @@ def main() -> int:
     for variant in variants:
         model_path = model_paths.get(variant)
         if variant != "baseline" and model_path is None:
-            print(f"[hard_neg_eval] Model not found for variant '{variant}', skipping", file=sys.stderr)
             continue
 
         reranker_fn = build_eval_fn(model_path, args.ce_weight, args.ce_head)
 
         for k in k_values:
             run_name = f"{variant}_k{k}"
-            print(f"[hard_neg_eval] Evaluating {run_name}...", file=sys.stderr)
             result = evaluate_model(
                 questions=questions,
                 payload_index=payload_index,
@@ -305,7 +305,7 @@ def main() -> int:
             "model", "pool_k", "R@1", "R@5", "R@10", "MRR", "NDCG@10",
             "any_hit_R@10", "latency_ms_avg", "n_questions",
         ])
-        for name, r in sorted(all_results.items()):
+        for _name, r in sorted(all_results.items()):
             writer.writerow([
                 r.get("model", ""),
                 r.get("pool_k", ""),
@@ -319,8 +319,6 @@ def main() -> int:
                 r.get("n_questions", ""),
             ])
 
-    print(f"\nResults written to: {out_file}", file=sys.stderr)
-    print(json.dumps(all_results, indent=1))
     return 0
 
 

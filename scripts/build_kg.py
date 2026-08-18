@@ -98,8 +98,7 @@ DOC_TYPE_DESCRIPTIONS = {
 try:
     with open("corpus_eval_result.json", encoding="utf-8") as f:
         data = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError) as e:
-    print(f"ERROR: Cannot load corpus_eval_result.json: {e}")
+except (FileNotFoundError, json.JSONDecodeError):
     raise
 
 docs = data.get("documents", [])
@@ -184,10 +183,7 @@ for doc in docs:
     doc_type = metadata.get("document_type") or classification.get("document_type") or "unknown"
 
     grades = quality.get("grades", {})
-    if grades:
-        grade = max(grades.items(), key=lambda x: x[1])[0]
-    else:
-        grade = "A"
+    grade = max(grades.items(), key=lambda x: x[1])[0] if grades else "A"
 
     doc_entity = {
         "id": doc.get("extraction", {}).get("document_id", ""),
@@ -364,18 +360,6 @@ output_path = "knowledge_graph.json"
 try:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(kg, f, indent=2, ensure_ascii=False, default=str)
-except OSError as e:
-    print(f"ERROR: Cannot write knowledge_graph.json: {e}")
+except OSError:
     raise
 
-print(f"Advanced knowledge graph written to {output_path}")
-print(f"  Documents: {kg['statistics']['total_documents']}")
-print(f"  Chunks: {kg['statistics']['total_chunks']}")
-print(f"  Unique sections: {kg['statistics']['unique_sections']}")
-print(f"  Canonical authorities: {kg['statistics']['unique_authorities']}")
-print(f"  Document types: {kg['statistics']['document_types']}")
-print(f"  Quality grades: {kg['statistics']['quality_grades']}")
-print(f"  Quality issues: {kg['statistics']['quality_issues']}")
-print(f"  Empty docs (OCR needed): {kg['statistics']['empty_documents']}")
-print(f"  Largest doc: {kg['statistics']['largest_document']} ({kg['statistics']['largest_chunk_count']} chunks)")
-print(f"  Most cited: {kg['statistics']['most_cited_document']} ({kg['statistics']['most_citations_count']} citations)")

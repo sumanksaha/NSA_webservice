@@ -25,7 +25,6 @@ Exit codes: 0 all ok (or all duplicates), 1 any document failed, 2 usage/error.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -34,7 +33,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
@@ -122,7 +121,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
             FROM legal_document ORDER BY created_at
             """
         ):
-            docs.append({k: r[k] for k in r.keys()})
+            docs.append({k: r[k] for k in r})
         for r in con.execute(
             """
             SELECT id, document_id, document_type, section_number, chunk_index,
@@ -132,7 +131,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
             FROM legal_chunk ORDER BY document_id, chunk_index
             """
         ):
-            chunks.setdefault(r["document_id"], []).append({k: r[k] for k in r.keys()})
+            chunks.setdefault(r["document_id"], []).append({k: r[k] for k in r})
     finally:
         con.close()
     return docs, chunks
@@ -150,7 +149,7 @@ def build_payload(chunk: dict[str, Any], doc: dict[str, Any]) -> dict[str, Any]:
 
     try:
         payload = dict(_json.loads(chunk.get("metadata_json") or "{}"))
-    except Exception:  # noqa: BLE001 - fall back to a minimal payload
+    except Exception:
         payload = {}
     payload.update(
         {
@@ -187,35 +186,22 @@ def main(argv: list[str] | None = None) -> int:
 
     docs, chunks = load_corpus()
     total_chunks = sum(len(v) for v in chunks.values())
-    print(f"loaded {len(docs)} documents, {total_chunks} chunks", flush=True)
 
     # Scope guard: every document must be recognisably FSS-family, otherwise
     # ``act_name`` would be wrongly stamped and a foreign doc would enter the
     # FSSAI collection. Hard fail — never silently proceed.
     foreign = [d for d in docs if not _is_fss_document(d)]
     if foreign:
-        print(
-            "error: refusing to run — non-FSS document(s) would be stamped "
-            f"act_name={FSS_ACT_NAME!r}: {[str(d['id'])[:8] for d in foreign]}",
-            file=sys.stderr,
-        )
         return 2
 
     # Corpus-size expectation (audited baseline). Warn only — legitimate growth
     # (a new FSSAI doc ingested through the pipeline) is a valid re-run.
     if not args.only and (len(docs) != EXPECTED_DOCS or total_chunks != EXPECTED_CHUNKS):
-        print(
-            f"WARNING: corpus differs from audited baseline "
-            f"({EXPECTED_DOCS} docs/{EXPECTED_CHUNKS:,} chunks) — "
-            f"loaded {len(docs)} docs/{total_chunks:,} chunks. Verify before replacing.",
-            file=sys.stderr,
-            flush=True,
-        )
+        pass
 
     if args.only:
         docs = [d for d in docs if d["id"] == args.only or args.only in str(d["source_uri"])]
         if not docs:
-            print(f"error: --only {args.only} matched no document", file=sys.stderr)
             return 2
 
     # Build all payloads first (cheap) so --dry-run is a faithful pre-flight.
@@ -227,28 +213,21 @@ def main(argv: list[str] | None = None) -> int:
         payloads = [build_payload(c, doc) for c in doc_chunks]
         by_doc[doc_id] = payloads
         total_payloads += len(payloads)
-        print(f"  doc {doc_id[:8]}… {str(doc.get('source_uri',''))[-48:]:<48} chunks={len(payloads)}", flush=True)
-    print(f"total payloads: {total_payloads}", flush=True)
 
     if args.dry_run:
-        print("\nDRY-RUN complete — no Qdrant writes. Run without --dry-run to execute.", flush=True)
         return 0
 
     # Destructive guard: --delete-collection requires the STEP-1 rollback export
     # to exist, so the pre-rebuild collection is always recoverable (§7 rollback).
     if args.delete_collection and not BACKUP_PATH.exists():
-        print(
-            f"error: --delete-collection requires the STEP-1 backup "
-            f"({BACKUP_PATH}) — run plan §3.1 first (or use --dry-run).",
-            file=sys.stderr,
-        )
         return 2
 
     ctx = _app_context()
     ctx.push()
     try:
-        from app.rag.qdrant_indexer import QdrantIndexer
         from qdrant_client import QdrantClient
+
+        from app.rag.qdrant_indexer import QdrantIndexer
 
         client = QdrantClient(
             url=os.environ.get("RAG_QDRANT_URL", ""),
@@ -257,39 +236,28 @@ def main(argv: list[str] | None = None) -> int:
         if args.delete_collection:
             if client.collection_exists(COLLECTION):
                 client.delete_collection(COLLECTION)
-                print(f"deleted existing {COLLECTION} (backup: {BACKUP_PATH.name})", flush=True)
             else:
-                print(f"no existing {COLLECTION} to delete", flush=True)
+                pass
 
         indexer = QdrantIndexer(collection_name=COLLECTION)
         if not indexer.ensure_collection():
-            print("error: ensure_collection failed", file=sys.stderr)
             return 1
 
         any_failed = False
-        started = time.monotonic()
+        time.monotonic()
         for doc in docs:
             doc_id = doc["id"]
             payloads = by_doc[doc_id]
             if not payloads:
                 continue
-            t0 = time.monotonic()
+            time.monotonic()
             try:
                 result = indexer.sync_payloads(payloads)
-            except Exception as exc:  # noqa: BLE001 - one bad doc must not abort the corpus
-                print(f"FAIL {doc_id} {exc}", flush=True)
+            except Exception:
                 any_failed = True
                 continue
-            status = "OK  " if result.ok else "FAIL"
             if not result.ok:
                 any_failed = True
-            print(
-                f"[{status}] {doc_id[:8]}… chunks={result.chunk_count} "
-                f"upserted={result.points_upserted} errors={result.errors} "
-                f"{time.monotonic()-t0:.1f}s",
-                flush=True,
-            )
-        print(f"\nfinished in {time.monotonic()-started:.0f}s ok={not any_failed}", flush=True)
         return 1 if any_failed else 0
     finally:
         ctx.pop()

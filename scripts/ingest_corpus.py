@@ -19,7 +19,6 @@ was a duplicate), 1 when any document failed to ingest.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -102,15 +101,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         summary = ingest(args)
-    except (ValueError, FileNotFoundError, RuntimeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except (ValueError, FileNotFoundError, RuntimeError):
         return 2
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: ingestion failed: {exc}", file=sys.stderr)
+    except Exception:
         return 2
 
-    indent = 2 if args.pretty_json else None
-    print(json.dumps(summary, indent=indent, default=str))
 
     # Single-document results expose ``ok``; corpus summaries expose ``failed``.
     if summary.get("ok") is False or summary.get("failed", 0):

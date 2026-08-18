@@ -25,7 +25,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from evaluation.config import OUT_DIR, RAW_DIR, CACHE_DIR
+from evaluation.benchmark import load_questions
+from evaluation.config import CACHE_DIR, OUT_DIR, RAW_DIR
 from evaluation.evidence_set_selector import (
     STRATEGIES,
     STRATEGY_NAMES,
@@ -35,7 +36,6 @@ from evaluation.evidence_set_selector import (
 )
 from evaluation.metrics import QuestionMetrics, score_question
 from evaluation.resolution import FamilyMap
-from evaluation.benchmark import load_questions
 
 logger = logging.getLogger(__name__)
 K = 10  # evidence-set size for all selectors
@@ -251,10 +251,10 @@ def _write_report(
         "# V8 Evidence-Set Selector — Results Report",
         "",
         "## Overview",
-        f"- **Benchmark**: 150 questions (frozen v1.0)",
-        f"- **Upstream pool**: ARM F (dense+sparse+KG, 20 chunks + up to 15 KG provisions)",
+        "- **Benchmark**: 150 questions (frozen v1.0)",
+        "- **Upstream pool**: ARM F (dense+sparse+KG, 20 chunks + up to 15 KG provisions)",
         f"- **Evidence-set size**: k={K}",
-        f"- **Baseline**: F_baseline_k10 (top-10 chunks from ARM F, no KG)",
+        "- **Baseline**: F_baseline_k10 (top-10 chunks from ARM F, no KG)",
         "",
         "## Summary Table",
         "",
@@ -262,7 +262,7 @@ def _write_report(
         "|---|---|---|---|---|---|---|---|",
     ]
 
-    for name in ["F_baseline_k10"] + STRATEGY_NAMES:
+    for name in ["F_baseline_k10", *STRATEGY_NAMES]:
         s = summary_map.get(name, {})
         r10 = s.get("mean_recall_at_10", 0.0)
         mrr = s.get("mean_mrr", 0.0)
@@ -317,7 +317,7 @@ def _write_report(
     ])
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        logger.info("wrote %s", path.name)
+    logger.info("wrote %s", path.name)
 
 
 # --------------------------------------------------------------------------- #

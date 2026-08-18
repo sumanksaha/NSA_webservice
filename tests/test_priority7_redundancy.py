@@ -1,7 +1,7 @@
 """Tests for Priority 7 - Multi-Target Sheets Redundancy."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -47,7 +47,8 @@ def client(app_ctx):
 
 
 def _sample_csv_for_module(module, rows=1):
-    import csv as csv_mod, io
+    import csv as csv_mod
+    import io
     fieldnames = ["module", "base_id", "field_0", "field_1", "field_2"]
     buf = io.StringIO()
     writer = csv_mod.DictWriter(buf, fieldnames=fieldnames)
@@ -208,9 +209,10 @@ def test_restore_module_empty_rows_returns_zero():
 class TestIsEmptySqliteDb:
     def test_empty_db_true(self, app_ctx):
         """Empty DB check should return True when all counts are zero."""
-        from app.utils.sync import _is_empty_sqlite_db
-        from app.extensions import db
         from unittest.mock import patch
+
+        from app.extensions import db
+        from app.utils.sync import _is_empty_sqlite_db
         with patch.object(db, "session") as mock_session:
             mock_session.execute.return_value.scalar.return_value = 0
             assert _is_empty_sqlite_db() is True
@@ -283,8 +285,9 @@ class TestBackupScript:
         assert p.exists()
 
     def test_script_delegates(self, app_ctx):
-        import sys, importlib
-        app, _ = app_ctx
+        import importlib
+        import sys
+        _app, _ = app_ctx
         script_dir = str(Path(__file__).resolve().parent.parent / "scripts")
         sys.path.insert(0, script_dir)
         try:

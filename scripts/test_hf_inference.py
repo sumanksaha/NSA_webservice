@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import urllib.request
 
 DEFAULT_REPO = "sumanksaha/Foodmultidomain"
@@ -37,8 +36,8 @@ def _infer(url: str, token: str | None, query: str, text: str) -> float:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(url, data=body, headers=headers)
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    req = urllib.request.Request(url, data=body, headers=headers)  # noqa: S310 - diagnostic script, URL is a CLI arg
+    with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310 - diagnostic script, URL is a CLI arg
         data = json.loads(resp.read())
     if isinstance(data, list) and data and isinstance(data[0], dict):
         return float(data[0].get("score", 0.0))
@@ -60,7 +59,7 @@ def main() -> int:
     for (query, text), expected in SANITY_PAIRS:
         try:
             score = _infer(url, token, query, text)
-        except Exception as exc:  # noqa: BLE001 - report and continue
+        except Exception as exc:
             print(f"  FAIL {query[:34]!r:36} -> error: {exc}")
             ok = False
             continue

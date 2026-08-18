@@ -15,7 +15,6 @@ import pytest
 from app.rag.retrieval.dense_retriever import DenseRetriever
 from app.rag.retrieval.remote_embedder import RemoteEmbedClient
 
-
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #

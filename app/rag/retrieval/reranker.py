@@ -21,6 +21,7 @@ from typing import Any
 from rapidfuzz import fuzz
 
 from app.rag.retrieval.result import RetrievedChunk
+from app.rag.retrieval.section_prefix import prefix_passage
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,21 @@ class Reranker:
         encoder: Any,
         top_k: int | None,
     ) -> list[RetrievedChunk]:
-        """Re-rank using cross-encoder pairwise scores."""
-        pairs = [(query, chunk.text) for chunk in chunks]
+        """Re-rank using cross-encoder pairwise scores.
+
+        When ``RAG_CE_SECTION_PREFIX`` is enabled, each passage is prefixed
+        with its legal identity (``§<section> <text>`` or ``§<clause>
+        <text>`` for regulations) exactly as the CE-v2 training data was
+        built (CV2 P1, G2).  The prefix travels inside the pair text, so
+        both the local encoder and a remote client see byte-identical input.
+        """
+        pairs = [
+            (
+                query,
+                prefix_passage(chunk.text, chunk.section_number, chunk.clause_number),
+            )
+            for chunk in chunks
+        ]
         try:
             scores = encoder.predict(pairs)
             scored = list(zip(scores, chunks, strict=False))
@@ -327,7 +341,17 @@ class EnsembleReranker:
             )
         if encoder is not None and not skip_ce:
             try:
-                pairs = [(query, chunks[i].text) for i in head_idx]
+                pairs = [
+                    (
+                        query,
+                        prefix_passage(
+                            chunks[i].text,
+                            chunks[i].section_number,
+                            chunks[i].clause_number,
+                        ),
+                    )
+                    for i in head_idx
+                ]
                 scores = encoder.predict(pairs)
                 norm = self._minmax([float(s) for s in scores])
                 ce_bonus = {i: ce_weight * n for i, n in zip(head_idx, norm, strict=False)}

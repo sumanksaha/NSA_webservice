@@ -31,9 +31,9 @@ def main() -> int:
 
     from evaluation.config import OUT_DIR
     from evaluation.report import (
-        deliverable_10,
         deliverable_4,
         deliverable_5,
+        deliverable_10,
         deliverables_1_3,
         deliverables_6_7,
         prepare,
@@ -80,8 +80,9 @@ def main() -> int:
 
 
 def _kg_aggregate(data: dict) -> dict:
-    from evaluation.config import OUT_DIR
     import json as _json
+
+    from evaluation.config import OUT_DIR
 
     path = OUT_DIR / "aggregate_metrics.json"
     if path.exists():

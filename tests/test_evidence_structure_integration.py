@@ -16,8 +16,6 @@ This test runs entirely in-memory — no Neo4j, no Qdrant, no CE model required.
 import os
 from dataclasses import dataclass
 
-import pytest
-
 # Enable reference expansion for the test
 os.environ["ENABLE_REFERENCE_EXPANSION"] = "true"
 os.environ["ENABLE_LEGAL_IDENTITY"] = "true"
@@ -26,18 +24,18 @@ os.environ["ENABLE_TEMPORAL_FILTER"] = "true"
 os.environ["ENABLE_PROVISION_VERSIONS"] = "true"
 
 
-from app.rag.retrieval.legal_identity import parse_legal_identity
-from app.rag.retrieval.legal_hierarchy import hierarchy_proximity, parent_child
-from app.rag.retrieval.reference_extractor import extract_references, high_confidence_refs, CONFIDENCE_HIGH
-from app.rag.retrieval.reference_graph import ReferenceGraph, expand_references, expand_candidates
-from app.rag.retrieval.temporal_validity import is_valid, VALIDITY_VALID, VALIDITY_INVALID, VALIDITY_UNKNOWN
-from app.rag.retrieval.provision_versions import extract_provision_version, group_versions
-from app.rag.retrieval.evidence_selector import select_evidence_set, EvidenceSet
 from app.rag.retrieval.evidence_metrics import (
+    evaluate_evidence_batch,
     evaluate_evidence_set,
     evidence_set_recall,
-    evaluate_evidence_batch,
 )
+from app.rag.retrieval.evidence_selector import select_evidence_set
+from app.rag.retrieval.legal_hierarchy import hierarchy_proximity, parent_child
+from app.rag.retrieval.legal_identity import parse_legal_identity
+from app.rag.retrieval.provision_versions import group_versions
+from app.rag.retrieval.reference_extractor import CONFIDENCE_HIGH, extract_references
+from app.rag.retrieval.reference_graph import ReferenceGraph, expand_references
+from app.rag.retrieval.temporal_validity import VALIDITY_INVALID, VALIDITY_UNKNOWN, VALIDITY_VALID, is_valid
 
 
 @dataclass
@@ -187,7 +185,7 @@ class TestIntegrationPipeline:
         chunks = _sample_chunks()
         query = "Section 31(2)(a)"
         es = select_evidence_set(query, chunks, max_size=5, min_size=2)
-        ranked_ids = [c.chunk_id for c in chunks]
+        [c.chunk_id for c in chunks]
         batch = evaluate_evidence_batch(
             [es, es],
             [["c1", "c2"], ["c1", "c3"]],

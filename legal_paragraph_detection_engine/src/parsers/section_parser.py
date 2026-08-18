@@ -332,9 +332,10 @@ class SectionParser:
             # and must not itself begin with a section marker. A substring
             # check is deliberately avoided so words like "subsection" (which
             # contains "section") are accepted as titles.
-            if stripped and re.search(r"[A-Za-z]", stripped):
-                if not re.match(r"^(?:section|clause|provided)\b", stripped.lower()):
-                    return stripped
+            if stripped and re.search(r"[A-Za-z]", stripped) and not re.match(
+                r"^(?:section|clause|provided)\b", stripped.lower()
+            ):
+                return stripped
             return None
 
         # Look for title patterns

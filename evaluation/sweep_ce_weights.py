@@ -134,16 +134,13 @@ def sweep_fast(args, weights, heads):
     debug_recs = {qid: rec for qid, rec in done.items() if "debug" in rec.get("rerankers", {}).get("ensemble_on", {})}
 
     if not debug_recs:
-        print("[sweep] No debug records found in checkpoint. Use --refetch for full sweep.")
-        print("[sweep] Debug records require measure_ensemble_live.py v2+ (post-patch).")
         return
 
-    print(f"[sweep] Fast sweep on {len(debug_recs)} debug records", file=sys.stderr)
 
     # Load gold units + payload_index for hit checking
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap, matches_gold
     from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap, matches_gold
 
     payload_index = load_payload_index()
     family_map = FamilyMap()
@@ -163,7 +160,6 @@ def sweep_fast(args, weights, heads):
         if n > 0:
             avg_r10 = r10_sum / n
             results.append({"ce_weight": w, "ce_head": h, "R@10": round(avg_r10, 4), "n": n})
-            print(f"  w={w}, h={h}: R@10={avg_r10:.4f} (n={n})")
 
     # Write results
     suffix = f"w{'_'.join(str(w) for w in weights)}h{'_'.join(str(h) for h in heads)}"
@@ -174,9 +170,7 @@ def sweep_fast(args, weights, heads):
         for r in sorted(results, key=lambda x: x["R@10"], reverse=True):
             writer.writerow([r["ce_weight"], r["ce_head"], r["R@10"], r["n"]])
 
-    best = max(results, key=lambda x: x["R@10"])
-    print(f"\n  Best: ce_weight={best['ce_weight']}, ce_head={best['ce_head']}, R@10={best['R@10']}")
-    print(f"  Sweep CSV: {sweep_file}")
+    max(results, key=lambda x: x["R@10"])
 
 
 def sweep_refetch(args, weights, heads):
@@ -187,7 +181,6 @@ def sweep_refetch(args, weights, heads):
 
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
-    from app.rag.sparse_embedding import SparseEmbeddingService
     from app.rag.retrieval import (
         DenseRetriever,
         HybridRetriever,
@@ -195,11 +188,12 @@ def sweep_refetch(args, weights, heads):
         QueryParser,
         SparseRetriever,
     )
+    from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
     from app.rag.retrieval.reranker import EnsembleReranker
-    from app.rag.retrieval.identifier import identifier_query, detect_act, detect_section
+    from app.rag.sparse_embedding import SparseEmbeddingService
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap, matches_gold
     from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap, matches_gold
 
     app = create_app()
     with app.app_context():
@@ -234,9 +228,8 @@ def sweep_refetch(args, weights, heads):
             )
 
         # 1. Re-fetch all raw pools once (shared across all weight/head combos)
-        print(f"[sweep] Re-fetching {len(done)} pools at depth {pool_k}...", file=sys.stderr)
         raw_pools: dict[str, tuple] = {}
-        t0 = time.monotonic()
+        time.monotonic()
         for qid, rec in done.items():
             if rec.get("error"):
                 continue
@@ -249,10 +242,8 @@ def sweep_refetch(args, weights, heads):
                 ident_q, _meta = identifier_query(q.question)
                 result = hybrid.retrieve(q.question, top_k=pool_k, filters=parsed, identifier_query=ident_q)
                 raw_pools[qid] = (q, result.chunks)
-            except Exception as exc:
-                print(f"[sweep] {qid} re-fetch failed: {exc}", file=sys.stderr)
+            except Exception:
                 continue
-        print(f"[sweep] Re-fetch done in {time.monotonic() - t0:.1f}s ({len(raw_pools)} pools)", file=sys.stderr)
 
         # 2. For each question, compute primary scores (sec+act+exact+hier)
         #    and store per-chunk data for the full pool (needed for top-10 simulation).
@@ -309,13 +300,11 @@ def sweep_refetch(args, weights, heads):
                 ce_per_head = {h: None for h in heads}
 
             pool_data[qid] = {"chunks": chunks_data, "ce_per_head": ce_per_head, "q": q}
-            print(f"  [sweep] {qid}: {len(chunks_data)} chunks, CE scored for heads={heads}", file=sys.stderr)
 
         # 3. Sweep all weight/head combos (instant — just arithmetic)
-        print(f"[sweep] Simulating {len(weights)} weights x {len(heads)} heads...", file=sys.stderr)
         results = []
         for w, h in product(weights, heads):
-            t0 = time.monotonic()
+            time.monotonic()
             r10_sum = 0.0
             any10_sum = 0
             n = 0
@@ -368,9 +357,6 @@ def sweep_refetch(args, weights, heads):
                     "any_hit_R@10": round(avg_any10, 4),
                     "n": n,
                 })
-                print(
-                    f"  w={w}, h={h}: R@10={avg_r10:.4f}, any_hit={avg_any10:.4f} (n={n}, {time.monotonic() - t0:.1f}s)"
-                )
 
         # Write results
         suffix = f"w{'_'.join(str(w) for w in weights)}h{'_'.join(str(h) for h in heads)}"
@@ -382,12 +368,9 @@ def sweep_refetch(args, weights, heads):
                 writer.writerow([r["ce_weight"], r["ce_head"], r["R@10"], r.get("any_hit_R@10", ""), r["n"]])
 
         if not results:
-            print("[sweep] No results — checkpoint empty or all errors.", file=sys.stderr)
             return
 
         best = max(results, key=lambda x: x["R@10"])
-        print(f"\n  Best: ce_weight={best['ce_weight']}, ce_head={best['ce_head']}, R@10={best['R@10']}")
-        print(f"  Sweep CSV: {sweep_file}")
 
         json_file = sweep_file.with_suffix(".json")
         json_data = {
@@ -397,7 +380,6 @@ def sweep_refetch(args, weights, heads):
             "results": results,
         }
         json_file.write_text(json.dumps(json_data, indent=2), encoding="utf-8")
-        print(f"  Sweep JSON: {json_file}")
 
 
 def main() -> int:

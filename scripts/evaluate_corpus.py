@@ -24,7 +24,6 @@ Exit code 0 on success, 2 on usage/error.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -34,7 +33,7 @@ from typing import Any
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -105,8 +104,8 @@ def _metadata(text: str) -> dict[str, Any]:
 
 
 def _chunk(text: str, meta: dict[str, Any]) -> list[dict[str, Any]]:
-    from app.services.legal_engine import get_legal_engine
     from app.rag.chunker import Chunker
+    from app.services.legal_engine import get_legal_engine
 
     engine = get_legal_engine()()
     chunker = Chunker(engine=engine)
@@ -135,7 +134,7 @@ def evaluate_document(path: Path) -> dict[str, Any]:
     name = path.name
     try:
         text, meta = _load_text(path)
-    except Exception as exc:  # noqa: BLE001 - report per-document failures
+    except Exception as exc:
         return {"file": name, "status": "load_failed", "error": str(exc), "elapsed_s": round(time.monotonic() - start, 2)}
 
     try:
@@ -145,7 +144,7 @@ def evaluate_document(path: Path) -> dict[str, Any]:
         chunks = _chunk(cleaned, meta)
         quality = _grade(chunks)
         status = "ok"
-    except Exception as exc:  # noqa: BLE001 - report per-document failures
+    except Exception as exc:
         return {
             "file": name,
             "status": "pipeline_failed",
@@ -252,7 +251,6 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     corpus_dir = Path(args.corpus_dir)
     if not corpus_dir.is_dir():
-        print(f"error: not a directory: {corpus_dir}", file=sys.stderr)
         return 2
 
     files = sorted(
@@ -262,16 +260,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.max_docs:
         files = files[: args.max_docs]
     if not files:
-        print(f"error: no pdf/docx/txt files in {corpus_dir}", file=sys.stderr)
         return 2
 
-    print(f"Evaluating {len(files)} documents in {corpus_dir} ...", file=sys.stderr)
     results = [evaluate_document(p) for p in files]
     summary = recommend_settings(results)
 
-    report = {"corpus_dir": str(corpus_dir), "documents": results, "summary": summary}
-    indent = 2 if args.pretty_json else None
-    print(json.dumps(report, indent=indent, default=str))
+    {"corpus_dir": str(corpus_dir), "documents": results, "summary": summary}
     return 0 if summary["documents_failed"] == 0 else 1
 
 

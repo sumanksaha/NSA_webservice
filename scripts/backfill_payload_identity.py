@@ -141,7 +141,7 @@ def _load_registry_docids() -> dict[str, set[str]]:
     try:
         for fam, docids in registry_document_ids().items():
             out.setdefault(fam, set()).update(norm_docid(d) for d in docids)
-    except Exception:  # noqa: BLE001 - no registry => no L3 stamps
+    except Exception:
         out = {}
     for fam, markers in _INSTRUMENT_OVERRIDES.items():
         out.setdefault(fam, set()).update(norm_docid(m) for m in markers)
@@ -245,7 +245,7 @@ def family_max_sections(family_map, payloads: dict[str, dict]) -> dict[str, int]
                 n = base_digits(r.get("number"))
                 if n:
                     maxima[fam] = max(maxima.get(fam, 0), int(n))
-    except Exception as exc:  # noqa: BLE001 - best-effort
+    except Exception as exc:
         logger.warning("KG family maxima failed: %s", exc)
     for p in payloads.values():
         for fam in family_map.family_s_for_act(p.get("act_name") or p.get("document_title") or ""):
@@ -292,7 +292,16 @@ def derive_section(point_id: str, payload: dict, kg_map: dict, maxima: dict, fam
 
     L1 provision_id -> L2 KG -> L3 validated text regex.  Never overwrites
     an existing section_number.
+
+    Act documents only: ``section_number`` is Act identity (G8); on
+    regulation/rule/notification chunks it is noise (page numbers, def-list
+    numbers) and was stripped by ``scripts/strip_reg_section_noise.py`` —
+    but the old noise is still encoded in ``provision_id``
+    (``FSS_…_SEC_41`` on a chunk whose text is just ``41``), so L1/L2 must
+    not resurrect it.
     """
+    if (payload.get("document_type") or "") != "act":
+        return None, None
     if payload.get("section_number"):
         return None, None
 
@@ -427,6 +436,223 @@ def derive_section_l4(
 
 
 # --------------------------------------------------------------------------- #
+# L5 — header-anchored section propagation (G7 fix, 2026-08-17)
+# --------------------------------------------------------------------------- #
+#
+# The FSS Act document (and similar statute docs) is chunked into subsection
+# fragments — ``(1) Every food business operator shall ensure…`` — that never
+# repeat the section number, so the L4 ``N. Capital`` header regex cannot
+# stamp them (measured: 485/722 Act-doc fragments unreachable by L4).  L5
+# propagates the last **L4-verified** section header forward within a
+# document, filling only unstamped hl>=2 fragments.
+#
+# Why header-anchored (not naive predecessor propagation): engine cross-
+# reference noise stamps fragments with the *referenced* section
+# (``appointed under section 30`` -> ``sec='30'``), which would corrupt a
+# naive running counter.  L5 only ever moves the section from a chunk whose
+# header L4 independently verified, and never overwrites an existing
+# ``section_number``.
+
+
+def derive_section_l5(
+    payloads_by_doc: dict[str, list[dict]],
+    l4_headers: dict[str, list[str]],
+) -> dict[str, str]:
+    """Return {point_id: section_number} for propagatable fragments (L5).
+
+    ``payloads_by_doc`` maps document_id -> payloads **already ordered by
+    chunk_index**; ``l4_headers`` maps point_id -> the section numbers the
+    L4 pass verified in that chunk's text (a non-empty list marks the chunk
+    as a trusted section boundary).
+
+    Propagation rules:
+      * a chunk with a non-empty ``l4_headers`` entry resets the running
+        section (boundary), and keeps its own section_number (never
+        overwritten here),
+      * a chunk with NO section_number AND hierarchy_level >= 2 inherits the
+        running section (if any),
+      * everything else (already stamped, hl1 boilerplate, before the first
+        boundary) is left untouched.
+    """
+    out: dict[str, str] = {}
+    for _doc_id, payloads in payloads_by_doc.items():
+        running: str | None = None
+        for pl in payloads:
+            pid = str(pl.get("chunk_id") or "")
+            if l4_headers.get(pid):
+                running = l4_headers[pid][0]
+                continue
+            if pl.get("section_number"):
+                continue
+            if running and (pl.get("hierarchy_level") or 1) >= 2:
+                out[pid] = running
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# L7 — header-trust correction + amendment anchors (P2, 2026-08-18)
+# --------------------------------------------------------------------------- #
+#
+# L5 propagates only from L4-verified headers, and L4 is gated by the
+# canonical-document whitelist — so consolidated editions (LLP, Specific
+# Relief) whose headers L4 does not verify, and amendment acts that have no
+# ``N. Title`` headers at all, never propagate.  L7 adds two guarded
+# mechanisms for act documents:
+#
+#   * header-trust correction — a stamped chunk whose text STARTS with
+#     ``N.``/``N)``/``N `` + Capital declares its own section; the leading
+#     number wins over an in-text cross-reference stamp (LLP's ``50.
+#     Prosecution. … from the report under section 49`` was stamped 49).
+#     Gazette page headers, amendment footnotes (``2. Subs. by s. 21, ibid.,
+#     … w.e.f.``) and TOC/arrangement pages are excluded.
+#   * amendment-anchor propagation — for act docs with zero L4-verified
+#     headers (the FSS amendment acts), any stamped hl>=2 chunk whose text
+#     names ``section N`` is a running anchor (the referenced section IS the
+#     amendment's identity), with an ascending-order guard so backwards
+#     cross-references (``as defined in section 2``) never reset the run.
+#
+# Both mechanisms never overwrite an existing stamp except the correction
+# itself (a targeted override, same class as L4_override).  Criminal docs
+# (space-stripped BNS OCR) are excluded — their stamps are cross-ref noise.
+
+#: Header-like line start: ``50. Prosecution`` / ``77A. Cognizance``.
+#: Deliberately DOT/PAREN-anchored only: the ``N Word`` space form matched
+#: page-number fragments and title pages (``3 THE AIR (PREVENTION…``,
+#: ``2 Stoppage in transit``, ``49 CHAPTER X``) that L4's range-validated
+#: header analysis later overrides (verified: 29/31 L4-vs-L7 conflicts were
+#: space-form, 2026-08-18).  Dotted clause numbers (``5.06 Washbasin``) and
+#: amendment-schedule residue (``1. 1870 7 The Court-``) also do not match.
+_HEADER_TRUST_RE = re.compile(r"^\s*(\d{1,4})([A-Z])?(?:\.\s*|\)\s*)[A-Z]")
+
+#: Amendment-footnote markers — ``2. Subs. by s. 21, ibid., for section 69``
+#: is a footnote number, NOT a section header.
+_FOOTNOTE_RE = re.compile(r"\b(?:Subs\.?|Ins\.?|Omitted|ibid\.|w\.e\.f\.)\b", re.IGNORECASE)
+
+#: In-text section references (amendment mode anchor rule).
+_AMEND_SECTION_RE = re.compile(r"\bsection\s+(\d{1,3})", re.IGNORECASE)
+
+_ARRANGEMENT_RE = re.compile(r"\bARRANGEMENT\s+OF\s+SECTIONS\b", re.IGNORECASE)
+
+
+#: Collections whose act docs are excluded from L7 (space-stripped OCR —
+#: BNS 2023; stamps are cross-ref/gazette noise, see COVERAGE_COMPLETENESS P3).
+_L7_EXCLUDED_DOMAINS = ("CRIMINAL",)
+
+
+def header_trust_number(text: str | None) -> int | None:
+    """Section number declared by the chunk's own leading header, or None.
+
+    Guards: gazette page headers (``40 THE GAZETTE OF INDIA``), amendment
+    footnotes (``2. Subs. by s. 21 …``) and TOC/arrangement pages never
+    count as headers.  ``None`` for anything else (prose, paren fragments,
+    dotted clause numbers).
+    """
+    t = (text or "").lstrip()
+    if not t:
+        return None
+    if _GAZETTE_RE.search(t[:120]) or _TOC_RE.search(t) or _ARRANGEMENT_RE.search(t):
+        return None
+    if _FOOTNOTE_RE.search(t):
+        return None
+    m = _HEADER_TRUST_RE.match(t)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def amendment_anchor(payload: dict, running: str | None) -> str | None:
+    """Anchor section for amendment-mode docs, or None.
+
+    A stamped hl>=2 chunk whose text names ``section N`` and whose stamp is
+    among the named sections becomes the running anchor; a backwards
+    reference (stamp < running) never resets the run — amendments proceed in
+    ascending section order, so a lower number is a cross-reference, not the
+    subject (``…as defined in section 2`` inside an amendment to 34).
+    """
+    if (payload.get("hierarchy_level") or 1) < 2:
+        return None
+    stamp = base_digits(payload.get("section_number"))
+    if not stamp:
+        return None
+    refs = {int(m.group(1)) for m in _AMEND_SECTION_RE.finditer(payload.get("chunk_text") or "")}
+    if not refs or int(stamp) not in refs:
+        return None
+    if running and int(stamp) < int(running):
+        return None
+    return stamp
+
+
+def derive_l7(
+    payloads_by_doc: dict[str, list[dict]],
+    l4_headers: dict[str, list[str]],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Return (corrections, fills) for the L7 pass.
+
+    * ``corrections``: {point_id: section_number} — header-trust overrides
+      of mis-stamped header chunks (the leading ``N.`` wins);
+    * ``fills``: {point_id: section_number} — propagated section numbers for
+      unstamped hl>=2 fragments (never overwrites).
+
+    Act documents only; criminal (BNS) and non-act docs are skipped.  The
+    caller sorts ``payloads_by_doc`` by chunk_index (L5 contract).
+    """
+    corrections: dict[str, str] = {}
+    fills: dict[str, str] = {}
+    for _doc_id, payloads in payloads_by_doc.items():
+        pl0 = payloads[0]
+        if pl0.get("document_type") != "act":
+            continue
+        if pl0.get("legal_domain") in _L7_EXCLUDED_DOMAINS:
+            continue
+        has_l4 = any(l4_headers.get(str(p.get("chunk_id") or "")) for p in payloads)
+
+        # pass 1 — header-trust corrections (never touches unstamped chunks;
+        # L4-verified chunks are L4's domain — L7 must not fight the
+        # range-validated any-position analysis on e.g. ``39D.`` / ``76A.``
+        # headers, verified 2026-08-18).
+        for p in payloads:
+            pid = str(p.get("chunk_id") or "")
+            if not p.get("section_number"):
+                continue
+            if l4_headers.get(pid) or p.get("sections_covered"):
+                continue
+            n = header_trust_number(p.get("chunk_text") or "")
+            if n is None:
+                continue
+            if base_digits(p.get("section_number")) != str(n):
+                corrections[pid] = str(n)
+
+        # pass 2 — propagation
+        running: str | None = None
+        for p in payloads:
+            pid = str(p.get("chunk_id") or "")
+            hl = p.get("hierarchy_level") or 1
+            if l4_headers.get(pid):
+                running = l4_headers[pid][0]
+                continue
+            n = header_trust_number(p.get("chunk_text") or "")
+            if n is not None and p.get("section_number"):
+                # corrected-or-already-correct header boundary — the leading
+                # ``N.`` is more authoritative than an in-text cross-ref, so
+                # it wins even in amendment-mode docs.
+                running = str(n)
+                continue
+            if not has_l4:
+                anchor = amendment_anchor(p, running)
+                if anchor:
+                    running = anchor
+                    continue
+            if p.get("section_number"):
+                continue
+            if running and hl >= 2 and pid not in corrections:
+                fills[pid] = running
+    return corrections, fills
+
+
+# --------------------------------------------------------------------------- #
 # Apply (Qdrant set_payload — payload-only, vectors untouched)
 # --------------------------------------------------------------------------- #
 def set_payload_batched(client, collection: str, changes: dict[str, dict], batch_size: int = 200) -> int:
@@ -446,13 +672,13 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
                 # some client versions use a different kwarg name
                 client.set_payload(collection=collection, payload=payload, points=batch)
                 applied += len(batch)
-            except Exception as exc:  # noqa: BLE001 - retry per point
+            except Exception as exc:
                 logger.warning("set_payload batch failed (%s) — retrying per point", exc)
                 for pid in batch:
                     try:
                         client.set_payload(collection_name=collection, payload=payload, points=[pid])
                         applied += 1
-                    except Exception as exc2:  # noqa: BLE001
+                    except Exception as exc2:
                         logger.warning("set_payload %s failed: %s", pid, exc2)
     return applied
 
@@ -474,6 +700,9 @@ def main() -> int:
     parser.add_argument("--from-cache", action="store_true",
                         help="dry-run against the frozen payload cache instead of scrolling live Qdrant "
                              "(collection provenance unknown -> 'cache'; apply still requires live scroll)")
+    parser.add_argument("--no-l7", action="store_true",
+                        help="disable the L7 header-trust correction + amendment-anchor propagation "
+                             "pass (COVERAGE_COMPLETENESS P2, 2026-08-18)")
     args = parser.parse_args()
 
     from app import create_app
@@ -484,12 +713,11 @@ def main() -> int:
     snapshot_dir.mkdir(parents=True, exist_ok=True)
 
     with app.app_context():
-        from evaluation.resolution import FamilyMap, matches_gold
         from evaluation.benchmark import load_questions
+        from evaluation.resolution import FamilyMap, matches_gold
 
         if args.from_cache:
             if args.apply:
-                print("--apply requires a live scroll; --from-cache is dry-run only.")
                 return 2
             payloads: dict[str, dict] = {}
             provenance: dict[str, str] = {}
@@ -544,21 +772,132 @@ def main() -> int:
         # multi-section / section-index chunks, which the resolution layer
         # (``evaluation/resolution.py``) now consults.
         ranges = family_ranges(family_map)
+
+        # --- L5 header-anchored propagation (G7 fix, 2026-08-17): fills the
+        # subsection fragments that L4 cannot reach (they never repeat the
+        # section number).  Boundaries are L4-verified headers only; engine
+        # cross-reference noise (``appointed under section 30`` -> sec=30) is
+        # never used as a running-section source.
+        l4_headers: dict[str, list[str]] = {}
+        for point_id, payload in payloads.items():
+            covered, _fams = derive_section_l4(point_id, payload, family_map, ranges, maxima)
+            if covered:
+                l4_headers[str(point_id)] = covered
+        payloads_by_doc: dict[str, list[dict]] = {}
+        for pid, pl in payloads.items():
+            payloads_by_doc.setdefault(str(pl.get("document_id") or ""), []).append(dict(pl, chunk_id=pid))
+        for pls in payloads_by_doc.values():
+            pls.sort(key=lambda p: p.get("chunk_index") or 0)
+        l5_changes = derive_section_l5(payloads_by_doc, l4_headers)
+        l5_rows: list[dict] = []
+        for pid, sec in l5_changes.items():
+            if pid in changes:
+                continue
+            changes[pid] = {"section_number": sec, "source": "L5_propagation"}
+            layer_counts["L5_propagation"] = layer_counts.get("L5_propagation", 0) + 1
+            pl = payloads[pid]
+            l5_rows.append({
+                "collection": provenance.get(pid, "cache"),
+                "point_id": pid,
+                "family": "fssai",
+                "old_section_number": pl.get("section_number") or "",
+                "new_section_number": sec,
+                "sections_covered": "",
+                "source": "L5_propagation",
+                "evidence": str(pl.get("chunk_text") or "")[:200].replace("\n", " "),
+            })
+        l5_csv = snapshot_dir / "repair_sections_l5.csv"
+        with open(l5_csv, "w", newline="", encoding="utf-8") as f:
+            import csv as _csv2
+
+            writer = _csv2.DictWriter(f, fieldnames=[
+                "collection", "point_id", "family", "old_section_number",
+                "new_section_number", "sections_covered", "source", "evidence",
+            ])
+            writer.writeheader()
+            writer.writerows(l5_rows)
+        logger.info("L5 repair CSV -> %s (%d rows)", l5_csv, len(l5_rows))
+
+        # --- L7 header-trust correction + amendment anchors (P2, 2026-08-18):
+        # fills the paren-fragment gap in consolidated acts (LLP/SR — headers
+        # exist but L4 does not verify them) and amendment acts (zero headers;
+        # the referenced section is the identity).  Corrections OVERRIDE
+        # mis-stamped header chunks (leading ``N.`` wins); fills never
+        # overwrite.  Skips criminal (BNS, space-stripped OCR).
+        l7_rows: list[dict] = []
+        if not args.no_l7:
+            l7_corrections, l7_fills = derive_l7(payloads_by_doc, l4_headers)
+            for pid, sec in l7_corrections.items():
+                if pid in changes:
+                    continue
+                changes[pid] = {"section_number": sec, "source": "L7_correction"}
+                layer_counts["L7_correction"] = layer_counts.get("L7_correction", 0) + 1
+                pl = payloads[pid]
+                l7_rows.append({
+                    "collection": provenance.get(pid, "cache"),
+                    "point_id": pid,
+                    "family": "",
+                    "old_section_number": pl.get("section_number") or "",
+                    "new_section_number": sec,
+                    "sections_covered": "",
+                    "source": "L7_correction",
+                    "evidence": str(pl.get("chunk_text") or "")[:200].replace("\n", " "),
+                })
+            for pid, sec in l7_fills.items():
+                if pid in changes:
+                    continue
+                changes[pid] = {"section_number": sec, "source": "L7_propagation"}
+                layer_counts["L7_propagation"] = layer_counts.get("L7_propagation", 0) + 1
+                pl = payloads[pid]
+                l7_rows.append({
+                    "collection": provenance.get(pid, "cache"),
+                    "point_id": pid,
+                    "family": "",
+                    "old_section_number": pl.get("section_number") or "",
+                    "new_section_number": sec,
+                    "sections_covered": "",
+                    "source": "L7_propagation",
+                    "evidence": str(pl.get("chunk_text") or "")[:200].replace("\n", " "),
+                })
+        l7_csv = snapshot_dir / "repair_sections_l7.csv"
+        with open(l7_csv, "w", newline="", encoding="utf-8") as f:
+            import csv as _csv3
+
+            writer = _csv3.DictWriter(f, fieldnames=[
+                "collection", "point_id", "family", "old_section_number",
+                "new_section_number", "sections_covered", "source", "evidence",
+            ])
+            writer.writeheader()
+            writer.writerows(l7_rows)
+        logger.info("L7 repair CSV -> %s (%d rows)", l7_csv, len(l7_rows))
+
+        # --- L4 any-position header pass (V7-gap closure, 2026-08-13) — runs
+        # LAST so its range-validated header analysis wins over L5/L7 stamps
+        # in the same apply (converges in one run; verified 2026-08-18: 31
+        # L4-vs-L7 disagreements on page-number/TOC-fragment fills).  Overrides
+        # a ``section_number`` whose base digits are not among the headers the
+        # chunk text actually contains (e.g. ``sog:s20``'s body chunk stamped
+        # ``7``, ``kmc:s391`` stamped ``16`` from a cross-reference), and
+        # records the full in-range header set in ``sections_covered`` for the
+        # resolution layer.  L1/L2/L3 (authoritative: provision_id/KG/whitelist)
+        # are never overridden.
         repair_rows: list[dict] = []
         for point_id, payload in payloads.items():
-            if point_id in changes:
-                continue  # L1/L2/L3 took precedence
+            src = (changes.get(point_id) or {}).get("source")
+            if src in ("L1_provision_id", "L2_kg", "L3_text"):
+                continue  # authoritative sources take precedence
             covered, fams = derive_section_l4(point_id, payload, family_map, ranges, maxima)
             if not covered:
                 continue
-            current = base_digits(payload.get("section_number"))
+            effective_old = payload.get("section_number") or (changes.get(point_id) or {}).get("section_number")
+            current = base_digits(effective_old)
             if current and current in covered:
                 # stamp already correct — only record the covered set if absent
                 if not payload.get("sections_covered"):
                     changes[point_id] = {"sections_covered": covered, "source": "L4_covered_add"}
                     layer_counts["L4_covered_add"] = layer_counts.get("L4_covered_add", 0) + 1
                 continue
-            layer = "L4_override" if current else "L4_text_new"
+            layer = "L4_override" if effective_old else "L4_text_new"
             layer_counts[layer] = layer_counts.get(layer, 0) + 1
             changes[point_id] = {
                 "section_number": covered[0],
@@ -569,7 +908,7 @@ def main() -> int:
                 "collection": provenance.get(point_id, "cache"),
                 "point_id": point_id,
                 "family": ";".join(fams),
-                "old_section_number": payload.get("section_number") or "",
+                "old_section_number": str(effective_old or ""),
                 "new_section_number": covered[0],
                 "sections_covered": ";".join(covered),
                 "source": layer,
@@ -577,9 +916,9 @@ def main() -> int:
             })
         repair_csv = snapshot_dir / "repair_sections_l4.csv"
         with open(repair_csv, "w", newline="", encoding="utf-8") as f:
-            import csv as _csv
+            import csv as _csv4
 
-            writer = _csv.DictWriter(f, fieldnames=[
+            writer = _csv4.DictWriter(f, fieldnames=[
                 "collection", "point_id", "family", "old_section_number",
                 "new_section_number", "sections_covered", "source", "evidence",
             ])
@@ -589,12 +928,8 @@ def main() -> int:
 
         before = sum(1 for p in payloads.values() if p.get("section_number"))
         after = before + len(changes)
-        print(f"section_number coverage: {before} ({before / len(payloads):.1%}) "
-              f"-> {after} ({after / len(payloads):.1%})  (+{len(changes)} points)")
-        print("by source:", layer_counts)
         from collections import Counter
 
-        print("by collection:", dict(Counter(provenance.get(pid, "?") for pid in changes)))
 
         # --- benchmark impact: gold-unit resolvability before/after
         questions = load_questions()
@@ -617,9 +952,6 @@ def main() -> int:
                 if hit_after:
                     newly_resolved.append(u.provision_id)
         n_resolved_after = n_resolved_before + len(newly_resolved)
-        print(f"resolvable gold units: {n_resolved_before} -> {n_resolved_after} "
-              f"(+{n_resolved_after - n_resolved_before})")
-        print("newly resolvable:", sorted(newly_resolved))
 
         # --- snapshot + optional apply
         if args.apply:
@@ -639,11 +971,10 @@ def main() -> int:
                 n = set_payload_batched(store._get_client(), coll, chg)
                 applied += n
                 logger.info("collection %s: %d updates", coll, n)
-            print(f"applied {applied} payload updates")
 
             if args.rebuild_index:
-                from evaluation.resolution import build_payload_index
                 from app.rag.qdrant_client import QdrantStore
+                from evaluation.resolution import build_payload_index
 
                 index = build_payload_index(
                     lambda coll: QdrantStore(collection_name=coll),
@@ -651,7 +982,7 @@ def main() -> int:
                 )
                 logger.info("payload index rebuilt: %d points", len(index))
         else:
-            print("DRY-RUN — no writes. Re-run with --apply to write to Qdrant.")
+            pass
 
         summary = {
             "experiment_id": "RANKING_CEILING_V2",
@@ -667,13 +998,19 @@ def main() -> int:
             "newly_resolvable_gold_units": sorted(newly_resolved),
             "l4_repair_rows": len(repair_rows),
             "l4_repair_csv": str(repair_csv),
-            "note": "L4 any-position section-header pass closes the V7 candidate gap "
-                    "(7 units; validated offline 91.9% -> 100% pool ceiling).",
+            "l5_propagation_rows": len(l5_rows),
+            "l5_propagation_csv": str(l5_csv),
+            "l7_correction_rows": sum(1 for r in l7_rows if r["source"] == "L7_correction"),
+            "l7_propagation_rows": sum(1 for r in l7_rows if r["source"] == "L7_propagation"),
+            "l7_repair_csv": str(l7_csv),
+            "note": "L4 any-position header pass + L5 header-anchored propagation "
+                    "(G7, 2026-08-17) + L7 header-trust correction / amendment "
+                    "anchors (P2, 2026-08-18) lift Act-doc section coverage; L7 "
+                    "fills the paren-fragment gap in consolidated/amendment acts.",
         }
         summary_name = "backfill_summary_apply.json" if args.apply else "backfill_summary_dryrun.json"
         (snapshot_dir / summary_name).write_text(
             json.dumps(summary, indent=2), encoding="utf-8")
-        print(json.dumps(summary, indent=2))
     return 0
 
 

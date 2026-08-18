@@ -27,7 +27,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -107,7 +107,7 @@ def main() -> int:
                 if cid not in seen:
                     seen.add(cid)
                     pool.append(cid)
-        for rname, rcache in routes.items():
+        for _rname, rcache in routes.items():
             rec = rcache.get(qid)
             if not rec:
                 continue
@@ -187,7 +187,6 @@ def main() -> int:
         ),
     }
     STATS.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps(summary, indent=2))
     return 0
 
 

@@ -26,7 +26,7 @@ def test_client():
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
-            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy")
             db.session.add(user)
             db.session.commit()
 

@@ -1,7 +1,7 @@
 {
   "baseline": "v1-vs-v2 pairwise + ranking regression (Step 0, 2026-08-17)",
-  "frozen_at": "2026-08-17T05:16:04+00:00",
-  "git_rev": "854c805",
+  "frozen_at": "2026-08-18T02:18:48+00:00",
+  "git_rev": "acd1579",
   "models": {
     "v1": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v1",
     "v2": "C:\\github\\NSA_webservice\\evaluation\\out\\models\\legal_ce_v2_K500"
@@ -367,7 +367,7 @@
         "pairs": 128,
         "v1_rank": 2,
         "v2_rank": 2,
-        "type": "same_section_hard_neg",
+        "type": "hierarchy_version",
         "ret_fail": "-",
         "rerank_fail": "-",
         "n_candidates": 28,
@@ -750,23 +750,23 @@
       },
       {
         "category": "hierarchy_version",
-        "count": 8,
-        "pct_total": 0.381,
-        "pct_fail": 0.6667,
+        "count": 9,
+        "pct_total": 0.4286,
+        "pct_fail": 0.75,
         "r10_delta": 0.0,
-        "mrr_delta": -0.145,
-        "ndcg_delta": -0.1156,
+        "mrr_delta": -0.1289,
+        "ndcg_delta": -0.1028,
         "v2_plus": 3,
         "v2_minus": 4
       },
       {
         "category": "same_section_hard_neg",
-        "count": 3,
-        "pct_total": 0.1429,
-        "pct_fail": 0.25,
+        "count": 2,
+        "pct_total": 0.0952,
+        "pct_fail": 0.1667,
         "r10_delta": 0.0,
-        "mrr_delta": -0.1667,
-        "ndcg_delta": -0.1335,
+        "mrr_delta": -0.25,
+        "ndcg_delta": -0.2003,
         "v2_plus": 0,
         "v2_minus": 2
       },
@@ -785,14 +785,14 @@
     "failures_total": 12,
     "categories": {
       "correct": 9,
-      "hierarchy_version": 8,
-      "same_section_hard_neg": 3,
+      "hierarchy_version": 9,
+      "same_section_hard_neg": 2,
       "other": 1
     }
   },
   "gates": {
-    "hierarchy_version_queries": 8,
-    "same_section_queries": 3,
+    "hierarchy_version_queries": 9,
+    "same_section_queries": 2,
     "target_hierarchy": "<= 4 (P1 gate)",
     "target_same_section": "<= 1 (P2 gate)"
   },

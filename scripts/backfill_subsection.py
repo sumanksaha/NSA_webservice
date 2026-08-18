@@ -13,6 +13,16 @@ re-chunking** (identity-preserving — same chunk ids, vectors untouched):
     is NOT a section subsection), so it lives in its own payload field.
     Guarded (``_extract_clause_number``): dates, measurements, bare numbers
     and OCR residue are rejected.
+  * **Clause propagation (L6, G8 step 2+3, 2026-08-18)** — header-anchored
+    propagation of the last dotted clause header forward within a document
+    (mirror of the L5 section pass in ``backfill_payload_identity.py``):
+    fills ``clause_number`` on substantive (hl>=2) chunks that follow a
+    verified dotted clause boundary in the same document.  Never
+    overwrites; resets at ``PART``/``SCHEDULE``/``CHAPTER``/``ANNEXURE``
+    boundaries; scoped to regulation/notification/rule documents
+    (``--clause-doc-types``).  This is what gives the parenthetical
+    sub-clause chains under a dotted header (e.g. ``(1) Every petty Food
+    Business Operator…`` under ``2.1.1``) their parent clause — G8 step 3.
 
 Why payload-only: re-chunking the PDFs would mint fresh chunk ids and break
 ``LegalChunk.id`` / ``qdrant_point_id`` identity (the same constraint that
@@ -26,6 +36,8 @@ Usage:
     python scripts/backfill_subsection.py --live             # dry-run (scroll Qdrant)
     python scripts/backfill_subsection.py --apply            # write Qdrant + DB metadata_json
     python scripts/backfill_subsection.py --apply --no-db    # Qdrant only
+    python scripts/backfill_subsection.py --no-clause-propagation  # marker fills only
+    python scripts/backfill_subsection.py --clause-doc-types regulation,notification
 
 Exit codes: 0 ok, 1 failure, 2 usage/guard error.
 """
@@ -35,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -53,6 +66,17 @@ logger = logging.getLogger("backfill.subsection")
 
 CACHE = PROJECT_ROOT / "evaluation" / "out" / "cache" / "payload_index.jsonl"
 SNAPSHOT_DIR = PROJECT_ROOT / "reports"
+
+#: Structural boundaries that reset clause propagation (G8 step 2 — same
+#: semantics as the L5 section pass).  A new PART/SCHEDULE/CHAPTER/ANNEXURE
+#: starts a fresh identity namespace; the previous running clause must not
+#: leak across it.
+_STRUCTURAL_BOUNDARY_RE = re.compile(r"^\s*(PART|SCHEDULE|CHAPTER|ANNEXURE)\b", re.I)
+
+#: Document types whose identity is a dotted clause number (G8).  ``rule``
+#: is included because rules use the same dotted numbering (``1.2.3 Rule
+#: heading``) — the ``_extract_clause_number`` guard keeps the pass honest.
+DEFAULT_CLAUSE_DOC_TYPES = ("regulation", "notification", "rule")
 
 
 def scroll_payloads(app, collections) -> dict[str, dict]:
@@ -79,6 +103,54 @@ def collections_from_config(app) -> list[str]:
         cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
         cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
     ]))
+
+
+def derive_clause_propagation(
+    payloads_by_doc: dict[str, list[dict]],
+    document_types: tuple[str, ...] = DEFAULT_CLAUSE_DOC_TYPES,
+) -> dict[str, str]:
+    """Return {point_id: clause_number} for propagatable fragments (L6).
+
+    ``payloads_by_doc`` maps document_id -> payloads **already ordered by
+    chunk_index** (each payload carries its ``chunk_id``).  Mirror of the
+    L5 section propagation in ``backfill_payload_identity.py``:
+
+      * a chunk whose text starts with a guarded dotted clause number
+        (``_extract_clause_number``) is a verified boundary — it resets the
+        running clause (and keeps its own ``clause_number``, never
+        overwritten here),
+      * ``PART``/``SCHEDULE``/``CHAPTER``/``ANNEXURE`` headers reset the
+        running clause to ``None`` (new identity namespace),
+      * a chunk with NO ``clause_number`` AND ``hierarchy_level >= 2``
+        inherits the running clause,
+      * documents outside *document_types* (act/circular/etc.) never
+        propagate — their identity is the section, not a clause,
+      * everything else (already stamped, hl1 boilerplate, before the first
+        boundary) is left untouched.
+
+    This is what gives G8 step-3 parenthetical sub-clause chains
+    (``(1)…(6)`` under a dotted header like ``2.1.1``) their parent clause.
+    """
+    from app.rag.chunker import _extract_clause_number
+
+    out: dict[str, str] = {}
+    for _doc_id, payloads in payloads_by_doc.items():
+        running: str | None = None
+        for pl in payloads:
+            if pl.get("document_type") not in document_types:
+                running = None
+                continue
+            text = pl.get("chunk_text") or ""
+            if _STRUCTURAL_BOUNDARY_RE.match(text):
+                running = None
+                continue
+            cn = _extract_clause_number(text)
+            if cn:
+                running = cn
+                continue
+            if running and not pl.get("clause_number") and (pl.get("hierarchy_level") or 1) >= 2:
+                out[str(pl.get("chunk_id") or "")] = running
+    return out
 
 
 def derive(payload: dict) -> dict:
@@ -109,15 +181,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--live", action="store_true", help="scroll Qdrant (default: frozen payload cache)")
     parser.add_argument("--no-db", action="store_true", help="apply to Qdrant only; skip DB metadata_json")
     parser.add_argument("--limit", type=int, default=None, help="only process first N points (testing)")
+    parser.add_argument("--no-clause-propagation", action="store_true",
+                        help="disable the L6 clause-propagation pass (marker fills only)")
+    parser.add_argument("--clause-doc-types", default=",".join(DEFAULT_CLAUSE_DOC_TYPES),
+                        help="comma-separated document_type values that may receive propagated "
+                             "clause numbers (default: %(default)s)")
     args = parser.parse_args(argv)
+
+    clause_doc_types = tuple(t.strip() for t in args.clause_doc_types.split(",") if t.strip())
 
     from app import create_app
 
     app = create_app()
     collections = collections_from_config(app)
 
+    # ``--apply`` implies a live scroll: the per-collection write loop needs
+    # real provenance (which point lives in which collection), and changes
+    # must be derived from the current data — never from a possibly stale
+    # frozen cache.  ``--live`` alone stays a dry-run on live data.
+    use_live = args.live or args.apply
+
     with app.app_context():
-        if args.live or not CACHE.exists():
+        if use_live or not CACHE.exists():
             payloads = scroll_payloads(app, collections)
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             with open(CACHE, "w", encoding="utf-8") as f:
@@ -152,12 +237,40 @@ def main(argv: list[str] | None = None) -> int:
                     clause_added += 1
                 by_collection[pid] = 1  # provenance resolved below
 
-        logger.info("derived changes: %d points (subsection +%d, clause_number +%d)",
-                    len(changes), sub_added, clause_added)
+        # --- L6 clause propagation (G8 step 2+3, 2026-08-18): header-anchored
+        # propagation of the last dotted clause header forward within a
+        # document (mirror of L5).  Merges into ``changes`` so a chunk that
+        # derive() filled with subsection-only still gets its parent clause;
+        # never overwrites an existing clause_number (derive or payload).
+        prop_added = 0
+        if not args.no_clause_propagation:
+            payloads_by_doc: dict[str, list[dict]] = {}
+            for pid, pl in payloads.items():
+                payloads_by_doc.setdefault(str(pl.get("document_id") or ""), []).append(dict(pl, chunk_id=pid))
+            for pls in payloads_by_doc.values():
+                pls.sort(key=lambda p: p.get("chunk_index") or 0)
+            prop = derive_clause_propagation(payloads_by_doc, clause_doc_types)
+            for pid, cn in prop.items():
+                if payloads.get(pid, {}).get("clause_number"):
+                    continue
+                existing = changes.get(pid)
+                if existing is None:
+                    changes[pid] = {"clause_number": cn}
+                elif "clause_number" not in existing:
+                    existing["clause_number"] = cn
+                else:
+                    continue
+                prop_added += 1
+                by_collection[pid] = 1
+            clause_added += prop_added
+            logger.info("clause propagation: +%d fills", prop_added)
+
+        logger.info("derived changes: %d points (subsection +%d, clause_number +%d "
+                    "incl. %d propagated)", len(changes), sub_added, clause_added, prop_added)
 
         # provenance (which collection each point lives in) for reporting
         prov: dict[str, str] = {}
-        if args.live:
+        if use_live:
             from app.rag.qdrant_client import QdrantStore
             for coll in collections:
                 store = QdrantStore(collection_name=coll)
@@ -181,10 +294,11 @@ def main(argv: list[str] | None = None) -> int:
             "subsection_after": after_ss,
             "clause_number_before": before_cn,
             "clause_number_after": after_cn,
+            "clause_propagation_fills": prop_added,
             "changes": len(changes),
             "by_collection": dict(by_coll),
-            "note": "identity-preserving payload backfill (G6): fills missing subsection, "
-                    "adds guarded dotted clause_number. Vectors untouched.",
+            "note": "identity-preserving payload backfill (G6+G8): fills missing subsection, "
+                    "adds guarded dotted clause_number, L6 clause propagation. Vectors untouched.",
         }
 
         if args.apply:
@@ -205,6 +319,11 @@ def main(argv: list[str] | None = None) -> int:
                 n = set_payload_batched(store._get_client(), coll, chg)
                 applied += n
                 logger.info("collection %s: %d updates", coll, n)
+
+            if applied == 0 and changes:
+                logger.error("apply wrote 0 updates for %d changes — aborting before DB mirror",
+                             len(changes))
+                return 1
 
             if not args.no_db:
                 n_db = mirror_metadata_json(changes)

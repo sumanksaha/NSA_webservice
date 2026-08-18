@@ -1,9 +1,13 @@
-"""Tests for the G6 subsection coverage tooling (2026-08-17).
+"""Tests for the G6/G8 chunk-enrichment tooling (2026-08-17/18).
 
 Covers:
   * ``app.rag.chunker._extract_clause_number`` — guarded dotted-clause
     extraction (genuine clauses vs dates/measurements/OCR residue),
   * ``scripts.backfill_subsection.derive`` — never-overwrite fill logic,
+  * ``scripts.backfill_subsection.derive_clause_propagation`` — L6
+    header-anchored clause propagation (G8 step 2+3),
+  * ``scripts.strip_reg_section_noise.derive_strip`` — G8 step-1
+    spurious-section strip,
   * ``evaluation.subsection_audit.audit`` — substantive-vs-hl1 report.
 """
 
@@ -20,7 +24,8 @@ sys.path.insert(0, str(ROOT))
 
 from app.rag.chunker import _extract_clause_number
 from evaluation.subsection_audit import audit, render
-from scripts.backfill_subsection import derive
+from scripts.backfill_subsection import derive, derive_clause_propagation
+from scripts.strip_reg_section_noise import derive_strip
 
 
 # --------------------------------------------------------------------------- #
@@ -98,6 +103,171 @@ class TestBackfillDerive:
 
     def test_no_change_for_plain_text(self):
         assert derive({"chunk_text": "Plain prose without markers."}) == {}
+
+
+# --------------------------------------------------------------------------- #
+# clause propagation (L6, G8 step 2+3)
+# --------------------------------------------------------------------------- #
+class TestClausePropagation:
+    """``derive_clause_propagation`` — header-anchored, never-overwrite."""
+
+    @staticmethod
+    def _doc(payloads):
+        # payloads must arrive ordered by chunk_index (caller contract).
+        for i, pl in enumerate(payloads):
+            pl.setdefault("chunk_index", i)
+            pl.setdefault("chunk_id", f"p{i}")
+        return {"doc-1": payloads}
+
+    def test_fills_fragments_after_clause_boundary(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.4.15 BAKERY PRODUCTS", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Biscuits shall be made from", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(a) plain flour only", "hierarchy_level": 4},
+        ])
+        out = derive_clause_propagation(docs)
+        assert out == {"p1": "2.4.15", "p2": "2.4.15"}
+
+    def test_never_overwrites_existing_clause_number(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.4.15 BAKERY PRODUCTS", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Biscuits shall be", "hierarchy_level": 3, "clause_number": "3.04"},
+        ])
+        assert derive_clause_propagation(docs) == {}
+
+    def test_resets_at_structural_boundary(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.4.15 BAKERY PRODUCTS", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Biscuits shall be", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "SCHEDULE 2", "hierarchy_level": 1},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Fees for analysis", "hierarchy_level": 2},
+        ])
+        out = derive_clause_propagation(docs)
+        assert out == {"p1": "2.4.15"}  # p3 (after SCHEDULE) not filled
+
+    @pytest.mark.parametrize("marker", ["PART IV", "SCHEDULE 2", "CHAPTER 3", "ANNEXURE A"])
+    def test_reset_markers(self, marker):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.4.15 BAKERY PRODUCTS", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": marker, "hierarchy_level": 1},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Something new", "hierarchy_level": 2},
+        ])
+        assert derive_clause_propagation(docs) == {}
+
+    def test_documents_do_not_bleed(self):
+        docs = {
+            "doc-a": [
+                {"chunk_id": "a0", "chunk_index": 0, "document_id": "doc-a",
+                 "document_type": "regulation", "chunk_text": "2.4.15 BAKERY PRODUCTS",
+                 "hierarchy_level": 3},
+            ],
+            "doc-b": [
+                {"chunk_id": "b0", "chunk_index": 0, "document_id": "doc-b",
+                 "document_type": "regulation", "chunk_text": "(1) Unrelated prose",
+                 "hierarchy_level": 3},
+            ],
+        }
+        assert derive_clause_propagation(docs) == {}
+
+    def test_act_documents_never_propagate(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "act",
+             "chunk_text": "2.4.15 Some Act clause", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "act",
+             "chunk_text": "(1) Fragment", "hierarchy_level": 3},
+        ])
+        assert derive_clause_propagation(docs) == {}
+
+    def test_hl1_fragments_not_filled(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.4.15 BAKERY PRODUCTS", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "Address:", "hierarchy_level": 1},
+        ])
+        assert derive_clause_propagation(docs) == {}
+
+    def test_before_first_boundary_not_filled(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Preamble fragment", "hierarchy_level": 2},
+        ])
+        assert derive_clause_propagation(docs) == {}
+
+    def test_sub_clause_chain_gets_parent_clause(self):
+        # G8 step 3: Licensing ``(2) The petty food manufacturer…`` under
+        # the dotted header ``2.1.1 Registration of Petty Food Business``.
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "2.1.1 Registration of Petty Food Business", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(1) Every petty Food Business Operator shall register",
+             "hierarchy_level": 3, "subsection": "(1)"},
+            {"document_id": "doc-1", "document_type": "regulation",
+             "chunk_text": "(2) The petty food manufacturer shall apply",
+             "hierarchy_level": 3, "subsection": "(2)"},
+        ])
+        assert derive_clause_propagation(docs) == {"p1": "2.1.1", "p2": "2.1.1"}
+
+    def test_document_type_scope_configurable(self):
+        docs = self._doc([
+            {"document_id": "doc-1", "document_type": "rule",
+             "chunk_text": "1.2.3 Rule heading", "hierarchy_level": 3},
+            {"document_id": "doc-1", "document_type": "rule",
+             "chunk_text": "(1) Sub-rule", "hierarchy_level": 3},
+        ])
+        assert derive_clause_propagation(docs, ("regulation",)) == {}
+        assert derive_clause_propagation(docs, ("regulation", "rule")) == {"p1": "1.2.3"}
+
+
+# --------------------------------------------------------------------------- #
+# strip spurious regulation section_number (G8 step 1)
+# --------------------------------------------------------------------------- #
+class TestStripRegSectionNoise:
+    """``derive_strip`` — deletes section_number on reg/notification only."""
+
+    def test_strips_regulation(self):
+        assert derive_strip({"document_type": "regulation", "section_number": "41"}) \
+            == {"section_number": None}
+
+    def test_strips_notification(self):
+        assert derive_strip({"document_type": "notification", "section_number": "4"}) \
+            == {"section_number": None}
+
+    def test_leaves_act_alone(self):
+        assert derive_strip({"document_type": "act", "section_number": "3"}) is None
+
+    def test_strips_rule_by_default(self):
+        # rule chunks carry the same page-number/def-list/xref noise
+        # (e.g. ``161 27960/2022/UPC-II-HO``) — included in the default scope
+        # since 2026-08-18.
+        assert derive_strip({"document_type": "rule", "section_number": "161"}) \
+            == {"section_number": None}
+
+    def test_scope_restrictable(self):
+        # passing an explicit tuple restricts the strip; rule is untouched.
+        assert derive_strip({"document_type": "rule", "section_number": "161"},
+                            ("regulation", "notification")) is None
+
+    def test_no_section_number_noop(self):
+        assert derive_strip({"document_type": "regulation", "section_number": None}) is None
+        assert derive_strip({"document_type": "regulation"}) is None
+
+    def test_configurable_types(self):
+        assert derive_strip({"document_type": "circular", "section_number": "1"},
+                            ("circular",)) == {"section_number": None}
 
 
 # --------------------------------------------------------------------------- #

@@ -23,20 +23,18 @@ from __future__ import annotations
 import logging
 import os
 import re
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from app.rag.legal_sections import sections_for_act, is_known_section_for_act
 from kg.domain_manifest import (
-    CROSS_DOMAIN_RELATIONSHIPS,
-    DOMAINS,
-    PROVISION_STUBS,
-    PROVISION_CONCEPT_MAP,
-    PILOT_INSTRUMENTS,
-    JURISDICTIONS,
     AUTHORITIES,
     CONCEPTS,
+    CROSS_DOMAIN_RELATIONSHIPS,
+    DOMAINS,
+    JURISDICTIONS,
+    PILOT_INSTRUMENTS,
+    PROVISION_CONCEPT_MAP,
+    PROVISION_STUBS,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,7 +105,7 @@ class LegalKGIngestionEngine:
 
         # LegalDomain nodes
         for domain in DOMAINS.values():
-            result = self._execute_write(
+            self._execute_write(
                 """
                 MERGE (d:LegalDomain {domain_name: $name})
                 ON CREATE SET d.description = $desc, d.jurisdiction = $jur, d.priority = $prio
@@ -147,7 +145,7 @@ class LegalKGIngestionEngine:
         # LegalConcept nodes
         for c in CONCEPTS.values():
             domains_list = list(c.domains)
-            result = self._execute_write(
+            self._execute_write(
                 """
                 MERGE (c:LegalConcept {concept_id: $cid})
                 ON CREATE SET c.name = $name, c.description = $desc, c.domains = $domains
@@ -187,7 +185,7 @@ class LegalKGIngestionEngine:
         stats: dict[str, int] = {}
         for inst in PILOT_INSTRUMENTS:
             label = self._instrument_label(inst.instrument_type)
-            result = self._execute_write(
+            self._execute_write(
                 f"""
                 MERGE (i:{label} {{instrument_id: $iid}})
                 ON CREATE SET
@@ -330,8 +328,8 @@ class LegalKGIngestionEngine:
         Returns counts.
         """
         from app import create_app
-        from app.models import LegalDocument, LegalChunk
         from app.extensions import db
+        from app.models import LegalChunk, LegalDocument
 
         app = create_app()
         stats: dict[str, int] = {"provisions_created": 0, "provisions_updated": 0, "chunks_linked": 0}
@@ -451,7 +449,7 @@ class LegalKGIngestionEngine:
         for item in batch:
             pid = item["provision_id"]
             # MERGE provision
-            result = self._execute_write(
+            self._execute_write(
                 """
                 MERGE (p:LegalProvision {provision_id: $pid})
                 ON CREATE SET
@@ -592,7 +590,7 @@ class LegalKGIngestionEngine:
                 # Determine the label for the instrument
                 label = self._instrument_label(inst.instrument_type)
 
-                result = self._execute_write(
+                self._execute_write(
                     f"""
                     MERGE (p:LegalProvision {{provision_id: $pid}})
                     ON CREATE SET
@@ -620,7 +618,7 @@ class LegalKGIngestionEngine:
                     ON CREATE SET ch.document_id = $did, ch.chunk_text = $ctxt
                     WITH p, ch
                     MERGE (p)-[r:SUPPORTED_BY]->(ch)
-                    ON CREATE SET r.confidence = 0.9, r.evidence_type = 'manual_stub' 
+                    ON CREATE SET r.confidence = 0.9, r.evidence_type = 'manual_stub'
                     RETURN count(*) AS c
                     """,
                     {
@@ -752,7 +750,7 @@ class LegalKGIngestionEngine:
 
         Returns a summary dict.
         """
-        from kg.schema import setup_legal_kg_schema, clear_legal_kg
+        from kg.schema import clear_legal_kg, setup_legal_kg_schema
 
         results: dict[str, Any] = {}
 
@@ -786,7 +784,7 @@ class LegalKGIngestionEngine:
         results["authority_rels"] = self.load_authority_relationships()
 
         # Summary counts
-        node_counts = self._execute_write("RETURN 1")  # just to warm up
+        self._execute_write("RETURN 1")  # just to warm up
         counts = {}
         for label in ["Act", "Rule", "Regulation", "Notification", "LegalProvision",
                        "Authority", "LegalDomain", "LegalConcept", "Chunk", "Document"]:

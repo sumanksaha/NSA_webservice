@@ -8,8 +8,6 @@ The stub-LLM env is pinned by the autouse ``_rag_stub_llm_env`` fixture in
 
 from __future__ import annotations
 
-import pytest
-
 from app.rag.agent.nodes import (
     GROUNDEDNESS_THRESHOLD,
     classify_node,

@@ -28,7 +28,7 @@ def _setup_test_env():
     ctx.push()
     db.drop_all()
     db.create_all()
-    user = User(username="e2euser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="e2euser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -71,7 +71,7 @@ def _build_pipeline():
 
 class TestE2EPipeline:
     def test_full_pipeline_query_to_logger(self):
-        app, ctx = _setup_test_env()
+        _app, ctx = _setup_test_env()
         try:
             hybrid, _, _ = _build_pipeline()
             classifier = QueryClassifier()
@@ -135,7 +135,7 @@ class TestE2EPipeline:
 
     def test_pipeline_logger_persists(self):
         """Smoke Test 5: retrieval results persisted to rag_query_log."""
-        app, ctx = _setup_test_env()
+        _app, ctx = _setup_test_env()
         try:
             hybrid, _, _ = _build_pipeline()
             result = hybrid.retrieve("Section 55", top_k=5)
@@ -153,7 +153,7 @@ class TestE2EPipeline:
         from app.rag.retrieval.logger import RetrievalAuditLog
         from app.services.audit import verify_audit_chain
 
-        app, ctx = _setup_test_env()
+        _app, ctx = _setup_test_env()
         try:
             hybrid, _, _ = _build_pipeline()
             result = hybrid.retrieve("Section 55", top_k=5)
@@ -176,10 +176,11 @@ class TestE2EPipeline:
 
     def test_pipeline_retrieve_task(self):
         """Smoke Test 7: retrieve_task() runs the full pipeline."""
-        from app.rag.tasks import run_retrieval_pipeline
         from unittest import mock
 
-        app, ctx = _setup_test_env()
+        from app.rag.tasks import run_retrieval_pipeline
+
+        _app, ctx = _setup_test_env()
         try:
             with mock.patch.object(DenseRetriever, "_get_encoder", return_value=SimpleNamespace(encode=lambda t: [0.5] * 768)), \
                  mock.patch.object(DenseRetriever, "_get_client", return_value=SimpleNamespace(

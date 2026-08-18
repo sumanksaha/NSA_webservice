@@ -590,6 +590,48 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 3. Add graph traversal to `retrieval/hybrid_retriever.py` (e.g., citation-chain following for hallucination detection)
 4. **Hybrid approach** (recommended): Keep Qdrant for dense + sparse vector search; use Neo4j as secondary store for structured graph traversal queries. Sync from Qdrant chunk payloads to Neo4j nodes/edges on ingestion.
 
+
+---
+
+### RAG Query Interface UI
+
+- **Goal & Rationale:** Provide a web UI for end users (FSOs) to submit natural-language legal queries to the RAG pipeline and view grounded answers with citations. The backend is fully implemented & verified (`POST /api/rag/query` legacy + `POST /api/rag/query/agent` LangGraph self-correcting pipeline on `rag_bp` at `/api/rag/`); only the frontend UI is missing — no template, no JS, no nav link. `RAG_USE_AGENT_PIPELINE` (default `false` → delegates to legacy), `RAG_AGENT_HITL` (M5 human-in-loop, default `false`), `RAG_AGENT_CHECKPOINTER`, and all other RAG env vars are already in `app/__init__.py` + `.env.example`.
+
+- **Target Files to Edit/Create:**
+    - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
+    - Create `app/rag/templates/rag/query.html` — form + results sections
+    - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
+    - Modify `app/templates/base.html` — add "Legal RAG" nav tab
+    - Modify `.env.example` — document `RAG_ENABLED` flag (default `false`)
+    - Create `tests/test_rag_interface.py` — new test file (8 tests planned)
+
+- **Detailed Implementation Plan:**
+    1. **Route (`app/rag/routes.py`):** Add `GET /` route that renders the `rag/query.html` template. The `rag_bp` blueprint is already registered at `url_prefix="/api/rag"` via `app/rag/__init__.py`, so the route is at `/api/rag/`. Pass `RAG_ENABLED`, `RAG_USE_AGENT_PIPELINE`, `RAG_AGENT_HITL` config values to the template for conditional rendering. When `RAG_ENABLED=false`, return 404 (fail-closed).
+    2. **Template (`app/rag/templates/rag/query.html`):** Jinja2 extending `base.html`. Includes:
+        - Query form: textarea, collection dropdown (populated from `app/rag/collections.py` `COLLECTION_NAMES` dict), submit button
+        - Results section: renders `RAGResponse` schema fields — `answer` (text), `citations` (list with source/snippet/section links), `groundedness` (score badge), `audit_trail` (trace)
+        - Hidden awaiting_review section (202): shows `thread_id` + resume form (`approved: true/false`)
+        - Hidden error section: RAG-disabled (503) / network failure messages
+        - CSRF token from `base.html` meta tag (`csrf-token`) — already wired via global fetch interceptor
+    3. **JavaScript (`app/static/js/rag_query.js`):** IIFE pattern matching `ai_assistant.js`:
+        - Reads config flags from template-injected `window.RAG_CONFIG` global
+        - `POST /api/rag/query/agent` with `{query, collection}` via `fetch()` (CSRF auto-injected)
+        - On `200`: render `RAGResponse` (answer, citations, groundedness badge)
+        - On `202`: show awaiting_review + resume form; on resume `POST /api/rag/query/agent/resume {thread_id, approved}` → 200
+        - On `503`: show "RAG disabled" error
+        - All state in closure scope (no globals)
+    4. **Nav link (`app/templates/base.html`):** Add `<li class="nav-item">Legal RAG</li>` tab, gated on `RAG_ENABLED` in the nav section. Visible to authenticated users only (all non-public routes gated by `require_login` before_request — `rag_query` not in `public_endpoints`).
+    5. **Config (`.env.example`):** Add `RAG_ENABLED=false` with comment.
+    6. **Tests (`tests/test_rag_interface.py`):** 8 tests covering: route renders (200), route 404 when disabled, JS served (200), nav link in base.html after login, query form has CSRF token, collection dropdown populated, results section renders RAGResponse fields, HITL resume form shown on 202. All use Flask test client + monkeypatched RAG functions — no real Qdrant/network required.
+
+- **Acceptance Criteria & Test Plan:**
+    - `GET /api/rag/` renders the query form for authenticated users (302→`/login` for unauthenticated)
+    - Submitting a query POSTs to `/api/rag/query/agent` and renders the `RAGResponse` schema (answer, citations, groundedness score)
+    - When `RAG_USE_AGENT_PIPELINE=false` (default), the query delegates to the legacy `/api/rag/query` route
+    - When `RAG_AGENT_HITL=true` and the response is 202, the awaiting_review UI + resume form are shown
+    - When `RAG_ENABLED=false`, the route returns 404 and the nav link is hidden
+    - `pytest tests/test_rag_interface.py` passes — 8/8 tests green, no regressions in `test_rag_routes.py` / `test_route_collisions.py`
+
 ---
 
 ### Phase 20: Plugin Architecture

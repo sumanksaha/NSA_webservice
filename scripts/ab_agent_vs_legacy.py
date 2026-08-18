@@ -37,13 +37,14 @@ os.environ["RAG_USE_STUB_LLM"] = "true"
 
 def load_questions(limit: int, domain: str | None) -> list[dict]:
     questions = []
-    for line in Path(ROOT / "benchmark" / "benchmark_v1.0.jsonl").open(encoding="utf-8"):
-        q = json.loads(line)
-        if domain and domain not in (q.get("domains") or []):
-            continue
-        questions.append(q)
-        if limit and len(questions) >= limit:
-            break
+    with Path(ROOT / "benchmark" / "benchmark_v1.0.jsonl").open(encoding="utf-8") as fh:
+        for line in fh:
+            q = json.loads(line)
+            if domain and domain not in (q.get("domains") or []):
+                continue
+            questions.append(q)
+            if limit and len(questions) >= limit:
+                break
     return questions
 
 
@@ -56,7 +57,7 @@ def gold_hit_rate(question: dict, chunks: list[dict]) -> float:
     compare against chunk IDs (the gold ids like ``fssai:s16(1)`` are
     provision references, not Qdrant point ids).
     """
-    from evaluation.benchmark import BenchmarkQuestion, load_gold_registry, _resolve_units
+    from evaluation.benchmark import _resolve_units, load_gold_registry
     from evaluation.resolution import FamilyMap, matches_gold
 
     gold_units = _resolve_units(question, load_gold_registry())
@@ -97,7 +98,6 @@ def main() -> int:
 
     app = create_app()
     questions = load_questions(args.limit, args.domain)
-    print(f"A/B: {len(questions)} questions (stub LLM, live Qdrant + Modal)")
 
     stats = {
         "legacy": {"hit": 0.0, "grounded": [], "latency": [], "n": 0},
@@ -108,7 +108,6 @@ def main() -> int:
     for i, q in enumerate(questions, 1):
         qid = q["question_id"]
         qtext = q["question"]
-        print(f"[{i}/{len(questions)}] {qid}: {qtext[:60]}...")
 
         with app.app_context():
             legacy_result, legacy_lat = run_legacy(qtext)
@@ -153,17 +152,9 @@ def main() -> int:
     def mean(xs):
         return sum(xs) / len(xs) if xs else 0.0
 
-    print("\n" + "=" * 60)
-    print(f"SUMMARY ({stats['legacy']['n']} questions, stub LLM)")
-    print("=" * 60)
     for name, s in (("legacy", stats["legacy"]), ("agent", stats["agent"])):
-        print(f"\n{name.upper()}")
-        print(f"  gold-hit@10      : {s['hit'] / s['n']:.3f}")
-        print(f"  groundedness avg : {mean(s['grounded']):.3f}")
-        print(f"  latency avg (s)  : {mean(s['latency']):.2f}")
         if "retries" in s:
-            print(f"  retries avg      : {mean(s['retries']):.2f}  "
-                  f"dist={ {r: s['retries'].count(r) for r in sorted(set(s['retries']))} }")
+            pass
 
     out = ROOT / "reports"
     out.mkdir(exist_ok=True)
@@ -171,7 +162,6 @@ def main() -> int:
     with out_file.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row) + "\n")
-    print(f"\nrows written to {out_file}")
     return 0
 
 

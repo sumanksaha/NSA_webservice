@@ -25,10 +25,8 @@ def dump(did: str, section: str, max_chunks: int = 4) -> None:
         if (r.get("legal_location") or {}).get("section", {}).get("value") == section
     ]
     rs.sort(key=lambda r: r.get("chunk_index") or 0)
-    print(f"\n===== {did[:8]} sec {section} ({len(rs)} chunks) =====")
     for r in rs[:max_chunks]:
-        t = (r.get("original_text") or "").strip().replace("\n", " ")
-        print(f"  [{r['chunk_id'][:8]}] {t[:200]}")
+        (r.get("original_text") or "").strip().replace("\n", " ")
 
 
 for s in ["6", "7", "13", "25", "28", "29", "47", "48", "49", "52", "54", "56"]:

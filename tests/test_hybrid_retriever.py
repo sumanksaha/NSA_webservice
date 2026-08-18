@@ -94,7 +94,7 @@ class TestHybridRetrieverBasic:
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense", error="dense failed"))
         sparse = StubSparseRetriever(SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"))
-        hybrid = HybridRetriever(dense=dense, sparse=sparse)
+        HybridRetriever(dense=dense, sparse=sparse)
 
 class TestHybridRetrieverReranker:
     def test_reranker_applied_when_provided(self):

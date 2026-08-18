@@ -18,14 +18,13 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.benchmark import GoldUnit, load_questions  # noqa: E402
-from evaluation.config import OUT_DIR  # noqa: E402
-from evaluation.resolution import FamilyMap, matches_gold, norm_section  # noqa: E402
+from evaluation.benchmark import GoldUnit, load_questions
+from evaluation.config import OUT_DIR
+from evaluation.resolution import FamilyMap, matches_gold, norm_section
 
 OUT = OUT_DIR / "ceiling_v5"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -158,9 +157,8 @@ def classify_failure(
         return "A_same_act_wrong_section"
 
     # --- Category B: Same section, wrong subsection ---
-    if same_family and gold_sec and neg_sec and gold_sec == neg_sec:
-        if gold_sub != neg_sub:
-            return "B_same_section_wrong_subsection"
+    if same_family and gold_sec and neg_sec and gold_sec == neg_sec and gold_sub != neg_sub:
+        return "B_same_section_wrong_subsection"
 
     # --- Category J: Temporal version error ---
     if _temporal_conflict(gold_payload, negative_payload):
@@ -298,7 +296,6 @@ def main() -> int:
     (OUT / "failure_taxonomy_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(json.dumps(summary, indent=1))
     return 0
 
 

@@ -14,7 +14,6 @@ Key behaviours under test:
 from __future__ import annotations
 
 import pytest
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -157,10 +156,9 @@ class TestTagText:
         assert LegalSemanticEnricher.tag_text("") == []
 
     def test_all_concepts_in_vocabulary(self):
-        from kg.enrichment import SEMANTIC_RULES
-
         # Every concept_id in the rule set must exist in the graph vocabulary
         from kg.domain_manifest import CONCEPTS
+        from kg.enrichment import SEMANTIC_RULES
 
         for _, concept_id, _, _ in SEMANTIC_RULES:
             assert concept_id in CONCEPTS, f"{concept_id} missing from domain_manifest.CONCEPTS"

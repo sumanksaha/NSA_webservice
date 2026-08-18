@@ -17,17 +17,16 @@ Restore with ``python scripts/restore_vector_store.py --archive <file>``.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.rag.backup import backup_collection  # noqa: E402
-from app.rag.qdrant_client import QdrantStore  # noqa: E402
+from app.rag.backup import backup_collection
+from app.rag.qdrant_client import QdrantStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,20 +78,17 @@ def main(argv: list[str] | None = None) -> int:
     output_path = args.output_path
     if not output_path:
         collection = args.collection or app.config.get("RAG_QDRANT_COLLECTION", "fssai_legal_768")
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         output_path = str(Path("backups") / f"vector_store_{collection}_{stamp}.json")
 
     try:
         with app.app_context():
             store = QdrantStore(collection_name=args.collection)
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            summary = backup_collection(store, output_path, batch_size=args.batch_size)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: backup failed: {exc}", file=sys.stderr)
+            backup_collection(store, output_path, batch_size=args.batch_size)
+    except Exception:
         return 2
 
-    indent = 2 if args.pretty_json else None
-    print(json.dumps(summary, indent=indent, default=str))
     return 0
 
 

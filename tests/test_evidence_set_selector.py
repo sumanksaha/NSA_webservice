@@ -9,14 +9,14 @@ import pytest
 
 from evaluation.benchmark import BenchmarkQuestion, GoldUnit
 from evaluation.evidence_set_selector import (
+    STRATEGIES,
+    STRATEGY_NAMES,
     CandidateItem,
-    HybridEvidenceSetSelector,
     HierarchyAwareSelector,
+    HybridEvidenceSetSelector,
     LegalStructureDiversitySelector,
     MMRSelector,
     TopKSelector,
-    STRATEGIES,
-    STRATEGY_NAMES,
     _jaccard,
     _tokenize,
     build_candidates,
@@ -370,9 +370,7 @@ class TestHybrid:
 # --------------------------------------------------------------------------- #
 class TestCandidatesToArmResult:
     def test_round_trip(self):
-        cands = [_chunk("c1", section="92"), _chunk("c2", section="55")] + [
-            _kg("kg1", section="31"), _kg("kg2", section="82")
-        ]
+        cands = [_chunk("c1", section="92"), _chunk("c2", section="55"), _kg("kg1", section="31"), _kg("kg2", section="82")]
         result = candidates_to_arm_result(cands, "V8_E_hybrid")
         assert result["arm"] == "V8_E_hybrid"
         assert result["chunk_ids"] == ["c1", "c2"]
@@ -574,7 +572,7 @@ class TestScoreQuestionIntegration:
         assert metrics.recall.get(10, 0.0) == pytest.approx(bm.recall.get(10, 0.0))
 
     def test_hybrid_includes_kg(self, fm):
-        q = self._make_question()
+        self._make_question()
         pi = self._make_payload_index()
         arm = self._make_arm_result()
 

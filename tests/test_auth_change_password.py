@@ -16,8 +16,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db
 from app.models import User
 
-CURRENT_PASSWORD = "correct-horse-9"  # noqa: S105 — test fixture password
-NEW_PASSWORD = "battery-staple-42"  # noqa: S105 — test fixture password
+CURRENT_PASSWORD = "correct-horse-9"
+NEW_PASSWORD = "battery-staple-42"
 
 
 @pytest.fixture

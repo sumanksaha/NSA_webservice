@@ -11,7 +11,7 @@ Covers:
 from __future__ import annotations
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -310,7 +310,7 @@ class TestSyncKgTask:
         from app.knowledge_graph.tasks import sync_kg_to_neo4j  # pyright: ignore[reportMissingImports]
 
         # Should have either __call__ (fallback) or run (Celery task)
-        assert hasattr(sync_kg_to_neo4j, "__call__")
+        assert callable(sync_kg_to_neo4j)
 
 
 # --------------------------------------------------------------------------- #
@@ -322,8 +322,9 @@ class TestSyncNeo4jRoute:
     """Test the /api/sync-neo4j route."""
 
     def test_route_returns_503_when_not_configured(self):
-        from app.knowledge_graph import kg_bp
         from flask import Flask
+
+        from app.knowledge_graph import kg_bp
 
         app = Flask(__name__)
         app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
@@ -337,8 +338,9 @@ class TestSyncNeo4jRoute:
 
     def test_route_sync_fallback(self):
         """When QStash is not configured, should fall back to sync."""
-        from app.knowledge_graph import kg_bp
         from flask import Flask
+
+        from app.knowledge_graph import kg_bp
 
         app = Flask(__name__)
         app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
@@ -348,7 +350,7 @@ class TestSyncNeo4jRoute:
                 with patch("app.utils.qstash_client.qstash_configured", return_value=False):
                     with patch("app.utils.qstash_client.resolve_task", return_value=MagicMock()):
                         # The sync fallback calls resolve_task().apply()
-                        mock_result = MagicMock()
+                        MagicMock()
 
                         def mock_apply(**kwargs):
                             result = MagicMock()
@@ -367,8 +369,9 @@ class TestSyncNeo4jRoute:
 
     def test_route_async_via_qstash(self):
         """When QStash is configured, should return queued status."""
-        from app.knowledge_graph import kg_bp
         from flask import Flask
+
+        from app.knowledge_graph import kg_bp
 
         app = Flask(__name__)
         app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
@@ -399,10 +402,9 @@ class TestBuildCypherPayload:
     """Test the Cypher payload builder."""
 
     def test_returns_dict_with_expected_keys(self):
-        from app.services.neo4j_graph import build_cypher_payload
-
         # Use app context with mock entities
         from app import create_app
+        from app.services.neo4j_graph import build_cypher_payload
 
         app = create_app()
         with app.app_context():

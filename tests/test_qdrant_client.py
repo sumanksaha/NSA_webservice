@@ -391,7 +391,7 @@ class TestQdrantStorePoints:
         store._models = False
         points = [Point(id=f"c{i}", vector=[0.1] * 768, payload={}) for i in range(3)]
 
-        with pytest.raises(RuntimeError, match="batch #0.*failed after retry"):
+        with pytest.raises(RuntimeError, match=r"batch #0.*failed after retry"):
             store.upsert_points(points)
 
     def test_search_points_kwargs_and_result_mapping(self):

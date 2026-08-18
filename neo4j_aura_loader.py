@@ -29,8 +29,6 @@ def load_env():
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
 
     if not uri or not password:
-        print("Missing Neo4j connection details in .env file.")
-        print("  Required: NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD")
         raise SystemExit(1)
 
     return uri, username, password, database
@@ -56,10 +54,6 @@ def load_knowledge_graph(driver, database, clear_first=True):
     # Edges: KNOWN_AS, ENACTED, CITES, FILED_UNDER, PRESIDED_BY
 
     if clear_first and os.environ.get("NEO4J_ALLOW_WRITE", "0").lower() not in ("1", "true", "yes"):
-        print(
-            "Refusing to clear the graph: set NEO4J_ALLOW_WRITE=1 to run "
-            "neo4j_aura_loader (clear_first wipes ALL nodes)."
-        )
         raise SystemExit(1)
 
     if clear_first:
@@ -102,31 +96,25 @@ def load_knowledge_graph(driver, database, clear_first=True):
 
     # Verify: count total nodes
     result = driver.execute_query("MATCH (n) RETURN count(n) AS total", database=database)
-    total = result.records[0]["total"]
-    print(f"Knowledge graph loaded. {total} nodes in database.")
+    result.records[0]["total"]
 
 
 def main():
     uri, username, password, database = load_env()
 
-    print(f"Connecting to Neo4j Aura at {uri}...")
 
     try:
         driver = get_driver(uri, username, password, database)
-    except Exception as e:
-        print(f"Connection failed: {e}")
-        raise SystemExit(1)
+    except Exception:
+        raise SystemExit(1) from None
 
-    print(f"Connected to database: {database}")
 
     if "--test" in sys.argv:
-        print("Connection test passed. Exiting.")
         driver.close()
         return
 
     load_knowledge_graph(driver, database, clear_first=True)
     driver.close()
-    print("Done. Driver closed.")
 
 
 if __name__ == "__main__":

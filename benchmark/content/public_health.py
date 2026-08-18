@@ -4,7 +4,7 @@ Domains drawn from the WHO/FSS-environment intersection: drinking-water
 quality, ambient air quality, sanitation and disease-outbreak reporting —
 all instruments present in the corpus (EPA, Water & Air Acts, SWM Rules).
 """
-from .base import Q, P
+from .base import P, Q
 
 COL = "env_legal_768"
 

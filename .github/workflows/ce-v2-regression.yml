@@ -1,18 +1,17 @@
 # CE-v2 Regression Gate — validates the gate logic in CI on every change to
-# the harness/gate scripts or the frozen baseline.
+# the harness/gate scripts or the frozen baseline, and runs the *real* gate
+# on demand from published Hugging Face assets.
 #
-# Why fixture mode: the cross-encoder checkpoints and the training data live
-# in the gitignored `evaluation/out/` tree (~1.3 GB), so the *real* gate run
-# happens locally on the machine that owns the models — wired as the
-# `ce-v2-gate` pre-commit hook (runs automatically after every retrain).
-# This workflow exercises the gate's pure comparison logic (torch-free) via
-# `tests/test_ce_v2_gate.py`, and runs the real gate with
-# `--skip-if-unavailable` so it stays green here and becomes a real gate the
-# day the models/training data are published (e.g. to Hugging Face).
-#
-# Manual runs: use the "Run workflow" button (workflow_dispatch).  A future
-# enhancement can download published checkpoints + a regenerated test set and
-# drop --skip-if-unavailable.
+# Two paths:
+#   1. gate-logic (push/PR + dispatch): torch-free fixture tests pinning the
+#      gate's comparison logic; the real gate run happens locally via the
+#      `ce-v2-gate` pre-commit hook (models + training data live in the
+#      gitignored `evaluation/out/` tree on the training machine).
+#   2. real-gate (dispatch only): downloads the published checkpoints
+#      (sumanksaha/legal-ce-v1, sumanksaha/Foodmultidomain) and gate data
+#      (sumanksaha/ce-v2-gate-assets, published by
+#      `python -m evaluation.publish_ce_v2_assets` with a write token) and
+#      runs the full harness + gate on a GitHub runner.
 
 name: CE-v2 Regression Gate
 
@@ -32,7 +31,21 @@ on:
       - "evaluation/ce_v2_baseline.json"
       - "tests/test_ce_v2_gate.py"
   workflow_dispatch:
-    # Manual trigger from the GitHub UI
+    # Manual trigger from the GitHub UI.  Use the inputs to gate a newly
+    # pushed retrain (defaults = the published control + candidate).
+    inputs:
+      model_v1_repo:
+        description: Control checkpoint repo (default sumanksaha/legal-ce-v1)
+        required: false
+        default: sumanksaha/legal-ce-v1
+      model_v2_repo:
+        description: Candidate checkpoint repo (default sumanksaha/Foodmultidomain = legal_ce_v2_K500)
+        required: false
+        default: sumanksaha/Foodmultidomain
+      assets_repo:
+        description: Gate data repo (default sumanksaha/ce-v2-gate-assets)
+        required: false
+        default: sumanksaha/ce-v2-gate-assets
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -73,9 +86,9 @@ jobs:
           ruff check evaluation/ce_v2_eval.py evaluation/ce_v2_error_analysis.py evaluation/ce_v2_gate.py
 
   real-gate:
-    name: Real gate (skips without models)
+    name: Real gate (published HF assets)
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -84,7 +97,21 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
 
-      - name: Run the regression gate (exits 0 when models are absent)
+      - name: Install CPU torch + sentence-transformers
         run: |
-          python -m evaluation.ce_v2_gate --skip-if-unavailable --label ci
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install sentence-transformers huggingface_hub
+
+      - name: Download models + gate data
+        run: |
+          python -m evaluation.fetch_ce_v2_gate_assets \
+            --model-v1-repo "${{ github.event.inputs.model_v1_repo || 'sumanksaha/legal-ce-v1' }}" \
+            --model-v2-repo "${{ github.event.inputs.model_v2_repo || 'sumanksaha/Foodmultidomain' }}" \
+            --assets-repo "${{ github.event.inputs.assets_repo || 'sumanksaha/ce-v2-gate-assets' }}"
+
+      - name: Run the regression gate
+        run: |
+          python -m evaluation.ce_v2_gate --force --label ci-real

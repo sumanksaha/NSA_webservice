@@ -16,7 +16,6 @@ from datetime import UTC, datetime
 
 from app.knowledge_graph.engine import KnowledgeGraphEngine
 
-
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
@@ -42,7 +41,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="kguser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="kguser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -64,7 +63,7 @@ def _teardown_test_env(app_context):
 
 def _make_case_file(db, **overrides):
     """Create a CaseFile with sample linkage, annexures, and evidence."""
-    from app.models import CaseFile, Sample, Annexure, Evidence
+    from app.models import Annexure, CaseFile, Evidence, Sample
 
     sample = Sample(
         sample_code="SMP-KG-001",
@@ -305,7 +304,6 @@ class TestGraphExtraction:
             _teardown_test_env(ctx)
 
     def test_unknown_case_returns_error(self):
-        from app.extensions import db
 
         _app, _client, ctx = _setup_test_env()
         try:
@@ -356,15 +354,15 @@ class TestPersistence:
 
             # Relationships reference real entity IDs
             rels = Relationship.query.all()
-            entity_ids = {e.id for e in entities}
-            for rel in rels:
-                assert rel.source_id in entity_ids or rel.target_id in entity_ids or True
+            {e.id for e in entities}
+            for _rel in rels:
+                assert True
         finally:
             _teardown_test_env(ctx)
 
     def test_persistence_is_idempotent(self):
         from app.extensions import db
-        from app.models import Entity, Relationship
+        from app.models import Entity
 
         _app, _client, ctx = _setup_test_env()
         try:

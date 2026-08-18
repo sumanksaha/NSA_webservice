@@ -18,21 +18,18 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import numpy as np
-from scipy import stats as sp_stats
 
 from evaluation.benchmark import GoldUnit
 from evaluation.config import (
     BOOTSTRAP_ITERATIONS,
     BOOTSTRAP_SEED,
-    GAIN_ACCEPTABLE,
-    GAIN_PRIMARY,
     MCNAMER_ALPHA,
     RETRIEVAL_KS,
 )
-from evaluation.resolution import FamilyMap, matches_gold, norm_act_name, norm_section
+from evaluation.resolution import FamilyMap, norm_act_name, norm_section
 
 logger = logging.getLogger(__name__)
 
@@ -428,8 +425,8 @@ def mcnemar(
     alpha: float = MCNAMER_ALPHA,
 ) -> dict[str, Any]:
     """McNemar's test for paired binary outcomes (protocol §19)."""
-    b = sum(1 for x, y in zip(correct_a, correct_b) if x and not y)
-    c = sum(1 for x, y in zip(correct_a, correct_b) if not x and y)
+    b = sum(1 for x, y in zip(correct_a, correct_b, strict=False) if x and not y)
+    c = sum(1 for x, y in zip(correct_a, correct_b, strict=False) if not x and y)
     n_discordant = b + c
     if n_discordant == 0:
         p = 1.0

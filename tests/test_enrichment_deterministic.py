@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.rag.enrichment.deterministic import (
     attribute_sections,
     build_deterministic_record,

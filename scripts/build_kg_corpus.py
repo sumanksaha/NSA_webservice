@@ -29,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
@@ -52,26 +52,18 @@ def main(argv: list[str] | None = None) -> int:
     engine = KGCorpusIngestionEngine(manifest_path=args.manifest)
     try:
         summary = engine.run_rebuild(clear=not args.no_clear, dry_run=args.dry_run)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: rebuild failed: {exc}", file=sys.stderr)
+    except Exception as exc:
         if "NEO4J_ALLOW_WRITE" in str(exc):
-            print(
-                "hint: a full rebuild clears the legal KG first. Re-run with "
-                "NEO4J_ALLOW_WRITE=1 (e.g. NEO4J_ALLOW_WRITE=1 python scripts/build_kg_corpus.py)"
-                " or pass --no-clear to MERGE over the existing graph.",
-                file=sys.stderr,
-            )
+            pass
         return 1
 
     try:
         args.out_dir.mkdir(parents=True, exist_ok=True)
         name = "kg_rebuild_dryrun.json" if args.dry_run else "kg_rebuild_summary.json"
         (args.out_dir / name).write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-        print(f"summary -> {args.out_dir / name}")
-    except OSError as exc:
-        print(f"warning: could not write summary: {exc}", file=sys.stderr)
+    except OSError:
+        pass
 
-    print(json.dumps(summary, indent=2 if args.pretty else None, default=str))
     return 0
 
 

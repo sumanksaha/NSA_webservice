@@ -18,8 +18,6 @@ Bengal state) while keeping every existing FSSAI path backward compatible:
 
 from __future__ import annotations
 
-import pytest
-
 from app.rag.collections import collection_for_domain
 from app.rag.enrichment.deterministic import build_deterministic_record, legal_act_of, legal_location_of
 from app.rag.legal_sections import (
@@ -169,10 +167,8 @@ class TestCrossRefAdapterActAware:
 
 class TestChunkerActName:
     def test_act_name_flows_to_payload(self):
-        from app.rag.chunker import Chunk, Chunker
-        from app.rag.embedding_service import EmbeddingService
+        from app.rag.chunker import Chunker
         from app.rag.qdrant_indexer import QdrantIndexer
-        from app.rag.qdrant_client import QdrantStore
 
         chunker = Chunker()
         chunks = chunker.chunk_text(

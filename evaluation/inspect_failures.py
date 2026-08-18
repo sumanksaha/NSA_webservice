@@ -8,19 +8,17 @@ in a single file, avoiding the need to re-evaluate all 150 questions.
 from __future__ import annotations
 
 import json
-import os
 import sys
-import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import torch
 from dotenv import load_dotenv
+
 from app import create_app
-from evaluation.benchmark import load_questions
-from evaluation.resolution import FamilyMap, matches_gold
-from evaluation.report_ceiling import load_payload_index
+from app.rag.qdrant_client import QdrantStore
 from app.rag.retrieval import (
     DenseRetriever,
     HybridRetriever,
@@ -29,12 +27,12 @@ from app.rag.retrieval import (
     Reranker,
     SparseRetriever,
 )
+from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
 from app.rag.retrieval.reranker import EnsembleReranker
-from app.rag.retrieval.identifier import identifier_query, detect_section, detect_act
-from app.rag.qdrant_client import QdrantStore
 from app.rag.sparse_embedding import SparseEmbeddingService
-
-import torch
+from evaluation.benchmark import load_questions
+from evaluation.report_ceiling import load_payload_index
+from evaluation.resolution import FamilyMap, matches_gold
 
 torch.set_num_threads(4)
 load_dotenv(PROJECT_ROOT / ".env")
@@ -82,7 +80,6 @@ def main() -> int:
                         rec = json.loads(line)
                         baseline_entries[rec.get("question_id", "")] = rec
         except FileNotFoundError:
-            print(f"[inspect_failures] Checkpoint not found: {CHECKPOINT}", file=sys.stderr)
             return 1
 
         # Identify failing questions for target types
@@ -98,7 +95,6 @@ def main() -> int:
             if hit_at_10 == 0:
                 targets.append((qid, entry, qtypes))
 
-        print(f"[inspect_failures] Found {len(targets)} failing questions in target types", file=sys.stderr)
 
         encoder = reranker_on._get_encoder()
         results = []
@@ -215,46 +211,31 @@ def main() -> int:
             results.append(result_rec)
 
             # Console output
-            print(f"\n{'=' * 80}")
-            print(f"QID: {qid} | Types: {qtypes}")
-            print(f"Query: {q.question[:140]}...")
-            print(f"Gold: doc={gold_doc_id}, pool_rank={gold_raw_rank}, on_rank={gold_on_rank}")
-            print(f"Pool cover: {entry.get('pool_cover')}, Pool K: {entry.get('pool_k')}")
 
             if head_analysis:
-                print(f"\nTop 10 head chunks (CE w={reranker_on.ce_weight}, sec_act w={1 - reranker_on.ce_weight}):")
-                print(f"  {'Rank':>4} {'Base':>8} {'CE':>8} {'Sec':>4} {'Act':>4} {'Hier':>5} {'Final':>8}  Doc")
-                print(
-                    f"  {'----':>4} {'--------':>8} {'--------':>8} {'----':>4} {'----':>4} {'-----':>5} {'--------':>8}  {'---'}"
-                )
                 ce_norm = _minmax(ce_vals) if ce_vals else None
                 for i, c in enumerate(head_chunks[:10]):
-                    ce = head_analysis[i].get("ce_score", "?")
+                    head_analysis[i].get("ce_score", "?")
                     pl = payload_index.get(c.chunk_id) or {}
-                    doc_id = pl.get("document_id", "?")[:25]
-                    sec = "Y" if head_analysis[i]["sec_match"] else "N"
-                    act = "Y" if head_analysis[i]["act_match"] else "N"
+                    pl.get("document_id", "?")[:25]
+                    "Y" if head_analysis[i]["sec_match"] else "N"
+                    "Y" if head_analysis[i]["act_match"] else "N"
                     hier = head_analysis[i]["hierarchy_boost"]
                     final = c.score
                     if ce_norm and i < len(ce_norm):
                         final += reranker_on.ce_weight * ce_norm[i]
                     final += reranker_on._W_HIERARCHY * hier
-                    print(f"  {i:>4} {c.score:>8.4f} {ce:>8} {sec:>4} {act:>4} {hier:>5.2f} {final:>8.4f}  {doc_id}")
 
             if gold_on_rank is not None and gold_on_rank >= 10:
                 winner = on_ranked[0]
-                wpl = payload_index.get(winner.chunk_id) or {}
-                print(
-                    f"\n  Winner (wrong): doc={wpl.get('document_id', '?')[:25]}, act={wpl.get('act_name', '?')}, sec={wpl.get('section_number', '?')}, type={wpl.get('provision_type', '?')}"
-                )
+                payload_index.get(winner.chunk_id) or {}
 
         try:
             OUTPUT.parent.mkdir(parents=True, exist_ok=True)
             with open(OUTPUT, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2)
-            print(f"\n\n[inspect_failures] Debug output: {OUTPUT} ({len(results)} records)")
-        except OSError as e:
-            print(f"\n[inspect_failures] Failed to write output: {e}", file=sys.stderr)
+        except OSError:
+            pass
 
         return 0
 

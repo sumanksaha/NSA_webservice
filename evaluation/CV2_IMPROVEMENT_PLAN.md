@@ -96,6 +96,37 @@ Temperature scaling is order-preserving for positive T: `score/T` keeps every pa
 - **P4 domain tagging:** `act_name` exists on mining positives/negatives; domain can be derived via `FamilyMap` or the question's `collections`. The trainer has no weighted sampling today — needs either build-time oversampling in `pairwise_dataset.py` or a `WeightedRandomSampler` in `MarginRankingLossTrainer`.
 - **Train/val question split is fixed** in `pairwise_train_split.json` — keep it untouched across P1/P2/P4 so all runs are comparable on the same 21 test queries.
 
+### G8 — fssai coverage: honest measurement + path to complete (evaluated 2026-08-17, live Qdrant)
+
+**What "coverage" should mean for fssai (two identities, two document classes):**
+
+- **Act documents** (`act`): identity = `section_number`. The main FSS Act 2006 is **94%** covered (L5 fix, G7). The two amendment acts are ~41–46% covered (L4 headers stamped; propagation not yet run on them).
+- **Regulation/notification documents** (67.6% of the corpus, 8,754 chunks): identity = `clause_number` (dotted regulation clause, e.g. `2.4.15`). **`section_number` is meaningless here.**
+
+**Critical finding — regulation section stamps are noise:** 1,518 regulation chunks carry a `section_number` (17.7%), but they are **page numbers / definition-list numbers / cross-references, not Act sections**: e.g. `sec=41 | '41'`, `sec=01 | '01 -'`, `sec=36 | '6. "State Licensing Authority" means…'`, `sec=31 | 'laid down under Section 31(8) and 32(4) of the Act.'`. These came from the earlier L4 repair regex (`\d{1,4}\. [A-Z]`) matching the *first* number on a line. They pollute section-based matching (`matches_gold`, `same_section` mining) with false positives — e.g. a regulation fragment stamped `sec=36` matches any Act section 36 gold. **Recommendation: strip `section_number` from all `regulation`/`notification` chunks (keep only on `act` docs), then re-measure.**
+
+**Honest coverage today (act-sec + reg-clause, spurious reg sections excluded):**
+
+| Metric | Value |
+|---|---|
+| Act docs, section_number | 53.1% (main Act 94%, amendments ~41–46%) |
+| Reg/notification docs, clause_number | 11.0% (967 chunks; 3% of Food Additives' 1,984 substantive chunks have headers) |
+| **Honest identity coverage (all 12,819 chunks)** | **24.4%** |
+| hl1 OCR-noise chunks (`'muiclac'`, `'rof'`, page fragments) | 4,273 (33.3%) — semantically meaningless, excluded from substantive counts |
+
+**Remaining gap after the two cheap wins (measured):** 5,208 substantive chunks lack both identities. Document-order propagation of the *last clause header* (never overwrite, reset at `PART`/`SCHEDULE`/`CHAPTER` boundaries — same semantics as the L5 pass) recovers **2,501** of them (48%), taking honest coverage to **43.9% of all chunks / 65.9% of substantive**. Act-doc section propagation on the two amendment acts recovers ~1,250 more.
+
+**Path to "complete" (in order of ROI):**
+
+1. **Strip spurious `section_number` from regulation/notification chunks** (1,518 points; keep the ~38 genuine cross-reference chunks out of `section_number` — they are text, not identity). Re-freeze baseline. *Quality fix — removes false same-section matches.*
+2. **L5-style clause propagation across regulation docs** (2,501 fills): extend `backfill_payload_identity` or `backfill_subsection` with a clause-anchored propagation pass (mirror L5: header-anchored, never overwrite). Act amendment docs get the existing section propagation (1,250 fills). → honest coverage ~44% overall / ~66% substantive.
+3. **Parenthetical sub-clause chains** (Licensing `(2) The petty food manufacturer…` under `2.1.1 Registration of Petty Food Business`, ~240 chunks): these sit *after* a dotted clause header but are sub-clauses (`(1)…(6)`) — they carry `subsection` values (186 chunks) but no clause. Propagate the parent clause into them too, or treat `subsection` as the sub-identity (P2 filter is `same_section AND same_subsection` — for regulations the clause takes section's role).
+4. **Romanized-Hindi regulations** (Nutraceuticals, 433 substantive chunks): the Gazette text is Latin-transliterated Hindi (`2- ifjHkk"kk,a%` = Definitions) — no Devanagari, no dots. The dotted regex cannot see it. Options: (a) transliterate the marker patterns (`\d+[\-.]` prefix) and extract clause numbers for the English half of the bilingual document (56 chunks are already English-stamped), or (b) accept the bilingual halves as un-identifiable and rely on the English half + retrieval. Low ROI — these are 5% of the corpus.
+5. **Noise floor (4,273 hl1 fragments, 33%)**: these can never carry identity. Options: (a) filter them at ingestion (drop `hl1` short/no-alnum chunks) — improves retrieval precision and every downstream coverage %; (b) keep and ignore. The 46%→28.9% headline swings are 80% explained by this floor — **coverage should be reported on substantive chunks**, not the raw corpus.
+6. **`document_title` is empty on all 12,819 payloads** — the DB `title` column is NULL for this corpus (only `source_uri` filenames like `Food_Additives_Regulations-4.pdf` exist). Backfill `document_title` from the URI filename for human-readable identity.
+
+**What this means for P2/mining:** clause propagation makes `same_clause` (already wired into the miner's tier-3) usable at scale — today only 11% of reg chunks have a clause, so the miner's clause tier rarely fires. Stripping reg section-noise makes `same_section` honest. Neither changes benchmark gold matching (fssai golds are 69 Act sections + 10 regulation-level units with no clause references), so the CE-v2 baseline should be **re-frozen after step 1** (metrics may shift from removed false matches) and again after step 2.
+
 ---
 
 ## §1 — Revised implementation plan
@@ -159,6 +190,149 @@ Step 0 (harness) → Step 1 (P1) → Step 2 (P2, parallel mining) → Step 3 (P3
 
 Step 0 is non-negotiable first — nothing can be measured without it. Steps 1 and 2 can run in parallel (mining doesn't block dataset rebuild). Step 3 can run anytime but should be re-scoped (G3) before any code. Step 4 compares against Step 1/2 models. Step 5 only if tiny-sample regressions matter.
 
+---
+
+## §2 — Elaborated plan after the 2026-08-18 re-freeze
+
+> The corpus work (noise strip + L5/L6/L7 + titles) is applied live and the baseline is re-frozen.
+> This section re-anchors the plan on the **new** numbers and reframes the priority order around the
+> strongest signal in the data: **V2 regressions** (queries V1 solved that V2 broke).
+
+### 2.1 Baseline re-anchored (frozen 2026-08-18)
+
+| Metric | V1 (control) | V2 (K500) | Delta |
+|---|---|---|---|
+| Pairwise acc (2,362 pairs) | 0.5826 | 0.5478 | **−3.5%** |
+| Margin | +0.1533 | +0.5982 | +0.4449 (4.4×) |
+| R@1 / R@5 / R@10 / R@20 | .238 / .857 / 1.0 / 1.0 | .429 / .810 / 1.0 / 1.0 | +19% / −4.8% / 0 / 0 |
+| MRR@10 / nDCG@10 | .5134 / .6321 | .5942 / .6901 | +.0808 / +.0580 |
+| Failure taxonomy | — | hierarchy **9** / same-section **2** / other 1 / failures 12 | gates: ≤4 / ≤1 |
+
+vs the pre-strip baseline: same-section 3 → 2 (one false match eliminated by the noise strip, as predicted);
+hierarchy 8 → 9 (Q054 reclassified into it). R@1/MRR/nDCG/pairwise unchanged — the score cache is
+payload-independent, so the corpus work moved only the *classification*, not the scores.
+
+### 2.2 Failure decomposition — the actionable signal
+
+All 12 failures with V1/V2 ranks (from `out/cache/ce_v2_error_analysis.json`):
+
+| Query | Domain | Difficulty | V1_rk | V2_rk | Type | Verdict |
+|---|---|---|---|---|---|---|
+| Q049 | epa | moderate | **1** | **10** | hierarchy | **V2 regression** |
+| Q080 | wbpt | moderate | **2** | **9** | hierarchy | **V2 regression** |
+| Q097 | srf | hard | **2** | **7** | hierarchy | **V2 regression** |
+| Q102 | fssai | moderate | **3** | **8** | hierarchy | **V2 regression** |
+| Q118 | fssai | hard | **2** | **4** | same-section | **V2 regression** |
+| Q120 | fssai | hard | **2** | **4** | same-section | **V2 regression** |
+| Q016 | fssai | hard | 2 | 2 | hierarchy | both fail |
+| Q054 | epa | moderate | 2 | 2 | hierarchy | both fail |
+| Q150 | fssai | hard | 3 | 3 | other | both fail |
+| Q085 | epa | hard | 9 | 3 | hierarchy | improved, still fail |
+| Q100 | contract | hard | 9 | 3 | hierarchy | improved, still fail |
+| Q020 | fssai | moderate | 4 | 2 | hierarchy | improved, still fail |
+
+**The headline problem is not "V2 doesn't go far enough" — it is "V2 broke 6 answers V1 had".**
+V2's wins are real and concentrated (5 of the 9 correct queries improved: Q018 4→1, Q122 4→1, Q078 7→1,
+Q131 2→1, Q148 2→1), but its losses are spread across exactly the small/medium pools: epa moderate (Q049),
+wbpt (Q080, 10 pairs), srf (Q097, 10 pairs), fssai moderate/hard (Q102, Q118, Q120). This is the pairwise
+−3.5% in one table.
+
+### 2.3 Root-cause hypotheses for the regressions (diagnose before retraining)
+
+1. **T3-overfit + fssai skew.** 6,269/14,629 pairs (43%) are tier-3 adversarial, mined predominantly from
+   the fssai-heavy corpus. The model may have over-fit fssai hierarchy patterns and lost precision on other
+   domains' section semantics — consistent with Q049/Q080/Q097 (non-fssai, V1-solved) regressing while
+   fssai hard queries improved.
+2. **Margin is not accuracy.** Margin grew 4.4× while accuracy fell 3.5% — the model separates more
+   aggressively but mis-orders. The 6 regressions are the "over-confident wrong" signature (rank 4–10,
+   not 2).
+3. **Zero section signal in the dataset (G4).** 0/14,629 pairs carry section/clause metadata; the model
+   must infer legal hierarchy from raw text. The corpus now carries honest identity (82.4% substantive,
+   act docs 93.9%, clause_number 2,777), so P1's prefix is finally *feasible* — and Q118/Q120 already have
+   8 same-section negatives each, so their failure is the model, not the data.
+
+### 2.4 Steps (ROI-ordered, each with a gate)
+
+**Step 1 — Diagnose the 6 regressions (0.5 day, no training)** — *prerequisite; gates 2/3 choices*
+- For each of Q049/Q080/Q097/Q102/Q118/Q120, dump V1-vs-V2 top-10 and answer: what does V2 rank above the
+  gold — a same-section false friend, a same-family different-section, or an unrelated chunk? Tooling
+  exists: `evaluation/inspect_failures.py` (debug capture per query) + `ranking_failure_dataset.py`.
+- **Gate:** one written root-cause per regression, each mapped to the lever that fixes it (prefix / mining /
+  balance). If Q049/Q080/Q097 are same-section false friends, P2 mining is the lever; if they are
+  cross-family noise, it is P4 balance.
+- **DONE (2026-08-18)** — diagnosis below from the cached per-query score data (no retrain needed):
+
+  | Query | V2 top over gold | Class | Lever |
+  |---|---|---|---|
+  | Q049 (epa) | s5 authority-chunk ("constituted under sub-section (3) of s3") vs gold s6 | same-family, **adjacent section (5 vs 6)** | P1 prefix (explicit §5 vs §6); P2 does *not* fire (not same-section) |
+  | Q080 (wbpt) | **s45 Repeal section** ("Repeal and Act XII…") vs gold s46 possession | same-doc, diff-section, tiny domain (10 pairs) | P1 prefix + P4/P5 |
+  | Q097 (srf) | **title-page hl1** ("THE SPECIFIC RELIEF ACT, 1963 ACT NO. 47…") vs gold s10 | hl1 noise, tiny domain (10 pairs) | P1 prefix (§3 vs §10) + P4/P5; also corpus-hl1-noise filter (P5) |
+  | Q102 (fssai) | KMC **s394** ("refuses sanction…", Indian Kanoon URL fragment) vs gold kmc:s392 | adjacent-section within KMC; kmc has **zero same-section negatives mined** (G5) | P1 prefix + P2 kmc re-mine |
+  | Q118 (fssai) | **FSS Amendment 2-2011 "(B) In section 33,"** vs gold s33 | **same-section false friend** — the L7 amendment anchors stamped sec=33 onto amendment chunks | **P2 re-mine on the cleaned corpus** (only now surfaces as same-section) + P1 |
+  | Q120 (fssai) | FSS Amendment 3-2023 s33J fragment / 2-2011 "(B) In section 33," vs gold s33 | same-section false friend (L7 amendment stamps) | **P2 re-mine** + P1 |
+
+  **Cross-cutting finding:** the L7 amendment anchors (2026-08-18 corpus work) *created* the Q118/Q120
+  false friends — amendment chunks now carry the referenced principal section. Re-mining on the cleaned
+  corpus converts them into genuine same-section tier-3 negatives (P2's direct target), and P1's prefix
+  teaches the model to reject amendment boilerplate. Q049/Q080/Q102 are adjacent-section confusions that
+  P2 mining cannot see — P1's explicit section prefix is the lever. Q097 is hl1 title-page noise on a
+  10-pair domain (P4/P5 territory).
+
+**Step 2 — P1 section-prefix (1.5–2 days)** — *the biggest lever* (unchanged scope, now data-feasible)
+- `pairwise_dataset.py`: propagate `section`/`clause_number`/`act_name` from mining records into each
+  example (G4 confirmed: absent today); `--section-prefix` bakes `§<section>` into the JSONL (Option A —
+  cache-safe, trainer unchanged). Fallback: no prefix when identity is missing; record coverage stat.
+- Serve parity (the G2 list): `app/rag/retrieval/section_prefix.py::prefix_passage(text, section_number)`;
+  wire local CE + `EnsembleReranker` + `RemoteRerankClient` (TEI **and** local-fallback) + the three eval
+  scripts; `RAG_CE_SECTION_PREFIX` flag, default off (zero behavior change for v1).
+- Now possible because the corpus is 82.4% substantively identified (act docs 93.9% have `section_number`;
+  regulations carry `clause_number`).
+- **Gate:** hierarchy 9 → ≤4; R@1 ≥ 0.4286, MRR@10 ≥ 0.5942, nDCG@10 ≥ 0.6901, pairwise acc ≥ 0.5826
+  (v1); no epa/contract regression.
+
+**Step 3 — P2 same-section hard negatives (1–2 days, parallel with Step 2)**
+- `hard_negative_miner.py`: add `--subsection-filter` = same_section **AND** same_subsection (the G5
+  de-risked design; never subsection alone).
+- Re-mine on the **cleaned** corpus (post-noise-strip): the old mining pool (2,720 negatives) was built
+  against payloads carrying 1,852 noise stamps; `same_section` is now honest.
+- Target: the flagged set + the two still-failing same-section queries (Q118/Q120). Note from G5: these
+  already have 8 same-section negatives — Step 1 must confirm whether *more* data helps or the model needs
+  the prefix.
+- Guard: train pairs must never include test/val question-ids (split is by question-id).
+- **Gate:** same-section 2 → ≤1; R@10 stays 1.0000; T3-tier pairwise acc ≥ v1's 0.5825.
+
+**Step 4 — P4 domain balance (1 day)** — *the regression antidote*
+- `pairwise_dataset.py`: derive `domain` per example (positive's `act_name` → `FamilyMap`, or the
+  question's collections); `--domain-balanced` oversamples non-fssai toward ≈1:1 per domain (or
+  `WeightedRandomSampler` in `MarginRankingLossTrainer`).
+- Directly targets the 6 regressions' domains: epa, wbpt, srf, fssai moderate.
+- **Gate:** the 6 regression queries' MRR@10 each ≥ their V1 value; fssai acc ≥ 0.583 (v1) while
+  epa/contract gains (0.5724 / 0.3942) hold; net MRR@10 ≥ 0.5942.
+
+**Step 5 — P3 calibration (0.5 day, anytime, re-scoped per G3)** — no accuracy claim; normalize score
+scale for fusion consumers; verify rank-invariance explicitly.
+
+**Step 6 — P5 more test data (3 days, optional)** — wbpt (10), srf (10), kmc (40), water_act (70) need
+real test pairs so Q080/Q097-type regressions get measurable CIs instead of single-query noise. Only after
+Steps 1–4 gate.
+
+**Step 7 — Re-freeze + deploy (0.5 day, after an accepted retrain)**
+- `ce_v2_eval` → `--freeze-baseline` (committed reference) → `ce_v2_gate` (hard gates + `--strict-targets`).
+- `scripts/push_ce_models.py` (Hub) + re-deploy `modal_deploy/app.py` (Modal); set `RAG_RERANKER_MODEL`/
+  endpoint env; live cross-check via `evaluation/verify_finetuned_ce.py`; update `agents.md`.
+
+### 2.5 Sequencing
+
+```
+Step 1 (diagnose 6 regressions, 0.5d) → [Step 2 (P1 prefix, 1.5-2d) ∥ Step 3 (P2 re-mine, 1-2d)]
+→ Step 4 (P4 balance, 1d) → Step 5 (P3, anytime) → [Step 6 (P5, optional)] → Step 7 (re-freeze + deploy)
+```
+
+Step 1 is non-negotiable first — it decides whether P2 mining or P4 balance is the real fix for the
+regressions. Steps 2 and 3 land together in one retrain (dataset + mining are independent). Step 4 stacks
+on the Step 2/3 dataset. Re-freeze only after an accepted retrain; the frozen baseline is the gate reference
+for every step.
+
 ## Retraining Commands
 
 ```bash
@@ -189,6 +363,15 @@ python -m evaluation.train_legal_ce_v2 --fresh --save-every 50
 - [x] G7 fix applied live (2026-08-17): corrected diagnosis — `instrument_id` was already on live Qdrant (only the DB cache lacked it); the real blocker was fragment chunks that never repeat the section number. Added header-anchored **L5 propagation** to `backfill_payload_identity.py` (never overwrite; propagates the last L4-verified section header within a document) — dry-run + apply: **5,789 fills, 0 overwrites** (485 fssai Act doc, 460 env, 4,111 commercial, 302 animal, 431 wb_state); Act doc **27% → 94%**, overall fssai **25.1% → 28.9%** (capped by regulations). Pre-backfill snapshot kept for rollback.
 - [x] `clause_number` backfill applied live (2026-08-17): `scripts/backfill_subsection.py --apply` — **1,036 points** stamped in Qdrant (967 fssai + 68 env + 1 wb_state), DB `metadata_json` mirrored for the fssai rows; payload index cache rebuilt (27,351 points); CE-v2 baseline **re-frozen** (`evaluation/ce_v2_baseline.json`, exact reference numbers: R@1 0.4286, MRR 0.5942, nDCG 0.6901, gates 8/3)
 - [x] Miner clause wiring (2026-08-17): `evaluation/hard_negative_miner.py` — `legal_similarity_score` now returns `same_clause` (dotted clause-number equality, regulation fragments with no section); `assign_tier` promotes same-family + same-clause to tier 3 (adversarial) and requires the section anchor for `same_subsection` (G5); `hard_negative_rank` adds +1.0 for `same_clause`; `tests/test_hard_negative_reranking.py` extended (45 tests pass, 8 new)
+- [x] G8 (2026-08-17): fssai coverage evaluated on live Qdrant — regulation `section_number` stamps are noise (1,518 = page/def-list/xref numbers, not Act sections); honest identity coverage (act-sec + reg-clause) is **24.4%**; clause propagation recovers 2,501 more (→43.9% overall / 65.9% substantive); 4,273 hl1 OCR-noise chunks (33%) can never carry identity; `document_title` empty corpus-wide. Roadmap: strip reg section noise → clause propagation → sub-clause handling → Romanized-Hindi (low ROI) → noise filtering at ingestion
+- [x] G8 step 1 tooling (2026-08-18): `scripts/strip_reg_section_noise.py` — deletes spurious `section_number` from regulation/notification/rule chunks via Qdrant null-delete (`{"section_number": None}`), DB `metadata_json` mirror, pre-strip snapshot + evidence CSV + `--verify` residue check. Default scope = regulation,notification (1,518+36); **rule (298) added to the default 2026-08-18** (same page-number/def-list/xref noise profile — `161 27960/2022/UPC-II-HO`, `6 Summary of the mechanisms…`); restrict via `--document-types`.
+- [x] G8 step 2+3 tooling (2026-08-18): **L6 clause propagation** added to `scripts/backfill_subsection.py` — header-anchored propagation of the last guarded dotted clause header forward within a document (mirror of L5: never overwrite, `PART`/`SCHEDULE`/`CHAPTER`/`ANNEXURE` reset, scoped to regulation/notification/rule via `--clause-doc-types`). Dry-run: **+1,741 fills** (1,693 regulation, 26 notification, 22 rule) → clause coverage **1,036 → 2,777**; this also gives G8 step-3 parenthetical sub-clause chains (`(1) Every petty Food Business Operator…` under `2.1.1`) their parent clause.
+- [x] G8 combined honest identity coverage (2026-08-18, simulated on frozen cache): **44.9% → 51.2%** of all chunks (71.6% of substantive hl≥2); reg/notification `section_number` noise → 0. Tests: `tests/test_subsection_tooling.py` 30 → **49** (clause-propagation + strip suites, 19 new).
+- [x] Applied live (2026-08-18): `scripts/strip_reg_section_noise.py --apply --verify` — **1,852 fields deleted in total** (1,547 fssai + 7 env + 261 animal + 37 env-rule; 1,518 regulation + 36 notification + 298 rule), post-apply residue **0** (only act/unknown/circular keep `section_number`); `scripts/backfill_subsection.py --apply` — **1,741 clause fills** (1,693 fssai + 48 env), DB `metadata_json` mirrored for 1,693. Payload cache refreshed; live verified: clause_number **2,777 (10.2%)**, honest identity coverage **51.2%** overall / **71.6%** substantive. Also fixed a latent footgun: `--apply` now implies a live scroll (the old path silently applied 0 from the frozen cache) + a fail-fast guard when 0 updates are written
+- [x] **Re-frozen the CE-v2 baseline (2026-08-18)** — `ce_v2_error_analysis` → `ce_v2_eval` → `--freeze-baseline` on the post-strip/post-P1/P2 payload cache. Taxonomy shift as predicted: same_section_hard_neg 3→2 (one false same-section match eliminated by the noise strip), hierarchy_version 8→9, failures 12; pairwise/ranking metrics unchanged (score cache is payload-independent). Gates now: hierarchy 9 / same-section 2 (targets ≤4 / ≤1). P3 re-ingestion (BNS + rule docs ≈2,129) is **deferred (user, later)** — noted in `plan.md` §11; re-freeze again after P3 lands.
+- [x] Corpus-wide coverage evaluated (2026-08-18): `evaluation/coverage_audit.py` (committed, tests `test_coverage_audit.py` 14) — **51.3% of all chunks / 71.6% of substantive (hl≥2)** identified; gap = 4,824 substantive chunks, **83% (4,025) paren_fragments** fillable by propagation. Root causes per doc class: FSS amendments have **zero extractable headers** (identity = referenced section via cross-refs), LLP/SR headers exist but are mis-stamped by in-text cross-ref precedence, BNS is space-stripped OCR, SWM/PCA rule headings merged into tables, Nutraceuticals is Romanized-Hindi, Food Additives' substantive content is 99% complete (its gap is a 4,618-chunk reversed-text/table hl1 floor). `document_title` missing on 12,820 (12,819 recoverable from `document_uri`). **Plan:** `docs/COVERAGE_COMPLETENESS.md` — P1 title backfill (trivial) → P2 L7 propagation (header-trust + amendment anchors, ≈1,917 fills → ~83% substantive, no re-ingestion) → P3 re-extract broken-OCR docs (BNS + rule docs, ≈2,129) → P4 transliteration (low ROI) → P5 noise filter
+- [x] **P1 + P2 implemented and applied live (2026-08-18):** `scripts/backfill_document_title.py` — 12,819 titles (29 docs, 27,350/27,351 covered), DB mirrored; `derive_l7` in `scripts/backfill_payload_identity.py` (header-trust corrections + amendment anchors, `--no-l7` opt-out, repair CSV) — 2,075 updates (L7 correction 42 + L7 propagation 1,834 + L5 180 + L4 19), section 11,243 → 13,318. **Fixed en route:** L1/L2/L3 would have re-stamped the stripped reg/rule/notification noise (1,624 chunks carry `provision_id` built from old page-number stamps) — `derive_section` now gated to act-type chunks. **Post-apply: 58.0% of all / 82.4% of substantive (hl≥2) identified**; commercial 99.9%, fssai 86.9%, act docs 93.9%. Convergence: second apply fixed 31 L4-vs-L7 disagreements (space-form header dropped, L4 loop runs last, L7 skips L4-verified chunks) — **re-run now idempotent (0 changes)**. Tests: `test_backfill_l7.py` (37, incl. `derive_title`/`derive_changes`) — 160 affected pass, ruff clean. Remaining: P3 re-ingestion (BNS + rule docs ≈2,129) → P4 transliteration → re-freeze CE-v2 baseline (`evaluation/ce_v2_baseline.json` — section stamps changed, `matches_gold`-sensitive)
+- [x] §2 elaborated (2026-08-18): post-re-freeze plan — failure decomposition shows **6 of 12 failures are V2 regressions** (Q049 1→10, Q080 2→9, Q097 2→7, Q102 3→8, Q118/Q120 2→4; V1 solved them, V2 broke them); root-cause hypotheses (T3/fssai overfit, margin≠accuracy, zero section signal per G4); steps re-sequenced: Step 1 diagnose the 6 regressions → Step 2 P1 prefix (now data-feasible: 82.4% substantive identity) ∥ Step 3 P2 re-mine on the cleaned corpus → Step 4 P4 balance (the regression antidote) → Step 7 re-freeze + deploy. Gates per step in §2.4
 - [ ] Re-run `python -m evaluation.ce_v2_eval` after each improvement (score cache makes it fast)
 - [ ] Verify R@1, MRR@10, nDCG@10 on the 21 test queries (gates in each step above)
 - [ ] Verify pairwise accuracy on all 2,362 test pairs

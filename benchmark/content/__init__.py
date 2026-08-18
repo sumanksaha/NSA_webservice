@@ -8,8 +8,6 @@ schema and emits all v1.0 benchmark artifacts.
 
 from __future__ import annotations
 
-from typing import List
-
 QUESTIONS: list = []
 PROVISIONS: list = []
 

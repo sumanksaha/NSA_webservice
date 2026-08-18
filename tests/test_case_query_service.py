@@ -84,7 +84,7 @@ class TestCaseQueryServiceConstruction:
     def test_standalone_no_callbacks_needed(self):
         """The key deepening win: CaseQueryService needs only model + case_type,
         not the 5 callbacks that DocumentCaseManager requires."""
-        from app.models import CaseFile, Adjudication
+        from app.models import Adjudication, CaseFile
 
         svc_cf = CaseQueryService(CaseFile, case_type="case_file")
         assert svc_cf.model is CaseFile

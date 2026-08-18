@@ -43,7 +43,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPTS_DIR.parents[1]))  # project root
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from audit_chunks import _resolve_source  # noqa: E402
+from audit_chunks import _resolve_source
 
 REPORT_DIR = Path(__file__).resolve().parents[2] / "reports"
 
@@ -216,7 +216,7 @@ def _pass_two(
         if fresh:
             try:
                 records = enrich_document(fresh, section_index, act_document_id)
-            except Exception as exc:  # noqa: BLE001 - one doc must not abort the run
+            except Exception as exc:
                 counts["failed"] += len(fresh)
                 for p in fresh:
                     mark_failed(
@@ -257,7 +257,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.batch_size > 100:
-        print(f"batch_size {args.batch_size} exceeds max 100", file=sys.stderr)
         return 2
 
     from app import create_app
@@ -273,9 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         section_index: dict[tuple[str, str], list[str]] = {}
         doc_ids: set[str] = set()
 
-        print(f"[pass 1/2] building section index + Act discovery from {_label}…")
         act_id = _pass_one(gen(), section_index, doc_ids)
-        print(f"  {len(doc_ids)} documents · {len(section_index)} (doc, section) pairs · act={act_id}")
 
         already: set[str] = set()
         if not args.no_resume:
@@ -285,10 +282,8 @@ def main(argv: list[str] | None = None) -> int:
                     ChunkEnrichment.status.in_(["ENRICHED", "VALIDATED"])
                 ).all()
             }
-            print(f"  resume: {len(already)} chunks already validated — skipping")
 
-        print(f"[pass 2/2] enriching (batch_size={args.batch_size})…")
-        counts = _pass_two(gen(), _label, doc_ids, section_index, act_id, already, args.batch_size)
+        _pass_two(gen(), _label, doc_ids, section_index, act_id, already, args.batch_size)
 
         from app.rag.enrichment.store import progress_summary, resource_usage_summary
 
@@ -303,9 +298,6 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     tracemalloc.stop()
-    print(f"done: {counts}")
-    print("  progress -> reports/enrichment_progress.json")
-    print("  resources -> reports/resource_usage.json")
     return 0
 
 

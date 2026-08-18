@@ -7,7 +7,7 @@ and case-number extraction.
 import pytest
 
 from app.extensions import db
-from app.models import Adjudication, CaseFile, FSO
+from app.models import FSO, Adjudication, CaseFile
 from app.shared.case_resolver import CaseResolver, ResolvedCase
 
 

@@ -230,7 +230,6 @@ def test_resume_without_checkpointer_raises(monkeypatch):
 def test_agent_route_hitl_202_then_resume_200(monkeypatch, app_env):
     """Full HTTP flow: agent route pauses (202) → resume (200)."""
     import app.rag.tasks as tasks
-    from tests.test_rag_routes import _setup_test_env
 
     app, client = app_env
     app.config["RAG_USE_AGENT_PIPELINE"] = True
@@ -269,7 +268,6 @@ def test_agent_route_hitl_202_then_resume_200(monkeypatch, app_env):
 
 
 def test_resume_route_requires_hitl(app_env):
-    from tests.test_rag_routes import _setup_test_env
 
     app, client = app_env
     app.config["RAG_USE_AGENT_PIPELINE"] = True
@@ -279,7 +277,6 @@ def test_resume_route_requires_hitl(app_env):
 
 
 def test_resume_route_validation(app_env):
-    from tests.test_rag_routes import _setup_test_env
 
     app, client = app_env
     app.config["RAG_AGENT_HITL"] = True

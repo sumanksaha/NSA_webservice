@@ -44,7 +44,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import re
 import sys
 import time
@@ -189,10 +188,7 @@ def load_backup(path: str) -> tuple[np.ndarray, list[str], dict[str, dict]]:
     payloads: dict[str, dict] = {}
     for i, p in enumerate(points):
         vec = p["vector"]
-        if isinstance(vec, dict):
-            dense = vec.get("dense") or []
-        else:
-            dense = vec
+        dense = vec.get("dense") or [] if isinstance(vec, dict) else vec
         matrix[i] = np.asarray(dense, dtype=np.float32)
         cid = str(p.get("id"))
         ids.append(cid)
@@ -576,15 +572,10 @@ def run_eval(
 
     assert source.startswith("backup:"), "offline eval currently supports --source backup:<path>"
     backup_path = source.split(":", 1)[1]
-    print(f"[eval] loading backup {backup_path} ...")
-    matrix, ids, payloads = load_backup(backup_path)
-    print(f"[eval] {len(ids)} points, matrix {matrix.shape}")
+    matrix, ids, _payloads = load_backup(backup_path)
 
-    print(f"[eval] loading enrichment store {db_path} ...")
     enrichment = load_enrichment(db_path)
-    print(f"[eval] {len(enrichment)} enrichment records")
 
-    print("[eval] building lexical index ...")
     kw_phrases, kw_idf, sum_phrases, sum_idf = build_lexical_index(ids, enrichment)
 
     # Resolve gold
@@ -592,11 +583,8 @@ def run_eval(
     for q in questions:
         gold, unmatched = resolve_gold(q, enrichment)
         gold_by_q[q["id"]] = (gold, unmatched)
-        status = "OK" if gold and not unmatched else ("PARTIAL" if gold else "NO-GOLD")
-        print(f"[eval] {q['id']} gold={len(gold)} unmatched={len(unmatched)} [{status}]")
 
     # Embed queries
-    print(f"[eval] embedding {len(questions)} queries with {model_name} ...")
     embedder = _Embedder(model_name)
     qvecs = embedder.embed([q["question"] for q in questions])
 
@@ -677,16 +665,9 @@ def run_eval(
     with open(report_dir / "evaluation_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
-    print("\n=== BASELINE ===")
-    print(json.dumps(baseline_agg, indent=2))
-    print("\n=== ENRICHED ===")
-    print(json.dumps(enriched_agg, indent=2))
-    print("\n=== DELTA ===")
-    print(json.dumps(summary["delta_enriched_minus_baseline"], indent=2))
 
     if seed_db:
         _seed_eval_dataset(db_path, dataset, gold_by_q)
-        print("[eval] seeded rag_eval_dataset table")
 
     return summary
 
@@ -716,8 +697,7 @@ def run_ablation(
     questions = dataset["questions"]
 
     assert source.startswith("backup:")
-    matrix, ids, payloads = load_backup(source.split(":", 1)[1])
-    print(f"[ablation] {len(ids)} points")
+    matrix, ids, _payloads = load_backup(source.split(":", 1)[1])
 
     enrichment = load_enrichment(db_path)
     kw_phrases, kw_idf, sum_phrases, sum_idf = build_lexical_index(ids, enrichment)
@@ -725,11 +705,10 @@ def run_ablation(
     gold_by_q: dict[str, set[str]] = {}
     skipped: list[str] = []
     for q in questions:
-        gold, unmatched = resolve_gold(q, enrichment)
+        gold, _unmatched = resolve_gold(q, enrichment)
         gold_by_q[q["id"]] = gold
         if not gold:
             skipped.append(q["id"])
-    print(f"[ablation] gold resolved: {len(gold_by_q) - len(skipped)}/{len(questions)} (skipped {skipped})")
 
     embedder = _Embedder(model_name)
     qvecs = embedder.embed([q["question"] for q in questions])
@@ -762,9 +741,6 @@ def run_ablation(
             rows.append(evaluate_question(q, gold, ranked))
         results[variant] = aggregate(rows)
         per_query[variant] = rows
-        print(f"[ablation] {variant:18s} MRR={results[variant]['mrr']:.3f} "
-              f"R@10={results[variant]['recall_at_10']:.3f} "
-              f"nDCG={results[variant]['ndcg_at_10']:.3f}")
 
     baseline = results["baseline"]
     deltas = {
@@ -790,12 +766,8 @@ def run_ablation(
     with open(report_dir / "ablation_results.json", "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
 
-    print("\n=== ABLATION (delta vs dense baseline) ===")
-    print(f"{'variant':18s} {'R@5':>7} {'R@10':>7} {'P@5':>7} {'MRR':>7} {'nDCG':>7}")
     for variant in results:
-        d = deltas[variant]
-        print(f"{variant:18s} {d['recall_at_5']:+7.3f} {d['recall_at_10']:+7.3f} "
-              f"{d['precision_at_5']:+7.3f} {d['mrr']:+7.3f} {d['ndcg_at_10']:+7.3f}")
+        deltas[variant]
     return out
 
 
@@ -803,10 +775,9 @@ def _seed_eval_dataset(db_path: str, dataset: dict, gold_by_q: dict[str, tuple[s
     """Persist the authored dataset into ``rag_eval_dataset`` (idempotent)."""
     import uuid
 
+    from app import create_app
     from app.extensions import db
     from app.models.rag import RAGEvalDataset
-
-    from app import create_app
 
     app = create_app()
     with app.app_context():
@@ -838,7 +809,6 @@ def _seed_eval_dataset(db_path: str, dataset: dict, gold_by_q: dict[str, tuple[s
                 rec.expected_answer = "; ".join(q.get("gold_phrases", []))
                 updated += 1
         db.session.commit()
-        print(f"[seed-db] added {added} + updated {updated} rows in rag_eval_dataset")
 
 
 def main() -> None:

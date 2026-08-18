@@ -27,13 +27,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.query_expansion import detect_act, detect_section  # noqa: E402
+from evaluation.query_expansion import detect_act, detect_section
 
 _STOP = frozenset({
     "the", "a", "an", "of", "and", "or", "to", "in", "for", "under", "what",
     "which", "who", "how", "is", "are", "does", "do", "be", "by", "on", "at",
     "with", "from", "as", "that", "this", "its", "it", "not", "shall", "may",
-    "act", "section", "sec", "under", "food", "safety", "standards",
+    "act", "section", "sec", "food", "safety", "standards",
 })
 
 
@@ -66,10 +66,7 @@ def legal_features(payload: dict, query: str, family_map) -> dict[str, float]:
     text = str(payload.get("chunk_text") or payload.get("text") or "")
     q_toks = tokenize(query)
     t_toks = tokenize(text)
-    if q_toks and t_toks:
-        lex = len(q_toks & t_toks) / len(q_toks)
-    else:
-        lex = 0.0
+    lex = len(q_toks & t_toks) / len(q_toks) if q_toks and t_toks else 0.0
     return {"sec_match": sec_match, "act_match": act_match, "exact": exact, "lex": lex}
 
 
@@ -141,8 +138,8 @@ def rerank(pool: list[dict], query: str, family_map,
 
 def rank_of(pool: list[dict], unit, payload_index, family_map) -> int | None:
     """First-hit rank of a gold unit in a ranked pool (chunks + KG)."""
-    from evaluation.resolution import matches_gold, norm_section
-    from evaluation.metrics import RankedItem, item_covers, _kg_item_keys
+    from evaluation.metrics import RankedItem, _kg_item_keys, item_covers
+    from evaluation.resolution import matches_gold
 
     for i, it in enumerate(pool):
         if it["kind"] == "chunk":
@@ -167,8 +164,8 @@ def main() -> int:
 
     from app import create_app
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap
     from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap
 
     app = create_app()
     with app.app_context():
@@ -203,7 +200,6 @@ def main() -> int:
             slice_depth = int(os.environ.get("RERANK_DEPTH", "200"))
         except ValueError:
             slice_depth = 200
-        print(f"[rerank_legal] pool arms: {dense_arm} + {sparse_arm} + D_kg @{slice_depth} (kg={kg_slice}) from {raw_dir}", file=sys.stderr)
 
         def hit_at(pool, q, k):
             rel = q.relevant_units()
@@ -292,7 +288,6 @@ def main() -> int:
             "full_legal_vs_lex_heavy_top10_diffs": top10_diff,
         }
 
-        print(json.dumps(out, indent=1))
 
         # write deliverable next to the raw arms (keeps each experiment dir
         # self-contained and never overwrites a prior experiment's files)

@@ -57,7 +57,7 @@ def test_client():
             # Create a test user
             user = User(
                 username="testuser",
-                password_hash="pbkdf2:sha256$test$dummy",  # noqa: S106
+                password_hash="pbkdf2:sha256$test$dummy",
             )
             db.session.add(user)
 

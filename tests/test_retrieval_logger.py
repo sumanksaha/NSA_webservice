@@ -27,7 +27,7 @@ def _setup_test_env():
     ctx.push()
     db.drop_all()
     db.create_all()
-    user = User(username="ragtest", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="ragtest", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -59,7 +59,7 @@ def _make_search_result() -> SearchResult:
 
 class TestRetrievalLogger:
     def test_log_creates_query_log_row(self):
-        app, ctx, user = _setup_test_env()
+        _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
             result = _make_search_result()
@@ -74,7 +74,7 @@ class TestRetrievalLogger:
             _teardown(ctx)
 
     def test_log_content_hash_is_sha256(self):
-        app, ctx, user = _setup_test_env()
+        _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
             result = _make_search_result()
@@ -87,7 +87,7 @@ class TestRetrievalLogger:
             _teardown(ctx)
 
     def test_log_empty_chunks(self):
-        app, ctx, user = _setup_test_env()
+        _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
             result = SearchResult(query="unknown", query_type="general_qa", chunks=[], total=0, latency_ms=10)
@@ -98,7 +98,7 @@ class TestRetrievalLogger:
             _teardown(ctx)
 
     def test_log_with_error(self):
-        app, ctx, user = _setup_test_env()
+        _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
             result = SearchResult(query="bad query", query_type="general_qa", chunks=[], total=0, latency_ms=0, source="dense", error="Qdrant down")
@@ -108,7 +108,7 @@ class TestRetrievalLogger:
             _teardown(ctx)
 
     def test_log_best_effort_no_raise_on_db_error(self):
-        app, ctx, user = _setup_test_env()
+        _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
             result = _make_search_result()
@@ -136,7 +136,7 @@ class TestRetrievalAuditLog:
         db.drop_all()
         db.create_all()
         try:
-            user = User(username="ragtest2", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+            user = User(username="ragtest2", password_hash="pbkdf2:sha256$test$dummy")
             db.session.add(user)
             db.session.add(FSO(fso_name="Test Officer"))
             db.session.commit()
@@ -173,7 +173,7 @@ class TestRetrievalAuditLog:
         db.drop_all()
         db.create_all()
         try:
-            user = User(username="ragtest3", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+            user = User(username="ragtest3", password_hash="pbkdf2:sha256$test$dummy")
             db.session.add(user)
             db.session.add(FSO(fso_name="Test Officer"))
             db.session.commit()
@@ -205,7 +205,7 @@ class TestRetrievalAuditLog:
         db.drop_all()
         db.create_all()
         try:
-            user = User(username="ragtest4", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+            user = User(username="ragtest4", password_hash="pbkdf2:sha256$test$dummy")
             db.session.add(user)
             db.session.add(FSO(fso_name="Test Officer"))
             db.session.commit()

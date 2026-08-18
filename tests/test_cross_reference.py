@@ -43,7 +43,7 @@ def test_client():
 
             user = User(
                 username="xrefuser",
-                password_hash="pbkdf2:sha256$test$dummy",  # noqa: S106
+                password_hash="pbkdf2:sha256$test$dummy",
             )
             db.session.add(user)
 

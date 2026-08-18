@@ -98,7 +98,7 @@ def run_arm_d_kg(question: dict, limit: int) -> dict:
     queries = LegalKGQueries()
     try:
         provisions = provisions_for_query(question["question"], queries, limit=limit)
-    except Exception as exc:  # noqa: BLE001 - best-effort by design
+    except Exception as exc:
         logger.warning("arm D failed for %s: %s", question["question_id"], exc)
         provisions = []
     return {
@@ -187,14 +187,14 @@ def main() -> int:
     from evaluation.benchmark import load_gold_registry, load_questions
     from evaluation.ceiling_config import (
         DENSE_DEPTH,
+        EXACT_DEPTH,
         HYBRID_DEPTH,
         KG_DIAGNOSTIC_LIMIT,
         LIVE_ARMS,
+        ORACLE_DEPTH,
         OUT_DIR,
         RAW_DIR,
         SPARSE_DEPTH,
-        ORACLE_DEPTH,
-        EXACT_DEPTH,
         write_freeze,
     )
 
@@ -286,7 +286,7 @@ def main() -> int:
                             raise ValueError(f"unknown arm: {arm}")
                         result["arm"] = arm
                         result["question_id"] = q.question_id
-                    except Exception as exc:  # noqa: BLE001 - per-question isolation
+                    except Exception as exc:
                         logger.error("arm %s q %s failed: %s", arm, q.question_id, exc)
                         result = {
                             "arm": arm, "question_id": q.question_id,

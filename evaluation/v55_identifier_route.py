@@ -93,21 +93,23 @@ def run_identifier_arm() -> int:
                     try:
                         res = _retrieve(collection, query, "sparse", top_k=500)
                         rec["chunk_ids"] = res["chunk_ids"]
-                    except Exception as exc:  # noqa: BLE001 - per-question isolation
+                    except Exception as exc:
                         rec["error"] = f"{type(exc).__name__}: {exc}"
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 n_new += 1
-        print(f"identifier arm: {len(cache) + n_new} questions cached ({n_new} new)")
     return 0
 
 
 def analyze() -> int:
     from app import create_app
     from evaluation.benchmark import load_gold_registry, load_questions
-    from evaluation.resolution import FamilyMap
-    from evaluation.report_ceiling import load_payload_index, load_raw, build_union_arms, \
-        unit_first_ranks, metrics_from_ranks
     from evaluation.ceiling_config import DEPTHS
+    from evaluation.report_ceiling import (
+        build_union_arms,
+        load_payload_index,
+        load_raw,
+    )
+    from evaluation.resolution import FamilyMap
 
     app = create_app()
     with app.app_context():
@@ -208,7 +210,6 @@ def analyze() -> int:
             "oracle_pool_ceiling": 0.8378,  # V5 ablation step 2 (gold-derived)
         }
         (OUT / "v55_pool_ceiling.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
-        print(json.dumps(out, indent=1))
 
         with (OUT / "v55_identifier_route.csv").open("w", encoding="utf-8", newline="") as f:
             import csv
@@ -216,8 +217,6 @@ def analyze() -> int:
             w.writerow(["question_id", "gold_unit", "family", "ident_form", "ident_query"])
             for row in workset_rows:
                 w.writerow(row)
-        print(f"\nwrote v55_pool_ceiling.json + v55_identifier_route.csv "
-              f"({len(workset_rows)} workset rows recovered by P1)")
     return 0
 
 
@@ -235,7 +234,6 @@ def main() -> int:
         return run_identifier_arm()
     if args.analyze:
         return analyze()
-    print("use --run and/or --analyze")
     return 1
 
 

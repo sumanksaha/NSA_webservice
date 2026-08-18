@@ -16,7 +16,6 @@ Covers the four fixes against mock Neo4j drivers (no network, no credentials):
 from __future__ import annotations
 
 import pytest
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -266,7 +265,7 @@ class TestConceptLinking:
 
             def execute_query(self, cypher, parameters_=None, database_=None):
                 self.calls.append(cypher)
-                from tests.test_kg_remediation import FakeResult, FakeRecord
+                from tests.test_kg_remediation import FakeRecord, FakeResult
 
                 if "OPTIONAL MATCH (x)-[e]->(c) WHERE NOT (x:LegalConcept)" in cypher:
                     return FakeResult([FakeRecord({"concept_id": "BusinessCivil", "name": "Business Civil Law",

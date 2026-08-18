@@ -25,9 +25,9 @@ from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
 from app import create_app
-from evaluation.benchmark import load_gold_registry, load_questions, GoldUnit
-from evaluation.resolution import FamilyMap, norm_act_name, matches_gold
-from evaluation.report_ceiling import load_payload_index, load_raw, build_union_arms, unit_first_ranks
+from evaluation.benchmark import GoldUnit, load_gold_registry, load_questions
+from evaluation.report_ceiling import build_union_arms, load_payload_index, load_raw, unit_first_ranks
+from evaluation.resolution import FamilyMap, matches_gold
 
 OUT = Path("evaluation/out/ceiling_v5")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -54,9 +54,8 @@ def doc_payloads(payload_index: dict, unit: GoldUnit) -> list[tuple[str, dict]]:
 def classify_unit(unit: GoldUnit, payload_index: dict, family_map) -> dict:
     """Classify one corpus-missing unit into A–G (Task 3)."""
     reg = load_gold_registry().get(unit.provision_id, {})
-    title = str(reg.get("title") or "")
+    str(reg.get("title") or "")
     docs = doc_payloads(payload_index, unit)
-    section_meta = unit.section
     non_numeric = unit.section is not None and not unit.section.isdigit()
     # does any payload match the unit under corrected resolution?
     present = any(matches_gold(pl, unit, family_map) for pl in payload_index.values())
@@ -112,7 +111,6 @@ def main() -> int:
         questions = {q.question_id: q for q in load_questions()}
 
         # ---- per-unit availability under CORRECTED resolution
-        units_by_q: dict[str, list[GoldUnit]] = {}
         avail = {}
         for qid, q in questions.items():
             for u in q.gold_units:
@@ -157,10 +155,8 @@ def main() -> int:
             w = csv.writer(f)
             w.writerows(rows)
         from collections import Counter
-        print("=== Task 3: corpus-missing classification (corrected resolution) ===")
-        print("corpus_missing units:", len(corpus_missing))
-        for cls, n in Counter(c["classification"] for c in classified).most_common():
-            print(f"  {cls}: {n}")
+        for cls, _n in Counter(c["classification"] for c in classified).most_common():
+            pass
 
         # ---- Task 4: WBMO special audit
         wbmo_units = [u for u in avail.values() if u["unit"].family == "wbmo"]
@@ -188,10 +184,8 @@ def main() -> int:
                          "measured non-zero effect, not zero."),
             })
         (OUT / "v5_wbmo_audit.json").write_text(json.dumps(wbmo_rows, indent=2), encoding="utf-8")
-        print("\n=== Task 4: WBMO ===")
         for r in wbmo_rows:
-            print(f"  {r['gold_unit']:16s} payloads={r['corpus_payloads']:3d} "
-                  f"sections={r['payload_section_numbers']} present_corrected={r['corpus_present_corrected']}")
+            pass
 
         # ---- Task 6: retrieval-missing workset (corpus-present, absent from
         #      500-pool).  Uses the SAME definition as the route analysis
@@ -202,10 +196,7 @@ def main() -> int:
         #      per-arm ranks + failure class.
         from evaluation.v5_routes import _workset as _routes_workset
 
-        workset = _routes_workset(load_questions(), registry)
-        print(f"\n=== Task 6: retrieval-missing workset = {len(workset)} units ===")
-        from collections import Counter as C
-        print("  by family:", dict(C(u.family for _, _, u, _ in workset)))
+        _routes_workset(load_questions(), registry)
     return 0
 
 

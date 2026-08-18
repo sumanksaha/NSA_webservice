@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 
@@ -41,7 +40,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="testfso", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="testfso", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -71,7 +70,7 @@ class TestInspectionConcurrency:
         from app.extensions import db
         from app.models import Inspection
 
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             insp = Inspection(
                 inspection_code="T1",
@@ -95,7 +94,7 @@ class TestInspectionConcurrency:
         from app.extensions import db
         from app.models import Inspection
 
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             insp = Inspection(
                 inspection_code="T2",
@@ -126,7 +125,7 @@ class TestSampleConcurrency:
         from app.extensions import db
         from app.models import Sample
 
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             samp = Sample(
                 sample_code="SMP-001",
@@ -150,7 +149,7 @@ class TestSampleConcurrency:
         from app.extensions import db
         from app.models import Sample
 
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             samp = Sample(
                 sample_code="SMP-002",

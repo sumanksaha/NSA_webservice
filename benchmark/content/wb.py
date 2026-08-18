@@ -1,5 +1,5 @@
 """Municipal (KMC) + Land/Premises (WB Premises Tenancy) benchmark questions (20)."""
-from .base import Q, P
+from .base import P, Q
 
 COL_KMC = "wb_state_legal_768"
 COL_PT = "wb_state_legal_768"

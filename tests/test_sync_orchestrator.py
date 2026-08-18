@@ -14,7 +14,7 @@ class TestSyncOrchestrator:
     """Verify sync_row delegates to all three targets and returns per-target flags."""
 
     def test_sync_row_all_targets_succeed(self):
-        from app.services.sync_orchestrator import sync_row, SyncResult
+        from app.services.sync_orchestrator import sync_row
 
         # The orchestrator lazy-imports the real sync functions, so we patch them at their source modules.
         with (

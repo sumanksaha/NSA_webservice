@@ -11,13 +11,13 @@ import pytest
 
 pytest.importorskip("nsa_rust")
 
-import json  # noqa: E402
+import json
 
-import nsa_rust  # noqa: E402
+import nsa_rust
 
-from app.document_cleaner import normalizers as py_normalizers  # noqa: E402
-from app.document_cleaner import removers as py_removers  # noqa: E402
-from app.document_cleaner.pipeline import DocumentCleaner  # noqa: E402
+from app.document_cleaner import normalizers as py_normalizers
+from app.document_cleaner import removers as py_removers
+from app.document_cleaner.pipeline import DocumentCleaner
 
 # Sample corpus exercising Unicode, bullets, quotes, tabs, hyphens, spacing,
 # trailing whitespace, excess blank lines and encoding artifacts.
@@ -152,7 +152,7 @@ def test_run_removers_parity():
     assert json.loads(removed_json) == [item.model_dump() for item in py_items]
 
 
-@pytest.mark.parametrize("text", CORPUS + ["\u0001\u0002\u0003garbage\u0007", "clean text only"])
+@pytest.mark.parametrize("text", [*CORPUS, "\x01\x02\x03garbage\x07", "clean text only"])
 def test_remove_ocr_artifacts_parity(text):
     """Rust `remove_ocr_artifacts` matches pure Python char-for-char."""
     cleaned, removed_json = nsa_rust.remove_ocr_artifacts(text)

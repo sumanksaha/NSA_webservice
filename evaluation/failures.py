@@ -70,7 +70,6 @@ def decompose(
         labels.append("F13")
 
     # --- reasoning / answer ---
-    answered_ok = grade["score"] >= 1
     if context_ok and grade["score"] == 0:
         stages["reasoning_failure"] = True
         labels.append("F14")

@@ -7,11 +7,10 @@ No Qdrant/network required — all verification runs against in-memory
 
 from __future__ import annotations
 
-from app.rag.evaluation import GroundednessMetric
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.verification import (
-    ClaimExtractor,
     CitationValidator,
+    ClaimExtractor,
     EvidenceVerifier,
     GroundednessScorer,
     HallucinationDetector,

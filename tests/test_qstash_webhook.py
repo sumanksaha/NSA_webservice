@@ -18,7 +18,7 @@ _QSTASH_KEYS = (
 )
 
 _TEST_USERNAME = "testuser"
-_TEST_PASSWORD = "testpass123"  # noqa: S105 — test fixture
+_TEST_PASSWORD = "testpass123"
 
 
 def _clear_qstash_env(monkeypatch):

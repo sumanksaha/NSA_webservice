@@ -2,27 +2,21 @@
 
 from dataclasses import dataclass
 
-import pytest
-
+from app.rag.retrieval.evidence_metrics import (
+    evaluate_evidence_batch,
+    evaluate_evidence_set,
+    evidence_coverage_at_k,
+    evidence_set_f1,
+    evidence_set_precision,
+    evidence_set_recall,
+)
 from app.rag.retrieval.evidence_selector import (
-    EVIDENCE_PRIMARY,
     EVIDENCE_DEFINITION,
     EVIDENCE_EXCEPTION,
     EVIDENCE_PENALTY,
-    EVIDENCE_CROSS_REFERENCE,
-    EvidenceItem,
+    EVIDENCE_PRIMARY,
     EvidenceSet,
     select_evidence_set,
-)
-from app.rag.retrieval.evidence_metrics import (
-    EvidenceMetricResult,
-    evidence_set_recall,
-    evidence_set_precision,
-    evidence_set_f1,
-    evidence_coverage_at_k,
-    evaluate_evidence_set,
-    evaluate_evidence_batch,
-    EvidenceBatchResult,
 )
 
 
@@ -40,7 +34,7 @@ class FakeChunk:
 class TestEvidenceSelection:
     def _make_chunks(self, n: int = 5) -> list[FakeChunk]:
         return [
-            FakeChunk(chunk_id=f"c{i}", text=f"Section 31 text about penalties fine.", section_number="31", act_name="FSS Act", score=0.9 - i * 0.05)
+            FakeChunk(chunk_id=f"c{i}", text="Section 31 text about penalties fine.", section_number="31", act_name="FSS Act", score=0.9 - i * 0.05)
             for i in range(n)
         ]
 

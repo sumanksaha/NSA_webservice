@@ -12,10 +12,8 @@ from __future__ import annotations
 
 import os
 
-import pytest
-
-from app.rag.retrieval.result import RetrievedChunk
 from app.rag.retrieval.reranker import EnsembleReranker, Reranker
+from app.rag.retrieval.result import RetrievedChunk
 
 
 def _chunk(
@@ -448,13 +446,13 @@ class TestLegalStructureLayerInPipeline:
         assert _evidence_selector_enabled() is False
 
     def test_evidence_selector_flag_on(self, monkeypatch):
-        from app.rag.tasks import _evidence_selector_enabled
         monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "true")
         # Need to reimport or call with env — the function reads env directly
         # so we need to use a monkeypatched Flask config approach.
         # Since _evidence_selector_enabled falls back to env when no app
         # context, setting the env var should work.
         import importlib
+
         import app.rag.tasks as t
         importlib.reload(t)
         assert t._evidence_selector_enabled() is True

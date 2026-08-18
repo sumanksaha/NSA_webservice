@@ -40,7 +40,6 @@ MAX_LEN = 256
 
 def main() -> int:
     import torch
-    from torch.utils.data import DataLoader
 
     # Bound the intra-op thread pool.  On Windows, PyTorch defaults to one
     # thread per core, and for small per-step work the sync overhead
@@ -67,7 +66,6 @@ def main() -> int:
                 pairs.append((q, n["text"], 0))
 
     labels = Counter(label for _, _, label in pairs)
-    print(f"loaded {len(pairs)} pairs: positives={labels[1]} negatives={labels[0]}", flush=True)
 
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
     model = AutoModelForSequenceClassification.from_pretrained(BASE_MODEL, num_labels=1)
@@ -98,7 +96,7 @@ def main() -> int:
     n = len(pairs)
     order = torch.randperm(n)
     t0 = time.time()
-    for epoch in range(EPOCHS):
+    for _epoch in range(EPOCHS):
         epoch_loss = 0.0
         steps = 0
         order = torch.randperm(n)
@@ -113,11 +111,6 @@ def main() -> int:
             optimizer.zero_grad()
             epoch_loss += loss.item() * len(idx)
             steps += 1
-        print(
-            f"epoch {epoch + 1}/{EPOCHS} loss={epoch_loss / max(n, 1):.4f} "
-            f"({steps} steps, {time.time() - t0:.0f}s elapsed)",
-            flush=True,
-        )
     elapsed = time.time() - t0
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -139,7 +132,6 @@ def main() -> int:
     (PROJECT_ROOT / "evaluation" / "out" / "models" / "ce_finetune_summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
-    print(json.dumps(summary, indent=2))
     return 0
 
 

@@ -41,11 +41,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 
-from neo4j import GraphDatabase, basic_auth  # noqa: E402
+from neo4j import GraphDatabase, basic_auth
 
 #: Labels that own legal instruments in this KG.
 _INSTRUMENT_LABELS = "Act|Rule|Regulation|Notification|Circular|Order|Guideline|Judgment"
@@ -159,8 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
     try:
         summary = remediate(drv, database, dry_run=args.dry_run)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: remediation failed: {exc}", file=sys.stderr)
+    except Exception:
         return 1
     finally:
         drv.close()
@@ -169,13 +168,10 @@ def main(argv: list[str] | None = None) -> int:
         args.out_dir.mkdir(parents=True, exist_ok=True)
         name = "kg_temporal_dryrun.json" if args.dry_run else "kg_temporal_remediation.json"
         (args.out_dir / name).write_text(json.dumps(summary, indent=2), encoding="utf-8")
-        print(f"summary -> {args.out_dir / name}")
-    except OSError as exc:
-        print(f"warning: could not write summary: {exc}", file=sys.stderr)
+    except OSError:
+        pass
 
-    print(json.dumps(summary, indent=2))
     if summary["risk_after"] != 0:
-        print("error: risk query still > 0 — provisions under non-current instruments remain 'current'", file=sys.stderr)
         return 2
     return 0
 

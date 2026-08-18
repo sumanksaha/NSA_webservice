@@ -10,15 +10,12 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from app.rag.entity_extractor import (
     LegalEntity,
     LegalEntityExtractor,
     _dedupe,
     _looks_like_entity,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Doubles

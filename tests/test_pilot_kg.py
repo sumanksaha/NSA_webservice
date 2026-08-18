@@ -15,13 +15,13 @@ NEO4J_URI + NEO4J_PASSWORD in .env).  Unit tests work against a mock driver.
 from __future__ import annotations
 
 import os
-import re
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 # Load .env for integration tests
 from dotenv import load_dotenv
+
 load_dotenv()
 
 NEO4J_AVAILABLE = bool(os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_PASSWORD"))
@@ -132,22 +132,21 @@ class TestDomainManifest:
                 f"Instrument {inst.instrument_id} references unknown authority {inst.issuing_authority}"
 
     def test_cross_domain_relationships_are_valid(self):
-        from kg.domain_manifest import CROSS_DOMAIN_RELATIONSHIPS, PILOT_INSTRUMENTS
-        from kg.domain_manifest import PROVISION_STUBS
+        from kg.domain_manifest import CROSS_DOMAIN_RELATIONSHIPS, PILOT_INSTRUMENTS, PROVISION_STUBS
         all_pids = {f"{inst.instrument_id}_SEC_{s}" for inst in PILOT_INSTRUMENTS
-                     for s in PROVISION_STUBS.get(inst.instrument_id, {}).keys()}
+                     for s in PROVISION_STUBS.get(inst.instrument_id, {})}
         # Also include FSS Act sections
         all_pids.update(f"FSS_ACT_2006_SEC_{s}" for s in PILOT_INSTRUMENTS[0].provisions)
-        for src, rel, tgt, ev in CROSS_DOMAIN_RELATIONSHIPS:
+        for src, _rel, tgt, ev in CROSS_DOMAIN_RELATIONSHIPS:
             # Evidence must always be non-empty
             assert ev and len(ev) > 10, f"Cross-domain rel {src}->{tgt} has empty evidence"
 
     def test_provision_concept_map_references_exist(self):
-        from kg.domain_manifest import PROVISION_CONCEPT_MAP, CONCEPTS, AUTHORITIES
+        from kg.domain_manifest import AUTHORITIES, CONCEPTS, PROVISION_CONCEPT_MAP
         # Authority is a node label, also valid as a target
         valid_ids = set(CONCEPTS.keys()) | set(AUTHORITIES.keys()) | {"Authority"}
         for pid, mappings in PROVISION_CONCEPT_MAP.items():
-            for concept_id, rel_type, evidence in mappings:
+            for concept_id, _rel_type, evidence in mappings:
                 # Concept must exist OR be an authority (FSO, WB_FODDER_DEPT, etc.) or "Authority" label
                 assert concept_id in valid_ids, \
                     f"Unknown concept/authority: {concept_id} in {pid}"
@@ -258,33 +257,33 @@ class TestValidation:
     def test_check_orphan_provisions_empty(self, kg_validator):
         result = kg_validator.check_orphan_provisions()
         assert result["check"] == "orphan_provisions"
-        assert result["passed"] == True  # empty graph → no orphans
+        assert result["passed"]  # empty graph → no orphans
 
     def test_check_no_hallucinated_relationships(self, kg_validator):
         result = kg_validator.check_no_hallucinated_relationships()
         assert result["check"] == "no_hallucinated_relationships"
-        assert result["passed"] == True  # mock returns empty
+        assert result["passed"]  # mock returns empty
 
     def test_check_domain_separation(self, kg_validator):
         kg_validator._driver.set_return("food_safety_count", [{"food_safety_count": 100, "land_premises_count": 0}])
         result = kg_validator.check_domain_separation()
-        assert result["passed"] == True
+        assert result["passed"]
 
     def test_check_domain_separation_violation(self, kg_validator):
         kg_validator._driver.set_return("count", [{"food_safety_count": 100, "land_premises_count": 5}])
         result = kg_validator.check_domain_separation()
-        assert result["passed"] == False
+        assert not result["passed"]
 
     def test_check_cross_domain_retrieval_no_domains(self, kg_validator):
         kg_validator._driver.set_return("domains", [{"domains": []}])
         result = kg_validator.check_cross_domain_retrieval("Slaughterhouse")
-        assert result["passed"] == False
+        assert not result["passed"]
         assert len(result["domains"]) == 0
 
     def test_check_cross_domain_retrieval_multi_domain(self, kg_validator):
         kg_validator._driver.set_return("domains", [{"domains": ["FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION", "MUNICIPAL"]}])
         result = kg_validator.check_cross_domain_retrieval("Slaughterhouse")
-        assert result["passed"] == True
+        assert result["passed"]
         assert len(result["domains"]) >= 4
 
 
@@ -348,8 +347,8 @@ class TestNeo4jIntegration:
     @pytest.fixture(autouse=True)
     def setup_graph(self):
         """Run full ingestion before tests in this class."""
-        from kg.schema import clear_legal_kg, setup_legal_kg_schema
         from kg.ingestion import LegalKGIngestionEngine
+        from kg.schema import setup_legal_kg_schema
 
         # Setup schema
         setup_legal_kg_schema()

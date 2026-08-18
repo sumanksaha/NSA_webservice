@@ -48,8 +48,8 @@ def main() -> int:
 
     from app import create_app
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap, matches_gold
     from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap, matches_gold
 
     app = create_app()
     with app.app_context():
@@ -70,11 +70,10 @@ def main() -> int:
         # the three reranker configs to the SAME pool.  This mirrors the
         # evaluation methodology (arms.py) and the production pipeline minus
         # its final rerank step, so the comparison isolates the reranker.
-        from app.rag.retrieval import DenseRetriever, HybridRetriever, QueryClassifier, QueryParser, SparseRetriever
         from app.rag.qdrant_client import QdrantStore
-        from app.rag.sparse_embedding import SparseEmbeddingService
+        from app.rag.retrieval import DenseRetriever, HybridRetriever, QueryClassifier, QueryParser, SparseRetriever
         from app.rag.retrieval.identifier import identifier_query
-        from app.rag.retrieval.result import RetrievedChunk
+        from app.rag.sparse_embedding import SparseEmbeddingService
 
         classifier = QueryClassifier()
         parser = QueryParser()
@@ -82,7 +81,6 @@ def main() -> int:
         for qid in SAMPLE_IDS:
             q = questions.get(qid)
             if q is None:
-                print(f"[verify] {qid} not found — skipping", file=sys.stderr)
                 continue
             collection = (q.collections or ["fssai_legal_768"])[0]
             qtype = classifier.classify(q.question)
@@ -95,16 +93,11 @@ def main() -> int:
             )
             hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=None)
             ident_q, _meta = identifier_query(q.question)
-            t0 = time.time()
+            time.time()
             result = hybrid.retrieve(
                 q.question, top_k=20, filters=parsed, identifier_query=ident_q
             )
             raw = result.chunks
-            print(
-                f"[verify] {qid} retrieved {len(raw)} chunks "
-                f"({time.time() - t0:.1f}s) — {q.question[:60]!r}",
-                file=sys.stderr,
-            )
             per = {}
             for name, rr in rerankers.items():
                 reranked = rr.rerank(q.question, list(raw), top_k=10)
@@ -143,7 +136,6 @@ def main() -> int:
         for name in agg:
             agg[name]["any_hit_R10"] = round(agg[name]["any_hit_R10"] / max(agg[name]["n"], 1), 3)
             agg[name]["unit_R10"] = round(agg[name]["unit_R10"] / max(agg[name]["n"], 1), 3)
-        print(json.dumps(agg, indent=1))
     return 0
 
 

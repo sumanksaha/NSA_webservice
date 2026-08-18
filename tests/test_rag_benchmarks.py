@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import json
 
+from test_corpus_ingestion_e2e import InMemoryQdrantClient
+
 import scripts.benchmark_rag as bench
 from app.rag.chunker import Chunk
 from app.rag.qdrant_client import Point, QdrantStore
-
-from test_corpus_ingestion_e2e import InMemoryQdrantClient
 
 _SAMPLE = (
     "The Food Safety and Standards Act, 2006\n\n"

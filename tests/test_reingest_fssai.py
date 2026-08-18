@@ -25,7 +25,6 @@ import pytest
 
 import scripts.reingest_fssai_from_db as rdb
 
-
 # --------------------------------------------------------------------------- #
 # Fixtures / helpers
 # --------------------------------------------------------------------------- #
@@ -306,6 +305,7 @@ class TestBackupGuard:
                 )
 
         import qdrant_client
+
         import app.rag.qdrant_indexer as qdi
 
         monkeypatch.setattr(qdrant_client, "QdrantClient", FakeClient)
@@ -390,6 +390,7 @@ class TestCli:
                 )
 
         import qdrant_client
+
         import app.rag.qdrant_indexer as qdi
 
         monkeypatch.setattr(qdrant_client, "QdrantClient", FakeClient)

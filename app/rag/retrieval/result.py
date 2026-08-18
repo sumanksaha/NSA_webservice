@@ -26,6 +26,7 @@ class RetrievedChunk:
     score: float
     text: str
     section_number: str | None = None
+    clause_number: str | None = None
     document_title: str = ""
     act_name: str = ""
     document_type: str = ""
@@ -40,6 +41,7 @@ class RetrievedChunk:
             "score": round(self.score, 6),
             "text": self.text,
             "section_number": self.section_number,
+            "clause_number": self.clause_number,
             "document_title": self.document_title,
             "act_name": self.act_name,
             "document_type": self.document_type,
@@ -56,6 +58,7 @@ class RetrievedChunk:
             score=data["score"],
             text=data["text"],
             section_number=data.get("section_number"),
+            clause_number=data.get("clause_number"),
             document_title=data.get("document_title", ""),
             act_name=data.get("act_name", ""),
             document_type=data.get("document_type", ""),

@@ -15,7 +15,6 @@ import json
 from app.rag.document_classifier import DocumentClassification, DocumentClassifier
 from app.rag.ingestion import IngestionPipeline
 
-
 # --------------------------------------------------------------------------- #
 # Doubles
 # --------------------------------------------------------------------------- #

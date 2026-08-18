@@ -198,6 +198,5 @@ def coverage_report() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    import json
+    pass
 
-    print(json.dumps(coverage_report(), indent=2))

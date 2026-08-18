@@ -11,11 +11,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv()
 
-from qdrant_client import QdrantClient  # noqa: E402
+from qdrant_client import QdrantClient
 
 
 def safe_vector(v):
@@ -53,4 +53,3 @@ Path("reports").mkdir(exist_ok=True)
 path = Path("reports") / "fssai_legal_768_pre_reingest_backup.json"
 with open(path, "w") as f:
     json.dump(out, f)
-print(f"BACKUP {path}: {len(out)} points (with vectors)")

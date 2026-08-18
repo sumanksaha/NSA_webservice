@@ -22,7 +22,6 @@ from app.rag.document_classifier import DocumentClassifier
 from app.rag.embedding_service import EmbeddingService
 from app.rag.qdrant_client import Point, QdrantStore
 
-
 # --------------------------------------------------------------------------- #
 # Doubles
 # --------------------------------------------------------------------------- #
@@ -120,8 +119,8 @@ class TestSmokeEmbedding:
 
 class TestSmokeChunking:
     def test_chunks_with_section_numbers(self):
-        from app.services.legal_engine import get_legal_engine
         from app.rag.chunker import Chunker
+        from app.services.legal_engine import get_legal_engine
 
         engine = get_legal_engine()()
         chunker = Chunker(engine=engine)

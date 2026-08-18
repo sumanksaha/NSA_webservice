@@ -43,6 +43,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import contextlib
+
 from dotenv import load_dotenv
 
 OUT = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5"
@@ -50,10 +52,8 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 TOP_K = 10
 POOL_K = 20
-try:
+with contextlib.suppress(ValueError):
     POOL_K = int(os.environ.get("MEASURE_POOL_K", "20"))
-except ValueError:
-    pass
 CHECKPOINT = OUT / f"ensemble_live_k{POOL_K}.checkpoint.jsonl"
 AGGREGATE = OUT / f"ensemble_live_k{POOL_K}.json"
 
@@ -114,9 +114,7 @@ def main() -> int:
     load_dotenv(PROJECT_ROOT / ".env")
 
     from app import create_app
-    from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap, matches_gold
-    from evaluation.report_ceiling import load_payload_index
+    from app.rag.qdrant_client import QdrantStore
     from app.rag.retrieval import (
         DenseRetriever,
         HybridRetriever,
@@ -125,10 +123,12 @@ def main() -> int:
         Reranker,
         SparseRetriever,
     )
-    from app.rag.retrieval.reranker import EnsembleReranker
     from app.rag.retrieval.identifier import identifier_query
-    from app.rag.qdrant_client import QdrantStore
+    from app.rag.retrieval.reranker import EnsembleReranker
     from app.rag.sparse_embedding import SparseEmbeddingService
+    from evaluation.benchmark import load_questions
+    from evaluation.report_ceiling import load_payload_index
+    from evaluation.resolution import FamilyMap, matches_gold
 
     app = create_app()
     with app.app_context():
@@ -191,13 +191,9 @@ def main() -> int:
 
         done = load_checkpoint()
         todo = [qid for qid in questions if qid not in done]
-        print(
-            f"[measure_ensemble_live] pool_k={POOL_K}: {len(done)} done, {len(todo)} to compute",
-            file=sys.stderr,
-        )
 
-        t0 = time.time()
-        n_done = len(done)
+        time.time()
+        len(done)
         for qid in todo:
             q = questions[qid]
             collection = (q.collections or ["fssai_legal_768"])[0]
@@ -208,8 +204,7 @@ def main() -> int:
                 parsed = parser.parse(q.question, qtype) or {}
                 ident_q, _meta = identifier_query(q.question)
                 result = hybrid.retrieve(q.question, top_k=POOL_K, filters=parsed, identifier_query=ident_q)
-            except Exception as exc:  # noqa: BLE001 - per-question isolation
-                print(f"[measure_ensemble_live] {qid} retrieval failed: {exc}", file=sys.stderr)
+            except Exception as exc:
                 append_checkpoint({"question_id": qid, "error": str(exc)})
                 continue
             raw = result.chunks
@@ -227,7 +222,7 @@ def main() -> int:
                 off = reranker_off.rerank(q.question, list(raw), top_k=TOP_K)
                 off_ms = round((time.monotonic() - _r_t0) * 1000)
                 rec["rerankers"]["ensemble_off"] = {**measure(off, q), "latency_ms": off_ms}
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 rec["rerankers"]["ensemble_off"] = {"error": str(exc)}
             try:
                 _r_t0 = time.monotonic()
@@ -239,7 +234,8 @@ def main() -> int:
                 # and identical across weight configs; only CE weight + head
                 # size vary.  Storing chunk_id + base_score + feature flags +
                 # CE scores lets the sweep script re-rank without re-fetching.
-                from app.rag.retrieval.identifier import detect_section, detect_act as _detect_act
+                from app.rag.retrieval.identifier import detect_act as _detect_act
+                from app.rag.retrieval.identifier import detect_section
 
                 q_sec_dbg, _ = detect_section(q.question)
                 q_act_dbg = _detect_act(q.question)
@@ -286,7 +282,7 @@ def main() -> int:
                     "ce_scores": ce_scores,
                 }
                 rec["rerankers"]["ensemble_on"] = m
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 rec["rerankers"]["ensemble_on"] = {"error": str(exc)}
 
             done[qid] = rec
@@ -300,7 +296,7 @@ def main() -> int:
             lat_sum = 0
             lat_n = 0
             by_type: dict[str, dict] = {}
-            for qid, rec in done.items():
+            for _qid, rec in done.items():
                 rr = rec.get("rerankers", {}).get(name)
                 if not rr or "error" in rr:
                     continue
@@ -355,7 +351,6 @@ def main() -> int:
             },
         }
         AGGREGATE.write_text(json.dumps(results, indent=2), encoding="utf-8")
-        print(json.dumps(results, indent=1))
     return 0
 
 

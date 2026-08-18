@@ -19,7 +19,6 @@ from unittest import mock
 
 import pytest
 
-
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
@@ -45,7 +44,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="aitestuser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="aitestuser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -73,7 +72,7 @@ def _setup_unauthenticated_client():
     db.drop_all()
     db.create_all()
 
-    user = User(username="aitestuser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="aitestuser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -84,7 +83,6 @@ def _setup_unauthenticated_client():
 
 def _mock_httpx_response(content, tokens=42, status_code=200):
     """Create a mock httpx.Response compatible object."""
-    import httpx
 
     mock_resp = mock.MagicMock()
     mock_resp.status_code = status_code
@@ -115,7 +113,7 @@ class TestServiceConstruction:
 
     def test_disabled_when_no_api_key(self):
         """Service is disabled when AI_ASSISTANT_API_KEY is empty."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = ""
         from app.ai_assistant.service import AIAssistantService
@@ -126,7 +124,7 @@ class TestServiceConstruction:
 
     def test_disabled_when_no_provider(self):
         """Service is disabled when AI_ASSISTANT_PROVIDER is empty."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
         from app.ai_assistant.service import AIAssistantService
@@ -137,7 +135,7 @@ class TestServiceConstruction:
 
     def test_enabled_when_configured(self):
         """Service is enabled when both provider and key are set."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
         from app.ai_assistant.service import AIAssistantService
@@ -150,7 +148,7 @@ class TestServiceConstruction:
 
     def test_provider_override(self):
         """Constructor accepts a provider override."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
         from app.ai_assistant.service import AIAssistantService
@@ -169,7 +167,7 @@ class TestServiceConstruction:
 @pytest.fixture
 def svc_enabled():
     """An AIAssistantService with config set for OpenRouter."""
-    app, client, ctx = _setup_test_env()
+    app, _client, _ctx = _setup_test_env()
     app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
     app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
     app.config["AI_ASSISTANT_MODEL"] = "test-model"
@@ -285,7 +283,7 @@ class TestServiceErrors:
 
     def test_request_when_disabled_raises(self):
         """Calling _request when disabled raises RuntimeError."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         # Force unconfigured state — env may define AI creds on the dev box.
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = ""
@@ -300,7 +298,7 @@ class TestServiceErrors:
         """Service retries on 429 and eventually succeeds."""
         import httpx
 
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
         from app.ai_assistant.service import AIAssistantService
@@ -331,14 +329,14 @@ class TestAssistRoute:
 
     def test_route_registered(self):
         """The /ai-assistant/assist route should be in the app's URL map."""
-        app, client, ctx = _setup_test_env()
+        app, _client, _ctx = _setup_test_env()
         rules = [str(r) for r in app.url_map.iter_rules()]
         ai_rules = [r for r in rules if "ai-assistant" in r]
         assert len(ai_rules) > 0, "No /ai-assistant routes found in URL map"
 
     def test_not_configured_returns_503(self):
         """When AI is not configured, the route returns 503."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         # Force unconfigured state — env may define AI creds on the dev box.
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = ""
@@ -352,7 +350,7 @@ class TestAssistRoute:
 
     def test_invalid_action_returns_400(self):
         """An invalid action name returns 400."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 
@@ -366,7 +364,7 @@ class TestAssistRoute:
 
     def test_missing_content_returns_400(self):
         """Missing content returns 400."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 
@@ -378,7 +376,7 @@ class TestAssistRoute:
 
     def test_non_dict_payload_returns_400(self):
         """A non-dict JSON body returns 400."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 
@@ -390,7 +388,7 @@ class TestAssistRoute:
 
     def test_unauthenticated_redirects(self):
         """Unauthenticated requests are redirected to login (302)."""
-        app, unauth_client, ctx = _setup_unauthenticated_client()
+        _app, unauth_client, _ctx = _setup_unauthenticated_client()
         resp = unauth_client.post(
             "/ai-assistant/assist",
             json={"action": "summarize", "content": "test"},
@@ -400,7 +398,7 @@ class TestAssistRoute:
 
     def test_successful_request_returns_200(self):
         """A valid request with mocked LLM returns 200 + result."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 
@@ -418,7 +416,7 @@ class TestAssistRoute:
 
     def test_list_result_is_json_stringified_for_transport(self):
         """detect_contradictions result is JSON-stringified in the response."""
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 
@@ -438,9 +436,8 @@ class TestAssistRoute:
 
     def test_draft_prayers_uses_context(self):
         """draft_prayers uses context.facts and context.grounds in the prompt."""
-        import httpx
 
-        app, client, ctx = _setup_test_env()
+        app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"
 

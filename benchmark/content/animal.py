@@ -1,5 +1,5 @@
 """Animal / ANIMAL_SLAUGHTER benchmark questions (15)."""
-from .base import Q, P
+from .base import P, Q
 
 DOC_MEAT = "wb_meat_order_1966"
 DOC_PCRA = "prevention_cruelty_animals_rules_2017"

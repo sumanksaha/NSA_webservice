@@ -41,7 +41,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.ranking_loss_trainer import (  # noqa: E402
+from evaluation.ranking_loss_trainer import (
     BASE_MODEL,
     BATCH_SIZE,
     LR,
@@ -77,13 +77,8 @@ def _fmt_eta(seconds: int | None) -> str:
 def _print_status(path: Path) -> int:
     """Print the current training-status JSON (pollable from another process)."""
     if not path.exists():
-        print(
-            f"[status] no status file at {path} — training has not started yet",
-            file=sys.stderr,
-        )
         return 1
-    data = json.loads(path.read_text(encoding="utf-8"))
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+    json.loads(path.read_text(encoding="utf-8"))
     return 0
 
 
@@ -93,29 +88,26 @@ def _watch_status(path: Path, interval: float) -> int:
     Run this in a separate terminal while the trainer runs; it never
     touches the training process (the trainer writes the file atomically).
     """
-    print(f"[watch] polling {path} every {interval:g}s (Ctrl+C to stop)", file=sys.stderr)
     last = None
     while True:
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
-            except Exception:  # noqa: BLE001 - torn/partial read (atomic write avoids this)
+            except Exception:
                 data = None
             if data is not None and data != last:
-                line = (
+                (
                     f"step {data.get('global_step')}/{data.get('total_steps')} "
                     f"({data.get('percent')}%) epoch {data.get('epoch')}/{data.get('epochs')} "
                     f"phase={data.get('phase')} loss={data.get('train_loss')} "
                     f"val={data.get('val_loss')} best={data.get('best_val_loss')} "
                     f"rss={data.get('peak_rss_mb')}MB eta={_fmt_eta(data.get('eta_seconds'))}"
                 )
-                print(line, flush=True)
                 last = data
                 if data.get("status") in ("done", "interrupted"):
-                    print(f"[watch] training {data.get('status')} — stopping", flush=True)
                     return 0
         else:
-            print("[watch] status file not found yet — is training running?", file=sys.stderr)
+            pass
         time.sleep(interval)
 
 
@@ -218,7 +210,6 @@ def main() -> int:
 
     pairs = load_pairs()
     if not pairs:
-        print("[train_legal_ce_v2] no pairs — run evaluation.pairwise_dataset", file=sys.stderr)
         return 1
     splits = load_splits()
     train_qids = set(splits.get("train_qids", []))
@@ -226,7 +217,6 @@ def main() -> int:
     train_pairs = [p for p in pairs if p["question_id"] in train_qids]
     val_pairs = [p for p in pairs if p["question_id"] in val_qids]
     if not train_pairs:
-        print("[train_legal_ce_v2] no train pairs", file=sys.stderr)
         return 1
 
     try:
@@ -235,23 +225,14 @@ def main() -> int:
         ram_gb = round(psutil.virtual_memory().total / 1e9, 1)
     except Exception:
         ram_gb = "?"
-    print(
-        f"[train_legal_ce_v2] train={len(train_pairs)} val={len(val_pairs)} "
-        f"epochs={EPOCHS} loss=margin curriculum=T1->T2->T3 batch={args.batch_size} "
-        f"lr={LR} device={args.device or 'auto(CPU-first)'} threads={args.threads} "
-        f"ram={ram_gb}GB",
-        file=sys.stderr,
-    )
-    print(f"[train_legal_ce_v2] ETA: {_eta_estimate(train_pairs, args.batch_size, args.seconds_per_step)}", file=sys.stderr)
     if CHECKPOINT_FILE.exists() and not args.fresh:
         try:
             ck = json.loads(
                 CHECKPOINT_FILE.with_name("training_status.json").read_text(encoding="utf-8")
             ) if STATUS_FILE.exists() else {}
-            step = ck.get("global_step", "?")
-        except Exception:  # noqa: BLE001
-            step = "?"
-        print(f"[train_legal_ce_v2] checkpoint found — will RESUME (step {step}); use --fresh to restart", file=sys.stderr)
+            ck.get("global_step", "?")
+        except Exception:
+            pass
 
     t0 = time.time()
     trainer = MarginRankingLossTrainer(
@@ -294,7 +275,6 @@ def main() -> int:
         "curriculum T1(random)->T2(semantic)->T3(adversarial)."
     )
     SUMMARY_FILE.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    print(json.dumps(result, indent=1))
     return 0
 
 

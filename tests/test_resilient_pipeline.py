@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from app.rag.resilient import CircuitOpenError, ResilientRAGPipeline
 
 
@@ -83,7 +81,6 @@ class TestCircuitBreaker:
         assert len(fallback_calls) == 3  # all three used fallback
 
     def test_half_open_after_cooldown(self):
-        state = {"open": False}
         def bad_pipeline(query, **kw):
             raise RuntimeError("down")
         def good_fallback(query, **kw):

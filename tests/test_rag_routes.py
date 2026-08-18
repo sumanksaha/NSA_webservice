@@ -34,7 +34,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="raguser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="raguser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -62,7 +62,7 @@ def _setup_unauthenticated_client():
     db.drop_all()
     db.create_all()
 
-    user = User(username="raguser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="raguser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -73,7 +73,7 @@ def _setup_unauthenticated_client():
 
 class TestHealthRoute:
     def test_health_is_public_and_ok(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.get("/api/rag/health")
             assert resp.status_code == 200
@@ -85,7 +85,7 @@ class TestHealthRoute:
 
 class TestIngestRoute:
     def test_route_registered(self):
-        app, client, ctx = _setup_test_env()
+        app, _client, ctx = _setup_test_env()
         try:
             rules = [str(r) for r in app.url_map.iter_rules()]
             assert any("api/rag/ingest" in r for r in rules)
@@ -93,7 +93,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_unauthenticated_redirects(self):
-        app, unauth_client, ctx = _setup_unauthenticated_client()
+        _app, unauth_client, ctx = _setup_unauthenticated_client()
         try:
             resp = unauth_client.post(
                 "/api/rag/ingest",
@@ -115,7 +115,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_non_dict_payload_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post("/api/rag/ingest", json="not a dict")
             assert resp.status_code == 400
@@ -123,7 +123,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_missing_text_and_source_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post("/api/rag/ingest", json={})
             assert resp.status_code == 400
@@ -132,7 +132,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_invalid_full_enrichment_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post(
                 "/api/rag/ingest",
@@ -143,7 +143,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_non_dict_document_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post(
                 "/api/rag/ingest",
@@ -154,7 +154,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_file_not_found_returns_404(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post("/api/rag/ingest", json={"source": "/no/such/file.pdf"})
             assert resp.status_code == 404
@@ -163,7 +163,7 @@ class TestIngestRoute:
             ctx.pop()
 
     def test_successful_text_ingest_returns_result(self, monkeypatch):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             monkeypatch.setattr(
                 "app.rag.ingestion.make_ingestion_pipeline",
@@ -192,7 +192,7 @@ class TestIngestRoute:
 
     def test_real_path_degrades_gracefully(self):
         """No Qdrant/sentence-transformers installed -> 200 + errors, no raise."""
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post(
                 "/api/rag/ingest",
@@ -208,7 +208,7 @@ class TestIngestRoute:
 
 class TestCorpusRoute:
     def test_non_dict_document_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post(
                 "/api/rag/ingest/corpus",
@@ -219,7 +219,7 @@ class TestCorpusRoute:
             ctx.pop()
 
     def test_successful_corpus_ingest_returns_summary(self, monkeypatch):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             monkeypatch.setattr(
                 "app.rag.ingestion.make_ingestion_pipeline",
@@ -245,7 +245,7 @@ class TestCorpusRoute:
             ctx.pop()
 
     def test_missing_corpus_dir_returns_400(self):
-        app, client, ctx = _setup_test_env()
+        _app, client, ctx = _setup_test_env()
         try:
             resp = client.post("/api/rag/ingest/corpus", json={})
             assert resp.status_code == 400

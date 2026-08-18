@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 
 from app.rag.ingestion_logger import (
     EVENT_DUPLICATE,
@@ -175,8 +174,7 @@ class TestRealAuditPath:
     def test_log_writes_verifiable_audit_chain(self):
         from app import create_app
         from app.extensions import db
-        from app.models import AuditLog
-        from app.models import FSO, User
+        from app.models import FSO, AuditLog, User
 
         app = create_app()
         app.config["TESTING"] = True
@@ -186,7 +184,7 @@ class TestRealAuditPath:
         db.drop_all()
         db.create_all()
         try:
-            user = User(username="ingest_log_test", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+            user = User(username="ingest_log_test", password_hash="pbkdf2:sha256$test$dummy")
             db.session.add(user)
             db.session.add(FSO(fso_name="Test Officer"))
             db.session.commit()

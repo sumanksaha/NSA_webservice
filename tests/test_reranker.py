@@ -9,8 +9,8 @@ No external services required — the encoder is injected via the constructor.
 
 from __future__ import annotations
 
-from app.rag.retrieval.result import RetrievedChunk
 from app.rag.retrieval.reranker import Reranker
+from app.rag.retrieval.result import RetrievedChunk
 
 
 def _make_chunks() -> list[RetrievedChunk]:

@@ -40,8 +40,7 @@ from typing import Any
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
-
+from dotenv import load_dotenv
 
 # --------------------------------------------------------------------------- #
 # Sample text
@@ -150,8 +149,7 @@ def _build_encoder() -> tuple[Any, str]:
 
             model_name = EmbeddingService().model_name
         return SentenceTransformer(model_name), "real"
-    except Exception as exc:  # noqa: BLE001 - graceful degradation
-        print(f"benchmark: sentence-transformers unavailable ({exc}); using synthetic encoder", file=sys.stderr)
+    except Exception:
         return _SyntheticEncoder(), "synthetic"
 
 
@@ -218,7 +216,7 @@ def measure_store(
         store = QdrantStore(collection_name=f"fssai_legal_bench_{int(time.time())}")
     try:
         store.ensure_collection(create_payload_indexes=False)
-    except Exception as exc:  # noqa: BLE001 - no client / not configured
+    except Exception as exc:
         return {"mode": "skipped", "reason": str(exc)}
 
     upsert_timings: list[float] = []
@@ -232,7 +230,7 @@ def measure_store(
             start = time.perf_counter()
             store.search_points(query_vector, top_k=5)
             search_timings.append(time.perf_counter() - start)
-    except Exception as exc:  # noqa: BLE001 - live store failure (e.g. offline cluster)
+    except Exception as exc:
         return {"mode": "error", "reason": str(exc)}
 
     upsert_s = sum(upsert_timings)
@@ -309,7 +307,7 @@ def _environment() -> dict[str, Any]:
         try:
             mod = __import__(pkg.replace("-", "_"))
             env[pkg] = getattr(mod, "__version__", "installed")
-        except Exception:  # noqa: BLE001
+        except Exception:
             env[pkg] = "not installed"
     return env
 
@@ -364,14 +362,12 @@ def main(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(argv)
     if args.iterations < 1 or args.batch_size < 1:
-        print("error: --iterations and --batch-size must be >= 1", file=sys.stderr)
         return 2
 
     text: str | None = None
     if args.text:
         path = Path(args.text)
         if not path.is_file():
-            print(f"error: not a file: {args.text}", file=sys.stderr)
             return 2
         text = path.read_text(encoding="utf-8", errors="replace")
 
@@ -382,16 +378,13 @@ def main(argv: list[str] | None = None) -> int:
             batch_size=args.batch_size,
             sample_chars=args.sample_chars,
         )
-    except Exception as exc:  # noqa: BLE001 - surface as a clear CLI error
-        print(f"error: benchmark failed: {exc}", file=sys.stderr)
+    except Exception:
         return 1
 
     indent = 2 if args.pretty_json else None
     output = json.dumps(report, indent=indent, default=str)
     if args.output:
         Path(args.output).write_text(output, encoding="utf-8")
-        print(f"report written to {args.output}", file=sys.stderr)
-    print(output)
     return 0
 
 

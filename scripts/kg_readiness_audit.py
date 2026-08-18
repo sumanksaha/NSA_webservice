@@ -73,7 +73,7 @@ class Audit:
                 with self.driver.session(database=self.dbname()) as s:
                     result = s.run(cypher, parameters_=params or {})
                     return [dict(r) for r in result]
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 last_exc = exc
                 if attempt + 1 < max_retries:
                     continue
@@ -575,7 +575,7 @@ class Audit:
                 }
                 for c in collections
             ]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             out["error"] = str(exc)
         return out
 
@@ -622,7 +622,6 @@ def main() -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report, indent=2, default=_iso), encoding="utf-8")
-    print(json.dumps(report, indent=2, default=_iso))
     return 0
 
 

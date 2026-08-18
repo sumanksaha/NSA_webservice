@@ -1,4 +1,4 @@
-"""V8 Evidence-Set Selector — second-stage evidence selection for legal RAG.
+"""V8 Evidence-Set Selector â€” second-stage evidence selection for legal RAG.
 
 Given the ARM F (dense + sparse + KG + cross-encoder rerank) top-20 chunk pool
 + up to 15 KG provisions per question, these selectors choose a complementary
@@ -6,21 +6,21 @@ evidence set of *k=10* items that maximises legal-coverage while minimising
 redundancy.
 
 Five strategies (A-E):
-  A — TopK              : baseline, top-K by upstream CE score.
-  B — MMR               : Maximal Marginal Relevance (text-level diversity).
-  C — LegalStructure    : one representative per (family, section) group.
-  D — HierarchyAware    : preserve Section->subsection->proviso chains.
-  E — Hybrid            : MMR + legal-overlap penalty + hierarchy
+  A â€” TopK              : baseline, top-K by upstream CE score.
+  B â€” MMR               : Maximal Marginal Relevance (text-level diversity).
+  C â€” LegalStructure    : one representative per (family, section) group.
+  D â€” HierarchyAware    : preserve Section->subsection->proviso chains.
+  E â€” Hybrid            : MMR + legal-overlap penalty + hierarchy
                           preservation + KG section complementarity.
 
 Design notes
 ------------
-* ``score = 1.0 - (rank - 1) / (total - 1)`` — normalised position score;
+* ``score = 1.0 - (rank - 1) / (total - 1)`` â€” normalised position score;
   chunks naturally score higher than KG provisions because they are ranked
   first in the ARM F tail-concatenation ordering.
 * Family/section resolution delegates to ``evaluation.resolution.payload_to_keys``
   and ``_kg_item_keys`` from ``evaluation.metrics`` so the *exact same* keys
-  used by ``score_question`` are produced — guaranteeing consistency.
+  used by ``score_question`` are produced â€” guaranteeing consistency.
 * ``candidates_to_arm_result`` emits ``chunk_ids`` + ``kg_provisions`` (NOT
   ``fused_items``) because the cached ARM F data has zero ``fused_items``
   entries (confirmed 2026-08-13); this matches the scoring path of the
@@ -33,7 +33,7 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 from evaluation.resolution import FamilyMap, payload_to_keys
 
@@ -109,7 +109,7 @@ def build_candidates(
 
     Chunks (rank 1..N) resolved via ``payload_to_keys``; KG provisions
     (rank N+1..) via ``_kg_item_keys`` from ``evaluation.metrics``.
-    Duplicate keys dropped (first occurrence wins — preserves upstream order).
+    Duplicate keys dropped (first occurrence wins â€” preserves upstream order).
     """
     from evaluation.metrics import _kg_item_keys
 
@@ -133,7 +133,7 @@ def build_candidates(
         seen.add(cid)
         payload = payload_index.get(cid)
         if payload is None:
-            logger.debug("chunk %s not found in payload index — skipping", cid)
+            logger.debug("chunk %s not found in payload index â€” skipping", cid)
             continue
         keys = payload_to_keys(payload, family_map)
         family = keys[0][0] if keys else None
@@ -186,7 +186,7 @@ def build_candidates(
 
 
 # --------------------------------------------------------------------------- #
-# Hierarchy map � infers parent/child from (document_id, section) grouping
+# Hierarchy map — infers parent/child from (document_id, section) grouping
 # --------------------------------------------------------------------------- #
 def _build_hierarchy_map(
     chunks: list[CandidateItem],

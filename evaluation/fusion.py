@@ -158,10 +158,10 @@ def main() -> int:
 
     load_dotenv(PROJECT_ROOT / ".env")
 
-    from evaluation.config import CACHE_DIR, RAW_DIR, OUT_DIR
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap, build_payload_index
+    from evaluation.config import CACHE_DIR, OUT_DIR, RAW_DIR
     from evaluation.report import load_raw
+    from evaluation.resolution import FamilyMap, build_payload_index
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 

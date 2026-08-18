@@ -20,7 +20,6 @@ without writing anything.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -28,8 +27,8 @@ from pathlib import Path
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.rag.backup import load_archive, restore_collection  # noqa: E402
-from app.rag.qdrant_client import QdrantStore  # noqa: E402
+from app.rag.backup import load_archive, restore_collection
+from app.rag.qdrant_client import QdrantStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,12 +81,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         archive = load_archive(args.archive)
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: cannot read archive: {exc}", file=sys.stderr)
+    except Exception:
         return 2
 
     if args.dry_run:
-        plan = {
+        {
             "archive": args.archive,
             "collection": args.collection or archive.get("collection"),
             "point_count": archive.get("point_count"),
@@ -96,8 +94,6 @@ def main(argv: list[str] | None = None) -> int:
             "dry_run": True,
             "integrity": "ok",
         }
-        indent = 2 if args.pretty_json else None
-        print(json.dumps(plan, indent=indent, default=str))
         return 0
 
     from app import create_app
@@ -113,12 +109,9 @@ def main(argv: list[str] | None = None) -> int:
                 drop_existing=args.drop_existing,
                 batch_size=args.batch_size,
             )
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: restore failed: {exc}", file=sys.stderr)
+    except Exception:
         return 2
 
-    indent = 2 if args.pretty_json else None
-    print(json.dumps(summary, indent=indent, default=str))
     # Non-zero when some points failed to restore.
     return 0 if summary["points_restored"] == summary["archive_point_count"] and not summary["errors"] else 1
 

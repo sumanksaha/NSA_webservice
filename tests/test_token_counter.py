@@ -65,7 +65,7 @@ class TestTokenEstimation:
         assert usage.total_tokens == 0
 
     def test_to_dict(self):
-        tc = TokenCounter()
+        TokenCounter()
         usage = TokenUsage(prompt_tokens=100, completion_tokens=30, total_tokens=130, context_length=100)
         d = usage.to_dict()
         assert d["prompt_tokens"] == 100

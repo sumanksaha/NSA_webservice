@@ -18,7 +18,6 @@ from typing import Any
 
 from evaluation.config import (
     BENCHMARK_FILE,
-    BENCHMARK_METADATA_FILE,
     GOLD_PROVISIONS_FILE,
     GOLD_SOURCES_FILE,
 )
@@ -247,7 +246,7 @@ def schema_report() -> dict[str, Any]:
     questions = load_questions()
     missing: dict[str, list[str]] = {}
     available: dict[str, int] = {}
-    for field, key in _PROTOCOL_FIELDS.items():
+    for proto_key, key in _PROTOCOL_FIELDS.items():
         present = 0
         absent_ids: list[str] = []
         for q in questions:

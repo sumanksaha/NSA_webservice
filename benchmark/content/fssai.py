@@ -1,5 +1,5 @@
 """FSSAI / FOOD_SAFETY benchmark questions (30)."""
-from .base import Q, P
+from .base import P, Q
 
 DOC = "1335c4e2-4c80-43e4-a33a-b4d154984633"  # FSS Act 2006
 COL = "fssai_legal_768"

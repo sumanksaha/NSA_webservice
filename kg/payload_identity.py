@@ -40,9 +40,8 @@ Design rules:
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,7 @@ class QdrantPayloadStamper:
         """
         if self._doc_identity is not None:
             return self._doc_identity
-        rows, _ = self._engine._build_instrument_rows()  # noqa: SLF001 - same package
+        rows, _ = self._engine._build_instrument_rows()
         self._doc_identity = {
             str(r["document_id"]): {
                 "instrument_id": r["instrument_id"],
@@ -130,8 +129,8 @@ class QdrantPayloadStamper:
         known), and formatted as ``{INSTRUMENT}_SEC_{n}`` — the same id the
         Neo4j build produces, so payload and graph agree 1:1.
         """
-        from kg.corpus_ingestion import _clean_section, _valid_section
         from app.rag.legal_sections import sections_for_act
+        from kg.corpus_ingestion import _clean_section, _valid_section
 
         sn = _clean_section(section_number)
         if not sn:
@@ -165,7 +164,7 @@ class QdrantPayloadStamper:
 
     def _scroll_points(self, collection: str, limit: int | None = None) -> list[dict[str, Any]]:
         """Read points (id + payload) from a collection (read-only)."""
-        client = self._engine._get_qdrant_client()  # noqa: SLF001 - same package
+        client = self._engine._get_qdrant_client()
         out: list[dict[str, Any]] = []
         offset: Any = None
         while True:
@@ -205,7 +204,7 @@ class QdrantPayloadStamper:
         Returns a summary dict with per-collection stats and the planned
         updates keyed by collection → point id → ``{field: value}``.
         """
-        client = self._engine._get_qdrant_client()  # noqa: SLF001
+        client = self._engine._get_qdrant_client()
         if collections is None:
             collections = [c.name for c in client.get_collections().collections]
         summary: dict[str, Any] = {"collections": {}, "total_points": 0, "points_to_update": 0}
@@ -220,7 +219,7 @@ class QdrantPayloadStamper:
                 "to_update": 0,
                 "updates": {},
             }
-            identity = self.doc_identity_map()
+            self.doc_identity_map()
             for pt in points:
                 payload = pt["payload"]
                 if not str(payload.get("document_id") or ""):
@@ -249,7 +248,7 @@ class QdrantPayloadStamper:
         create_indexes: bool = True,
     ) -> dict[str, Any]:
         """Apply the identity fields to live payloads (idempotent)."""
-        client = self._engine._get_qdrant_client()  # noqa: SLF001
+        client = self._engine._get_qdrant_client()
         if collections is None:
             collections = [c.name for c in client.get_collections().collections]
         summary: dict[str, Any] = {"collections": {}, "points_updated": 0, "indexes_created": 0}
@@ -292,7 +291,7 @@ class QdrantPayloadStamper:
                     collection_name=collection, field_name=field, field_schema="keyword"
                 )
                 created += 1
-            except Exception as exc:  # noqa: BLE001 - already indexed / unsupported
+            except Exception as exc:
                 logger.info("payload index %s on %s: %s", field, collection, exc)
         return created
 

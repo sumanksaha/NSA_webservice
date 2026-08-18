@@ -8,8 +8,8 @@ Follows the pattern from test_hybrid_retriever.py and test_dense_retriever.py.
 from __future__ import annotations
 
 from app.rag.retrieval.hybrid_retriever import HybridRetriever
-from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.rag.retrieval.reranker import Reranker
+from app.rag.retrieval.result import RetrievedChunk, SearchResult
 
 
 def _make_chunk(chunk_id, score, text, section=None):
@@ -62,7 +62,7 @@ class TestHybridVsDense:
             _make_chunk("c1", 0.30, "food business license Section 55", "55"),
             _make_chunk("c2", 0.10, "unrelated text about cooking"),
         ]
-        dense_ids = [c.chunk_id for c in sorted(chunks, key=lambda c: c.score, reverse=True)]
+        [c.chunk_id for c in sorted(chunks, key=lambda c: c.score, reverse=True)]
         hybrid_ids = _hybrid_results(chunks)
         # Hybrid should contain all chunks
         assert set(hybrid_ids) == {"c0", "c1", "c2"}

@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ def kg_contract_provisions(query: str, database: str | None = None) -> list[dict
     queries = LegalKGQueries(database=database)
     try:
         provisions = provisions_for_query(query, queries, limit=10)
-    except Exception as exc:  # noqa: BLE001 - KG is best-effort by design
+    except Exception as exc:
         logger.warning("kg_contract_provisions: failed (%s) — returning empty", exc)
         provisions = []
     return [_kg_provision_public(p) for p in provisions]
@@ -191,7 +192,7 @@ def arm_e_dense_sparse_kg(question: dict[str, Any], top_k: int) -> dict[str, Any
     chunk_ids = [c.chunk_id for c in result.chunks]
     try:
         kg_provisions = kg_expand_chunks(chunk_ids)
-    except Exception as exc:  # noqa: BLE001 - KG is best-effort by design
+    except Exception as exc:
         logger.warning("arm_e kg expansion failed for %s: %s", question["question_id"], exc)
         kg_provisions = []
     return {
@@ -215,7 +216,7 @@ def arm_f_dense_sparse_kg_rerank(
     chunk_ids = [c.chunk_id for c in result.chunks[:final_k]]
     try:
         kg_provisions = kg_expand_chunks(chunk_ids)
-    except Exception as exc:  # noqa: BLE001 - best-effort
+    except Exception as exc:
         logger.warning("arm_f kg expansion failed for %s: %s", question["question_id"], exc)
         kg_provisions = []
     return {

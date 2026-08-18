@@ -116,7 +116,7 @@ class TestOCREngineEasyOCR:
         engine = OCREngine(use_gpu=False)
         engine._easyocr = _FakeReader()
         engine._easyocr_langs = ["en"]
-        text, conf, engine_name, lang = engine.recognize(None)  # image unused by the fake
+        text, conf, engine_name, _lang = engine.recognize(None)  # image unused by the fake
         assert engine_name == "easyocr"
         assert "Section 55" in text
         assert "of the Act" in text
@@ -138,7 +138,7 @@ class TestOCREngineEasyOCR:
 
         monkeypatch.setattr(builtins, "__import__", _blocked)
         engine = OCREngine(use_gpu=False)
-        text, conf, engine_name, _lang = engine.recognize(None)  # no engines work
+        text, _conf, engine_name, _lang = engine.recognize(None)  # no engines work
         assert engine_name == "none"
         assert text == ""
 
@@ -193,7 +193,7 @@ class TestIngestionOCRWiring:
 
     def test_scanned_pdf_is_ocrd_and_metadata_routed(self):
         fake = _FakePipeline(page_texts={1: "OCR CONTENT Section 3"})
-        pipeline, ocr = self._pipeline_with_ocr(fake)
+        pipeline, _ocr = self._pipeline_with_ocr(fake)
         result = pipeline.ingest_file("/corpus/scan.pdf", {"document_id": "doc-pdf"})
         assert result.ok
         assert result.text_chars == len("OCR CONTENT Section 3")

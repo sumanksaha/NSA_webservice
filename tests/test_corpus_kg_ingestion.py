@@ -17,12 +17,10 @@ Key behaviours under test:
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -267,7 +265,7 @@ class TestMappings:
 
 class TestSectionValidation:
     def test_year_like_junk_filtered(self):
-        from kg.corpus_ingestion import _valid_section, _clean_section
+        from kg.corpus_ingestion import _clean_section, _valid_section
 
         assert _valid_section("5", None) is True
         assert _valid_section("1960", None) is False  # year
@@ -279,8 +277,8 @@ class TestSectionValidation:
         assert _clean_section(None) is None
 
     def test_act_range_enforced(self):
-        from kg.corpus_ingestion import _valid_section
         from app.rag.legal_sections import sections_for_act
+        from kg.corpus_ingestion import _valid_section
 
         known = sections_for_act("Environment (Protection) Act, 1986")
         assert _valid_section("5", known) is True
@@ -356,7 +354,7 @@ class TestEngine:
     def test_cross_domain_edges_only_for_existing_endpoints(self, engine):
         collected = engine.collect()
         written, skipped = [], []
-        for src, rel, tgt, ev in __import__("kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"]).CORPUS_CROSS_DOMAIN_EDGES:
+        for src, rel, tgt, _ev in __import__("kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"]).CORPUS_CROSS_DOMAIN_EDGES:
             if src in collected["provision_ids"] and tgt in collected["provision_ids"]:
                 written.append((src, rel, tgt))
             else:
@@ -372,7 +370,7 @@ class TestEngine:
         assert engine._driver.calls == []  # zero Cypher executed
 
     def test_run_rebuild_issues_batched_writes(self, engine):
-        summary = engine.run_rebuild(clear=False, dry_run=False)
+        engine.run_rebuild(clear=False, dry_run=False)
         calls = engine._driver.calls
         assert any("UNWIND $rows" in c["cypher"] for c in calls)
         # every provision gets a BELONGS_TO_DOMAIN row batch
@@ -388,7 +386,6 @@ class TestEngine:
 
     def test_concept_edges_target_concepts_and_authorities(self, engine):
         # write_concept_edges Cypher must match on concept_id OR authority_id
-        from kg.corpus_ingestion import KGCorpusIngestionEngine
 
         prov_ids = {"FSS_ACT_2006_SEC_31"}
         # FSS provisions don't exist in the fake DB -> everything skipped

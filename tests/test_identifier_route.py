@@ -13,14 +13,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query  # noqa: E402
-from app.rag.retrieval.result import RetrievedChunk, SearchResult  # noqa: E402
-
+from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
+from app.rag.retrieval.result import RetrievedChunk, SearchResult
 
 # --------------------------------------------------------------------------- #
 # Detector unit tests
@@ -147,7 +144,7 @@ class TestHybridIdentifierArm:
         assert ids[0] in ("d1", "s1")
 
     def test_no_identifier_query_keeps_old_behaviour(self):
-        hybrid, dense, sparse = self._make([_chunk("i1")])
+        hybrid, _dense, sparse = self._make([_chunk("i1")])
         result = hybrid.retrieve("q", top_k=10)
         ids = [c.chunk_id for c in result.chunks]
         assert "i1" not in ids  # identifier arm not queried
@@ -180,7 +177,6 @@ class TestPipelineIdentifier:
     def _patch(self, monkeypatch):
         """Replace the pipeline's lazily-imported classes with recorders."""
         import app.rag.retrieval as retrieval_mod
-        from app.rag.tasks import _flag_enabled
 
         recorded = {}
 

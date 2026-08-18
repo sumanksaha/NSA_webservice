@@ -1,5 +1,5 @@
 """Business / Commercial law benchmark questions (10)."""
-from .base import Q, P
+from .base import P, Q
 
 COL = "commercial_legal_768"
 
@@ -20,7 +20,7 @@ PROVISIONS = [
     P("srf:injunction", "Specific Relief Act, 2017", "53", "Injunction", "BUSINESS_CIVIL", "specific_relief_act_2017", COL),
 ]
 
-    
+
 QUESTIONS = [
     Q("Q091", "Under the Indian Contract Act, 1872, when a contract is breached, what is the rule on compensation under Section 73, and how does a 'penalty' clause differ?",
       ["BUSINESS_CIVIL"], ["Obligation", "Exception"], "MODERATE", "Union of India",

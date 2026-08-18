@@ -20,13 +20,11 @@ Covers:
 from __future__ import annotations
 
 import json
-import json
 import os
 from datetime import UTC, datetime
+
 import pytest
-
 from flask import render_template
-
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -49,7 +47,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="fctestuser", password_hash="pbkdf2:sha256$test$dummy")  # noqa: S106
+    user = User(username="fctestuser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
@@ -130,7 +128,7 @@ def env():
 
 @pytest.fixture()
 def sample(env):
-    app, client, ctx = env
+    _app, _client, _ctx = env
     return _make_sample()
 
 
@@ -144,13 +142,13 @@ def intimation(sample):
 
 @pytest.fixture()
 def app(env):
-    app, client, ctx = env
+    app, _client, _ctx = env
     return app
 
 
 @pytest.fixture()
 def client(env):
-    app, client, ctx = env
+    _app, client, _ctx = env
     return client
 
 
@@ -330,7 +328,7 @@ class TestDoReferenceUniqueness:
     def test_unique_references(self, env):
         from app.food_cell.services import generate_and_forward_do_intimation
 
-        app, client, ctx = env
+        app, _client, _ctx = env
         _patch_sync_fns()
         with app.app_context():
             s1 = _make_sample(sample_code="SMP-UNIQ-001")

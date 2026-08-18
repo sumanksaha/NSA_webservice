@@ -261,7 +261,7 @@ class TestPDFAssemblyPageNumbers:
     def test_page_numbers_in_complete_processing(self):
         """Test that page numbers are included in complete post-processing."""
         with patch("app.pdf_assembly.PDFAssemblyEngine._import_qrcode_if_available"):
-            with patch("app.pdf_assembly.engine.PDFAssemblyEngine.post_process") as mock_post:
+            with patch("app.pdf_assembly.engine.PDFAssemblyEngine.post_process"):
                 from app.pdf_assembly import PDFAssemblyEngine
 
                 engine = PDFAssemblyEngine()

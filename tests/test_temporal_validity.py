@@ -2,23 +2,17 @@
 
 from dataclasses import dataclass
 
-import pytest
-
+from app.rag.retrieval.provision_versions import (
+    build_provision_family_id,
+    extract_provision_version,
+    group_versions,
+)
 from app.rag.retrieval.temporal_validity import (
     VALIDITY_INVALID,
     VALIDITY_UNKNOWN,
     VALIDITY_VALID,
-    ValidityResult,
     is_valid,
     temporal_validity_score,
-)
-from app.rag.retrieval.provision_versions import (
-    ProvisionVersion,
-    VersionFamily,
-    build_provision_family_id,
-    extract_provision_version,
-    group_versions,
-    is_current_version,
 )
 
 
@@ -163,7 +157,7 @@ class TestProvisionVersions:
         ]
         families = group_versions(chunks)
         assert len(families) == 1
-        fam = list(families.values())[0]
+        fam = next(iter(families.values()))
         assert len(fam.versions) == 2
 
     def test_current_version_detection(self):
@@ -172,7 +166,7 @@ class TestProvisionVersions:
             FakeChunk(chunk_id="c2", text="Section 31", act_name="FSS Act", section_number="31", status="repealed"),
         ]
         families = group_versions(chunks)
-        fam = list(families.values())[0]
+        fam = next(iter(families.values()))
         cv = fam.current_version()
         assert cv is not None
         assert cv.document_id == "c1"
@@ -183,7 +177,7 @@ class TestProvisionVersions:
             FakeChunk(chunk_id="c2", text="Section 31", act_name="FSS Act", section_number="31", status="repealed"),
         ]
         families = group_versions(chunks)
-        fam = list(families.values())[0]
+        fam = next(iter(families.values()))
         assert fam.is_current("c1") is True
         assert fam.is_current("c2") is False
 

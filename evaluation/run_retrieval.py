@@ -50,9 +50,9 @@ def main() -> int:
 
     load_dotenv(PROJECT_ROOT / ".env")
 
-    from evaluation.config import ARMS, OUT_DIR, RAW_DIR, write_run_config
     from evaluation.arms import build_arm_runner
     from evaluation.benchmark import load_questions
+    from evaluation.config import ARMS, OUT_DIR, RAW_DIR, write_run_config
     from evaluation.resolution import build_payload_index
 
     parser = argparse.ArgumentParser()
@@ -103,7 +103,7 @@ def main() -> int:
                         result["arm"] = arm
                         result["question_id"] = q.question_id
                         result["error"] = result.get("error")
-                    except Exception as exc:  # noqa: BLE001 - isolate per question
+                    except Exception as exc:
                         result = {
                             "arm": arm,
                             "question_id": q.question_id,

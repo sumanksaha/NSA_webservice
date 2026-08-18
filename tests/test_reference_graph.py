@@ -3,23 +3,18 @@
 import os
 from dataclasses import dataclass
 
-import pytest
-
 os.environ["ENABLE_REFERENCE_EXPANSION"] = "true"
 
 from app.rag.retrieval.reference_extractor import (
     CONFIDENCE_HIGH,
     CONFIDENCE_LOW,
     CONFIDENCE_MEDIUM,
-    Reference,
     extract_references,
     high_confidence_refs,
 )
 from app.rag.retrieval.reference_graph import (
     EDGE_REFS,
     EDGE_SUBJECT_TO,
-    EDGE_EXCEPTION,
-    EDGE_DEFINITION,
     ReferenceEdge,
     ReferenceGraph,
     expand_candidates,
@@ -127,12 +122,12 @@ class TestReferenceExtraction:
         text = "Section 31(2)(a)"
         refs = extract_references(text)
         assert refs
-        assert "Section 31(2)(a)" == refs[0].canonical_ref()
+        assert refs[0].canonical_ref() == "Section 31(2)(a)"
 
     def test_span_positions(self):
         text = "See Section 31 for details."
         refs = extract_references(text)
-        sec_ref = [r for r in refs if r.section == "31"][0]
+        sec_ref = next(r for r in refs if r.section == "31")
         assert sec_ref.span_start == text.index("Section 31")
         assert sec_ref.span_end == sec_ref.span_start + len("Section 31")
 

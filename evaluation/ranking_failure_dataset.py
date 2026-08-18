@@ -16,8 +16,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.config import OUT_DIR  # noqa: E402
-from evaluation.failure_taxonomy import classify_failure  # noqa: E402
+from evaluation.config import OUT_DIR
+from evaluation.failure_taxonomy import classify_failure
 
 CEILING_V5 = OUT_DIR / "ceiling_v5"
 MINING_FILE = OUT_DIR / "ceiling_v5" / "hard_negative_mining.jsonl"
@@ -49,8 +49,6 @@ def _extract_ids(payload: dict) -> dict:
 def build_ranking_failures() -> int:
     """Build the ranking-failure dataset from mining output."""
     if not MINING_FILE.exists():
-        print(f"[ranking_failure_dataset] Mining file not found: {MINING_FILE}", file=sys.stderr)
-        print("  Run: python -m evaluation.hard_negative_miner --offline", file=sys.stderr)
         return 1
 
     from evaluation.benchmark import load_questions
@@ -191,7 +189,6 @@ def build_ranking_failures() -> int:
         },
     }
     STATS_FILE.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps(summary, indent=1))
     return 0
 
 

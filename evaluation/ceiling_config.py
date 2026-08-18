@@ -22,7 +22,6 @@ import json
 import os
 import platform
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -178,7 +177,7 @@ def _kg_snapshot() -> dict:
         q = LegalKGQueries()
         rows = q._execute("MATCH (n) RETURN labels(n)[0] AS lbl, count(*) AS c")
         counts = {r.get("lbl"): r.get("c") for r in rows}
-    except Exception as exc:  # noqa: BLE001 - best-effort freeze
+    except Exception as exc:
         counts = {"error": f"{type(exc).__name__}: {exc}"}
     return {
         "database": os.environ.get("NEO4J_DATABASE", "neo4j"),
@@ -191,7 +190,7 @@ def collect_freeze(app) -> dict:
     """Assemble the full immutable experiment freeze."""
     from evaluation.config import BENCHMARK_FILE
 
-    benchmark_dir = PROJECT_ROOT / "benchmark"
+    PROJECT_ROOT / "benchmark"
     freeze = {
         "experiment_id": EXPERIMENT_ID,
         "label": EXPERIMENT_LABEL,

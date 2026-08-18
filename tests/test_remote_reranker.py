@@ -12,10 +12,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.rag.retrieval.result import RetrievedChunk
 from app.rag.retrieval.remote_reranker import RemoteRerankClient
 from app.rag.retrieval.reranker import EnsembleReranker
-
+from app.rag.retrieval.result import RetrievedChunk
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -183,7 +182,7 @@ class TestServerlessMode:
         import json
 
         def _handler(request: httpx.Request) -> httpx.Response:
-            data = json.loads(request.content)
+            json.loads(request.content)
             n = sum(1 for r in _handler.requests if r is not request)  # prior calls
             return httpx.Response(200, json=[{"label": "LABEL_0", "score": float(n)}])
 
@@ -195,7 +194,6 @@ class TestServerlessMode:
         assert len(handler.requests) == 2
 
     def test_serverless_auth_header(self):
-        import json
 
         def _handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=[{"label": "LABEL_0", "score": 1.0}])
@@ -291,8 +289,8 @@ class TestLocalFallback:
 
 class TestBuildRerankerRemoteWiring:
     def test_endpoint_set_injects_remote_client(self, monkeypatch):
-        from app.rag.tasks import _build_reranker
         from app.rag.retrieval.remote_reranker import RemoteRerankClient as RRC
+        from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv("RAG_RERANKER_ENDPOINT", "https://ce.example")
         monkeypatch.delenv("RAG_RERANKER_MODEL", raising=False)
@@ -305,8 +303,8 @@ class TestBuildRerankerRemoteWiring:
         assert reranker._encoder.local_model == "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     def test_endpoint_set_fallback_off_no_local_model(self, monkeypatch):
-        from app.rag.tasks import _build_reranker
         from app.rag.retrieval.remote_reranker import RemoteRerankClient as RRC
+        from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv("RAG_RERANKER_ENDPOINT", "https://ce.example")
         monkeypatch.setenv("RAG_RERANKER_REMOTE_FALLBACK", "false")
@@ -325,8 +323,8 @@ class TestBuildRerankerRemoteWiring:
         assert reranker._encoder is None  # local CE built lazily via _get_encoder
 
     def test_mode_serverless_wired(self, monkeypatch):
-        from app.rag.tasks import _build_reranker
         from app.rag.retrieval.remote_reranker import RemoteRerankClient as RRC
+        from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv("RAG_RERANKER_ENDPOINT", "https://api-inference.huggingface.co/models/sumanksaha/Foodmultidomain")
         monkeypatch.setenv("RAG_RERANKER_MODE", "serverless")
@@ -338,9 +336,8 @@ class TestBuildRerankerRemoteWiring:
 
     def test_endpoint_honoured_for_plain_reranker(self, monkeypatch):
         """The non-ensemble Reranker also uses the remote client when set."""
-        from app.rag.tasks import _build_reranker
         from app.rag.retrieval.reranker import Reranker
-        from app.rag.retrieval.remote_reranker import RemoteRerankClient as RRC
+        from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv("RAG_RERANKER_ENDPOINT", "https://ce.example")
         monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "false")

@@ -32,6 +32,7 @@ from evaluation.hard_negative_miner import (
     assign_tier,
     hard_negative_rank,
     legal_similarity_score,
+    mine_question,
     section_proximity,
     word_overlap,
 )
@@ -323,6 +324,91 @@ class TestHardNegativeMiner:
         }
         with_clause = dict(base, same_clause=1.0)
         assert hard_negative_rank(with_clause, 0) > hard_negative_rank(base, 0)
+
+
+class TestSubsectionFilter:
+    """P2 (G5): --subsection-filter keeps same_section AND same_subsection."""
+
+    class FakeQ:
+        def __init__(self, qid, question, units):
+            self.question_id = qid
+            self.question = question
+            self._units = units
+
+        def relevant_units(self):
+            return self._units
+
+    def _payload(self, text, section, subsection=""):
+        return {
+            "chunk_text": text,
+            "section_number": section,
+            "act_name": "Food Safety and Standards Act, 2006",
+            "document_title": "FSS Act 2006",
+            "subsection": subsection,
+        }
+
+    def _mine(self, gold_payload, neg_payloads, subsection_filter):
+        """Run mine_question with the gold + negatives all in payload_index.
+
+        The payload index is the authoritative identity source (mirrors the
+        real mining flow); chunk dicts only carry their id.
+        """
+        fm = FakeFamilyMap()
+        unit = FakeGoldUnit("fssai:s16", "fssai", section="16")
+        q = self.FakeQ("Q001", "section 16 duties", [unit])
+        gold_cid = "gold"
+        payload_index = {gold_cid: gold_payload}
+        chunks = [{"chunk_id": gold_cid, "rank": 0}]
+        for cid, payload in neg_payloads.items():
+            payload_index[cid] = payload
+            chunks.append({"chunk_id": cid, "rank": 1})
+        return mine_question(
+            q, chunks, payload_index, fm, max_negatives=20,
+            subsection_filter=subsection_filter,
+        )
+
+    def test_filter_keeps_same_section_and_subsection(self):
+        """Only same_section AND same_subsection negatives survive the AND path."""
+        gold = self._payload("duties", "16", subsection="(1)")
+        negs = {
+            "n1": self._payload("duties (1) text", "16", subsection="(1)"),  # AND match
+            "n2": self._payload("duties (2) text", "16", subsection="(2)"),  # same sec, diff sub
+            "n3": self._payload("powers (1) text", "17", subsection="(1)"),  # diff sec
+            "n4": self._payload("random", None),
+        }
+        rec = self._mine(gold, negs, subsection_filter=True)
+        assert rec is not None
+        neg_ids = {n["chunk_id"] for n in rec["negatives"]}
+        assert neg_ids == {"n1"}  # only the AND match
+        for n in rec["negatives"]:
+            assert n["features"]["same_section"] == 1.0
+            assert n["features"]["same_subsection"] == 1.0
+
+    def test_filter_falls_back_to_same_section(self):
+        """No AND-match -> same-section-only fallback (fssai 33% coverage)."""
+        gold = self._payload("duties", "16", subsection="(1)")
+        negs = {
+            "n1": self._payload("duties variant", "16"),  # same section, no subsection
+            "n2": self._payload("powers", "17"),
+        }
+        rec = self._mine(gold, negs, subsection_filter=True)
+        assert rec is not None
+        neg_ids = {n["chunk_id"] for n in rec["negatives"]}
+        assert "n1" in neg_ids  # same-section fallback survives
+        assert "n2" not in neg_ids
+
+    def test_no_filter_keeps_all_tiers(self):
+        """Without the flag, negatives keep their natural tier assignment."""
+        gold = self._payload("duties", "16", subsection="(1)")
+        negs = {
+            "n1": self._payload("duties (1) text", "16", subsection="(1)"),
+            "n2": self._payload("powers", "17"),
+            "n3": self._payload("random", None),
+        }
+        rec = self._mine(gold, negs, subsection_filter=False)
+        assert rec is not None
+        neg_ids = {n["chunk_id"] for n in rec["negatives"]}
+        assert {"n1", "n2", "n3"} <= neg_ids
 
 
 # --------------------------------------------------------------------------- #

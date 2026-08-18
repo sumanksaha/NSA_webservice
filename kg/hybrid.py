@@ -32,7 +32,8 @@ import logging
 import os
 import re
 import time
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +218,7 @@ class KGContextExpander:
                 )
             for entry in provisions.values():
                 entry["related"] = related.get(entry["provision_id"], [])
-        except Exception as exc:  # noqa: BLE001 - best-effort by design
+        except Exception as exc:
             logger.warning("KGContextExpander failed: %s", exc)
             return self._empty(enabled=True, error=str(exc))
 
@@ -249,7 +250,7 @@ class KGContextExpander:
             contract["latency_ms"] = int((time.monotonic() - started) * 1000)
             contract["enabled"] = True
             return contract
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("KGContextExpander.expand_query_context failed: %s", exc)
             return self._empty(enabled=True, error=str(exc))
 

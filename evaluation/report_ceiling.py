@@ -59,9 +59,9 @@ def load_raw(arm: str) -> dict[str, dict]:
 def load_payload_index() -> dict[str, dict]:
     """Load the cached payload index (point_id -> payload).  Rebuilds on
     mismatch with the live Qdrant point counts recorded in the freeze."""
-    from evaluation.ceiling_config import OUT_DIR, PROJECT_ROOT
-    from evaluation.resolution import build_payload_index
+    from evaluation.ceiling_config import OUT_DIR
     from evaluation.config import CACHE_DIR
+    from evaluation.resolution import build_payload_index
 
     cache_file = CACHE_DIR / "payload_index.jsonl"
     index: dict[str, dict] = {}
@@ -130,7 +130,7 @@ def load_kg_provision_map() -> dict:
             for r in rows
             if r.get("pid")
         }
-    except Exception as exc:  # noqa: BLE001 - best-effort
+    except Exception as exc:
         logger.warning("KG provision map failed: %s", exc)
         return {}
 
@@ -188,7 +188,6 @@ def metrics_from_ranks(r: dict[str, int | None], q, depths) -> dict:
 
 def arm_metrics(arm_result: dict, question, payload_index, family_map, depths, coverage_only: bool = False):
     """R@K (relevant), R_all@K, MRR, nDCG@10/20/50 for one (arm, question)."""
-    from evaluation.metrics import build_ranked_items, item_covers
     from evaluation.config import GAIN_ACCEPTABLE, GAIN_PRIMARY
 
     ranks = unit_first_ranks(arm_result, question, payload_index, family_map)
@@ -251,8 +250,8 @@ def build_union_arms(
     dense_n=200, sparse_n=200, kg_n=200,
 ) -> dict[str, dict]:
     """E_union_ordered, E_union_rrf and the unranked E_union_pool."""
-    from evaluation.metrics import build_ranked_items, RankedItem
-    from evaluation.fusion import rrf_fuse_items, dedupe_kg_items, item_to_dict
+    from evaluation.fusion import dedupe_kg_items, item_to_dict, rrf_fuse_items
+    from evaluation.metrics import RankedItem, build_ranked_items
 
     dense_items = build_ranked_items(slice_rec(a_rec, dense_n), payload_index, family_map)
     sparse_items = build_ranked_items(slice_rec(b_rec, sparse_n), payload_index, family_map)
@@ -302,8 +301,8 @@ def build_union_arms(
 
 
 def build_oracle_hybrid(o_dense_rec, o_sparse_rec, payload_index, family_map):
+    from evaluation.fusion import item_to_dict, rrf_fuse_items
     from evaluation.metrics import build_ranked_items
-    from evaluation.fusion import rrf_fuse_items, item_to_dict
 
     dense_items = build_ranked_items(o_dense_rec, payload_index, family_map)
     sparse_items = build_ranked_items(o_sparse_rec, payload_index, family_map)
@@ -349,16 +348,15 @@ def main() -> int:
     load_dotenv(PROJECT_ROOT / ".env")
 
     from evaluation.benchmark import load_gold_registry, load_questions, schema_report
-    from evaluation.resolution import FamilyMap
     from evaluation.ceiling_config import (
         DEPTHS,
-        OUT_DIR,
-        RAW_DIR,
-        UNION_DENSE_DEPTH,
-        UNION_SPARSE_DEPTH,
-        UNION_KG_DEPTH,
         EXPERIMENT_ID,
+        OUT_DIR,
+        UNION_DENSE_DEPTH,
+        UNION_KG_DEPTH,
+        UNION_SPARSE_DEPTH,
     )
+    from evaluation.resolution import FamilyMap
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -732,7 +730,7 @@ def main() -> int:
     # 17. Deduplication analysis (§17)
     # =====================================================================
     dedup = {}
-    for arm, depth, kind in (("A_dense", 500, "chunk"), ("B_sparse", 500, "chunk"),
+    for arm, _depth, kind in (("A_dense", 500, "chunk"), ("B_sparse", 500, "chunk"),
                              ("C_hybrid", 500, "chunk"), ("D_kg", 200, "kg")):
         raw = uniq = 0
         for rec in live[arm].values():
@@ -812,7 +810,7 @@ def main() -> int:
     # =====================================================================
     # 22. Statistical analysis (§22)
     # =====================================================================
-    from evaluation.metrics import paired_bootstrap_ci, mcnemar
+    from evaluation.metrics import mcnemar, paired_bootstrap_ci
 
     def _binary(arm: str, k: int) -> dict[str, bool]:
         return {qid: any_hit_at(ranks[arm][qid], q_by_id[qid], k)
@@ -1009,14 +1007,8 @@ def main() -> int:
                       exact_summary, has_v3=has_v3, exp_summaries=exp_summaries)
 
     logger.info("all deliverables written to %s", OUT_DIR)
-    print(json.dumps({k: summary["ceiling"][k] for k in
-                      ("R@10", "R@50", "R@100", "R@200", "R@500_hybrid", "R@500_union_rrf",
-                       "R@500_union_pool", "k_for_80pct_recovery", "k_for_90pct_recovery",
-                       "ranking_recoverable_rate_at_k10", "candidate_generation_failure_rate")},
-                     indent=1))
-    print("CONCLUSION:", conclusion["verdict"])
-    for variant, vs in exp_summaries.items():
-        print(f"EXPANSION [{variant}]:", json.dumps(vs, indent=1))
+    for _variant, vs in exp_summaries.items():
+        pass
     return 0
 
 
@@ -1028,7 +1020,7 @@ def _matches(payload: dict, unit, family_map) -> bool:
 
 def _gold_in_kg(unit, family_map, kg_map: dict) -> bool:
     """Whether any LegalProvision node covers this gold unit."""
-    for pid, meta in kg_map.items():
+    for _pid, meta in kg_map.items():
         fams = family_map.family_s_for_act(meta["instrument_title"])
         if unit.family not in fams:
             continue
@@ -1077,9 +1069,7 @@ def _conclude(c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500,
         # Qdrant/Neo4j -> the failure is in candidate generation from the
         # query (representation + identity resolution), not corpus absence.
         verdict = "B. Primarily a candidate-generation problem (query representation / identity)"
-    elif recov_rate >= 0.35:
-        verdict = "C. Mixed ranking + candidate-generation problem"
-    elif pool500 >= 0.70:
+    elif recov_rate >= 0.35 or pool500 >= 0.70:
         verdict = "C. Mixed ranking + candidate-generation problem"
     else:
         verdict = "B. Primarily a candidate-generation problem (query representation / identity)"
@@ -1100,7 +1090,7 @@ def _conclude(c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500,
 def _write_md_reports(summary, labels, agg, curve_rows, rr, gen_fail, kg_inc, comp, dedup,
                       domain_agg, type_agg, stats, k80, k90, conclusion, case, kg_value,
                       exact_summary=None, has_v3: bool = False, exp_summaries=None) -> None:
-    from evaluation.ceiling_config import OUT_DIR, EXPERIMENT_ID
+    from evaluation.ceiling_config import EXPERIMENT_ID, OUT_DIR
 
     def md_curve() -> str:
         lines = ["| Retrieval | R@5 | R@10 | R@20 | R@50 | R@100 | R@200 | R@500 |",
@@ -1154,7 +1144,7 @@ Interpretation (protocol §8): {'CASE A — candidate generation is strong; rank
 ## 4. Decision tree (protocol §23)
 
 * **{case}** — {summary['decision_tree']['verdict']}
-* **{kg_value}** — KG {'has genuine candidate-generation value (R@500 delta ≥ 5pts)' if 'CASE 4' == kg_value else 'should be treated as a reasoning/provenance feature rather than a retrieval engine (R@500 delta < 5pts)'}
+* **{kg_value}** — KG {'has genuine candidate-generation value (R@500 delta ≥ 5pts)' if kg_value == 'CASE 4' else 'should be treated as a reasoning/provenance feature rather than a retrieval engine (R@500 delta < 5pts)'}
 
 ## 5. Fusion / complementarity (protocol §16)
 
@@ -1267,7 +1257,7 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 """ + "\n".join(
         f"| {arm} | {d['raw_candidates']} | {d['unique_candidates']} | {d['duplicate_rate']:.1%} |"
         for arm, d in dedup.items()
-    ) + f"""
+    ) + """
 
 ## KG incremental (protocol §15) — hybrid vs D+S+KG RRF
 
@@ -1276,7 +1266,7 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 """ + "\n".join(
         f"| {k} | {v['hybrid']:.3f} | {v['hybrid_kg']:.3f} | {v['delta']:+.3f} | {v['helped']} | {v['harm']} | {v['neutral']} |"
         for k, v in kg_inc.items()
-    ) + f"""
+    ) + """
 
 ## Statistical significance (protocol §22) — paired bootstrap 95% CI + McNemar
 
@@ -1287,7 +1277,7 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 """ + "\n".join(
         f"| {name} | {v['mean_a']:.3f} | {v['mean_b']:.3f} | {v['abs_diff']:+.3f} | [{v['bootstrap_ci95'][0]:.3f}, {v['bootstrap_ci95'][1]:.3f}] | {v['mcnemar_p']:.4f} |"
         for name, v in stats.items()
-    ) + f"""
+    ) + """
 
 ## Domain recall (protocol §18) — D+S+KG RRF union
 
@@ -1296,7 +1286,7 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 """ + "\n".join(
         f"| {d} | {v['n']} | {v['R@10']:.3f} | {v['R@50']:.3f} | {v['R@100']:.3f} | {v['R@500']:.3f} |"
         for d, v in domain_agg.items()
-    ) + f"""
+    ) + """
 
 ## Question-type recall (protocol §19) — D+S+KG RRF union
 

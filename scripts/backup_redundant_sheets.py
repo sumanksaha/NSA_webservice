@@ -11,15 +11,13 @@ Each export is independently best-effort: a failure in one target does not
 prevent the others from running.
 """
 
-import json
 import sys
-import os
 from pathlib import Path
 
 # Ensure the app package is importable when run from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import create_app  # noqa: E402
+from app import create_app
 
 
 def run_backup() -> dict:
@@ -40,9 +38,6 @@ if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         results = run_backup()
-        print(json.dumps(results, indent=2, default=str))
         # Exit non-zero if NO target succeeded
         if not any(results[k] for k in ("sheets", "airtable", "excel")):
-            print("ERROR: All backup targets failed", file=sys.stderr)
             sys.exit(1)
-        print("Backup complete.")

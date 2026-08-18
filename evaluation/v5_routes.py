@@ -185,8 +185,8 @@ def _workset(questions, registry) -> list[tuple[str, object, object, dict]]:
     acceptable) units; the count differed from the CSV.  V5 final:
     all gold units, so the route table and the workset CSV always agree.
     """
+    from evaluation.report_ceiling import build_union_arms, load_payload_index, load_raw, unit_first_ranks
     from evaluation.resolution import FamilyMap, matches_gold
-    from evaluation.report_ceiling import load_payload_index, load_raw, build_union_arms, unit_first_ranks
 
     payload_index = load_payload_index()
     family_map = FamilyMap()
@@ -233,7 +233,7 @@ def run(scope: str, routes: list[str], shard: str, limit: int = 0) -> int:
         items = items[idx - 1::nshards]
         if limit:
             items = items[:limit]
-        for i, (key, q, unit, rec) in enumerate(items, 1):
+        for _i, (key, q, unit, rec) in enumerate(items, 1):
             if unit is None or not rec:
                 continue
             queries = route_queries(unit, rec, q.question)
@@ -251,13 +251,12 @@ def run(scope: str, routes: list[str], shard: str, limit: int = 0) -> int:
                     continue
                 try:
                     rec_result = _retrieve(collection, query, _ROUTE_RETRIEVER[route])
-                except Exception as exc:  # noqa: BLE001 - per-item isolation
+                except Exception as exc:
                     rec_result = {"chunk_ids": [], "retriever": "error", "error": str(exc)}
                 rec_result.update({"key": key, "route": route, "scope": scope,
                                    "query": query, "collection": collection})
                 with open(CACHE / f"{scope}_{route}.jsonl", "a", encoding="utf-8") as f:
                     f.write(json.dumps(rec_result, ensure_ascii=False) + "\n")
-        print(f"scope={scope} routes={routes} shard={shard} done")
     return 0
 
 
@@ -289,8 +288,8 @@ def _kg_hit(kg_rec, unit, family_map) -> bool:
 def analyze() -> int:
     from app import create_app
     from evaluation.benchmark import load_gold_registry, load_questions
-    from evaluation.resolution import FamilyMap
     from evaluation.report_ceiling import load_payload_index, load_raw
+    from evaluation.resolution import FamilyMap
 
     app = create_app()
     with app.app_context():
@@ -299,7 +298,6 @@ def analyze() -> int:
         payload_index = load_payload_index()
         family_map = FamilyMap()
         workset = _workset(list(questions.values()), registry)
-        print(f"workset: {len(workset)} units")
 
         a_dense, b_sparse = load_raw("A_dense"), load_raw("B_sparse")
         o_dense, o_sparse = load_raw("O_dense"), load_raw("O_sparse")
@@ -342,8 +340,6 @@ def analyze() -> int:
                     recovered.append(pid)
             per_route[route] = {f"R@{k}": round(v / max(len(workset), 1), 4) for k, v in hits.items()}
             recoveries[route] = recovered
-            print(f"{route:22s} " + " ".join(f"R{k}={per_route[route][f'R@{k}']:.3f}" for k in (10, 50, 100, 500))
-                  + f"  recovered={len(recovered)}")
 
         with open(OUT / "v5_route_results.csv", "w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
@@ -392,9 +388,8 @@ def analyze() -> int:
             tax_rows.append([pid, unit.family, q.question_id, r or "none", cls])
         with open(OUT / "v5_taxonomy.csv", "w", encoding="utf-8", newline="") as f:
             csv.writer(f).writerows(tax_rows)
-        print("\n=== Task 9: taxonomy ===")
         for cls, n in sorted(tax_counts.items(), key=lambda x: -x[1]):
-            print(f"  {cls}: {n}")
+            pass
 
         # ---- Task 11: multi-route ablation on the FULL benchmark (pool ceiling)
         ablation_order = ["A_original", "C_identifier", "G_concept", "H_authority_action",
@@ -408,7 +403,6 @@ def analyze() -> int:
         # per-question incremental union coverage
         step_rows = [["step", "routes", "pool_R500_ceiling", "questions_with_gold_in_pool"]]
         acc_routes = []
-        from evaluation.report_ceiling import build_union_arms, unit_first_ranks, metrics_from_ranks
         from evaluation.ceiling_config import DEPTHS
         for route in ablation_order:
             acc_routes.append(route)
@@ -432,22 +426,20 @@ def analyze() -> int:
                 n += 1
             step_rows.append([len(acc_routes), "+".join(acc_routes),
                               round(r500 / max(n, 1), 4), round(qcov / max(n, 1), 4)])
-            print(f"  step {len(acc_routes):2d} {acc_routes[-1]:20s} pool_R500={step_rows[-1][2]:.4f} qcov={step_rows[-1][3]:.4f}")
         with open(OUT / "v5_route_ablation.csv", "w", encoding="utf-8", newline="") as f:
             csv.writer(f).writerows(step_rows)
 
         # ---- Task 12: domain analysis of the workset + V5 domain recall
         from collections import Counter
         dom = Counter(q.domains[0] if q.domains else "?" for _, q, _, _ in workset)
-        print("\n=== Task 12: workset by domain ===")
-        for d, n in dom.most_common():
-            print(f"  {d}: {n}")
+        for _d, n in dom.most_common():
+            pass
 
         # ---- Task 14: cross-encoder readiness
         ws_pids = {pid for pid, _, _, _ in workset}
         recovered_any = {p for r in routes for p in recoveries.get(r, [])} & ws_pids
         recovered_orig = set(recoveries.get("A_original", [])) & ws_pids
-        n_q_with_pos = len({qid for _, q, _, _ in workset
+        len({qid for _, q, _, _ in workset
                             if any(_unit_hit(_route_ids("A_original", None, q, a_dense, b_sparse, o_dense, o_sparse, q_caches, u_caches)[:500], u, payload_index, family_map)
                                    for _, _, u, _ in workset if u.provision_id in {x[0] for x in workset})})
         # count questions with >=1 gold unit in the any-route 500-pool
@@ -466,12 +458,10 @@ def analyze() -> int:
             "note": "positive = gold unit recovered at K<=500 by any route; hard negatives = units never recovered by any route",
         }
         (OUT / "v5_crossencoder_readiness.json").write_text(json.dumps(readiness, indent=2), encoding="utf-8")
-        print("\nreadiness:", json.dumps(readiness, indent=1))
 
         (OUT / "v5_route_results.json").write_text(json.dumps({
             "workset_n": len(workset), "per_route": per_route,
             "recoveries": recoveries, "taxonomy": tax_counts}, indent=2), encoding="utf-8")
-        print("\nwrote v5 route deliverables")
     return 0
 
 

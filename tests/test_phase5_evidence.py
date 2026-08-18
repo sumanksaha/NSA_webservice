@@ -32,7 +32,7 @@ def test_client(tmp_path):
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
-            user = User(username="tester", password_hash="x", is_admin=True)  # noqa: S106
+            user = User(username="tester", password_hash="x", is_admin=True)
             db.session.add(user)
             db.session.commit()
         yield client, app

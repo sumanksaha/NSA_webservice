@@ -46,9 +46,10 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from app.rag.legal_sections import sections_for_act
 
@@ -627,13 +628,14 @@ class KGCorpusIngestionEngine:
         # FSSAI documents from the local DB
         for doc in self.load_fss_documents():
             display_title = _title_or_filename(doc.get("title"), doc.get("source_uri"))
-            if doc["is_fss_act"]:
-                instrument_id = FSS_ACT_ID
-            else:
-                # Multi-part PDFs share one filename stem ("a.pdf#<doc-id>"), so
-                # the stem alone would collide and silently drop sub-documents.
-                # Disambiguate with the DB primary key: deterministic and unique.
-                instrument_id = f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
+            # Non-FSS multi-part PDFs share one filename stem ("a.pdf#<doc-id>"),
+            # so the stem alone would collide and silently drop sub-documents.
+            # Disambiguate with the DB primary key: deterministic and unique.
+            instrument_id = (
+                FSS_ACT_ID
+                if doc["is_fss_act"]
+                else f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
+            )
             domain = "FOOD_SAFETY"
             domains_used.append(domain)
             label = DOC_TYPE_TO_LABEL.get(str(doc["document_type"] or "").lower(), "Act")
@@ -1002,7 +1004,7 @@ class KGCorpusIngestionEngine:
 
         # Qdrant chunks keyed by document_id (multi-domain + any FSS points)
         qdrant_by_doc: dict[str, list[dict[str, Any]]] = {}
-        for coll, docs in self.load_qdrant_chunks().items():
+        for _coll, docs in self.load_qdrant_chunks().items():
             for doc_id, pts in docs.items():
                 qdrant_by_doc.setdefault(doc_id, []).extend(pts)
 

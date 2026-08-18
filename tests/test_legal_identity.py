@@ -2,9 +2,6 @@
 
 from dataclasses import dataclass
 
-import pytest
-
-from app.rag.retrieval.legal_identity import LegalIdentity, parse_legal_identity
 from app.rag.retrieval.legal_hierarchy import (
     adjacent_section,
     exact_section_match,
@@ -17,6 +14,7 @@ from app.rag.retrieval.legal_hierarchy import (
     sibling,
     subsection_relationship,
 )
+from app.rag.retrieval.legal_identity import LegalIdentity, parse_legal_identity
 
 
 @dataclass

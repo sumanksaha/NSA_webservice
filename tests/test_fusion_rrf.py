@@ -9,10 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
-import pytest
-
 from app.rag.retrieval.result import RetrievedChunk
 
 

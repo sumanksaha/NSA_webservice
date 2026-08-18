@@ -1,17 +1,24 @@
 """V7_GAP_METADATA_V1 - Metadata-driven gap analysis of 15.7% candidate-generation gap."""
 from __future__ import annotations
-import csv, json, re, os, sys
+
+import csv
+import json
+import os
+import re
+import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 from dotenv import load_dotenv; load_dotenv(ROOT / ".env")
-from evaluation.benchmark import load_questions, load_gold_registry
+import contextlib
+
+from evaluation.benchmark import load_gold_registry, load_questions
+from evaluation.config import CACHE_DIR
 from evaluation.resolution import FamilyMap, matches_gold, norm_section
-from evaluation.config import BENCHMARK_FILE, CACHE_DIR
 
 V5_RAW = ROOT / "evaluation" / "out" / "ceiling_v5" / "raw"
 V5_RUN_CONFIG = ROOT / "evaluation" / "out" / "ceiling_v5" / "run_config.json"
@@ -19,7 +26,7 @@ PAYLOAD_CACHE = CACHE_DIR / "payload_index.jsonl"
 V7_DIR = ROOT / "evaluation" / "out" / "ceiling_v7"
 V7_RAW = V7_DIR / "raw"; V7_RAW.mkdir(parents=True, exist_ok=True)
 EXP_ID = "V7_GAP_METADATA_V1"
-TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+TS = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 G_DEPTH = 500
 ARM_FILES = ["A_dense","B_sparse","C_hybrid","D_kg","O_dense","O_sparse","X_exact"]
 ROUTE_NAMES = ["C_identifier","E_document","F_identifier_only","G_concept",
@@ -51,10 +58,8 @@ def _load_jsonl(path):
         for line in f:
             line = line.strip()
             if line:
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     out.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
     return out
 
 
@@ -124,7 +129,6 @@ def compute_unit_ranks(caches, questions):
             if u.provision_id not in unit_objects:
                 unit_objects[u.provision_id] = u
     all_units = sorted(unit_objects.values(), key=lambda u: u.provision_id)
-    print(f"[compute] {len(all_units)} unique gold units, {len(questions)} questions")
 
     unit_ranks = {}
     gap_units = []
@@ -174,9 +178,7 @@ def compute_unit_ranks(caches, questions):
             gap_units.append(u)
 
     n_total = len(all_units)
-    n_in = n_total - len(gap_units)
-    print(f"[compute] Pool @500: {n_in}/{n_total} ({n_in/n_total:.1%})")
-    print(f"[compute] Gap: {len(gap_units)} ({len(gap_units)/n_total:.1%})")
+    n_total - len(gap_units)
     return unit_ranks, all_units, unit_to_q, q_by_id, fm, gap_units
 
 
@@ -184,7 +186,7 @@ def compute_unit_ranks(caches, questions):
 # Phase 3: Classify failures
 # --------------------------------------------------------------------------- #
 def classify_gap_unit(u, payload_idx, fm, registry):
-    rec = registry.get(u.provision_id, {})
+    registry.get(u.provision_id, {})
     fam_pids = [pid for pid, pl in payload_idx.items()
                 if u.family in fm.family_s_for_act(str(pl.get("act_name","") or pl.get("document_title","")))]
     section = u.section or ""
@@ -239,9 +241,6 @@ def classify_gap_unit(u, payload_idx, fm, registry):
 
 
 def run_phase3(gap_units, payload_idx, fm, registry):
-    print("\n" + "=" * 70)
-    print("PHASE 3: Classify every failure (G1-G12)")
-    print("=" * 70)
     rows = []
     for u in gap_units:
         code, expl = classify_gap_unit(u, payload_idx, fm, registry)
@@ -252,8 +251,8 @@ def run_phase3(gap_units, payload_idx, fm, registry):
                      "gold_section": u.section or "", "gold_document": u.act,
                      "failure_class": code, "explanation": expl,
                      "family_payloads": len(fam_pids), "section_numbers_stamped": stamped})
-    for r in rows:
-        print(f"  {r['gold_unit']}: {r['failure_class']} -- {r['explanation'][:80]}")
+    for _r in rows:
+        pass
     cols = ["gold_unit", "family", "gold_section", "gold_document", "failure_class",
             "explanation", "family_payloads", "section_numbers_stamped"]
     with open(V7_DIR / "v7_failure_taxonomy.csv", "w", newline="", encoding="utf-8") as f:
@@ -265,9 +264,6 @@ def run_phase3(gap_units, payload_idx, fm, registry):
 
 # Phase 4: Provenance audit
 def run_phase4(gap_units, payload_idx, fm):
-    print("\n" + "=" * 70)
-    print("PHASE 4: Gold provenance audit")
-    print("=" * 70)
     rows = []
     for u in gap_units:
         fam_pids = [pid for pid, pl in payload_idx.items()
@@ -294,7 +290,6 @@ def run_phase4(gap_units, payload_idx, fm):
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
-    print(f"[phase4] {len(rows)} rows")
     return rows
 
 
@@ -306,11 +301,8 @@ def _extract_year(title):
 
 # Phase 5: Canonical identity audit
 def run_phase5(registry):
-    print("\n" + "=" * 70)
-    print("PHASE 5: Canonical legal identity audit")
-    print("=" * 70)
     doc_ids = {}
-    for pid, rec in registry.items():
+    for _pid, rec in registry.items():
         did = rec.get("document_id", "")
         if did not in doc_ids:
             doc_ids[did] = {"canonical_document_id": did,
@@ -322,7 +314,6 @@ def run_phase5(registry):
                             "year": _extract_year(rec.get("act", "")),
                             "effective_from": "UNKNOWN",
                             "effective_to": "UNKNOWN", "status": "unknown"}
-    print(f"[phase5] {len(doc_ids)} source documents")
     with open(V7_DIR / "v7_canonical_identity_audit.json", "w", encoding="utf-8") as f:
         json.dump(list(doc_ids.values()), f, indent=2, default=str)
     return doc_ids
@@ -345,9 +336,6 @@ def _provision_key(family, section, rec):
 
 
 def run_phase6(registry):
-    print("\n" + "=" * 70)
-    print("PHASE 6: Provision identity schema")
-    print("=" * 70)
     keys = {}
     for pid, rec in registry.items():
         family = str(pid).split(":", 1)[0]
@@ -359,7 +347,6 @@ def run_phase6(registry):
                 section = m.group(1)
         keys[pid] = {"canonical_provision_key": _provision_key(family, section, rec),
                      "family": family, "section": section, "title": rec.get("title", "")}
-    print(f"[phase6] {len(keys)} provision keys")
     with open(V7_DIR / "v7_provision_identity.json", "w", encoding="utf-8") as f:
         json.dump(keys, f, indent=2, default=str)
     return keys
@@ -367,9 +354,6 @@ def run_phase6(registry):
 
 # Phase 7: Metadata coverage audit
 def run_phase7(payload_idx, fm):
-    print("\n" + "=" * 70)
-    print("PHASE 7: Payload metadata audit")
-    print("=" * 70)
     n = len(payload_idx)
     fields = ["document_id", "document_title", "act_name", "section_number",
               "subsection", "citations", "references", "hierarchy_level",
@@ -382,10 +366,9 @@ def run_phase7(payload_idx, fm):
                  if pl.get(fld) not in (None, "", [], False))
         rows.append({"field": fld, "total": n, "non_null": nn,
                      "null_count": n - nn, "coverage_percent": round(nn / n * 100, 1)})
-        print(f"  {fld}: {nn}/{n} ({nn/n*100:.1f}%)")
     null_sec = sum(1 for pl in payload_idx.values() if pl.get("section_number") is None)
     repairable = 0
-    for pid, pl in payload_idx.items():
+    for _pid, pl in payload_idx.items():
         if pl.get("section_number") is not None:
             continue
         ct = str(pl.get("chunk_text", ""))
@@ -393,8 +376,6 @@ def run_phase7(payload_idx, fm):
             if pat.search(ct):
                 repairable += 1
                 break
-    print(f"  section_number NULL: {null_sec} ({null_sec/n*100:.1f}%)")
-    print(f"  repairable: {repairable}")
     with open(V7_DIR / "v7_metadata_coverage.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["field", "total", "non_null", "null_count", "coverage_percent"])
         w.writeheader()
@@ -404,9 +385,6 @@ def run_phase7(payload_idx, fm):
 
 # Phase 8: Section header repair (deterministic)
 def run_phase8(payload_idx):
-    print("\n" + "=" * 70)
-    print("PHASE 8: Section header repair (deterministic)")
-    print("=" * 70)
     repairs = []
     for pid, pl in payload_idx.items():
         if pl.get("section_number") is not None:
@@ -422,7 +400,6 @@ def run_phase8(payload_idx):
                                 "new_value": m.group(1), "repair_method": "deterministic_regex",
                                 "evidence": ct[:120], "confidence": "HIGH", "timestamp": TS})
                 break
-    print(f"[phase8] {len(repairs)} section header repairs")
     cols = ["repair_id", "chunk_id", "field", "old_value", "new_value",
             "repair_method", "evidence", "confidence", "timestamp"]
     with open(V7_DIR / "v7_metadata_repairs.csv", "w", newline="", encoding="utf-8") as f:
@@ -435,9 +412,6 @@ def run_phase8(payload_idx):
 
 # Phase 9: Provision inheritance
 def run_phase9(payload_idx):
-    print("\n" + "=" * 70)
-    print("PHASE 9: Provision inheritance")
-    print("=" * 70)
     leaders = {}
     for pid, pl in payload_idx.items():
         sec = pl.get("section_number")
@@ -474,15 +448,11 @@ def run_phase9(payload_idx):
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(inh)
-    print(f"[phase9] {len(inh)} inheritance relationships")
     return inh
 
 
 # Phase 10: Chunk-level legal hierarchy
 def run_phase10(payload_idx):
-    print("\n" + "=" * 70)
-    print("PHASE 10: Chunk-level legal hierarchy")
-    print("=" * 70)
     edges = []
     for pid, pl in payload_idx.items():
         parent_id = pl.get("parent_chunk_id")
@@ -500,15 +470,11 @@ def run_phase10(payload_idx):
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(edges)
-    print(f"[phase10] {len(edges)} hierarchy edges")
     return edges
 
 
 # Phase 11: Cross-reference repair
 def run_phase11(payload_idx):
-    print("\n" + "=" * 70)
-    print("PHASE 11: Cross-reference repair")
-    print("=" * 70)
     xrefs = []
     for pid, pl in payload_idx.items():
         cites = pl.get("citations", []) or []
@@ -523,26 +489,18 @@ def run_phase11(payload_idx):
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(xrefs)
-    print(f"[phase11] {len(xrefs)} cross-reference entries")
     return xrefs
 
 
 # Phase 12: Temporal metadata audit
 def run_phase12(payload_idx):
-    print("\n" + "=" * 70)
-    print("PHASE 12: Temporal metadata audit")
-    print("=" * 70)
-    n = len(payload_idx)
+    len(payload_idx)
     for fn in ["effective_date", "enactment_date", "amended_date", "is_current", "status"]:
-        cnt = sum(1 for pl in payload_idx.values() if pl.get(fn) not in (None, "", [], False))
-        print(f"  {fn}: {cnt}/{n} ({cnt/n*100:.1f}%)")
+        sum(1 for pl in payload_idx.values() if pl.get(fn) not in (None, "", [], False))
 
 
 # Phase 13: Jurisdiction metadata audit
 def run_phase13(payload_idx, fm):
-    print("\n" + "=" * 70)
-    print("PHASE 13: Jurisdiction metadata audit")
-    print("=" * 70)
     jurs = Counter()
     for pl in payload_idx.values():
         j = str(pl.get("jurisdiction", "") or "").strip()
@@ -555,7 +513,6 @@ def run_phase13(payload_idx, fm):
             jurs["(empty)"] += 1
     rows = []
     for j, cnt in jurs.most_common():
-        print(f"  {j}: {cnt}")
         rows.append({"jurisdiction": j, "count": cnt})
     with open(V7_DIR / "v7_jurisdiction_audit.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["jurisdiction", "count"])
@@ -567,9 +524,6 @@ def run_phase13(payload_idx, fm):
 
 # Phase 14: Virtual reindex (in-memory patch)
 def run_phase14(payload_idx, repairs):
-    print("\n" + "=" * 70)
-    print("PHASE 14: Virtual reindex")
-    print("=" * 70)
     repaired = {pid: dict(pl) for pid, pl in payload_idx.items()}
     n = 0
     for r in repairs:
@@ -578,15 +532,11 @@ def run_phase14(payload_idx, repairs):
             repaired[pid]["section_number"] = r["new_value"]
             repaired[pid]["_v7_repaired"] = True
             n += 1
-    print(f"[phase14] Applied {n} virtual repairs")
     return repaired
 
 
 # Phase 15-16: Re-run gap + marginal value measurement
 def run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q):
-    print("\n" + "=" * 70)
-    print("PHASE 15-16: Re-run gap + marginal value")
-    print("=" * 70)
     arms = caches["arms"]
     routes = caches["routes"]
     results = []
@@ -635,8 +585,6 @@ def run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q):
     n_in = n_total - len(gap_units) + n_recovered
     cb = (n_total - len(gap_units)) / n_total
     ca = n_in / n_total
-    print(f"[phase15-16] Before: {cb:.1%} | After: {ca:.1%} | Recovered: {n_recovered}/{len(gap_units)}")
-    print(f"[phase15-16] Improvement: +{(ca-cb)*100:.1f}pp")
     return {"n_total": n_total, "n_gap": len(gap_units), "n_in_pool": n_in,
             "n_recovered": n_recovered, "ceiling_before": round(cb, 4),
             "ceiling_after": round(ca, 4), "results": results}
@@ -644,9 +592,6 @@ def run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q):
 
 # Phase 17: Decision tree
 def run_phase17(gap_units, classifications, measure):
-    print("\n" + "=" * 70)
-    print("PHASE 17: Retrieval vs metadata decision tree")
-    print("=" * 70)
     after_map = {r["gold_unit"]: r for r in measure["results"]}
     results = []
     for u in gap_units:
@@ -683,8 +628,8 @@ def run_phase17(gap_units, classifications, measure):
                         "decision": d, "detail": det,
                         "recovered_by_repair": ba.get("recovered_by_repair", "no")})
     dc = Counter(r["decision"] for r in results)
-    for d, n in dc.most_common():
-        print(f"  {d}: {n}")
+    for d, _n in dc.most_common():
+        pass
     cols = ["gold_unit", "family", "gold_section", "failure_class", "decision",
             "detail", "recovered_by_repair"]
     with open(V7_DIR / "v7_decision_tree.csv", "w", newline="", encoding="utf-8") as f:
@@ -700,25 +645,15 @@ def run_phase17(gap_units, classifications, measure):
 # Phase 18-19: Report generation
 def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure,
                    all_units, gap_units):
-    print(NL + "=" * 70)
-    print("PHASE 18-19: V7_METADATA_GAP_REPORT")
-    print("=" * 70)
     n_total = len(all_units)
     n_gap = len(gap_units)
     cb = measure["ceiling_before"]
     ca = measure["ceiling_after"]
     n_rec = measure["n_recovered"]
     fc = ""
-    if ca >= 0.95:
-        target = "CASE 1: 95%+ - Ship metadata repairs; focus on ranking"
-    elif ca >= 0.90:
-        target = "CASE 2: 90%+ - Ship repairs + minor retrieval tuning"
-    elif ca >= 0.85:
-        target = "CASE 3: 85%+ - Ship repairs + add query routes"
-    elif ca >= 0.80:
-        target = "CASE 4: 80%+ - Mixed ranking + retrieval investment"
+    if ca >= 0.95 or ca >= 0.90 or ca >= 0.85 or ca >= 0.80:
+        pass
     else:
-        target = "CASE 5: <80% - Candidate generation bottleneck"
         fc = ""
     for r in metadata_audit["rows"]:
         fc += "| " + r["field"] + " | " + str(r["non_null"]) + " | " + str(r["total"]) + " | " + str(r["coverage_percent"]) + "% |" + NL
@@ -780,17 +715,14 @@ def run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure,
     report += "This experiment does NOT modify benchmark, training data, hard negatives," + NL
     report += "the cross-encoder model, or its training." + NL
     (V7_DIR / "V7_METADATA_GAP_REPORT.md").write_text(report, encoding="utf-8")
-    print("[phase19] Report -> V7_METADATA_GAP_REPORT.md")
 
 
 def main():
-    print(f"=== {EXP_ID} --- {TS} ===")
     questions = load_questions()
     registry = load_gold_registry()
     caches = load_all_caches()
     payload_idx = caches["payload"]
-    print(f"Loaded {len(payload_idx)} payload points")
-    unit_ranks, all_units, unit_to_q, q_by_id, fm, gap_units = compute_unit_ranks(caches, questions)
+    unit_ranks, all_units, unit_to_q, _q_by_id, fm, gap_units = compute_unit_ranks(caches, questions)
     gap_rows = [{"gold_unit": u.provision_id, "family": u.family,
                  "gold_section": u.section or "", "gold_document": u.act,
                  "best_rank": unit_ranks[u.provision_id]["best"] or "",
@@ -800,7 +732,6 @@ def main():
         w = csv.DictWriter(f, fieldnames=["gold_unit","family","gold_section","gold_document","best_rank","in_pool"])
         w.writeheader()
         w.writerows(gap_rows)
-    print(f"[main] v7_candidate_gap.csv: {len(gap_rows)} units, {len(gap_units)} gap")
     classifications, cls_counts = run_phase3(gap_units, payload_idx, fm, registry)
     run_phase4(gap_units, payload_idx, fm)
     run_phase5(registry)
@@ -816,8 +747,8 @@ def main():
     measure = run_phase15_16(gap_units, caches, repaired_idx, fm, all_units, unit_to_q)
     decisions, dc = run_phase17(gap_units, classifications, measure)
     run_phase18_19(cls_counts, decisions, dc, metadata_audit, repairs, measure, all_units, gap_units)
-    remediation = run_phase20(gap_units, payload_idx, fm)
-    ce_ready = run_phase21(measure)
+    run_phase20(gap_units, payload_idx, fm)
+    run_phase21(measure)
     v5c = {}
     if V5_RUN_CONFIG.exists():
         v5c = json.loads(V5_RUN_CONFIG.read_text())
@@ -834,13 +765,6 @@ def main():
               "qdrant_points": len(payload_idx)}
     with open(V7_RAW / "v7_freeze.json", "w", encoding="utf-8") as f:
         json.dump(freeze, f, indent=2)
-    print(NL + "=" * 70)
-    print(f"V7 COMPLETE: {EXP_ID}")
-    print(f"  Ceiling before: {measure['ceiling_before']:.1%}")
-    print(f"  Ceiling after:  {measure['ceiling_after']:.1%}")
-    print(f"  Gap recovered:  {measure['n_recovered']}/{len(gap_units)}")
-    print(f"  Output: {V7_DIR}")
-    print("=" * 70)
     return 0
 
 
@@ -849,9 +773,6 @@ def main():
 # --------------------------------------------------------------------------- #
 def run_phase20(gap_units, payload_idx, fm):
     """Deep-dive on the 7 gap units: what sections ARE stamped, what's missing."""
-    print("\n" + "=" * 70)
-    print("PHASE 20: Gap remediation deep-dive")
-    print("=" * 70)
     rows = []
     for u in gap_units:
         fam_pids = [pid for pid, pl in payload_idx.items()
@@ -866,14 +787,13 @@ def run_phase20(gap_units, payload_idx, fm):
         # Check if gold section appears in any chunk text
         gold_sec = str(u.section) if u.section else ""
         in_text = False
-        text_evidence = ""
         if gold_sec and gold_sec.isdigit():
             for pid in fam_pids[:100]:
                 ct = str(payload_idx[pid].get("chunk_text", ""))
                 pattern = "section " + gold_sec
                 if pattern in ct.lower() or re.search(rf"\b{re.escape(gold_sec)}\b.*\s", ct):
                     in_text = True
-                    text_evidence = ct[:200]
+                    ct[:200]
                     break
         # Check for variant formats in text
         variants = []
@@ -892,7 +812,6 @@ def run_phase20(gap_units, payload_idx, fm):
                      "gold_in_text": "yes" if in_text else "no",
                      "text_variants_found": "; ".join(variants) if variants else "(none)",
                      "recommendation": recommendation})
-        print(f"  {u.provision_id}: {len(stamped_secs)} stamped secs, variants={variants[:3]}, rec={recommendation}")
     cols = ["gold_unit", "family", "gold_section", "gold_document",
             "family_payloads", "stamped_sections_count", "stamped_sections_sample",
             "gold_in_text", "text_variants_found", "recommendation"]
@@ -908,23 +827,16 @@ def run_phase20(gap_units, payload_idx, fm):
 # --------------------------------------------------------------------------- #
 def run_phase21(measure):
     """Assess whether the 91.9% pool ceiling justifies cross-encoder training."""
-    print("\n" + "=" * 70)
-    print("PHASE 21: Cross-encoder ranking readiness")
-    print("=" * 70)
     ca = measure["ceiling_after"]
     n_gap = measure["n_gap"]
     n_rec = measure["n_recovered"]
-    n_total = measure["n_total"]
-    print(f"  Pool ceiling: {ca:.1%}")
-    print(f"  Gap units: {n_gap} ({n_gap/n_total:.1%})")
-    print(f"  Metadata-recoverable: {n_rec}/{n_gap}")
+    measure["n_total"]
     if ca >= 0.90 and n_gap - n_rec <= 10:
         verdict = "GO: Pool ceiling >= 90% with <= 10 unrecoverable units. Cross-encoder justified."
     elif ca >= 0.85:
         verdict = "CONDITIONAL: Pool ceiling >= 85% but > 10 gap units. Address query representation gaps first."
     else:
         verdict = "NO GO: Pool ceiling < 85% or too many gap units. Fix candidate generation first."
-    print(f"  Verdict: {verdict}")
     result = {"pool_ceiling": ca, "gap_units": n_gap,
               "metadata_recoverable": n_rec, "verdict": verdict}
     with open(V7_RAW / "v7_crossencoder_readiness.json", "w", encoding="utf-8") as f:

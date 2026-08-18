@@ -249,6 +249,69 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 
 ---
 
+## 7. RAG Query Interface UI ✅ (planned)
+
+> **Status:** Planned — backend (API routes, LangGraph agent pipeline, response schema) fully implemented & verified; only the frontend UI is missing.
+
+- **Goal & Rationale:** Provide a web UI for end users to submit natural-language legal queries to the RAG pipeline and view grounded answers with citations. The backend exposes `POST /api/rag/query` (legacy) and `POST /api/rag/query/agent` (LangGraph self-correcting pipeline) on the `rag_bp` blueprint — both registered at `url_prefix="/api/rag"` in `app/rag/__init__.py`, with all env vars in `app/__init__.py` + `.env.example`. No frontend exists yet: no template, no JS, no nav link.
+
+- **Target Files to Edit/Create:**
+    - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
+    - Create `app/rag/templates/rag/query.html` — form + results sections
+    - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
+    - Modify `app/templates/base.html` — add "Legal RAG" nav tab
+    - Modify `.env.example` — document `RAG_ENABLED` flag
+
+### Architecture
+
+```
+Authenticated User visits /api/rag/ (GET)
+        │
+        ├── renders rag/query.html (Jinja2, extends base.html)
+        │   ├── Query form: textarea + collection selector + submit button
+        │   ├── Results section: answer text, citations, groundedness score badge
+        │   ├── HITL section: awaiting_review message + resume form (hidden by default)
+        │   └── Error section: RAG-disabled / network failure messages (hidden by default)
+        │
+        ├── user submits query → POST /api/rag/query/agent
+        │   ├── RAG_USE_AGENT_PIPELINE=true → LangGraph graph (classify → retrieve
+        │   │   → generate → verify → expand-and-retry on groundedness < 0.7)
+        │   ├── RAG_AGENT_HITL=true + groundedness borderline → 202 awaiting_review
+        │   │   └── POST /api/rag/query/agent/resume {thread_id, approved}
+        │   └── RAG_USE_AGENT_PIPELINE=false → delegates to legacy /api/rag/query
+        │
+        └── RAGQueryLog.pipeline stamped ("legacy" / "agent")
+```
+
+### Detailed Implementation Plan
+
+1. **Route (`app/rag/routes.py`):** Add `GET /` route that renders the `rag/query.html` template. The `rag_bp` blueprint is already registered at `url_prefix="/api/rag"`, so the route is reachable at `/api/rag/`. The route passes `RAG_USE_AGENT_PIPELINE`, `RAG_AGENT_HITL`, and `RAG_ENABLED` config values to the template for conditional UI rendering.
+2. **Template (`app/rag/templates/rag/query.html`):** Jinja2 template extending `base.html` with:
+    - A query input form (textarea, collection selector dropdown populated from `app/rag/collections.py`, submit button)
+    - A results section that renders the `RAGResponse` schema (answer text, citations list with links, groundedness score badge, audit trail)
+    - CSRF token handling (base.html already has a global CSRF fetch interceptor via `csrf_token` meta tag — no manual token handling needed in JS)
+    - Hidden sections for 202 awaiting_review + resume form, and error messages
+3. **JavaScript (`app/static/js/rag_query.js`):** IIFE pattern (matching `ai_assistant.js`):
+    - `POST` to `/api/rag/query/agent` with `{query, collection}` via `fetch()`
+    - On `200`: render `RAGResponse` (answer text, citations list, groundedness score badge)
+    - On `202`: show awaiting_review state with `thread_id` + resume form (`{thread_id, approved}`)
+    - On `503`: show "RAG disabled" error message
+    - CSRF token read from `base.html`'s meta tag (`csrf-token`)
+    - All state variables (`agentThread`, `queryText`, `collectionName`) held in closure scope (no global leakage)
+4. **Nav link (`app/templates/base.html`):** Add "Legal RAG" tab in the navigation bar, visible to authenticated users (all routes require auth via `require_login` before_request gate — `rag_query` is not in `public_endpoints`).
+5. **Config (`.env.example`):** Document `RAG_ENABLED` (default `false`) — gates whether the RAG UI nav link and `GET /` route are accessible. When `false`, the route returns 404 and the nav link is hidden.
+6. **Tests (`tests/test_rag_interface.py`):** Test that the `GET /` route renders the template (200), the JS file is served at `/static/js/rag_query.js` (200), and the nav link appears in `base.html` after login.
+
+### Acceptance Criteria
+
+- `GET /api/rag/` renders the query form for authenticated users (302→login for unauthenticated)
+- Submitting a query POSTs to `/api/rag/query/agent` and renders the `RAGResponse`
+- When `RAG_USE_AGENT_PIPELINE=false`, the query delegates to the legacy pipeline
+- When `RAG_AGENT_HITL=true` and the response is 202, the resume form is shown
+- `pytest tests/test_rag_interface.py` passes (new test file, 8 tests planned)
+
+---
+
 ## 8. Multi-Target Sheets Redundancy Architecture
 
 > **Status:** ✅ Complete (2026-08-07). `app/utils/sync.py` — 12 new restore functions/variables (`restore_from_airtable_csv()`, `restore_from_excel_csv()`, `restore_from_sheets_csv()`, `restore_if_empty()` orchestrating Airtable → Excel → Sheets, `trigger_backup()`, `_restore_from_records()`, `_restore_module()`, `_parse_csv_value()`, `_is_empty_sqlite_db()` fixed to use `db.metadata.tables`, plus `_AIRTABLE_TABLE_MAP`/`_WORKSHEET_MAP`/`_SHEETS_RESTORE_MAP` maps). `app/__init__.py` — fixed Priority 7 config indentation, QStash daily backup schedule at 02:00 UTC (gated behind `ENABLE_BACKUP_SCHEDULE`). `app/settings/routes.py` — restored `backup_restore` route, added `backup_redundant_to_r2` + `backup_redundant_to_r2_status` routes. `tests/test_priority7_redundancy.py` — **43/43 tests pass**, no regressions.
@@ -509,6 +572,28 @@ Sync functions are loaded lazily via `_load_sync_fns()` so the module bootstraps
 - The **dependabot PR changes themselves are verified safe** — all 783 passing tests run with the updated dependency versions already installed.
 - The timeline **engine** tests pass in isolation (`TestTimelineEngine::test_valid_case_has_no_warnings` ✅); only the **route** tests fail due to the pre-existing `app/__init__.py` changes.
 - The concurrency guard (S9a) code is correct (`StaleDataError → 409` tuple); the test failures are because SQLite doesn't trigger `StaleDataError` the way PostgreSQL does.
+
+---
+
+## 11. Corpus Coverage & CE-v2 Baseline — Status (2026-08-18)
+
+> Companion docs: `docs/COVERAGE_COMPLETENESS.md` (full plan) and `evaluation/CV2_IMPROVEMENT_PLAN.md` (checklist).
+
+### Done
+
+- **Coverage audit tooling**: `evaluation/coverage_audit.py` + `tests/test_coverage_audit.py` (14) — repeatable, cache-based; `--live` refreshes the frozen payload cache.
+- **P1 — `document_title` backfill** (`scripts/backfill_document_title.py`): 12,819 fills (29 docs, 27,350/27,351 covered) + DB mirror. Applied live.
+- **P2 — L7 propagation** (`derive_l7` in `scripts/backfill_payload_identity.py`): header-trust corrections + amendment anchors, 2,075 updates (L7 correction 42 + L7 propagation 1,834 + L5 180 + L4 19). Applied live; re-run fully idempotent (0 changes).
+- **Result:** substantive identity coverage **71.6% → 82.4%** (all chunks 58.0%); act docs 93.9%, commercial 99.9%, fssai 86.9%.
+- **CE-v2 baseline re-frozen (2026-08-18)**: `evaluation/ce_v2_baseline.json` regenerated from the post-strip/post-P2 payload cache (`ce_v2_error_analysis` → `ce_v2_eval` → `--freeze-baseline`). Failure taxonomy shifted as predicted: **same_section_hard_neg 3 → 2** (one false same-section match removed by the reg/rule/notification noise strip); hierarchy_version 8 → 9; failures 12; pairwise/ranking metrics unchanged (score cache is payload-independent). Gates now: hierarchy 9 / same-section 2 (targets ≤4 / ≤1).
+
+### Next: CE improvement plan (elaborated in `evaluation/CV2_IMPROVEMENT_PLAN.md` §2)
+
+Post-re-freeze failure decomposition: **6 of 12 failures are V2 regressions** (Q049 1→10, Q080 2→9, Q097 2→7, Q102 3→8, Q118/Q120 2→4 — V1 solved them, V2 broke them). Sequence: Step 1 diagnose the 6 regressions (0.5 d) → Step 2 P1 section-prefix (1.5–2 d) ∥ Step 3 P2 same-section re-mine on the cleaned corpus (1–2 d) → Step 4 P4 domain balance (1 d) → Step 5 P3 calibration (anytime) → Step 7 re-freeze + deploy. Gates per step in `CV2_IMPROVEMENT_PLAN.md` §2.4.
+
+### P3 — deferred (owner: user, later)
+
+- **P3 re-ingestion of broken-OCR docs** (BNS + rule docs ≈ 2,129 substantive chunks; 9 PDFs, all present in `other domain/`) — **held by user, to be done later** (estimate: 2–4 days; see `docs/COVERAGE_COMPLETENESS.md` §P3). Once done: re-run `coverage_audit --live`, then re-freeze the CE-v2 baseline again (section stamps will change for those docs).
 
 ---
 

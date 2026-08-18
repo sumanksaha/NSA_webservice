@@ -53,7 +53,6 @@ def _resolve_token(token: str | None) -> str | None:
     """Resolve the HF token from ``--token`` or ``HF_TOKEN`` env."""
     token = token or os.environ.get("HF_TOKEN")
     if not token:
-        print("ERROR: no HF token — pass --token or set HF_TOKEN", file=sys.stderr)
         raise SystemExit(2)
     return token
 
@@ -61,11 +60,11 @@ def _resolve_token(token: str | None) -> str | None:
 def _load_ce(local_path: Path):
     """Load a local CrossEncoder with the torch thread cap applied."""
     try:
-        from app.rag.torch_runtime import cap_torch_threads
         from sentence_transformers import CrossEncoder
-    except ImportError as exc:  # pragma: no cover - dev-env guard
-        print(f"ERROR: sentence-transformers not installed ({exc})", file=sys.stderr)
-        raise SystemExit(2)
+
+        from app.rag.torch_runtime import cap_torch_threads
+    except ImportError:  # pragma: no cover - dev-env guard
+        raise SystemExit(2) from None
     cap_torch_threads()
     return CrossEncoder(str(local_path))
 
@@ -79,7 +78,7 @@ def _parity_ok(local_scores: list[float], hub_scores: list[float], tol: float = 
     """Hub reload must score the sanity pairs close to the local copy."""
     if len(local_scores) != len(hub_scores):
         return False
-    return all(abs(a - b) <= tol for a, b in zip(local_scores, hub_scores))
+    return all(abs(a - b) <= tol for a, b in zip(local_scores, hub_scores, strict=False))
 
 
 def _push_one(
@@ -94,24 +93,18 @@ def _push_one(
 ) -> bool:
     local_path = LOCAL_MODELS_DIR / model_key
     if not local_path.is_dir():
-        print(f"  FAIL {model_key}: checkpoint dir missing ({local_path})")
         return False
     if not (local_path / "model.safetensors").is_file():
-        print(f"  FAIL {model_key}: model.safetensors missing - cannot upload")
         return False
 
-    size_mb = (local_path / "model.safetensors").stat().st_size / 1e6
-    print(f"  . {model_key}: {size_mb:.1f} MB safetensors -> {repo_id}")
+    (local_path / "model.safetensors").stat().st_size / 1e6
 
     if dry_run:
         return True
 
-    print(f"  . {model_key}: loading local encoder (thread-capped)...")
     ce = _load_ce(local_path)
     local_scores = _score(ce, _SANITY_PAIRS)
-    print(f"  . {model_key}: local sanity scores {[round(s, 3) for s in local_scores]}")
 
-    print(f"  . {model_key}: uploading to {repo_id}...")
     ce.push_to_hub(
         repo_id,
         token=token,
@@ -121,21 +114,14 @@ def _push_one(
     )
 
     if skip_validate:
-        print(f"  OK {model_key}: pushed to {repo_id} (validation skipped)")
         return True
 
-    print(f"  . {model_key}: validating Hub reload parity...")
     try:
         hub_ce = _load_ce(repo_id)  # type: ignore[arg-type] - hub id or local path
-    except Exception as exc:  # noqa: BLE001 - any load failure is reported
-        print(f"  FAIL {model_key}: Hub reload failed: {exc}", file=sys.stderr)
+    except Exception:
         return False
     hub_scores = _score(hub_ce, _SANITY_PAIRS)
     ok = _parity_ok(local_scores, hub_scores)
-    print(
-        f"  {'OK' if ok else 'FAIL'} {model_key}: hub scores {[round(s, 3) for s in hub_scores]}"
-        f" (parity {'ok' if ok else 'MISMATCH'})"
-    )
     return ok
 
 
@@ -156,8 +142,6 @@ def main() -> int:
     if args.local and args.repo is None:
         parser.error("--local requires --repo (the Hub repo suffix)")
 
-    print("HF Hub push - legal cross-encoders (M0)")
-    print("=" * 60)
 
     token = None if args.dry_run else _resolve_token(args.token)
 
@@ -175,9 +159,7 @@ def main() -> int:
             dry_run=args.dry_run,
         )
 
-    print("=" * 60)
     ok_count = sum(results.values())
-    print(f"Summary: {ok_count}/{len(results)} succeeded")
     return 0 if ok_count == len(results) else 1
 
 

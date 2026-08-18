@@ -3,7 +3,7 @@
 Covers: Environment (Protection) Act 1986; Water & Air Acts; SWM Rules 2026;
 Plastic Waste Management Rules 2016/2022.
 """
-from .base import Q, P
+from .base import P, Q
 
 COL = "env_legal_768"
 AUTH = "Central Pollution Board (CPCB) / State Pollution Board"

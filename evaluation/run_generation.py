@@ -74,7 +74,7 @@ def _chunk_from_payload(pid: str, payload: dict):
     )
 
 
-def _oracle_chunks(question: Any, payload_index: dict, family_map) -> list:
+def _oracle_chunks(question: Any, payload_index: dict, family_map) -> list:  # noqa: F821 - typing.Any
     """Gold evidence chunks: one covering point per relevant gold unit."""
     from evaluation.resolution import gold_in_corpus
 
@@ -119,7 +119,7 @@ def _kg_evidence(arm_f: dict, payload_index: dict, query: str = ""):
         from kg.queries import LegalKGQueries, provisions_for_query
 
         provisions = provisions_for_query(query, LegalKGQueries(), limit=KG_CONTEXT_SLOTS)
-    except Exception as exc:  # noqa: BLE001 - best-effort by design
+    except Exception as exc:
         return retrieved, {}, {"error": str(exc), "provisions": 0}
     from app.rag.generation.context_builder import ContextBuilder
 
@@ -153,8 +153,8 @@ def main() -> int:
 
     load_dotenv(PROJECT_ROOT / ".env")
 
-    from evaluation.config import OUT_DIR, RAW_DIR, write_run_config
     from evaluation.benchmark import load_questions
+    from evaluation.config import OUT_DIR, RAW_DIR, write_run_config
     from evaluation.resolution import FamilyMap, build_payload_index
 
     parser = argparse.ArgumentParser()
@@ -245,7 +245,7 @@ def main() -> int:
                             "generation_latency_ms": resp.generation_latency_ms,
                             "error": (resp.debug or {}).get("error"),
                         }
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         rec = {
                             "question_id": q.question_id,
                             "condition": condition,

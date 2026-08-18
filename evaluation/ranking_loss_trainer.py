@@ -20,12 +20,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import random
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -109,10 +110,8 @@ def configure_threads(threads: int | None = None) -> None:
         import torch
 
         torch.set_num_threads(threads)
-        try:
+        with contextlib.suppress(Exception):
             torch.set_num_interop_threads(1)
-        except Exception:  # noqa: BLE001 - interop pool already initialised
-            pass
     except ImportError:
         pass
 
@@ -136,7 +135,6 @@ def detect_device() -> str:
         import torch
         if torch.cuda.is_available() and torch.cuda.device_count() > 0:
             dev = "cuda:" + str(torch.cuda.current_device())
-            print(f"  [device] Using CUDA: {dev}", flush=True)
             return dev
     except Exception:
         pass
@@ -146,7 +144,6 @@ def detect_device() -> str:
         import torch
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             dev = "xpu:" + str(torch.xpu.current_device())
-            print(f"  [device] Using XPU: {dev}", flush=True)
             return dev
     except Exception:
         pass
@@ -158,16 +155,10 @@ def detect_device() -> str:
         import torch_directml
         dev = torch_directml.device(0)
         if dev is not None:
-            print(
-                f"  [device] DirectML device {dev} detected but defaulting to CPU "
-                "(iGPU shares system RAM; CPU is faster for this workload). "
-                "Override with --device privateuseone:0.",
-                flush=True,
-            )
+            pass
     except Exception:
         pass
 
-    print("  [device] Using CPU (thread-capped)", flush=True)
     return "cpu"
 
 
@@ -232,7 +223,7 @@ def save_training_checkpoint(
         "python_rng": python_rng,
         "epoch_order": epoch_order,
         "order_epoch": int(order_epoch),
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     torch.save(payload, tmp)
     os.replace(tmp, path)
@@ -246,11 +237,7 @@ def load_training_checkpoint(path: Path) -> dict | None:
         return None
     try:
         return torch.load(path, map_location="cpu", weights_only=False)
-    except Exception as exc:  # noqa: BLE001 - corrupt / incompatible checkpoint
-        print(
-            f"  [train] WARNING: checkpoint unreadable ({exc}); starting fresh",
-            file=sys.stderr,
-        )
+    except Exception:
         return None
 
 
@@ -300,7 +287,7 @@ def write_training_status(
         "elapsed_seconds": round(float(elapsed_seconds), 1) if elapsed_seconds is not None else None,
         "eta_seconds": int(eta_seconds) if eta_seconds is not None else None,
         "last_checkpoint": last_checkpoint,
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -344,7 +331,6 @@ class MarginRankingLossTrainer:
     def _load_model(self):
         if self.model is not None:
             return
-        import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -415,7 +401,6 @@ class MarginRankingLossTrainer:
         configure_threads()
         n_threads = int(torch.get_num_threads())
         self._load_model()
-        print(f"  [train] Computing on device: {self.device}", flush=True)
         if status_file is None and output_dir is not None:
             status_file = output_dir / "training_status.json"
 
@@ -426,11 +411,7 @@ class MarginRankingLossTrainer:
 
             avail_gb = psutil.virtual_memory().available / (1024 ** 3)
             if avail_gb < 2.0:
-                print(
-                    f"  [train] WARNING: only {avail_gb:.1f} GB RAM available — "
-                    "expect heavy swapping; close other apps or lower --batch-size",
-                    flush=True,
-                )
+                pass
         except Exception:
             pass
 
@@ -507,13 +488,12 @@ class MarginRankingLossTrainer:
                     or cached.get("n") != len(train_pairs)
                 ):
                     cached = None
-            except Exception:  # noqa: BLE001 - stale/corrupt cache -> re-tokenise
+            except Exception:
                 cached = None
         if cached is not None:
             all_pos = cached["all_pos"]
             all_neg = cached["all_neg"]
             all_y = cached["all_y"]
-            print("  [train] loaded tokenized cache (skipped re-tokenizing)", flush=True)
         else:
             write_training_status(
                 status_file, status="training", phase="tokenizing",
@@ -597,11 +577,6 @@ class MarginRankingLossTrainer:
             global_step = int(ckpt["global_step"])
             if global_step >= total_steps:
                 # The run already reached the target step count — nothing to do.
-                print(
-                    f"  [train] checkpoint already at step {global_step} >= {total_steps}; "
-                    "training complete. Use --fresh to restart from scratch.",
-                    flush=True,
-                )
                 return {
                     "epochs": epochs,
                     "loss_type": loss_type,
@@ -623,11 +598,6 @@ class MarginRankingLossTrainer:
                 # left to train.  The global_step >= total_steps check above
                 # covers the same-budget re-run; this covers extending past
                 # the completed epoch budget.
-                print(
-                    f"  [train] checkpoint already completed all {epochs} epochs "
-                    f"(step {global_step}); nothing to train. Use --fresh to restart.",
-                    flush=True,
-                )
                 return {
                     "epochs": epochs,
                     "loss_type": loss_type,
@@ -658,7 +628,7 @@ class MarginRankingLossTrainer:
                 for g in optimizer.param_groups
             ]
             optimizer.load_state_dict(opt_state)
-            for group, hyper in zip(optimizer.param_groups, current_hyper):
+            for group, hyper in zip(optimizer.param_groups, current_hyper, strict=False):
                 group.update(hyper)
             torch.set_rng_state(ckpt["torch_rng"])
             random.setstate(ckpt["python_rng"])
@@ -672,13 +642,8 @@ class MarginRankingLossTrainer:
             # un-initialized-phase KeyError — it expects ``optimizer.step()``
             # to run first.)
             scheduler.last_epoch = global_step
-            for group, lr in zip(optimizer.param_groups, scheduler.get_last_lr()):
+            for group, lr in zip(optimizer.param_groups, scheduler.get_last_lr(), strict=False):
                 group["lr"] = float(lr)
-            print(
-                f"  [train] RESUMED checkpoint: epoch {start_epoch + 1}/{epochs}, "
-                f"step {global_step}/{total_steps}, best_val_loss={best_val_loss:.4f}",
-                flush=True,
-            )
         else:
             write_training_status(
                 status_file, status="training", phase="initializing",
@@ -693,11 +658,6 @@ class MarginRankingLossTrainer:
         if val_cap is not None and len(val_pairs) > val_cap:
             stride = max(len(val_pairs) // val_cap, 1)
             val_sample = val_pairs[::stride][:val_cap]
-            print(
-                f"  [train] validation capped to {len(val_sample)} pairs "
-                f"(stride {stride}); final eval uses the full set",
-                flush=True,
-            )
         val_ds = PairDataset(val_sample, self.tokenizer, self.max_len)
         val_loader = DataLoader(
             val_ds, batch_size=val_batch_size or batch_size, shuffle=False
@@ -829,7 +789,7 @@ class MarginRankingLossTrainer:
                             last_checkpoint=last_save_ts,
                         )
                     if output_dir and (global_step % save_every) == 0:
-                        last_save_ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                        last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
                         save_training_checkpoint(
                             checkpoint_path, model=self.model, optimizer=optimizer,
                             epoch=epoch, steps_in_epoch=min(j + batch_size, n_epoch),
@@ -859,11 +819,6 @@ class MarginRankingLossTrainer:
                 elapsed = time.time() - t0
                 peak_rss = _peak_rss_mb()
                 history["peak_rss_mb"].append(round(peak_rss, 1))
-                print(
-                    f"  epoch {epoch+1}/{epochs} train_loss={avg_train_loss:.4f} "
-                    f"val_loss={val_loss:.4f} ({elapsed:.0f}s, peak_rss={peak_rss:.0f}MB, step={global_step}/{total_steps})",
-                    flush=True,
-                )
 
                 # Save best
                 if val_loss < best_val_loss:
@@ -875,7 +830,7 @@ class MarginRankingLossTrainer:
                         best_state = {k: v.clone() for k, v in self.model.state_dict().items()}
 
                 # Epoch-end status + checkpoint (resume point = next epoch, batch 0).
-                last_save_ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
                 write_training_status(
                     status_file, status="training", phase="validated",
                     epoch=epoch + 1, epochs=epochs,
@@ -902,13 +857,12 @@ class MarginRankingLossTrainer:
 
                 # Early break if we hit the calibration step cap
                 if max_steps is not None and global_step >= max_steps:
-                    print(f"  max_steps={max_steps} reached, stopping early", flush=True)
                     break
         except KeyboardInterrupt:
             # Ctrl+C is crash-safe too: persist the state so the next run
             # resumes from here instead of losing the whole run.
             if checkpoint_path is not None:
-                try:
+                with contextlib.suppress(Exception):
                     save_training_checkpoint(
                         checkpoint_path, model=self.model, optimizer=optimizer,
                         epoch=epoch, steps_in_epoch=min(j + batch_size, n_epoch),
@@ -921,8 +875,6 @@ class MarginRankingLossTrainer:
                         epoch_order=order, order_epoch=epoch,
                         device=self.device,
                     )
-                except Exception:  # noqa: BLE001 - best-effort on interrupt
-                    pass
             write_training_status(
                 status_file, status="interrupted", phase="interrupted",
                 epoch=epoch + 1, epochs=epochs,
@@ -930,10 +882,6 @@ class MarginRankingLossTrainer:
                 best_val_loss=best_val_loss, peak_rss_mb=_peak_rss_mb(),
                 device=self.device, threads=n_threads,
                 elapsed_seconds=time.time() - t_start,
-            )
-            print(
-                "\n  [train] interrupted — checkpoint saved; re-run the same command to resume",
-                flush=True,
             )
             raise
 
@@ -947,7 +895,7 @@ class MarginRankingLossTrainer:
         # larger step/epoch budget can continue from the exact stopping
         # point, while a same-budget re-run hits the 'already complete'
         # guard and exits immediately.
-        last_save_ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
         write_training_status(
             status_file, status="done", phase="complete",
             epoch=epochs, epochs=epochs,
@@ -1046,7 +994,6 @@ def main() -> int:
 
     pairs = load_pairs()
     if not pairs:
-        print("[ranking_loss_trainer] No pairs found. Run: python -m evaluation.pairwise_dataset", file=sys.stderr)
         return 1
 
     splits = load_splits()
@@ -1075,15 +1022,11 @@ def main() -> int:
 
     results = {}
     for variant in variants:
-        print(f"\n{'='*60}", file=sys.stderr)
-        print(f"Training variant: {variant}", file=sys.stderr)
-        print(f"{'='*60}", file=sys.stderr)
 
         variant_pairs = filter_by_variant(train_pairs, variant)
         variant_val = filter_by_variant(val_pairs, variant)
 
         if not variant_pairs:
-            print(f"  No pairs for {variant}, skipping", file=sys.stderr)
             continue
 
         output_dir = MODELS_DIR / f"legal_ce_v2_{variant}"
@@ -1114,14 +1057,12 @@ def main() -> int:
         # Save variant summary
         summary_file = MODELS_DIR / f"ce_train_summary_{variant}.json"
         summary_file.write_text(json.dumps(result, indent=2), encoding="utf-8")
-        print(f"  Saved: {output_dir}", file=sys.stderr)
 
     # Write combined summary
     (MODELS_DIR / "ce_train_results.json").write_text(
         json.dumps(results, indent=2, ensure_ascii=False) if results else "{}",
         encoding="utf-8",
     )
-    print(json.dumps(results, indent=1))
     return 0
 
 

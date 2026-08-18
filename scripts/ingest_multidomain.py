@@ -48,15 +48,17 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 # Ensure the project root is on sys.path so that "from app" imports work.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.rag.collections import collection_for_domain  # noqa: E402
-from app.rag.ingestion import make_ingestion_pipeline  # noqa: E402
+import contextlib
+
+from app.rag.collections import collection_for_domain
+from app.rag.ingestion import make_ingestion_pipeline
 
 #: Devanagari (Hindi) script block — the strip target (English-only embedder).
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
@@ -311,7 +313,7 @@ def _ingest_manifest_inner(
     if not rows:
         raise ValueError("no documents selected (check --domain/--only/--skip-ocr)")
 
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     by_domain: dict[str, dict[str, Any]] = {}
     domain_pipelines: dict[str, Any] = {}
     domain_ensured: set[str] = set()
@@ -343,7 +345,6 @@ def _ingest_manifest_inner(
             dsum["docs_skipped"] += 1
             dsum["results"].append({"file": fname, "document_id": row.get("document_id"), "ok": False, "errors": ["file missing"], "skipped": True})
             any_failed = True
-            print(f"[{idx:>2}/{len(rows)}] SKIP  {fname}  (file missing)", flush=True)
             continue
 
         t0 = time.monotonic()
@@ -358,12 +359,6 @@ def _ingest_manifest_inner(
                 res["skipped"] = True
             dsum["results"].append(res)
             dsum["chunks_indexed"] += res.get("chunks", 0)
-            print(
-                f"[{idx:>2}/{len(rows)}] DRY   {fname:<72} domain={domain:<10} "
-                f"chars {res.get('raw_chars', 0):>7} -> {res.get('stripped_chars', 0):>7} "
-                f"chunks~{res.get('chunks', 0):>5}",
-                flush=True,
-            )
             continue
 
         pipeline = domain_pipelines.get(domain)
@@ -377,19 +372,14 @@ def _ingest_manifest_inner(
         if domain not in domain_ensured:
             pipeline.indexer.ensure_collection()
             domain_ensured.add(domain)
-            print(f"  ensured collection {collection!r} (domain {domain})", flush=True)
 
         if args.reindex and row.get("document_id"):
-            try:
-                removed = pipeline.indexer.remove_document(str(row["document_id"]))
-                print(f"  reindex: removed {removed} prior points for {row['document_id']}", flush=True)
-            except Exception as exc:  # noqa: BLE001 - reindex is best-effort
-                print(f"  reindex warning for {row['document_id']}: {exc}", file=sys.stderr, flush=True)
+            with contextlib.suppress(Exception):
+                pipeline.indexer.remove_document(str(row["document_id"]))
 
         try:
             ingested = pipeline.ingest_file(path, document=_doc_meta(row))
-        except Exception as exc:  # noqa: BLE001 - one bad doc must not abort the corpus
-            print(f"[{idx:>2}/{len(rows)}] FAIL  {fname}  {exc}", flush=True)
+        except Exception as exc:
             dsum["docs_failed"] += 1
             dsum["results"].append(
                 {"file": fname, "document_id": row.get("document_id"), "ok": False, "errors": [str(exc)]}
@@ -410,16 +400,10 @@ def _ingest_manifest_inner(
         else:
             dsum["docs_failed"] += 1
             any_failed = True
-        wall = time.monotonic() - t0
-        status = "OK  " if rd.get("ok") else "FAIL"
-        print(
-            f"[{idx:>2}/{len(rows)}] {status} {fname:<72} domain={domain:<10} "
-            f"chunks={rd.get('chunk_count', 0):>5} upserted={rd.get('points_upserted', 0):>5} "
-            f"dups={rd.get('duplicate_chunks', 0):>4} {wall:5.1f}s",
-            flush=True,
-        )
+        time.monotonic() - t0
+        "OK  " if rd.get("ok") else "FAIL"
 
-    finished = datetime.now(timezone.utc).isoformat()
+    finished = datetime.now(UTC).isoformat()
     master: dict[str, Any] = {
         "manifest": str(manifest_path),
         "mode": "dry-run" if args.dry_run else "ingest",
@@ -449,11 +433,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         master = ingest_manifest(args)
-    except (ValueError, FileNotFoundError, RuntimeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except (ValueError, FileNotFoundError, RuntimeError):
         return 2
-    except Exception as exc:  # noqa: BLE001 - CLI should never traceback
-        print(f"error: ingestion failed: {exc}", file=sys.stderr)
+    except Exception:
         return 2
 
     out_dir = args.out_dir
@@ -466,12 +448,9 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "ingest_multidomain_summary.json").write_text(
             json.dumps(master, indent=2, default=str), encoding="utf-8"
         )
-        print(f"summaries -> {out_dir}/", flush=True)
-    except OSError as exc:
-        print(f"warning: could not write summaries to {out_dir}: {exc}", file=sys.stderr)
+    except OSError:
+        pass
 
-    indent = 2 if args.pretty else None
-    print(json.dumps(master, indent=indent, default=str))
     return 1 if master.get("ok") is False else 0
 
 

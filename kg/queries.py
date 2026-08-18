@@ -824,8 +824,7 @@ def provisions_for_query(
 # Helpers
 # --------------------------------------------------------------------------- #
 
-import os  # noqa: E402 (needed for _execute)
-
+import os
 
 _CONCEPT_KEYWORDS: dict[str, list[str]] = {
     "FoodBusiness": ["food business", "fbo", "food business operator"],

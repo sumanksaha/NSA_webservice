@@ -19,10 +19,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db
 from app.models import RecordAudit, User
 
-ADMIN_PASSWORD = "admin-pass-77"  # noqa: S105 — test fixture password
-USER_PASSWORD = "user-pass-88"  # noqa: S105 — test fixture password
-NEW_PASSWORD = "fresh-pass-99"  # noqa: S105 — test fixture password
-NEW_USER_PASSWORD = "brand-new-pass-1"  # noqa: S105 — test fixture password
+ADMIN_PASSWORD = "admin-pass-77"
+USER_PASSWORD = "user-pass-88"
+NEW_PASSWORD = "fresh-pass-99"
+NEW_USER_PASSWORD = "brand-new-pass-1"
 
 
 @pytest.fixture

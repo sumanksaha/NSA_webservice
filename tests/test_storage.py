@@ -180,7 +180,7 @@ class TestClientRetryConfig:
         assert captured["service"] == "s3"
         assert captured["kwargs"]["endpoint_url"] == "https://r2.example.com"
         assert captured["kwargs"]["aws_access_key_id"] == "test-key"
-        assert captured["kwargs"]["aws_secret_access_key"] == "test-secret"  # noqa: S105
+        assert captured["kwargs"]["aws_secret_access_key"] == "test-secret"
         # Region defaults to 'auto' for R2 when R2_REGION is unset.
         assert captured["kwargs"]["region_name"] == "auto"
 

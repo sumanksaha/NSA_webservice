@@ -4,7 +4,7 @@ Multi-domain retrieval / authority / temporal / exception / abstention
 questions that require reasoning across two or more Acts (FSS Act, West Bengal
 Meat Order, EPA/Water/Air Acts, KMC Act, Premises Tenancy Act, commercial laws).
 """
-from .base import Q, P
+from .base import P, Q
 
 # Cross-domain provisions reuse canonical ids already declared in the home
 # domain modules (fssai, animal, env, wb, commercial).  The assembler dedupes
@@ -308,7 +308,7 @@ QUESTIONS = [
       ["MUNICIPAL"], ["Insufficient-evidence"], "ADVERSARIAL", "West Bengal (Kolkata)",
       prim=["kmc:s391"],
       concepts=["building scrutiny fee", "fee schedule"],
-      auth=[AUTH_MUN] if False else ["KMC"],
+      auth=["KMC"],
       chunks=["kmc:s391"],
       concl="The available corpus does not establish the exact schedule of building-plan scrutiny/redevelopment fees under the KMC Act; the fee structure is notified over time and the precise amounts are not reliably established in the corpus.",
       insuf=True,

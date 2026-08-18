@@ -45,10 +45,9 @@ def main() -> int:
 
     from app import create_app
     from evaluation.benchmark import load_questions
-    from evaluation.resolution import FamilyMap
     from evaluation.report_ceiling import load_payload_index
-    from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of, legal_features
-    from evaluation.query_expansion import detect_act, detect_section
+    from evaluation.rerank_legal import build_pool, rank_of, rerank, rrf_scores
+    from evaluation.resolution import FamilyMap
 
     app = create_app()
     with app.app_context():
@@ -111,7 +110,6 @@ def main() -> int:
                     reranked = rerank(pool, q.question, family_map, rrf, w)
                     n += 1
                     rel = q.relevant_units()
-                    unit_hits = 0
                     for kk in (10, 20, 50):
                         uh = 0
                         for unit in rel:
@@ -143,7 +141,6 @@ def main() -> int:
             out[label] = grid_out
 
         (OUT / "v55_rerank.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
-        print(json.dumps(out, indent=1))
     return 0
 
 

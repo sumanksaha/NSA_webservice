@@ -18,11 +18,10 @@ from __future__ import annotations
 import csv
 import json
 import logging
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from evaluation.benchmark import BenchmarkQuestion, load_questions
+from evaluation.benchmark import load_questions
 from evaluation.config import ARMS, FUSION_ARMS, GEN_CONDITIONS, OUT_DIR, RAW_DIR, config_hash, write_run_config
 from evaluation.failures import bottleneck_tally, decompose, label_tally
 from evaluation.grading import grade_answer
@@ -282,8 +281,8 @@ def deliverables_6_7(data: dict[str, Any]) -> None:
         for domain in domains:
             qids = [
                 q.question_id for q in data["questions"]
-                if domain == "CROSS_DOMAIN"
-                and len(q.domains) >= 2
+                if (domain == "CROSS_DOMAIN"
+                and len(q.domains) >= 2)
                 or domain in q.domains
             ]
             agg = aggregate([data["scores"][arm][qid] for qid in qids if qid in data["scores"][arm]])
@@ -309,7 +308,7 @@ def deliverables_6_7(data: dict[str, Any]) -> None:
         for qt in qtypes:
             qids = [
                 q.question_id for q in data["questions"]
-                if qt == "Cross-domain" and len(q.domains) >= 2
+                if (qt == "Cross-domain" and len(q.domains) >= 2)
                 or qt in q.question_types
             ]
             agg = aggregate([data["scores"][arm][qid] for qid in qids if qid in data["scores"][arm]])
