@@ -9,6 +9,7 @@ Outputs (into evaluation/out/ceiling_v5/):
     v5_wbmo_audit.json       — WB Meat Order special audit (Task 4)
     v5_retrieval_missing.csv — the retrieval-missing workset (Task 6)
 """
+
 from __future__ import annotations
 
 import csv
@@ -60,39 +61,58 @@ def classify_unit(unit: GoldUnit, payload_index: dict, family_map) -> dict:
     # does any payload match the unit under corrected resolution?
     present = any(matches_gold(pl, unit, family_map) for pl in payload_index.values())
     if present:
-        return {"classification": "FIXED_BY_RESOLUTION_FIX", "evidence": "matches under corrected resolution",
-                "recommended_repair": "none — resolution fix recovered it"}
+        return {
+            "classification": "FIXED_BY_RESOLUTION_FIX",
+            "evidence": "matches under corrected resolution",
+            "recommended_repair": "none — resolution fix recovered it",
+        }
     if not docs:
         # any payload whose act_name/family matches the unit family at all?
-        fam_hits = [pid for pid, pl in payload_index.items()
-                    if unit.family in family_map.family_s_for_act(pl.get("act_name") or pl.get("document_title") or "")]
+        fam_hits = [
+            pid
+            for pid, pl in payload_index.items()
+            if unit.family in family_map.family_s_for_act(pl.get("act_name") or pl.get("document_title") or "")
+        ]
         if fam_hits:
-            return {"classification": "B. DOCUMENT_PRESENT_WRONG_IDENTITY",
-                    "evidence": f"{len(fam_hits)} payloads carry the family name but none matches section",
-                    "recommended_repair": "identity backfill (act_name/document_title) + section stamping"}
-        return {"classification": "A. TRUE_DOCUMENT_ABSENCE",
-                "evidence": "no payload shares document title tokens with the registry act",
-                "recommended_repair": "corpus ingestion of the missing instrument"}
+            return {
+                "classification": "B. DOCUMENT_PRESENT_WRONG_IDENTITY",
+                "evidence": f"{len(fam_hits)} payloads carry the family name but none matches section",
+                "recommended_repair": "identity backfill (act_name/document_title) + section stamping",
+            }
+        return {
+            "classification": "A. TRUE_DOCUMENT_ABSENCE",
+            "evidence": "no payload shares document title tokens with the registry act",
+            "recommended_repair": "corpus ingestion of the missing instrument",
+        }
     if non_numeric:
-        return {"classification": "C. DOCUMENT_PRESENT_WRONG_GRANULARITY",
-                "evidence": f"gold ref '{unit.provision_id}' is a non-numeric sub-provision "
-                            f"(clause/rule/order) of a present document; payload metadata has no such field",
-                "recommended_repair": "sub-provision identity (order-clause/rule numbers) on chunks"}
+        return {
+            "classification": "C. DOCUMENT_PRESENT_WRONG_GRANULARITY",
+            "evidence": f"gold ref '{unit.provision_id}' is a non-numeric sub-provision "
+            f"(clause/rule/order) of a present document; payload metadata has no such field",
+            "recommended_repair": "sub-provision identity (order-clause/rule numbers) on chunks",
+        }
     # numeric section, document present: is the section text in chunks without section_number?
     sec_marked = any(norm_sec(pl.get("section_number")) == unit.section for _, pl in docs)
     if sec_marked:
-        return {"classification": "E. DOCUMENT_PRESENT_CHUNKING_FAILURE",
-                "evidence": f"document present, section {unit.section} marked on some chunk but not matched",
-                "recommended_repair": "re-check section stamping/whitelist"}
-    sec_text = any(re.search(rf"\bsection\s*{unit.section}\b", str(pl.get("chunk_text") or ""), re.IGNORECASE)
-                   for _, pl in docs)
+        return {
+            "classification": "E. DOCUMENT_PRESENT_CHUNKING_FAILURE",
+            "evidence": f"document present, section {unit.section} marked on some chunk but not matched",
+            "recommended_repair": "re-check section stamping/whitelist",
+        }
+    sec_text = any(
+        re.search(rf"\bsection\s*{unit.section}\b", str(pl.get("chunk_text") or ""), re.IGNORECASE) for _, pl in docs
+    )
     if sec_text:
-        return {"classification": "D. DOCUMENT_PRESENT_MISSING_SECTION_METADATA",
-                "evidence": f"section {unit.section} appears in chunk text but no payload carries it in section_number",
-                "recommended_repair": "backfill section_number from text headers (L3 whitelist)"}
-    return {"classification": "F. GOLD_MAPPING_ERROR_OR_AMBIGUITY",
-            "evidence": f"document present ({len(docs)} payloads) but section {unit.section} not locatable in text",
-            "recommended_repair": "gold registry check — verify section number against the source document"}
+        return {
+            "classification": "D. DOCUMENT_PRESENT_MISSING_SECTION_METADATA",
+            "evidence": f"section {unit.section} appears in chunk text but no payload carries it in section_number",
+            "recommended_repair": "backfill section_number from text headers (L3 whitelist)",
+        }
+    return {
+        "classification": "F. GOLD_MAPPING_ERROR_OR_AMBIGUITY",
+        "evidence": f"document present ({len(docs)} payloads) but section {unit.section} not locatable in text",
+        "recommended_repair": "gold registry check — verify section number against the source document",
+    }
 
 
 def norm_sec(v) -> str | None:
@@ -134,9 +154,21 @@ def main() -> int:
 
         # ---- Task 3: corpus-missing audit
         corpus_missing = [a for a in avail.values() if not a["corpus_present"]]
-        rows = [["gold_unit", "family", "expected_document", "document_id", "section_number",
-                 "payload_availability", "neo4j_availability", "qdrant_availability",
-                 "classification", "evidence", "recommended_repair"]]
+        rows = [
+            [
+                "gold_unit",
+                "family",
+                "expected_document",
+                "document_id",
+                "section_number",
+                "payload_availability",
+                "neo4j_availability",
+                "qdrant_availability",
+                "classification",
+                "evidence",
+                "recommended_repair",
+            ]
+        ]
         classified = []
         for a in corpus_missing:
             u = a["unit"]
@@ -144,17 +176,25 @@ def main() -> int:
             cls = classify_unit(u, payload_index, family_map)
             classified.append({**a, "classification": cls["classification"]})
             rows.append([
-                u.provision_id, u.family, u.act, u.document_id or rec.get("document_id") or "",
-                u.section or "", "yes" if a["corpus_present"] else "no",
-                "yes" if any(u.family in family_map.family_s_for_act(m.get("instrument_title"))
-                             for m in _kg_map()) else "no",
+                u.provision_id,
+                u.family,
+                u.act,
+                u.document_id or rec.get("document_id") or "",
+                u.section or "",
                 "yes" if a["corpus_present"] else "no",
-                cls["classification"], cls["evidence"], cls["recommended_repair"],
+                "yes"
+                if any(u.family in family_map.family_s_for_act(m.get("instrument_title")) for m in _kg_map())
+                else "no",
+                "yes" if a["corpus_present"] else "no",
+                cls["classification"],
+                cls["evidence"],
+                cls["recommended_repair"],
             ])
         with open(OUT / "v5_corpus_audit.csv", "w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
             w.writerows(rows)
         from collections import Counter
+
         for cls, _n in Counter(c["classification"] for c in classified).most_common():
             pass
 
@@ -175,13 +215,15 @@ def main() -> int:
                 "payload_section_numbers": sorted({str(pl.get("section_number")) for _, pl in docs})[:8],
                 "corpus_present_corrected": a["corpus_present"],
                 "in_500_pool": pool_member.get(u.provision_id, False),
-                "note": ("gold ref is a non-numeric order clause; the family fix (act_name + "
-                         "document_title unioned) DID recover these units at instrument level (gold "
-                         "section is None -> any wbmo chunk matches), which is why corpus_present "
-                         "flips true and the units sit in the 500-pool.  They remain unresolvable at "
-                         "order-clause granularity because chunks carry no order-clause numbers; the "
-                         "pool-ceiling move 0.5767->0.705 (payload_to_keys_regression.json) is a real, "
-                         "measured non-zero effect, not zero."),
+                "note": (
+                    "gold ref is a non-numeric order clause; the family fix (act_name + "
+                    "document_title unioned) DID recover these units at instrument level (gold "
+                    "section is None -> any wbmo chunk matches), which is why corpus_present "
+                    "flips true and the units sit in the 500-pool.  They remain unresolvable at "
+                    "order-clause granularity because chunks carry no order-clause numbers; the "
+                    "pool-ceiling move 0.5767->0.705 (payload_to_keys_regression.json) is a real, "
+                    "measured non-zero effect, not zero."
+                ),
             })
         (OUT / "v5_wbmo_audit.json").write_text(json.dumps(wbmo_rows, indent=2), encoding="utf-8")
         for r in wbmo_rows:
@@ -203,6 +245,7 @@ def main() -> int:
 def _kg_map() -> list[dict]:
     try:
         from evaluation.report_ceiling import load_kg_provision_map
+
         return list(load_kg_provision_map().values())
     except Exception:
         return []

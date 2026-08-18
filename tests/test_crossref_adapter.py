@@ -48,13 +48,11 @@ class _FakeChunk:
 class TestCrossRefAdapterMapping:
     def test_extract_maps_reference_fields(self):
         adapter = CrossRefAdapter(
-            engine=_FakeEngine(
-                [
-                    _ref(ReferenceKind.SECTION, "55", "Section 55"),
-                    _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
-                    _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
-                ]
-            )
+            engine=_FakeEngine([
+                _ref(ReferenceKind.SECTION, "55", "Section 55"),
+                _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
+                _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
+            ])
         )
         extracted = adapter.extract("text")
         assert len(extracted) == 3
@@ -68,15 +66,11 @@ class TestCrossRefAdapterMapping:
         assert paragraph.confidence == 0.9
 
     def test_extract_skips_empty_raw(self):
-        adapter = CrossRefAdapter(
-            engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "")])
-        )
+        adapter = CrossRefAdapter(engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "")]))
         assert adapter.extract("text") == []
 
     def test_to_dict_is_json_serializable(self):
-        adapter = CrossRefAdapter(
-            engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "Section 55")])
-        )
+        adapter = CrossRefAdapter(engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "Section 55")]))
         ref = adapter.extract("text")[0]
         json.loads(json.dumps(ref.to_dict()))
 
@@ -84,12 +78,10 @@ class TestCrossRefAdapterMapping:
 class TestPayloadReferences:
     def test_payload_references_returns_raw_strings(self):
         adapter = CrossRefAdapter(
-            engine=_FakeEngine(
-                [
-                    _ref(ReferenceKind.SECTION, "55", "Section 55"),
-                    _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
-                ]
-            )
+            engine=_FakeEngine([
+                _ref(ReferenceKind.SECTION, "55", "Section 55"),
+                _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
+            ])
         )
         assert adapter.payload_references("text") == ["Section 55", "Annexure A"]
 
@@ -97,12 +89,10 @@ class TestPayloadReferences:
 class TestStructuredReferences:
     def test_structured_references_shape(self):
         adapter = CrossRefAdapter(
-            engine=_FakeEngine(
-                [
-                    _ref(ReferenceKind.SECTION, "55", "Section 55"),
-                    _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
-                ]
-            )
+            engine=_FakeEngine([
+                _ref(ReferenceKind.SECTION, "55", "Section 55"),
+                _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
+            ])
         )
         structured = adapter.structured_references("text")
         assert structured == [
@@ -113,9 +103,7 @@ class TestStructuredReferences:
 
 class TestEnrichChunk:
     def test_enrich_chunk_sets_references_from_text(self):
-        adapter = CrossRefAdapter(
-            engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "Section 55")])
-        )
+        adapter = CrossRefAdapter(engine=_FakeEngine([_ref(ReferenceKind.SECTION, "55", "Section 55")]))
         chunk = _FakeChunk(chunk_text="See Section 55 of the Act")
         adapter.enrich_chunk(chunk)
         assert chunk.references == ["Section 55"]

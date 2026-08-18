@@ -65,10 +65,7 @@ def main() -> int:
             continue
         match = abs(score - expected) <= TOLERANCE
         ok = ok and match
-        print(
-            f"  {'OK' if match else 'MISMATCH'} {query[:34]!r:36} -> {score:+.3f}"
-            f" (local {expected:+.3f})"
-        )
+        print(f"  {'OK' if match else 'MISMATCH'} {query[:34]!r:36} -> {score:+.3f} (local {expected:+.3f})")
 
     print("=" * 60)
     print(f"Summary: {'PASS - serverless inference serves your weights' if ok else 'FAIL'}")

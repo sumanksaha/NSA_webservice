@@ -13,6 +13,7 @@ path or HF model id as ``model_name``).
 
 CPU-friendly: ~2.1k pairs, 4 epochs, batch 32 => a couple of minutes.
 """
+
 from __future__ import annotations
 
 import json

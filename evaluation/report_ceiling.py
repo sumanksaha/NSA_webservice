@@ -36,6 +36,7 @@ os.chdir(PROJECT_ROOT)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("eval.ceiling.report")
 
+
 # --------------------------------------------------------------------------- #
 # Loaders
 # --------------------------------------------------------------------------- #
@@ -97,9 +98,7 @@ def load_payload_index() -> dict[str, dict]:
             cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
         ]
-        index = build_payload_index(
-            lambda coll: _store(coll), list(dict.fromkeys(cols)), force=True
-        )
+        index = build_payload_index(lambda coll: _store(coll), list(dict.fromkeys(cols)), force=True)
     return index
 
 
@@ -246,8 +245,14 @@ def slice_rec(rec: dict, n_chunks: int | None = None) -> dict:
 
 
 def build_union_arms(
-    a_rec, b_rec, d_rec, payload_index, family_map,
-    dense_n=200, sparse_n=200, kg_n=200,
+    a_rec,
+    b_rec,
+    d_rec,
+    payload_index,
+    family_map,
+    dense_n=200,
+    sparse_n=200,
+    kg_n=200,
 ) -> dict[str, dict]:
     """E_union_ordered, E_union_rrf and the unranked E_union_pool."""
     from evaluation.fusion import dedupe_kg_items, item_to_dict, rrf_fuse_items
@@ -365,8 +370,9 @@ def main() -> int:
     family_map = FamilyMap()
     payload_index = load_payload_index()
     kg_provision_map = load_kg_provision_map()
-    logger.info("questions=%d payload_index=%d kg_provisions=%d",
-                len(questions), len(payload_index), len(kg_provision_map))
+    logger.info(
+        "questions=%d payload_index=%d kg_provisions=%d", len(questions), len(payload_index), len(kg_provision_map)
+    )
 
     q_by_id = {q.question_id: q for q in questions}
 
@@ -390,8 +396,14 @@ def main() -> int:
         if not (a and b and d):
             continue
         offline[qid] = build_union_arms(
-            a, b, d, payload_index, family_map,
-            UNION_DENSE_DEPTH, UNION_SPARSE_DEPTH, UNION_KG_DEPTH,
+            a,
+            b,
+            d,
+            payload_index,
+            family_map,
+            UNION_DENSE_DEPTH,
+            UNION_SPARSE_DEPTH,
+            UNION_KG_DEPTH,
         )
         od, os_ = live["O_dense"].get(qid), live["O_sparse"].get(qid)
         if od and os_:
@@ -403,8 +415,14 @@ def main() -> int:
             vd, vs = live[f"{prefix}_dense"].get(qid), live[f"{prefix}_sparse"].get(qid)
             if vd and vs:
                 exp_union = build_union_arms(
-                    vd, vs, d, payload_index, family_map,
-                    UNION_DENSE_DEPTH, UNION_SPARSE_DEPTH, UNION_KG_DEPTH,
+                    vd,
+                    vs,
+                    d,
+                    payload_index,
+                    family_map,
+                    UNION_DENSE_DEPTH,
+                    UNION_SPARSE_DEPTH,
+                    UNION_KG_DEPTH,
                 )
                 offline[qid].update({
                     f"{prefix}_union_ordered": exp_union["E_union_ordered"],
@@ -414,13 +432,30 @@ def main() -> int:
     logger.info("union arms built for %d questions", len(offline))
 
     # ---- per-question metrics for every arm
-    ARM_ORDER = ["A_dense", "B_sparse", "C_hybrid", "D_kg",
-                 "E_union_ordered", "E_union_rrf", "E_union_pool",
-                 "O_dense", "O_sparse", "O_hybrid",
-                 "V3_dense", "V3_sparse", "V3_hybrid",
-                 "V3_union_ordered", "V3_union_rrf", "V3_union_pool",
-                 "V4_dense", "V4_sparse", "V4_hybrid",
-                 "V4_union_ordered", "V4_union_rrf", "V4_union_pool"]
+    ARM_ORDER = [
+        "A_dense",
+        "B_sparse",
+        "C_hybrid",
+        "D_kg",
+        "E_union_ordered",
+        "E_union_rrf",
+        "E_union_pool",
+        "O_dense",
+        "O_sparse",
+        "O_hybrid",
+        "V3_dense",
+        "V3_sparse",
+        "V3_hybrid",
+        "V3_union_ordered",
+        "V3_union_rrf",
+        "V3_union_pool",
+        "V4_dense",
+        "V4_sparse",
+        "V4_hybrid",
+        "V4_union_ordered",
+        "V4_union_rrf",
+        "V4_union_pool",
+    ]
     per_q: dict[str, dict[str, dict]] = {arm: {} for arm in ARM_ORDER}
     ranks: dict[str, dict[str, dict[str, int | None]]] = {arm: {} for arm in ARM_ORDER}
 
@@ -454,8 +489,9 @@ def main() -> int:
     exact_agg = {"dense": {}, "sparse": {}}
     exact_agg_id = {"dense": {}, "sparse": {}}
     n_exact = len(live["X_exact"])
-    n_with_id = sum(1 for rec in live["X_exact"].values()
-                    if rec.get("query_used") and rec.get("error") != "no numeric identifier")
+    n_with_id = sum(
+        1 for rec in live["X_exact"].values() if rec.get("query_used") and rec.get("error") != "no numeric identifier"
+    )
     for qid, rec in live["X_exact"].items():
         q = q_by_id[qid]
         has_id = bool(rec.get("query_used")) and rec.get("error") != "no numeric identifier"
@@ -463,9 +499,7 @@ def main() -> int:
             ids = rec.get(key, [])
             for k in (10, 50, 100):
                 hit = any(
-                    any(_matches(payload_index.get(cid) or {}, u, family_map)
-                        for u in q.gold_units)
-                    for cid in ids[:k]
+                    any(_matches(payload_index.get(cid) or {}, u, family_map) for u in q.gold_units) for cid in ids[:k]
                 )
                 exact_agg[mode].setdefault(k, 0)
                 exact_agg[mode][k] += int(hit)
@@ -479,12 +513,10 @@ def main() -> int:
         "n_with_numeric_identifier": n_with_id,
         "note": "recall reported over all 150 (left) and over the questions that actually carry a numeric Act/Section identifier (right).",
         "recall_over_all": {
-            mode: {k: round(v / n_exact, 4) for k, v in vals.items()}
-            for mode, vals in exact_agg.items()
+            mode: {k: round(v / n_exact, 4) for k, v in vals.items()} for mode, vals in exact_agg.items()
         },
         "recall_over_identifiable": {
-            mode: {k: round(v / n_id, 4) for k, v in vals.items()}
-            for mode, vals in exact_agg_id.items()
+            mode: {k: round(v / n_id, 4) for k, v in vals.items()} for mode, vals in exact_agg_id.items()
         },
     }
 
@@ -503,8 +535,8 @@ def main() -> int:
         "gold_registry_records": len(registry),
         "schema_signal_report": schema,
         "note": "temporal_constraints empty on all 150 (frozen benchmark quirk); "
-                "gold provision text not stored in the registry — §13 oracle uses "
-                "registry provision titles.",
+        "gold provision text not stored in the registry — §13 oracle uses "
+        "registry provision titles.",
     }
 
     # =====================================================================
@@ -559,19 +591,17 @@ def main() -> int:
         if not a:
             continue
         for k in DEPTHS:
-            r_rows.append([arm, labels[arm], k,
-                           f"{a.get(f'recall@{k}', 0):.4f}",
-                           f"{a.get(f'recall_all@{k}', 0):.4f}"])
-        r_rows.append([arm, labels[arm], "mrr", _fmt4(a.get('mrr')), ""])
+            r_rows.append([arm, labels[arm], k, f"{a.get(f'recall@{k}', 0):.4f}", f"{a.get(f'recall_all@{k}', 0):.4f}"])
+        r_rows.append([arm, labels[arm], "mrr", _fmt4(a.get("mrr")), ""])
         for k in (10, 20, 50):
-            r_rows.append([arm, labels[arm], f"ndcg@{k}", _fmt4(a.get(f'ndcg@{k}')), ""])
-    write_csv("retrieval_depth_results.csv",
-              ["arm", "arm_label", "k", "recall", "recall_all"], r_rows)
+            r_rows.append([arm, labels[arm], f"ndcg@{k}", _fmt4(a.get(f"ndcg@{k}")), ""])
+    write_csv("retrieval_depth_results.csv", ["arm", "arm_label", "k", "recall", "recall_all"], r_rows)
 
     # =====================================================================
     # 9. Gold rank distribution (§9) — for hybrid C and union RRF (+dense)
     # =====================================================================
     buckets = [(1, 1), (2, 5), (6, 10), (11, 20), (21, 50), (51, 100), (101, 200), (201, 500), (None, None)]
+
     def bucket_of(r: int | None) -> int:
         if r is None:
             return len(buckets) - 1
@@ -600,10 +630,20 @@ def main() -> int:
     # 10/11. Ranking-recoverable + generation failures (§10, §11)
     # =====================================================================
     gen_fail_rows = [["question_id", "gold_provisions", "in_union_pool", "class", "note"]]
-    recov_rows = [["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20", "rank>50", "rank>100", "rank>200"]]
+    recov_rows = [
+        ["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20", "rank>50", "rank>100", "rank>200"]
+    ]
     recoverable = {"k10": 0, "k20": 0, "k50": 0, "k100": 0, "k200": 0, "n500": 0, "n": 0}
-    gen_fail = {"n": 0, "corpus_missing": 0, "qdrant_missing": 0, "kg_missing": 0,
-                "query_mismatch": 0, "dense_failure": 0, "sparse_failure": 0, "kg_failure": 0}
+    gen_fail = {
+        "n": 0,
+        "corpus_missing": 0,
+        "qdrant_missing": 0,
+        "kg_missing": 0,
+        "query_mismatch": 0,
+        "dense_failure": 0,
+        "sparse_failure": 0,
+        "kg_failure": 0,
+    }
     for qid, q in q_by_id.items():
         if qid not in ranks["E_union_rrf"]:
             continue
@@ -614,9 +654,16 @@ def main() -> int:
             for thresh, key in ((10, "k10"), (20, "k20"), (50, "k50"), (100, "k100"), (200, "k200")):
                 if r > thresh:
                     recoverable[key] += 1
-            recov_rows.append([qid, r, "yes", "yes" if r > 10 else "no",
-                               "yes" if r > 20 else "no", "yes" if r > 50 else "no",
-                               "yes" if r > 100 else "no", "yes" if r > 200 else "no"])
+            recov_rows.append([
+                qid,
+                r,
+                "yes",
+                "yes" if r > 10 else "no",
+                "yes" if r > 20 else "no",
+                "yes" if r > 50 else "no",
+                "yes" if r > 100 else "no",
+                "yes" if r > 200 else "no",
+            ])
         else:
             gen_fail["n"] += 1
             gold_ids = [u.provision_id for u in q.gold_units]
@@ -626,8 +673,11 @@ def main() -> int:
             if not q.gold_units:
                 cls = "no_gold_label"
             else:
-                pts = [pid for pid in payload_index if any(
-                    _matches(payload_index[pid], u, family_map) for u in q.gold_units)]
+                pts = [
+                    pid
+                    for pid in payload_index
+                    if any(_matches(payload_index[pid], u, family_map) for u in q.gold_units)
+                ]
                 if not pts:
                     cls = "corpus_missing"
                     note = "no payload point matches any gold unit"
@@ -647,37 +697,50 @@ def main() -> int:
                         cls = "query_mismatch"
             gen_fail[cls] = gen_fail.get(cls, 0) + 1
             gen_fail_rows.append([qid, ";".join(gold_ids), "no", cls, note])
-    write_csv("ranking_recoverable_cases.csv",
-              ["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20",
-               "rank>50", "rank>100", "rank>200"], recov_rows)
-    write_csv("candidate_generation_failures.csv",
-              ["question_id", "gold_provisions", "in_union_pool", "class", "note"], gen_fail_rows)
+    write_csv(
+        "ranking_recoverable_cases.csv",
+        ["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20", "rank>50", "rank>100", "rank>200"],
+        recov_rows,
+    )
+    write_csv(
+        "candidate_generation_failures.csv",
+        ["question_id", "gold_provisions", "in_union_pool", "class", "note"],
+        gen_fail_rows,
+    )
 
     # =====================================================================
     # 12. Gold-provision availability audit (§12)
     # =====================================================================
-    avail_rows = [["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant",
-                   "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"]]
+    avail_rows = [
+        ["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant", "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"]
+    ]
     for qid, q in q_by_id.items():
         for u in q.gold_units:
             pts = [pid for pid in payload_index if _matches(payload_index[pid], u, family_map)]
             in_corpus = bool(pts)
             in_kg = _gold_in_kg(u, family_map, kg_provision_map)
+
             def hit(arm, k):
                 r = ranks.get(arm, {}).get(qid, {}).get(u.provision_id)
                 return "yes" if (r is not None and r <= k) else "no"
+
             avail_rows.append([
-                qid, u.provision_id,
+                qid,
+                u.provision_id,
                 "yes" if in_corpus else "no",
                 "yes" if in_kg else "no",
                 "yes" if in_corpus else "no",
                 "yes" if in_corpus else "no",
-                hit("A_dense", 500), hit("B_sparse", 500),
-                hit("D_kg", 200), hit("C_hybrid", 500),
+                hit("A_dense", 500),
+                hit("B_sparse", 500),
+                hit("D_kg", 200),
+                hit("C_hybrid", 500),
             ])
-    write_csv("gold_provision_availability.csv",
-              ["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant",
-               "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"], avail_rows)
+    write_csv(
+        "gold_provision_availability.csv",
+        ["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant", "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"],
+        avail_rows,
+    )
 
     # =====================================================================
     # 15. KG incremental (§15) — union_rrf vs hybrid C at every K
@@ -698,13 +761,20 @@ def main() -> int:
                 neutral += 1
         c_r = agg["C_hybrid"].get(f"recall@{k}", 0)
         e_r = agg["E_union_rrf"].get(f"recall@{k}", 0)
-        kg_inc[k] = {"hybrid": c_r, "hybrid_kg": e_r, "delta": round(e_r - c_r, 4),
-                     "helped": helped, "harm": harm, "neutral": neutral}
-        kg_inc_rows.append([k, f"{c_r:.4f}", f"{e_r:.4f}", f"{e_r - c_r:.4f}",
-                            helped, harm, neutral])
-    write_csv("kg_incremental_recall.csv",
-              ["k", "hybrid_recall", "hybrid_kg_recall", "kg_incremental", "helped", "harm", "neutral"],
-              kg_inc_rows)
+        kg_inc[k] = {
+            "hybrid": c_r,
+            "hybrid_kg": e_r,
+            "delta": round(e_r - c_r, 4),
+            "helped": helped,
+            "harm": harm,
+            "neutral": neutral,
+        }
+        kg_inc_rows.append([k, f"{c_r:.4f}", f"{e_r:.4f}", f"{e_r - c_r:.4f}", helped, harm, neutral])
+    write_csv(
+        "kg_incremental_recall.csv",
+        ["k", "hybrid_recall", "hybrid_kg_recall", "kg_incremental", "helped", "harm", "neutral"],
+        kg_inc_rows,
+    )
 
     # =====================================================================
     # 16. Dense/sparse complementarity (§16)
@@ -721,17 +791,26 @@ def main() -> int:
             dense_only += d and not s
             sparse_only += s and not d
             neither += not d and not s
-        comp[k] = {"both": both, "dense_only": dense_only, "sparse_only": sparse_only,
-                   "neither": neither, "n": both + dense_only + sparse_only + neither,
-                   "sparse_rescue_rate": sparse_only / max(len(common), 1),
-                   "dense_rescue_rate": dense_only / max(len(common), 1)}
+        comp[k] = {
+            "both": both,
+            "dense_only": dense_only,
+            "sparse_only": sparse_only,
+            "neither": neither,
+            "n": both + dense_only + sparse_only + neither,
+            "sparse_rescue_rate": sparse_only / max(len(common), 1),
+            "dense_rescue_rate": dense_only / max(len(common), 1),
+        }
 
     # =====================================================================
     # 17. Deduplication analysis (§17)
     # =====================================================================
     dedup = {}
-    for arm, _depth, kind in (("A_dense", 500, "chunk"), ("B_sparse", 500, "chunk"),
-                             ("C_hybrid", 500, "chunk"), ("D_kg", 200, "kg")):
+    for arm, _depth, kind in (
+        ("A_dense", 500, "chunk"),
+        ("B_sparse", 500, "chunk"),
+        ("C_hybrid", 500, "chunk"),
+        ("D_kg", 200, "kg"),
+    ):
         raw = uniq = 0
         for rec in live[arm].values():
             if kind == "chunk":
@@ -741,8 +820,11 @@ def main() -> int:
             ids = [i for i in ids if i]
             raw += len(ids)
             uniq += len(set(ids))
-        dedup[arm] = {"raw_candidates": raw, "unique_candidates": uniq,
-                      "duplicate_rate": round(1 - uniq / max(raw, 1), 4)}
+        dedup[arm] = {
+            "raw_candidates": raw,
+            "unique_candidates": uniq,
+            "duplicate_rate": round(1 - uniq / max(raw, 1), 4),
+        }
     # E_union: per-question raw = dense@D + sparse@D + KG@D (pre-dedup),
     # unique = pool size after canonical dedup.  Also report the pool-size
     # distribution (protocol Task 1: mean/median/P95 pool size).
@@ -781,9 +863,11 @@ def main() -> int:
     for d, qs in sorted(dom_of.items()):
         vals = {}
         for k in (10, 50, 100, 500):
-            hits = sum(1 for q in qs
-                       if q.question_id in ranks["E_union_rrf"]
-                       and any_hit_at(ranks["E_union_rrf"][q.question_id], q, k))
+            hits = sum(
+                1
+                for q in qs
+                if q.question_id in ranks["E_union_rrf"] and any_hit_at(ranks["E_union_rrf"][q.question_id], q, k)
+            )
             vals[k] = hits / max(len(qs), 1)
         domain_agg[d] = {"n": len(qs), **{f"R@{k}": round(vals[k], 3) for k in (10, 50, 100, 500)}}
         dom_rows.append([d, len(qs)] + [f"{vals[k]:.3f}" for k in (10, 50, 100, 500)])
@@ -798,14 +882,15 @@ def main() -> int:
     for t, qs in sorted(type_of.items()):
         vals = {}
         for k in (10, 50, 100, 500):
-            hits = sum(1 for q in qs
-                       if q.question_id in ranks["E_union_rrf"]
-                       and any_hit_at(ranks["E_union_rrf"][q.question_id], q, k))
+            hits = sum(
+                1
+                for q in qs
+                if q.question_id in ranks["E_union_rrf"] and any_hit_at(ranks["E_union_rrf"][q.question_id], q, k)
+            )
             vals[k] = hits / max(len(qs), 1)
         type_agg[t] = {"n": len(qs), **{f"R@{k}": round(vals[k], 3) for k in (10, 50, 100, 500)}}
         type_rows.append([t, len(qs)] + [f"{vals[k]:.3f}" for k in (10, 50, 100, 500)])
-    write_csv("question_type_recall.csv",
-              ["question_type", "questions", "R@10", "R@50", "R@100", "R@500"], type_rows)
+    write_csv("question_type_recall.csv", ["question_type", "questions", "R@10", "R@50", "R@100", "R@500"], type_rows)
 
     # =====================================================================
     # 22. Statistical analysis (§22)
@@ -813,17 +898,19 @@ def main() -> int:
     from evaluation.metrics import mcnemar, paired_bootstrap_ci
 
     def _binary(arm: str, k: int) -> dict[str, bool]:
-        return {qid: any_hit_at(ranks[arm][qid], q_by_id[qid], k)
-                for qid in ranks[arm]}
+        return {qid: any_hit_at(ranks[arm][qid], q_by_id[qid], k) for qid in ranks[arm]}
 
     stats = {}
     # Comparisons are ordered (baseline, challenger) so B − A is the
     # challenger's gain (positive = challenger better).
     for arm_a, arm_b, k in (
-        ("A_dense", "C_hybrid", 10), ("A_dense", "C_hybrid", 500),
+        ("A_dense", "C_hybrid", 10),
+        ("A_dense", "C_hybrid", 500),
         ("B_sparse", "C_hybrid", 10),
-        ("C_hybrid", "E_union_rrf", 10), ("C_hybrid", "E_union_rrf", 500),
-        ("A_dense", "O_dense", 10), ("A_dense", "O_dense", 500),
+        ("C_hybrid", "E_union_rrf", 10),
+        ("C_hybrid", "E_union_rrf", 500),
+        ("A_dense", "O_dense", 10),
+        ("A_dense", "O_dense", 500),
     ):
         ba, bb = _binary(arm_a, k), _binary(arm_b, k)
         common_q = [qid for qid in ba if qid in bb]
@@ -901,8 +988,19 @@ def main() -> int:
     corpus_present_rate = avail_counts["source"] / max(avail_counts["n"], 1)
     neo4j_present_rate = avail_counts["neo4j"] / max(avail_counts["n"], 1)
 
-    conclusion = _conclude(c, e, pool, o, gen_failure_rate, ranking_recoverable_rate,
-                           k80, k90, union500, corpus_present_rate, neo4j_present_rate)
+    conclusion = _conclude(
+        c,
+        e,
+        pool,
+        o,
+        gen_failure_rate,
+        ranking_recoverable_rate,
+        k80,
+        k90,
+        union500,
+        corpus_present_rate,
+        neo4j_present_rate,
+    )
 
     # =====================================================================
     # 25. Reports
@@ -911,8 +1009,9 @@ def main() -> int:
         "experiment_id": EXPERIMENT_ID,
         "n_questions": len(questions),
         "benchmark_validation": benchmark_report,
-        "recall_curve": {labels[arm]: {f"R@{k}": agg[arm].get(f"recall@{k}", 0) for k in DEPTHS}
-                         for arm in ARM_ORDER if agg[arm]},
+        "recall_curve": {
+            labels[arm]: {f"R@{k}": agg[arm].get(f"recall@{k}", 0) for k in DEPTHS} for arm in ARM_ORDER if agg[arm]
+        },
         "arm_metrics": {labels[arm]: agg[arm] for arm in ARM_ORDER if agg[arm]},
         "gold_rank_distribution": {
             "C_hybrid": _bucket_counts(ranks["C_hybrid"], first_gold_rank),
@@ -939,7 +1038,10 @@ def main() -> int:
         "exact_identifier": exact_summary,
         "statistics": stats,
         "ceiling": {
-            "R@10": r10, "R@50": r50, "R@100": r100, "R@200": r200,
+            "R@10": r10,
+            "R@50": r50,
+            "R@100": r100,
+            "R@200": r200,
             "R@500_hybrid": r500,
             "R@500_union_rrf": union500,
             "R@500_union_pool": pool500,
@@ -980,17 +1082,22 @@ def main() -> int:
             "union_rrf_R@500": xe.get("recall@500", 0),
             "union_pool_R@500": xp.get("recall@500", 0),
             "delta_hybrid_R@10": round(xc.get("recall@10", 0) - base_hybrid, 4),
-            "delta_union_pool_R@500": round(
-                xp.get("recall@500", 0) - pool.get("recall@500", 0), 4),
+            "delta_union_pool_R@500": round(xp.get("recall@500", 0) - pool.get("recall@500", 0), 4),
         }
         # count questions where this expansion helped/hurt at R@10
         common = [qid for qid in ranks["C_hybrid"] if qid in ranks[f"{prefix}_hybrid"]]
-        helped = sum(1 for qid in common
-                     if not any_hit_at(ranks["C_hybrid"][qid], q_by_id[qid], 10)
-                     and any_hit_at(ranks[f"{prefix}_hybrid"][qid], q_by_id[qid], 10))
-        hurt = sum(1 for qid in common
-                   if any_hit_at(ranks["C_hybrid"][qid], q_by_id[qid], 10)
-                   and not any_hit_at(ranks[f"{prefix}_hybrid"][qid], q_by_id[qid], 10))
+        helped = sum(
+            1
+            for qid in common
+            if not any_hit_at(ranks["C_hybrid"][qid], q_by_id[qid], 10)
+            and any_hit_at(ranks[f"{prefix}_hybrid"][qid], q_by_id[qid], 10)
+        )
+        hurt = sum(
+            1
+            for qid in common
+            if any_hit_at(ranks["C_hybrid"][qid], q_by_id[qid], 10)
+            and not any_hit_at(ranks[f"{prefix}_hybrid"][qid], q_by_id[qid], 10)
+        )
         s["questions_helped_at_r10"] = helped
         s["questions_hurt_at_r10"] = hurt
         s["n_common"] = len(common)
@@ -1000,11 +1107,31 @@ def main() -> int:
         summary["v3_expanded_query"] = exp_summaries.get("naive_append", {})
 
     (OUT_DIR / "retrieval_ceiling_results.json").write_text(
-        json.dumps(summary, indent=2, default=str), encoding="utf-8")
+        json.dumps(summary, indent=2, default=str), encoding="utf-8"
+    )
 
-    _write_md_reports(summary, labels, agg, rows, rr, gen_fail, kg_inc, comp, dedup,
-                      domain_agg, type_agg, stats, k80, k90, conclusion, case, kg_value,
-                      exact_summary, has_v3=has_v3, exp_summaries=exp_summaries)
+    _write_md_reports(
+        summary,
+        labels,
+        agg,
+        rows,
+        rr,
+        gen_fail,
+        kg_inc,
+        comp,
+        dedup,
+        domain_agg,
+        type_agg,
+        stats,
+        k80,
+        k90,
+        conclusion,
+        case,
+        kg_value,
+        exact_summary,
+        has_v3=has_v3,
+        exp_summaries=exp_summaries,
+    )
 
     logger.info("all deliverables written to %s", OUT_DIR)
     for _variant, vs in exp_summaries.items():
@@ -1050,8 +1177,9 @@ def _bucket_counts(ranks_q: dict, fn) -> dict:
     return {k: round(v / max(n, 1), 4) for k, v in counts.items()}
 
 
-def _conclude(c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500,
-              corpus_present_rate=0.0, neo4j_present_rate=0.0) -> dict:
+def _conclude(
+    c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500, corpus_present_rate=0.0, neo4j_present_rate=0.0
+) -> dict:
     r10 = c.get("recall@10", 0)
     r500 = c.get("recall@500", 0)
     pool500 = pool.get("recall@500", 0)
@@ -1087,21 +1215,43 @@ def _conclude(c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500,
     return {"verdict": verdict, "evidence": evidence}
 
 
-def _write_md_reports(summary, labels, agg, curve_rows, rr, gen_fail, kg_inc, comp, dedup,
-                      domain_agg, type_agg, stats, k80, k90, conclusion, case, kg_value,
-                      exact_summary=None, has_v3: bool = False, exp_summaries=None) -> None:
+def _write_md_reports(
+    summary,
+    labels,
+    agg,
+    curve_rows,
+    rr,
+    gen_fail,
+    kg_inc,
+    comp,
+    dedup,
+    domain_agg,
+    type_agg,
+    stats,
+    k80,
+    k90,
+    conclusion,
+    case,
+    kg_value,
+    exact_summary=None,
+    has_v3: bool = False,
+    exp_summaries=None,
+) -> None:
     from evaluation.ceiling_config import EXPERIMENT_ID, OUT_DIR
 
     def md_curve() -> str:
-        lines = ["| Retrieval | R@5 | R@10 | R@20 | R@50 | R@100 | R@200 | R@500 |",
-                 "|---|---|---|---|---|---|---|---|"]
+        lines = [
+            "| Retrieval | R@5 | R@10 | R@20 | R@50 | R@100 | R@200 | R@500 |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
         for row in curve_rows:
             lines.append("| " + " | ".join(row) + " |")
         return "\n".join(lines)
 
-    report = f"""# Retrieval Ceiling Report — {EXPERIMENT_ID}
+    report = (
+        f"""# Retrieval Ceiling Report — {EXPERIMENT_ID}
 
-**Date:** {summary['experiment_id']} · **Questions:** {summary['n_questions']} · **No LLM calls.**
+**Date:** {summary["experiment_id"]} · **Questions:** {summary["n_questions"]} · **No LLM calls.**
 See `run_config.json` for the frozen configuration (git hash, Qdrant/Neo4j snapshots, benchmark SHA-256).
 
 ## 1. The central recall curve (primary deliverable)
@@ -1112,16 +1262,16 @@ See `run_config.json` for the frozen configuration (git hash, Qdrant/Neo4j snaps
 
 | # | Question | Answer |
 |---|----------|--------|
-| 1 | R@10 | **{summary['ceiling']['R@10']:.1%}** (hybrid, frozen fusion) |
-| 2 | R@50 | **{summary['ceiling']['R@50']:.1%}** |
-| 3 | R@100 | **{summary['ceiling']['R@100']:.1%}** |
-| 4 | R@200 | **{summary['ceiling']['R@200']:.1%}** |
-| 5 | R@500 | **{summary['ceiling']['R@500_hybrid']:.1%}** hybrid · **{summary['ceiling']['R@500_union_rrf']:.1%}** D+S+KG RRF · **{summary['ceiling']['R@500_union_pool']:.1%}** union pool |
-| 6 | K at which 80% of gold evidence is recovered | **{k80 if k80 else 'never (within 500)'}** |
-| 7 | K at which 90% is recovered | **{k90 if k90 else 'never (within 500)'}** |
-| 8 | Top-10 failures that are ranking failures (gold in 11–500) | **{summary['ranking_recoverable']['outside_top10']} / {summary['ranking_recoverable']['questions_with_gold_in_top500']}** = **{summary['ranking_recoverable']['ranking_recoverable_rate_at_k10']:.1%}** |
-| 9 | Top-10 failures that are candidate-generation failures (gold absent at 500) | **{gen_fail['n']} / {summary['ranking_recoverable']['n']}** = **{summary['ceiling']['candidate_generation_failure_rate']:.1%}** |
-| 10 | Does KG increase candidate recall? | see `kg_incremental_recall.csv` — delta at R@500: **{summary['kg_incremental']['500']['delta']:+.4f}** |
+| 1 | R@10 | **{summary["ceiling"]["R@10"]:.1%}** (hybrid, frozen fusion) |
+| 2 | R@50 | **{summary["ceiling"]["R@50"]:.1%}** |
+| 3 | R@100 | **{summary["ceiling"]["R@100"]:.1%}** |
+| 4 | R@200 | **{summary["ceiling"]["R@200"]:.1%}** |
+| 5 | R@500 | **{summary["ceiling"]["R@500_hybrid"]:.1%}** hybrid · **{summary["ceiling"]["R@500_union_rrf"]:.1%}** D+S+KG RRF · **{summary["ceiling"]["R@500_union_pool"]:.1%}** union pool |
+| 6 | K at which 80% of gold evidence is recovered | **{k80 if k80 else "never (within 500)"}** |
+| 7 | K at which 90% is recovered | **{k90 if k90 else "never (within 500)"}** |
+| 8 | Top-10 failures that are ranking failures (gold in 11–500) | **{summary["ranking_recoverable"]["outside_top10"]} / {summary["ranking_recoverable"]["questions_with_gold_in_top500"]}** = **{summary["ranking_recoverable"]["ranking_recoverable_rate_at_k10"]:.1%}** |
+| 9 | Top-10 failures that are candidate-generation failures (gold absent at 500) | **{gen_fail["n"]} / {summary["ranking_recoverable"]["n"]}** = **{summary["ceiling"]["candidate_generation_failure_rate"]:.1%}** |
+| 10 | Does KG increase candidate recall? | see `kg_incremental_recall.csv` — delta at R@500: **{summary["kg_incremental"]["500"]["delta"]:+.4f}** |
 | 11 | Does dense+sparse fusion increase candidate recall? | see §5 and the statistics block |
 | 12 | Can R@10 ≥80% be reached by ranking alone? | **Only if** the ranking-recoverable pool is large enough — see §8. |
 | 13 | Candidate-generation improvements required | see `ranking_diagnosis.md` |
@@ -1130,21 +1280,21 @@ See `run_config.json` for the frozen configuration (git hash, Qdrant/Neo4j snaps
 
 ## 3. Candidate-generation ceiling (protocol §8)
 
-* Hybrid (frozen fusion) R@500 = **{summary['ceiling']['R@500_hybrid']:.1%}**
-* Dense+Sparse+KG RRF R@500 = **{summary['ceiling']['R@500_union_rrf']:.1%}**
-* **Union pool R@500 (any gold anywhere in dense@200 ∪ sparse@200 ∪ KG@200) = {summary['ceiling']['R@500_union_pool']:.1%}** — the architecture's candidate-generation ceiling. (RRF union R@500 equals the pool coverage — no gold evidence sits in RRF ranks 501–600.)
+* Hybrid (frozen fusion) R@500 = **{summary["ceiling"]["R@500_hybrid"]:.1%}**
+* Dense+Sparse+KG RRF R@500 = **{summary["ceiling"]["R@500_union_rrf"]:.1%}**
+* **Union pool R@500 (any gold anywhere in dense@200 ∪ sparse@200 ∪ KG@200) = {summary["ceiling"]["R@500_union_pool"]:.1%}** — the architecture's candidate-generation ceiling. (RRF union R@500 equals the pool coverage — no gold evidence sits in RRF ranks 501–600.)
 
 > **Reproducibility:** the frozen K≤20 metrics reproduce the pre-existing baseline
 > exactly (Dense/Sparse/Hybrid R@10 = 13.0/14.7/14.0% both runs). MRR here is
 > computed over relevant (primary + acceptable) gold units, matching the legacy
 > harness definition.
 
-Interpretation (protocol §8): {'CASE A — candidate generation is strong; ranking is the dominant problem.' if summary['ceiling']['R@500_union_pool'] >= 0.90 else 'CASE B — both candidate generation and ranking require optimization.' if summary['ceiling']['R@500_union_pool'] >= 0.70 else 'CASE C — candidate generation/corpus/query representation is the dominant problem.'}
+Interpretation (protocol §8): {"CASE A — candidate generation is strong; ranking is the dominant problem." if summary["ceiling"]["R@500_union_pool"] >= 0.90 else "CASE B — both candidate generation and ranking require optimization." if summary["ceiling"]["R@500_union_pool"] >= 0.70 else "CASE C — candidate generation/corpus/query representation is the dominant problem."}
 
 ## 4. Decision tree (protocol §23)
 
-* **{case}** — {summary['decision_tree']['verdict']}
-* **{kg_value}** — KG {'has genuine candidate-generation value (R@500 delta ≥ 5pts)' if kg_value == 'CASE 4' else 'should be treated as a reasoning/provenance feature rather than a retrieval engine (R@500 delta < 5pts)'}
+* **{case}** — {summary["decision_tree"]["verdict"]}
+* **{kg_value}** — KG {"has genuine candidate-generation value (R@500 delta ≥ 5pts)" if kg_value == "CASE 4" else "should be treated as a reasoning/provenance feature rather than a retrieval engine (R@500 delta < 5pts)"}
 
 ## 5. Fusion / complementarity (protocol §16)
 
@@ -1152,78 +1302,88 @@ Per-question binary success (any relevant gold ≤K):
 
 | K | Both | Dense-only | Sparse-only | Neither | Sparse rescue | Dense rescue |
 |---|---|---|---|---|---|---|
-| 10 | {comp[10]['both']} | {comp[10]['dense_only']} | {comp[10]['sparse_only']} | {comp[10]['neither']} | {comp[10]['sparse_rescue_rate']:.1%} | {comp[10]['dense_rescue_rate']:.1%} |
-| 50 | {comp[50]['both']} | {comp[50]['dense_only']} | {comp[50]['sparse_only']} | {comp[50]['neither']} | {comp[50]['sparse_rescue_rate']:.1%} | {comp[50]['dense_rescue_rate']:.1%} |
-| 500 | {comp[500]['both']} | {comp[500]['dense_only']} | {comp[500]['sparse_only']} | {comp[500]['neither']} | {comp[500]['sparse_rescue_rate']:.1%} | {comp[500]['dense_rescue_rate']:.1%} |
+| 10 | {comp[10]["both"]} | {comp[10]["dense_only"]} | {comp[10]["sparse_only"]} | {comp[10]["neither"]} | {comp[10]["sparse_rescue_rate"]:.1%} | {comp[10]["dense_rescue_rate"]:.1%} |
+| 50 | {comp[50]["both"]} | {comp[50]["dense_only"]} | {comp[50]["sparse_only"]} | {comp[50]["neither"]} | {comp[50]["sparse_rescue_rate"]:.1%} | {comp[50]["dense_rescue_rate"]:.1%} |
+| 500 | {comp[500]["both"]} | {comp[500]["dense_only"]} | {comp[500]["sparse_only"]} | {comp[500]["neither"]} | {comp[500]["sparse_rescue_rate"]:.1%} | {comp[500]["dense_rescue_rate"]:.1%} |
 
 ## 6. Gold-text oracle (protocol §13)
 
 | Query | R@1 | R@5 | R@10 | R@20 | R@50 | R@100 | R@500 |
 |---|---|---|---|---|---|---|---|
-| Gold text → Dense | {_fmt(agg['O_dense'].get('recall@1'))} | {_fmt(agg['O_dense'].get('recall@5'))} | {_fmt(agg['O_dense'].get('recall@10'))} | {_fmt(agg['O_dense'].get('recall@20'))} | {_fmt(agg['O_dense'].get('recall@50'))} | {_fmt(agg['O_dense'].get('recall@100'))} | {_fmt(agg['O_dense'].get('recall@500'))} |
-| Gold text → Sparse | {_fmt(agg['O_sparse'].get('recall@1'))} | {_fmt(agg['O_sparse'].get('recall@5'))} | {_fmt(agg['O_sparse'].get('recall@10'))} | {_fmt(agg['O_sparse'].get('recall@20'))} | {_fmt(agg['O_sparse'].get('recall@50'))} | {_fmt(agg['O_sparse'].get('recall@100'))} | {_fmt(agg['O_sparse'].get('recall@500'))} |
-| Gold text → Hybrid | {_fmt(agg['O_hybrid'].get('recall@1'))} | {_fmt(agg['O_hybrid'].get('recall@5'))} | {_fmt(agg['O_hybrid'].get('recall@10'))} | {_fmt(agg['O_hybrid'].get('recall@20'))} | {_fmt(agg['O_hybrid'].get('recall@50'))} | {_fmt(agg['O_hybrid'].get('recall@100'))} | {_fmt(agg['O_hybrid'].get('recall@500'))} |
+| Gold text → Dense | {_fmt(agg["O_dense"].get("recall@1"))} | {_fmt(agg["O_dense"].get("recall@5"))} | {_fmt(agg["O_dense"].get("recall@10"))} | {_fmt(agg["O_dense"].get("recall@20"))} | {_fmt(agg["O_dense"].get("recall@50"))} | {_fmt(agg["O_dense"].get("recall@100"))} | {_fmt(agg["O_dense"].get("recall@500"))} |
+| Gold text → Sparse | {_fmt(agg["O_sparse"].get("recall@1"))} | {_fmt(agg["O_sparse"].get("recall@5"))} | {_fmt(agg["O_sparse"].get("recall@10"))} | {_fmt(agg["O_sparse"].get("recall@20"))} | {_fmt(agg["O_sparse"].get("recall@50"))} | {_fmt(agg["O_sparse"].get("recall@100"))} | {_fmt(agg["O_sparse"].get("recall@500"))} |
+| Gold text → Hybrid | {_fmt(agg["O_hybrid"].get("recall@1"))} | {_fmt(agg["O_hybrid"].get("recall@5"))} | {_fmt(agg["O_hybrid"].get("recall@10"))} | {_fmt(agg["O_hybrid"].get("recall@20"))} | {_fmt(agg["O_hybrid"].get("recall@50"))} | {_fmt(agg["O_hybrid"].get("recall@100"))} | {_fmt(agg["O_hybrid"].get("recall@500"))} |
 
 > **Note:** the frozen gold registry stores provision **titles** only (no full provision text), so the oracle query is the registry title.
 
 ## 7. Conclusion (protocol §27)
 
-**{conclusion['verdict']}**
+**{conclusion["verdict"]}**
 
-Evidence: {conclusion['evidence']}
+Evidence: {conclusion["evidence"]}
 
-""" + (f"""## 7b. V3 — expanded-query retrieval (query-representation fix)
+"""
+        + (
+            f"""## 7b. V3 — expanded-query retrieval (query-representation fix)
 
 Expansion = question text + detected canonical Act name (+ section number).
 Rule-based, no LLM, no gold labels — production-representative query rewrite.
 
 | Metric | Frozen (base) | Expanded naive (V3) | Dedup-expanded (V4) |
 |---|---|---|---|
-| Hybrid R@10 | {summary['ceiling']['R@10']:.1%} | {_fmt4(exp_summaries.get('naive_append', {}).get('hybrid_R@10'))} ({exp_summaries.get('naive_append', {}).get('delta_hybrid_R@10') or 0.0:+.1%}) | {_fmt4(exp_summaries.get('dedup_append', {}).get('hybrid_R@10'))} ({exp_summaries.get('dedup_append', {}).get('delta_hybrid_R@10') or 0.0:+.1%}) |
-| D+S+KG RRF R@10 | {summary['ceiling']['R@10']:.1%} | {_fmt4(exp_summaries.get('naive_append', {}).get('union_rrf_R@10'))} | {_fmt4(exp_summaries.get('dedup_append', {}).get('union_rrf_R@10'))} |
-| D+S+KG RRF R@500 | {summary['ceiling']['R@500_union_rrf']:.1%} | {_fmt4(exp_summaries.get('naive_append', {}).get('union_rrf_R@500'))} | {_fmt4(exp_summaries.get('dedup_append', {}).get('union_rrf_R@500'))} |
-| Union pool R@500 (ceiling) | {summary['ceiling']['R@500_union_pool']:.1%} | {_fmt4(exp_summaries.get('naive_append', {}).get('union_pool_R@500'))} | {_fmt4(exp_summaries.get('dedup_append', {}).get('union_pool_R@500'))} |
+| Hybrid R@10 | {summary["ceiling"]["R@10"]:.1%} | {_fmt4(exp_summaries.get("naive_append", {}).get("hybrid_R@10"))} ({exp_summaries.get("naive_append", {}).get("delta_hybrid_R@10") or 0.0:+.1%}) | {_fmt4(exp_summaries.get("dedup_append", {}).get("hybrid_R@10"))} ({exp_summaries.get("dedup_append", {}).get("delta_hybrid_R@10") or 0.0:+.1%}) |
+| D+S+KG RRF R@10 | {summary["ceiling"]["R@10"]:.1%} | {_fmt4(exp_summaries.get("naive_append", {}).get("union_rrf_R@10"))} | {_fmt4(exp_summaries.get("dedup_append", {}).get("union_rrf_R@10"))} |
+| D+S+KG RRF R@500 | {summary["ceiling"]["R@500_union_rrf"]:.1%} | {_fmt4(exp_summaries.get("naive_append", {}).get("union_rrf_R@500"))} | {_fmt4(exp_summaries.get("dedup_append", {}).get("union_rrf_R@500"))} |
+| Union pool R@500 (ceiling) | {summary["ceiling"]["R@500_union_pool"]:.1%} | {_fmt4(exp_summaries.get("naive_append", {}).get("union_pool_R@500"))} | {_fmt4(exp_summaries.get("dedup_append", {}).get("union_pool_R@500"))} |
 
-Questions helped at R@10 — V3 (naive): **{exp_summaries.get('naive_append', {}).get('questions_helped_at_r10', '-')}** · hurt: **{exp_summaries.get('naive_append', {}).get('questions_hurt_at_r10', '-')}** · V4 (dedup): helped **{exp_summaries.get('dedup_append', {}).get('questions_helped_at_r10', '-')}** · hurt **{exp_summaries.get('dedup_append', {}).get('questions_hurt_at_r10', '-')}**.
+Questions helped at R@10 — V3 (naive): **{exp_summaries.get("naive_append", {}).get("questions_helped_at_r10", "-")}** · hurt: **{exp_summaries.get("naive_append", {}).get("questions_hurt_at_r10", "-")}** · V4 (dedup): helped **{exp_summaries.get("dedup_append", {}).get("questions_helped_at_r10", "-")}** · hurt **{exp_summaries.get("dedup_append", {}).get("questions_hurt_at_r10", "-")}**.
 
-""" if exp_summaries else "") + f"""
+"""
+            if exp_summaries
+            else ""
+        )
+        + f"""
 
 ## 8. Next target (protocol §24)
 
 ## 8. Next target (protocol §24)
 
-Current: R@10={summary['ceiling']['R@10']:.1%} · R@50={summary['ceiling']['R@50']:.1%} · R@100={summary['ceiling']['R@100']:.1%} · R@200={summary['ceiling']['R@200']:.1%} · R@500={summary['ceiling']['R@500_union_pool']:.1%} (pool).
-Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 80%: see `ranking_diagnosis.md`.
+Current: R@10={summary["ceiling"]["R@10"]:.1%} · R@50={summary["ceiling"]["R@50"]:.1%} · R@100={summary["ceiling"]["R@100"]:.1%} · R@200={summary["ceiling"]["R@200"]:.1%} · R@500={summary["ceiling"]["R@500_union_pool"]:.1%} (pool).
+Nearest milestone: **{summary["ceiling"]["nearest_milestone"]:.0%}**. Route to 80%: see `ranking_diagnosis.md`.
 
 ## 9. Deliverables
 
 `recall_curve.csv` · `retrieval_depth_results.csv` · `gold_rank_distribution.csv` · `candidate_generation_failures.csv` · `ranking_recoverable_cases.csv` · `gold_provision_availability.csv` · `kg_incremental_recall.csv` · `domain_recall.csv` · `question_type_recall.csv` · `retrieval_ceiling_results.json` · `run_config.json`
 """
+    )
     (OUT_DIR / "retrieval_ceiling_report.md").write_text(report, encoding="utf-8")
 
-    diag = f"""# Ranking Diagnosis — {EXPERIMENT_ID}
+    diag = (
+        f"""# Ranking Diagnosis — {EXPERIMENT_ID}
 
 ## Gold rank distribution (first gold hit)
 
 | Bucket | Hybrid C | D+S+KG RRF | Dense |
 |---|---|---|---|
-""" + "\n".join(
-        f"| {b} | {summary['gold_rank_distribution']['C_hybrid'].get(b, 0):.1%} | "
-        f"{summary['gold_rank_distribution']['E_union_rrf'].get(b, 0):.1%} | "
-        f"{summary['gold_rank_distribution']['A_dense'].get(b, 0):.1%} |"
-        for b in ["1", "2–5", "6–10", "11–20", "21–50", "51–100", "101–200", "201–500", ">500/not found"]
-    ) + f"""
+"""
+        + "\n".join(
+            f"| {b} | {summary['gold_rank_distribution']['C_hybrid'].get(b, 0):.1%} | "
+            f"{summary['gold_rank_distribution']['E_union_rrf'].get(b, 0):.1%} | "
+            f"{summary['gold_rank_distribution']['A_dense'].get(b, 0):.1%} |"
+            for b in ["1", "2–5", "6–10", "11–20", "21–50", "51–100", "101–200", "201–500", ">500/not found"]
+        )
+        + f"""
 
 **Reading:** if many gold provisions sit in ranks 11–100, the system has a ranking problem; if most are absent even at 500, it has a candidate-generation problem.
 
 ## Ranking-recoverable (protocol §10)
 
-* Gold in Top-500: **{rr['n500']}** questions · outside Top-10: **{rr['k10']}** · outside Top-20: **{rr['k20']}** · outside Top-50: **{rr['k50']}** · outside Top-100: **{rr['k100']}** · outside Top-200: **{rr['k200']}**
-* **Ranking Recoverable Rate (gold in 11–500): {summary['ranking_recoverable']['ranking_recoverable_rate_at_k10']:.1%}**
+* Gold in Top-500: **{rr["n500"]}** questions · outside Top-10: **{rr["k10"]}** · outside Top-20: **{rr["k20"]}** · outside Top-50: **{rr["k50"]}** · outside Top-100: **{rr["k100"]}** · outside Top-200: **{rr["k200"]}**
+* **Ranking Recoverable Rate (gold in 11–500): {summary["ranking_recoverable"]["ranking_recoverable_rate_at_k10"]:.1%}**
 
 ## Candidate-generation failures (protocol §11)
 
-* Gold NOT found in Top-500 of the union: **{gen_fail['n']}** questions = **{summary['ceiling']['candidate_generation_failure_rate']:.1%}**
+* Gold NOT found in Top-500 of the union: **{gen_fail["n"]}** questions = **{summary["ceiling"]["candidate_generation_failure_rate"]:.1%}**
 * Classification: {_fmt_dict(gen_fail)}
 
 > **Caveat on `corpus_missing`:** a gold unit is only "resolvable" when a Qdrant
@@ -1241,10 +1401,10 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 
 | Retrieval | R@10 | R@50 | R@100 | n |
 |---|---|---|---|---|
-| Dense (over all 150) | {_fmt(exact_summary['recall_over_all']['dense'].get(10))} | {_fmt(exact_summary['recall_over_all']['dense'].get(50))} | {_fmt(exact_summary['recall_over_all']['dense'].get(100))} | {exact_summary['n_questions']} |
-| Sparse (over all 150) | {_fmt(exact_summary['recall_over_all']['sparse'].get(10))} | {_fmt(exact_summary['recall_over_all']['sparse'].get(50))} | {_fmt(exact_summary['recall_over_all']['sparse'].get(100))} | {exact_summary['n_questions']} |
-| Dense (identifier questions only) | {_fmt(exact_summary['recall_over_identifiable']['dense'].get(10))} | {_fmt(exact_summary['recall_over_identifiable']['dense'].get(50))} | {_fmt(exact_summary['recall_over_identifiable']['dense'].get(100))} | {exact_summary['n_with_numeric_identifier']} |
-| Sparse (identifier questions only) | {_fmt(exact_summary['recall_over_identifiable']['sparse'].get(10))} | {_fmt(exact_summary['recall_over_identifiable']['sparse'].get(50))} | {_fmt(exact_summary['recall_over_identifiable']['sparse'].get(100))} | {exact_summary['n_with_numeric_identifier']} |
+| Dense (over all 150) | {_fmt(exact_summary["recall_over_all"]["dense"].get(10))} | {_fmt(exact_summary["recall_over_all"]["dense"].get(50))} | {_fmt(exact_summary["recall_over_all"]["dense"].get(100))} | {exact_summary["n_questions"]} |
+| Sparse (over all 150) | {_fmt(exact_summary["recall_over_all"]["sparse"].get(10))} | {_fmt(exact_summary["recall_over_all"]["sparse"].get(50))} | {_fmt(exact_summary["recall_over_all"]["sparse"].get(100))} | {exact_summary["n_questions"]} |
+| Dense (identifier questions only) | {_fmt(exact_summary["recall_over_identifiable"]["dense"].get(10))} | {_fmt(exact_summary["recall_over_identifiable"]["dense"].get(50))} | {_fmt(exact_summary["recall_over_identifiable"]["dense"].get(100))} | {exact_summary["n_with_numeric_identifier"]} |
+| Sparse (identifier questions only) | {_fmt(exact_summary["recall_over_identifiable"]["sparse"].get(10))} | {_fmt(exact_summary["recall_over_identifiable"]["sparse"].get(50))} | {_fmt(exact_summary["recall_over_identifiable"]["sparse"].get(100))} | {exact_summary["n_with_numeric_identifier"]} |
 
 > Diagnostic only — the exact identifier query is NOT the benchmark query. The over-150 rows dilute by the 29 questions whose gold reference carries no numeric Act/Section identifier.
 
@@ -1254,19 +1414,23 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 
 | Arm | raw | unique | duplicate rate |
 |---|---|---|---|
-""" + "\n".join(
-        f"| {arm} | {d['raw_candidates']} | {d['unique_candidates']} | {d['duplicate_rate']:.1%} |"
-        for arm, d in dedup.items()
-    ) + """
+"""
+        + "\n".join(
+            f"| {arm} | {d['raw_candidates']} | {d['unique_candidates']} | {d['duplicate_rate']:.1%} |"
+            for arm, d in dedup.items()
+        )
+        + """
 
 ## KG incremental (protocol §15) — hybrid vs D+S+KG RRF
 
 | K | Hybrid | D+S+KG | Δ | helped | harm | neutral |
 |---|---|---|---|---|---|---|
-""" + "\n".join(
-        f"| {k} | {v['hybrid']:.3f} | {v['hybrid_kg']:.3f} | {v['delta']:+.3f} | {v['helped']} | {v['harm']} | {v['neutral']} |"
-        for k, v in kg_inc.items()
-    ) + """
+"""
+        + "\n".join(
+            f"| {k} | {v['hybrid']:.3f} | {v['hybrid_kg']:.3f} | {v['delta']:+.3f} | {v['helped']} | {v['harm']} | {v['neutral']} |"
+            for k, v in kg_inc.items()
+        )
+        + """
 
 ## Statistical significance (protocol §22) — paired bootstrap 95% CI + McNemar
 
@@ -1274,28 +1438,35 @@ Nearest milestone: **{summary['ceiling']['nearest_milestone']:.0%}**. Route to 8
 
 | Comparison | A | B | B−A | 95% CI | p |
 |---|---|---|---|---|---|
-""" + "\n".join(
-        f"| {name} | {v['mean_a']:.3f} | {v['mean_b']:.3f} | {v['abs_diff']:+.3f} | [{v['bootstrap_ci95'][0]:.3f}, {v['bootstrap_ci95'][1]:.3f}] | {v['mcnemar_p']:.4f} |"
-        for name, v in stats.items()
-    ) + """
+"""
+        + "\n".join(
+            f"| {name} | {v['mean_a']:.3f} | {v['mean_b']:.3f} | {v['abs_diff']:+.3f} | [{v['bootstrap_ci95'][0]:.3f}, {v['bootstrap_ci95'][1]:.3f}] | {v['mcnemar_p']:.4f} |"
+            for name, v in stats.items()
+        )
+        + """
 
 ## Domain recall (protocol §18) — D+S+KG RRF union
 
 | Domain | n | R@10 | R@50 | R@100 | R@500 |
 |---|---|---|---|---|---|
-""" + "\n".join(
-        f"| {d} | {v['n']} | {v['R@10']:.3f} | {v['R@50']:.3f} | {v['R@100']:.3f} | {v['R@500']:.3f} |"
-        for d, v in domain_agg.items()
-    ) + """
+"""
+        + "\n".join(
+            f"| {d} | {v['n']} | {v['R@10']:.3f} | {v['R@50']:.3f} | {v['R@100']:.3f} | {v['R@500']:.3f} |"
+            for d, v in domain_agg.items()
+        )
+        + """
 
 ## Question-type recall (protocol §19) — D+S+KG RRF union
 
 | Type | n | R@10 | R@50 | R@100 | R@500 |
 |---|---|---|---|---|---|
-""" + "\n".join(
-        f"| {t} | {v['n']} | {v['R@10']:.3f} | {v['R@50']:.3f} | {v['R@100']:.3f} | {v['R@500']:.3f} |"
-        for t, v in type_agg.items()
-    ) + "\n"
+"""
+        + "\n".join(
+            f"| {t} | {v['n']} | {v['R@10']:.3f} | {v['R@50']:.3f} | {v['R@100']:.3f} | {v['R@500']:.3f} |"
+            for t, v in type_agg.items()
+        )
+        + "\n"
+    )
     (OUT_DIR / "ranking_diagnosis.md").write_text(diag, encoding="utf-8")
 
 

@@ -145,9 +145,7 @@ class TestLogIngestedResult:
         """Errors win over the duplicate flag — a failed+duplicate result is FAILED."""
         _CAPTURED.clear()
         logger = IngestionLogger(emit_fn=_emit_sink, audit_fn=_audit_sink)
-        event = logger.log_ingested_result(
-            _make_result_dict(duplicate=True, ok=False, errors=["reindex failed"])
-        )
+        event = logger.log_ingested_result(_make_result_dict(duplicate=True, ok=False, errors=["reindex failed"]))
         assert event.event == EVENT_FAILED
         assert "reindex failed" in event.error
 
@@ -194,7 +192,12 @@ class TestRealAuditPath:
             second = logger.log(_make_event(event=EVENT_FAILED, chunk_count=0, error="boom"))
             assert first is True and second is True
 
-            rows = AuditLog.query.filter_by(entity_type="rag_ingestion", entity_id="doc-1").order_by(AuditLog.id.asc()).all()
+            rows = (
+                AuditLog.query
+                .filter_by(entity_type="rag_ingestion", entity_id="doc-1")
+                .order_by(AuditLog.id.asc())
+                .all()
+            )
             assert len(rows) == 2
             assert rows[0].action == "INDEXED"
             assert rows[1].action == "FAILED"

@@ -121,8 +121,12 @@ class SparseRetriever:
         start = time.monotonic()
         if not query or not query.strip():
             return SearchResult(
-                query=query, query_type="", chunks=[], total=0,
-                latency_ms=int((time.monotonic() - start) * 1000), source="sparse",
+                query=query,
+                query_type="",
+                chunks=[],
+                total=0,
+                latency_ms=int((time.monotonic() - start) * 1000),
+                source="sparse",
             )
 
         # Primary path: BM25 sparse vectors in Qdrant (real lexical search).
@@ -144,22 +148,26 @@ class SparseRetriever:
                         # 2026-08-16 — free on the free tier.
                         search = getattr(self._store, "search_sparse_text", None)
                         if not callable(search):
-                            raise RuntimeError("store lacks search_sparse_text (RAG_QDRANT_BM25 requires qdrant-client >= 1.12)")
+                            raise RuntimeError(
+                                "store lacks search_sparse_text (RAG_QDRANT_BM25 requires qdrant-client >= 1.12)"
+                            )
                         points = search(query, top_k=top_k, filters=filters)
                     else:
                         sparse_vector = self.embed_query(query)
                         # BM25 scores are unbounded similarity (not 0-1 like
                         # dense cosine); hybrid fusion consumes them rank-based
                         # (RRF).
-                        points = self._store.search_sparse(
-                            sparse_vector, top_k=top_k, filters=filters
-                        )
+                        points = self._store.search_sparse(sparse_vector, top_k=top_k, filters=filters)
                     from app.rag.retrieval.dense_retriever import DenseRetriever
 
                     chunks = [DenseRetriever._payload_to_chunk(p) for p in points]
                     return SearchResult(
-                        query=query, query_type="", chunks=chunks, total=len(chunks),
-                        latency_ms=int((time.monotonic() - start) * 1000), source="sparse",
+                        query=query,
+                        query_type="",
+                        chunks=chunks,
+                        total=len(chunks),
+                        latency_ms=int((time.monotonic() - start) * 1000),
+                        source="sparse",
                     )
                 except Exception as exc:
                     logger.warning(
@@ -171,10 +179,7 @@ class SparseRetriever:
 
         # Apply pre-filters
         if filters:
-            candidates = [
-                c for c in candidates
-                if all(c.get(k) == v for k, v in filters.items())
-            ]
+            candidates = [c for c in candidates if all(c.get(k) == v for k, v in filters.items())]
 
         # Score each candidate — combine title + text scoring
         scored: list[tuple[float, dict[str, Any]]] = []
@@ -211,6 +216,10 @@ class SparseRetriever:
         ]
 
         return SearchResult(
-            query=query, query_type="", chunks=chunks, total=len(chunks),
-            latency_ms=int((time.monotonic() - start) * 1000), source="sparse",
+            query=query,
+            query_type="",
+            chunks=chunks,
+            total=len(chunks),
+            latency_ms=int((time.monotonic() - start) * 1000),
+            source="sparse",
         )

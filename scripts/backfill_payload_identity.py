@@ -162,8 +162,7 @@ def prime_registry_docids(payloads: dict[str, dict]) -> dict[str, set[str]]:
         docids = {
             norm_docid(str(p.get("document_id") or ""))
             for p in payloads.values()
-            if norm_docid(str(p.get("instrument_id") or "")) in wanted
-            and p.get("document_id")
+            if norm_docid(str(p.get("instrument_id") or "")) in wanted and p.get("document_id")
         }
         if docids:
             whitelist.setdefault(fam, set()).update(docids)
@@ -237,8 +236,7 @@ def family_max_sections(family_map, payloads: dict[str, dict]) -> dict[str, int]
     try:
         q = LegalKGQueries()
         rows = q._execute(
-            "MATCH (i)-[:CONTAINS]->(p:LegalProvision) "
-            "RETURN i.title AS instrument_title, p.provision_number AS number"
+            "MATCH (i)-[:CONTAINS]->(p:LegalProvision) RETURN i.title AS instrument_title, p.provision_number AS number"
         )
         for r in rows:
             for fam in family_map.family_s_for_act(r.get("instrument_title")):
@@ -274,20 +272,24 @@ def scroll_payloads(app, collections) -> tuple[dict[str, dict], dict[str, str]]:
 
 def collections_from_config(app) -> list[str]:
     cfg = app.config
-    return list(dict.fromkeys([
-        cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-    ]))
+    return list(
+        dict.fromkeys([
+            cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+        ])
+    )
 
 
 # --------------------------------------------------------------------------- #
 # Derivation
 # --------------------------------------------------------------------------- #
-def derive_section(point_id: str, payload: dict, kg_map: dict, maxima: dict, family_map) -> tuple[str | None, str | None]:
+def derive_section(
+    point_id: str, payload: dict, kg_map: dict, maxima: dict, family_map
+) -> tuple[str | None, str | None]:
     """Return (section_number, section_title) for a point, or (None, None).
 
     L1 provision_id -> L2 KG -> L3 validated text regex.  Never overwrites
@@ -329,10 +331,7 @@ def derive_section(point_id: str, payload: dict, kg_map: dict, maxima: dict, fam
     if not _REGISTRY_DOCIDS:
         _REGISTRY_DOCIDS.update(doc_whitelist)
     payload_docid = norm_docid(str(payload.get("document_id") or ""))
-    fams = [
-        f for f in fams
-        if doc_whitelist.get(f) and payload_docid in doc_whitelist[f]
-    ]
+    fams = [f for f in fams if doc_whitelist.get(f) and payload_docid in doc_whitelist[f]]
     if not fams:
         return None, None
     ceiling = max((maxima.get(f, 0) for f in fams), default=0)
@@ -664,7 +663,7 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
     for key, ids in groups.items():
         payload = changes[ids[0]]
         for i in range(0, len(ids), batch_size):
-            batch = ids[i:i + batch_size]
+            batch = ids[i : i + batch_size]
             try:
                 client.set_payload(collection_name=collection, payload=payload, points=batch)
                 applied += len(batch)
@@ -693,16 +692,26 @@ def main() -> int:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="write to Qdrant (default: dry-run)")
-    parser.add_argument("--rebuild-index", action="store_true",
-                        help="rebuild evaluation/out/cache/payload_index.jsonl after apply")
-    parser.add_argument("--snapshot-dir", default=str(PROJECT_ROOT / "evaluation" / "out" / "ceiling_v2"),
-                        help="dir for the pre-backfill payload snapshot")
-    parser.add_argument("--from-cache", action="store_true",
-                        help="dry-run against the frozen payload cache instead of scrolling live Qdrant "
-                             "(collection provenance unknown -> 'cache'; apply still requires live scroll)")
-    parser.add_argument("--no-l7", action="store_true",
-                        help="disable the L7 header-trust correction + amendment-anchor propagation "
-                             "pass (COVERAGE_COMPLETENESS P2, 2026-08-18)")
+    parser.add_argument(
+        "--rebuild-index", action="store_true", help="rebuild evaluation/out/cache/payload_index.jsonl after apply"
+    )
+    parser.add_argument(
+        "--snapshot-dir",
+        default=str(PROJECT_ROOT / "evaluation" / "out" / "ceiling_v2"),
+        help="dir for the pre-backfill payload snapshot",
+    )
+    parser.add_argument(
+        "--from-cache",
+        action="store_true",
+        help="dry-run against the frozen payload cache instead of scrolling live Qdrant "
+        "(collection provenance unknown -> 'cache'; apply still requires live scroll)",
+    )
+    parser.add_argument(
+        "--no-l7",
+        action="store_true",
+        help="disable the L7 header-trust correction + amendment-anchor propagation "
+        "pass (COVERAGE_COMPLETENESS P2, 2026-08-18)",
+    )
     args = parser.parse_args()
 
     from app import create_app
@@ -810,10 +819,19 @@ def main() -> int:
         with open(l5_csv, "w", newline="", encoding="utf-8") as f:
             import csv as _csv2
 
-            writer = _csv2.DictWriter(f, fieldnames=[
-                "collection", "point_id", "family", "old_section_number",
-                "new_section_number", "sections_covered", "source", "evidence",
-            ])
+            writer = _csv2.DictWriter(
+                f,
+                fieldnames=[
+                    "collection",
+                    "point_id",
+                    "family",
+                    "old_section_number",
+                    "new_section_number",
+                    "sections_covered",
+                    "source",
+                    "evidence",
+                ],
+            )
             writer.writeheader()
             writer.writerows(l5_rows)
         logger.info("L5 repair CSV -> %s (%d rows)", l5_csv, len(l5_rows))
@@ -863,10 +881,19 @@ def main() -> int:
         with open(l7_csv, "w", newline="", encoding="utf-8") as f:
             import csv as _csv3
 
-            writer = _csv3.DictWriter(f, fieldnames=[
-                "collection", "point_id", "family", "old_section_number",
-                "new_section_number", "sections_covered", "source", "evidence",
-            ])
+            writer = _csv3.DictWriter(
+                f,
+                fieldnames=[
+                    "collection",
+                    "point_id",
+                    "family",
+                    "old_section_number",
+                    "new_section_number",
+                    "sections_covered",
+                    "source",
+                    "evidence",
+                ],
+            )
             writer.writeheader()
             writer.writerows(l7_rows)
         logger.info("L7 repair CSV -> %s (%d rows)", l7_csv, len(l7_rows))
@@ -918,10 +945,19 @@ def main() -> int:
         with open(repair_csv, "w", newline="", encoding="utf-8") as f:
             import csv as _csv4
 
-            writer = _csv4.DictWriter(f, fieldnames=[
-                "collection", "point_id", "family", "old_section_number",
-                "new_section_number", "sections_covered", "source", "evidence",
-            ])
+            writer = _csv4.DictWriter(
+                f,
+                fieldnames=[
+                    "collection",
+                    "point_id",
+                    "family",
+                    "old_section_number",
+                    "new_section_number",
+                    "sections_covered",
+                    "source",
+                    "evidence",
+                ],
+            )
             writer.writeheader()
             writer.writerows(repair_rows)
         logger.info("L4 repair CSV -> %s (%d rows)", repair_csv, len(repair_rows))
@@ -929,7 +965,6 @@ def main() -> int:
         before = sum(1 for p in payloads.values() if p.get("section_number"))
         after = before + len(changes)
         from collections import Counter
-
 
         # --- benchmark impact: gold-unit resolvability before/after
         questions = load_questions()
@@ -946,8 +981,7 @@ def main() -> int:
                     n_resolved_before += 1
                     continue
                 hit_after = any(
-                    matches_gold(dict(p, **changes.get(pid, {})), u, family_map)
-                    for pid, p in payloads.items()
+                    matches_gold(dict(p, **changes.get(pid, {})), u, family_map) for pid, p in payloads.items()
                 )
                 if hit_after:
                     newly_resolved.append(u.provision_id)
@@ -966,8 +1000,7 @@ def main() -> int:
                 by_coll.setdefault(provenance.get(pid, collections[0]), {})[pid] = ch
             applied = 0
             for coll, chg in by_coll.items():
-                store = __import__("app.rag.qdrant_client", fromlist=["QdrantStore"]).QdrantStore(
-                    collection_name=coll)
+                store = __import__("app.rag.qdrant_client", fromlist=["QdrantStore"]).QdrantStore(collection_name=coll)
                 n = set_payload_batched(store._get_client(), coll, chg)
                 applied += n
                 logger.info("collection %s: %d updates", coll, n)
@@ -978,7 +1011,8 @@ def main() -> int:
 
                 index = build_payload_index(
                     lambda coll: QdrantStore(collection_name=coll),
-                    collections, force=True,
+                    collections,
+                    force=True,
                 )
                 logger.info("payload index rebuilt: %d points", len(index))
         else:
@@ -1004,13 +1038,12 @@ def main() -> int:
             "l7_propagation_rows": sum(1 for r in l7_rows if r["source"] == "L7_propagation"),
             "l7_repair_csv": str(l7_csv),
             "note": "L4 any-position header pass + L5 header-anchored propagation "
-                    "(G7, 2026-08-17) + L7 header-trust correction / amendment "
-                    "anchors (P2, 2026-08-18) lift Act-doc section coverage; L7 "
-                    "fills the paren-fragment gap in consolidated/amendment acts.",
+            "(G7, 2026-08-17) + L7 header-trust correction / amendment "
+            "anchors (P2, 2026-08-18) lift Act-doc section coverage; L7 "
+            "fills the paren-fragment gap in consolidated/amendment acts.",
         }
         summary_name = "backfill_summary_apply.json" if args.apply else "backfill_summary_dryrun.json"
-        (snapshot_dir / summary_name).write_text(
-            json.dumps(summary, indent=2), encoding="utf-8")
+        (snapshot_dir / summary_name).write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return 0
 
 

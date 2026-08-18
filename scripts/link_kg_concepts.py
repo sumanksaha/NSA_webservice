@@ -31,7 +31,9 @@ os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Concept linking: APPLIES_TO edges from provisions to isolated LegalConcept nodes.")
+    p = argparse.ArgumentParser(
+        description="Concept linking: APPLIES_TO edges from provisions to isolated LegalConcept nodes."
+    )
     p.add_argument("--dry-run", action="store_true", help="Plan links and report — no Neo4j writes.")
     p.add_argument("--out-dir", type=Path, default=Path("reports"), help="Where to write the summary JSON.")
     p.add_argument("--pretty", action="store_true", help="Pretty-print the summary.")

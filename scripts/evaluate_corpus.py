@@ -135,7 +135,12 @@ def evaluate_document(path: Path) -> dict[str, Any]:
     try:
         text, meta = _load_text(path)
     except Exception as exc:
-        return {"file": name, "status": "load_failed", "error": str(exc), "elapsed_s": round(time.monotonic() - start, 2)}
+        return {
+            "file": name,
+            "status": "load_failed",
+            "error": str(exc),
+            "elapsed_s": round(time.monotonic() - start, 2),
+        }
 
     try:
         cleaned, clean_stats = _clean(text)
@@ -162,7 +167,15 @@ def evaluate_document(path: Path) -> dict[str, Any]:
         "classification": classification,
         "metadata": {
             k: metadata.get(k)
-            for k in ("document_type", "authority", "jurisdiction", "state", "effective_date", "is_current", "overall_confidence")
+            for k in (
+                "document_type",
+                "authority",
+                "jurisdiction",
+                "state",
+                "effective_date",
+                "is_current",
+                "overall_confidence",
+            )
         },
         "chunks": {
             "count": len(chunks),
@@ -187,9 +200,7 @@ def recommend_settings(results: list[dict[str, Any]]) -> dict[str, Any]:
         types[t] = types.get(t, 0) + 1
     total_chunks = sum(r["chunks"]["count"] for r in docs)
     total_chars = sum(r["extraction"].get("raw_chars", 0) for r in docs)
-    avg_clean = (
-        sum(r["extraction"].get("clean_ratio", 0.0) for r in docs) / len(docs) if docs else 0.0
-    )
+    avg_clean = sum(r["extraction"].get("clean_ratio", 0.0) for r in docs) / len(docs) if docs else 0.0
     quality_failed = sum(r["quality"]["failed"] for r in docs)
     quality_checked = sum(r["quality"]["checked"] for r in docs)
 
@@ -253,10 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     if not corpus_dir.is_dir():
         return 2
 
-    files = sorted(
-        p for p in corpus_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in {".pdf", ".docx", ".txt"}
-    )
+    files = sorted(p for p in corpus_dir.iterdir() if p.is_file() and p.suffix.lower() in {".pdf", ".docx", ".txt"})
     if args.max_docs:
         files = files[: args.max_docs]
     if not files:

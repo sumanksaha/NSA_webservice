@@ -31,11 +31,18 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# Import the Phase 8 PDFAssemblyEngine
-try:
-    from app.pdf_assembly import PDFAssemblyEngine
-except ImportError:
-    PDFAssemblyEngine = None
+# Resolve the Phase 8 PDFAssemblyEngine via the plugin registry (Phase 20).
+# Falls back to None when the engine module or its backend (WeasyPrint)
+# is unavailable — the legacy path handles that gracefully.
+def _get_pdf_engine():
+    """Return a PDFAssemblyEngine instance via the plugin registry, or None."""
+    try:
+        from app.plugins.registry import PluginRegistry
+
+        plugin = PluginRegistry.get_instance().get_active("pdf")
+        return plugin.get_engine()
+    except Exception:
+        return None
 
 
 def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
@@ -74,7 +81,8 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
     generated_at = datetime.now(UTC)
 
     # Use PDFAssemblyEngine if available, otherwise fallback to legacy implementation
-    if PDFAssemblyEngine is not None:
+    engine = _get_pdf_engine()
+    if engine is not None:
         # Phase 8 implementation using PDFAssemblyEngine
         try:
             # Extract annexures from case_data (if any)
@@ -84,7 +92,6 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
             _photo_urls = case_data.get("photo_urls", [])
 
             # Use the Phase 8 engine to assemble complete PDF
-            engine = PDFAssemblyEngine()
             pdf_bytes, error = engine.assemble_complete_case_pdf(case_file_id, case_data, annexures)
 
             if error:
@@ -164,7 +171,7 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
     else:
         # Legacy fallback implementation (Phase 1-2 only)
         logger.warning(
-            "PDFAssemblyEngine not available, using legacy implementation for case_file %s",
+            "PDF engine unavailable (plugin registry), using legacy implementation for case_file %s",
             case_file_id,
         )
         return _legacy_generate_case_file_pdf(self, case_file_id, case_data, generated_at)

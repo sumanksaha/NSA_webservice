@@ -43,10 +43,19 @@ def _teardown(ctx):
 
 def _mock_qdrant_point(cid, sid, score=0.9):
     return SimpleNamespace(
-        id=cid, score=score,
-        payload={"chunk_id": cid, "chunk_text": f"Content about Section {sid}.", "section_number": sid,
-                 "document_title": "FSS Act 2006", "document_type": "Act", "authority": "FSSAI",
-                 "chunk_index": 0, "hierarchy_level": 1, "parent_chunk_id": None},
+        id=cid,
+        score=score,
+        payload={
+            "chunk_id": cid,
+            "chunk_text": f"Content about Section {sid}.",
+            "section_number": sid,
+            "document_title": "FSS Act 2006",
+            "document_type": "Act",
+            "authority": "FSSAI",
+            "chunk_index": 0,
+            "hierarchy_level": 1,
+            "parent_chunk_id": None,
+        },
     )
 
 
@@ -57,12 +66,19 @@ def _build_pipeline():
     client = SimpleNamespace(search=lambda **kw: points[: kw.get("limit", 10)])
     dense = DenseRetriever(collection_name="fssai_legal_768", client=client, encoder=encoder)
 
-    corpus = {f"sparse_{i}": {
-        "chunk_id": f"sparse_{i}",
-        "text": f"Section {50+i} of the FSS Act contains important provisions.",
-        "document_title": "FSS Act 2006", "document_type": "Act", "authority": "FSSAI",
-        "section_number": str(50 + i), "chunk_index": 0, "hierarchy_level": 1,
-    } for i in range(5)}
+    corpus = {
+        f"sparse_{i}": {
+            "chunk_id": f"sparse_{i}",
+            "text": f"Section {50 + i} of the FSS Act contains important provisions.",
+            "document_title": "FSS Act 2006",
+            "document_type": "Act",
+            "authority": "FSSAI",
+            "section_number": str(50 + i),
+            "chunk_index": 0,
+            "hierarchy_level": 1,
+        }
+        for i in range(5)
+    }
     sparse = SparseRetriever(corpus=corpus)
     reranker = Reranker()
     hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=reranker)
@@ -161,7 +177,8 @@ class TestE2EPipeline:
             log_entry = logger.log(query="Section 55", query_type="section_lookup", result=result)
             audit = RetrievalAuditLog()
             audit.log_retrieval(
-                query_log_id=log_entry.id, query="Section 55",
+                query_log_id=log_entry.id,
+                query="Section 55",
                 query_type="section_lookup",
                 chunk_ids=[c.chunk_id for c in result.chunks],
                 latency_ms=result.latency_ms,
@@ -182,10 +199,20 @@ class TestE2EPipeline:
 
         _app, ctx = _setup_test_env()
         try:
-            with mock.patch.object(DenseRetriever, "_get_encoder", return_value=SimpleNamespace(encode=lambda t: [0.5] * 768)), \
-                 mock.patch.object(DenseRetriever, "_get_client", return_value=SimpleNamespace(
-                     search=lambda **kw: [_mock_qdrant_point(f"dense_{i}", str(50 + i), 0.95 - i * 0.05) for i in range(5)]
-                 )):
+            with (
+                mock.patch.object(
+                    DenseRetriever, "_get_encoder", return_value=SimpleNamespace(encode=lambda t: [0.5] * 768)
+                ),
+                mock.patch.object(
+                    DenseRetriever,
+                    "_get_client",
+                    return_value=SimpleNamespace(
+                        search=lambda **kw: [
+                            _mock_qdrant_point(f"dense_{i}", str(50 + i), 0.95 - i * 0.05) for i in range(5)
+                        ]
+                    ),
+                ),
+            ):
                 result = run_retrieval_pipeline("What does Section 55 say?", top_k=5, collection_name="fssai_legal_768")
                 assert result["query_type"] == "section_lookup"
                 assert "chunks" in result

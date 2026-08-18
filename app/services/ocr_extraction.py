@@ -16,7 +16,6 @@ import logging
 from pathlib import Path
 
 from app.metadata_extractor import LegalMetadataEngine
-from app.ocr_pipeline import OCRPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +41,20 @@ LEGAL_AUTOFIELDS = (
 
 
 def _extract_text_from_page(pdf_path: str | Path, page_number: int = 1) -> str:
-    """Run the OCR pipeline on a single page and return cleaned text."""
-    pipeline = OCRPipeline(languages=["english", "hindi"])
-    results = pipeline.process_document(str(pdf_path))
-    if not results:
-        return ""
-    idx = min(page_number - 1, len(results) - 1)
-    return results[idx].text or ""
+    """Run the OCR pipeline on a single page and return cleaned text.
+
+    Uses the PluginRegistry to resolve the active OCR provider (Phase 20).
+    The provider's lazy import means OCRPipeline (and its EasyOCR/torch
+    dependency) is only loaded when extraction actually runs.
+    """
+    from app.plugins.registry import PluginRegistry
+
+    ocr_provider = PluginRegistry.get_instance().get_active("ocr")
+    result = ocr_provider.extract_text(str(pdf_path))
+    if not result.page_results:
+        return result.text  # single-page or empty → return full text
+    idx = min(page_number - 1, len(result.page_results) - 1)
+    return result.page_results[idx].get("text", "") or ""
 
 
 def process_document_ocr(file_path: str | Path, sample_id: int | None = None) -> dict:

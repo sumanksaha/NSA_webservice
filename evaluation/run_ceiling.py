@@ -219,7 +219,7 @@ def main() -> int:
 
         idx_str, n_str = args.shard.split("/")
         shard_idx, n_shards = int(idx_str), int(n_str)
-        questions = questions[shard_idx - 1::n_shards] if n_shards > 1 else questions
+        questions = questions[shard_idx - 1 :: n_shards] if n_shards > 1 else questions
         if args.limit:
             questions = questions[: args.limit]
         logger.info("shard %s: %d questions", args.shard, len(questions))
@@ -254,8 +254,7 @@ def main() -> int:
                             query, src = _oracle_query(q, registry)
                             result = run_oracle_sparse(q.raw, query, ORACLE_DEPTH)
                             result["oracle_source"] = src
-                        elif arm in ("V3_dense", "V3_sparse", "V3_hybrid",
-                                     "V4_dense", "V4_sparse", "V4_hybrid"):
+                        elif arm in ("V3_dense", "V3_sparse", "V3_hybrid", "V4_dense", "V4_sparse", "V4_hybrid"):
                             from evaluation.query_expansion import expand_query
 
                             # V4 = dedup'd expansion: identifiers already in the
@@ -273,11 +272,15 @@ def main() -> int:
                             query, src = _identifier_query(q, registry)
                             if query is None:
                                 result = {
-                                    "chunk_ids": [], "chunk_ids_sparse": [],
-                                    "kg_provisions": [], "kg_source": None,
-                                    "latency_ms": 0, "error": "no numeric identifier",
+                                    "chunk_ids": [],
+                                    "chunk_ids_sparse": [],
+                                    "kg_provisions": [],
+                                    "kg_source": None,
+                                    "latency_ms": 0,
+                                    "error": "no numeric identifier",
                                     "retriever": "exact_identifier",
-                                    "query_used": None, "oracle_source": None,
+                                    "query_used": None,
+                                    "oracle_source": None,
                                 }
                             else:
                                 result = run_exact_identifier(q.raw, query, EXACT_DEPTH)
@@ -289,8 +292,11 @@ def main() -> int:
                     except Exception as exc:
                         logger.error("arm %s q %s failed: %s", arm, q.question_id, exc)
                         result = {
-                            "arm": arm, "question_id": q.question_id,
-                            "chunk_ids": [], "kg_provisions": [], "kg_source": None,
+                            "arm": arm,
+                            "question_id": q.question_id,
+                            "chunk_ids": [],
+                            "kg_provisions": [],
+                            "kg_source": None,
                             "latency_ms": int((time.monotonic() - t0) * 1000),
                             "error": f"{type(exc).__name__}: {exc}",
                             "retriever": "error",
@@ -300,7 +306,10 @@ def main() -> int:
                     if i % 10 == 0 or i == len(questions):
                         logger.info(
                             "arm %s %d/%d (%.0fs elapsed)",
-                            arm, i, len(questions), time.monotonic() - started,
+                            arm,
+                            i,
+                            len(questions),
+                            time.monotonic() - started,
                         )
             logger.info("arm %s complete", arm)
     logger.info("live retrieval phase done")

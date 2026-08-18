@@ -17,6 +17,7 @@ Usage:
     python -m evaluation.ranking_loss_trainer --variant model_d
     python -m evaluation.ranking_loss_trainer --variant all --epochs 3
 """
+
 from __future__ import annotations
 
 import argparse
@@ -133,6 +134,7 @@ def detect_device() -> str:
     # CUDA (NVIDIA)
     try:
         import torch
+
         if torch.cuda.is_available() and torch.cuda.device_count() > 0:
             dev = "cuda:" + str(torch.cuda.current_device())
             return dev
@@ -142,6 +144,7 @@ def detect_device() -> str:
     # XPU (Intel Arc / IPEX)
     try:
         import torch
+
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             dev = "xpu:" + str(torch.xpu.current_device())
             return dev
@@ -153,6 +156,7 @@ def detect_device() -> str:
     # Force it explicitly with --device privateuseone:0 when you want it.
     try:
         import torch_directml
+
         dev = torch_directml.device(0)
         if dev is not None:
             pass
@@ -319,8 +323,7 @@ class MarginRankingLossTrainer:
         score(query, positive) > score(query, negative) + margin
     """
 
-    def __init__(self, model_name: str, max_len: int = 256, margin: float = 1.0,
-                 device: str | None = None):
+    def __init__(self, model_name: str, max_len: int = 256, margin: float = 1.0, device: str | None = None):
         self.model_name = model_name
         self.max_len = max_len
         self.margin = margin
@@ -334,9 +337,7 @@ class MarginRankingLossTrainer:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_name, num_labels=1
-        )
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name, num_labels=1)
         self.model.to(self.device)
 
     def train(
@@ -394,7 +395,6 @@ class MarginRankingLossTrainer:
         import torch
         from torch.utils.data import DataLoader, Dataset
 
-
         # Bound the thread pools unconditionally: even on a (rare) discrete
         # GPU the data-prep/tokeniser work is CPU-bound, and on CPU the
         # one-thread-per-core default swap-thrashes small laptops.
@@ -409,7 +409,7 @@ class MarginRankingLossTrainer:
         try:
             import psutil
 
-            avail_gb = psutil.virtual_memory().available / (1024 ** 3)
+            avail_gb = psutil.virtual_memory().available / (1024**3)
             if avail_gb < 2.0:
                 pass
         except Exception:
@@ -419,10 +419,12 @@ class MarginRankingLossTrainer:
             """Return current process RSS in MB."""
             try:
                 import psutil
+
                 return psutil.Process().memory_info().rss / (1024 * 1024)
             except ImportError:
                 try:
                     import resource
+
                     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                     if sys.platform == "darwin":
                         return rss / (1024 * 1024)
@@ -442,14 +444,20 @@ class MarginRankingLossTrainer:
             def __getitem__(self, idx):
                 p = self.pairs[idx]
                 pos_enc = self.tokenizer(
-                    p["query"], p["positive"],
-                    padding="max_length", truncation=True,
-                    max_length=self.max_len, return_tensors="pt",
+                    p["query"],
+                    p["positive"],
+                    padding="max_length",
+                    truncation=True,
+                    max_length=self.max_len,
+                    return_tensors="pt",
                 )
                 neg_enc = self.tokenizer(
-                    p["query"], p["negative"],
-                    padding="max_length", truncation=True,
-                    max_length=self.max_len, return_tensors="pt",
+                    p["query"],
+                    p["negative"],
+                    padding="max_length",
+                    truncation=True,
+                    max_length=self.max_len,
+                    return_tensors="pt",
                 )
                 return {
                     "pos_input_ids": pos_enc["input_ids"].squeeze(0),
@@ -496,25 +504,33 @@ class MarginRankingLossTrainer:
             all_y = cached["all_y"]
         else:
             write_training_status(
-                status_file, status="training", phase="tokenizing",
-                epoch=0, epochs=epochs, global_step=0, total_steps=total_steps,
-                device=self.device, threads=n_threads,
+                status_file,
+                status="training",
+                phase="tokenizing",
+                epoch=0,
+                epochs=epochs,
+                global_step=0,
+                total_steps=total_steps,
+                device=self.device,
+                threads=n_threads,
             )
             all_pos = self.tokenizer(
                 [p["query"] for p in train_pairs],
                 [p["positive"] for p in train_pairs],
-                padding="max_length", truncation=True,
-                max_length=self.max_len, return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_len,
+                return_tensors="pt",
             )
             all_neg = self.tokenizer(
                 [p["query"] for p in train_pairs],
                 [p["negative"] for p in train_pairs],
-                padding="max_length", truncation=True,
-                max_length=self.max_len, return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_len,
+                return_tensors="pt",
             )
-            all_y = torch.tensor(
-                [1.0] * len(train_pairs), dtype=torch.float32
-            )
+            all_y = torch.tensor([1.0] * len(train_pairs), dtype=torch.float32)
             if cache_path is not None and pairs_hash is not None:
                 tmp = cache_path.with_name(cache_path.name + ".tmp")
                 torch.save(
@@ -552,11 +568,11 @@ class MarginRankingLossTrainer:
             # 2.0/sched_total < 0.1).
             pct_start = max(0.1, 2.0 / sched_total)
             scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                optimizer, max_lr=lr, total_steps=sched_total,
+                optimizer,
+                max_lr=lr,
+                total_steps=sched_total,
                 pct_start=pct_start,
             )
-
-
 
         # ---- Resume from checkpoint (crash-safe training on laptops) ----
         checkpoint_path = output_dir / "train_state.pt" if output_dir else None
@@ -623,10 +639,7 @@ class MarginRankingLossTrainer:
             # max_lr and can save lr=0.0 at the decay tail) would otherwise
             # clobber the current scheduler's keys and crash OneCycleLR.
             opt_state = ckpt["optimizer_state"]
-            current_hyper = [
-                {k: v for k, v in g.items() if k != "params"}
-                for g in optimizer.param_groups
-            ]
+            current_hyper = [{k: v for k, v in g.items() if k != "params"} for g in optimizer.param_groups]
             optimizer.load_state_dict(opt_state)
             for group, hyper in zip(optimizer.param_groups, current_hyper, strict=False):
                 group.update(hyper)
@@ -646,9 +659,15 @@ class MarginRankingLossTrainer:
                 group["lr"] = float(lr)
         else:
             write_training_status(
-                status_file, status="training", phase="initializing",
-                epoch=0, epochs=epochs, global_step=0, total_steps=total_steps,
-                device=self.device, threads=n_threads,
+                status_file,
+                status="training",
+                phase="initializing",
+                epoch=0,
+                epochs=epochs,
+                global_step=0,
+                total_steps=total_steps,
+                device=self.device,
+                threads=n_threads,
             )
 
         # Validation DataLoader (reuses PairDataset for tokenisation).
@@ -659,9 +678,7 @@ class MarginRankingLossTrainer:
             stride = max(len(val_pairs) // val_cap, 1)
             val_sample = val_pairs[::stride][:val_cap]
         val_ds = PairDataset(val_sample, self.tokenizer, self.max_len)
-        val_loader = DataLoader(
-            val_ds, batch_size=val_batch_size or batch_size, shuffle=False
-        )
+        val_loader = DataLoader(val_ds, batch_size=val_batch_size or batch_size, shuffle=False)
 
         self.model.train()
         epoch = start_epoch
@@ -677,15 +694,13 @@ class MarginRankingLossTrainer:
                 # Progressive curriculum: filter pairs by tier per epoch
                 if curriculum:
                     max_tier = epoch + 1  # epoch 0 -> tier 1; epoch 1 -> tiers 1-2; epoch 2 -> all
-                    epoch_pairs_idx = [
-                        i for i, p in enumerate(train_pairs)
-                        if p.get("tier", 1) <= max_tier
-                    ]
+                    epoch_pairs_idx = [i for i, p in enumerate(train_pairs) if p.get("tier", 1) <= max_tier]
                 else:
                     epoch_pairs_idx = list(range(len(train_pairs)))
 
                 if not curriculum:
                     import random as _random
+
                     _random.shuffle(epoch_pairs_idx)
 
                 # Build per-epoch DataLoader from the pre-tokenised tensors
@@ -704,7 +719,9 @@ class MarginRankingLossTrainer:
 
                 n_epoch = len(epoch_pairs_idx)
                 if (
-                    resumed and epoch == start_epoch and ckpt is not None
+                    resumed
+                    and epoch == start_epoch
+                    and ckpt is not None
                     and ckpt.get("order_epoch") == start_epoch
                     and "epoch_order" in ckpt
                     and ckpt["epoch_order"] is not None
@@ -740,13 +757,17 @@ class MarginRankingLossTrainer:
                         # Margin ranking loss: encourage pos > neg + margin
                         target = torch.ones_like(pos_scores)
                         loss = torch.nn.functional.margin_ranking_loss(
-                            pos_scores, neg_scores, target, margin=self.margin,
+                            pos_scores,
+                            neg_scores,
+                            target,
+                            margin=self.margin,
                             reduction="mean",
                         )
                     elif loss_type == "contrastive":
                         # Contrastive loss: -log(exp(pos) / (exp(pos) + exp(neg)))
                         log_denom = torch.logsumexp(
-                            torch.stack([pos_scores, neg_scores], dim=-1), dim=-1,
+                            torch.stack([pos_scores, neg_scores], dim=-1),
+                            dim=-1,
                         )
                         loss = -(pos_scores - log_denom).mean()
                     else:
@@ -757,7 +778,8 @@ class MarginRankingLossTrainer:
                             torch.zeros_like(neg_scores),
                         ])
                         loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                            logits, targets,
+                            logits,
+                            targets,
                         )
 
                     loss.backward()
@@ -775,31 +797,41 @@ class MarginRankingLossTrainer:
                         elapsed = time.time() - t_start
                         s_per_step = elapsed / max(global_step, 1)
                         write_training_status(
-                            status_file, status="training", phase="training",
-                            epoch=epoch + 1, epochs=epochs,
-                            global_step=global_step, total_steps=total_steps,
+                            status_file,
+                            status="training",
+                            phase="training",
+                            epoch=epoch + 1,
+                            epochs=epochs,
+                            global_step=global_step,
+                            total_steps=total_steps,
                             train_loss=epoch_loss / max(n_batches, 1),
                             best_val_loss=best_val_loss,
                             peak_rss_mb=_peak_rss_mb(),
-                            device=self.device, threads=n_threads,
+                            device=self.device,
+                            threads=n_threads,
                             elapsed_seconds=elapsed,
-                            eta_seconds=max(
-                                int(s_per_step * (total_steps - global_step)), 0
-                            ),
+                            eta_seconds=max(int(s_per_step * (total_steps - global_step)), 0),
                             last_checkpoint=last_save_ts,
                         )
                     if output_dir and (global_step % save_every) == 0:
                         last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
                         save_training_checkpoint(
-                            checkpoint_path, model=self.model, optimizer=optimizer,
-                            epoch=epoch, steps_in_epoch=min(j + batch_size, n_epoch),
-                            global_step=global_step, best_val_loss=best_val_loss,
-                            history=history, loss_type=loss_type,
-                            curriculum=curriculum, epochs=epochs,
+                            checkpoint_path,
+                            model=self.model,
+                            optimizer=optimizer,
+                            epoch=epoch,
+                            steps_in_epoch=min(j + batch_size, n_epoch),
+                            global_step=global_step,
+                            best_val_loss=best_val_loss,
+                            history=history,
+                            loss_type=loss_type,
+                            curriculum=curriculum,
+                            epochs=epochs,
                             max_steps=max_steps,
                             torch_rng=torch.get_rng_state(),
                             python_rng=random.getstate(),
-                            epoch_order=order, order_epoch=epoch,
+                            epoch_order=order,
+                            order_epoch=epoch,
                             device=self.device,
                         )
 
@@ -832,26 +864,40 @@ class MarginRankingLossTrainer:
                 # Epoch-end status + checkpoint (resume point = next epoch, batch 0).
                 last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
                 write_training_status(
-                    status_file, status="training", phase="validated",
-                    epoch=epoch + 1, epochs=epochs,
-                    global_step=global_step, total_steps=total_steps,
-                    train_loss=avg_train_loss, val_loss=val_loss,
-                    best_val_loss=best_val_loss, peak_rss_mb=peak_rss,
-                    device=self.device, threads=n_threads,
+                    status_file,
+                    status="training",
+                    phase="validated",
+                    epoch=epoch + 1,
+                    epochs=epochs,
+                    global_step=global_step,
+                    total_steps=total_steps,
+                    train_loss=avg_train_loss,
+                    val_loss=val_loss,
+                    best_val_loss=best_val_loss,
+                    peak_rss_mb=peak_rss,
+                    device=self.device,
+                    threads=n_threads,
                     elapsed_seconds=time.time() - t_start,
                     last_checkpoint=last_save_ts,
                 )
                 if checkpoint_path is not None:
                     save_training_checkpoint(
-                        checkpoint_path, model=self.model, optimizer=optimizer,
-                        epoch=epoch + 1, steps_in_epoch=0,
-                        global_step=global_step, best_val_loss=best_val_loss,
-                        history=history, loss_type=loss_type,
-                        curriculum=curriculum, epochs=epochs,
+                        checkpoint_path,
+                        model=self.model,
+                        optimizer=optimizer,
+                        epoch=epoch + 1,
+                        steps_in_epoch=0,
+                        global_step=global_step,
+                        best_val_loss=best_val_loss,
+                        history=history,
+                        loss_type=loss_type,
+                        curriculum=curriculum,
+                        epochs=epochs,
                         max_steps=max_steps,
                         torch_rng=torch.get_rng_state(),
                         python_rng=random.getstate(),
-                        epoch_order=order, order_epoch=epoch,
+                        epoch_order=order,
+                        order_epoch=epoch,
                         device=self.device,
                     )
 
@@ -864,23 +910,36 @@ class MarginRankingLossTrainer:
             if checkpoint_path is not None:
                 with contextlib.suppress(Exception):
                     save_training_checkpoint(
-                        checkpoint_path, model=self.model, optimizer=optimizer,
-                        epoch=epoch, steps_in_epoch=min(j + batch_size, n_epoch),
-                        global_step=global_step, best_val_loss=best_val_loss,
-                        history=history, loss_type=loss_type,
-                        curriculum=curriculum, epochs=epochs,
+                        checkpoint_path,
+                        model=self.model,
+                        optimizer=optimizer,
+                        epoch=epoch,
+                        steps_in_epoch=min(j + batch_size, n_epoch),
+                        global_step=global_step,
+                        best_val_loss=best_val_loss,
+                        history=history,
+                        loss_type=loss_type,
+                        curriculum=curriculum,
+                        epochs=epochs,
                         max_steps=max_steps,
                         torch_rng=torch.get_rng_state(),
                         python_rng=random.getstate(),
-                        epoch_order=order, order_epoch=epoch,
+                        epoch_order=order,
+                        order_epoch=epoch,
                         device=self.device,
                     )
             write_training_status(
-                status_file, status="interrupted", phase="interrupted",
-                epoch=epoch + 1, epochs=epochs,
-                global_step=global_step, total_steps=total_steps,
-                best_val_loss=best_val_loss, peak_rss_mb=_peak_rss_mb(),
-                device=self.device, threads=n_threads,
+                status_file,
+                status="interrupted",
+                phase="interrupted",
+                epoch=epoch + 1,
+                epochs=epochs,
+                global_step=global_step,
+                total_steps=total_steps,
+                best_val_loss=best_val_loss,
+                peak_rss_mb=_peak_rss_mb(),
+                device=self.device,
+                threads=n_threads,
                 elapsed_seconds=time.time() - t_start,
             )
             raise
@@ -897,14 +956,19 @@ class MarginRankingLossTrainer:
         # guard and exits immediately.
         last_save_ts = datetime.now(UTC).isoformat(timespec="seconds")
         write_training_status(
-            status_file, status="done", phase="complete",
-            epoch=epochs, epochs=epochs,
-            global_step=global_step, total_steps=total_steps,
+            status_file,
+            status="done",
+            phase="complete",
+            epoch=epochs,
+            epochs=epochs,
+            global_step=global_step,
+            total_steps=total_steps,
             train_loss=history["train_loss"][-1] if history["train_loss"] else None,
             val_loss=history["val_loss"][-1] if history["val_loss"] else None,
             best_val_loss=best_val_loss,
             peak_rss_mb=_peak_rss_mb(),
-            device=self.device, threads=n_threads,
+            device=self.device,
+            threads=n_threads,
             elapsed_seconds=time.time() - t_start,
             last_checkpoint=last_save_ts,
         )
@@ -949,12 +1013,13 @@ class MarginRankingLossTrainer:
                 if loss_type == "margin":
                     target = torch.ones_like(pos_scores)
                     loss = torch.nn.functional.margin_ranking_loss(
-                        pos_scores, neg_scores, target, margin=self.margin,
+                        pos_scores,
+                        neg_scores,
+                        target,
+                        margin=self.margin,
                     )
                 elif loss_type == "contrastive":
-                    log_denom = torch.logsumexp(
-                        torch.stack([pos_scores, neg_scores], dim=-1), dim=-1
-                    )
+                    log_denom = torch.logsumexp(torch.stack([pos_scores, neg_scores], dim=-1), dim=-1)
                     loss = -(pos_scores - log_denom).mean()
                 else:
                     logits = torch.cat([pos_scores, neg_scores])
@@ -981,12 +1046,21 @@ def main() -> int:
     )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--loss", choices=["margin", "contrastive", "pointwise"], default="margin")
-    parser.add_argument("--curriculum", action="store_true", help="Use progressive curriculum training (T1->T2->T3) for model_d")
-    parser.add_argument("--max-steps", type=int, default=None, help="Max training steps (for calibration; breaks early)")
-    parser.add_argument("--device", type=str, default=None,
-                        help="Override device auto-detection (e.g. 'cpu', 'privateuseone:0', 'cuda:0')")
-    parser.add_argument("--threads", type=int, default=4,
-                        help="Torch intra-op thread cap (default 4; the measured sweet spot)")
+    parser.add_argument(
+        "--curriculum", action="store_true", help="Use progressive curriculum training (T1->T2->T3) for model_d"
+    )
+    parser.add_argument(
+        "--max-steps", type=int, default=None, help="Max training steps (for calibration; breaks early)"
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Override device auto-detection (e.g. 'cpu', 'privateuseone:0', 'cuda:0')",
+    )
+    parser.add_argument(
+        "--threads", type=int, default=4, help="Torch intra-op thread cap (default 4; the measured sweet spot)"
+    )
     args = parser.parse_args()
 
     # Configure threads before any torch import / parallel work starts.
@@ -1007,6 +1081,7 @@ def main() -> int:
     if not train_pairs:
         # Fallback: 80/20 random split
         import random
+
         rng = random.Random(20260815)
         all_qids = list({p["question_id"] for p in pairs})
         rng.shuffle(all_qids)
@@ -1016,13 +1091,10 @@ def main() -> int:
         train_pairs = [p for p in pairs if p["question_id"] in train_qids]
         val_pairs = [p for p in pairs if p["question_id"] in val_qids]
 
-    variants = [args.variant] if args.variant != "all" else [
-        "model_a", "model_b", "model_c", "model_d"
-    ]
+    variants = [args.variant] if args.variant != "all" else ["model_a", "model_b", "model_c", "model_d"]
 
     results = {}
     for variant in variants:
-
         variant_pairs = filter_by_variant(train_pairs, variant)
         variant_val = filter_by_variant(val_pairs, variant)
 

@@ -24,6 +24,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import csrf, db
 from app.models import Adjudication, Evidence, FboIssue
+from app.plugins.registry import PluginRegistry
 from app.services.audit import log_audit
 from app.services.sync_orchestrator import sync_row
 from app.shared.case_keys import (
@@ -51,7 +52,6 @@ from app.shared.document_case_manager import DocumentCaseManager
 from app.utils.filters import parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
-from app.utils.suggester import suggest_sections
 
 adjudication_bp = Blueprint("adjudication", __name__, template_folder="templates", static_folder="static")
 
@@ -349,7 +349,8 @@ def lookup_fbo_issues():
 @adjudication_bp.route("/suggest_sections", methods=["POST"])
 def suggest_sections_route():
     form_data = request.form.to_dict()
-    suggestions = suggest_sections(form_data)
+    rule_provider = PluginRegistry.get_instance().get_active("rules")
+    suggestions = rule_provider.suggest_sections(form_data)
     return jsonify(suggestions)
 
 

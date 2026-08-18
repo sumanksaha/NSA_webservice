@@ -60,9 +60,8 @@ class DenseRetriever:
         if self._embedding_model is not None:
             return self._embedding_model
         from flask import current_app
-        return current_app.config.get(
-            "RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2"
-        )
+
+        return current_app.config.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessors
@@ -74,6 +73,7 @@ class DenseRetriever:
             return self._client
         from flask import current_app
         from qdrant_client import QdrantClient  # type: ignore[import-untyped]
+
         url = current_app.config.get("RAG_QDRANT_URL", "")
         if not url:
             logger.warning("DenseRetriever: RAG_QDRANT_URL not configured; dense retrieval unavailable.")
@@ -236,18 +236,26 @@ class DenseRetriever:
             encoder = self._get_encoder()
             if encoder is None:
                 return SearchResult(
-                    query=query, query_type="", chunks=[], total=0,
+                    query=query,
+                    query_type="",
+                    chunks=[],
+                    total=0,
                     latency_ms=int((time.monotonic() - start) * 1000),
-                    source="dense", error="sentence-transformers not installed",
+                    source="dense",
+                    error="sentence-transformers not installed",
                 )
 
             vector = self.embed_query(query)
             client = self._get_client()
             if client is None:
                 return SearchResult(
-                    query=query, query_type="", chunks=[], total=0,
+                    query=query,
+                    query_type="",
+                    chunks=[],
+                    total=0,
                     latency_ms=int((time.monotonic() - start) * 1000),
-                    source="dense", error="Qdrant not configured (RAG_QDRANT_URL missing)",
+                    source="dense",
+                    error="Qdrant not configured (RAG_QDRANT_URL missing)",
                 )
 
             filter_dict = self._build_filter(filters) if filters else None
@@ -265,16 +273,23 @@ class DenseRetriever:
 
             chunks = [self._payload_to_chunk(p) for p in (points or [])]
             return SearchResult(
-                query=query, query_type="", chunks=chunks, total=len(chunks),
+                query=query,
+                query_type="",
+                chunks=chunks,
+                total=len(chunks),
                 latency_ms=int((time.monotonic() - start) * 1000),
                 source="dense",
             )
         except Exception as exc:
             logger.error("DenseRetriever.search failed: %s", exc)
             return SearchResult(
-                query=query, query_type="", chunks=[], total=0,
+                query=query,
+                query_type="",
+                chunks=[],
+                total=0,
                 latency_ms=int((time.monotonic() - start) * 1000),
-                source="dense", error=str(exc),
+                source="dense",
+                error=str(exc),
             )
 
     @staticmethod

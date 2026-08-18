@@ -115,7 +115,9 @@ class TestReindexing:
         assert len(new_ids) == first.chunk_count
 
         # The changed 14(1) wording is now searchable on top for its own text.
-        hits = _query_hits(store, "14(1) The Central Government may make rules to carry out the provisions of this Act.")
+        hits = _query_hits(
+            store, "14(1) The Central Government may make rules to carry out the provisions of this Act."
+        )
         assert hits
         top = hits[0]
         assert top["payload"]["document_id"] == "doc-1"

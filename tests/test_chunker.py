@@ -133,9 +133,7 @@ class TestChunkFromParagraph:
         assert chunk.section_title == "Definitions"
 
     def test_subsection_markers_extracted(self):
-        chunk = Chunk.from_paragraph(
-            _make_paragraph(text="3(1)(a) The Food Authority shall ensure food safety.")
-        )
+        chunk = Chunk.from_paragraph(_make_paragraph(text="3(1)(a) The Food Authority shall ensure food safety."))
         assert chunk.subsection == "(1)(a)"
 
     def test_marker_chain_carries_no_section_number(self):
@@ -149,9 +147,7 @@ class TestChunkFromParagraph:
             {"type": "section", "reference": "Section 55"},
             {"type": "statutory", "reference": "Food Safety and Standards Act"},
         ]
-        chunk = Chunk.from_paragraph(
-            _make_paragraph(citations=citations, overall=0.92)
-        )
+        chunk = Chunk.from_paragraph(_make_paragraph(citations=citations, overall=0.92))
         assert chunk.citations == ["Section 55", "Food Safety and Standards Act"]
         assert chunk.confidence == 0.92
 
@@ -257,8 +253,16 @@ class TestPayloadConsumerContract:
         chunk = Chunk.from_paragraph(_make_paragraph(section="55", depth=1))
         payload = chunk.to_payload()
         # Keys read by DenseRetriever._payload_to_chunk.
-        for key in ("chunk_text", "section_number", "document_title", "document_type",
-                    "authority", "chunk_index", "hierarchy_level", "parent_chunk_id"):
+        for key in (
+            "chunk_text",
+            "section_number",
+            "document_title",
+            "document_type",
+            "authority",
+            "chunk_index",
+            "hierarchy_level",
+            "parent_chunk_id",
+        ):
             assert key in payload
 
     def test_payload_roundtrip_into_retrieved_chunk(self):

@@ -42,9 +42,7 @@ _SUCCESS_SUMMARY = {
 class TestArgParsing:
     def test_no_input_returns_usage_error(self, monkeypatch):
         """No corpus_dir / --file / --text -> ValueError -> exit 2."""
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main([]) == 2
 
 
@@ -80,9 +78,7 @@ class TestIngestModes:
             return _SUCCESS_DOC
 
         monkeypatch.setattr("scripts.ingest_corpus.run_ingest_document", fake_run)
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         code = cli.main(["--file", "/corpus/a.pdf"])
         assert code == 0
         assert seen["source"] == "/corpus/a.pdf"
@@ -96,9 +92,7 @@ class TestIngestModes:
             return _SUCCESS_DOC
 
         monkeypatch.setattr("scripts.ingest_corpus.run_ingest_document", fake_run)
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         code = cli.main(["--text", "The Food Safety and Standards Act, 2006"])
         assert code == 0
         assert seen["source"] == "The Food Safety and Standards Act, 2006"
@@ -107,20 +101,26 @@ class TestIngestModes:
 class TestFullEnrichmentFlag:
     def test_flag_forces_full_enrichment(self, monkeypatch):
         seen = {}
-        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline",
-                            lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment))
-        monkeypatch.setattr("scripts.ingest_corpus.ingest_corpus_dir",
-                            lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY)
+        monkeypatch.setattr(
+            "scripts.ingest_corpus.make_ingestion_pipeline",
+            lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment),
+        )
+        monkeypatch.setattr(
+            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY
+        )
         code = cli.main(["/corpus", "--full-enrichment"])
         assert code == 0
         assert seen["full_enrichment"] is True
 
     def test_no_flag_leaves_default(self, monkeypatch):
         seen = {}
-        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline",
-                            lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment))
-        monkeypatch.setattr("scripts.ingest_corpus.ingest_corpus_dir",
-                            lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY)
+        monkeypatch.setattr(
+            "scripts.ingest_corpus.make_ingestion_pipeline",
+            lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment),
+        )
+        monkeypatch.setattr(
+            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY
+        )
         cli.main(["/corpus"])
         assert seen["full_enrichment"] is None  # resolve flag normally
 
@@ -131,12 +131,10 @@ class TestOutputFormat:
             "scripts.ingest_corpus.run_ingest_document",
             lambda source, document=None, pipeline=None: _SUCCESS_DOC,
         )
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main(["--text", "some text", "--pretty"]) == 0
         out = capsys.readouterr().out
-        assert "\n  \"document_id\"" in out  # indented pretty-print
+        assert '\n  "document_id"' in out  # indented pretty-print
         assert json.loads(out)["ok"] is True
 
 
@@ -149,9 +147,7 @@ class TestExitCodes:
             "scripts.ingest_corpus.run_ingest_document",
             lambda source, document=None, pipeline=None: failed,
         )
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main(["--text", "some text"]) == 1
 
     def test_exit_1_when_corpus_failed(self, monkeypatch):
@@ -161,9 +157,7 @@ class TestExitCodes:
             "scripts.ingest_corpus.ingest_corpus_dir",
             lambda corpus_dir, document=None, pipeline=None: summary,
         )
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main(["/corpus"]) == 1
 
     def test_exit_2_on_value_error(self, monkeypatch):
@@ -171,9 +165,7 @@ class TestExitCodes:
             "scripts.ingest_corpus.ingest_corpus_dir",
             lambda corpus_dir, document=None, pipeline=None: (_ for _ in ()).throw(ValueError("bad dir")),
         )
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main(["/nonexistent"]) == 2
 
     def test_exit_2_on_file_not_found(self, monkeypatch):
@@ -183,7 +175,5 @@ class TestExitCodes:
                 FileNotFoundError("File not found: /nope.pdf")
             ),
         )
-        monkeypatch.setattr(
-            "scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline"
-        )
+        monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")
         assert cli.main(["--file", "/nope.pdf"]) == 2

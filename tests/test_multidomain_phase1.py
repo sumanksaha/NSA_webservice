@@ -133,7 +133,16 @@ class TestCrossRefAdapterActAware:
 
         class _FakeEngine:
             def extract_references(self, text):
-                return [CrossReference(kind=ReferenceKind.SECTION, target="55", raw="Section 55", position=0, context="", confidence=0.9)]
+                return [
+                    CrossReference(
+                        kind=ReferenceKind.SECTION,
+                        target="55",
+                        raw="Section 55",
+                        position=0,
+                        context="",
+                        confidence=0.9,
+                    )
+                ]
 
         adapter = CrossRefAdapter(engine=_FakeEngine())
         ref = adapter.extract("text", act_name=AIR_ACT)[0]
@@ -147,7 +156,16 @@ class TestCrossRefAdapterActAware:
 
         class _FakeEngine:
             def extract_references(self, text):
-                return [CrossReference(kind=ReferenceKind.SECTION, target="54", raw="Section 54", position=0, context="", confidence=0.9)]
+                return [
+                    CrossReference(
+                        kind=ReferenceKind.SECTION,
+                        target="54",
+                        raw="Section 54",
+                        position=0,
+                        context="",
+                        confidence=0.9,
+                    )
+                ]
 
         class _Chunk:
             def __init__(self):
@@ -190,11 +208,23 @@ class TestChunkerActName:
 
 def _point(cid, doc, *, text="Body text.", doc_type="regulation", title="Some Regulations, 2020", act_name=None):
     payload = {
-        "chunk_id": cid, "document_id": doc, "document_uri": "file:///corpus/x.pdf",
-        "document_title": title, "document_type": doc_type, "chunk_text": text,
-        "chunk_index": 0, "chunk_char_count": len(text), "word_count": len(text.split()),
-        "section_number": None, "section_title": None, "citations": [], "references": [],
-        "entities": [], "hierarchy_level": 0, "content_hash": "deadbeef", "act_name": act_name or "",
+        "chunk_id": cid,
+        "document_id": doc,
+        "document_uri": "file:///corpus/x.pdf",
+        "document_title": title,
+        "document_type": doc_type,
+        "chunk_text": text,
+        "chunk_index": 0,
+        "chunk_char_count": len(text),
+        "word_count": len(text.split()),
+        "section_number": None,
+        "section_title": None,
+        "citations": [],
+        "references": [],
+        "entities": [],
+        "hierarchy_level": 0,
+        "content_hash": "deadbeef",
+        "act_name": act_name or "",
     }
     return {"id": cid, "payload": payload}
 
@@ -210,7 +240,9 @@ class TestDeterministicActResolution:
 
     def test_regulation_without_act_name_defaults_to_fss(self):
         # Backward compatible: the FSSAI corpus carries no act_name.
-        pl = _point("a", "reg-1", doc_type="regulation", title="Food Safety and Standards (Licensing) Regulations, 2011")["payload"]
+        pl = _point(
+            "a", "reg-1", doc_type="regulation", title="Food Safety and Standards (Licensing) Regulations, 2011"
+        )["payload"]
         assert legal_act_of(pl) == "Food Safety and Standards Act, 2006"
 
     def test_unknown_instrument_yields_none(self):
@@ -225,8 +257,12 @@ class TestDeterministicActResolution:
         assert loc["section"]["value"] == "21"
 
     def test_record_build_uses_act_name(self):
-        pl = _point("a", "reg-1", doc_type="regulation", title="PWM Rules", act_name="Environment (Protection) Act, 1986")["payload"]
-        rec = build_deterministic_record({"id": "a", "payload": pl}, {"section": None, "title": "", "inherited": False}, [])
+        pl = _point(
+            "a", "reg-1", doc_type="regulation", title="PWM Rules", act_name="Environment (Protection) Act, 1986"
+        )["payload"]
+        rec = build_deterministic_record(
+            {"id": "a", "payload": pl}, {"section": None, "title": "", "inherited": False}, []
+        )
         assert rec["legal_location"]["act"]["value"] == "Environment (Protection) Act, 1986"
 
 

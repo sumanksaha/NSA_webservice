@@ -89,8 +89,13 @@ class FakeDriver:
     and after a fix).
     """
 
-    def __init__(self, counts: dict | None = None, load_rows: list | None = None,
-                 verify_rows: list | None = None, label_count: int | None = None):
+    def __init__(
+        self,
+        counts: dict | None = None,
+        load_rows: list | None = None,
+        verify_rows: list | None = None,
+        label_count: int | None = None,
+    ):
         self.counts = counts or {}
         self.load_rows = load_rows
         self.verify_rows = verify_rows
@@ -128,13 +133,15 @@ class TestTemporalRemediation:
     def test_live_remediate_propagates_and_backfills(self):
         from scripts.remediate_kg_temporal import remediate
 
-        drv = FakeDriver(counts={
-            # risk query runs twice: 5 before, 0 after
-            "coalesce(p.status, 'current') = 'current'\nRETURN count(*) AS n": [5, 0],
-            "i.effective_date = f.effective_date": 1,  # instrument fix
-            "SET p.status = i.status": 5,  # propagation
-            "p.effective_from = i.effective_date": 75,  # backfill
-        })
+        drv = FakeDriver(
+            counts={
+                # risk query runs twice: 5 before, 0 after
+                "coalesce(p.status, 'current') = 'current'\nRETURN count(*) AS n": [5, 0],
+                "i.effective_date = f.effective_date": 1,  # instrument fix
+                "SET p.status = i.status": 5,  # propagation
+                "p.effective_from = i.effective_date": 75,  # backfill
+            }
+        )
         summary = remediate(drv, "neo4j", dry_run=False)
         assert summary["risk_before"] == 5
         assert summary["instrument_dates_fixed"] == 1
@@ -145,12 +152,14 @@ class TestTemporalRemediation:
     def test_dry_run_writes_nothing_and_rolls_back(self):
         from scripts.remediate_kg_temporal import remediate
 
-        drv = FakeDriver(counts={
-            "coalesce(p.status, 'current') = 'current'\nRETURN count(*) AS n": 5,
-            "i.effective_date = f.effective_date": 1,
-            "SET p.status = i.status": 5,
-            "p.effective_from = i.effective_date": 75,
-        })
+        drv = FakeDriver(
+            counts={
+                "coalesce(p.status, 'current') = 'current'\nRETURN count(*) AS n": 5,
+                "i.effective_date = f.effective_date": 1,
+                "SET p.status = i.status": 5,
+                "p.effective_from = i.effective_date": 75,
+            }
+        )
         summary = remediate(drv, "neo4j", dry_run=True)
         assert summary["dry_run"] is True
         # Every statement ran inside a transaction that was rolled back
@@ -232,11 +241,26 @@ class TestConceptLinking:
 
         # The 20 isolated concepts all have a (possibly empty) synonym set
         for cid in (
-            "AnimalSlaughter", "AnimalWelfare", "BUSINESS_CIVIL", "BusinessCivil",
-            "ConsentToOperate", "ConsumerProtection", "Contract", "Effluent",
-            "Hygiene", "ImprovementNotice", "LandPremises", "Licence", "Meat",
-            "Nuisance", "Premises", "Registration", "Sanitation", "SolidWaste",
-            "TradeLicence", "Vehicles",
+            "AnimalSlaughter",
+            "AnimalWelfare",
+            "BUSINESS_CIVIL",
+            "BusinessCivil",
+            "ConsentToOperate",
+            "ConsumerProtection",
+            "Contract",
+            "Effluent",
+            "Hygiene",
+            "ImprovementNotice",
+            "LandPremises",
+            "Licence",
+            "Meat",
+            "Nuisance",
+            "Premises",
+            "Registration",
+            "Sanitation",
+            "SolidWaste",
+            "TradeLicence",
+            "Vehicles",
         ):
             assert cid in CONCEPT_SYNONYMS
 
@@ -268,8 +292,14 @@ class TestConceptLinking:
                 from tests.test_kg_remediation import FakeRecord, FakeResult
 
                 if "OPTIONAL MATCH (x)-[e]->(c) WHERE NOT (x:LegalConcept)" in cypher:
-                    return FakeResult([FakeRecord({"concept_id": "BusinessCivil", "name": "Business Civil Law",
-                                                   "domains": ["BUSINESS_CIVIL"], "inbound": 0})])
+                    return FakeResult([
+                        FakeRecord({
+                            "concept_id": "BusinessCivil",
+                            "name": "Business Civil Law",
+                            "domains": ["BUSINESS_CIVIL"],
+                            "inbound": 0,
+                        })
+                    ])
                 if "collect(DISTINCT coalesce(c.chunk_text, ''))" in cypher:
                     return FakeResult()
                 return FakeResult()
@@ -296,13 +326,11 @@ class TestConceptLinking:
 
         drv = MiniDriver()
         linker = ConceptLinker(driver=drv, database="neo4j", batch_size=2)
-        n = linker.write_edges(
-            [
-                {"provision_id": "P1", "concept_id": "Meat", "evidence": "e1", "confidence": 0.75},
-                {"provision_id": "P2", "concept_id": "Meat", "evidence": "e2", "confidence": 0.75},
-                {"provision_id": "P3", "concept_id": "Meat", "evidence": "e3", "confidence": 0.75},
-            ]
-        )
+        n = linker.write_edges([
+            {"provision_id": "P1", "concept_id": "Meat", "evidence": "e1", "confidence": 0.75},
+            {"provision_id": "P2", "concept_id": "Meat", "evidence": "e2", "confidence": 0.75},
+            {"provision_id": "P3", "concept_id": "Meat", "evidence": "e3", "confidence": 0.75},
+        ])
         assert n == 3
         writes = [c for c in drv.calls if "MERGE (p)-[rel:APPLIES_TO]->(c)" in c[0]]
         assert len(writes) == 2  # batched at 2
@@ -356,7 +384,9 @@ class TestExtendedRules:
     def test_punished_with_matches(self):
         from kg.enrichment import LegalSemanticEnricher
 
-        tags = LegalSemanticEnricher.tag_text("Whoever commits this offence shall be punished with imprisonment for a term which may extend to seven years.")
+        tags = LegalSemanticEnricher.tag_text(
+            "Whoever commits this offence shall be punished with imprisonment for a term which may extend to seven years."
+        )
         assert "PRESCRIBES_PENALTY" in {t["rel_type"] for t in tags}
 
     def test_penalty_rule_suppresses_fee_context(self):
@@ -412,12 +442,18 @@ class TestNotApplicableClassifier:
     @pytest.mark.parametrize(
         ("text", "expected_reason"),
         [
-            ("(l) \"Food Analyst\" means an analyst appointed under section 45;", "definition"),
+            ('(l) "Food Analyst" means an analyst appointed under section 45;', "definition"),
             ("(H) In section 104, for the words and figures", "cross_reference_fragment"),
-            ("[Section 218 omitted, by section 23 of the Calcutta Municipal Corporation (Second Amendment) Act, 1984]", "amendment_machinery"),
+            (
+                "[Section 218 omitted, by section 23 of the Calcutta Municipal Corporation (Second Amendment) Act, 1984]",
+                "amendment_machinery",
+            ),
             ("PART III PUBLISHED BY AUTHORITY THE GAZETTE OF INDIA EXTRAORDINARY", "gazette_machinery"),
             ("of the membership and other matters of or relating to a company", "cross_reference_fragment"),
-            ("349 PART II – STATEMENT OF PROFIT AND LOSS ... (Rupees in ........) Particulars Note No. Figures for the current reporting period Revenue from operations", "financial_format_row"),
+            (
+                "349 PART II – STATEMENT OF PROFIT AND LOSS ... (Rupees in ........) Particulars Note No. Figures for the current reporting period Revenue from operations",
+                "financial_format_row",
+            ),
         ],
     )
     def test_reasons(self, text, expected_reason):
@@ -428,7 +464,10 @@ class TestNotApplicableClassifier:
     def test_substantive_text_is_not_applicable_none(self):
         from kg.enrichment import _not_applicable_reason
 
-        assert _not_applicable_reason("No person shall commence or carry on any food business except under a licence.") is None
+        assert (
+            _not_applicable_reason("No person shall commence or carry on any food business except under a licence.")
+            is None
+        )
 
 
 class TestEnrichClassTagging:
@@ -448,19 +487,32 @@ class TestEnrichClassTagging:
     def test_enrich_writes_semantic_classes(self):
         from kg.enrichment import LegalSemanticEnricher
 
-        drv = self._make_driver(
-            [
-                {"provision_id": "P1", "provision_number": "1", "title": "",
-                 "provision_text": "No person shall commence or carry on any food business except under a licence.",
-                 "legal_domain": "FOOD_SAFETY", "instrument_id": "I"},
-                {"provision_id": "P2", "provision_number": "2", "title": "",
-                 "provision_text": "(l) \"Food Analyst\" means an analyst appointed under section 45;",
-                 "legal_domain": "FOOD_SAFETY", "instrument_id": "I"},
-                {"provision_id": "P3", "provision_number": "3", "title": "",
-                 "provision_text": "short",
-                 "legal_domain": "FOOD_SAFETY", "instrument_id": "I"},
-            ]
-        )
+        drv = self._make_driver([
+            {
+                "provision_id": "P1",
+                "provision_number": "1",
+                "title": "",
+                "provision_text": "No person shall commence or carry on any food business except under a licence.",
+                "legal_domain": "FOOD_SAFETY",
+                "instrument_id": "I",
+            },
+            {
+                "provision_id": "P2",
+                "provision_number": "2",
+                "title": "",
+                "provision_text": '(l) "Food Analyst" means an analyst appointed under section 45;',
+                "legal_domain": "FOOD_SAFETY",
+                "instrument_id": "I",
+            },
+            {
+                "provision_id": "P3",
+                "provision_number": "3",
+                "title": "",
+                "provision_text": "short",
+                "legal_domain": "FOOD_SAFETY",
+                "instrument_id": "I",
+            },
+        ])
         summary = LegalSemanticEnricher(driver=drv, database="neo4j").enrich(dry_run=False)
         assert summary["provisions_loaded"] == 3
         assert summary["skipped_short_text"] == 1
@@ -476,16 +528,24 @@ class TestEnrichClassTagging:
     def test_dry_run_counts_classes_without_writes(self):
         from kg.enrichment import LegalSemanticEnricher
 
-        drv = self._make_driver(
-            [
-                {"provision_id": "P1", "provision_number": "1", "title": "",
-                 "provision_text": "No person shall commence or carry on any food business except under a licence.",
-                 "legal_domain": "FOOD_SAFETY", "instrument_id": "I"},
-                {"provision_id": "P2", "provision_number": "2", "title": "",
-                 "provision_text": "short",
-                 "legal_domain": "FOOD_SAFETY", "instrument_id": "I"},
-            ]
-        )
+        drv = self._make_driver([
+            {
+                "provision_id": "P1",
+                "provision_number": "1",
+                "title": "",
+                "provision_text": "No person shall commence or carry on any food business except under a licence.",
+                "legal_domain": "FOOD_SAFETY",
+                "instrument_id": "I",
+            },
+            {
+                "provision_id": "P2",
+                "provision_number": "2",
+                "title": "",
+                "provision_text": "short",
+                "legal_domain": "FOOD_SAFETY",
+                "instrument_id": "I",
+            },
+        ])
         summary = LegalSemanticEnricher(driver=drv, database="neo4j").enrich(dry_run=True)
         assert summary["dry_run"] is True
         assert summary["edges_written"] == 0

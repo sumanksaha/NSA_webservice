@@ -332,8 +332,10 @@ class SectionParser:
             # and must not itself begin with a section marker. A substring
             # check is deliberately avoided so words like "subsection" (which
             # contains "section") are accepted as titles.
-            if stripped and re.search(r"[A-Za-z]", stripped) and not re.match(
-                r"^(?:section|clause|provided)\b", stripped.lower()
+            if (
+                stripped
+                and re.search(r"[A-Za-z]", stripped)
+                and not re.match(r"^(?:section|clause|provided)\b", stripped.lower())
             ):
                 return stripped
             return None
@@ -387,9 +389,7 @@ class SectionParser:
         ``"First"``. Returns ``None`` when nothing remains (the line is only
         markers), otherwise the stripped remainder.
         """
-        stripped = re.sub(
-            r"^\s*(?:Section|Sec\.|§)\s*\d+\s*[:\-]?\s*", "", line.strip(), flags=re.IGNORECASE
-        )
+        stripped = re.sub(r"^\s*(?:Section|Sec\.|§)\s*\d+\s*[:\-]?\s*", "", line.strip(), flags=re.IGNORECASE)
         stripped = re.sub(r"^\s*\d+\s*\.?\s*", "", stripped)
         stripped = re.sub(r"^(?:\(\s*[\da-zA-Z]+\s*\)\s*)+", "", stripped).strip()
         return stripped or None

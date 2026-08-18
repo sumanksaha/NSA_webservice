@@ -44,9 +44,7 @@ class LegalKGQueries:
 
     def _execute(self, cypher: str, params: dict | None = None) -> list[dict]:
         database = self._database or os.environ.get("NEO4J_DATABASE", "neo4j")
-        result = self._get_driver().execute_query(
-            cypher, parameters_=params or {}, database_=database
-        )
+        result = self._get_driver().execute_query(cypher, parameters_=params or {}, database_=database)
         return [dict(r) for r in result.records]
 
     # ------------------------------------------------------------------ #
@@ -407,8 +405,16 @@ class LegalKGQueries:
             {"pid": provision_id},
         )
         if not results:
-            return {"offences": [], "penalties": [], "notices": [], "procedures": [],
-                    "obligations": [], "prohibitions": [], "permissions": [], "required_permits": []}
+            return {
+                "offences": [],
+                "penalties": [],
+                "notices": [],
+                "procedures": [],
+                "obligations": [],
+                "prohibitions": [],
+                "permissions": [],
+                "required_permits": [],
+            }
         row = results[0]
         return {
             "offences": [_unwrap_list(row["offences"])],
@@ -707,6 +713,7 @@ class LegalKGQueries:
 # LLM retrieval contract — structured JSON output
 # --------------------------------------------------------------------------- #
 
+
 def build_llm_retrieval_contract(
     query: str,
     kg_queries: LegalKGQueries,
@@ -814,9 +821,7 @@ def provisions_for_query(
     for concept in _extract_concept_mentions(query):
         provisions.extend(kg_queries.get_cross_domain_laws(concept))
     if not provisions:
-        provisions = kg_queries.search_provisions(
-            query, domain=_classify_query_domain(query), limit=limit
-        )
+        provisions = kg_queries.search_provisions(query, domain=_classify_query_domain(query), limit=limit)
     return provisions[:limit]
 
 

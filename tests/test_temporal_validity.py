@@ -31,8 +31,7 @@ class FakeChunk:
 
 class TestTemporalValidity:
     def test_valid_provision(self):
-        r = is_valid("p1", "2025-01-01", provision_status="current",
-                      effective_from="2020-01-01", effective_to=None)
+        r = is_valid("p1", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to=None)
         assert r.status == VALIDITY_VALID
 
     def test_repealed_provision(self):
@@ -44,13 +43,13 @@ class TestTemporalValidity:
         assert r.status == VALIDITY_INVALID
 
     def test_query_before_effective(self):
-        r = is_valid("p4", "2019-01-01", provision_status="current",
-                      effective_from="2020-01-01")
+        r = is_valid("p4", "2019-01-01", provision_status="current", effective_from="2020-01-01")
         assert r.status == VALIDITY_INVALID
 
     def test_query_after_expiry(self):
-        r = is_valid("p5", "2025-01-01", provision_status="current",
-                      effective_from="2020-01-01", effective_to="2023-01-01")
+        r = is_valid(
+            "p5", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01"
+        )
         assert r.status == VALIDITY_INVALID
 
     def test_unknown_no_metadata(self):
@@ -82,14 +81,14 @@ class TestTemporalValidity:
 
     def test_never_infers_invalid_without_evidence(self):
         """When there's no metadata, must return unknown, not invalid."""
-        r = is_valid("p8", "2025-01-01", provision_status=None,
-                      effective_from=None, effective_to=None)
+        r = is_valid("p8", "2025-01-01", provision_status=None, effective_from=None, effective_to=None)
         assert r.status == VALIDITY_UNKNOWN
 
     def test_overlapping_version_dates(self):
         """When effective_to < effective_from, should still handle gracefully."""
-        r = is_valid("p9", "2025-01-01", provision_status="current",
-                      effective_from="2023-01-01", effective_to="2022-01-01")
+        r = is_valid(
+            "p9", "2025-01-01", provision_status="current", effective_from="2023-01-01", effective_to="2022-01-01"
+        )
         # effective_to is before effective_from — treat as unknown (bad data)
         # or invalid (date after effective_to)
         assert r.status in (VALIDITY_INVALID, VALIDITY_UNKNOWN)
@@ -124,16 +123,18 @@ class TestProvisionVersions:
         assert fid == "UNKNOWN"
 
     def test_extract_version_from_explicit_status(self):
-        chunk = FakeChunk(chunk_id="c1", text="Section 31", act_name="FSS Act, 2006",
-                          status="current", section_number="31")
+        chunk = FakeChunk(
+            chunk_id="c1", text="Section 31", act_name="FSS Act, 2006", status="current", section_number="31"
+        )
         v = extract_provision_version(chunk)
         assert v.is_current is True
         assert v.act == "FSS Act, 2006"
         assert v.section == "31"
 
     def test_extract_version_repealed(self):
-        chunk = FakeChunk(chunk_id="c2", text="Section 31", act_name="FSS Act, 2006",
-                          status="repealed", effective_to="2023-06-01")
+        chunk = FakeChunk(
+            chunk_id="c2", text="Section 31", act_name="FSS Act, 2006", status="repealed", effective_to="2023-06-01"
+        )
         v = extract_provision_version(chunk)
         assert v.is_current is False
         assert v.status == "repealed"

@@ -159,7 +159,8 @@ def main() -> int:
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--condition", default="both",
+        "--condition",
+        default="both",
         choices=["oracle", "retrieved", "retrieved_kg", "both"],
     )
     parser.add_argument("--shard", default="1/1", help="e.g. 2/4 -> questions 38..75")
@@ -185,15 +186,13 @@ def main() -> int:
             app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
         ]
-        payload_index = build_payload_index(
-            lambda coll: _store(coll), list(dict.fromkeys(collections))
-        )
+        payload_index = build_payload_index(lambda coll: _store(coll), list(dict.fromkeys(collections)))
         family_map = FamilyMap()
 
         # shard slice
         idx_str, n_str = args.shard.split("/")
         shard_idx, n_shards = int(idx_str), int(n_str)
-        qs = questions[shard_idx - 1::n_shards] if n_shards > 1 else questions
+        qs = questions[shard_idx - 1 :: n_shards] if n_shards > 1 else questions
         logger.info("shard %s: %d questions", args.shard, len(qs))
 
         from app.rag.generation import GroundedGenerationService
@@ -266,7 +265,10 @@ def main() -> int:
                     out.flush()
                     logger.info(
                         "gen %s %s done (%.1fs, err=%s)",
-                        condition, q.question_id, time.monotonic() - t0, rec.get("error"),
+                        condition,
+                        q.question_id,
+                        time.monotonic() - t0,
+                        rec.get("error"),
                     )
                     time.sleep(DELAY_SECONDS)
     logger.info("generation phase done")

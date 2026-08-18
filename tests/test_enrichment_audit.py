@@ -151,9 +151,7 @@ def test_qdrant_source_pagination(monkeypatch) -> None:
             records = self.pages[idx] if idx < len(self.pages) else []
             nxt = f"off-{idx + 1}" if idx + 1 < len(self.pages) else None
             # Real qdrant records expose .id / .payload attributes.
-            return [
-                types.SimpleNamespace(id=cid, payload=payload) for cid, payload in records
-            ], nxt
+            return [types.SimpleNamespace(id=cid, payload=payload) for cid, payload in records], nxt
 
     pages = [
         [("p1", {"chunk_id": "p1"}), ("p2", {"chunk_id": "p2"})],
@@ -194,16 +192,14 @@ def test_cli_writes_report(tmp_path: Path) -> None:
     )
     out_json = tmp_path / "chunk_audit.json"
     out_md = tmp_path / "CHUNK_AUDIT.md"
-    rc = main(
-        [
-            "--source",
-            f"backup:{backup}",
-            "--report-dir",
-            str(tmp_path / "r"),
-            "--doc-dir",
-            str(tmp_path / "d"),
-        ]
-    )
+    rc = main([
+        "--source",
+        f"backup:{backup}",
+        "--report-dir",
+        str(tmp_path / "r"),
+        "--doc-dir",
+        str(tmp_path / "d"),
+    ])
     assert rc == 0
     report = json.loads((tmp_path / "r" / "chunk_audit.json").read_text(encoding="utf-8"))
     assert report["summary"]["total_chunks"] == 2

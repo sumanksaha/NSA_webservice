@@ -132,7 +132,9 @@ def main() -> int:
     parser.add_argument("--local", choices=list(MODEL_KEYS), help="Local checkpoint to push when --repo is given")
     parser.add_argument("--token", help="HF token (defaults to HF_TOKEN env)")
     parser.add_argument("--private", action="store_true", help="Create private repos")
-    parser.add_argument("--force", action="store_true", help="exist_ok - upload into an existing repo (e.g. one created in the web UI)")
+    parser.add_argument(
+        "--force", action="store_true", help="exist_ok - upload into an existing repo (e.g. one created in the web UI)"
+    )
     parser.add_argument("--skip-validate", action="store_true", help="Skip Hub-reload parity check")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be pushed, upload nothing")
     args = parser.parse_args()
@@ -141,7 +143,6 @@ def main() -> int:
         parser.error("--repo requires --local (which local checkpoint to push)")
     if args.local and args.repo is None:
         parser.error("--local requires --repo (the Hub repo suffix)")
-
 
     token = None if args.dry_run else _resolve_token(args.token)
 

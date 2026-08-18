@@ -43,9 +43,7 @@ while True:
         with_vectors=True,
         offset=offset,
     )
-    out.extend(
-        [{"id": str(r.id), "payload": r.payload, "vector": safe_vector(r.vector)} for r in page]
-    )
+    out.extend([{"id": str(r.id), "payload": r.payload, "vector": safe_vector(r.vector)} for r in page])
     if not offset:
         break
 

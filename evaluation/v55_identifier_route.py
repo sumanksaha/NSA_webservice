@@ -21,6 +21,7 @@ No LLM.  No production code modified.  No benchmark changes.  The base arms are
 read from the frozen V5 raw cache; only the new identifier arm hits live Qdrant
 sparse (cached to evaluation/out/cache/v55_ident/).
 """
+
 from __future__ import annotations
 
 import json
@@ -87,8 +88,14 @@ def run_identifier_arm() -> int:
                     continue
                 query, meta = identifier_query(q.question)
                 collection = q.collections[0] if q.collections else None
-                rec = {"question_id": q.question_id, "query": query, "meta": meta,
-                       "collection": collection, "chunk_ids": [], "error": None}
+                rec = {
+                    "question_id": q.question_id,
+                    "query": query,
+                    "meta": meta,
+                    "collection": collection,
+                    "chunk_ids": [],
+                    "error": None,
+                }
                 if query and collection:
                     try:
                         res = _retrieve(collection, query, "sparse", top_k=500)
@@ -138,9 +145,11 @@ def analyze() -> int:
         from evaluation.resolution import matches_gold
 
         def pool_cover(pool_ids: set[str], q) -> dict:
-            covered = {u.provision_id for u in q.gold_units
-                       if any(matches_gold(payload_index.get(c) or {}, u, family_map)
-                              for c in pool_ids if c in payload_index)}
+            covered = {
+                u.provision_id
+                for u in q.gold_units
+                if any(matches_gold(payload_index.get(c) or {}, u, family_map) for c in pool_ids if c in payload_index)
+            }
             rel = [u.provision_id for u in q.relevant_units()]
             out = {}
             for kk in DEPTHS:
@@ -150,15 +159,16 @@ def analyze() -> int:
         p0_r500 = p1_r500 = 0.0
         p1_recall = {k: 0.0 for k in DEPTHS}
         n = 0
-        workset_rows = []          # per workset unit: recovered by P1?
+        workset_rows = []  # per workset unit: recovered by P1?
         recovered_p1 = set()
         for qid, q in questions.items():
             a, b, k = dense.get(qid), sparse.get(qid), kg.get(qid)
             if not (a and b and k):
                 continue
             union0 = build_union_arms(a, b, k, payload_index, family_map, 500, 500, 500)
-            pool0_ids = {str(i.get("key")) for i in union0["E_union_pool"].get("fused_items", [])
-                         if i.get("kind") == "chunk"}
+            pool0_ids = {
+                str(i.get("key")) for i in union0["E_union_pool"].get("fused_items", []) if i.get("kind") == "chunk"
+            }
             r0 = pool_cover(pool0_ids, q)
 
             # P1 pool = base union + question-derived identifier chunks (raw union)
@@ -175,24 +185,29 @@ def analyze() -> int:
             for u in q.gold_units:
                 if not any(matches_gold(pl, u, family_map) for pl in payload_index.values()):
                     continue
-                in0 = any(matches_gold(payload_index.get(c) or {}, u, family_map)
-                          for c in pool0_ids if c in payload_index)
-                in1 = any(matches_gold(payload_index.get(c) or {}, u, family_map)
-                          for c in pool1_ids if c in payload_index)
+                in0 = any(
+                    matches_gold(payload_index.get(c) or {}, u, family_map) for c in pool0_ids if c in payload_index
+                )
+                in1 = any(
+                    matches_gold(payload_index.get(c) or {}, u, family_map) for c in pool1_ids if c in payload_index
+                )
                 if not in0 and in1:
                     recovered_p1.add(u.provision_id)
-                    workset_rows.append((qid, u.provision_id, u.family,
-                                         rec.get("meta", {}).get("form", "?"),
-                                         rec.get("query", "")))
+                    workset_rows.append((
+                        qid,
+                        u.provision_id,
+                        u.family,
+                        rec.get("meta", {}).get("form", "?"),
+                        rec.get("query", ""),
+                    ))
 
         from evaluation.v5_routes import _workset
+
         ws = _workset(list(questions.values()), registry)
         ws_pids = {pid for pid, _, _, _ in ws}
         ident_meta = {qid: (ident.get(qid, {}).get("meta") or {}) for qid in questions}
-        ws_act = sum(1 for pid, q, u, rec in ws
-                     if ident_meta.get(q.question_id, {}).get("act"))
-        ws_sec = sum(1 for pid, q, u, rec in ws
-                     if ident_meta.get(q.question_id, {}).get("section"))
+        ws_act = sum(1 for pid, q, u, rec in ws if ident_meta.get(q.question_id, {}).get("act"))
+        ws_sec = sum(1 for pid, q, u, rec in ws if ident_meta.get(q.question_id, {}).get("section"))
 
         out = {
             "n_questions": n,
@@ -213,6 +228,7 @@ def analyze() -> int:
 
         with (OUT / "v55_identifier_route.csv").open("w", encoding="utf-8", newline="") as f:
             import csv
+
             w = csv.writer(f)
             w.writerow(["question_id", "gold_unit", "family", "ident_form", "ident_query"])
             for row in workset_rows:

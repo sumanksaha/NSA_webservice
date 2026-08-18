@@ -18,6 +18,7 @@ Output:
 Usage:
     python -m evaluation.error_dashboard
 """
+
 from __future__ import annotations
 
 import json
@@ -65,9 +66,7 @@ def build_dashboard() -> dict:
 
     dashboard["failure_categories"] = {
         "frequency": dict(cat_counter.most_common()),
-        "unique_questions_by_category": {
-            cat: len(qids) for cat, qids in cat_by_question.items()
-        },
+        "unique_questions_by_category": {cat: len(qids) for cat, qids in cat_by_question.items()},
         "total_failures": len(failures),
     }
 

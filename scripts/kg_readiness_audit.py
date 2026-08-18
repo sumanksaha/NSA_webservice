@@ -106,7 +106,12 @@ class Audit:
             "SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties, type RETURN name, labelsOrTypes, properties, type"
         )
         out["constraints"] = [
-            {"name": c.get("name"), "labels": c.get("labelsOrTypes"), "props": c.get("properties"), "type": c.get("type")}
+            {
+                "name": c.get("name"),
+                "labels": c.get("labelsOrTypes"),
+                "props": c.get("properties"),
+                "type": c.get("type"),
+            }
             for c in cons
             if self._ok([c])
         ]
@@ -114,8 +119,13 @@ class Audit:
             "SHOW INDEXES YIELD name, labelsOrTypes, properties, type, state RETURN name, labelsOrTypes, properties, type, state"
         )
         out["indexes"] = [
-            {"name": i.get("name"), "labels": i.get("labelsOrTypes"), "props": i.get("properties"),
-             "type": i.get("type"), "state": i.get("state")}
+            {
+                "name": i.get("name"),
+                "labels": i.get("labelsOrTypes"),
+                "props": i.get("properties"),
+                "type": i.get("type"),
+                "state": i.get("state"),
+            }
             for i in idx
             if self._ok([i])
         ]
@@ -143,11 +153,39 @@ class Audit:
         )
 
         legal_labels = [
-            "Act", "Rule", "Regulation", "Notification", "Order", "Circular", "Guideline", "Judgment",
-            "LegalProvision", "Section", "Subsection", "Clause", "Schedule", "RuleProvision", "RegulationProvision",
-            "Authority", "LegalDomain", "LegalConcept", "Jurisdiction", "Chunk", "Document", "Source",
-            "Offence", "Penalty", "Obligation", "Prohibition", "Permission", "Power", "Duty", "Procedure",
-            "FoodBusiness", "BusinessActivity", "Premises",
+            "Act",
+            "Rule",
+            "Regulation",
+            "Notification",
+            "Order",
+            "Circular",
+            "Guideline",
+            "Judgment",
+            "LegalProvision",
+            "Section",
+            "Subsection",
+            "Clause",
+            "Schedule",
+            "RuleProvision",
+            "RegulationProvision",
+            "Authority",
+            "LegalDomain",
+            "LegalConcept",
+            "Jurisdiction",
+            "Chunk",
+            "Document",
+            "Source",
+            "Offence",
+            "Penalty",
+            "Obligation",
+            "Prohibition",
+            "Permission",
+            "Power",
+            "Duty",
+            "Procedure",
+            "FoodBusiness",
+            "BusinessActivity",
+            "Premises",
         ]
         counts: dict[str, int] = {}
         for lab in legal_labels:
@@ -265,10 +303,23 @@ class Audit:
 
     def semantics(self) -> dict[str, Any]:
         semantic_types = [
-            "APPLIES_TO", "RELATES_TO", "REQUIRES", "IMPOSES_DUTY", "CREATES_OBLIGATION",
-            "CREATES_PROHIBITION", "PROHIBITS", "GRANTS_PERMISSION", "GRANTS_POWER_TO",
-            "CREATES_OFFENCE", "PRESCRIBES_PENALTY", "HAS_PENALTY", "PRESCRIBES",
-            "ENFORCED_BY", "REQUIRES_AUTHORIZATION_FROM", "TRIGGERS_NOTICE", "EXEMPTS",
+            "APPLIES_TO",
+            "RELATES_TO",
+            "REQUIRES",
+            "IMPOSES_DUTY",
+            "CREATES_OBLIGATION",
+            "CREATES_PROHIBITION",
+            "PROHIBITS",
+            "GRANTS_PERMISSION",
+            "GRANTS_POWER_TO",
+            "CREATES_OFFENCE",
+            "PRESCRIBES_PENALTY",
+            "HAS_PENALTY",
+            "PRESCRIBES",
+            "ENFORCED_BY",
+            "REQUIRES_AUTHORIZATION_FROM",
+            "TRIGGERS_NOTICE",
+            "EXEMPTS",
         ]
         rows: list[dict] = []
         for t in semantic_types:
@@ -357,8 +408,7 @@ class Audit:
             "ORDER BY c DESC LIMIT 40"
         )
         out["provision_interdomain_edges_all"] = self.run(
-            "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) "
-            "RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
+            "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
         )
         out["cross_domain_edges_with_evidence"] = self._count(
             "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) WHERE p.legal_domain <> q.legal_domain "
@@ -382,8 +432,7 @@ class Audit:
             "RETURN count(p) AS c"
         )
         out["provisions_without_domain"] = self._count(
-            "MATCH (p:LegalProvision) WHERE NOT (p)-[:BELONGS_TO_DOMAIN]->(:LegalDomain) "
-            "RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE NOT (p)-[:BELONGS_TO_DOMAIN]->(:LegalDomain) RETURN count(p) AS c"
         )
         out["instruments_without_domain"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
@@ -411,8 +460,7 @@ class Audit:
             "AND n.legal_domain IS NULL RETURN count(n) AS c"
         )
         out["provisions_missing_text"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.provision_text IS NULL OR size(p.provision_text) = 0 "
-            "RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.provision_text IS NULL OR size(p.provision_text) = 0 RETURN count(p) AS c"
         )
         out["provisions_title_only_text"] = self._count(
             "MATCH (p:LegalProvision) WHERE size(coalesce(p.provision_text, '')) < 40 RETURN count(p) AS c"

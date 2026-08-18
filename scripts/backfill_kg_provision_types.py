@@ -94,7 +94,10 @@ def backfill(drv, database: str, dry_run: bool = False) -> dict:
     """Classify all provisions and (optionally) write type + Section label."""
     with drv.session(database=database) as s:
         recs = [dict(r) for r in s.run(_LOAD_CYPHER)]
-    rows = [{"provision_id": r["provision_id"], "provision_type": classify_provision_type(r["provision_number"])} for r in recs]
+    rows = [
+        {"provision_id": r["provision_id"], "provision_type": classify_provision_type(r["provision_number"])}
+        for r in recs
+    ]
     result: dict = {
         "dry_run": dry_run,
         "provisions_loaded": len(rows),

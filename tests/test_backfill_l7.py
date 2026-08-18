@@ -72,28 +72,27 @@ class TestHeaderTrustNumber:
 # --------------------------------------------------------------------------- #
 class TestAmendmentAnchor:
     def test_stamped_and_named_in_text(self):
-        pl = {"hierarchy_level": 3, "section_number": "34",
-              "chunk_text": "In section 34, for sub-section (3), the following shall be substituted"}
+        pl = {
+            "hierarchy_level": 3,
+            "section_number": "34",
+            "chunk_text": "In section 34, for sub-section (3), the following shall be substituted",
+        }
         assert amendment_anchor(pl, None) == "34"
 
     def test_backwards_reference_never_resets(self):
-        pl = {"hierarchy_level": 3, "section_number": "2",
-              "chunk_text": "as defined in section 2 of the principal Act"}
+        pl = {"hierarchy_level": 3, "section_number": "2", "chunk_text": "as defined in section 2 of the principal Act"}
         assert amendment_anchor(pl, "34") is None
 
     def test_first_anchor_accepts_any(self):
-        pl = {"hierarchy_level": 3, "section_number": "2",
-              "chunk_text": "as defined in section 2 of the principal Act"}
+        pl = {"hierarchy_level": 3, "section_number": "2", "chunk_text": "as defined in section 2 of the principal Act"}
         assert amendment_anchor(pl, None) == "2"
 
     def test_stamp_not_named_in_text_rejected(self):
-        pl = {"hierarchy_level": 3, "section_number": "92",
-              "chunk_text": "In section 34, for sub-section (3)"}
+        pl = {"hierarchy_level": 3, "section_number": "92", "chunk_text": "In section 34, for sub-section (3)"}
         assert amendment_anchor(pl, None) is None
 
     def test_hl1_rejected(self):
-        pl = {"hierarchy_level": 1, "section_number": "17",
-              "chunk_text": "exempted under section 17 of the Act"}
+        pl = {"hierarchy_level": 1, "section_number": "17", "chunk_text": "exempted under section 17 of the Act"}
         assert amendment_anchor(pl, None) is None
 
     def test_unstamped_rejected(self):
@@ -117,8 +116,11 @@ class TestDeriveL7:
     def test_header_trust_correction_and_fill(self):
         # LLP-style: header mis-stamped by in-text cross-ref; bodies follow.
         docs = _doc([
-            {"chunk_text": "50. Prosecution. If, from the report under section 49, it appears",
-             "section_number": "49", "hierarchy_level": 3},
+            {
+                "chunk_text": "50. Prosecution. If, from the report under section 49, it appears",
+                "section_number": "49",
+                "hierarchy_level": 3,
+            },
             {"chunk_text": "(a) the contravention is a continuing one", "hierarchy_level": 4},
             {"chunk_text": "(b) the Designated Partner fails to", "hierarchy_level": 4},
         ])
@@ -128,8 +130,11 @@ class TestDeriveL7:
 
     def test_never_overwrite_stamped_fragment(self):
         docs = _doc([
-            {"chunk_text": "50. Prosecution. If, from the report under section 49", "section_number": "49",
-             "hierarchy_level": 3},
+            {
+                "chunk_text": "50. Prosecution. If, from the report under section 49",
+                "section_number": "49",
+                "hierarchy_level": 3,
+            },
             {"chunk_text": "(a) fragment already stamped", "section_number": "7", "hierarchy_level": 4},
             {"chunk_text": "(b) unstamped fragment", "hierarchy_level": 4},
         ])
@@ -138,13 +143,18 @@ class TestDeriveL7:
 
     def test_amendment_mode_ascending_anchors(self):
         docs = _doc([
-            {"chunk_text": "In section 34, for sub-section (3), the following shall be substituted",
-             "section_number": "34", "hierarchy_level": 4},
+            {
+                "chunk_text": "In section 34, for sub-section (3), the following shall be substituted",
+                "section_number": "34",
+                "hierarchy_level": 4,
+            },
             {"chunk_text": "(2) Every order made under sub-section (1) shall", "hierarchy_level": 3},
-            {"chunk_text": "as defined in section 2 of the principal Act, the expression",
-             "section_number": "2", "hierarchy_level": 4},
-            {"chunk_text": "(4) The court which makes a direction under sub-section (3)",
-             "hierarchy_level": 3},
+            {
+                "chunk_text": "as defined in section 2 of the principal Act, the expression",
+                "section_number": "2",
+                "hierarchy_level": 4,
+            },
+            {"chunk_text": "(4) The court which makes a direction under sub-section (3)", "hierarchy_level": 3},
         ])
         _c, fills = derive_l7(docs, {})
         assert fills == {"p1": "34", "p3": "34"}  # p2 (sec=2, backwards) skipped
@@ -152,8 +162,7 @@ class TestDeriveL7:
     def test_l4_headers_disable_amendment_mode(self):
         docs = _doc([
             {"chunk_text": "1. Short title", "section_number": "1", "hierarchy_level": 2},
-            {"chunk_text": "In section 34, for sub-section (3)", "section_number": "34",
-             "hierarchy_level": 4},
+            {"chunk_text": "In section 34, for sub-section (3)", "section_number": "34", "hierarchy_level": 4},
             {"chunk_text": "(2) fragment after a cross-ref stamp", "hierarchy_level": 3},
         ])
         l4 = {"p0": ["1"]}  # L4 boundary exists -> no amendment anchors
@@ -164,16 +173,24 @@ class TestDeriveL7:
 
     def test_criminal_skipped(self):
         docs = _doc([
-            {"chunk_text": "147. AjoinsaninsurrectionagainsttheGovernmentofIndia", "section_number": "147",
-             "hierarchy_level": 3, "legal_domain": "CRIMINAL"},
+            {
+                "chunk_text": "147. AjoinsaninsurrectionagainsttheGovernmentofIndia",
+                "section_number": "147",
+                "hierarchy_level": 3,
+                "legal_domain": "CRIMINAL",
+            },
             {"chunk_text": "(2) fragment", "hierarchy_level": 3},
         ])
         assert derive_l7(docs, {}) == ({}, {})
 
     def test_non_act_skipped(self):
         docs = _doc([
-            {"chunk_text": "2.4.15 BAKERY PRODUCTS", "clause_number": "2.4.15",
-             "hierarchy_level": 3, "document_type": "regulation"},
+            {
+                "chunk_text": "2.4.15 BAKERY PRODUCTS",
+                "clause_number": "2.4.15",
+                "hierarchy_level": 3,
+                "document_type": "regulation",
+            },
             {"chunk_text": "(1) Biscuits shall be made", "hierarchy_level": 3},
         ])
         assert derive_l7(docs, {}) == ({}, {})
@@ -198,8 +215,11 @@ class TestDeriveL7:
         # The correction is skipped, but the chunk is still a boundary (its
         # fragments inherit the L4-verified section).
         docs = _doc([
-            {"chunk_text": "39D. Offences for failure to comply with provisions of section 21",
-             "section_number": "42", "hierarchy_level": 3},
+            {
+                "chunk_text": "39D. Offences for failure to comply with provisions of section 21",
+                "section_number": "42",
+                "hierarchy_level": 3,
+            },
             {"chunk_text": "(2) fragment", "hierarchy_level": 3},
         ])
         l4 = {"p0": ["42"]}  # L4 verified 42 in this chunk's text
@@ -209,8 +229,12 @@ class TestDeriveL7:
 
     def test_sections_covered_guard_blocks_correction(self):
         docs = _doc([
-            {"chunk_text": "76A. Punishment for contravention of section 73 or section 76",
-             "section_number": "77", "hierarchy_level": 3, "sections_covered": ["76", "77"]},
+            {
+                "chunk_text": "76A. Punishment for contravention of section 73 or section 76",
+                "section_number": "77",
+                "hierarchy_level": 3,
+                "sections_covered": ["76", "77"],
+            },
         ])
         assert derive_l7(docs, {}) == ({}, {})
 
@@ -224,18 +248,14 @@ class TestDeriveTitle:
         return f"C:\\github\\NSA_webservice\\other domain\\{name}"
 
     def test_underscores_to_spaces(self):
-        assert derive_title(self._u("Food_Safety_and_Standards_Act_2006.pdf")) \
-            == "Food Safety and Standards Act 2006"
+        assert derive_title(self._u("Food_Safety_and_Standards_Act_2006.pdf")) == "Food Safety and Standards Act 2006"
 
     def test_fssai_uri_style(self):
-        assert derive_title("FSSAI_rules documents\\Food_Additives_Regulations-4.pdf") \
-            == "Food Additives Regulations-4"
+        assert derive_title("FSSAI_rules documents\\Food_Additives_Regulations-4.pdf") == "Food Additives Regulations-4"
 
     def test_junk_numeric_prefix_stripped(self):
-        assert derive_title("FSSAI_rules documents\\1_Notification dt 10_03_2026.pdf") \
-            == "Notification dt 10 03 2026"
-        assert derive_title("FSSAI_rules documents\\6928478129442Final Notificat.pdf") \
-            == "Final Notificat"
+        assert derive_title("FSSAI_rules documents\\1_Notification dt 10_03_2026.pdf") == "Notification dt 10 03 2026"
+        assert derive_title("FSSAI_rules documents\\6928478129442Final Notificat.pdf") == "Final Notificat"
 
     def test_opaque_filename_kept(self):
         assert derive_title(self._u("A2013-18.pdf")) == "A2013-18"
@@ -245,8 +265,7 @@ class TestDeriveTitle:
         assert derive_title(self._u("FSS_Amendment_Act_3-2023.pdf")) == "FSS Amendment Act 3-2023"
 
     def test_fragment_suffix_stripped(self):
-        assert derive_title("FSSAI_rules documents\\273797-1.pdf#9c826cd9a0d5412f") \
-            == "273797-1"
+        assert derive_title("FSSAI_rules documents\\273797-1.pdf#9c826cd9a0d5412f") == "273797-1"
 
     def test_empty(self):
         assert derive_title("") == ""
@@ -268,8 +287,7 @@ class TestDeriveChanges:
         }
 
     def test_never_overwrites_existing_title(self):
-        payloads = {"p1": {"document_id": "d1", "document_uri": "x.pdf",
-                           "document_title": "Existing Title"}}
+        payloads = {"p1": {"document_id": "d1", "document_uri": "x.pdf", "document_title": "Existing Title"}}
         assert derive_changes(payloads) == {}
 
     def test_no_uri_skipped(self):

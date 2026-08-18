@@ -75,7 +75,7 @@ def derive_title(uri: str | None) -> str:
     title = re.sub(r"\s+", " ", title)
     m = _JUNK_PREFIX_RE.match(title)
     if m:
-        title = title[m.end():].strip()
+        title = title[m.end() :].strip()
     if len(title) >= 3:
         return title
     return name  # fall back to the raw basename (opaque but non-empty)
@@ -97,14 +97,16 @@ def scroll_payloads(app, collections) -> dict[str, dict]:
 
 def collections_from_config(app) -> list[str]:
     cfg = app.config
-    return list(dict.fromkeys([
-        cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-        cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-    ]))
+    return list(
+        dict.fromkeys([
+            cfg.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+            cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+        ])
+    )
 
 
 def derive_changes(payloads: dict[str, dict]) -> dict[str, dict]:
@@ -136,7 +138,7 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
     for key, ids in groups.items():
         payload = changes[ids[0]]
         for i in range(0, len(ids), batch_size):
-            batch = ids[i:i + batch_size]
+            batch = ids[i : i + batch_size]
             try:
                 client.set_payload(collection_name=collection, payload=payload, points=batch)
                 applied += len(batch)
@@ -171,9 +173,7 @@ def mirror_db(document_titles: dict[str, str]) -> dict:
         db.session.flush()
     # chunks: metadata_json carries the full payload cache — stamp the title
     # in so a DB-driven re-ingest preserves it.
-    rows = LegalChunk.query.filter(
-        LegalChunk.document_id.in_(list(document_titles))
-    ).all()
+    rows = LegalChunk.query.filter(LegalChunk.document_id.in_(list(document_titles))).all()
     for chunk in rows:
         try:
             meta = dict(chunk.metadata_json or {})
@@ -242,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             "fills": len(changes),
             "documents_titled": len(by_doc),
             "note": "identity-preserving title backfill (G8 P1): derives document_title "
-                    "from document_uri filenames; never overwrites. Vectors untouched.",
+            "from document_uri filenames; never overwrites. Vectors untouched.",
         }
 
         if args.apply:
@@ -274,8 +274,7 @@ def main(argv: list[str] | None = None) -> int:
                 logger.info("collection %s: %d updates", coll, n)
 
             if applied == 0 and changes:
-                logger.error("apply wrote 0 updates for %d changes — aborting before DB mirror",
-                             len(changes))
+                logger.error("apply wrote 0 updates for %d changes — aborting before DB mirror", len(changes))
                 return 1
             summary["qdrant_applied"] = applied
             summary["by_collection"] = dict(by_coll)

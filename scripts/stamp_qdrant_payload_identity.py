@@ -38,11 +38,17 @@ os.environ.setdefault("SKIP_FSO_STARTUP_SYNC", "1")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Stamp Qdrant payloads with canonical legal identity (provision_id/instrument_id/legal_domain/status).")
+    p = argparse.ArgumentParser(
+        description="Stamp Qdrant payloads with canonical legal identity (provision_id/instrument_id/legal_domain/status)."
+    )
     p.add_argument("--dry-run", action="store_true", help="Compute planned updates and report — no Qdrant writes.")
-    p.add_argument("--collection", type=str, default=None, help="Only stamp this collection (repeatable? use comma-separated).")
+    p.add_argument(
+        "--collection", type=str, default=None, help="Only stamp this collection (repeatable? use comma-separated)."
+    )
     p.add_argument("--limit", type=int, default=None, help="Only consider the first N points per collection (testing).")
-    p.add_argument("--no-indexes", action="store_true", help="Do not create keyword payload indexes on the identity fields.")
+    p.add_argument(
+        "--no-indexes", action="store_true", help="Do not create keyword payload indexes on the identity fields."
+    )
     p.add_argument("--out-dir", type=Path, default=Path("reports"), help="Where to write the summary JSON.")
     p.add_argument("--pretty", action="store_true", help="Pretty-print the summary.")
     return p

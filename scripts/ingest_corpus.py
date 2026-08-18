@@ -106,7 +106,6 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         return 2
 
-
     # Single-document results expose ``ok``; corpus summaries expose ``failed``.
     if summary.get("ok") is False or summary.get("failed", 0):
         return 1

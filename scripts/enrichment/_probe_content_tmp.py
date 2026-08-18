@@ -1,4 +1,5 @@
 """Temp probe: dump text for candidate sections across docs."""
+
 from __future__ import annotations
 
 import json
@@ -20,10 +21,7 @@ def load_doc(did: str) -> list[dict]:
 
 
 def dump(did: str, section: str, max_chunks: int = 4) -> None:
-    rs = [
-        r for r in load_doc(did)
-        if (r.get("legal_location") or {}).get("section", {}).get("value") == section
-    ]
+    rs = [r for r in load_doc(did) if (r.get("legal_location") or {}).get("section", {}).get("value") == section]
     rs.sort(key=lambda r: r.get("chunk_index") or 0)
     for r in rs[:max_chunks]:
         (r.get("original_text") or "").strip().replace("\n", " ")

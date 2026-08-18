@@ -110,8 +110,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Whoever contravenes this section shall be punishable with imprisonment for six months "
-            "and also with fine."
+            "Whoever contravenes this section shall be punishable with imprisonment for six months and also with fine."
         )
         rels = {t["rel_type"] for t in tags}
         assert "PRESCRIBES_PENALTY" in rels
@@ -123,7 +122,9 @@ class TestTagText:
     def test_offence_tagged(self):
         from kg.enrichment import LegalSemanticEnricher
 
-        tags = LegalSemanticEnricher.tag_text("Any person who commits an offence under this Act is liable to punishment.")
+        tags = LegalSemanticEnricher.tag_text(
+            "Any person who commits an offence under this Act is liable to punishment."
+        )
         assert {t["rel_type"] for t in tags} == {"CREATES_OFFENCE"}
 
     def test_power_tagged(self):
@@ -193,8 +194,7 @@ class TestEnrich:
         # Edge-write batches carry the MERGE shape; the separate semantic-
         # class batch (SET p.semantic_class) is excluded and asserted below.
         writes = [
-            c for c in driver.calls
-            if "UNWIND $rows" in c["cypher"] and "SET p.semantic_class" not in c["cypher"]
+            c for c in driver.calls if "UNWIND $rows" in c["cypher"] and "SET p.semantic_class" not in c["cypher"]
         ]
         assert writes
         for w in writes:
@@ -202,8 +202,13 @@ class TestEnrich:
             for row in w["params"]["rows"]:
                 assert row["provision_id"] in {"FSS_ACT_2006_SEC_31", "FSS_ACT_2006_SEC_32"}
                 assert row["rel_type"] in {
-                    "PROHIBITS", "IMPOSES_DUTY", "CREATES_OFFENCE", "PRESCRIBES_PENALTY",
-                    "GRANTS_POWER_TO", "GRANTS_PERMISSION", "PRESCRIBES",
+                    "PROHIBITS",
+                    "IMPOSES_DUTY",
+                    "CREATES_OFFENCE",
+                    "PRESCRIBES_PENALTY",
+                    "GRANTS_POWER_TO",
+                    "GRANTS_PERMISSION",
+                    "PRESCRIBES",
                 }
                 assert row["evidence"]
                 assert 0.0 <= row["confidence"] <= 1.0

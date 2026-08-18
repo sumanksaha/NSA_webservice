@@ -14,6 +14,7 @@ uses its own sparse ranking so ident-recovered chunks can actually surface.
 Output: evaluation/out/ceiling_v5/v55_rerank.json — R@10/20/50 per weight grid,
 P0 (base) vs P1 (base+ident) under each grid.
 """
+
 from __future__ import annotations
 
 import json
@@ -121,13 +122,9 @@ def main() -> int:
                     # conversion: any relevant gold in 11..500 under base RRF ->
                     # top-10 under this grid
                     base_any_10 = any(
-                        (rank_of(base_ranked, u, payload_index, family_map) or 1 << 30) <= 10
-                        for u in rel
+                        (rank_of(base_ranked, u, payload_index, family_map) or 1 << 30) <= 10 for u in rel
                     )
-                    new_any_10 = any(
-                        (rank_of(reranked, u, payload_index, family_map) or 1 << 30) <= 10
-                        for u in rel
-                    )
+                    new_any_10 = any((rank_of(reranked, u, payload_index, family_map) or 1 << 30) <= 10 for u in rel)
                     if not base_any_10 and new_any_10:
                         conversions += 1
                 grid_out[gname] = {

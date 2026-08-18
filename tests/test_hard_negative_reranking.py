@@ -9,6 +9,7 @@ Covers:
 
 All tests are offline — no Qdrant, no sentence-transformers, no GPU.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ from evaluation.pairwise_dataset import build_pairwise_examples, split_dataset
 # Fixtures
 # --------------------------------------------------------------------------- #
 
+
 class FakeFamilyMap:
     """Minimal FamilyMap stub for testing."""
 
@@ -72,6 +74,7 @@ class FakeFamilyMap:
 
 class FakeGoldUnit:
     """Minimal GoldUnit stub."""
+
     def __init__(self, provision_id: str, family: str, section: str | None = None, act: str = ""):
         self.provision_id = provision_id
         self.family = family
@@ -83,6 +86,7 @@ class FakeGoldUnit:
 # failure_taxonomy tests
 # --------------------------------------------------------------------------- #
 
+
 class TestFailureTaxonomy:
     """Test failure classification logic."""
 
@@ -90,12 +94,18 @@ class TestFailureTaxonomy:
         """All 12 categories + unclassified are defined."""
         assert len(CATEGORIES) == 13
         for key in [
-            "A_same_act_wrong_section", "B_same_section_wrong_subsection",
-            "C_same_legal_concept", "D_same_terminology",
-            "E_procedural_vs_substantive", "F_definition_vs_operative",
-            "G_exception_vs_general_rule", "H_cross_reference_failure",
-            "I_authority_jurisdiction_mismatch", "J_temporal_version_error",
-            "K_adjacent_section_confusion", "L_multi_provision_requirement",
+            "A_same_act_wrong_section",
+            "B_same_section_wrong_subsection",
+            "C_same_legal_concept",
+            "D_same_terminology",
+            "E_procedural_vs_substantive",
+            "F_definition_vs_operative",
+            "G_exception_vs_general_rule",
+            "H_cross_reference_failure",
+            "I_authority_jurisdiction_mismatch",
+            "J_temporal_version_error",
+            "K_adjacent_section_confusion",
+            "L_multi_provision_requirement",
             "unclassified",
         ]:
             assert key in CATEGORIES
@@ -120,7 +130,7 @@ class TestFailureTaxonomy:
         assert _is_provisional("No person shall sell adulterated food") is False
 
     def test_is_definition_detects(self):
-        assert _is_definition('the term definition of this Act applies here') is True
+        assert _is_definition("the term definition of this Act applies here") is True
 
     def test_is_definition_rejects(self):
         assert _is_definition("The Food Authority shall regulate food business") is False
@@ -135,8 +145,11 @@ class TestFailureTaxonomy:
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:s16", "fssai", section="16")
         gold = {"section_number": "16", "chunk_text": "Duties of Food Authority"}
-        neg = {"section_number": "50", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": "Section 50 powers"}
+        neg = {
+            "section_number": "50",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "Section 50 powers",
+        }
         result = classify_failure(unit, gold, neg, fm)
         assert result == "A_same_act_wrong_section"
 
@@ -144,8 +157,12 @@ class TestFailureTaxonomy:
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:s16(1)", "fssai", section="16")
         gold = {"section_number": "16", "subsection": "(1)", "chunk_text": "sub-section 1"}
-        neg = {"section_number": "16", "subsection": "(2)", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": "sub-section 2"}
+        neg = {
+            "section_number": "16",
+            "subsection": "(2)",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "sub-section 2",
+        }
         result = classify_failure(unit, gold, neg, fm)
         assert result == "B_same_section_wrong_subsection"
 
@@ -153,8 +170,7 @@ class TestFailureTaxonomy:
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:s16", "fssai", section="16")
         gold = {"section_number": "16", "chunk_text": "section 16"}
-        neg = {"section_number": "17", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": "section 17"}
+        neg = {"section_number": "17", "act_name": "Food Safety and Standards Act, 2006", "chunk_text": "section 17"}
         result = classify_failure(unit, gold, neg, fm)
         assert result == "K_adjacent_section_confusion"
 
@@ -163,8 +179,11 @@ class TestFailureTaxonomy:
         unit = FakeGoldUnit("fssai:s3", "fssai", section="3")
         # Both same section so it doesn't hit the section-mismatch branch first
         gold = {"section_number": "3", "chunk_text": "No person shall sell adulterated food under this Act"}
-        neg = {"section_number": "3", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": 'For the purposes of this section, adulterated food means any food which contains'}
+        neg = {
+            "section_number": "3",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "For the purposes of this section, adulterated food means any food which contains",
+        }
         result = classify_failure(unit, gold, neg, fm)
         assert result == "F_definition_vs_operative"
 
@@ -172,8 +191,11 @@ class TestFailureTaxonomy:
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:s31", "fssai", section="31")
         gold = {"section_number": "31", "chunk_text": "No person shall commence food business without licence"}
-        neg = {"section_number": "31", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": "Provided that nothing in this section shall apply to small operators"}
+        neg = {
+            "section_number": "31",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "Provided that nothing in this section shall apply to small operators",
+        }
         result = classify_failure(unit, gold, neg, fm)
         assert result == "G_exception_vs_general_rule"
 
@@ -181,6 +203,7 @@ class TestFailureTaxonomy:
 # --------------------------------------------------------------------------- #
 # hard_negative_miner tests
 # --------------------------------------------------------------------------- #
+
 
 class TestHardNegativeMiner:
     """Test legal similarity scoring and tier assignment."""
@@ -224,10 +247,16 @@ class TestHardNegativeMiner:
         """Regulation fragments with no section share the dotted clause number."""
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:c2.4.15", "fssai")
-        gold = {"clause_number": "2.4.15", "act_name": "Food Safety and Standards Act, 2006",
-                "chunk_text": "2.4.15 BAKERY PRODUCTS shall comply"}
-        neg = {"clause_number": "2.4.15", "act_name": "Food Safety and Standards Act, 2006",
-               "chunk_text": "2.4.15 BAKERY PRODUCTS standards"}
+        gold = {
+            "clause_number": "2.4.15",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "2.4.15 BAKERY PRODUCTS shall comply",
+        }
+        neg = {
+            "clause_number": "2.4.15",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "chunk_text": "2.4.15 BAKERY PRODUCTS standards",
+        }
         features = legal_similarity_score(gold, neg, fm, unit)
         assert features["same_clause"] == 1.0
         assert features["same_section"] == 0.0
@@ -243,51 +272,81 @@ class TestHardNegativeMiner:
 
     def test_assign_tier_same_family_same_section(self):
         features = {
-            "same_family": 1.0, "same_section": 1.0, "section_proximity": 1.0,
-            "word_overlap": 0.3, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 1.0,
+            "same_section": 1.0,
+            "section_proximity": 1.0,
+            "word_overlap": 0.3,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert assign_tier(features) == 3
 
     def test_assign_tier_same_family_different_section(self):
         features = {
-            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.4,
-            "word_overlap": 0.2, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 1.0,
+            "same_section": 0.0,
+            "section_proximity": 0.4,
+            "word_overlap": 0.2,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert assign_tier(features) == 2
 
     def test_assign_tier_high_word_overlap(self):
         features = {
-            "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.4, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 0.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.4,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert assign_tier(features) == 2
 
     def test_assign_tier_random(self):
         features = {
-            "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 0.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.1,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert assign_tier(features) == 1
 
     def test_assign_tier_same_clause_tier3(self):
         """Same family + same dotted clause number => adversarial tier 3."""
         features = {
-            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.2, "same_document": 1.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 1.0,
+            "same_family": 1.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.2,
+            "same_document": 1.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 1.0,
         }
         assert assign_tier(features) == 3
 
     def test_assign_tier_clause_without_family_tier1(self):
         """A clause match outside the gold family is not adversarial."""
         features = {
-            "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.0, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 1.0,
+            "same_family": 0.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.0,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 1.0,
         }
         # Falls through to tier 1 (no family, no overlap, no same doc)
         assert assign_tier(features) == 1
@@ -295,32 +354,52 @@ class TestHardNegativeMiner:
     def test_assign_tier_subsection_needs_section_anchor(self):
         """G5: same subsection alone must NOT escalate to tier 3."""
         features = {
-            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 1.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 1.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.1,
+            "same_document": 0.0,
+            "same_subsection": 1.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert assign_tier(features) == 2
 
     def test_hard_negative_rank_orders_correctly(self):
         """Adversarial negatives rank higher than random."""
         adversarial = {
-            "same_family": 1.0, "same_section": 1.0, "section_proximity": 1.0,
-            "word_overlap": 0.5, "same_document": 1.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 1.0,
+            "same_section": 1.0,
+            "section_proximity": 1.0,
+            "word_overlap": 0.5,
+            "same_document": 1.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         random_neg = {
-            "same_family": 0.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.1, "same_document": 0.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 0.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.1,
+            "same_document": 0.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         assert hard_negative_rank(adversarial, 0) > hard_negative_rank(random_neg, 0)
 
     def test_hard_negative_rank_clause_bonus(self):
         """A clause match adds difficulty weight to the composite score."""
         base = {
-            "same_family": 1.0, "same_section": 0.0, "section_proximity": 0.0,
-            "word_overlap": 0.2, "same_document": 1.0, "same_subsection": 0.0,
-            "same_authority": 0.0, "same_clause": 0.0,
+            "same_family": 1.0,
+            "same_section": 0.0,
+            "section_proximity": 0.0,
+            "word_overlap": 0.2,
+            "same_document": 1.0,
+            "same_subsection": 0.0,
+            "same_authority": 0.0,
+            "same_clause": 0.0,
         }
         with_clause = dict(base, same_clause=1.0)
         assert hard_negative_rank(with_clause, 0) > hard_negative_rank(base, 0)
@@ -338,12 +417,21 @@ class TestSubsectionFilter:
         def relevant_units(self):
             return self._units
 
-    def _payload(self, text, section, subsection=""):
+    def _payload(self, text, section, subsection="", act="Other Act, 2000"):
+        """A negative-chunk payload (different family from the gold).
+
+        The act defaults to a *different* family so the chunk is not consumed
+        as a gold positive (``matches_gold`` requires the same family AND
+        section), while ``legal_similarity_score``'s section/subsection
+        features still fire (they are family-agnostic).  This mirrors the
+        real same-section negative class (e.g. amendment-act chunks sharing
+        the principal section number).
+        """
         return {
             "chunk_text": text,
             "section_number": section,
-            "act_name": "Food Safety and Standards Act, 2006",
-            "document_title": "FSS Act 2006",
+            "act_name": act,
+            "document_title": "Other Act",
             "subsection": subsection,
         }
 
@@ -351,19 +439,28 @@ class TestSubsectionFilter:
         """Run mine_question with the gold + negatives all in payload_index.
 
         The payload index is the authoritative identity source (mirrors the
-        real mining flow); chunk dicts only carry their id.
+        real mining flow); chunk dicts only carry their id.  The gold payload
+        uses the FSS act so ``matches_gold`` resolves; negatives use a
+        different family (see ``_payload``) so they stay negatives.
         """
         fm = FakeFamilyMap()
         unit = FakeGoldUnit("fssai:s16", "fssai", section="16")
         q = self.FakeQ("Q001", "section 16 duties", [unit])
         gold_cid = "gold"
-        payload_index = {gold_cid: gold_payload}
+        gold = dict(gold_payload)
+        gold["act_name"] = "Food Safety and Standards Act, 2006"
+        gold["document_title"] = "FSS Act 2006"
+        payload_index = {gold_cid: gold}
         chunks = [{"chunk_id": gold_cid, "rank": 0}]
         for cid, payload in neg_payloads.items():
             payload_index[cid] = payload
             chunks.append({"chunk_id": cid, "rank": 1})
         return mine_question(
-            q, chunks, payload_index, fm, max_negatives=20,
+            q,
+            chunks,
+            payload_index,
+            fm,
+            max_negatives=20,
             subsection_filter=subsection_filter,
         )
 
@@ -415,6 +512,7 @@ class TestSubsectionFilter:
 # pairwise_dataset tests
 # --------------------------------------------------------------------------- #
 
+
 class TestPairwiseDataset:
     """Test pairwise dataset construction and splitting."""
 
@@ -430,19 +528,46 @@ class TestPairwiseDataset:
     def test_build_pairwise_examples_from_file(self, tmp_path, monkeypatch):
         """Builds pairs from a mining file."""
         mining_file = tmp_path / "mining.jsonl"
-        mining_file.write_text(json.dumps({
-            "question_id": "Q001",
-            "query": "What is section 16?",
-            "gold_units": ["fssai:s16"],
-            "positives": [
-                {"chunk_id": "abc", "text": "Section 16 duties", "rank": 5, "gold_unit": "fssai:s16"},
-            ],
-            "negatives": [
-                {"chunk_id": "def", "text": "Section 17 powers", "rank": 3, "tier": 3, "score": 5.0, "features": {}},
-                {"chunk_id": "ghi", "text": "Section 20 penalties", "rank": 10, "tier": 2, "score": 3.0, "features": {}},
-                {"chunk_id": "jkl", "text": "Indian Contract Act duties", "rank": 50, "tier": 1, "score": 1.0, "features": {}},
-            ],
-        }, ensure_ascii=False) + "\n")
+        mining_file.write_text(
+            json.dumps(
+                {
+                    "question_id": "Q001",
+                    "query": "What is section 16?",
+                    "gold_units": ["fssai:s16"],
+                    "positives": [
+                        {"chunk_id": "abc", "text": "Section 16 duties", "rank": 5, "gold_unit": "fssai:s16"},
+                    ],
+                    "negatives": [
+                        {
+                            "chunk_id": "def",
+                            "text": "Section 17 powers",
+                            "rank": 3,
+                            "tier": 3,
+                            "score": 5.0,
+                            "features": {},
+                        },
+                        {
+                            "chunk_id": "ghi",
+                            "text": "Section 20 penalties",
+                            "rank": 10,
+                            "tier": 2,
+                            "score": 3.0,
+                            "features": {},
+                        },
+                        {
+                            "chunk_id": "jkl",
+                            "text": "Indian Contract Act duties",
+                            "rank": 50,
+                            "tier": 1,
+                            "score": 1.0,
+                            "features": {},
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
         monkeypatch.setattr("evaluation.pairwise_dataset.MINING_FILE", mining_file)
 
         examples = build_pairwise_examples(mode="uniform")
@@ -462,17 +587,19 @@ class TestPairwiseDataset:
         ]
         splits, _info = split_dataset(examples, seed=42)
         # All Q001 pairs should be in the same split
-        q001_splits = [
-            s for s in ("train", "val", "test")
-            if any(e["question_id"] == "Q001" for e in splits[s])
-        ]
+        q001_splits = [s for s in ("train", "val", "test") if any(e["question_id"] == "Q001" for e in splits[s])]
         assert len(q001_splits) == 1
 
     def test_split_preserves_all_examples(self):
         """Total pairs across splits equals input."""
         examples = [
-            {"query": f"q{i}", "positive": f"p{i}", "negative": f"n{i}",
-             "tier": (i % 3) + 1, "question_id": f"Q{i:03d}"}
+            {
+                "query": f"q{i}",
+                "positive": f"p{i}",
+                "negative": f"n{i}",
+                "tier": (i % 3) + 1,
+                "question_id": f"Q{i:03d}",
+            }
             for i in range(30)
         ]
         splits, _ = split_dataset(examples, seed=42)
@@ -482,8 +609,7 @@ class TestPairwiseDataset:
     def test_split_ratios_approximate(self):
         """Split ratios are approximately 70/15/15."""
         examples = [
-            {"query": f"q{i}", "positive": f"p{i}", "negative": f"n{i}",
-             "tier": 2, "question_id": f"Q{i:03d}"}
+            {"query": f"q{i}", "positive": f"p{i}", "negative": f"n{i}", "tier": 2, "question_id": f"Q{i:03d}"}
             for i in range(100)
         ]
         _splits, info = split_dataset(examples, seed=42)
@@ -496,6 +622,7 @@ class TestPairwiseDataset:
 # ranking_loss_trainer tests (structural — no model loading)
 # --------------------------------------------------------------------------- #
 
+
 class TestRankingLossTrainer:
     """Test ranking loss computation logic (no model loading)."""
 
@@ -507,7 +634,10 @@ class TestRankingLossTrainer:
         neg_scores = torch.tensor([0.2, 0.9])
         target = torch.ones(2)
         loss = torch.nn.functional.margin_ranking_loss(
-            pos_scores, neg_scores, target, margin=1.0,
+            pos_scores,
+            neg_scores,
+            target,
+            margin=1.0,
         )
         # Loss should be positive (second pair is wrong)
         assert loss.item() > 0
@@ -520,7 +650,10 @@ class TestRankingLossTrainer:
         neg_scores = torch.tensor([0.0, 0.0])
         target = torch.ones(2)
         loss = torch.nn.functional.margin_ranking_loss(
-            pos_scores, neg_scores, target, margin=1.0,
+            pos_scores,
+            neg_scores,
+            target,
+            margin=1.0,
         )
         assert loss.item() < 0.01
 
@@ -530,9 +663,7 @@ class TestRankingLossTrainer:
 
         pos_scores = torch.tensor([0.8])
         neg_scores = torch.tensor([0.2])
-        log_denom = torch.logsumexp(
-            torch.stack([pos_scores, neg_scores], dim=-1), dim=-1
-        )
+        log_denom = torch.logsumexp(torch.stack([pos_scores, neg_scores], dim=-1), dim=-1)
         loss = -(pos_scores - log_denom).mean()
         # Loss should be small (pos > neg)
         assert 0.0 < loss.item() < 1.0
@@ -543,9 +674,7 @@ class TestRankingLossTrainer:
 
         pos_scores = torch.tensor([0.2])
         neg_scores = torch.tensor([0.8])
-        log_denom = torch.logsumexp(
-            torch.stack([pos_scores, neg_scores], dim=-1), dim=-1
-        )
+        log_denom = torch.logsumexp(torch.stack([pos_scores, neg_scores], dim=-1), dim=-1)
         loss = -(pos_scores - log_denom).mean()
         # Loss should be large (pos < neg)
         assert loss.item() > 0.5
@@ -555,17 +684,20 @@ class TestRankingLossTrainer:
 # error_dashboard tests
 # --------------------------------------------------------------------------- #
 
+
 class TestErrorDashboard:
     """Test error dashboard generation."""
 
     def test_categories_are_complete(self):
         """All 13 categories are defined."""
         from evaluation.failure_taxonomy import CATEGORIES
+
         assert len(CATEGORIES) == 13
 
     def test_ndcg_computation(self):
         """nDCG@k with perfect ranking = 1.0."""
         from evaluation.hard_neg_eval import _ndcg_at_k
+
         # Perfect ranking: all relevant docs at top
         relevances = [1.0, 1.0, 1.0, 0.0, 0.0]
         ndcg = _ndcg_at_k(relevances, k=5)
@@ -574,6 +706,7 @@ class TestErrorDashboard:
     def test_ndcg_imperfect(self):
         """nDCG@k with imperfect ranking < 1.0."""
         from evaluation.hard_neg_eval import _ndcg_at_k
+
         # Imperfect: relevant docs at positions 3, 4
         relevances = [0.0, 0.0, 1.0, 1.0, 0.0]
         ndcg = _ndcg_at_k(relevances, k=5)

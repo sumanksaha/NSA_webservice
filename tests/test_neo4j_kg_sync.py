@@ -256,7 +256,17 @@ class TestNeo4jWriteGuard:
         # source as the push) + the local_id / provision_id guards.
         assert "n.local_id IS NOT NULL" in clear_cypher
         assert "n.provision_id IS NULL" in clear_cypher
-        assert set(_CASE_GRAPH_LABELS) <= {"Case", "FBO", "Inspector", "Sample", "Lab", "Section", "Evidence", "Ancillary", "Entity"}
+        assert set(_CASE_GRAPH_LABELS) <= {
+            "Case",
+            "FBO",
+            "Inspector",
+            "Sample",
+            "Lab",
+            "Section",
+            "Evidence",
+            "Ancillary",
+            "Entity",
+        }
         for label in _CASE_GRAPH_LABELS:
             assert f"n:{label}" in clear_cypher
         for legal_label in ("Act", "LegalProvision", "LegalDomain", "LegalConcept", "Chunk", "Document"):

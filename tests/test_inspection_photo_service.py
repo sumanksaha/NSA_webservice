@@ -139,7 +139,6 @@ class TestValidation:
         """Non-whitelisted extension raises ValueError."""
         import io
 
-
         _, adj = inspection
 
         mock_file = io.BytesIO(b"fake")

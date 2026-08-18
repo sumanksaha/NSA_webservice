@@ -151,17 +151,67 @@ JURISDICTION_ALIASES: dict[str, str] = {
 #: Instrument-level relationships (rel_type, target_id, evidence) — applied
 #: only when BOTH endpoints exist in the rebuilt graph.
 CORPUS_INSTRUMENT_RELATIONSHIPS: list[tuple[str, str, str, str]] = [
-    ("ENV_PROTECTION_ACT_1986", "RELATED_TO", "FSS_ACT_2006", "Both apply to food business operations (environmental compliance)."),
-    ("ENV_PROTECTION_ACT_1986", "RELATED_TO", "WATER_ACT_1974", "Water Act addresses wastewater discharge regulated under the EP Act framework."),
-    ("KMC_ACT_1980", "RELATED_TO", "FSS_ACT_2006", "Both apply to food business premises (municipal licensing and food safety)."),
-    ("WB_PREMISES_TENANCY_ACT_1997", "RELATED_TO", "FSS_ACT_2006", "Both apply to food business establishment premises (tenancy and food safety)."),
+    (
+        "ENV_PROTECTION_ACT_1986",
+        "RELATED_TO",
+        "FSS_ACT_2006",
+        "Both apply to food business operations (environmental compliance).",
+    ),
+    (
+        "ENV_PROTECTION_ACT_1986",
+        "RELATED_TO",
+        "WATER_ACT_1974",
+        "Water Act addresses wastewater discharge regulated under the EP Act framework.",
+    ),
+    (
+        "KMC_ACT_1980",
+        "RELATED_TO",
+        "FSS_ACT_2006",
+        "Both apply to food business premises (municipal licensing and food safety).",
+    ),
+    (
+        "WB_PREMISES_TENANCY_ACT_1997",
+        "RELATED_TO",
+        "FSS_ACT_2006",
+        "Both apply to food business establishment premises (tenancy and food safety).",
+    ),
     ("FSS_ACT_2006", "REPEALS", "PFA_1954", "FSS Act, 2006 repealed the Prevention of Food Adulteration Act, 1954."),
-    ("BNS_2023", "REPLACES", "IPC_1860", "Bharatiya Nyaya Sanhita, 2023 (Act 45 of 2023) replaced the Indian Penal Code, 1860 w.e.f. 2024-07-01."),
-    ("PWM_AMENDMENT_RULES_2022_JUL", "AMENDS", "PWM_RULES_2016", "Plastic Waste Management (Amendment) Rules, 2022 (gazette 07-07-2022) amend the PWM Rules, 2016."),
-    ("PWM_AMENDMENT_RULES_2022_AUG", "AMENDS", "PWM_RULES_2016", "Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022) amend the PWM Rules, 2016."),
-    ("PWM_DRAFT_RULES_2022", "SUPERSEDED_BY", "PWM_AMENDMENT_RULES_2022_AUG", "Draft PWM Rules, 2022 (gazette 20-01-2022) superseded by the August 2022 amendments; not current law."),
-    ("PWM_DRAFT_AMENDMENT_NOTIFICATION_2021", "SUPERSEDED_BY", "PWM_AMENDMENT_RULES_2022_AUG", "Draft amendment notification (12-08-2021) superseded by the July/August 2022 amendments; not current law."),
-    ("EPR_DRAFT_NOTIFICATION_2021", "SUPERSEDED_BY", "PWM_AMENDMENT_RULES_2022_AUG", "Draft EPR notification (06-10-2021); draft, not current law."),
+    (
+        "BNS_2023",
+        "REPLACES",
+        "IPC_1860",
+        "Bharatiya Nyaya Sanhita, 2023 (Act 45 of 2023) replaced the Indian Penal Code, 1860 w.e.f. 2024-07-01.",
+    ),
+    (
+        "PWM_AMENDMENT_RULES_2022_JUL",
+        "AMENDS",
+        "PWM_RULES_2016",
+        "Plastic Waste Management (Amendment) Rules, 2022 (gazette 07-07-2022) amend the PWM Rules, 2016.",
+    ),
+    (
+        "PWM_AMENDMENT_RULES_2022_AUG",
+        "AMENDS",
+        "PWM_RULES_2016",
+        "Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022) amend the PWM Rules, 2016.",
+    ),
+    (
+        "PWM_DRAFT_RULES_2022",
+        "SUPERSEDED_BY",
+        "PWM_AMENDMENT_RULES_2022_AUG",
+        "Draft PWM Rules, 2022 (gazette 20-01-2022) superseded by the August 2022 amendments; not current law.",
+    ),
+    (
+        "PWM_DRAFT_AMENDMENT_NOTIFICATION_2021",
+        "SUPERSEDED_BY",
+        "PWM_AMENDMENT_RULES_2022_AUG",
+        "Draft amendment notification (12-08-2021) superseded by the July/August 2022 amendments; not current law.",
+    ),
+    (
+        "EPR_DRAFT_NOTIFICATION_2021",
+        "SUPERSEDED_BY",
+        "PWM_AMENDMENT_RULES_2022_AUG",
+        "Draft EPR notification (06-10-2021); draft, not current law.",
+    ),
 ]
 
 #: Provision-level cross-domain edges — corpus-truthful only.  The audit
@@ -333,7 +383,9 @@ class KGCorpusIngestionEngine:
         rows = [r for r in data.get("documents", []) if r.get("ingest") is not False]
         return rows
 
-    def load_qdrant_chunks(self, collections: Iterable[str] | None = None) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    def load_qdrant_chunks(
+        self, collections: Iterable[str] | None = None
+    ) -> dict[str, dict[str, list[dict[str, Any]]]]:
         """Scroll every configured Qdrant collection once (read-only).
 
         Returns ``{collection: {document_id: [chunk_dict, ...]}}`` where each
@@ -394,36 +446,37 @@ class KGCorpusIngestionEngine:
         chunks: dict[str, list[dict[str, Any]]] = {}
         with app.app_context():
             for doc in db.session.execute(db.select(LegalDocument)).scalars().all():
-                docs.append(
-                    {
-                        "db_id": doc.id,
-                        "title": doc.title or "",
-                        "document_type": doc.document_type,
-                        "source_uri": doc.source_uri or "",
-                        "authority": doc.authority or "",
-                        "jurisdiction": doc.jurisdiction or "",
-                        "effective_date": _iso(doc.effective_date),
-                        "enactment_date": _iso(doc.enactment_date),
-                        "is_current": doc.is_current,
-                        "qdrant_collection": doc.qdrant_collection or "fssai_legal_768",
-                        "chunk_count": doc.chunk_count or 0,
-                        "is_fss_act": bool(re.search(r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006", doc.source_uri or "")),
-                    }
-                )
-            rows = db.session.execute(
-                db.select(LegalChunk).order_by(LegalChunk.document_id, LegalChunk.chunk_index)
-            ).scalars().all()
+                docs.append({
+                    "db_id": doc.id,
+                    "title": doc.title or "",
+                    "document_type": doc.document_type,
+                    "source_uri": doc.source_uri or "",
+                    "authority": doc.authority or "",
+                    "jurisdiction": doc.jurisdiction or "",
+                    "effective_date": _iso(doc.effective_date),
+                    "enactment_date": _iso(doc.enactment_date),
+                    "is_current": doc.is_current,
+                    "qdrant_collection": doc.qdrant_collection or "fssai_legal_768",
+                    "chunk_count": doc.chunk_count or 0,
+                    "is_fss_act": bool(
+                        re.search(r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006", doc.source_uri or "")
+                    ),
+                })
+            rows = (
+                db.session
+                .execute(db.select(LegalChunk).order_by(LegalChunk.document_id, LegalChunk.chunk_index))
+                .scalars()
+                .all()
+            )
             for ch in rows:
-                chunks.setdefault(ch.document_id, []).append(
-                    {
-                        "chunk_id": ch.id,
-                        "qdrant_point_id": ch.qdrant_point_id or "",
-                        "document_id": ch.document_id,
-                        "chunk_index": ch.chunk_index,
-                        "chunk_text": (ch.text or "")[:500],
-                        "section_number": _clean_section(ch.section_number),
-                    }
-                )
+                chunks.setdefault(ch.document_id, []).append({
+                    "chunk_id": ch.id,
+                    "qdrant_point_id": ch.qdrant_point_id or "",
+                    "document_id": ch.document_id,
+                    "chunk_index": ch.chunk_index,
+                    "chunk_text": (ch.text or "")[:500],
+                    "section_number": _clean_section(ch.section_number),
+                })
         self._fss_cache_data = (docs, chunks)
         return self._fss_cache_data
 
@@ -561,19 +614,17 @@ class KGCorpusIngestionEngine:
         provisions: list[dict[str, Any]] = []
         for sn in sorted(sections, key=lambda s: (len(s), s)):
             entry = sections[sn]
-            provisions.append(
-                {
-                    "provision_id": f"{instrument_id}_SEC_{sn}",
-                    "provision_number": sn,
-                    "title": entry["title"] or f"Section {sn}",
-                    "text": entry["text"][:2000],
-                    "instrument_id": instrument_id,
-                    "chunk_ids": entry["chunk_ids"],
-                    "header_chunk_id": entry.get("header_chunk_id"),
-                    "source": "corpus_qdrant" if entry["chunk_ids"] else "stub",
-                    "confidence": 0.9 if entry["chunk_ids"] else 0.6,
-                }
-            )
+            provisions.append({
+                "provision_id": f"{instrument_id}_SEC_{sn}",
+                "provision_number": sn,
+                "title": entry["title"] or f"Section {sn}",
+                "text": entry["text"][:2000],
+                "instrument_id": instrument_id,
+                "chunk_ids": entry["chunk_ids"],
+                "header_chunk_id": entry.get("header_chunk_id"),
+                "source": "corpus_qdrant" if entry["chunk_ids"] else "stub",
+                "confidence": 0.9 if entry["chunk_ids"] else 0.6,
+            })
         return provisions
 
     # ------------------------------------------------------------------ #
@@ -604,26 +655,24 @@ class KGCorpusIngestionEngine:
             domain = self.resolve_domain(row)
             domains_used.append(domain)
             label = DOC_TYPE_TO_LABEL.get(str(row.get("document_type") or "").lower(), "Act")
-            rows.append(
-                {
-                    "instrument_id": instrument_id,
-                    "document_id": str(row.get("document_id") or ""),
-                    "title": str(row.get("title") or ""),
-                    "short_title": str(row.get("act_name") or row.get("title") or instrument_id),
-                    "instrument_type": str(row.get("document_type") or "").lower(),
-                    "label": label,
-                    "legal_domain": domain,
-                    "jurisdiction": self.resolve_jurisdiction(row),
-                    "authority_id": self.resolve_authority(row.get("authority"), domain),
-                    "enactment_date": row.get("enactment_date"),
-                    "effective_date": row.get("effective_date"),
-                    "status": self.instrument_status(row),
-                    "source_uri": f"other domain/{row.get('file') or ''}",
-                    "source_type": "corpus_manifest",
-                    "canonical_name": _normalise_name(row.get("act_name") or row.get("title") or ""),
-                    "act_name": str(row.get("act_name") or ""),
-                }
-            )
+            rows.append({
+                "instrument_id": instrument_id,
+                "document_id": str(row.get("document_id") or ""),
+                "title": str(row.get("title") or ""),
+                "short_title": str(row.get("act_name") or row.get("title") or instrument_id),
+                "instrument_type": str(row.get("document_type") or "").lower(),
+                "label": label,
+                "legal_domain": domain,
+                "jurisdiction": self.resolve_jurisdiction(row),
+                "authority_id": self.resolve_authority(row.get("authority"), domain),
+                "enactment_date": row.get("enactment_date"),
+                "effective_date": row.get("effective_date"),
+                "status": self.instrument_status(row),
+                "source_uri": f"other domain/{row.get('file') or ''}",
+                "source_type": "corpus_manifest",
+                "canonical_name": _normalise_name(row.get("act_name") or row.get("title") or ""),
+                "act_name": str(row.get("act_name") or ""),
+            })
 
         # FSSAI documents from the local DB
         for doc in self.load_fss_documents():
@@ -631,57 +680,49 @@ class KGCorpusIngestionEngine:
             # Non-FSS multi-part PDFs share one filename stem ("a.pdf#<doc-id>"),
             # so the stem alone would collide and silently drop sub-documents.
             # Disambiguate with the DB primary key: deterministic and unique.
-            instrument_id = (
-                FSS_ACT_ID
-                if doc["is_fss_act"]
-                else f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
-            )
+            instrument_id = FSS_ACT_ID if doc["is_fss_act"] else f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
             domain = "FOOD_SAFETY"
             domains_used.append(domain)
             label = DOC_TYPE_TO_LABEL.get(str(doc["document_type"] or "").lower(), "Act")
-            rows.append(
-                {
-                    "instrument_id": instrument_id,
-                    "document_id": doc["db_id"],
-                    "title": display_title,
-                    "short_title": _normalise_name(display_title),
-                    "instrument_type": str(doc["document_type"] or "").lower(),
-                    "label": label,
-                    "legal_domain": domain,
-                    "jurisdiction": "INDIA",
-                    "authority_id": self.resolve_authority(doc["authority"], domain),
-                    "enactment_date": doc["enactment_date"],
-                    "effective_date": doc["effective_date"],
-                    "status": "current" if doc["is_current"] else "draft",
-                    "source_uri": doc["source_uri"],
-                    "source_type": "existing_db",
-                    "canonical_name": _normalise_name(display_title),
-                    "act_name": "Food Safety and Standards Act, 2006" if doc["is_fss_act"] else "",
-                }
-            )
+            rows.append({
+                "instrument_id": instrument_id,
+                "document_id": doc["db_id"],
+                "title": display_title,
+                "short_title": _normalise_name(display_title),
+                "instrument_type": str(doc["document_type"] or "").lower(),
+                "label": label,
+                "legal_domain": domain,
+                "jurisdiction": "INDIA",
+                "authority_id": self.resolve_authority(doc["authority"], domain),
+                "enactment_date": doc["enactment_date"],
+                "effective_date": doc["effective_date"],
+                "status": "current" if doc["is_current"] else "draft",
+                "source_uri": doc["source_uri"],
+                "source_type": "existing_db",
+                "canonical_name": _normalise_name(display_title),
+                "act_name": "Food Safety and Standards Act, 2006" if doc["is_fss_act"] else "",
+            })
 
         # Structural stubs (repealed/parent acts — not retrieval sources)
         for sid, spec in STUB_INSTRUMENTS.items():
-            rows.append(
-                {
-                    "instrument_id": sid,
-                    "document_id": sid,
-                    "title": spec["title"],
-                    "short_title": spec["short_title"],
-                    "instrument_type": spec["instrument_type"],
-                    "label": DOC_TYPE_TO_LABEL.get(spec["instrument_type"], "Act"),
-                    "legal_domain": spec["legal_domain"],
-                    "jurisdiction": spec["jurisdiction"],
-                    "authority_id": spec["issuing_authority"],
-                    "enactment_date": spec["enactment_date"],
-                    "effective_date": spec["effective_date"],
-                    "status": spec["status"],
-                    "source_uri": spec["source_uri"],
-                    "source_type": spec["source_type"],
-                    "canonical_name": _normalise_name(spec["title"]),
-                    "act_name": "",
-                }
-            )
+            rows.append({
+                "instrument_id": sid,
+                "document_id": sid,
+                "title": spec["title"],
+                "short_title": spec["short_title"],
+                "instrument_type": spec["instrument_type"],
+                "label": DOC_TYPE_TO_LABEL.get(spec["instrument_type"], "Act"),
+                "legal_domain": spec["legal_domain"],
+                "jurisdiction": spec["jurisdiction"],
+                "authority_id": spec["issuing_authority"],
+                "enactment_date": spec["enactment_date"],
+                "effective_date": spec["effective_date"],
+                "status": spec["status"],
+                "source_uri": spec["source_uri"],
+                "source_type": spec["source_type"],
+                "canonical_name": _normalise_name(spec["title"]),
+                "act_name": "",
+            })
             domains_used.append(spec["legal_domain"])
         return rows, domains_used
 
@@ -896,9 +937,7 @@ class KGCorpusIngestionEngine:
         )
         # Only chunks that carry a section number support a provision
         prov_rows = [
-            {"provision_id": r["provision_id"], "chunk_id": r["chunk_id"]}
-            for r in rows
-            if r.get("provision_id")
+            {"provision_id": r["provision_id"], "chunk_id": r["chunk_id"]} for r in rows if r.get("provision_id")
         ]
         self._write_rows(
             """
@@ -1057,9 +1096,7 @@ class KGCorpusIngestionEngine:
                 {
                     **c,
                     "legal_domain": row["legal_domain"],
-                    "provision_id": (
-                        f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None
-                    ),
+                    "provision_id": (f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None),
                     "qdrant_collection": _collection_for_domain(row["legal_domain"]),
                 }
                 for c in payload_chunks
@@ -1086,9 +1123,7 @@ class KGCorpusIngestionEngine:
                 {
                     **c,
                     "legal_domain": row["legal_domain"],
-                    "provision_id": (
-                        f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None
-                    ),
+                    "provision_id": (f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None),
                     "qdrant_collection": row.get("qdrant_collection", "fssai_legal_768"),
                 }
                 for c in page

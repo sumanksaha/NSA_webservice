@@ -17,6 +17,7 @@ counts and the per-question negative budget actually used.
 
 Deterministic: reads only frozen caches (no live Qdrant / Neo4j / LLM).
 """
+
 from __future__ import annotations
 
 import json
@@ -41,8 +42,15 @@ DEPTH = 500
 
 #: Arms + routes whose chunk_ids form the multi-route candidate pool.
 ARM_FILES = ["A_dense", "B_sparse", "C_hybrid", "O_dense", "O_sparse", "X_exact"]
-ROUTE_NAMES = ["C_identifier", "E_document", "F_identifier_only", "G_concept",
-               "H_authority_action", "I_provision_type", "J_parent"]
+ROUTE_NAMES = [
+    "C_identifier",
+    "E_document",
+    "F_identifier_only",
+    "G_concept",
+    "H_authority_action",
+    "I_provision_type",
+    "J_parent",
+]
 
 #: Max negatives per question; same-family negatives are always preferred.
 MAX_NEGATIVES = 8
@@ -151,8 +159,7 @@ def main() -> int:
             neg_scores.append((penalty, rank, pl))
         neg_scores.sort(key=lambda x: (x[0], x[1]))
         negatives = [
-            {"id": cid, "text": str(pl.get("chunk_text", ""))[:1500]}
-            for cid, _rank, pl in neg_scores[:MAX_NEGATIVES]
+            {"id": cid, "text": str(pl.get("chunk_text", ""))[:1500]} for cid, _rank, pl in neg_scores[:MAX_NEGATIVES]
         ]
         # Rank-focused positive sample: the first MAX_POSITIVES gold chunks
         # in pool order (highest-ranked first).

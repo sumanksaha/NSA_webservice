@@ -25,7 +25,7 @@ CORPUS = [
     "Section 55 of the Food Safety and Standards Act, 2006.",
     "The  \u00a0  product  contains  \t  harmful additives.",
     "Item \u2022 one\nItem \u2022 two\n\n\nItem \u2022 three",
-    '\u201cWhereas\u201d the \u2018respondent\u2019 agreed \u2014 clause (a)',
+    "\u201cWhereas\u201d the \u2018respondent\u2019 agreed \u2014 clause (a)",
     "compu-\nter  network  authentication",
     "line one   \nline two\t\t\n\n\nline three",
     "\u00adsoft\u200bhyphen\u2060char",
@@ -62,14 +62,14 @@ def _make_lines(n_pages=6):
     running titles, duplicates and blank lines."""
     lines = []
     for p in range(n_pages):
-        lines.append("HEADER NOTE")                         # repeated header
-        lines.append(f"Page {p + 1} of {n_pages}")          # page number
-        lines.append("CONFIDENTIAL")                        # watermark
-        lines.append(f"Section {p + 1} content line one")   # matches preserve
+        lines.append("HEADER NOTE")  # repeated header
+        lines.append(f"Page {p + 1} of {n_pages}")  # page number
+        lines.append("CONFIDENTIAL")  # watermark
+        lines.append(f"Section {p + 1} content line one")  # matches preserve
         lines.append("ordinary body text goes here for the record")
         lines.append("ordinary text that will not be removed at all")
-        lines.append("")                                    # blank
-        lines.append("FOOTER MARK")                         # repeated footer
+        lines.append("")  # blank
+        lines.append("FOOTER MARK")  # repeated footer
     return lines
 
 

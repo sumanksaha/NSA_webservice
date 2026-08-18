@@ -34,7 +34,13 @@ class FakeChunk:
 class TestEvidenceSelection:
     def _make_chunks(self, n: int = 5) -> list[FakeChunk]:
         return [
-            FakeChunk(chunk_id=f"c{i}", text="Section 31 text about penalties fine.", section_number="31", act_name="FSS Act", score=0.9 - i * 0.05)
+            FakeChunk(
+                chunk_id=f"c{i}",
+                text="Section 31 text about penalties fine.",
+                section_number="31",
+                act_name="FSS Act",
+                score=0.9 - i * 0.05,
+            )
             for i in range(n)
         ]
 
@@ -72,7 +78,9 @@ class TestEvidenceSelection:
             FakeChunk(chunk_id="c1", text="Section 31 is about penalties and fine", section_number="31", score=0.9),
             FakeChunk(chunk_id="c2", text="Definition: 'food' means any article", section_number=None, score=0.8),
             FakeChunk(chunk_id="c3", text="Section 31(2) except not applies", section_number="31", score=0.85),
-            FakeChunk(chunk_id="c4", text="Section 31 is about penalties and fine", section_number="31", score=0.88),  # duplicate-ish
+            FakeChunk(
+                chunk_id="c4", text="Section 31 is about penalties and fine", section_number="31", score=0.88
+            ),  # duplicate-ish
         ]
         es = select_evidence_set("What does Section 31 say about 'food'?", chunks)
         types = [item.evidence_type for item in es.items]
@@ -108,24 +116,28 @@ class TestEvidenceDetection:
     def test_exception_detection(self):
         chunk = FakeChunk(chunk_id="c1", text="This section shall not apply except where...", section_number="32")
         from app.rag.retrieval.evidence_selector import _detect_evidence_type
+
         etype = _detect_evidence_type(chunk, "31")
         assert etype == EVIDENCE_EXCEPTION
 
     def test_penalty_detection(self):
         chunk = FakeChunk(chunk_id="c1", text="Whoever contravenes shall be punished with fine.", section_number="33")
         from app.rag.retrieval.evidence_selector import _detect_evidence_type
+
         etype = _detect_evidence_type(chunk, "31")
         assert etype == EVIDENCE_PENALTY
 
     def test_definition_detection(self):
         chunk = FakeChunk(chunk_id="c1", text="For the purposes of this Act, 'food' means...", section_number=None)
         from app.rag.retrieval.evidence_selector import _detect_evidence_type
+
         etype = _detect_evidence_type(chunk, "31")
         assert etype == EVIDENCE_DEFINITION
 
     def test_primary_detection(self):
         chunk = FakeChunk(chunk_id="c1", text="Section 31 is here", section_number="31")
         from app.rag.retrieval.evidence_selector import _detect_evidence_type
+
         etype = _detect_evidence_type(chunk, "31")
         assert etype == EVIDENCE_PRIMARY
 
@@ -137,7 +149,7 @@ class TestEvidenceMetrics:
 
     def test_recall_partial(self):
         r = evidence_set_recall(["a", "b"], ["a", "b", "c"])
-        assert abs(r.value - 2/3) < 1e-9
+        assert abs(r.value - 2 / 3) < 1e-9
 
     def test_recall_empty_gold(self):
         r = evidence_set_recall(["a"], [])
@@ -153,7 +165,7 @@ class TestEvidenceMetrics:
 
     def test_precision_partial(self):
         p = evidence_set_precision(["a", "b", "c"], ["a", "b"])
-        assert abs(p.value - 2/3) < 1e-9
+        assert abs(p.value - 2 / 3) < 1e-9
 
     def test_precision_empty_selected(self):
         p = evidence_set_precision([], ["a"])
@@ -171,7 +183,7 @@ class TestEvidenceMetrics:
     def test_coverage_at_k(self):
         cov = evidence_coverage_at_k(["a", "b", "c", "d"], ["a", "c", "e"], k=3)
         # top-3 = a, b, c; gold = a, c, e; intersect = {a, c} = 2/3
-        assert abs(cov.value - 2/3) < 1e-9
+        assert abs(cov.value - 2 / 3) < 1e-9
 
     def test_coverage_at_k_full_coverage(self):
         cov = evidence_coverage_at_k(["a", "b"], ["a", "b"], k=3)

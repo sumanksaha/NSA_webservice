@@ -42,9 +42,7 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 1000  # Neo4j transaction batch size — stays within 8 GB RAM
 
 # Section header regexes (case-insensitive)
-_SECTION_HEADER_RE = re.compile(
-    r"^\s*(?:section|sec\.?|§)\s*(\d{1,4}[A-Za-z]?)\b\s*(?:[:\-—.]|\s*$)", re.IGNORECASE
-)
+_SECTION_HEADER_RE = re.compile(r"^\s*(?:section|sec\.?|§)\s*(\d{1,4}[A-Za-z]?)\b\s*(?:[:\-—.]|\s*$)", re.IGNORECASE)
 _SUBSECTION_RE = re.compile(r"^\s*(\(\d+\))\s")  # "(1)" at start
 
 
@@ -112,7 +110,12 @@ class LegalKGIngestionEngine:
                 ON MATCH SET d.description = $desc, d.jurisdiction = $jur, d.priority = $prio
                 RETURN count(*) AS c
                 """,
-                {"name": domain.domain_name, "desc": domain.description, "jur": domain.jurisdiction, "prio": domain.priority},
+                {
+                    "name": domain.domain_name,
+                    "desc": domain.description,
+                    "jur": domain.jurisdiction,
+                    "prio": domain.priority,
+                },
             )
             stats["domains"] += 1
 
@@ -138,7 +141,13 @@ class LegalKGIngestionEngine:
                 ON MATCH SET a.name = $name, a.short_name = $short,
                                     a.jurisdiction = $jur, a.type = $atype
                 """,
-                {"aid": a.authority_id, "name": a.name, "short": a.short_name, "jur": a.jurisdiction, "atype": a.authority_type},
+                {
+                    "aid": a.authority_id,
+                    "name": a.name,
+                    "short": a.short_name,
+                    "jur": a.jurisdiction,
+                    "atype": a.authority_type,
+                },
             )
             stats["authorities"] += 1
 
@@ -169,7 +178,10 @@ class LegalKGIngestionEngine:
 
         logger.info(
             "KG vocabularies loaded: %d domains, %d jurisdictions, %d authorities, %d concepts",
-            stats["domains"], stats["jurisdictions"], stats["authorities"], stats["concepts"],
+            stats["domains"],
+            stats["jurisdictions"],
+            stats["authorities"],
+            stats["concepts"],
         )
         return stats
 
@@ -346,15 +358,21 @@ class LegalKGIngestionEngine:
             doc_id = fss_doc.id
 
             # Get all unique sections from chunks
-            sec_values = db.session.execute(
-                db.select(LegalChunk.section_number)
-                .filter(
-                    LegalChunk.document_id == doc_id,
-                    LegalChunk.section_number.isnot(None),
-                    LegalChunk.section_number != "0",
+            sec_values = (
+                db.session
+                .execute(
+                    db
+                    .select(LegalChunk.section_number)
+                    .filter(
+                        LegalChunk.document_id == doc_id,
+                        LegalChunk.section_number.isnot(None),
+                        LegalChunk.section_number != "0",
+                    )
+                    .distinct()
                 )
-                .distinct()
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             section_numbers = sorted(set(s for s in sec_values if s), key=lambda x: (len(x), x))
 
@@ -364,15 +382,20 @@ class LegalKGIngestionEngine:
                 provision_id = f"FSS_ACT_2006_SEC_{sec_num}"
                 # Check if chunk text looks like a section header
                 header_chunk = db.session.execute(
-                    db.select(LegalChunk).filter(
+                    db
+                    .select(LegalChunk)
+                    .filter(
                         LegalChunk.document_id == doc_id,
                         LegalChunk.section_number == sec_num,
                         LegalChunk.hierarchy_level == 1,
-                    ).limit(1)
+                    )
+                    .limit(1)
                 ).scalar_one_or_none()
 
                 section_text = header_chunk.text[:2000] if header_chunk and header_chunk.text else ""
-                section_title = _extract_section_title(header_chunk.text) if header_chunk and header_chunk.text else None
+                section_title = (
+                    _extract_section_title(header_chunk.text) if header_chunk and header_chunk.text else None
+                )
 
                 batch.append({
                     "provision_id": provision_id,
@@ -398,13 +421,18 @@ class LegalKGIngestionEngine:
                 stats["chunks_linked"] += linked
 
             # Also link ALL chunks to their section provisions (full provenance)
-            all_chunks = db.session.execute(
-                db.select(LegalChunk).filter(
-                    LegalChunk.document_id == doc_id,
-                    LegalChunk.section_number.isnot(None),
-                    LegalChunk.section_number != "0",
+            all_chunks = (
+                db.session
+                .execute(
+                    db.select(LegalChunk).filter(
+                        LegalChunk.document_id == doc_id,
+                        LegalChunk.section_number.isnot(None),
+                        LegalChunk.section_number != "0",
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             chunk_batch = []
             for chunk in all_chunks:
@@ -786,19 +814,45 @@ class LegalKGIngestionEngine:
         # Summary counts
         self._execute_write("RETURN 1")  # just to warm up
         counts = {}
-        for label in ["Act", "Rule", "Regulation", "Notification", "LegalProvision",
-                       "Authority", "LegalDomain", "LegalConcept", "Chunk", "Document"]:
+        for label in [
+            "Act",
+            "Rule",
+            "Regulation",
+            "Notification",
+            "LegalProvision",
+            "Authority",
+            "LegalDomain",
+            "LegalConcept",
+            "Chunk",
+            "Document",
+        ]:
             r = self._execute(f"MATCH (n:{label}) RETURN count(n) AS c")
             for row in r:
                 counts[label] = row["c"]
         results["node_counts"] = counts
 
         edge_counts = {}
-        for rel_type in ["CONTAINS", "SUPPORTED_BY", "BELONGS_TO_DOMAIN", "ISSUED_BY",
-                          "BELONGS_TO_DOMAIN", "APPLIES_TO", "IMPOSES_DUTY", "CREATES_OFFENCE",
-                          "RELATED_TO", "INTERACTS_WITH", "COMPLEMENTS", "CROSS_REFERENCES",
-                          "GRANTS_POWER_TO", "PRESCRIBES", "REQUIRES", "HAS_CHUNK",
-                          "SOURCE_OF", "PART_OF", "HAS_SUBSECTION"]:
+        for rel_type in [
+            "CONTAINS",
+            "SUPPORTED_BY",
+            "BELONGS_TO_DOMAIN",
+            "ISSUED_BY",
+            "BELONGS_TO_DOMAIN",
+            "APPLIES_TO",
+            "IMPOSES_DUTY",
+            "CREATES_OFFENCE",
+            "RELATED_TO",
+            "INTERACTS_WITH",
+            "COMPLEMENTS",
+            "CROSS_REFERENCES",
+            "GRANTS_POWER_TO",
+            "PRESCRIBES",
+            "REQUIRES",
+            "HAS_CHUNK",
+            "SOURCE_OF",
+            "PART_OF",
+            "HAS_SUBSECTION",
+        ]:
             r = self._execute(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) AS c")
             for row in r:
                 edge_counts[rel_type] = row["c"]

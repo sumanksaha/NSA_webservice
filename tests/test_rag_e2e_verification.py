@@ -19,24 +19,32 @@ def _stub_chunks():
     """Chunks that match the stub LLM's canned response."""
     return [
         RetrievedChunk(
-            chunk_id="c0", score=0.95,
+            chunk_id="c0",
+            score=0.95,
             text="Section 55 of the FSS Act, 2006 requires every food "
             "business to obtain a license from the Food Safety Officer.",
             section_number="55",
-            document_title="FSS Act 2006", document_type="act", authority="FSSAI",
+            document_title="FSS Act 2006",
+            document_type="act",
+            authority="FSSAI",
         ),
         RetrievedChunk(
-            chunk_id="c1", score=0.85,
-            text="Section 3(1)(a) imposes a penalty of 100% of turnover "
-            "or Rs. 50,000 for violations.",
+            chunk_id="c1",
+            score=0.85,
+            text="Section 3(1)(a) imposes a penalty of 100% of turnover or Rs. 50,000 for violations.",
             section_number="3(1)(a)",
-            document_title="FSS Act 2006", document_type="act", authority="FSSAI",
+            document_title="FSS Act 2006",
+            document_type="act",
+            authority="FSSAI",
         ),
         RetrievedChunk(
-            chunk_id="c2", score=0.70,
+            chunk_id="c2",
+            score=0.70,
             text="The FSSAI is the regulatory authority under the Act.",
             section_number=None,
-            document_title="FSS Act 2006", document_type="act", authority="FSSAI",
+            document_title="FSS Act 2006",
+            document_type="act",
+            authority="FSSAI",
         ),
     ]
 
@@ -63,9 +71,7 @@ class TestGenerationPlusVerification:
         rag_response = service.generate("What does Section 55 say?", chunks)
 
         detector = HallucinationDetector()
-        report = detector.detect(
-            rag_response.answer, chunks, citations=rag_response.citations
-        )
+        report = detector.detect(rag_response.answer, chunks, citations=rag_response.citations)
         assert not report.detected
         assert report.groundedness_score > 0.3
 
@@ -73,17 +79,13 @@ class TestGenerationPlusVerification:
         """A response citing a non-existent section should be flagged."""
         self._force_stub(monkeypatch)
         chunks = _stub_chunks()
-        stub_response = (
-            "Section 999 of the FSS Act imposes a penalty of 10000 gold coins [1]."
-        )
+        stub_response = "Section 999 of the FSS Act imposes a penalty of 10000 gold coins [1]."
         client = GroundedLLMClient(stub_response=stub_response)
         service = GroundedGenerationService(llm_client=client)
         rag_response = service.generate("What does Section 999 say?", chunks)
 
         detector = HallucinationDetector()
-        report = detector.detect(
-            rag_response.answer, chunks, citations=rag_response.citations
-        )
+        report = detector.detect(rag_response.answer, chunks, citations=rag_response.citations)
         assert report.detected
         assert report.groundedness_score < 0.5
         assert len(report.hallucinated_claims) >= 1
@@ -114,29 +116,40 @@ class TestEvalRunnerWithStubPipeline:
             }
 
         entries = [
-            {"query": "What does Section 55 say?",
-             "expected_answer": "Section 55 requires licensing.",
-             "expected_citations": ["c0"],
-             "query_type": "section_lookup"},
-            {"query": "Who is the regulatory authority?",
-             "expected_answer": "FSSAI is the authority.",
-             "expected_citations": ["c2"],
-             "query_type": "general_qa"},
+            {
+                "query": "What does Section 55 say?",
+                "expected_answer": "Section 55 requires licensing.",
+                "expected_citations": ["c0"],
+                "query_type": "section_lookup",
+            },
+            {
+                "query": "Who is the regulatory authority?",
+                "expected_answer": "FSSAI is the authority.",
+                "expected_citations": ["c2"],
+                "query_type": "general_qa",
+            },
         ]
         runner = EvalRunner(pipeline_fn=pipeline)
         report = runner.evaluate_batch(entries, persist=False)
 
         assert report["summary"]["total"] == 2
         assert report["summary"]["errors"] == 0
-        for name in ["faithfulness", "groundedness", "answer_relevance",
-                      "context_precision", "context_recall", "citation_recall"]:
+        for name in [
+            "faithfulness",
+            "groundedness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+        ]:
             assert f"{name}_avg" in report["summary"]
 
     def test_mrr_computation(self):
         chunks = _stub_chunks()
+
         def pipeline(query):
-            return {"answer": "Section 55 requires a license.", "retrieved_chunks": chunks,
-                    "cited_chunk_ids": ["c0"]}
+            return {"answer": "Section 55 requires a license.", "retrieved_chunks": chunks, "cited_chunk_ids": ["c0"]}
+
         runner = EvalRunner(pipeline_fn=pipeline)
         # c0 is rank 1 in retrieved chunks (sorted by score already)
         result = runner.evaluate_one("q", "expected", ["c0"], "section_lookup")

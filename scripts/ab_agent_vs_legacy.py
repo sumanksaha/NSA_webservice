@@ -131,23 +131,21 @@ def main() -> int:
         stats["agent"]["retries"].append(a_retries)
         stats["agent"]["n"] += 1
 
-        rows.append(
-            {
-                "question_id": qid,
-                "question": qtext,
-                "legacy": {
-                    "gold_hit": round(l_hit, 3),
-                    "groundedness": round(l_grounded, 3),
-                    "latency_s": round(legacy_lat, 2),
-                },
-                "agent": {
-                    "gold_hit": round(a_hit, 3),
-                    "groundedness": round(a_grounded, 3),
-                    "retries": a_retries,
-                    "latency_s": round(agent_lat, 2),
-                },
-            }
-        )
+        rows.append({
+            "question_id": qid,
+            "question": qtext,
+            "legacy": {
+                "gold_hit": round(l_hit, 3),
+                "groundedness": round(l_grounded, 3),
+                "latency_s": round(legacy_lat, 2),
+            },
+            "agent": {
+                "gold_hit": round(a_hit, 3),
+                "groundedness": round(a_grounded, 3),
+                "retries": a_retries,
+                "latency_s": round(agent_lat, 2),
+            },
+        })
 
     def mean(xs):
         return sum(xs) / len(xs) if xs else 0.0

@@ -69,11 +69,7 @@ def _reranker() -> Any:
 # --------------------------------------------------------------------------- #
 def _kg_provision_public(p: dict[str, Any]) -> dict[str, Any]:
     """Project a KG provision dict to the cacheable fields metrics need."""
-    instrument_title = (
-        p.get("instrument_title")
-        or (p.get("instrument") or {}).get("title")
-        or ""
-    )
+    instrument_title = p.get("instrument_title") or (p.get("instrument") or {}).get("title") or ""
     return {
         "provision_id": p.get("provision_id"),
         "provision_number": p.get("provision_number"),

@@ -70,9 +70,10 @@ def _pass_one(points, section_index: dict, doc_ids: set[str]) -> str | None:
         sec = pl.get("section_number")
         if sec:
             key = (str(did or ""), str(sec))
-            section_index.setdefault(key, []).append(
-                (str(pl.get("chunk_id") or p.get("id") or ""), int(pl.get("chunk_index", 0) or 0))
-            )
+            section_index.setdefault(key, []).append((
+                str(pl.get("chunk_id") or p.get("id") or ""),
+                int(pl.get("chunk_index", 0) or 0),
+            ))
         if (pl.get("document_type") or "").lower() == "act":
             adid = str(did or "")
             act_counts[adid] = act_counts.get(adid, 0) + 1
@@ -209,8 +210,7 @@ def _pass_two(
         fresh = pts
         if already:
             fresh = [
-                p for p in pts
-                if str((p.get("payload") or {}).get("chunk_id") or p.get("id") or "") not in already
+                p for p in pts if str((p.get("payload") or {}).get("chunk_id") or p.get("id") or "") not in already
             ]
             counts["skipped"] += len(pts) - len(fresh)
         if fresh:
@@ -226,8 +226,7 @@ def _pass_two(
                 db.session.commit()
                 continue
             payload_map = {
-                str((p.get("payload") or {}).get("chunk_id") or p.get("id") or ""): p.get("payload")
-                for p in fresh
+                str((p.get("payload") or {}).get("chunk_id") or p.get("id") or ""): p.get("payload") for p in fresh
             }
             for rec in records:
                 rec["_source_payload"] = payload_map.get(rec.get("chunk_id"))
@@ -278,9 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_resume:
             already = {
                 row.chunk_id
-                for row in ChunkEnrichment.query.filter(
-                    ChunkEnrichment.status.in_(["ENRICHED", "VALIDATED"])
-                ).all()
+                for row in ChunkEnrichment.query.filter(ChunkEnrichment.status.in_(["ENRICHED", "VALIDATED"])).all()
             }
 
         _pass_two(gen(), _label, doc_ids, section_index, act_id, already, args.batch_size)

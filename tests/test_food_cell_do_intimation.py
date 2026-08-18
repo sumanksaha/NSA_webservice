@@ -298,13 +298,12 @@ class TestForceRegeneration:
 
         _patch_sync_fns()
         with app.app_context():
-            new_intimation = generate_and_forward_do_intimation(
-                sample.id, sample=sample, force=True
-            )
+            new_intimation = generate_and_forward_do_intimation(sample.id, sample=sample, force=True)
             assert new_intimation.do_reference_no != intimation.do_reference_no
             # Old record should be deleted, new one created
             from app.extensions import db as _db
             from app.models.food_cell import DoIntimation as _DI
+
             count = _db.session.query(_DI).filter_by(sample_id=sample.id).count()
             assert count == 1
 

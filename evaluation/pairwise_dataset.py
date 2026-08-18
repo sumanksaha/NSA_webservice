@@ -35,6 +35,7 @@ Usage:
     python -m evaluation.pairwise_dataset --section-prefix
     python -m evaluation.pairwise_dataset --domain-balanced
 """
+
 from __future__ import annotations
 
 import argparse
@@ -93,6 +94,7 @@ def build_pairwise_examples(
     seed: int = SEED,
     section_prefix: bool = False,
     domain_balanced: bool = False,
+    domain_balance_cap: float = 3.0,
     payload_index: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict]:
     """Build pairwise (query, positive, negative, tier) examples.
@@ -102,8 +104,15 @@ def build_pairwise_examples(
         max_positives: max positive examples per question
         max_negatives_per_tier: max negatives per tier per question
         seed: random seed for reproducibility
-        section_prefix: bake ``§<identity> <text>`` into pos/neg text (P1)
+        section_prefix: bake ``§<identity> <text>`` into pos/neg text (P1);
+            passes ``force=True`` so training data is baked regardless of the
+            serve-side ``RAG_CE_SECTION_PREFIX`` flag
         domain_balanced: oversample underrepresented domains (P4)
+        domain_balance_cap: max per-domain oversample multiplier.  Full
+            equalization across 17 domains would balloon the dataset ~10×
+            (fssai 8,340 dominates); the default cap keeps growth bounded
+            (≈2× at 3.0) while still lifting the tiny domains (srf 10,
+            cpa 16) by the full multiplier.  ``None`` = uncapped equalize.
         payload_index: authoritative chunk-id → identity map (P1); loaded
             from the frozen cache when ``None`` and the file exists
 
@@ -154,9 +163,7 @@ def build_pairwise_examples(
                 pos_text = pos.get("text", "")
                 if not pos_text:
                     continue
-                pos_id = _identity(
-                    pos.get("chunk_id", ""), pos.get("section"), pos.get("act_name")
-                )
+                pos_id = _identity(pos.get("chunk_id", ""), pos.get("section"), pos.get("act_name"))
 
                 for tier in (1, 2, 3):
                     tier_negs = tier_negatives[tier]
@@ -177,13 +184,11 @@ def build_pairwise_examples(
                         neg_text = neg.get("text", "")
                         if not neg_text:
                             continue
-                        neg_id = _identity(
-                            neg.get("chunk_id", ""), neg.get("section"), neg.get("act_name")
-                        )
+                        neg_id = _identity(neg.get("chunk_id", ""), neg.get("section"), neg.get("act_name"))
 
                         if section_prefix:
-                            pos_text_out = prefix_passage(pos_text, pos_id["section"], pos_id["clause"])
-                            neg_text_out = prefix_passage(neg_text, neg_id["section"], neg_id["clause"])
+                            pos_text_out = prefix_passage(pos_text, pos_id["section"], pos_id["clause"], force=True)
+                            neg_text_out = prefix_passage(neg_text, neg_id["section"], neg_id["clause"], force=True)
                         else:
                             pos_text_out = pos_text
                             neg_text_out = neg_text
@@ -212,22 +217,27 @@ def build_pairwise_examples(
                         })
 
     if domain_balanced:
-        examples = _balance_domains(examples, rng)
+        examples = _balance_domains(examples, rng, domain_balance_cap)
 
     # Shuffle
     rng.shuffle(examples)
     return examples
 
 
-def _balance_domains(examples: list[dict], rng: random.Random) -> list[dict]:
+def _balance_domains(
+    examples: list[dict],
+    rng: random.Random,
+    cap: float | None = 3.0,
+) -> list[dict]:
     """Oversample underrepresented domains toward the largest domain's count.
 
     P4: fssai is 57% of the dataset (8,340/14,629); the tier-3 curriculum
     amplifies it further.  Each example's domain is its positive gold-unit
     family prefix (``fssai:s16(1)`` → ``fssai``), matching ``domain_of`` in
     ``ce_v2_eval``.  Underrepresented domains are duplicated (with
-    replacement) up to the largest domain's count, so the loss is no longer
-    fssai-dominated.  Returns a new list; the split-by-question invariant is
+    replacement) up to ``min(largest_domain_count, cap * own_count)`` so the
+    loss is no longer fssai-dominated without ballooning the dataset ~10×
+    (17 domains).  Returns a new list; the split-by-question invariant is
     unaffected (duplicates stay within their question's split).
     """
     by_domain: dict[str, list[dict]] = defaultdict(list)
@@ -240,7 +250,9 @@ def _balance_domains(examples: list[dict], rng: random.Random) -> list[dict]:
     balanced: list[dict] = []
     for dom, group in by_domain.items():
         balanced.extend(group)
-        missing = target - len(group)
+        own = len(group)
+        desired = target if cap is None else min(target, int(own * cap))
+        missing = desired - own
         if missing > 0:
             for _ in range(missing):
                 balanced.append(rng.choice(group))
@@ -272,8 +284,8 @@ def split_dataset(
     n_val = int(n * VAL_RATIO)
 
     train_qids = qids[:n_train]
-    val_qids = qids[n_train:n_train + n_val]
-    test_qids = qids[n_train + n_val:]
+    val_qids = qids[n_train : n_train + n_val]
+    test_qids = qids[n_train + n_val :]
 
     splits = {
         "train": [],
@@ -319,6 +331,13 @@ def main() -> int:
         help="Oversample underrepresented domains toward the largest domain's "
         "count (CV2 P4; fssai is 57% of the dataset).",
     )
+    parser.add_argument(
+        "--domain-balance-cap",
+        type=float,
+        default=3.0,
+        help="Max per-domain oversample multiplier for --domain-balanced "
+        "(default 3.0 ≈ 2× dataset; None = uncapped equalize, ~10×).",
+    )
     args = parser.parse_args()
 
     examples = build_pairwise_examples(
@@ -327,6 +346,7 @@ def main() -> int:
         max_negatives_per_tier=args.max_negatives_per_tier,
         section_prefix=args.section_prefix,
         domain_balanced=args.domain_balanced,
+        domain_balance_cap=args.domain_balance_cap,
     )
 
     if not examples:
@@ -370,11 +390,11 @@ def main() -> int:
             sum(1 for e in examples if e.get("positive_clause")) / max(len(examples), 1), 4
         ),
         "prefix_coverage": round(
-            sum(
-                1 for e in examples
-                if (e.get("positive_section") or e.get("positive_clause"))
-            ) / max(len(examples), 1), 4
-        ) if args.section_prefix else None,
+            sum(1 for e in examples if (e.get("positive_section") or e.get("positive_clause"))) / max(len(examples), 1),
+            4,
+        )
+        if args.section_prefix
+        else None,
         "domain_distribution": dict(
             sorted(
                 Counter(
@@ -382,7 +402,9 @@ def main() -> int:
                     for ex in examples
                 ).items()
             )
-        ) if args.domain_balanced else None,
+        )
+        if args.domain_balanced
+        else None,
     }
     STATS_FILE.write_text(json.dumps(stats, indent=2), encoding="utf-8")
     return 0

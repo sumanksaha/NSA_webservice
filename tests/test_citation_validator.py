@@ -8,9 +8,7 @@ from app.rag.verification import CitationValidationResult, CitationValidator
 
 def _chunks(n=3):
     return [
-        RetrievedChunk(chunk_id=f"c{i}", score=0.9, text=f"chunk text {i}",
-                       section_number=str(i + 1))
-        for i in range(n)
+        RetrievedChunk(chunk_id=f"c{i}", score=0.9, text=f"chunk text {i}", section_number=str(i + 1)) for i in range(n)
     ]
 
 
@@ -22,10 +20,26 @@ class TestCitationValidatorStandalone:
     def test_all_valid_score(self):
         chunks = _chunks(3)
         cits = [
-            Citation(chunk_id="c0", section_number="1", document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.85),
-            Citation(chunk_id="c1", section_number="2", document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.85),
+            Citation(
+                chunk_id="c0",
+                section_number="1",
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.85,
+            ),
+            Citation(
+                chunk_id="c1",
+                section_number="2",
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.85,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.valid) == 2
@@ -39,8 +53,16 @@ class TestCitationValidatorStandalone:
     def test_section_mismatch_partial(self):
         chunks = _chunks(1)
         cits = [
-            Citation(chunk_id="c0", section_number="99", document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.85),
+            Citation(
+                chunk_id="c0",
+                section_number="99",
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.85,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.section_mismatches) == 1
@@ -49,8 +71,16 @@ class TestCitationValidatorStandalone:
     def test_invalid_citation(self):
         chunks = _chunks(1)
         cits = [
-            Citation(chunk_id="ghost", section_number=None, document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.5),
+            Citation(
+                chunk_id="ghost",
+                section_number=None,
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.5,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.invalid) == 1
@@ -59,10 +89,26 @@ class TestCitationValidatorStandalone:
     def test_mixed_citations(self):
         chunks = _chunks(3)
         cits = [
-            Citation(chunk_id="c0", section_number="1", document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.85),
-            Citation(chunk_id="ghost", section_number=None, document_title="D",
-                     document_type="act", authority="FS", url=None, snippet="", confidence=0.5),
+            Citation(
+                chunk_id="c0",
+                section_number="1",
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.85,
+            ),
+            Citation(
+                chunk_id="ghost",
+                section_number=None,
+                document_title="D",
+                document_type="act",
+                authority="FS",
+                url=None,
+                snippet="",
+                confidence=0.5,
+            ),
         ]
         result = CitationValidator().validate(cits, chunks)
         assert len(result.valid) == 1

@@ -154,7 +154,11 @@ class TestSmokeUpsertSearch:
             Point(
                 id=f"c{i}",
                 vector=[0.05] * 768,
-                payload={"document_id": "doc-1", "chunk_text": f"Section {50 + i} content.", "section_number": str(50 + i)},
+                payload={
+                    "document_id": "doc-1",
+                    "chunk_text": f"Section {50 + i} content.",
+                    "section_number": str(50 + i),
+                },
             )
             for i in range(10)
         ]
@@ -185,8 +189,6 @@ class TestSmokeClassification:
 
     def test_payload_smoke_shape(self):
         classifier = DocumentClassifier()
-        payload = classifier.payload(
-            "The Food Safety and Standards Act, 2006\nMinistry of Health and Family Welfare"
-        )
+        payload = classifier.payload("The Food Safety and Standards Act, 2006\nMinistry of Health and Family Welfare")
         assert "document_type" in payload
         assert "authority" in payload

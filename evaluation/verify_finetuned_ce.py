@@ -14,6 +14,7 @@ Each question is measured on any-hit R@10 (any relevant gold unit in the
 top-10) and unit-level R@10, using the gold-resolution layer against the
 payload index.  Output: evaluation/out/ceiling_v5/verify_finetuned_ce.json
 """
+
 from __future__ import annotations
 
 import json
@@ -35,8 +36,18 @@ CE_FINETUNED = PROJECT_ROOT / "evaluation" / "out" / "models" / "legal_ce_v1"
 #: Sample: 12 questions — 6 section-lookup (identifier route active) + 6
 #: concept/general (no identifier), spread across domains.
 SAMPLE_IDS = [
-    "Q001", "Q004", "Q010", "Q020", "Q030", "Q040",   # section-heavy
-    "Q050", "Q060", "Q070", "Q080", "Q090", "Q100",   # concept-heavy
+    "Q001",
+    "Q004",
+    "Q010",
+    "Q020",
+    "Q030",
+    "Q040",  # section-heavy
+    "Q050",
+    "Q060",
+    "Q070",
+    "Q080",
+    "Q090",
+    "Q100",  # concept-heavy
 ]
 
 
@@ -94,9 +105,7 @@ def main() -> int:
             hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=None)
             ident_q, _meta = identifier_query(q.question)
             time.time()
-            result = hybrid.retrieve(
-                q.question, top_k=20, filters=parsed, identifier_query=ident_q
-            )
+            result = hybrid.retrieve(q.question, top_k=20, filters=parsed, identifier_query=ident_q)
             raw = result.chunks
             per = {}
             for name, rr in rerankers.items():

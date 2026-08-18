@@ -180,6 +180,7 @@ ignore = [
 "evaluation/publish_ce_v2_assets.py" = ["T201"]
 "evaluation/subsection_audit.py" = ["T201"]
 "evaluation/coverage_audit.py" = ["T201"]
+"evaluation/calibrate_ce.py" = ["T201"]
 "scripts/backfill_subsection.py" = ["T201"]
 "scripts/backfill_document_title.py" = ["T201"]
 "scripts/strip_reg_section_noise.py" = ["T201"]

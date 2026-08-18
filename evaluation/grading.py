@@ -29,17 +29,41 @@ _AMOUNT_RE = re.compile(
     r"(?:rs\.?\s*|inr\s*|\u20b9|rupees?)\s*[\d,]+(?:\s*(?:lakh|crore))?|[\d,]{2,}\s*(?:lakh|crore)\s*rupees?",
     re.IGNORECASE,
 )
-_IMPRISONMENT_RE = re.compile(r"imprisonment\s*for\s*a\s*term|imprisonment|fine\s*(?:not\s*less|which\s*may\s*extend)", re.IGNORECASE)
-_ABSTAIN_PHRASES = (
-    "not establish", "not establish", "cannot be determined", "cannot be reliably",
-    "insufficient evidence", "insufficient", "no evidence", "does not specify",
-    "does not establish", "is not recorded", "not recorded in the corpus",
-    "cannot be answered", "not available in the corpus", "does not provide",
-    "not stated", "no specific", "not mentioned", "cannot reliably read",
-    "the corpus does not", "no provision in the corpus", "no information",
+_IMPRISONMENT_RE = re.compile(
+    r"imprisonment\s*for\s*a\s*term|imprisonment|fine\s*(?:not\s*less|which\s*may\s*extend)", re.IGNORECASE
 )
-_REFUSE_PHRASES = ("not establish", "cannot be determined", "insufficient", "does not establish",
-                   "not recorded", "no evidence", "cannot be reliably")
+_ABSTAIN_PHRASES = (
+    "not establish",
+    "not establish",
+    "cannot be determined",
+    "cannot be reliably",
+    "insufficient evidence",
+    "insufficient",
+    "no evidence",
+    "does not specify",
+    "does not establish",
+    "is not recorded",
+    "not recorded in the corpus",
+    "cannot be answered",
+    "not available in the corpus",
+    "does not provide",
+    "not stated",
+    "no specific",
+    "not mentioned",
+    "cannot reliably read",
+    "the corpus does not",
+    "no provision in the corpus",
+    "no information",
+)
+_REFUSE_PHRASES = (
+    "not establish",
+    "cannot be determined",
+    "insufficient",
+    "does not establish",
+    "not recorded",
+    "no evidence",
+    "cannot be reliably",
+)
 
 
 def _tokenize(text: str) -> set[str]:

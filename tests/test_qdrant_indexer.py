@@ -241,10 +241,19 @@ class TestQdrantIndexerPipeline:
         assert result.ok
         payload = store.points[0].payload
         for key in (
-            "chunk_id", "document_id", "chunk_text", "chunk_index",
-            "section_number", "document_type", "hierarchy_level",
-            "parent_chunk_id", "citations", "references", "confidence",
-            "embedding_model", "created_at",
+            "chunk_id",
+            "document_id",
+            "chunk_text",
+            "chunk_index",
+            "section_number",
+            "document_type",
+            "hierarchy_level",
+            "parent_chunk_id",
+            "citations",
+            "references",
+            "confidence",
+            "embedding_model",
+            "created_at",
         ):
             assert key in payload, f"payload missing §5.1 field {key!r}"
 
@@ -394,8 +403,11 @@ class TestQdrantIndexerHook:
     def test_after_flush_upserts_new_chunk_rows(self, test_client, hook_env):
         with test_client.application.app_context():
             row = _TestQdrantChunk(
-                id=str(uuid.uuid4()), document_id="doc-1", chunk_index=0,
-                chunk_text="Section 55 text", section_number="55",
+                id=str(uuid.uuid4()),
+                document_id="doc-1",
+                chunk_index=0,
+                chunk_text="Section 55 text",
+                section_number="55",
             )
             db.session.add(row)
             db.session.flush()
@@ -409,7 +421,9 @@ class TestQdrantIndexerHook:
     def test_after_flush_upserts_dirty_chunk_rows(self, test_client, hook_env):
         with test_client.application.app_context():
             row = _TestQdrantChunk(
-                id=str(uuid.uuid4()), document_id="doc-1", chunk_index=0,
+                id=str(uuid.uuid4()),
+                document_id="doc-1",
+                chunk_index=0,
                 chunk_text="original",
             )
             db.session.add(row)
@@ -423,7 +437,9 @@ class TestQdrantIndexerHook:
     def test_after_flush_removes_deleted_chunk_rows(self, test_client, hook_env):
         with test_client.application.app_context():
             row = _TestQdrantChunk(
-                id="chunk-del-1", document_id="doc-1", chunk_index=0,
+                id="chunk-del-1",
+                document_id="doc-1",
+                chunk_index=0,
                 chunk_text="gone",
             )
             db.session.add(row)
@@ -443,7 +459,9 @@ class TestQdrantIndexerHook:
         try:
             with test_client.application.app_context():
                 row = _TestQdrantChunk(
-                    id=str(uuid.uuid4()), document_id="doc-1", chunk_index=0,
+                    id=str(uuid.uuid4()),
+                    document_id="doc-1",
+                    chunk_index=0,
                     chunk_text="not indexed",
                 )
                 db.session.add(row)
@@ -460,7 +478,9 @@ class TestQdrantIndexerHook:
         hook_env.sync_payloads = boom
         with test_client.application.app_context():
             row = _TestQdrantChunk(
-                id=str(uuid.uuid4()), document_id="doc-1", chunk_index=0,
+                id=str(uuid.uuid4()),
+                document_id="doc-1",
+                chunk_index=0,
                 chunk_text="text",
             )
             db.session.add(row)

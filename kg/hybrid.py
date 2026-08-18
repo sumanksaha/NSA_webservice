@@ -77,9 +77,7 @@ class KGContextExpander:
     def configured() -> bool:
         """Whether Neo4j credentials are present (cheap pre-check)."""
         return bool(
-            os.environ.get("NEO4J_URI")
-            and os.environ.get("NEO4J_USERNAME")
-            and os.environ.get("NEO4J_PASSWORD")
+            os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_USERNAME") and os.environ.get("NEO4J_PASSWORD")
         )
 
     def _execute(self, cypher: str, params: dict | None = None) -> list[dict]:
@@ -206,16 +204,14 @@ class KGContextExpander:
                 src = r.get("source_id")
                 if not src:
                     continue
-                related.setdefault(src, []).append(
-                    {
-                        "related_id": _unwrap(r.get("related_id")),
-                        "related_number": _unwrap(r.get("related_number")),
-                        "related_title": _unwrap(r.get("related_title")) or "",
-                        "rel_type": _unwrap(r.get("rel_type")) or "",
-                        "evidence": _unwrap(r.get("evidence")) or "",
-                        "related_domain": _unwrap(r.get("related_domain")) or "",
-                    }
-                )
+                related.setdefault(src, []).append({
+                    "related_id": _unwrap(r.get("related_id")),
+                    "related_number": _unwrap(r.get("related_number")),
+                    "related_title": _unwrap(r.get("related_title")) or "",
+                    "rel_type": _unwrap(r.get("rel_type")) or "",
+                    "evidence": _unwrap(r.get("evidence")) or "",
+                    "related_domain": _unwrap(r.get("related_domain")) or "",
+                })
             for entry in provisions.values():
                 entry["related"] = related.get(entry["provision_id"], [])
         except Exception as exc:

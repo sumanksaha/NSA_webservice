@@ -140,9 +140,7 @@ def _app_context():
     app.config["RAG_QDRANT_API_KEY"] = os.environ.get("RAG_QDRANT_API_KEY", "")
     app.config["RAG_QDRANT_COLLECTION"] = os.environ.get("RAG_QDRANT_COLLECTION", "fssai_legal_768")
     app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
-    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get(
-        "RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2"
-    )
+    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
     app.config["RAG_FULL_ENRICHMENT"] = True
     app.config["RAG_ENABLE_SPARSE"] = os.environ.get("RAG_ENABLE_SPARSE", "true").lower() == "true"
     for key, val in os.environ.items():
@@ -154,11 +152,7 @@ def _app_context():
 def _env_collection_config() -> dict[str, str]:
     """Map ``RAG_QDRANT_COLLECTION_<DOMAIN>`` env vars to the config shape
     ``collection_for_domain`` expects, so env overrides work outside Flask."""
-    return {
-        key: val
-        for key, val in os.environ.items()
-        if key.startswith("RAG_QDRANT_COLLECTION_")
-    }
+    return {key: val for key, val in os.environ.items() if key.startswith("RAG_QDRANT_COLLECTION_")}
 
 
 def select_documents(
@@ -343,7 +337,13 @@ def _ingest_manifest_inner(
 
         if not path.is_file():
             dsum["docs_skipped"] += 1
-            dsum["results"].append({"file": fname, "document_id": row.get("document_id"), "ok": False, "errors": ["file missing"], "skipped": True})
+            dsum["results"].append({
+                "file": fname,
+                "document_id": row.get("document_id"),
+                "ok": False,
+                "errors": ["file missing"],
+                "skipped": True,
+            })
             any_failed = True
             continue
 
@@ -381,9 +381,12 @@ def _ingest_manifest_inner(
             ingested = pipeline.ingest_file(path, document=_doc_meta(row))
         except Exception as exc:
             dsum["docs_failed"] += 1
-            dsum["results"].append(
-                {"file": fname, "document_id": row.get("document_id"), "ok": False, "errors": [str(exc)]}
-            )
+            dsum["results"].append({
+                "file": fname,
+                "document_id": row.get("document_id"),
+                "ok": False,
+                "errors": [str(exc)],
+            })
             any_failed = True
             continue
 

@@ -23,11 +23,11 @@ from typing import Any
 
 def decompose(
     question: Any,
-    arm_metrics: Any,          # QuestionMetrics for ARM F
-    legal: dict[str, Any],     # legal_evidence() output for ARM F
-    grade: dict[str, Any],     # grade_answer() output
-    corpus: dict[str, Any],    # gold_in_corpus() output
-    kg_info: dict[str, Any],   # kg_incremental() output for ARM F
+    arm_metrics: Any,  # QuestionMetrics for ARM F
+    legal: dict[str, Any],  # legal_evidence() output for ARM F
+    grade: dict[str, Any],  # grade_answer() output
+    corpus: dict[str, Any],  # gold_in_corpus() output
+    kg_info: dict[str, Any],  # kg_incremental() output for ARM F
 ) -> dict[str, Any]:
     """Assign F-labels + the §15 stage chain for one question."""
     labels: list[str] = []
@@ -48,10 +48,7 @@ def decompose(
 
     # --- retrieval (gold among the arm's evidence pool?) ---
     pool_hit = len(arm_metrics.pool_covered) >= 1
-    top20_hit = any(
-        r is not None and r <= 20
-        for r in arm_metrics.unit_ranks.values()
-    )
+    top20_hit = any(r is not None and r <= 20 for r in arm_metrics.unit_ranks.values())
     if gold_resolved and not pool_hit:
         stages["retrieval_failure"] = True
         if "F2" not in labels:

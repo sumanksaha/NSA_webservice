@@ -46,14 +46,20 @@ def _make_search_result() -> SearchResult:
         query_type="section_lookup",
         chunks=[
             RetrievedChunk(
-                chunk_id="c1", score=0.91,
+                chunk_id="c1",
+                score=0.91,
                 text="Section 55 deals with penalties for adulteration.",
-                section_number="55", document_title="FSS Act 2006",
-                document_type="Act", authority="FSSAI",
-                chunk_index=0, hierarchy_level=1,
+                section_number="55",
+                document_title="FSS Act 2006",
+                document_type="Act",
+                authority="FSSAI",
+                chunk_index=0,
+                hierarchy_level=1,
             ),
         ],
-        total=1, latency_ms=45, source="hybrid",
+        total=1,
+        latency_ms=45,
+        source="hybrid",
     )
 
 
@@ -81,6 +87,7 @@ class TestRetrievalLogger:
             log_entry = logger.log(query=result.query, query_type=result.query_type, result=result)
             assert len(log_entry.content_hash) == 64
             import hashlib
+
             expected = hashlib.sha256(b"Section 55 of FSS Act:").hexdigest()
             assert log_entry.content_hash == expected
         finally:
@@ -101,7 +108,15 @@ class TestRetrievalLogger:
         _app, ctx, _user = _setup_test_env()
         try:
             logger = RetrievalLogger()
-            result = SearchResult(query="bad query", query_type="general_qa", chunks=[], total=0, latency_ms=0, source="dense", error="Qdrant down")
+            result = SearchResult(
+                query="bad query",
+                query_type="general_qa",
+                chunks=[],
+                total=0,
+                latency_ms=0,
+                source="dense",
+                error="Qdrant down",
+            )
             log_entry = logger.log(query=result.query, query_type=result.query_type, result=result, error=result.error)
             assert log_entry.error == "Qdrant down"
         finally:
@@ -118,7 +133,7 @@ class TestRetrievalLogger:
                 log_entry = logger.log(query="q", query_type="general_qa", result=result)
                 assert log_entry is None
             finally:
-                            db.session.commit = original
+                db.session.commit = original
         finally:
             _teardown(ctx)
 
@@ -148,8 +163,11 @@ class TestRetrievalAuditLog:
             log_id = log.id
 
             ok = audit.log_retrieval(
-                query_log_id=log_id, query="test query",
-                query_type="section_lookup", chunk_ids=["c1", "c2"], latency_ms=50,
+                query_log_id=log_id,
+                query="test query",
+                query_type="section_lookup",
+                chunk_ids=["c1", "c2"],
+                latency_ms=50,
             )
             assert ok is True
 
@@ -180,14 +198,18 @@ class TestRetrievalAuditLog:
 
             audit = RetrievalAuditLog()
             ok = audit.log_retrieval(
-                query_log_id="test-id", query="bad query",
-                query_type="general_qa", chunk_ids=[], latency_ms=0,
+                query_log_id="test-id",
+                query="bad query",
+                query_type="general_qa",
+                chunk_ids=[],
+                latency_ms=0,
                 error="something went wrong",
             )
             assert ok is True
             entry = AuditLog.query.filter_by(entity_id="test-id").first()
             assert entry is not None
             import json
+
             details = json.loads(entry.details_json)
             assert details["error"] == "something went wrong"
         finally:
@@ -211,11 +233,14 @@ class TestRetrievalAuditLog:
             db.session.commit()
 
             import app.rag.retrieval.logger as logger_mod
+
             original = logger_mod.log_audit
             logger_mod.log_audit = lambda **kw: (_ for _ in ()).throw(RuntimeError("audit down"))
             try:
                 audit = RetrievalAuditLog()
-                ok = audit.log_retrieval(query_log_id="x", query="q", query_type="general_qa", chunk_ids=[], latency_ms=1)
+                ok = audit.log_retrieval(
+                    query_log_id="x", query="q", query_type="general_qa", chunk_ids=[], latency_ms=1
+                )
                 assert ok is False
             finally:
                 logger_mod.log_audit = original
