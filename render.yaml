@@ -5,7 +5,7 @@ services:
       name: food-adjudication-portal
       env: python
       buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
-      startCommand: FLASK_APP=app:create_app flask db upgrade && gunicorn --bind 0.0.0.0:10000 app:app
+      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
       envVars:
           - key: DATABASE_URL
             fromDatabase:
@@ -78,6 +78,16 @@ services:
           - key: RAG_EMBEDDING_MODEL
             value: sentence-transformers/all-mpnet-base-v2
           - key: RAG_FULL_ENRICHMENT
+            value: "false"
+          - key: API_V2_KEY
+            sync: false
+          - key: RAG_USE_AGENT_PIPELINE
+            value: "false"
+          - key: RAG_AGENT_HITL
+            value: "false"
+          - key: RAG_KG_EXPANSION
+            value: "false"
+          - key: RAG_KG_FUSION
             value: "false"
 
     - type: worker

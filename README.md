@@ -59,7 +59,7 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                          |
 | **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                 |
 | **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                       |
-| **Audit Trail**                   | Tamper-evident hash-chained audit logging for all records and photo evidence                                                                                     |
+| **FastAPI Gateway (ASGI)**  | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2. |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
 ---
@@ -70,6 +70,16 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 ┌──────────────────────────────────────────────────────────────────┐
 │                   PRESENTATION LAYER                             │
 │     Jinja2 Templates · CSS · JavaScript (Vanilla JS)            │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+┌──────────────────────────▼───────────────────────────────────────┐
+│                   GATEWAY LAYER (ASGI)                            │
+│                  FastAPI + uvicorn (asgi.py)                      │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ /api/v2/health · /api/v2/rag/* · /api/v2/search ·          │ │
+│  │ /api/v2/bill/lookup · /api/v2/validation/validate         │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                      a2wsgi.WSGIMiddleware                      │
 └──────────────────────────┬───────────────────────────────────────┘
                            │
 ┌──────────────────────────▼───────────────────────────────────────┐
@@ -274,7 +284,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                                                                                                  |
 | RBAC / Roles              | ❌ Not Started | All users have full access                                                                                                         |
 | PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                                                                                                   |
-| Tests                     | ✅ 80+ modules | ~1,780 test cases (694 RAG + 23 plugins + 1,063 existing), all passing                                                             |
+| Tests                     | ✅ 80+ modules | ~1,887 test cases (694 RAG + 57 ASGI + 23 plugins + 1,113 existing), all passing                                                             |
 | Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests) |
 
 ---
@@ -324,7 +334,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 ### Phase 2: Platform Upgrade (Q4 2026)
 
-- [ ] FastAPI migration
+- [x] FastAPI migration (ASGI coexistence gateway — `asgi.py`, `/api/v2/*`; Phase 6 full rewrite deferred)
 - [x] OpenAPI / Swagger documentation (flasgger `/apidocs/`)
 - [x] Structured logging (structlog)
 - [ ] Monitoring (Sentry + Prometheus)
@@ -439,10 +449,11 @@ NSA_webservice/
 ├── docs/                       # Documentation (DEEPENING, MULTIDOMAIN, etc.)
 ├── celery_app.py               # Celery application factory
 ├── render.yaml                 # Render deployment blueprint
+├── asgi.py                     # ASGI entry point (FastAPI + Flask coexistence gateway)
 ├── requirements.txt            # Python dependencies
 ├── fso_list.md                 # FSO master data
 ├── fss_sections.md             # FSS Act legal sections
-└── app.py                      # WSGI entry point
+└── app.py                      # WSGI entry point (Flask)
 ```
 
 ### Workflow

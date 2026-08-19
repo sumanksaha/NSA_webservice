@@ -79,6 +79,11 @@ dependencies = [
   "langgraph>=1.0.0",              # M3 LangGraph agent pipeline (POST /api/rag/query/agent; imported lazily)
   "langgraph-checkpoint-postgres>=3.0.0",  # M5 PostgresSaver (resume/interrupt; imported lazily)
   "psycopg-binary>=3.1.0",         # libpq for langgraph-checkpoint-postgres (imported lazily)
+  # FastAPI ASGI entry-point (FASTAPI_IMPLEMENTATION_PLAN.md, Ambition B)
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "asgiref>=3.8.0",
+  "a2wsgi>=1.10.10",
   "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
   "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
   "easyocr>=1.7.0",                # OCR engine 1 for scanned legal PDFs (English + Hindi)

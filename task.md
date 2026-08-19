@@ -756,7 +756,7 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-## Deepening Tasks (Architectural Refactoring) — ✅ ALL DONE
+## Deepening Tasks (Architectural Refactoring) — ✅ D1–D5 DONE, D6–D9 OPEN
 
 > Source: `REFACTORING_PLAN.md`. Goal: Increase Module Depth in 5 shallow areas.
 > **All five (D1–D5) are fully implemented.** See AGENTS.md §8 for the implementation order and current module-depth metrics.
@@ -844,6 +844,196 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
     1. Create parameterized `DocumentCaseManager` class handling common CRUD, document generation, TOC generation, and annexure renumbering for both `CaseFile` and `Adjudication`.
     2. Refactor `case_file_generator/routes.py` and `adjudication/routes.py` to inherit from / delegate to `DocumentCaseManager`.
 - **Acceptance Criteria & Test Plan:** Over 1,200 lines of duplicated route code eliminated. Parametrized tests pass cleanly.
+
+---
+
+### D6: Unify `app/utils/sync.py` Restore Chain — OPEN (Module Depth: 1 to 4)
+
+> Discovered during deepen-architecture exploration. `app/utils/sync.py` is a 14 KB grab-bag combining dead-duplicate code, triple-identical configuration maps, and a restore pipeline copy-pasted 3x. Deletion test confirms it earns no depth: removing it eliminates all three duplications with zero production impact.
+
+**Files:**
+
+- `app/utils/sync.py` — the shallow module (7 public + 7 private functions)
+- `app/services/sheets_sync.py` — contains the _real_ `sync_to_sheets(module, row_dict)` + `_get_client()` (the versions in sync.py are dead duplicates)
+- `app/services/backup_coordinator.py` — `run_backup()` (production entry point; no change needed)
+- `app/settings/routes.py` — backup/restore route handlers
+- `tests/test_priority7_redundancy.py` — 43 tests, currently patch 7 private internals
+
+**Problem (5 pathologies):**
+
+1. **Dead duplicate** — `sync_to_sheets()` (line 52, no args) and `get_gspread_client()` at top of sync.py duplicate `sheets_sync.py`'s `sync_to_sheets(module, row_dict)` and `_get_client()`. `sync_orchestrator.py` imports from `sheets_sync`, never from `sync.py`. Grep confirms **zero production importers** of `app.utils.sync`.
+2. **Triple map** — `_AIRTABLE_TABLE_MAP`, `_WORKSHEET_MAP`, `_SHEETS_RESTORE_MAP` are byte-identical 6-entry dicts copied 3x.
+3. **Triple restore function** — `restore_from_airtable_csv()` / `restore_from_excel_csv()` / `restore_from_sheets_csv()` differ only in prefix string + filter map. Pipeline: list R2 backups -> download latest -> parse CSV -> filter by module -> `_restore_from_records`.
+4. **No-op hook** — `_build_column_map(model, module)` returns `{}` unconditionally.
+5. **Test surface = internals** — tests patch `_list_r2_csv_backups`, `_download_r2_csv`, `_restore_module`, `_restore_from_records` rather than a public interface.
+
+**Implementation Plan:**
+
+- **Phase A — Delete dead code:** Remove the old `sync_to_sheets()`, `get_gspread_client()`, and `sync_configs` loop from sync.py. (Grep confirmed no production importers; no backward-compat shim needed.)
+- **Phase B — Unify maps:** Replace the 3 identical dicts with a single `BACKUP_MODULE_TO_TABLE` dict. The 3 restore functions' `module in <map>` filters collapse to `module in BACKUP_MODULE_TO_TABLE`.
+- **Phase C — Extract `BackupRestorer`:**
+    1. Create `app/services/backup_restorer.py` with:
+
+        ```python
+        class BackupTarget(Protocol):
+            def download_latest_csv(self) -> str | None: ...
+            def supported_modules(self) -> set[str]: ...
+
+        class _R2CsvTarget:
+            """Shared R2/local CSV download + listing, parameterized by prefix."""
+            def __init__(self, prefix: str): ...
+            def download_latest_csv(self) -> str | None: ...
+
+        class BackupRestorer:
+            TARGETS = [_R2CsvTarget("airtable"), _R2CsvTarget("excel"), _R2CsvTarget("sheets")]
+            def restore_if_empty(self) -> dict: ...
+            def restore_from(self, target: BackupTarget) -> int: ...
+        ```
+
+    2. `restore_from` dispatches through the shared pipeline once. `_restore_module` + `_parse_csv_value` + `_csv_to_records` move into `BackupRestorer` as private methods.
+- **Phase D — Migrate callers:** `trigger_backup()` already delegates to `backup_coordinator.run_backup()`. If `restore_if_empty` is wired to startup in `__init__.py`, update the import.
+- **Phase E — Migrate tests:** Rewrite `test_priority7_redundancy.py` to patch `BackupTarget` adapters (mock `download_latest_csv()` / `supported_modules()`) and assert on the public `restore_if_empty()` return dict instead of 7 private helpers. Delete tests that asserted on deleted dead-code functions.
+
+**Acceptance Criteria & Test Plan:**
+
+- `sync_to_sheets`/`get_gspread_client` removed from sync.py (grep confirms no production importers).
+- 3 identical maps -> 1 (`BACKUP_MODULE_TO_TABLE`).
+- 3 restore functions -> 1 `BackupRestorer.restore_from(target)` with 3 adapter subclasses.
+- `test_priority7_redundancy.py` passes (N/N after consolidation) patching adapters, not internals.
+- `ruff check` clean on both new/modified files.
+
+---
+
+### D7: Unify Audit Caller Boilerplate (`_log_audit` wrappers) — OPEN (Module Depth: 1 to 3)
+
+> `log_audit(entity_type, entity_id, action, actor, details)` is _deep_ (hash-chaining, advisory locks, transaction safety). But its callers are shallow: every blueprint that audits a single entity type re-implements a 9-line `_log_audit` wrapper that hardcodes the `entity_type` string and converts `**details` kwargs to a dict. Two of those wrappers (annexure, evidence) are byte-identical except the entity-type string.
+
+**Files:**
+
+- `app/services/audit.py` — the deep `log_audit()` + `compute_hash()` + `verify_audit_chain()`
+- `app/annexure/routes.py:53` — `_log_audit(annexure_id, action, **details)` (hardcodes `entity_type="annexure"`)
+- `app/evidence/routes.py:105` — `_log_audit(evidence_id, action, **details)` (hardcodes `entity_type="evidence"`)
+- `app/services/document_lifecycle.py:181` — `DocumentSaveCoordinator._log_audit()` (method, entity_type from case_type)
+- `app/adjudication/routes.py:388,405,562,579` — 4 direct `log_audit(...)` calls with different `entity_type` strings
+- `app/shared/document_case_manager.py` — 2 direct `log_audit(...)` calls
+- `app/inspection/photo_service.py:191,203,234` — 3 direct `log_audit(...)` calls
+- `app/api/routers.py:85` — 1 direct `log_audit(...)` call
+- `app/search/routes.py` — 1 direct `log_audit(...)` call
+
+**Problem:**
+
+- `entity_type` string is passed as a bare positional argument -- typo-prone (no validation). `log_audit("adjudcatin_order")` silently creates an audit row with a misspelled entity type.
+- The `_log_audit` wrapper pattern (hardcode entity_type + try/except + `**details` to dict) is duplicated 3x (annexure, evidence, document_lifecycle).
+- `actor` source is inconsistent: `document_lifecycle.py` uses `current_user.username`; `adjudication/routes.py` uses `form_data.get("food_safety_officer_name", "unknown")`; annexure/evidence use a local `_actor()` checking `current_user`.
+
+**Implementation Plan:**
+
+1. Create `app/services/audit_context.py` with an `AuditLogger` factory:
+
+    ```python
+    def audit_logger(entity_type: str) -> BoundAuditLogger:
+        """Return a logger bound to a fixed entity_type.
+        Usage:  audit_logger("annexure").log(annexure_id, "ANNEXURE_DELETED", filename=...)
+        """
+        return BoundAuditLogger(entity_type=entity_type)
+
+    class BoundAuditLogger:
+        def log(self, entity_id, action, *, actor=None, **details) -> None:
+            if actor is None:
+                actor = current_user.username if current_user.is_authenticated else "anonymous"
+            try:
+                log_audit(entity_type=self._entity_type, entity_id=str(entity_id),
+                          action=action, actor=actor, details=details)
+            except Exception:
+                logger.warning("Audit log write failed for %s %s (%s); continuing.",
+                               self._entity_type, entity_id, action)
+    ```
+
+2. In `annexure/routes.py` and `evidence/routes.py`: replace the 9-line `_log_audit` wrapper with `_audit = audit_logger("annexure")` (or `"evidence"`) + `_audit.log(...)`.
+3. In `document_lifecycle.py`: replace `self._log_audit()` to use `audit_logger(case_type).log(...)`.
+4. In `adjudication/routes.py`, `inspection/photo_service.py`, `document_case_manager.py`, `api/routers.py`, `search/routes.py`: migrate direct `log_audit(...)` calls to `audit_logger(entity_type).log(...)`.
+5. Update `AGENTS.md` env-var table (no new env vars; no change).
+
+**Acceptance Criteria & Test Plan:**
+
+- `_log_audit` wrapper functions deleted from route files (replaced by `audit_logger(...).log(...)`).
+- `git grep "def _log_audit" app/` in route files returns 0 matches (only the method in document_lifecycle.py, also migrated).
+- New test: `tests/test_audit_context.py` -- assert `audit_logger("annexure")` binds entity_type, normalizes actor from current_user, swallows errors.
+
+---
+
+### D8: Tighten `app/utils/lookup.py` — OPEN (Module Depth: 1 to 4)
+
+> Two license lookups with _inconsistently inconsistent contracts_ in one 47-line module. `lookup_fssai` returns `(dict|None, str|None)` (tuple: data, error); `lookup_ce` returns `dict|None` and can _raise_ (httpx/file I/O). Six call sites across 5 blueprints handle the two shapes differently. `lookup_ce` is a 50-line god-function mixing rate-limiting (fcntl file lock + timestamp), SSL context config, cookie-warming HTTP client, JSON repair (regex), and response data-shaping.
+
+**Files:**
+
+- `app/utils/lookup.py:14-16` — `LICENSE_DB_PATH`, `REGISTRATION_DB_PATH` (SQLite backend paths)
+- `app/utils/lookup.py:28-32` — `_KMC_LOCK_PATH`, `_KMC_LAST_REQUEST_TIME_PATH`, `_KMC_RATE_LIMIT_SECONDS`
+- `app/utils/lookup.py:37-56` — `lookup_fssai(license_no)` -> `(dict|None, str|None)`
+- `app/utils/lookup.py:58-end` — `lookup_ce(license_no)` -> `dict|None` (50 lines, god-function)
+- `app/adjudication/routes.py:53,248,261` — calls both `lookup_ce` + `lookup_fssai`
+- `app/case_file_generator/routes.py:37,372` — calls `lookup_fssai`
+- `app/inspection/routes/lookup_routes.py:7,22,53` — calls both (shows both patterns in one file)
+- `app/fbo_issue/routes.py:8,128,133` — calls `lookup_fssai`
+- `app/sample/routes.py:19,118,172` — calls `lookup_fssai`
+
+**Problem:**
+
+- **Inconsistent contracts:** FSSAI callers do `result, error = lookup_fssai(...)`; CE callers do `try: result = lookup_ce(...) except Exception: 502` then `if not result: 404`. Same concept, two error-handling patterns.
+- **God-function:** `lookup_ce` is 50 lines of 4 concerns (rate-limit, HTTP, JSON repair, data-shaping) with no composable parts.
+- **6 call sites** across 5 blueprints each handle errors differently for the same concept (license lookup).
+
+**Implementation Plan (conceptual -- to be designed via INTERFACE-DESIGN.md):**
+
+1. Define a unified `LookupResult` dataclass: `.found(data)` / `.error(str)` / `.not_found()` -- never raises, never returns a tuple.
+2. Introduce a `RateLimiter` adapter (file-lock + timestamp) -- extractable from `lookup_ce`'s first 25 lines.
+3. Introduce an injectable HTTP adapter for the KMC endpoint (replacing inline `httpx.Client` + `ssl.create_default_context`).
+4. Extract the regex JSON repair into a `repair_kmc_json(text: str) -> str` pure function (testable in isolation).
+5. `lookup_fssai` and `lookup_ce` both return `LookupResult` -- callers standardize on `if result.error: ... elif result.found: ...`.
+
+**Recommendation per INTERFACE-DESIGN.md:** Spawn 3 parallel sub-agents to design alternative interfaces for the `LicenseLookup` seam:
+
+- Agent 1 (minimal interface): single `lookup(license_no, kind="fssai"|"ce")` with one `LookupResult` return type.
+- Agent 2 (max flexibility): registry-based with `LookupBackend` protocol, FSSAI backend + CE backend registered separately.
+- Agent 3 (common-case optimized): `lookup_fssai` and `lookup_ce` share a private `_lookup` that returns `LookupResult`, but the public functions retain their names for caller ergonomics.
+
+**Acceptance Criteria & Test Plan:**
+
+- `lookup_fssai` and `lookup_ce` return `LookupResult` (never raise, never return a tuple).
+- New test: `tests/test_lookup.py` -- asserts `LookupResult` shape for found/not-found/error across both lookups.
+- All 6 caller routes updated to the single error-handling pattern.
+- `lookup_ce`'s rate-limiting extracted into a testable `RateLimiter` (mockable, no fcntl/file I/O in tests).
+
+---
+
+### D9: `verify_photo_location` Try/Except Boilerplate — NOT A DEEPENING CANDIDATE (Pattern Smell Only)
+
+> `app/inspection/verification_service.py:verify_photo_location` has 3 copy-pasted try/except+log+fallback blocks wrapping `reverse_geocode`, `ip_geolocate`, `get_or_geocode_fbo_location`. Each sub-module (`geo_verification`, `ip_verification`, `distance_verification`) wraps a _different external service_ (Nominatim, IP geolocation API, haversine formula) -- each has a real test double (in-memory mock) vs a production HTTP adapter, so the seam is justified. **Not shallow modules. Not a deepening candidate.**
+
+**Assessment:** Per LANGUAGE.md, "One adapter = hypothetical seam. Two adapters = real one." Each sub-module has exactly two adapters (production HTTP + test mock), justifying the split. Merging them would destroy independent testability of each external service.
+
+**Optional low-effort fix (no deepening):** Extract a 1-line `_degrade(call, fallback_fn, label)` helper that wraps the try/except+log+fallback pattern. Apply 3x. No interface change, no test migration. `tests/test_inspection_photo_service.py` (lines 155-210) already covers `verify_photo_location` with mocked sub-modules.
+
+---
+
+### Deepening Priority Ranking (Post D1-D5)
+
+| Rank | Candidate | File                            | Depth       | Risk          | Effort   | Why first?                                                                                                       |
+| ---- | --------- | ------------------------------- | ----------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1    | D6        | `app/utils/sync.py`             | 1 to 4      | Low           | 2-3 days | Dead code + 3x duplication + test surface = internals. Deletion test passes cleanly. Highest leverage.           |
+| 2    | D7        | `app/services/audit.py` callers | 1 to 3      | Low           | 1-2 days | 3 identical wrappers, typo-prone entity_type strings. Low-risk, high locality payoff.                            |
+| 3    | D8        | `app/utils/lookup.py`           | 1 to 4      | Medium        | 2-3 days | Inconsistent contracts across 6 call sites. Requires API contract change. Needs INTERFACE-DESIGN.md exploration. |
+| 4    | D9        | `verification_service.py`       | N/A (smell) | Trivially low | <1 hour  | Optional `_degrade` helper. Not a deepening move.                                                                |
+
+---
+
+### Deepening Strategy Notes
+
+- **D6 (sync.py)** is the strongest candidate: deletion test passes (no production impact), structural duplication is provable (3 identical maps + 3 identical restore pipelines), and the test migration path is clear (patch adapters, not internals).
+- **D7 (audit)** is deferred to D6 -- it is a consequence of `log_audit`'s stringly-typed `entity_type`, not an independent shallow module. The `AuditLogger` factory is a thin wrapper; the deepening belongs to `log_audit`'s interface, which is already deep. Worth doing as a 1-day follow-up.
+- **D8 (lookup)** requires a contract change (`LookupResult`) across 6 call sites -- higher blast radius. Should be designed via INTERFACE-DESIGN.md (3+ alternative interfaces) before implementation.
+- **D9 (verification)** is NOT a deepening candidate per the deletion + seam tests. Only flag for a future `_degrade` micro-fix.
 
 ---
 
@@ -976,7 +1166,38 @@ curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Conte
 
 > **DEPLOYED ✅ (2026-08-16):** `modal deploy app.py` succeeded from the dev sandbox (Modal CLI 1.5.4 — note the SDK renames: `container_idle_timeout`→`scaledown_window`, `web_endpoint`→`fastapi_endpoint`, `allow_concurrent_inputs`→`@modal.concurrent` on the class, `@app.cls()` outermost). **Live URLs: `https://sumanksaha--rerank.modal.run`, `https://sumanksaha--embed.modal.run`, `https://sumanksaha--healthz.modal.run`.** Verified: `/embed` returns 768-dim vectors; `/rerank` ranks Section 50 #1 for the penalty query at −0.82 (matches the local checkpoint's parity reference −0.821). `hf-token` secret created via `modal secret create hf-token HF_TOKEN=<read token>`. `.env` now points at the real URLs. **Remaining: paste the 8 env vars into the Render Dashboard (web + worker) — Step 2 table above — then verify `/rag/query` in production.**
 
-### ENV-11: LangGraph agent pipeline (M3+M4) — ✅ DONE (2026-08-16)
+### FastAPI Gateway — ✅ PHASES 1-5 COMPLETE (2026-08-19)
+
+> **Task:** Add an ASGI coexistence gateway so new JSON APIs can be written in FastAPI without disrupting the Flask UI. `FASTAPI_IMPLEMENTATION_PLAN.md` is the working doc.
+
+**Phase 1 — Coexistence bootstrap:** Added `fastapi>=0.115`, `uvicorn[standard]>=0.30`, `asgiref>=3.8`, `a2wsgi>=1.10.10` to `pyproject.toml` `[project.optional-dependencies] api`. Created `asgi.py` — a FastAPI app mounting the Flask app via `a2wsgi.WSGIMiddleware` at `/`. Added `app/api/` package:
+- `app/api/__init__.py` — `create_asgi_app()` factory (FastAPI + CORS + middleware + router)
+- `app/api/deps.py` — `get_db()` (standalone `Session` from `DATABASE_URL`), `get_flag()`, `get_rag_pipeline()`
+- `app/api/routers.py` — `APIRouter` at `/api/v2/*`, delegating all logic to existing Flask services
+
+**Phase 2 — Shared config + DB session:** `deps.py` provides a standalone SQLAlchemy `Session` factory so FastAPI routes don't need a Flask app context. Config driven by env vars (no new `pydantic-settings` dependency).
+
+**Phase 3 — Port low-risk endpoints:** Ported `GET /api/v2/search`, `POST /api/v2/search/reindex` (mirrors Flask `search_bp`), `POST /api/v2/ai-assistant/assist` (Phase 20 plugin registry).
+
+**Phase 4 — Security + bill lookup:** `SecurityHeadersMiddleware` (nosniff/DENY/referrer/HSTS) + `ApiKeyAuthMiddleware` (`x-api-key` vs `API_V2_KEY`). Added `GET /api/v2/bill/lookup-fbo-issues` (mirrors `bill_generator.lookup_fbo-issues`).
+
+**Phase 5 — Cut-over:** `render.yaml` `startCommand: uvicorn asgi:app` (Flask worker stays). OpenAPI scoped to `/api/v2/docs`. Flask parity tests pass — Flask routes still served via WSGIMiddleware at `/`.
+
+**Phase 6 (deferred):** Full FastAPI rewrite of all Flask routes. Deferred per AGENTS.md §1.2 (Flask UI stays).
+
+**Routes (`/api/v2/*`):** `GET /health`, `GET /search`, `POST /search/reindex`, `POST /ai-assistant/assist`, `GET /bill/lookup-fbo-issues`, `POST /rag/generate`, `POST /rag/retrieve`, `POST /rag/eval`, `POST /rag/ingest`, `POST /rag/ingest/corpus`, `POST /rag/query/agent`, `POST /rag/query/agent/resume`, `POST /validation/validate`.
+
+**Env vars:** `API_V2_KEY` (optional; unset = open in dev), RAG feature flags already in `.env.example`.
+
+**Tests:** `tests/test_asgi_py.py` — **50/50 pass**. `ruff check` + `ruff format --check` clean. No regressions.
+
+---
+
+### ENV-12: FastAPI gateway (ASGI coexistence) — ✅ DONE (2026-08-19)
+
+> **Task:** Add a FastAPI ASGI gateway that coexists with Flask for new JSON API endpoints, per `FASTAPI_IMPLEMENTATION_PLAN.md`.
+
+`API_V2_KEY=set_this_in_production` # Optional API key for /api/v2/*; unset = open (dev mode)
 
 > **Task:** Implement the LangGraph agent layer from `docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md` Part C — a self-correcting RAG pipeline with a conditional groundedness retry loop, behind an opt-in flag.
 
