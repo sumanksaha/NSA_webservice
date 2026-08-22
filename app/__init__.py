@@ -441,6 +441,17 @@ def create_app(db_uri: str | None = None):
 
     app.register_blueprint(rag_bp)
 
+    # OCR pipeline Phases B–E (review workflow, conflicts, autopopulation, feedback)
+    from app.autopopulation import autopopulation_bp
+    from app.conflict_resolution import conflict_resolution_bp
+    from app.feedback_dashboard import feedback_dashboard_bp
+    from app.ocr_extraction import ocr_extraction_bp
+
+    app.register_blueprint(ocr_extraction_bp, url_prefix="/ocr")
+    app.register_blueprint(conflict_resolution_bp, url_prefix="/conflict-resolution")
+    app.register_blueprint(autopopulation_bp, url_prefix="/autopopulation")
+    app.register_blueprint(feedback_dashboard_bp, url_prefix="/feedback-dashboard")
+
     # Phase 20: Register default plugin providers (OCR, AI, Rules, PDF)
     # Lazy-imported so the app boots without optional deps (torch, httpx, etc.)
     from app.plugins import register_default_plugins

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}OCR Documents — Review Queue{% endblock %}
+{% block content %}
+<div class="container">
+  <h1><i class="fa-solid fa-file-lines"></i> OCR Documents</h1>
+  <p class="text-muted">Extracted documents awaiting review. Open one to inspect and correct extracted fields.</p>
+  {% if docs %}
+  <table class="table table-striped">
+    <thead>
+      <tr><th>File</th><th>Status</th><th>Pages</th><th>Sample</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for doc in docs %}
+      <tr>
+        <td>{{ doc.file_name }}</td>
+        <td><span class="badge bg-secondary">{{ doc.status }}</span></td>
+        <td>{{ doc.page_count or 1 }}</td>
+        <td>{{ doc.sample_id or "—" }}</td>
+        <td>{{ doc.created_at.strftime("%Y-%m-%d %H:%M") if doc.created_at }}</td>
+        <td><a class="btn btn-sm btn-primary" href="{{ url_for('ocr_extraction.review', doc_id=doc.id) }}">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="alert alert-info">No OCR documents yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

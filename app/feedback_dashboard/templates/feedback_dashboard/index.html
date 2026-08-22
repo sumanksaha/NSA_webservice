@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}OCR Feedback Dashboard{% endblock %}
+{% block content %}
+<div class="container">
+  <h1><i class="fa-solid fa-arrow-rotate-left"></i> OCR Feedback Dashboard</h1>
+  <p class="text-muted">Per-field extraction accuracy derived from human corrections.
+     Low-accuracy fields are injected as few-shot examples into the Vision-LLM prompts.</p>
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card text-center"><div class="card-body">
+        <h3>{{ metrics.total_documents }}</h3>
+        <p class="text-muted mb-0">Documents extracted</p>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center"><div class="card-body">
+        <h3>{{ metrics.few_shot_examples }}</h3>
+        <p class="text-muted mb-0">Few-shot examples on file</p>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center"><div class="card-body">
+        <h3>{{ metrics.fields | length }}</h3>
+        <p class="text-muted mb-0">Fields tracked</p>
+      </div></div>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('feedback_dashboard.refresh_examples') }}" class="mb-4">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-database"></i> Rebuild Few-Shot Examples</button>
+  </form>
+
+  <h2>Field Accuracy</h2>
+  <table class="table table-striped">
+    <thead><tr><th>Field</th><th>Corrections</th><th>Accuracy</th></tr></thead>
+    <tbody>
+      {% for name, stats in metrics.fields.items() %}
+      <tr>
+        <td><code>{{ name }}</code></td>
+        <td>{{ stats.corrections }}</td>
+        <td>
+          {% if stats.accuracy >= 0.9 %}
+            <span class="badge bg-success">{{ (stats.accuracy * 100) | round(1) }}%</span>
+          {% elif stats.accuracy >= 0.7 %}
+            <span class="badge bg-warning text-dark">{{ (stats.accuracy * 100) | round(1) }}%</span>
+          {% else %}
+            <span class="badge bg-danger">{{ (stats.accuracy * 100) | round(1) }}%</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="text-muted">No corrections recorded yet — accuracy baseline is clean.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if worst_fields %}
+  <h2 class="mt-4">Needs Attention</h2>
+  <ul>
+    {% for w in worst_fields %}<li><code>{{ w.field }}</code> — {{ w.corrections }} correction(s)</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

@@ -55,7 +55,7 @@ class EasyOCRPlugin(OCRProvider):
 
         combined_text = "\n\n".join(texts)
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-        engine = results[0].ocr_engine_used if results else "unknown"
+        engine = getattr(results[0], "ocr_engine_used", None) or "easyocr"
 
         return OCRResult(
             text=combined_text,

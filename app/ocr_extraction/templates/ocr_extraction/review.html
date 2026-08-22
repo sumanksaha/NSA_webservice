@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Review — {{ doc.file_name }}{% endblock %}
+{% block content %}
+<div class="container">
+  <h1><i class="fa-solid fa-pen-to-square"></i> Review: {{ doc.file_name }}</h1>
+  <p class="text-muted">Status: {{ doc.status }} · Pages: {{ doc.page_count or 1 }} · Sample: {{ doc.sample_id or "—" }}
+     · <a href="{{ url_for('ocr_extraction.document_list') }}">back to queue</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <h2 class="mt-4">Extracted Fields</h2>
+  <form method="post" action="{{ url_for('ocr_extraction.submit_corrections', doc_id=doc.id) }}">
+    <table class="table">
+      <thead><tr><th>Field</th><th>Value (editable)</th><th>Confidence</th></tr></thead>
+      <tbody>
+        {% for name, value in fields.items() %}
+        <tr>
+          <td><code>{{ name }}</code></td>
+          <td>
+            <input class="form-control" type="text" name="field:{{ name }}" value="{{ value }}">
+          </td>
+          <td>{{ confidence.get(name, "—") }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-muted">No fields extracted.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Corrections</button>
+  </form>
+
+  <h2 class="mt-5">Lab Test Parameters</h2>
+  <table class="table table-striped">
+    <thead><tr><th>Parameter</th><th>Standard</th><th>Observed</th><th>Unit</th><th>Source</th></tr></thead>
+    <tbody>
+      {% for p in lab_params %}
+      <tr>
+        <td>{{ p.parameter_name }}</td>
+        <td>{{ p.standard_value or "—" }}</td>
+        <td>{{ p.observed_value or "—" }}</td>
+        <td>{{ p.unit or "" }}</td>
+        <td>{{ p.source_authority or "—" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted">No lab parameters extracted.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <details class="mt-4">
+    <summary>Raw extracted text</summary>
+    <pre class="border rounded p-2 bg-light" style="white-space: pre-wrap;">{{ extracted_text }}</pre>
+  </details>
+</div>
+{% endblock %}

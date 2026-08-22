@@ -30,6 +30,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (2026-08-22)
 
+#### OCR Pipeline Phases B-E (Extraction -> Review -> Autopopulation -> Feedback)
+
+- **Phase B Review Workflow**: pp/ocr_extraction/ blueprint (GET /ocr/documents,
+  GET /ocr/documents/<id>/review, POST .../corrections) - manual edits write
+  OCRCorrection rows and update extracted_json; corrections disagreeing with
+  lab-report values open ConflictLog entries. pp/conflict_resolution/ queue
+  at /conflict-resolution/ resolves them (chosen value applied as a correction).
+- **Phase C Autopopulation**: pp/autopopulation/ - verified-record builder
+  (Sample + reviewed OCR + lab params), per-consumer prefill bundles via
+  MAPPINGS (GET /autopopulation/prefill/<sample_id>), and idempotent
+  auto-drafting of FBO issues for non-conforming lab reports.
+- **Phase D Feedback Loop**: pp/feedback_dashboard/ - per-field accuracy from
+  correction history + few-shot example store (
+efresh_few_shot_examples
+  Celery task / dashboard trigger).
+- **Phase E Bulk Upload**: POST /ocr/bulk-upload - ZIP batches processed per-PDF
+  (async when Celery is configured, sync fallback otherwise), SHA-256 dedupe,
+  per-file failure isolation.
+- **Bug fix**: EasyOCR plugin crashed on every extraction
+  (OCRResult has no attribute ocr_engine_used) - extractions silently returned
+  empty text; now falls back to the engine name.
+- Shared persistence extracted to pp/ocr_pipeline/persistence.py so the async
+  task and bulk path cannot drift. Tests: review (14), autopopulation (14),
+  feedback (8), bulk upload (9); Phase A suite 14/14 still green.
+
+
 #### Phase 15 — Analytics Dashboard
 
 - **`app/analytics/`** blueprint at `/analytics`: interactive dashboard

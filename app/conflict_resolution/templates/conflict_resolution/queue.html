@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Conflict Resolution Queue{% endblock %}
+{% block content %}
+<div class="container">
+  <h1><i class="fa-solid fa-code-branch"></i> Conflict Resolution Queue</h1>
+  <p class="text-muted">Competing values for the same field from different sources. Pick the authoritative value — it is written back into the extraction record.</p>
+
+  {% if conflicts %}
+  {% for c in conflicts %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <strong>{{ c.field_name }}</strong>
+      · doc <code>{{ c.ocr_document_id[:8] }}</code>
+      {% if c.sample_id %}· sample #{{ c.sample_id }}{% endif %}
+    </div>
+    <div class="card-body">
+      {% for v in c.values %}
+      <form class="d-flex align-items-center gap-2 mb-1" method="post"
+            action="{{ url_for('conflict_resolution.resolve', conflict_id=c.id) }}">
+        <span class="badge bg-secondary">{{ v.source }}</span>
+        <input class="form-control form-control-sm" type="text" name="resolved_value" value="{{ v.value }}">
+        <button type="submit" class="btn btn-sm btn-outline-primary">Use this</button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> No unresolved conflicts.</div>
+  {% endif %}
+</div>
+{% endblock %}
