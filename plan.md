@@ -68,7 +68,7 @@
 
 | Phase   | Feature                                                                                                                  | Status |
 | ------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
-| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ⚠️     | **Phase A foundation ✅** (models+migration+services+task, 14 tests); Phases B–E pending                                                                                                                                                                                                                                                    |
+| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ✅ | Phase A foundation + **Phases B–E complete (2026-08-22)** — review workflow (`/ocr`), conflict-resolution queue, autopopulation prefill + FBO-issue auto-drafting, feedback dashboard with few-shot loop, ZIP bulk upload; EasyOCR plugin extraction bug fixed. Tests: review 14, autopopulation 14, feedback 8, bulk 9 + Phase A 14 |
 | **F**   | Food Cell DO Intimation — automated DO letter generation, PDF export, and forwarding after FSO sample save               | ✅     | `app/food_cell/` blueprint; `DoIntimation` model; `generate_and_forward_do_intimation()` service; Celery `send_do_intimation` task; post-save trigger in `app/sample/routes.py`; routes: PDF download, HTML view, status, regenerate; best-effort sync to Sheets + Airtable + Excel; `add_food_cell_do_intimation` migration; 15 tests pass |
 
 ---
