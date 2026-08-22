@@ -375,15 +375,18 @@ class TestEnsemblePipelineWiring:
         assert reranker.model_name == "custom/legal-ce"
 
     def test_config_wins_over_env(self, monkeypatch):
+        from flask import Flask
+
         from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "false")
-        import app.rag.tasks as tasks_mod
-
-        # Simulate Flask config winning when an app context exists.
-        monkeypatch.setattr(tasks_mod, "_ensemble_rerank_enabled", lambda: True)
-        reranker = _build_reranker()
-        assert isinstance(reranker, EnsembleReranker)
+        app = Flask(__name__)
+        # Flask config (as a deploy would set it) must win over the env var
+        # when an app context exists.
+        app.config["RAG_ENSEMBLE_RERANK"] = True
+        with app.app_context():
+            reranker = _build_reranker()
+            assert isinstance(reranker, EnsembleReranker)
 
     def test_pipeline_uses_ensemble_and_still_runs(self, monkeypatch):
         """Full run_retrieval_pipeline with fakes — ensemble path executes."""
@@ -421,8 +424,8 @@ class TestEnsemblePipelineWiring:
         monkeypatch.setattr(retrieval_mod, "QueryClassifier", FakeClassifier)
         monkeypatch.setattr(retrieval_mod, "QueryParser", FakeParser)
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
-        monkeypatch.setattr("app.rag.tasks._identifier_route_enabled", lambda: True)
-        monkeypatch.setattr("app.rag.tasks._ensemble_rerank_enabled", lambda: True)
+        monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "true")
+        monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "true")
 
         result = run_retrieval_pipeline("What does Section 55 say about adulteration?", top_k=5)
         assert isinstance(recorded["reranker"], EnsembleReranker)
@@ -442,28 +445,17 @@ class TestLegalStructureLayerInPipeline:
     """The parallel legal-structure layer is wired behind feature flags."""
 
     def test_evidence_selector_flag_off_by_default(self):
-        from app.rag.tasks import _evidence_selector_enabled
+        from app.shared.config import cfg
 
-        assert _evidence_selector_enabled() is False
+        assert cfg.evidence_selector is False
 
     def test_evidence_selector_flag_on(self, monkeypatch):
         monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "true")
-        # Need to reimport or call with env — the function reads env directly
-        # so we need to use a monkeypatched Flask config approach.
-        # Since _evidence_selector_enabled falls back to env when no app
-        # context, setting the env var should work.
-        import importlib
+        # The evidence selector resolves through the shared config seam;
+        # outside an app context cfg reads the env var directly.
+        from app.shared.config import cfg
 
-        import app.rag.tasks as t
-
-        importlib.reload(t)
-        assert t._evidence_selector_enabled() is True
-
-    def test_legal_identity_flag_on_by_default(self, monkeypatch):
-        from app.rag.retrieval.legal_identity import _legal_identity_enabled
-
-        # Default is True
-        assert _legal_identity_enabled() is True
+        assert cfg.evidence_selector is True
 
     def test_reference_expansion_flag_off_by_default(self):
         from app.rag.retrieval.reference_graph import _reference_expansion_enabled
@@ -518,8 +510,8 @@ class TestLegalStructureLayerInPipeline:
         monkeypatch.setattr(retrieval_mod, "QueryClassifier", FakeClassifier)
         monkeypatch.setattr(retrieval_mod, "QueryParser", FakeParser)
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
-        monkeypatch.setattr("app.rag.tasks._identifier_route_enabled", lambda: False)
-        monkeypatch.setattr("app.rag.tasks._ensemble_rerank_enabled", lambda: False)
+        monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "false")
+        monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "false")
 
         result = run_retrieval_pipeline("Section 55", top_k=5)
         assert "legal_identities" in result

@@ -25,6 +25,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.shared.config import cfg
+
 # --------------------------------------------------------------------------- #
 # Section / sub-structure parsing
 # --------------------------------------------------------------------------- #
@@ -250,17 +252,8 @@ def chunk_identity(chunk: Any) -> LegalIdentity:
 
 
 def _legal_identity_enabled() -> bool:
-    """Check if legal identity parsing is enabled via env / Flask config."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_LEGAL_IDENTITY", True))
-    except Exception:
-        pass
-    import os
-
-    return os.environ.get("ENABLE_LEGAL_IDENTITY", "true").lower() != "false"
+    """Check if legal identity parsing is enabled (shared config seam)."""
+    return cfg.legal_identity
 
 
 # --------------------------------------------------------------------------- #

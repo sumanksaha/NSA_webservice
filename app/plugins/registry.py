@@ -14,8 +14,9 @@ via :meth:`PluginRegistry.get_active`, which reads Flask config keys
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, ClassVar
+
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -116,22 +117,10 @@ class PluginRegistry:
         active_name = self._active.get(category)
 
         if active_name is None:
-            # Try Flask config (lazy — only works inside app context)
+            # Config/env/default resolution delegated to the shared seam
+            # (create_app seeds every declared env var into Flask config).
             config_key = _CONFIG_KEY_TEMPLATE.format(category=category.upper())
-            try:
-                from flask import current_app
-
-                active_name = current_app.config.get(config_key)
-            except (RuntimeError, ImportError):
-                pass
-
-            # Fall back to env var
-            if not active_name:
-                active_name = os.environ.get(config_key)
-
-            # Fall back to built-in default
-            if not active_name:
-                active_name = _DEFAULT_ACTIVE.get(category, "")
+            active_name = cfg.get_str(config_key) or _DEFAULT_ACTIVE.get(category, "")
 
         return self.get(category, active_name)
 

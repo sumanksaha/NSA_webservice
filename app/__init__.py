@@ -104,7 +104,15 @@ def _load_or_create_production_secret_key(app: Flask) -> str:
     return secrets.token_hex(32)
 
 
-def create_app():
+def create_app(db_uri: str | None = None):
+    """Application factory.
+
+    Parameters
+    ----------
+    db_uri:
+        Optional explicit SQLAlchemy database URI. When given it overrides
+        ``DATABASE_URL`` — used by tests that need an isolated database.
+    """
     app = App(__name__)
 
     # Load environment variables from .env file before any config
@@ -157,9 +165,12 @@ def create_app():
     app.config["SECRET_KEY"] = secret_key
 
     # Database configuration - PostgreSQL primary, SQLite fallback
+    # An explicit ``db_uri`` argument (tests) wins over the environment.
     db_path = Path(app.instance_path) / "app.db"
     database_url = os.environ.get("DATABASE_URL")
-    if database_url:
+    if db_uri:
+        app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
+    elif database_url:
         # Normalize postgres:// to postgresql:// for SQLAlchemy compatibility
         # (Render still issues the old postgres:// scheme)
         if database_url.startswith("postgres://"):
@@ -186,7 +197,6 @@ def create_app():
     # Priority 7 — Multi-Target Sheets Redundancy configuration
     app.config["AIRTABLE_API_KEY"] = os.environ.get("AIRTABLE_API_KEY")
     app.config["AIRTABLE_BASE_ID"] = os.environ.get("AIRTABLE_BASE_ID")
-    app.config["ENABLE_AIRTABLE_SYNC"] = os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
 
     # Microsoft Excel Online configuration (Priority 7)
     app.config["MS_TENANT_ID"] = os.environ.get("MS_TENANT_ID")
@@ -194,7 +204,6 @@ def create_app():
     app.config["MS_CLIENT_SECRET"] = os.environ.get("MS_CLIENT_SECRET")
     app.config["MS_DRIVE_ID"] = os.environ.get("MS_DRIVE_ID")
     app.config["MS_SPREADSHEET_ID"] = os.environ.get("MS_SPREADSHEET_ID")
-    app.config["ENABLE_EXCEL_SYNC"] = os.environ.get("ENABLE_EXCEL_SYNC", "false").lower() == "true"
 
     # ------------------------------------------------------------------
     # Phase 11: AI Assistant configuration
@@ -205,177 +214,15 @@ def create_app():
     app.config["AI_ASSISTANT_MODEL"] = os.environ.get("AI_ASSISTANT_MODEL")
 
     # ------------------------------------------------------------------
-    # Phase B: RAG (Retrieval / Generation / Evaluation) configuration
+    # RAG configuration - single configuration seam (app/shared/config.py).
+    # Every declared setting is seeded below from env (or its declared
+    # default), so soft readers (current_app.config.get) inside an app
+    # context see exactly what out-of-context callers resolve under
+    # Pattern A. Never hand-roll os.environ resolvers here again.
     # ------------------------------------------------------------------
-    app.config["RAG_ENABLED"] = os.environ.get("RAG_ENABLED", "true").lower() == "true"
-    app.config["RAG_QDRANT_URL"] = os.environ.get("RAG_QDRANT_URL", "")
-    app.config["RAG_QDRANT_API_KEY"] = os.environ.get("RAG_QDRANT_API_KEY", "")
-    app.config["RAG_QDRANT_COLLECTION"] = os.environ.get("RAG_QDRANT_COLLECTION", "fssai_legal_768")
-    # Multi-domain RAG collections (Phase 1 — de-FSSAI, 2026-08-10): per-domain
-    # collection overrides consulted by app/rag/collections.collection_for_domain.
-    # Defaults mirror the multi-domain manifest; the FSSAI corpus stays on
-    # RAG_QDRANT_COLLECTION.
-    app.config["RAG_QDRANT_COLLECTION_ENV"] = os.environ.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768")
-    app.config["RAG_QDRANT_COLLECTION_COMMERCIAL"] = os.environ.get(
-        "RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"
-    )
-    app.config["RAG_QDRANT_COLLECTION_ANIMAL"] = os.environ.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768")
-    app.config["RAG_QDRANT_COLLECTION_WB_STATE"] = os.environ.get(
-        "RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"
-    )
-    app.config["RAG_QDRANT_COLLECTION_CRIMINAL"] = os.environ.get(
-        "RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"
-    )
-    app.config["RAG_VECTOR_SIZE"] = int(os.environ.get("RAG_VECTOR_SIZE", "768"))
-    app.config["RAG_EMBEDDING_MODEL"] = os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
-    app.config["RAG_RERANKER_MODEL"] = os.environ.get("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-    # Torch thread cap for RAG inference (embedding + CE reranking).  On
-    # laptops the torch default (one thread per core) pegs every core during
-    # a single query; 4 threads is the measured sweet spot (i5-1135G7 class)
-    # and leaves the machine usable while a query runs.
-    try:
-        app.config["RAG_TORCH_THREADS"] = int(os.environ.get("RAG_TORCH_THREADS", "4"))
-    except ValueError:
-        app.config["RAG_TORCH_THREADS"] = 4
-    # BM25 sparse (hybrid) retrieval — local fastembed "Qdrant/bm25" vectors.
-    # On: new collections are created with a named sparse vector and ingestion
-    #     embeds it; existing dense-only collections keep working (dense-only)
-    #     until recreated.
-    app.config["RAG_ENABLE_SPARSE"] = os.environ.get("RAG_ENABLE_SPARSE", "true").lower() == "true"
-    app.config["RAG_SPARSE_MODEL"] = os.environ.get("RAG_SPARSE_MODEL", "Qdrant/bm25")
-    # When true, the production ingestion pipeline (make_ingestion_pipeline)
-    # wires the full Phase 2 adapter chain (metadata / citation / crossref /
-    # quality) in addition to the always-on DocumentClassifier.
-    app.config["RAG_FULL_ENRICHMENT"] = os.environ.get("RAG_FULL_ENRICHMENT", "false").lower() == "true"
-    # LLM model for grounded RAG generation (OpenRouter free tier).
-    # Overrides the GroundedLLMClient default when set.
-    app.config["RAG_LLM_MODEL"] = os.environ.get("RAG_LLM_MODEL")
-    # KG graph expansion (Option F — 2026-08-11): when true, the generation
-    # pipeline expands retrieved chunk IDs through the Neo4j legal KG into
-    # structured legal context (provisions, domains, temporal status).
-    # Best-effort — a missing/unreachable Neo4j degrades to no expansion.
-    app.config["RAG_KG_EXPANSION"] = os.environ.get("RAG_KG_EXPANSION", "false").lower() == "true"
-    # Legal-identifier route (2026-08-13): build a lexical "{Act} section {N}"
-    # query from identifiers detected in the question and run it through the
-    # sparse retriever as a parallel additive arm fused with dense+sparse RRF.
-    # Validated by the V5/V5.5 evaluation arc (+13.3pp candidate-pool ceiling;
-    # pool 100% after the section-stamp backfill).  Default true — pure lexical
-    # retrieval, no external dependency.  Set RAG_IDENTIFIER_ROUTE=false to
-    # disable.
-    app.config["RAG_IDENTIFIER_ROUTE"] = os.environ.get("RAG_IDENTIFIER_ROUTE", "true").lower() != "false"
-    # sec_act + cross-encoder ensemble reranker (2026-08-14, validated by the
-    # CE_RERANK_REVIEW): when true, retrieval ranking uses the deterministic
-    # sec_act legal features as primary (strongest single reranker measured:
-    # R@10 0.474 on the P1 head) with the cross-encoder scored only on the
-    # post-sec_act top-K head as a complementary second opinion (union any-hit
-    # R@10 62.0% vs 56.7%).  The deterministic half needs no external
-    # dependency; the CE half degrades to features-only when unavailable.
-    # Set RAG_ENSEMBLE_RERANK=false for the plain (cross-encoder-or-BM25)
-    # Reranker.
-    app.config["RAG_ENSEMBLE_RERANK"] = os.environ.get("RAG_ENSEMBLE_RERANK", "true").lower() != "false"
-    # How many post-sec_act chunks the cross-encoder scores (latency bound).
-    # Validated by the CE weight/head sweep (2026-08-09): h=30 yields the best
-    # R@10=0.4267 (+5.1pp over h=20's 0.3761 at w=0.5); weight tuning within
-    # h=30 plateaus at 0.4267 for w=0.5-0.8, so weight stays at 0.5.
-    try:
-        app.config["RAG_ENSEMBLE_CE_HEAD"] = int(os.environ.get("RAG_ENSEMBLE_CE_HEAD", "30"))
-    except ValueError:
-        app.config["RAG_ENSEMBLE_CE_HEAD"] = 30
-    # Bonus weight applied to the normalized CE scores on the head.
-    try:
-        app.config["RAG_ENSEMBLE_CE_WEIGHT"] = float(os.environ.get("RAG_ENSEMBLE_CE_WEIGHT", "0.5"))
-    except ValueError:
-        app.config["RAG_ENSEMBLE_CE_WEIGHT"] = 0.5
-    # Remote cross-encoder hosting (docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md
-    # Part B): when RAG_RERANKER_ENDPOINT is set, the ensemble reranker's CE
-    # head is scored via a TEI (text-embeddings-inference) /rerank HTTP endpoint
-    # (HF Docker Space / Inference Endpoint) instead of a local torch model.
-    # The endpoint is a drop-in for the local encoder — the sec_act feature
-    # half and all reranker scoring logic are unchanged.  Empty endpoint ⇒
-    # local CE as before.
-    app.config["RAG_RERANKER_ENDPOINT"] = os.environ.get("RAG_RERANKER_ENDPOINT", "")
-    app.config["RAG_RERANKER_TOKEN"] = os.environ.get("RAG_RERANKER_TOKEN", "")
-    try:
-        app.config["RAG_RERANKER_TIMEOUT"] = float(os.environ.get("RAG_RERANKER_TIMEOUT", "5"))
-    except ValueError:
-        app.config["RAG_RERANKER_TIMEOUT"] = 5.0
-    # Remote CE backend: "tei" (default — TEI /rerank, one batched POST per
-    # query) or "serverless" (HF Serverless Inference API — per-pair [SEP]
-    # requests, free tier, no Docker Space / Endpoint needed).  Ignored when
-    # RAG_RERANKER_ENDPOINT is empty.
-    app.config["RAG_RERANKER_MODE"] = os.environ.get("RAG_RERANKER_MODE", "tei")
-    # Fall back to the local CE (lazy — built only on first remote failure)
-    # when the remote endpoint errors.  False ⇒ remote failure degrades
-    # straight to sec_act features-only.
-    app.config["RAG_RERANKER_REMOTE_FALLBACK"] = (
-        os.environ.get("RAG_RERANKER_REMOTE_FALLBACK", "true").lower() != "false"
-    )
-    # Remote dense-embedding hosting (Modal / TEI-style /embed — see
-    # app/rag/retrieval/remote_embedder.py): when RAG_EMBED_ENDPOINT is set,
-    # DenseRetriever embeds queries over HTTP instead of loading
-    # all-mpnet-base-v2 + torch locally (Render free tier cannot hold them).
-    # The endpoint returns {"vectors": [...]} in the same embedding space as
-    # the local model, so retrieval logic is unchanged.  Empty ⇒ local encoder
-    # as before.  Ingestion-side embedding stays local (one-off scripts).
-    app.config["RAG_EMBED_ENDPOINT"] = os.environ.get("RAG_EMBED_ENDPOINT", "")
-    app.config["RAG_EMBED_TOKEN"] = os.environ.get("RAG_EMBED_TOKEN", "")
-    try:
-        app.config["RAG_EMBED_TIMEOUT"] = float(os.environ.get("RAG_EMBED_TIMEOUT", "5"))
-    except ValueError:
-        app.config["RAG_EMBED_TIMEOUT"] = 5.0
-    # Fall back to a local SentenceTransformer (lazy) when the remote embedder
-    # errors.  False ⇒ remote failure degrades to sparse-only — the required
-    # setting on Render free tier (a local torch build would OOM 512 MB).
-    app.config["RAG_EMBED_REMOTE_FALLBACK"] = os.environ.get("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
-    # Qdrant-side BM25 (server-side sparse inference, ``Qdrant/bm25``): when
-    # on, the sparse retriever sends the raw query text and the cluster
-    # computes the BM25 vector in-cluster — removing the last local model
-    # (fastembed) from the query path.  Verified live 2026-08-16 against the
-    # provisioned cluster; free on the free tier.  Requires qdrant-client
-    # >= 1.12 and a collection whose ``text_sparse`` vector has
-    # ``modifier: idf`` (both true for fssai_legal_768).  Default off — opt-in.
-    app.config["RAG_QDRANT_BM25"] = os.environ.get("RAG_QDRANT_BM25", "false").lower() == "true"
-    # KG contract fusion (2026-08-12, validated by the offline fusion
-    # experiment): when true, the generation pipeline runs the graph-RAG
-    # retrieval contract (query -> provisions via kg.queries.provisions_for_query)
-    # and RRF-fuses those provisions into the ranked context alongside the
-    # retrieved chunks — the production equivalent of eval arm G
-    # (RRF(dense, sparse, KG-contract)).  Best-effort: a missing/unreachable
-    # Neo4j degrades to no KG fusion.
-    app.config["RAG_KG_FUSION"] = os.environ.get("RAG_KG_FUSION", "false").lower() == "true"
-    # CE section-prefix for legal-identity signal (CV2 P1, 2026-08-18).
-    # When true, the cross-encoder reranker prefixes each passage with its
-    # legal identity (§<section> or §<clause>) before scoring — matching the
-    # training data format from `pairwise_dataset --section-prefix`.
-    app.config["RAG_CE_SECTION_PREFIX"] = os.environ.get("RAG_CE_SECTION_PREFIX", "false").lower() == "true"
-    # LangGraph agent pipeline (M3, docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md
-    # Part C): when true, POST /api/rag/query/agent runs the self-correcting
-    # graph (classify → retrieve → generate → verify → expand-and-retry on
-    # low groundedness).  Default false — the endpoint then delegates to the
-    # legacy pipeline, and /api/rag/query is never affected.
-    app.config["RAG_USE_AGENT_PIPELINE"] = os.environ.get("RAG_USE_AGENT_PIPELINE", "false").lower() == "true"
-    # M5 human-in-the-loop (2026-08-16): when true, the agent graph pauses
-    # at a review interrupt before finalize (POST /api/rag/query/agent → 202
-    # awaiting_review; POST /api/rag/query/agent/resume with approved bool).
-    # Default false — the graph runs end-to-end.  Requires a checkpointer
-    # for resume (RAG_AGENT_CHECKPOINTER).
-    app.config["RAG_AGENT_HITL"] = os.environ.get("RAG_AGENT_HITL", "false").lower() == "true"
-    # M5 checkpointer (2026-08-16): "memory" (default — MemorySaver, dev/
-    # tests, in-process only) or "postgres" (PostgresSaver against
-    # DATABASE_URL; requires langgraph-checkpoint-postgres + psycopg-binary).
-    app.config["RAG_AGENT_CHECKPOINTER"] = os.environ.get("RAG_AGENT_CHECKPOINTER", "memory").lower()
-    # Query-type-aware reranking (CE_RERANK_REVIEW, STEP 7): when true, the
-    # ensemble reranker classifies each query into a legal type (prohibition,
-    # authority, cross-reference, offence, etc.) and applies the matching
-    # per-type QueryTypeConfig weight overrides (e.g. prohibition → no
-    # hierarchy boost, authority → larger CE head).  Default true.
-    app.config["RAG_LEGAL_QUERY_TYPING"] = os.environ.get("RAG_LEGAL_QUERY_TYPING", "true").lower() != "false"
-    # Max KG provisions injected into the LLM context (each provision takes
-    # one context slot, displacing the tail of retrieved chunks).
-    try:
-        app.config["RAG_KG_MAX_PROVISIONS"] = int(os.environ.get("RAG_KG_MAX_PROVISIONS", "5"))
-    except ValueError:
-        app.config["RAG_KG_MAX_PROVISIONS"] = 5
+    from app.shared.config import seed_config_from_env
+
+    seed_config_from_env(app)
 
     # ------------------------------------------------------------------
     # Security headers & HTTPS enforcement via Flask-Talisman
@@ -585,6 +432,10 @@ def create_app():
     app.register_blueprint(ai_bp, url_prefix="/ai-assistant")
     # timeline_bp carries its own url_prefix ("/timeline") in the Blueprint.
     app.register_blueprint(timeline_bp)
+    # Analytics dashboard (Phase 15)
+    from app.analytics import analytics_bp
+
+    app.register_blueprint(analytics_bp, url_prefix="/analytics")
     # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
     from app.rag import rag_bp
 
@@ -677,6 +528,25 @@ def create_app():
 
         ensure_search_table()
 
+    # ------------------------------------------------------------------
+    # Auto-restore on empty database (Render free-tier rotation safety net):
+    # when AUTO_RESTORE_ON_EMPTY_DB=true and every mapped table has zero rows,
+    # replenish at boot — full ZIP archive from R2 first (complete fidelity),
+    # then the Airtable→Excel→Sheets CSV chain. Best-effort: any failure is
+    # logged and startup continues.
+    # ------------------------------------------------------------------
+    from app.shared.config import cfg
+
+    if cfg.auto_restore_on_empty_db:
+        with app.app_context():
+            try:
+                from app.utils.sync import auto_restore_if_empty
+
+                result = auto_restore_if_empty()
+                app.logger.info("Auto-restore on empty DB: %s", result)
+            except Exception as e:
+                app.logger.warning("Auto-restore failed (startup continues): %s", e)
+
     # FSO sync on startup - import and run sync in app context
     # This ensures FSO names are available as soon as the app starts
     # Can be skipped via SKIP_FSO_STARTUP_SYNC env var (e.g. for fresh-DB migrations)
@@ -698,37 +568,16 @@ def create_app():
     def root():
         return redirect(url_for("case_file_generator.index"))
 
-    # QStash daily backup schedule for Multi-Target Sheets Redundancy (Priority 7)
-    if os.environ.get("ENABLE_BACKUP_SCHEDULE", "false").lower() == "true":
-        try:
-            from app.utils.qstash_client import publish_recurring
+    # Scheduled background jobs - enumerable registry
+    # (app/services/scheduled_jobs.py). register_all reads enable-flags and
+    # cron expressions through cfg; tests can call it with a fake publisher.
+    from app.services.scheduled_jobs import register_all
 
-            result = publish_recurring(
-                "backup_redundant_sheets",
-                schedule="0 2 * * *",  # daily at 02:00 UTC
-                payload={},
-            )
-            app.logger.info("Registered daily backup schedule with QStash: %s", result)
-        except Exception as e:
-            app.logger.warning(f"QStash backup schedule registration failed: {e}")
-
-    # QStash daily corpus-ingestion schedule (Agent A Phase 1, Day 4).
-    # Dispatches rag.ingest_corpus_task against RAG_CORPUS_DIR. Requires
-    # QStash credentials (paid plan) — publish_recurring returns
-    # {"mode": "disabled"} gracefully when unconfigured.
-    rag_corpus_dir = os.environ.get("RAG_CORPUS_DIR")
-    if os.environ.get("RAG_ENABLE_INGESTION_SCHEDULE", "false").lower() == "true" and rag_corpus_dir:
-        try:
-            from app.utils.qstash_client import publish_recurring
-
-            result = publish_recurring(
-                "ingest_corpus",
-                schedule=os.environ.get("RAG_INGESTION_CRON", "0 3 * * *"),  # daily 03:00 UTC
-                payload={"corpus_dir": rag_corpus_dir},
-            )
-            app.logger.info("Registered daily RAG corpus-ingestion schedule with QStash: %s", result)
-        except Exception as e:
-            app.logger.warning(f"QStash RAG ingestion schedule registration failed: {e}")
+    for entry in register_all(app):
+        if entry["status"] == "registered":
+            app.logger.info("Scheduled job registered: %s -> %s", entry["job"], entry["result"])
+        else:
+            app.logger.warning("Scheduled job %s failed: %s", entry["job"], entry["error"])
 
     # Initialize Celery with Flask app context support
     # Lazy import to avoid ModuleNotFoundError in deployment environments

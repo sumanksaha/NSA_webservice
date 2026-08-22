@@ -21,7 +21,6 @@ All grouping is advisory — when in doubt, each chunk is its own family.
 from __future__ import annotations
 
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -220,6 +219,7 @@ def extract_provision_version(
     Returns:
         ``ProvisionVersion`` with all detectable fields populated.
     """
+
     # Resolve chunk attributes (support both objects and dicts)
     def _get(attr: str, default: str | None = None) -> str | None:
         val = getattr(chunk, attr, None)
@@ -242,6 +242,7 @@ def extract_provision_version(
     if not section and text:
         try:
             from app.rag.retrieval.identifier import detect_section
+
             sec, _ = detect_section(text)
             if sec:
                 section = sec
@@ -332,18 +333,6 @@ def is_current_version(
 # --------------------------------------------------------------------------- #
 
 
-def _provision_versions_enabled() -> bool:
-    """Check if provision version detection is enabled."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_PROVISION_VERSIONS", True))
-    except Exception:
-        pass
-    return os.environ.get("ENABLE_PROVISION_VERSIONS", "true").lower() != "false"
-
-
 # --------------------------------------------------------------------------- #
 # Self-check
 # --------------------------------------------------------------------------- #
@@ -389,4 +378,3 @@ if __name__ == "__main__":
     v = extract_provision_version(c1)
     assert v.is_current is True
     assert v.effective_from == "2020-01-01"
-

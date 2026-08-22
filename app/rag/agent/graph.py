@@ -34,20 +34,9 @@ from typing import Any
 
 from app.rag.agent.nodes import GROUNDEDNESS_THRESHOLD
 from app.rag.agent.state import RAGState
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
-
-
-def _evidence_enabled() -> bool:
-    """Resolve the ENABLE_EVIDENCE_SELECTOR flag (Flask config, else env)."""
-    try:
-        from flask import current_app, has_app_context
-
-        if has_app_context() and "ENABLE_EVIDENCE_SELECTOR" in current_app.config:
-            return bool(current_app.config["ENABLE_EVIDENCE_SELECTOR"])
-    except Exception:
-        pass
-    return os.environ.get("ENABLE_EVIDENCE_SELECTOR", "false").lower() == "true"
 
 
 def route_after_verify(state: RAGState) -> str:
@@ -85,30 +74,21 @@ def review_node(state: RAGState) -> dict[str, Any]:
     """
     from langgraph.types import interrupt
 
-    decision = interrupt(
-        {
-            "message": "Review the grounded answer before release.",
-            "query": state.get("query", ""),
-            "answer": state.get("answer", ""),
-            "groundedness": state.get("groundedness", 0.0),
-            "hallucination_detected": state.get("hallucination_detected", False),
-            "retry_count": state.get("retry_count", 0),
-        }
-    )
+    decision = interrupt({
+        "message": "Review the grounded answer before release.",
+        "query": state.get("query", ""),
+        "answer": state.get("answer", ""),
+        "groundedness": state.get("groundedness", 0.0),
+        "hallucination_detected": state.get("hallucination_detected", False),
+        "retry_count": state.get("retry_count", 0),
+    })
     approved = bool(decision.get("approved", True)) if isinstance(decision, dict) else bool(decision)
     return {"approved": approved}
 
 
 def _checkpointer_kind() -> str:
-    """Resolve ``RAG_AGENT_CHECKPOINTER`` (Flask config, else env)."""
-    try:
-        from flask import current_app, has_app_context
-
-        if has_app_context() and "RAG_AGENT_CHECKPOINTER" in current_app.config:
-            return str(current_app.config["RAG_AGENT_CHECKPOINTER"]).lower()
-    except Exception:
-        pass
-    return os.environ.get("RAG_AGENT_CHECKPOINTER", "memory").lower()
+    """Resolve ``RAG_AGENT_CHECKPOINTER`` via the shared config seam."""
+    return cfg.agent_checkpointer.lower()
 
 
 #: In-process MemorySaver singleton — shared across requests so a paused
@@ -199,7 +179,7 @@ def build_graph(
     builder.add_edge("classify", "retrieve")
 
     # Optional evidence node between retrieve and generate (feature-flagged).
-    if _evidence_enabled():
+    if cfg.evidence_selector:
         builder.add_node("evidence", nodes.evidence_node)
         builder.add_edge("retrieve", "evidence")
         builder.add_edge("evidence", "generate")

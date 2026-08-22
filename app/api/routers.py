@@ -46,50 +46,65 @@ class SearchResponse(BaseModel):
 
 @router.get("/search", response_model=SearchResponse)
 async def v2_search(
-    q: str = Query(..., min_length=1, description="Search terms."),
+    q: str = Query(default="", description="Search terms (stripped; empty returns no results)."),
     type: str | None = Query(default=None, description="Entity type filter."),
-    limit: int = Query(default=20, ge=1, le=100, description="Max results."),
+    limit: int = Query(default=20, description="Max results (capped at 100 like the Flask route)."),
     fuzzy: bool = Query(default=False, description="Force fuzzy matching."),
 ) -> Any:
     """JSON search API — mirrors Flask ``search_bp.api_search``.
 
     Delegates to ``app.search.indexer.search`` (SQLite FTS5 + rapidfuzz
     fuzzy fallback).  No DB session needed (FTS5 is self-contained).
+    Parameter handling mirrors the Flask route: ``q`` is stripped (empty →
+    empty result set, not an error) and ``limit`` is capped at 100.
     """
     from app.search.indexer import ENTITY_TYPES, search
 
+    q = q.strip()
     if type and type not in ENTITY_TYPES:
         return JSONResponse({"error": f"Invalid entity type: {type}"}, status_code=400)
 
+    limit = min(int(limit), 100)
     results = search(q, entity_type=type, limit=limit, fuzzy=fuzzy)
     fuzzy_used = fuzzy or bool(results and "score" in results[0])
 
     return {
+        "results": results,
         "query": q,
         "total": len(results),
         "fuzzy": fuzzy_used,
-        "results": results,
     }
 
 
 @router.post("/search/reindex")
 async def v2_search_reindex(request: Request) -> Any:
-    """Manually trigger a full re-index of the FTS5 table (mirrors Flask route)."""
-    if not get_flag("RAG_ENABLED"):
-        return JSONResponse({"error": "Search reindex is disabled."}, status_code=503)
-    try:
-        from app.search.indexer import index_all as search_index_all
-        from app.services.audit import log_audit
+    """Manually trigger a full re-index of the FTS5 table (mirrors Flask route).
 
-        count = search_index_all()
-        actor = "system"
-        log_audit(
-            entity_type="search",
-            entity_id="all",
-            action="index_rebuilt",
-            actor=actor,
-            details={"records_indexed": count},
-        )
+    No feature gate — FTS5 reindexing is a search concern, not RAG. The audit
+    actor is ``"system"`` here (no Flask session on this transport); the
+    dialect detail matches the Flask audit record via the shared helper.
+    """
+    try:
+        # ``index_all`` is context-free (FTS5), but ``log_audit`` writes through
+        # Flask-SQLAlchemy's session — that requires a Flask app context, which
+        # no ASGI request ever has. Without this wrapper the audit write raises
+        # ("Working outside of application context") and the endpoint 500s in
+        # production, not just in tests.
+        from app.api.deps import get_flask_app
+
+        with get_flask_app().app_context():
+            from app.search.indexer import dialect_name
+            from app.search.indexer import index_all as search_index_all
+            from app.services.audit import log_audit
+
+            count = search_index_all()
+            log_audit(
+                entity_type="search",
+                entity_id="all",
+                action="index_rebuilt",
+                actor="system",
+                details={"records_indexed": count, "dialect": dialect_name()},
+            )
         return {"status": "ok", "records_indexed": count}
     except Exception as exc:
         return JSONResponse({"status": "error", "error": str(exc)}, status_code=500)
@@ -102,50 +117,38 @@ class AssistRequest(BaseModel):
     action: str = Field(
         ..., description="One of: summarize, refine_legal, detect_contradictions, suggest_annexures, draft_prayers."
     )
-    content: str = Field(..., min_length=1, description="Text content to process.")
+    content: str = Field(default="", description="Text content to process (validated by the domain function).")
     context: dict[str, Any] | None = Field(
         default=None, description="Optional context for draft_prayers (facts/grounds)."
     )
-
-
-_ACTION_METHODS: dict[str, str] = {
-    "summarize": "summarize_text",
-    "refine_legal": "refine_legal_language",
-    "detect_contradictions": "detect_contradictions",
-    "suggest_annexures": "suggest_missing_annexures",
-    "draft_prayers": "draft_prayers",
-}
 
 
 @router.post("/ai-assistant/assist")
 async def v2_ai_assistant_assist(req: AssistRequest) -> Any:
     """Dispatch an AI action and return the result (mirrors Flask ``ai_bp.assist``).
 
-    Uses the Phase 20 plugin registry to resolve the active AI provider.
+    Delegates to ``app.ai_assistant.service.dispatch_ai_action`` — the same
+    domain function the Flask route uses, so calling conventions (notably
+    ``draft_prayers(facts, grounds)``) and list serialization cannot drift.
     Returns 503 when the AI service is not configured (no API key).
     """
-    if req.action not in _ACTION_METHODS:
-        return JSONResponse(
-            {"error": (f"Invalid action. Must be one of: {', '.join(sorted(_ACTION_METHODS))}.")},
-            status_code=400,
-        )
-
+    from app.ai_assistant.service import dispatch_ai_action
     from app.plugins.registry import PluginRegistry
 
     service = PluginRegistry.get_instance().get_active("ai")
-    if not service.is_enabled():
-        return JSONResponse({"error": "AI Assistant is not configured."}, status_code=503)
 
-    method_name = _ACTION_METHODS[req.action]
-    method = getattr(service, method_name)
-    context = req.context or {}
-    result = method(req.content, **context)
-
-    return {
-        "result": result,
-        "tokens_used": getattr(service, "tokens_used", 0),
-        "action": req.action,
-    }
+    try:
+        return dispatch_ai_action(service, req.action, req.content, req.context or {})
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except RuntimeError as exc:
+        if "not configured" in str(exc):
+            return JSONResponse({"error": "AI Assistant is not configured."}, status_code=503)
+        logger.error("AI action '%s' failed: %s", req.action, exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    except Exception as exc:
+        logger.error("AI action '%s' raised unexpected error: %s", req.action, exc)
+        return JSONResponse({"error": "AI request failed."}, status_code=500)
 
 
 # --------------------------------------------------------------------------- #
@@ -170,67 +173,18 @@ async def v2_bill_lookup_fbo_issues(
     issue_id: int | None = Query(default=None, description="Specific issue ID."),
     db: Session = Depends(get_db),
 ) -> Any:
-    """Lookup open/permission_granted FBO issues for bill pre-fill (mirrors Flask route).
+    """Lookup open/permission_granted FBO issues for bill pre-fill.
 
-    Query params:
-        fbo_id   — required (or issue_id)
-        issue_id — optional, specific issue lookup
-
-    Returns JSON array of issues with pre-fill data for bill generation.
+    Thin adapter over ``app.bill_generator.lookup.lookup_fbo_issues`` — the
+    same domain function the Flask route uses, so the prefill schema (sample /
+    inspection / generic branches with full billing-form fields) cannot drift.
     """
-    from app.models.issue import FboIssue
-
     if not fbo_id and not issue_id:
         return JSONResponse({"error": "Either fbo_id or issue_id is required"}, status_code=400)
 
-    query = db.query(FboIssue).filter(FboIssue.state.in_(["open", "permission_granted"]))
+    from app.bill_generator.lookup import lookup_fbo_issues
 
-    if issue_id:
-        query = query.filter(FboIssue.id == issue_id)
-    elif fbo_id:
-        query = query.filter(FboIssue.fbo_id == fbo_id)
-
-    issues = query.order_by(FboIssue.created_at.desc()).all()
-
-    result = []
-    for issue in issues:
-        detail = None
-        if issue.detail_json:
-            try:
-                import json
-
-                detail = json.loads(issue.detail_json)
-            except Exception:
-                detail = issue.detail_json
-
-        item: dict[str, Any] = {
-            "issue_id": issue.id,
-            "fbo_id": issue.fbo_id,
-            "manufacturer_fbo_id": issue.manufacturer_fbo_id,
-            "fbo_name": issue.fbo_name,
-            "source_type": issue.source_type,
-            "state": issue.state,
-            "fso_name": issue.fso_name,
-            "created_at": issue.created_at,
-            "detail": detail,
-        }
-
-        if issue.source_type == "sample" and detail:
-            item["prefill"] = {
-                "Name": issue.fbo_name,
-                "EMP_ID": issue.fso_name,
-            }
-            if issue.manufacturer_fbo_id:
-                item["prefill"]["manufacturer_fbo_id"] = issue.manufacturer_fbo_id
-        elif issue.source_type == "inspection" and detail:
-            item["prefill"] = {
-                "Name": issue.fbo_name,
-                "EMP_ID": issue.fso_name,
-            }
-
-        result.append(item)
-
-    return result
+    return lookup_fbo_issues(db, fbo_id=fbo_id, issue_id=issue_id)
 
 
 # --------------------------------------------------------------------------- #

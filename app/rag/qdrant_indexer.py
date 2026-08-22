@@ -33,6 +33,7 @@ from app.rag.chunker import Chunk, Chunker
 from app.rag.embedding_service import EmbeddingService
 from app.rag.qdrant_client import Point, QdrantStore
 from app.rag.sparse_embedding import SparseEmbeddingService
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -141,12 +142,7 @@ class QdrantIndexer:
         :meth:`_embed_sparse`) — so existing dense-only collections keep
         working unchanged until they are recreated.
         """
-        try:
-            from flask import current_app
-
-            return bool(current_app.config.get("RAG_ENABLE_SPARSE", True))
-        except Exception:
-            return True
+        return bool(cfg.enable_sparse)
 
     def ensure_collection(self, create_payload_indexes: bool = True) -> bool:
         """Create the configured collection (+ §5.1 payload indexes) if missing.
@@ -231,8 +227,7 @@ class QdrantIndexer:
                 ]
             else:
                 points = [
-                    Point(id=c.chunk_id, vector=v, payload=c.to_payload())
-                    for c, v in zip(chunks, vectors, strict=True)
+                    Point(id=c.chunk_id, vector=v, payload=c.to_payload()) for c, v in zip(chunks, vectors, strict=True)
                 ]
         except Exception as exc:
             # Covers embedding failures AND a mismatched vector/chunk count.
@@ -283,9 +278,7 @@ class QdrantIndexer:
             return None
         embedder = self._sparse_embedder or SparseEmbeddingService()
         if not embedder.is_available():
-            logger.warning(
-                "QdrantIndexer: fastembed unavailable — indexing dense-only (hybrid disabled)"
-            )
+            logger.warning("QdrantIndexer: fastembed unavailable — indexing dense-only (hybrid disabled)")
             return None
         try:
             return embedder.embed_chunks(chunks)

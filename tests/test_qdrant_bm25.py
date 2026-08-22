@@ -41,11 +41,24 @@ class TestSearchSparseText:
         points = [_point()]
         received = {}
 
-        def query_points(collection_name, query, limit=10, using=None, with_payload=True,
-                         with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def query_points(
+            collection_name,
+            query,
+            limit=10,
+            using=None,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             received.update(
-                collection_name=collection_name, query=query, limit=limit,
-                using=using, score_threshold=score_threshold, query_filter=query_filter,
+                collection_name=collection_name,
+                query=query,
+                limit=limit,
+                using=using,
+                score_threshold=score_threshold,
+                query_filter=query_filter,
             )
             return SimpleNamespace(points=points)
 
@@ -53,7 +66,9 @@ class TestSearchSparseText:
         store._models = False
         results = store.search_sparse_text(
             "penalty for selling substandard food",
-            top_k=4, score_threshold=0.5, filters={"document_type": "act"},
+            top_k=4,
+            score_threshold=0.5,
+            filters={"document_type": "act"},
         )
         assert received["collection_name"] == DEFAULT_COLLECTION
         assert received["query"] == {"text": "penalty for selling substandard food", "model": "Qdrant/bm25"}
@@ -61,7 +76,11 @@ class TestSearchSparseText:
         assert received["limit"] == 4
         assert received["score_threshold"] == 0.5
         assert received["query_filter"]["must"][0] == {"key": "document_type", "match": {"value": "act"}}
-        assert results[0] == {"id": "c1", "score": 18.4, "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"}}
+        assert results[0] == {
+            "id": "c1",
+            "score": 18.4,
+            "payload": {"document_id": "d1", "chunk_text": "text", "section_number": "55"},
+        }
 
     def test_real_models_uses_document(self):
         """Real client path: query is a models.Document with the BM25 model."""
@@ -80,8 +99,17 @@ class TestSearchSparseText:
     def test_no_filters_omits_query_filter(self):
         received = {}
 
-        def query_points(collection_name, query, limit=10, using=None, with_payload=True,
-                         with_vectors=False, score_threshold=None, query_filter=None, **kw):
+        def query_points(
+            collection_name,
+            query,
+            limit=10,
+            using=None,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=None,
+            query_filter=None,
+            **kw,
+        ):
             received.update(query_filter=query_filter)
             return SimpleNamespace(points=[])
 
@@ -106,10 +134,12 @@ class TestHybridSearchText:
         """Sparse prefetch is the raw text Document; fusion stays RRF."""
         received = {}
 
-        def query_points(collection_name, prefetch, query, limit=10, with_payload=True,
-                         with_vectors=False, query_filter=None, **kw):
-            received.update(collection_name=collection_name, prefetch=prefetch,
-                            query=query, limit=limit, query_filter=query_filter)
+        def query_points(
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+        ):
+            received.update(
+                collection_name=collection_name, prefetch=prefetch, query=query, limit=limit, query_filter=query_filter
+            )
             return SimpleNamespace(points=[_point()])
 
         store = QdrantStore(client=SimpleNamespace(query_points=query_points))
@@ -198,6 +228,7 @@ class TestSparseRetrieverServerBm25:
 
     def test_server_bm25_missing_method_degrades(self):
         """Store without search_sparse_text → rapidfuzz fallback, not a crash."""
+
         class _NoText:
             def has_sparse_vectors(self):
                 return True
@@ -266,11 +297,11 @@ class TestHybridRetrieverServerBm25:
 
 class TestQdrantBm25Flag:
     def test_env_flag(self, monkeypatch):
-        from app.rag.tasks import _qdrant_bm25_enabled
+        from app.shared.config import cfg
 
         monkeypatch.delenv("RAG_QDRANT_BM25", raising=False)
-        assert _qdrant_bm25_enabled() is False
+        assert cfg.qdrant_bm25 is False
         monkeypatch.setenv("RAG_QDRANT_BM25", "true")
-        assert _qdrant_bm25_enabled() is True
+        assert cfg.qdrant_bm25 is True
         monkeypatch.setenv("RAG_QDRANT_BM25", "false")
-        assert _qdrant_bm25_enabled() is False
+        assert cfg.qdrant_bm25 is False

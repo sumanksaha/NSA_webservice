@@ -14,10 +14,10 @@ pattern used by ``app/ai_assistant/service.py``.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +59,7 @@ class DenseRetriever:
         """Resolve the embedding model, reading from config lazily."""
         if self._embedding_model is not None:
             return self._embedding_model
-        from flask import current_app
-
-        return current_app.config.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
+        return cfg.embedding_model
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessors
@@ -150,37 +148,18 @@ class DenseRetriever:
         """
         if self._remote_embed is not None:
             return self._remote_embed
-        endpoint = self._embed_config("RAG_EMBED_ENDPOINT")
+        endpoint = cfg.embed_endpoint
         if not endpoint:
             return None
         from app.rag.retrieval.remote_embedder import RemoteEmbedClient
 
-        fallback = self._embed_config("RAG_EMBED_REMOTE_FALLBACK", "true").lower() != "false"
         self._remote_embed = RemoteEmbedClient(
             endpoint=endpoint,
-            token=self._embed_config("RAG_EMBED_TOKEN") or None,
-            timeout=float(self._embed_config("RAG_EMBED_TIMEOUT", "5") or 5.0),
-            # ``_embed_config`` (env fallback) instead of the ``embedding_model``
-            # property so this works outside an app context (unit tests).
-            local_model=(
-                self._embed_config("RAG_EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
-                if fallback
-                else None
-            ),
+            token=cfg.embed_token or None,
+            timeout=cfg.embed_timeout,
+            local_model=cfg.embedding_model if cfg.embed_remote_fallback else None,
         )
         return self._remote_embed
-
-    @staticmethod
-    def _embed_config(key: str, default: str = "") -> str:
-        """Read a RAG embed config from Flask config, else env var."""
-        try:
-            from flask import current_app
-
-            if current_app:
-                return str(current_app.config.get(key, default) or default)
-        except Exception:
-            pass
-        return os.environ.get(key, default)
 
     @staticmethod
     def _payload_to_chunk(point: Any) -> RetrievedChunk:

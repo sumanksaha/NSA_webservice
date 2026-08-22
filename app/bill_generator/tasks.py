@@ -4,7 +4,6 @@ Produces a bill PDF via WeasyPrint, saves it to disk, and returns
 metadata (file path, record ID, timestamp) — never raw PDF bytes.
 """
 
-import io
 import logging
 import os
 from datetime import UTC, datetime
@@ -36,7 +35,8 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
     are not retried (they will fail permanently).
     """
     from flask import render_template
-    from weasyprint import HTML
+
+    from app.utils.pdf_utils import generate_pdf_from_html
 
     generated_at = datetime.now(UTC)
 
@@ -53,13 +53,12 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
             f"Template render failed: {exc}",
         )
 
-    # ---- Compile PDF (permanent failure on WeasyPrint errors) ----
+    # ---- Compile PDF via the centralized PDF path (AGENTS.md §3.3) ----
+    # ``generate_pdf_from_html`` returns ``(pdf_bytes | None, error | None)``
+    # and never raises — failures come back as data. Permanent failure either way.
     try:
-        pdf_buffer = io.BytesIO()
-        HTML(string=rendered_html).write_pdf(pdf_buffer)
-        pdf_buffer.seek(0)
-        pdf_bytes = pdf_buffer.getvalue()
-    except Exception as exc:
+        pdf_bytes, pdf_error = generate_pdf_from_html(rendered_html)
+    except Exception as exc:  # defensive — the central path is documented non-raising
         logger.error("WeasyPrint failed for bill %s: %s", bill_id, exc)
         return _metadata(
             bill_id,
@@ -67,6 +66,15 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
             generated_at,
             "error",
             f"WeasyPrint failed: {exc}",
+        )
+    if pdf_bytes is None:
+        logger.error("WeasyPrint failed for bill %s: %s", bill_id, pdf_error)
+        return _metadata(
+            bill_id,
+            None,
+            generated_at,
+            "error",
+            f"WeasyPrint failed: {pdf_error}",
         )
 
     # ---- Write to disk (transient I/O → retry) ----

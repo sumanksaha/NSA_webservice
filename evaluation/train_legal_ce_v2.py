@@ -2,7 +2,7 @@
 
 Reuses :class:`evaluation.ranking_loss_trainer.MarginRankingLossTrainer`
 (no new architecture) to train the primary experiment model on the existing
-14,629-pair hard-negative dataset (``pairwise_training_v2.jsonl``) with:
+27,207-pair dataset (``pairwise_training_v2.jsonl``, expanded from 14,629 via P1 section-prefix + P4 domain-balancing) with:
 
     loss:       margin ranking loss (margin=1.0)
     curriculum: progressive T1 (random) -> T2 (semantic) -> T3 (adversarial)
@@ -174,6 +174,12 @@ def main() -> int:
         "(delete the checkpoint first to free disk space).",
     )
     parser.add_argument(
+        "--max-epochs",
+        type=int,
+        default=None,
+        help="Cap training at N epochs (--max-epochs 2 stops after epoch 2, useful if val_loss gap widens).",
+    )
+    parser.add_argument(
         "--save-every",
         type=int,
         default=25,
@@ -241,7 +247,7 @@ def main() -> int:
     result = trainer.train(
         train_pairs=train_pairs,
         val_pairs=val_pairs,
-        epochs=EPOCHS,
+        epochs=args.max_epochs or EPOCHS,
         lr=LR,
         batch_size=args.batch_size,
         loss_type="margin",
@@ -269,7 +275,9 @@ def main() -> int:
     }
     result["status_file"] = STATUS_FILE.as_posix()
     result["checkpoint_file"] = CHECKPOINT_FILE.as_posix()
-    result["dataset"] = "pairwise_training_v2.jsonl (14,629 pairs; whole-corpus offline mining)"
+    result["dataset"] = (
+        "pairwise_training_v2.jsonl (27,207 pairs; 14,629 base + P4-balanced; whole-corpus offline mining)"
+    )
     result["notes"] = (
         "legal_ce_v1 untouched (frozen control). Margin ranking loss + progressive "
         "curriculum T1(random)->T2(semantic)->T3(adversarial)."

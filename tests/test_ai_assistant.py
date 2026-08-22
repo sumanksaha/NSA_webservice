@@ -77,7 +77,7 @@ def _setup_unauthenticated_client():
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
 
-    client = app.test_client()  # No session_transaction — unauthenticated
+    client = app.test_client()  # No session_transaction â€” unauthenticated
     return app, client, app_context
 
 
@@ -284,7 +284,7 @@ class TestServiceErrors:
     def test_request_when_disabled_raises(self):
         """Calling _request when disabled raises RuntimeError."""
         app, _client, _ctx = _setup_test_env()
-        # Force unconfigured state — env may define AI creds on the dev box.
+        # Force unconfigured state â€” env may define AI creds on the dev box.
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = ""
         from app.ai_assistant.service import AIAssistantService
@@ -337,7 +337,7 @@ class TestAssistRoute:
     def test_not_configured_returns_503(self):
         """When AI is not configured, the route returns 503."""
         app, client, _ctx = _setup_test_env()
-        # Force unconfigured state — env may define AI creds on the dev box.
+        # Force unconfigured state â€” env may define AI creds on the dev box.
         app.config["AI_ASSISTANT_PROVIDER"] = ""
         app.config["AI_ASSISTANT_API_KEY"] = ""
         resp = client.post(
@@ -457,3 +457,95 @@ class TestAssistRoute:
         user_message = sent_body["messages"][1]["content"]
         assert "Fact 1." in user_message
         assert "Ground 1." in user_message
+
+
+# --------------------------------------------------------------------------- #
+# dispatch_ai_action â€” the shared domain function (Flask + /api/v2 transports)
+# --------------------------------------------------------------------------- #
+
+
+class _FakeService:
+    """Minimal provider stand-in satisfying the dispatch interface."""
+
+    def __init__(self, enabled: bool = True, tokens: int = 42):
+        self._enabled = enabled
+        self._tokens = tokens
+        self.calls: list[tuple] = []
+
+    def is_enabled(self) -> bool:
+        return self._enabled
+
+    @property
+    def tokens_used(self) -> int:
+        return self._tokens
+
+    def summarize_text(self, text, max_tokens=500):
+        self.calls.append(("summarize", text))
+        return f"summary of {text}"
+
+    def detect_contradictions(self, text):
+        self.calls.append(("contradictions", text))
+        return ["A conflicts with B"]
+
+    def suggest_missing_annexures(self, text):
+        self.calls.append(("annexures", text))
+        return ["Annexure C"]
+
+    def draft_prayers(self, facts, grounds):
+        self.calls.append(("prayers", facts, grounds))
+        return "1. Pray ..."
+
+
+class TestDispatchAiAction:
+    def test_happy_path_summarize(self):
+        from app.ai_assistant.service import dispatch_ai_action
+
+        svc = _FakeService()
+        data = dispatch_ai_action(svc, "summarize", "legal text")
+        assert data == {"result": "summary of legal text", "tokens_used": 42, "action": "summarize"}
+
+    def test_draft_prayers_uses_facts_and_grounds_positionally(self):
+        from app.ai_assistant.service import dispatch_ai_action
+
+        svc = _FakeService()
+        data = dispatch_ai_action(
+            svc,
+            "draft_prayers",
+            "ignored for this action",
+            {"facts": "F1", "grounds": "G1"},
+        )
+        assert svc.calls == [("prayers", "F1", "G1")]
+        assert data["result"] == "1. Pray ..."
+
+    def test_list_actions_are_json_encoded(self):
+
+        from app.ai_assistant.service import dispatch_ai_action
+
+        svc = _FakeService()
+        data = dispatch_ai_action(svc, "detect_contradictions", "doc")
+        assert isinstance(data["result"], str)  # historical contract
+        assert json.loads(data["result"]) == ["A conflicts with B"]
+
+    def test_unknown_action_raises_value_error(self):
+        from app.ai_assistant.service import dispatch_ai_action
+
+        with pytest.raises(ValueError, match="Invalid action"):
+            dispatch_ai_action(_FakeService(), "nope", "text")
+
+    def test_blank_content_raises_value_error(self):
+        from app.ai_assistant.service import dispatch_ai_action
+
+        with pytest.raises(ValueError, match="non-empty"):
+            dispatch_ai_action(_FakeService(), "summarize", "   ")
+
+    def test_disabled_service_raises_runtime_error(self):
+        from app.ai_assistant.service import dispatch_ai_action
+
+        with pytest.raises(RuntimeError, match="not configured"):
+            dispatch_ai_action(_FakeService(enabled=False), "summarize", "text")
+
+    def test_action_map_is_the_single_source(self):
+        from app.ai_assistant.routes import ACTION_METHODS as FLASK_MAP
+        from app.ai_assistant.service import ACTION_METHODS as CANONICAL_MAP
+
+        assert FLASK_MAP is CANONICAL_MAP

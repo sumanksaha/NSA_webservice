@@ -116,15 +116,13 @@ def backup_redundant_to_r2():
 @admin_required
 def backup_redundant_to_r2_status():
     """Return the status/help text for the redundant backup endpoint."""
-    return jsonify(
-        {
-            "description": "POST to trigger backup of Sheets, Airtable, and Excel data to R2.",
-            "endpoint": "/settings/backup-redundant-to-r2",
-            "method": "POST",
-            "auth": "admin",
-            "targets": ["sheets", "airtable", "excel"],
-    }
-    )
+    return jsonify({
+        "description": "POST to trigger backup of Sheets, Airtable, and Excel data to R2.",
+        "endpoint": "/settings/backup-redundant-to-r2",
+        "method": "POST",
+        "auth": "admin",
+        "targets": ["sheets", "airtable", "excel", "full_archive"],
+    })
 
 
 @settings_bp.route("/backup/restore", methods=["POST"])

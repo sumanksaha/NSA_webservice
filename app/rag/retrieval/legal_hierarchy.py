@@ -44,7 +44,7 @@ def parse_section_chain(section: str | None) -> list[str]:
         return []
     chain = [base.group(1)]
     # Extract all parenthesised groups after the base number
-    rest = str(section)[base.end():]
+    rest = str(section)[base.end() :]
     for m in re.finditer(r"\(([^()]*)\)", rest):
         val = m.group(1).strip()
         if val:
@@ -63,6 +63,7 @@ def section_base(section: str | None) -> str | None:
 # --------------------------------------------------------------------------- #
 # Hierarchy level classification
 # --------------------------------------------------------------------------- #
+
 
 #: Depth from root: 1=Act root, 2=Chapter, 3=Section, 4=Subsection, 5=Clause.
 def hierarchy_depth(section: str | None) -> int:
@@ -180,9 +181,7 @@ def same_chapter(chunk_a: Any, chunk_b: Any) -> bool:
     if len(a_chain) < 1 or len(b_chain) < 1:
         return False
     # Chapter = base section (same first element)
-    return a_chain[0] == b_chain[0] and same_act(
-        getattr(chunk_a, "act_name", None), getattr(chunk_b, "act_name", None)
-    )
+    return a_chain[0] == b_chain[0] and same_act(getattr(chunk_a, "act_name", None), getattr(chunk_b, "act_name", None))
 
 
 def same_section_family(a: str | None, b: str | None) -> bool:
@@ -217,6 +216,7 @@ def subsection_relationship(a: str | None, b: str | None) -> bool:
 # Hierarchy-aware proximity score
 # --------------------------------------------------------------------------- #
 
+
 def hierarchy_proximity(a: str | None, b: str | None) -> float:
     """Return a [0, 1] proximity score based on hierarchical closeness.
 
@@ -240,6 +240,7 @@ def hierarchy_proximity(a: str | None, b: str | None) -> float:
 # Relationship from LegalIdentity objects
 # --------------------------------------------------------------------------- #
 
+
 def compare_identities(a: Any, b: Any) -> SectionRelationship:
     """Compare two chunk/identity objects for their hierarchical relationship."""
     a_sec = getattr(a, "section", None) or getattr(a, "section_number", None)
@@ -250,20 +251,6 @@ def compare_identities(a: Any, b: Any) -> SectionRelationship:
 # --------------------------------------------------------------------------- #
 # Feature flag
 # --------------------------------------------------------------------------- #
-
-
-def _legal_hierarchy_enabled() -> bool:
-    """Check if legal hierarchy is enabled via env / Flask config."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_HIERARCHY", True))
-    except Exception:
-        pass
-    import os
-
-    return os.environ.get("ENABLE_HIERARCHY", "true").lower() != "false"
 
 
 # --------------------------------------------------------------------------- #
@@ -296,4 +283,3 @@ if __name__ == "__main__":
     assert hierarchy_proximity("31(2)", "31(3)") == 0.5
     assert hierarchy_proximity("31", "32") == 0.25
     assert hierarchy_proximity("31", "99") == 0.0
-

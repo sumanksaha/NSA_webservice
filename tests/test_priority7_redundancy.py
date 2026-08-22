@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -10,8 +11,8 @@ import pytest
 
 
 @pytest.fixture(scope="module")
-def app_ctx():
-    """Create a test app once per module; teardown after all tests."""
+def _app():
+    """Create the test app + baseline data once per module."""
     import os
 
     os.environ["SKIP_FSO_STARTUP_SYNC"] = "1"
@@ -30,10 +31,35 @@ def app_ctx():
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()
-    yield app, user
     db.session.remove()
-    db.drop_all()
-    ctx.pop()
+    with contextlib.suppress(Exception):
+        ctx.pop()
+    return app
+
+
+@pytest.fixture
+def app_ctx(_app):
+    """Push a fresh app context per test.
+
+    ``tests/conftest.py::_pop_leaked_flask_app_context`` force-pops every
+    Flask app context after each test, so a module-scoped pushed context
+    cannot survive between tests — later tests silently lose the context
+    (``_is_empty_sqlite_db`` swallows the resulting errors and reports an
+    empty DB; route fixtures fail at setup). Pushing per test keeps DB
+    access and Pattern A config resolution working in every test body.
+    """
+    from app.extensions import db
+    from app.models import User
+
+    ctx = _app.app_context()
+    ctx.push()
+    try:
+        user = User.query.filter_by(username="p7testuser").first()
+        yield _app, user
+    finally:
+        db.session.remove()
+        with contextlib.suppress(Exception):
+            ctx.pop()
 
 
 @pytest.fixture

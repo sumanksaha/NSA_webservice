@@ -8,6 +8,7 @@ from flask_login import current_user
 from app.search import search_bp
 from app.search.indexer import (
     ENTITY_TYPES,
+    dialect_name,
 )
 from app.search.indexer import (
     index_all as search_index_all,
@@ -75,18 +76,8 @@ def reindex():
             entity_id="all",
             action="index_rebuilt",
             actor=actor,
-            details={"records_indexed": count, "dialect": _dialect()},
+            details={"records_indexed": count, "dialect": dialect_name()},
         )
         return jsonify({"status": "ok", "records_indexed": count})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
-
-
-def _dialect() -> str:
-    """Return the current database dialect name."""
-    from app.extensions import db
-
-    try:
-        return str(db.session.get_bind().dialect.name)
-    except Exception:
-        return "unknown"

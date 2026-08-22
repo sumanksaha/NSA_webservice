@@ -17,21 +17,22 @@ from __future__ import annotations
 
 import logging
 
-from flask import current_app, jsonify, request
+from flask import jsonify, request
 
 from app.rag import rag_bp
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
 
 def _rag_enabled() -> bool:
     """Whether the RAG module is enabled (``RAG_ENABLED`` config)."""
-    return bool(current_app.config.get("RAG_ENABLED", True))
+    return cfg.rag_enabled
 
 
 def _use_agent_pipeline() -> bool:
     """Whether the agent route runs the LangGraph graph (default false)."""
-    return bool(current_app.config.get("RAG_USE_AGENT_PIPELINE", False))
+    return cfg.use_agent_pipeline
 
 
 def _use_hitl() -> bool:
@@ -42,7 +43,7 @@ def _use_hitl() -> bool:
     review interrupt and returns 202 with a thread_id for
     ``POST /api/rag/query/agent/resume``.
     """
-    return bool(current_app.config.get("RAG_AGENT_HITL", False))
+    return cfg.agent_hitl
 
 
 @rag_bp.route("/query/agent", methods=["POST"])
@@ -106,14 +107,12 @@ def query_agent():
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
         return (
-            jsonify(
-                {
-                    "status": "awaiting_review",
-                    "thread_id": thread_id,
-                    "review": review,
-                    "hint": "POST /api/rag/query/agent/resume with {thread_id, approved}.",
-                }
-            ),
+            jsonify({
+                "status": "awaiting_review",
+                "thread_id": thread_id,
+                "review": review,
+                "hint": "POST /api/rag/query/agent/resume with {thread_id, approved}.",
+            }),
             202,
         )
 
@@ -164,13 +163,11 @@ def query_agent_resume():
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
         return (
-            jsonify(
-                {
-                    "status": "awaiting_review",
-                    "thread_id": thread_id,
-                    "review": review,
-                }
-            ),
+            jsonify({
+                "status": "awaiting_review",
+                "thread_id": thread_id,
+                "review": review,
+            }),
             202,
         )
 

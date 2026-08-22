@@ -283,8 +283,11 @@ class TestProductionDefaultPipeline:
         )
         assert enriched["document_type"] in {"act", "rule", "regulation", "notification", "circular", "case_law"}
 
-    def test_default_pipeline_does_not_wire_heavy_adapters(self):
+    def test_default_pipeline_does_not_wire_heavy_adapters(self, monkeypatch):
         """Without RAG_FULL_ENRICHMENT, only the classifier is wired (cheap default)."""
+        # Hermetic against developer machines that export
+        # RAG_FULL_ENRICHMENT=true globally (observed 2026-08-22).
+        monkeypatch.delenv("RAG_FULL_ENRICHMENT", raising=False)
         pipeline = make_ingestion_pipeline()
         assert pipeline._metadata_adapter is None
         assert pipeline._citation_adapter is None

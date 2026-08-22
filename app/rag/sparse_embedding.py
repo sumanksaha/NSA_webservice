@@ -23,6 +23,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.shared.config import cfg
+
 logger = logging.getLogger(__name__)
 
 #: Default sparse model — BM25 via fastembed's TextSparseEmbedding.
@@ -47,12 +49,7 @@ class SparseEmbeddingService:
         """Resolve the model name, reading from config lazily."""
         if self._model_name:
             return self._model_name
-        try:
-            from flask import current_app
-
-            return current_app.config.get("RAG_SPARSE_MODEL", DEFAULT_SPARSE_MODEL)
-        except Exception:
-            return DEFAULT_SPARSE_MODEL
+        return cfg.sparse_model or DEFAULT_SPARSE_MODEL
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessor

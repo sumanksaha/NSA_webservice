@@ -18,6 +18,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.shared.config import cfg
+
 logger = logging.getLogger(__name__)
 
 #: Default model — 768-dim, must match the default ``RAG_VECTOR_SIZE`` and the
@@ -43,12 +45,7 @@ class EmbeddingService:
         """Resolve the model name, reading from config lazily."""
         if self._model_name:
             return self._model_name
-        try:
-            from flask import current_app
-
-            return current_app.config.get("RAG_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
-        except Exception:
-            return DEFAULT_EMBEDDING_MODEL
+        return cfg.embedding_model
 
     @property
     def vector_size(self) -> int:
@@ -63,12 +60,7 @@ class EmbeddingService:
                 return int(encoder.get_sentence_embedding_dimension())
             except Exception:
                 pass
-        try:
-            from flask import current_app
-
-            return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:
-            return 768
+        return int(cfg.vector_size)
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessor
@@ -161,9 +153,7 @@ class EmbeddingService:
         if encoder is None:
             return True
         actual = self.vector_size
-        expected = int(expected) if expected is not None else int(
-            self._config_vector_size()
-        )
+        expected = int(expected) if expected is not None else int(self._config_vector_size())
         # Note: when an injected encoder lacks get_sentence_embedding_dimension,
         # ``vector_size`` falls back to the configured size, so this comparison
         # passes silently — that is intentional for minimal test doubles.
@@ -180,13 +170,8 @@ class EmbeddingService:
 
     @staticmethod
     def _config_vector_size() -> int:
-        """Read ``RAG_VECTOR_SIZE`` from config (768 outside an app context)."""
-        try:
-            from flask import current_app
-
-            return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:
-            return 768
+        """Read ``RAG_VECTOR_SIZE`` via the shared config seam."""
+        return int(cfg.vector_size)
 
 
 # End of embedding_service.py

@@ -57,17 +57,15 @@ def get_billable_samples(start_date, end_date):
     # Build sample list with 1-based index
     sample_list = []
     for i, s in enumerate(samples, 1):
-        sample_list.append(
-            {
-                "si_no": i,
-                "sample_id": s.id,
-                "sample_code": s.sample_code or "",
-                "sample_name": s.sample_name or "",
-                "retailer_name": s.retailer_name or "",
-                "price": safe_price(s.price),
-                "type": s.sample_type or "",
-            }
-        )
+        sample_list.append({
+            "si_no": i,
+            "sample_id": s.id,
+            "sample_code": s.sample_code or "",
+            "sample_name": s.sample_name or "",
+            "retailer_name": s.retailer_name or "",
+            "price": safe_price(s.price),
+            "type": s.sample_type or "",
+        })
 
     return {
         "enforcement_no": enforcement_no,
@@ -79,7 +77,11 @@ def get_billable_samples(start_date, end_date):
 
 
 def mark_samples_as_billed(sample_ids, bill_id):
-    """Mark samples as billed and link them to the bill.
+    """Stage samples as billed and link them to the bill.
+
+    Does NOT commit — the caller owns the transaction so the Bill row, the
+    ``billed`` flags, and the ``BillSample`` links land in ONE atomic commit
+    (ADR-0001: no Bill exists unless its Samples are marked billed).
 
     Args:
         sample_ids: list of sample IDs to mark
@@ -98,5 +100,3 @@ def mark_samples_as_billed(sample_ids, bill_id):
         exists = BillSample.query.filter_by(bill_id=bill_id, sample_id=sample_id).first()
         if not exists:
             db.session.add(BillSample(bill_id=bill_id, sample_id=sample_id))
-
-    db.session.commit()

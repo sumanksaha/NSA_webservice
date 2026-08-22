@@ -26,16 +26,6 @@ _engine: Any = None
 _SessionLocal: sessionmaker | None = None
 
 
-def _resolve_db_url() -> str:
-    """Resolve DATABASE_URL the same way create_app() does (env → SQLite fallback)."""
-    database_url = os.environ.get("DATABASE_URL", "")
-    if database_url:
-        return database_url
-    # Mirror app/__init__.py fallback logic.
-    db_path = Path("instance/app.db")
-    return f"sqlite:///{db_path}"
-
-
 def _get_session_factory() -> sessionmaker:
     """Lazily create a sessionmaker bound to the same engine as Flask-SQLAlchemy."""
     global _engine, _SessionLocal
@@ -54,19 +44,49 @@ def _get_session_factory() -> sessionmaker:
 
 
 # --------------------------------------------------------------------------- #
-# Config flags — delegates to app/rag/tasks.py:_flag_enabled (Flask config → env)
+# Flask app access for /api/v2 handlers that touch Flask-managed singletons
 # --------------------------------------------------------------------------- #
-def get_flag(key: str, default: bool = False) -> bool:
-    """Read a boolean config flag, Flask config first then env fallback.
+_flask_app: Any = None
 
-    Works inside or outside a Flask app context.
+
+def set_flask_app(app: Any) -> None:
+    """Register the shared Flask app (called once from ``asgi.py`` at startup).
+
+    Dependency inversion: ``app/api/routers.py`` cannot import ``asgi``
+    (circular), so the ASGI entry point hands the app over here.
     """
-    from app.rag.tasks import _flag_enabled
+    global _flask_app
+    _flask_app = app
 
-    val = _flag_enabled(key)
-    if val is not None:
-        return bool(val)
-    return os.environ.get(key, "false").lower() == "true" if not default else True
+
+def get_flask_app() -> Any:
+    """Return the registered Flask app (creating one as a last resort).
+
+    Handlers that need a Flask app context — e.g. anything touching
+    ``db.session`` or :func:`app.services.audit.log_audit`, which are bound to
+    Flask-SQLAlchemy — should wrap their body in
+    ``with get_flask_app().app_context():``.
+    """
+    global _flask_app
+    if _flask_app is None:
+        from app import create_app
+
+        _flask_app = create_app()
+    return _flask_app
+
+
+# --------------------------------------------------------------------------- #
+# Config flags — delegate to the shared configuration seam (app/shared/config.py)
+# --------------------------------------------------------------------------- #
+def get_flag(key: str) -> bool:
+    """Read a boolean flag through the shared seam (Pattern A resolution).
+
+    Works inside or outside a Flask app context; env vars are consulted
+    outside an app context directly and seeded into Flask config at startup.
+    """
+    from app.shared.config import cfg
+
+    return cfg.get_bool(key)
 
 
 # --------------------------------------------------------------------------- #

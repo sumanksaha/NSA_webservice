@@ -18,11 +18,12 @@ time — optional components are resolved lazily.
 from __future__ import annotations
 
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +241,9 @@ class IngestionPipeline:
 
         return self.ingest_loaded(doc_result, source_uri=str(path), document=document)
 
-    def ingest_loaded(self, doc_result: Any, source_uri: str = "", document: dict[str, Any] | None = None) -> IngestedDocumentResult:
+    def ingest_loaded(
+        self, doc_result: Any, source_uri: str = "", document: dict[str, Any] | None = None
+    ) -> IngestedDocumentResult:
         """Ingest an already-loaded :class:`DocumentResult` (R0 adapter)."""
         text = getattr(doc_result, "text", "")
         if isinstance(text, (list, tuple)):
@@ -322,7 +325,10 @@ class IngestionPipeline:
                 result.document_id = str(index_result.document_id or "")
             logger.info(
                 "ingest: document %r indexed — %d chunks (%d duplicate), %d points",
-                result.document_id, result.chunk_count, result.duplicate_chunks, result.points_upserted,
+                result.document_id,
+                result.chunk_count,
+                result.duplicate_chunks,
+                result.points_upserted,
             )
         result.latency_ms = _elapsed_ms(start)
         return result
@@ -350,26 +356,13 @@ class IngestionPipeline:
 
 
 def _full_enrichment_enabled() -> bool:
-    """Resolve the ``RAG_FULL_ENRICHMENT`` flag (Flask config, else env).
+    """Resolve the ``RAG_FULL_ENRICHMENT`` flag via the shared config seam.
 
-    Reads ``current_app.config["RAG_FULL_ENRICHMENT"]`` when inside an app
-    context (set by ``create_app`` from ``RAG_FULL_ENRICHMENT``); falls back
-    to the environment variable so Celery/QStash/plain-function callers
-    outside an app context still honour the flag.
+    Pattern A: Flask config wins inside an app context (seeded from env by
+    ``create_app``); the env var is read directly outside one, so Celery /
+    QStash / plain-function callers honour the flag too.
     """
-    try:
-        from flask import current_app
-
-        value = current_app.config.get("RAG_FULL_ENRICHMENT")
-        if value is not None:
-            # ``create_app`` stores a real bool; tolerate a string override
-            # (e.g. tests setting config manually) by parsing it like env.
-            if isinstance(value, bool):
-                return value
-            return str(value).lower() == "true"
-    except Exception:
-        pass
-    return os.environ.get("RAG_FULL_ENRICHMENT", "false").lower() == "true"
+    return cfg.full_enrichment
 
 
 def make_ingestion_pipeline(
@@ -439,7 +432,9 @@ def make_ingestion_pipeline(
     return IngestionPipeline(**kwargs)
 
 
-def run_ingest_document(source: str, document: dict[str, Any] | None = None, pipeline: IngestionPipeline | None = None) -> dict[str, Any]:
+def run_ingest_document(
+    source: str, document: dict[str, Any] | None = None, pipeline: IngestionPipeline | None = None
+) -> dict[str, Any]:
     """Plain entry point: ingest a file path OR raw text, returning a dict.
 
     Mirrors the ``run_*`` plain-function pattern in ``app/rag/tasks.py`` so
@@ -488,7 +483,14 @@ def ingest_corpus_dir(
     exts = extensions or _CORPUS_EXTENSIONS
     files = sorted(p for p in Path(corpus_dir).glob("*") if p.is_file() and p.suffix.lower() in exts)
 
-    summary: dict[str, Any] = {"corpus_dir": str(corpus_dir), "total": 0, "indexed": 0, "duplicates": 0, "failed": 0, "results": []}
+    summary: dict[str, Any] = {
+        "corpus_dir": str(corpus_dir),
+        "total": 0,
+        "indexed": 0,
+        "duplicates": 0,
+        "failed": 0,
+        "results": [],
+    }
     for path in files:
         try:
             res = pipeline.ingest_file(path, document)
@@ -506,15 +508,21 @@ def ingest_corpus_dir(
             summary["failed"] += 1
             # Same shape as IngestedDocumentResult.to_dict() so consumers can
             # iterate ``results`` uniformly (including quality_summary).
-            summary["results"].append(
-                {
-                    "document_id": "", "source_uri": str(path), "file_type": "",
-                    "file_hash": "", "text_chars": 0, "chunk_count": 0,
-                    "duplicate_chunks": 0, "points_upserted": 0, "duplicate": False,
-                    "latency_ms": 0, "errors": [str(exc)], "ok": False,
-                    "quality_summary": None,
-                }
-            )
+            summary["results"].append({
+                "document_id": "",
+                "source_uri": str(path),
+                "file_type": "",
+                "file_hash": "",
+                "text_chars": 0,
+                "chunk_count": 0,
+                "duplicate_chunks": 0,
+                "points_upserted": 0,
+                "duplicate": False,
+                "latency_ms": 0,
+                "errors": [str(exc)],
+                "ok": False,
+                "quality_summary": None,
+            })
     logger.info("ingest_corpus_dir: %s -> %s", corpus_dir, summary)
     return summary
 

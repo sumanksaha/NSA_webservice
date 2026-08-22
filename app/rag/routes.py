@@ -18,16 +18,17 @@ from __future__ import annotations
 
 import logging
 
-from flask import current_app, jsonify, render_template, request
+from flask import jsonify, render_template, request
 
 from app.rag import rag_bp
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
 
 def _rag_enabled() -> bool:
     """Whether the RAG module is enabled (``RAG_ENABLED`` config)."""
-    return bool(current_app.config.get("RAG_ENABLED", True))
+    return cfg.rag_enabled
 
 
 @rag_bp.route("/health")
@@ -49,7 +50,9 @@ def query_ui():
     disappears from the UI in environments without RAG configured.
     """
     if not _rag_enabled():
-        return render_template("errors/404.html"), 404
+        from flask import abort
+
+        abort(404)
 
     # Pass domain->collection map so the template can render the domain
     # dropdown without an extra AJAX round-trip.
@@ -156,7 +159,6 @@ def ingest_corpus():
     return jsonify(summary)
 
 
-
 @rag_bp.route("/generate", methods=["POST"])
 def generate():
     """Grounded RAG generation endpoint (Phase 2).
@@ -234,6 +236,7 @@ def query():
 
     try:
         from app.rag.tasks import run_generation_pipeline
+
         result = run_generation_pipeline(
             query=query_str,
             top_k=top_k,
@@ -277,6 +280,7 @@ def eval_batch():
 
     try:
         from app.rag.tasks import run_evaluate
+
         result = run_evaluate(
             dataset=dataset,
             eval_run_id=payload.get("eval_run_id"),

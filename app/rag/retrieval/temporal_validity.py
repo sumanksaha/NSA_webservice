@@ -17,7 +17,6 @@ Validity semantics:
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -154,7 +153,9 @@ def is_valid(
 
     # Resolve payload fields from chunk if provided
     if chunk is not None:
-        provision_status = provision_status or getattr(chunk, "status", None) or getattr(chunk, "provision_status", None)
+        provision_status = (
+            provision_status or getattr(chunk, "status", None) or getattr(chunk, "provision_status", None)
+        )
         effective_from = effective_from or getattr(chunk, "effective_from", None)
         effective_to = effective_to or getattr(chunk, "effective_to", None)
 
@@ -323,18 +324,6 @@ def temporal_validity_score(document_id: str | None, query_date: str | None = No
 # --------------------------------------------------------------------------- #
 
 
-def _temporal_validity_enabled() -> bool:
-    """Check if temporal validity is enabled via env / Flask config."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_TEMPORAL_FILTER", True))
-    except Exception:
-        pass
-    return os.environ.get("ENABLE_TEMPORAL_FILTER", "true").lower() != "false"
-
-
 # --------------------------------------------------------------------------- #
 # Self-check
 # --------------------------------------------------------------------------- #
@@ -353,7 +342,9 @@ if __name__ == "__main__":
     assert r.status == VALIDITY_INVALID, r
 
     # Query date after effective_to
-    r = is_valid("prov4", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01")
+    r = is_valid(
+        "prov4", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01"
+    )
     assert r.status == VALIDITY_INVALID, r
 
     # No metadata → unknown
@@ -362,6 +353,7 @@ if __name__ == "__main__":
 
     # Score checks — use chunk-based is_valid for the score function
     from dataclasses import dataclass
+
     @dataclass
     class FakeChunk:
         chunk_id: str
@@ -376,4 +368,3 @@ if __name__ == "__main__":
     sc = temporal_validity_score("c2", "2025-01-01")
     # score returns 0.5 (unknown) because document_id isn't in any graph/payload
     assert sc == 0.5 or sc == 0.0  # depends on graph availability
-

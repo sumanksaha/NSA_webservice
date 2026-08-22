@@ -15,7 +15,6 @@ Feature flag: ``ENABLE_EVIDENCE_SELECTOR`` (default false, per spec).
 from __future__ import annotations
 
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,6 +22,7 @@ from typing import Any
 from app.rag.retrieval.legal_hierarchy import (
     section_base,
 )
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,15 @@ EVIDENCE_ADJACENT = "adjacent_section"
 EVIDENCE_DUPLICATE = "duplicate"
 
 _EVIDENCE_TYPES = {
-    EVIDENCE_PRIMARY, EVIDENCE_DEFINITION, EVIDENCE_EXCEPTION,
-    EVIDENCE_PENALTY, EVIDENCE_CROSS_REFERENCE, EVIDENCE_AUTHORITY,
-    EVIDENCE_SUBSECTION, EVIDENCE_ADJACENT, EVIDENCE_DUPLICATE,
+    EVIDENCE_PRIMARY,
+    EVIDENCE_DEFINITION,
+    EVIDENCE_EXCEPTION,
+    EVIDENCE_PENALTY,
+    EVIDENCE_CROSS_REFERENCE,
+    EVIDENCE_AUTHORITY,
+    EVIDENCE_SUBSECTION,
+    EVIDENCE_ADJACENT,
+    EVIDENCE_DUPLICATE,
 }
 
 
@@ -151,7 +157,7 @@ def _detect_evidence_type(chunk: Any, query_section: str | None) -> str:
         return EVIDENCE_PENALTY
 
     # Definition provisions — contain "means", "includes", "definition"
-    if any(kw in text_lower for kw in ["means ", "means,", "\"means", "includes", "for the purposes"]):
+    if any(kw in text_lower for kw in ["means ", "means,", '"means', "includes", "for the purposes"]):
         return EVIDENCE_DEFINITION
 
     # Authority provisions — contain "authority", "power", "may", "shall"
@@ -215,7 +221,7 @@ def section_base_chain(section: str | None) -> list[str]:
     if not base:
         return []
     chain = [base.group(1)]
-    rest = str(section)[base.end():]
+    rest = str(section)[base.end() :]
     for m in _re.finditer(r"\(([^()]*)\)", rest):
         val = m.group(1).strip()
         if val:
@@ -353,8 +359,8 @@ def select_evidence_set(
         section_number = getattr(chunk, "section_number", None) or (
             chunk.get("section_number") if isinstance(chunk, dict) else None
         )
-        act_name = act_hint or getattr(chunk, "act_name", None) or (
-            chunk.get("act_name") if isinstance(chunk, dict) else None
+        act_name = (
+            act_hint or getattr(chunk, "act_name", None) or (chunk.get("act_name") if isinstance(chunk, dict) else None)
         )
 
         evidence_type = _detect_evidence_type(chunk, query_section)
@@ -364,7 +370,9 @@ def select_evidence_set(
             chunk=chunk,
             evidence_type=evidence_type,
             confidence=confidence,
-            legal_identity=f"{act_name}::{section_number}" if act_name and section_number else (act_name or section_number or ""),
+            legal_identity=f"{act_name}::{section_number}"
+            if act_name and section_number
+            else (act_name or section_number or ""),
             section_number=section_number,
             act_name=act_name,
             text_snippet=text[:500],
@@ -442,12 +450,5 @@ def select_evidence_set(
 
 
 def _evidence_selector_enabled() -> bool:
-    """Check if evidence-set selection is enabled."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_EVIDENCE_SELECTOR", False))
-    except Exception:
-        pass
-    return os.environ.get("ENABLE_EVIDENCE_SELECTOR", "false").lower() == "true"
+    """Check if evidence-set selection is enabled (shared config seam)."""
+    return cfg.evidence_selector

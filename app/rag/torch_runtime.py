@@ -22,23 +22,14 @@ import contextlib
 import logging
 import os
 
+from app.shared.config import cfg
+
 logger = logging.getLogger(__name__)
 
 
 def resolve_torch_threads() -> int:
-    """Resolve the RAG torch thread cap (Flask config, else env, else 4)."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            val = current_app.config.get("RAG_TORCH_THREADS", 4)
-            return max(1, int(val))
-    except Exception:
-        pass
-    try:
-        return max(1, int(os.environ.get("RAG_TORCH_THREADS", "4")))
-    except ValueError:
-        return 4
+    """Resolve the RAG torch thread cap via the shared config seam."""
+    return max(1, int(cfg.torch_threads))
 
 
 def cap_torch_threads() -> None:

@@ -16,6 +16,8 @@ rag_bp = Blueprint(
     "rag",
     __name__,
     url_prefix="/api/rag",
+    template_folder="templates",
+    static_folder="static",
 )
 
 # Import routes after the blueprint is defined so route decorators register

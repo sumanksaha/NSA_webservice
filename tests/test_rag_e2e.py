@@ -24,6 +24,13 @@ def _setup_test_env():
     app = create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
+    # This suite mocks Qdrant + sentence-transformers ("no external services",
+    # module docstring) — but create_app()'s load_dotenv() resurrects remote
+    # inference endpoints from ``.env`` even though conftest scrubbed the env,
+    # which would send embed_query to the live Modal URL. Drop them from
+    # config so the injected fake encoder/clients are authoritative.
+    for key in ("RAG_EMBED_ENDPOINT", "RAG_RERANKER_ENDPOINT"):
+        app.config.pop(key, None)
     ctx = app.app_context()
     ctx.push()
     db.drop_all()

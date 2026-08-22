@@ -203,7 +203,6 @@ def _parse_csv_value(value: str, field_type: str = "str"):
     if field_type == "Boolean":
         return value.lower() in ("true", "1", "yes")
     if field_type in ("Date", "DateTime", "TIMESTAMP"):
-
         try:
             parsed = datetime.fromisoformat(value)
             if parsed.tzinfo is None:
@@ -223,9 +222,12 @@ def _is_empty_sqlite_db() -> bool:
         try:
             # table_name comes from db.metadata.tables — the fixed set of
             # SQLAlchemy-registered tables, never user input.
-            count = db.session.execute(
-                db.text(f"SELECT COUNT(*) FROM {table_name}")  # noqa: S608
-            ).scalar() or 0
+            count = (
+                db.session.execute(
+                    db.text(f"SELECT COUNT(*) FROM {table_name}")  # noqa: S608
+                ).scalar()
+                or 0
+            )
             if count > 0:
                 return False
         except Exception:
@@ -314,104 +316,64 @@ def _build_column_map(model, module):
     return {}
 
 
-def restore_from_airtable_csv():
-    """Restore records from the latest Airtable CSV backup in R2.
+# Canonical module key -> worksheet/table name. ONE copy — the Sheets /
+# Airtable / Excel CSV mirrors cover the same six synced modules, so every
+# restore target reads this single table. Adding a synced module is a
+# one-line edit here, not three.
+_RESTORE_MODULE_MAP = {
+    "non_sample": "adjudications",
+    "sample": "case_files",
+    "billing": "bills",
+    "sample_repo": "samples",
+    "inspection_log": "inspections",
+    "food_cell_do_intimations": "do_intimations",
+}
+
+# Backward-compatible aliases — the old triplicated maps were byte-identical.
+_AIRTABLE_TABLE_MAP = _WORKSHEET_MAP = _SHEETS_RESTORE_MAP = _RESTORE_MODULE_MAP
+
+
+def restore_from_target_csv(target: str) -> int:
+    """Restore records from the latest CSV backup for *target* in R2.
+
+    *target* is the R2 prefix / dispatch name: ``"airtable"``, ``"excel"``,
+    or ``"sheets"``. This is the single implementation behind the three
+    historical per-target wrappers (which differed only by prefix and an
+    identical dispatch map).
 
     Returns the number of records imported.
     """
-    keys = _list_r2_csv_backups("airtable")
+    keys = _list_r2_csv_backups(target)
     if not keys:
-        logger.warning("No Airtable CSV backups found in R2")
+        logger.warning("No %s CSV backups found in R2", target.capitalize())
         return 0
 
     csv_content = _download_r2_csv(keys[-1])
     if not csv_content:
-        logger.warning("Could not download Airtable CSV backup: %s", keys[-1])
+        logger.warning("Could not download %s CSV backup: %s", target.capitalize(), keys[-1])
         return 0
 
     records = _csv_to_records(csv_content)
-    data_records = [r for r in records if r.get("module") in _AIRTABLE_TABLE_MAP]
+    data_records = [r for r in records if r.get("module") in _RESTORE_MODULE_MAP]
 
-    count = _restore_from_records(data_records, "airtable")
-    logger.info("Restored %d records from Airtable CSV backup", count)
+    count = _restore_from_records(data_records, target)
+    logger.info("Restored %d records from %s CSV backup", count, target.capitalize())
     return count
+
+
+def restore_from_airtable_csv():
+    """Restore records from the latest Airtable CSV backup in R2."""
+    return restore_from_target_csv("airtable")
 
 
 def restore_from_excel_csv():
-    """Restore records from the latest Excel CSV backup in R2.
-
-    Returns the number of records imported.
-    """
-    keys = _list_r2_csv_backups("excel")
-    if not keys:
-        logger.warning("No Excel CSV backups found in R2")
-        return 0
-
-    csv_content = _download_r2_csv(keys[-1])
-    if not csv_content:
-        logger.warning("Could not download Excel CSV backup: %s", keys[-1])
-        return 0
-
-    records = _csv_to_records(csv_content)
-    data_records = [r for r in records if r.get("module") in _WORKSHEET_MAP]
-
-    count = _restore_from_records(data_records, "excel")
-    logger.info("Restored %d records from Excel CSV backup", count)
-    return count
-
-
-# Module-level references for restore dispatch
-_AIRTABLE_TABLE_MAP = {
-    "non_sample": "adjudications",
-    "sample": "case_files",
-    "billing": "bills",
-    "sample_repo": "samples",
-    "inspection_log": "inspections",
-    "food_cell_do_intimations": "do_intimations",
-}
-
-_WORKSHEET_MAP = {
-    "non_sample": "adjudications",
-    "sample": "case_files",
-    "billing": "bills",
-    "sample_repo": "samples",
-    "inspection_log": "inspections",
-    "food_cell_do_intimations": "do_intimations",
-}
+    """Restore records from the latest Excel CSV backup in R2."""
+    return restore_from_target_csv("excel")
 
 
 def restore_from_sheets_csv():
-    """Restore records from the latest Google Sheets CSV backup in R2.
-
-    Returns the number of records imported.
-    """
-    keys = _list_r2_csv_backups("sheets")
-    if not keys:
-        logger.warning("No Sheets CSV backups found in R2")
-        return 0
-
-    csv_content = _download_r2_csv(keys[-1])
-    if not csv_content:
-        logger.warning("Could not download Sheets CSV backup: %s", keys[-1])
-        return 0
-
-    records = _csv_to_records(csv_content)
-    data_records = [r for r in records if r.get("module") in _SHEETS_RESTORE_MAP]
-
-    count = _restore_from_records(data_records, "sheets")
-    logger.info("Restored %d records from Sheets CSV backup", count)
-    return count
-
-
-# Module-level map for Sheets restore (maps module key to worksheet name)
-_SHEETS_RESTORE_MAP = {
-    "non_sample": "adjudications",
-    "sample": "case_files",
-    "billing": "bills",
-    "sample_repo": "samples",
-    "inspection_log": "inspections",
-    "food_cell_do_intimations": "do_intimations",
-}
+    """Restore records from the latest Google Sheets CSV backup in R2."""
+    return restore_from_target_csv("sheets")
 
 
 def restore_if_empty() -> dict:
@@ -429,26 +391,59 @@ def restore_if_empty() -> dict:
 
     logger.info("Database is empty - attempting restore from backup chain")
 
-    # Try Airtable first
-    count = restore_from_airtable_csv()
-    if count > 0:
-        logger.info("Restored %d records from Airtable", count)
-        return {"restored": True, "source": "airtable", "count": count}
-
-    # Fall back to Excel
-    count = restore_from_excel_csv()
-    if count > 0:
-        logger.info("Restored %d records from Excel", count)
-        return {"restored": True, "source": "excel", "count": count}
-
-    # Fall back to Sheets
-    count = restore_from_sheets_csv()
-    if count > 0:
-        logger.info("Restored %d records from Sheets", count)
-        return {"restored": True, "source": "sheets", "count": count}
+    # Priority chain: Airtable -> Excel -> Sheets (declared once, in order).
+    for source, restore in (
+        ("airtable", restore_from_airtable_csv),
+        ("excel", restore_from_excel_csv),
+        ("sheets", restore_from_sheets_csv),
+    ):
+        count = restore()
+        if count > 0:
+            logger.info("Restored %d records from %s", count, source.capitalize())
+            return {"restored": True, "source": source, "count": count}
 
     logger.warning("All restore sources exhausted - no data to restore")
     return {"restored": False, "source": None, "count": 0}
+
+
+def auto_restore_if_empty() -> dict:
+    """Startup helper: replenish an empty database from R2 backups.
+
+    Restore order:
+      1. The newest full-archive ZIP in R2 (complete fidelity — every table
+         plus instance files), via
+         ``backup_coordinator.restore_latest_full_archive_from_r2()``.
+      2. The Airtable → Excel → Sheets CSV chain (:func:`restore_if_empty`),
+         which covers the six synced business modules only.
+
+    Returns a summary dict, e.g.::
+
+        {"restored": True, "source": "full_archive", "key": "..."}
+        {"restored": True, "source": "airtable", "count": 123}
+        {"restored": False, "reason": "not-empty"}
+    """
+    if not _is_empty_sqlite_db():
+        logger.info("Auto-restore skipped: database is not empty")
+        return {"restored": False, "reason": "not-empty"}
+
+    # 1) Full archive — complete fidelity.
+    try:
+        from app.services.backup_coordinator import restore_latest_full_archive_from_r2
+
+        result = restore_latest_full_archive_from_r2()
+        if result is not None:
+            logger.info("Auto-restored empty database from full archive %s", result.get("key"))
+            return {"restored": True, "source": "full_archive", "key": result["key"]}
+    except Exception as e:
+        logger.warning("Full-archive restore unavailable (%s); trying CSV chain", e)
+
+    # 2) CSV chain fallback (six synced modules only).
+    csv_result = restore_if_empty()
+    if csv_result.get("restored"):
+        return {"restored": True, "source": csv_result["source"], "count": csv_result["count"]}
+
+    logger.warning("Auto-restore found no usable backups")
+    return {"restored": False, "reason": "no-backups-found"}
 
 
 def trigger_backup() -> dict:
@@ -461,6 +456,10 @@ def trigger_backup() -> dict:
     from app.services.backup_coordinator import run_backup
 
     results = run_backup()
-    logger.info("Backup triggered: sheets=%s airtable=%s excel=%s",
-                results.get("sheets"), results.get("airtable"), results.get("excel"))
+    logger.info(
+        "Backup triggered: sheets=%s airtable=%s excel=%s",
+        results.get("sheets"),
+        results.get("airtable"),
+        results.get("excel"),
+    )
     return results

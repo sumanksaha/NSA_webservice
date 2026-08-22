@@ -18,6 +18,34 @@ from pathlib import Path
 
 _TEST_DB_DIR = tempfile.mkdtemp(prefix="nsa_test_db_")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TEST_DB_DIR) / 'test.db'}"
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _pop_leaked_flask_app_context():
+    """Pop any Flask app context a test leaked by pushing without popping.
+
+    Several legacy ``_setup_test_env()`` helpers push an app context and rely
+    on the caller to pop it — most callers never do. A leaked context makes
+    ``has_app_context()`` True for the REST of the session, so configuration
+    reads (``cfg`` / the old resolvers alike) silently hit the last-created
+    app's seeded config instead of the current test's monkeypatched env.
+    Legitimate ``with app.app_context():`` blocks pop themselves before this
+    teardown runs, so only genuine leaks are caught here.
+    """
+    yield
+    try:
+        from flask import has_app_context
+        from flask.globals import app_ctx
+
+        while has_app_context():
+            app_ctx.pop()
+    except Exception:  # pragma: no cover - nothing to pop / Flask internals
+        pass
+
+
 os.environ["SKIP_FSO_STARTUP_SYNC"] = "1"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
 
@@ -72,3 +100,14 @@ def _rag_remote_inference_env(monkeypatch):
         "RAG_EMBED_REMOTE_FALLBACK",
     ):
         monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture
+def test_db_uri(tmp_path):
+    """Per-test isolated SQLite URI for ``create_app(db_uri=...)``.
+
+    Test modules that need a database fully isolated from the session-wide
+    temp DB (e.g. backup/restore round-trips) pass this URI to the app
+    factory, which binds a dedicated engine to it.
+    """
+    return f"sqlite:///{tmp_path / 'test.db'}"

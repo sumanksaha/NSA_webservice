@@ -42,14 +42,12 @@ ENTITY_ADJUDICATION = "adjudication"
 ENTITY_ANNEXURE = "annexure"
 ENTITY_EVIDENCE = "evidence"
 
-ENTITY_TYPES = frozenset(
-    {
-        ENTITY_CASE_FILE,
-        ENTITY_ADJUDICATION,
-        ENTITY_ANNEXURE,
-        ENTITY_EVIDENCE,
-    }
-)
+ENTITY_TYPES = frozenset({
+    ENTITY_CASE_FILE,
+    ENTITY_ADJUDICATION,
+    ENTITY_ANNEXURE,
+    ENTITY_EVIDENCE,
+})
 
 _FTS_TABLE = "search_index"
 
@@ -159,12 +157,23 @@ def _resolve_model(entity_type: str):
     return class_map.get(entity_type)
 
 
-def _dialect() -> str:
-    """Return the current database dialect name."""
+def dialect_name() -> str:
+    """Return the current database dialect name ("unknown" outside a context).
+
+    Public so both search transports (Flask route and ``/api/v2``) stamp the
+    same value into reindex audit records — previously duplicated as a
+    private helper in this module *and* in ``search/routes.py``.
+    """
+    from app.extensions import db
+
     try:
         return str(db.session.get_bind().dialect.name)
     except Exception:
         return "unknown"
+
+
+# Backwards-compatible alias (internal callers below + historical imports).
+_dialect = dialect_name
 
 
 def ensure_search_table() -> bool:
@@ -679,14 +688,12 @@ def _search_like(query, entity_type, limit):
             continue
         for row in db.session.query(model).filter(db.or_(*conditions)).limit(limit):
             title, content = _build_doc(row, etype)
-            results.append(
-                {
-                    "entity_type": etype,
-                    "entity_id": str(row.id),
-                    "title": _highlight_title(query, title) or title,
-                    "snippet": _snippet_around_matches(query, content),
-                }
-            )
+            results.append({
+                "entity_type": etype,
+                "entity_id": str(row.id),
+                "title": _highlight_title(query, title) or title,
+                "snippet": _snippet_around_matches(query, content),
+            })
 
     return results
 

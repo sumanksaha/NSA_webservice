@@ -32,6 +32,7 @@ TASK_MODULES = [
     "app.knowledge_graph.tasks",
     "app.ai_assistant.tasks",
     "app.rag.tasks",
+    "app.utils.backup",
 ]
 
 # Standalone instance for task decoration — safe to import anywhere.
@@ -66,6 +67,17 @@ def make_celery(app):
         result_serializer="json",
         accept_content=["json"],
     )
+
+    # Phase 16: daily full-database snapshot at midnight UTC. The handler
+    # lives in app/utils/backup.py; snapshots land in instance/backups/.
+    from celery.schedules import crontab
+
+    celery.conf.beat_schedule = {
+        "daily-db-snapshot": {
+            "task": "app.utils.backup.create_daily_db_snapshot_task",
+            "schedule": crontab(hour=0, minute=0),
+        },
+    }
 
     class ContextTask(celery.Task):
         """Task subclass that wraps call in a Flask app context."""

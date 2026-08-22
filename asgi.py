@@ -32,9 +32,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Flask app created via the existing factory — registered blueprints, routes,
 # extensions, and RAG services are all available.
 from app import create_app
-from app.api.deps import get_db, get_flag, get_rag_pipeline
+from app.api.deps import get_db, get_flag, get_rag_pipeline, set_flask_app
 
 flask_app = create_app()
+# Hand the Flask app to the v2 dependency layer (dependency inversion —
+# routers cannot import asgi). Handlers that touch Flask-managed singletons
+# (db.session, log_audit) retrieve it via get_flask_app().
+set_flask_app(flask_app)
 
 
 # --------------------------------------------------------------------------- #
@@ -58,6 +62,18 @@ class QueryAgentRequest(BaseModel):
     collection_name: str | None = Field(default=None, description="Qdrant collection override.")
     filters: dict[str, Any] | None = Field(default=None, description="Metadata filters.")
     thread_id: str | None = Field(default=None, description="Resume a paused HITL run (M5).")
+
+
+class AgentResumeRequest(BaseModel):
+    """Request body for ``POST /api/v2/rag/query/agent/resume`` (M5).
+
+    ``approved`` is the human's decision on the reviewed answer — it is
+    forwarded to ``resume_agent`` verbatim (a previous version hardcoded
+    ``True``, silently defeating rejections).
+    """
+
+    thread_id: str = Field(default="", description="Thread id from the 202 awaiting_review response.")
+    approved: bool = Field(default=True, description="Human decision: approve finalize, reject to retry.")
 
 
 # --------------------------------------------------------------------------- #
@@ -263,30 +279,35 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any]:
     if use_hitl and "__interrupt__" in result:
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
-        return {
-            "status": "awaiting_review",
-            "thread_id": req.thread_id,
-            "review": review,
-            "hint": "POST /api/v2/rag/query/agent/resume with {thread_id, approved}.",
-        }
+        return JSONResponse(
+            {
+                "status": "awaiting_review",
+                "thread_id": req.thread_id,
+                "review": review,
+                "hint": "POST /api/v2/rag/query/agent/resume with {thread_id, approved}.",
+            },
+            status_code=202,
+        )
 
     return result.get("response") or {}
 
 
 @app.post("/api/v2/rag/query/agent/resume")
-async def v2_rag_query_agent_resume(req: QueryAgentRequest) -> dict[str, Any]:
-    """Resume a paused M5 human-in-the-loop run."""
+async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any]:
+    """Resume a paused M5 human-in-the-loop run (mirrors the Flask route)."""
     use_hitl = get_flag("RAG_AGENT_HITL")
     if not use_hitl:
         return JSONResponse(
             {"error": "RAG_AGENT_HITL is false — no review flow to resume."},
             status_code=400,
         )
+    if not req.thread_id or not req.thread_id.strip():
+        return JSONResponse({"error": "thread_id must be a non-empty string."}, status_code=400)
 
     try:
         from app.rag.agent.graph import resume_agent
 
-        result = resume_agent(req.thread_id, approved=True)
+        result = resume_agent(req.thread_id, approved=req.approved)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     except Exception as exc:
@@ -295,11 +316,16 @@ async def v2_rag_query_agent_resume(req: QueryAgentRequest) -> dict[str, Any]:
     if "__interrupt__" in result:
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
-        return {
-            "status": "awaiting_review",
-            "thread_id": req.thread_id,
-            "review": review,
-        }
+        # The graph paused again (e.g. after a rejection-triggered retry that
+        # still isn't grounded) — 202, matching the Flask route's contract.
+        return JSONResponse(
+            {
+                "status": "awaiting_review",
+                "thread_id": req.thread_id,
+                "review": review,
+            },
+            status_code=202,
+        )
 
     return result.get("response") or {}
 

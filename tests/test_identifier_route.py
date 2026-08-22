@@ -206,7 +206,7 @@ class TestPipelineIdentifier:
             def __init__(self, dense, sparse, reranker=None):
                 pass
 
-            def retrieve(self, query, top_k=10, filters=None, identifier_query=None):
+            def retrieve(self, query, top_k=10, filters=None, identifier_query=None, query_type=None):
                 recorded["query"] = query
                 recorded["identifier_query"] = identifier_query
                 return SearchResult(query=query, query_type="", chunks=[_chunk("c1")], total=1, latency_ms=1)
@@ -220,7 +220,7 @@ class TestPipelineIdentifier:
         monkeypatch.setattr(retrieval_mod, "QueryParser", FakeParser)
         monkeypatch.setattr(retrieval_mod, "Reranker", FakeReranker)
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
-        monkeypatch.setattr("app.rag.tasks._identifier_route_enabled", lambda: True)
+        monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "true")
         return recorded
 
     def test_identifier_meta_and_query_reach_hybrid(self, monkeypatch):
@@ -251,7 +251,7 @@ class TestPipelineIdentifier:
         from app.rag.tasks import run_retrieval_pipeline
 
         recorded = self._patch(monkeypatch)
-        monkeypatch.setattr("app.rag.tasks._identifier_route_enabled", lambda: False)
+        monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "false")
         run_retrieval_pipeline("What is the penalty under Section 73 of the Indian Contract Act?", top_k=5)
         assert recorded["identifier_query"] is None
         assert recorded["query"] == "What is the penalty under Section 73 of the Indian Contract Act?"

@@ -27,8 +27,9 @@ unprefixed models.
 
 from __future__ import annotations
 
-import os
 import re
+
+from app.shared.config import cfg
 
 _PREFIX_RE = re.compile(r"^\u00a7\S+\s+")
 
@@ -36,17 +37,9 @@ _PREFIX_RE = re.compile(r"^\u00a7\S+\s+")
 def ce_section_prefix_enabled() -> bool:
     """Whether the legal-identity prefix is active (``RAG_CE_SECTION_PREFIX``).
 
-    Mirrors the ``_flag_enabled`` pattern used by RAG_KG_EXPANSION /
-    RAG_KG_FUSION: Flask config wins inside an app context, else the env var.
+    Resolved through the shared config seam (Pattern A).
     """
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("RAG_CE_SECTION_PREFIX", False))
-    except Exception:
-        pass
-    return os.environ.get("RAG_CE_SECTION_PREFIX", "false").lower() == "true"
+    return cfg.ce_section_prefix
 
 
 def prefix_passage(

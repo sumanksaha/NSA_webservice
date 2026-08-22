@@ -58,9 +58,10 @@ class TestAsgiSkeleton:
 
     def test_search_routes_registered(self, client):
         """Verify /api/v2/search and /api/v2/ai-assistant/assist are served."""
-        # Missing query → 422 (route exists, just needs params).
+        # Missing query is legal (Flask parity): empty q → 200 with no results.
         r = client.get("/api/v2/search")
-        assert r.status_code == 422
+        assert r.status_code == 200
+        assert r.json()["total"] == 0
         # Missing payload → 422 (route exists, validation fires).
         r = client.post("/api/v2/ai-assistant/assist", json={})
         assert r.status_code == 422
@@ -210,7 +211,7 @@ class TestAsgiAgentRoute:
         assert resp.json()["answer"] == "agent answer"
 
     def test_agent_hitl_awaiting_review(self, asgi_app, monkeypatch):
-        """When RAG_AGENT_HITL=true and graph pauses, returns awaiting_review."""
+        """When RAG_AGENT_HITL=true and graph pauses, returns 202 awaiting_review."""
 
         class _FakeInterrupt:
             value: ClassVar[dict] = {"reason": "needs human review"}
@@ -226,7 +227,8 @@ class TestAsgiAgentRoute:
             "/api/v2/rag/query/agent",
             json={"query": "penalty", "thread_id": "tid-123"},
         )
-        assert resp.status_code == 200
+        # 202 matches the Flask route's awaiting_review contract.
+        assert resp.status_code == 202
         body = resp.json()
         assert body["status"] == "awaiting_review"
         assert body["thread_id"] == "tid-123"
@@ -236,7 +238,7 @@ class TestAsgiAgentRoute:
         monkeypatch.setenv("RAG_AGENT_HITL", "false")
         resp = client.post(
             "/api/v2/rag/query/agent/resume",
-            json={"query": "x", "thread_id": "tid"},
+            json={"thread_id": "tid"},
         )
         assert resp.status_code == 400
         assert "RAG_AGENT_HITL" in resp.json()["error"]
@@ -251,10 +253,57 @@ class TestAsgiAgentRoute:
         monkeypatch.setattr("app.rag.agent.graph.resume_agent", fake_resume)
         resp = client.post(
             "/api/v2/rag/query/agent/resume",
-            json={"query": "x", "thread_id": "tid-123"},
+            json={"thread_id": "tid-123"},
         )
         assert resp.status_code == 200
         assert resp.json()["answer"] == "resumed answer"
+
+    def test_resume_passes_approved_false_through(self, client, monkeypatch):
+        """The human's rejection must reach resume_agent (regression: v2 used
+        to hardcode approved=True, silently defeating rejections)."""
+        captured: dict = {}
+
+        def fake_resume(thread_id, approved):
+            captured["thread_id"] = thread_id
+            captured["approved"] = approved
+            return {"response": {"answer": "regenerated after rejection"}}
+
+        monkeypatch.setenv("RAG_AGENT_HITL", "true")
+        monkeypatch.setattr("app.rag.agent.graph.resume_agent", fake_resume)
+        resp = client.post(
+            "/api/v2/rag/query/agent/resume",
+            json={"thread_id": "tid-reject", "approved": False},
+        )
+        assert resp.status_code == 200
+        assert captured == {"thread_id": "tid-reject", "approved": False}
+
+    def test_resume_reinterrupt_returns_202(self, client, monkeypatch):
+        """A re-interrupt after resume returns 202 awaiting_review (Flask parity)."""
+
+        class _FakeInterrupt:
+            value: ClassVar[dict] = {"reason": "still not grounded"}
+
+        def fake_resume(thread_id, approved):
+            return {"__interrupt__": [_FakeInterrupt()]}
+
+        monkeypatch.setenv("RAG_AGENT_HITL", "true")
+        monkeypatch.setattr("app.rag.agent.graph.resume_agent", fake_resume)
+        resp = client.post(
+            "/api/v2/rag/query/agent/resume",
+            json={"thread_id": "tid-again", "approved": True},
+        )
+        assert resp.status_code == 202
+        assert resp.json()["status"] == "awaiting_review"
+
+    def test_resume_blank_thread_id_400(self, client, monkeypatch):
+        """Blank thread_id → 400 (mirrors the Flask validation)."""
+        monkeypatch.setenv("RAG_AGENT_HITL", "true")
+        resp = client.post(
+            "/api/v2/rag/query/agent/resume",
+            json={"thread_id": "   ", "approved": True},
+        )
+        assert resp.status_code == 400
+        assert "thread_id" in resp.json()["error"]
 
 
 # --------------------------------------------------------------------------- #
@@ -262,8 +311,10 @@ class TestAsgiAgentRoute:
 # --------------------------------------------------------------------------- #
 class TestAsgiSearch:
     def test_search_missing_query(self, client):
+        """Missing query is legal (Flask parity): empty q → 200, no results."""
         r = client.get("/api/v2/search")
-        assert r.status_code == 422
+        assert r.status_code == 200
+        assert r.json()["total"] == 0
 
     def test_search_invalid_entity_type(self, client):
         r = client.get("/api/v2/search?q=test&type=invalid_type")
@@ -284,12 +335,18 @@ class TestAsgiSearch:
         assert body["total"] == 1
         assert body["results"][0]["title"] == "Found doc"
 
-    def test_search_reindex_disabled(self, client, monkeypatch):
-        """Reindex returns 503 when RAG_ENABLED is false."""
-        monkeypatch.setattr("app.api.routers.get_flag", lambda key: False)
+    def test_search_reindex_has_no_rag_gate(self, client, monkeypatch):
+        """Reindexing is a search concern — RAG_ENABLED must NOT gate it
+        (regression: v2 used to 503 on a false RAG flag; Flask never did)."""
+
+        def fake_index_all():
+            return 7
+
+        monkeypatch.setenv("RAG_ENABLED", "false")  # hostile env: gate must not fire
+        monkeypatch.setattr("app.search.indexer.index_all", fake_index_all)
         resp = client.post("/api/v2/search/reindex")
-        assert resp.status_code == 503
-        assert "disabled" in resp.json()["error"]
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok", "records_indexed": 7}
 
 
 # --------------------------------------------------------------------------- #

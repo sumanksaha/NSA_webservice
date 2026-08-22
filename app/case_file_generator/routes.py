@@ -15,6 +15,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request
+from flask_login import login_required
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import csrf, db
@@ -33,6 +34,7 @@ from app.shared.context_derivers import (
     derive_sections_display,
 )
 from app.shared.document_case_manager import DocumentCaseManager
+from app.utils.auth import admin_required
 from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
@@ -537,3 +539,75 @@ def list_samples_for_datalist():
         "per_page": paginated.per_page,
         "total": paginated.total,
     })
+
+
+# ---------------------------------------------------------------------------
+# Phase 16 — case export / import HTTP endpoints
+# ---------------------------------------------------------------------------
+
+
+def _case_type_from_args() -> str:
+    """Read ``?case_type=`` (default ``case_file``) from the query string."""
+    return request.args.get("case_type", "case_file")
+
+
+@case_file_generator_bp.route("/api/cases/<int:case_id>/export.json", methods=["GET"])
+@login_required
+def export_case_json_route(case_id: int):
+    """Full JSON export of a case + annexures + evidence + versions."""
+    from app.case_file_generator.services import export_case_as_json
+
+    try:
+        data = export_case_as_json(case_id, _case_type_from_args())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(data), 200
+
+
+@case_file_generator_bp.route("/api/cases/<int:case_id>/export.zip", methods=["GET"])
+@login_required
+def export_case_zip_route(case_id: int):
+    """ZIP export: JSON manifest + compiled PDFs + annexure/evidence files."""
+    import io
+
+    from flask import send_file
+
+    from app.case_file_generator.services import export_case_as_zip
+
+    case_type = _case_type_from_args()
+    try:
+        zip_bytes = export_case_as_zip(case_id, case_type)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return send_file(
+        io.BytesIO(zip_bytes),
+        as_attachment=True,
+        download_name=f"case_{case_id}_{case_type}_export.zip",
+        mimetype="application/zip",
+    )
+
+
+@case_file_generator_bp.route("/api/cases/import", methods=["POST"])
+@login_required
+@admin_required
+def import_case_route():
+    """Import a case-export JSON (multipart ``file`` field) as a new case."""
+    import json as json_mod
+
+    from app.case_file_generator.services import import_case_from_json
+
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"error": "Please upload a case export JSON file."}), 400
+    try:
+        json_data = json_mod.load(upload.stream)
+    except (ValueError, UnicodeDecodeError) as exc:
+        return jsonify({"error": f"Invalid JSON upload: {exc}"}), 400
+    if not isinstance(json_data, dict):
+        return jsonify({"error": "Upload must be a JSON object."}), 400
+
+    try:
+        new_case_id = import_case_from_json(json_data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"new_case_id": new_case_id}), 201

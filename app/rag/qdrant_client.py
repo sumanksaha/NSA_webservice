@@ -26,6 +26,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.shared.config import cfg
+
 logger = logging.getLogger(__name__)
 
 #: Default collection — matches the ``RAG_QDRANT_COLLECTION`` config default
@@ -237,9 +239,7 @@ def sparse_search(
             kwargs[_detect_search_filter_kwarg(client)] = filter_dict
         return list(search(**kwargs) or [])
 
-    raise RuntimeError(
-        "client exposes neither query_points nor search; sparse search unavailable"
-    )
+    raise RuntimeError("client exposes neither query_points nor search; sparse search unavailable")
 
 
 @dataclass
@@ -287,24 +287,14 @@ class QdrantStore:
         """Resolve the collection name, reading from config lazily."""
         if self._collection_name:
             return self._collection_name
-        try:
-            from flask import current_app
-
-            return current_app.config.get("RAG_QDRANT_COLLECTION", DEFAULT_COLLECTION)
-        except Exception:
-            return DEFAULT_COLLECTION
+        return cfg.qdrant_collection or DEFAULT_COLLECTION
 
     @property
     def vector_size(self) -> int:
         """Resolve the vector size, reading from config lazily."""
         if self._vector_size:
             return self._vector_size
-        try:
-            from flask import current_app
-
-            return int(current_app.config.get("RAG_VECTOR_SIZE", 768))
-        except Exception:
-            return 768
+        return int(cfg.vector_size)
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessors
@@ -465,15 +455,15 @@ class QdrantStore:
             }
             if sparse_enabled:
                 sparse_config = (
-                    models.SparseVectorParams(modifier=models.Modifier.IDF)
-                    if models
-                    else {"modifier": "idf"}
+                    models.SparseVectorParams(modifier=models.Modifier.IDF) if models else {"modifier": "idf"}
                 )
                 create_kwargs["sparse_vectors_config"] = {SPARSE_VECTOR_NAME: sparse_config}
             client.create_collection(**create_kwargs)
             logger.info(
                 "QdrantStore: created collection %r (%d dims, sparse=%s)",
-                self.collection_name, self.vector_size, bool(sparse_enabled),
+                self.collection_name,
+                self.vector_size,
+                bool(sparse_enabled),
             )
             self._has_sparse = bool(sparse_enabled)
             if create_payload_indexes:
@@ -861,9 +851,7 @@ class QdrantStore:
             targeted = len(ids)
         elif document_id:
             flt = self._build_filter({"document_id": document_id})
-            selector = (
-                models.FilterSelector(filter=models.Filter(**flt)) if models else {"filter": flt}
-            )
+            selector = models.FilterSelector(filter=models.Filter(**flt)) if models else {"filter": flt}
             # Filter deletes report no count from Qdrant — 1 denotes a single
             # delete operation targeted (the docstring's "targeted" semantics).
             targeted = 1
@@ -935,7 +923,7 @@ class QdrantStore:
             if filters:
                 kwargs["scroll_filter"] = self._build_filter(filters)
             records, next_offset = client.scroll(**kwargs)
-            for r in (records or []):
+            for r in records or []:
                 item: dict[str, Any] = {
                     "id": str(r.id),
                     "payload": getattr(r, "payload", None) or {},

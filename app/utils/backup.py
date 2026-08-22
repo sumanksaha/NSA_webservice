@@ -281,3 +281,40 @@ def restore_from_archive(archive_bytes: bytes) -> dict:
         "reindexed": reindexed,
         "dialect": db_dialect(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 16 — daily scheduled database snapshot
+# ---------------------------------------------------------------------------
+
+
+def create_daily_db_snapshot() -> str:
+    """Write a dated full-archive ZIP under ``instance/backups/db_snapshots/``.
+
+    Uses the same archive format as :func:`build_backup_archive` (complete
+    DB dump + instance files) so snapshots are directly restorable via
+    :func:`restore_from_archive`. Returns the snapshot's path.
+    """
+    instance_path = Path(current_app.instance_path)
+    snapshot_dir = instance_path / "backups" / "db_snapshots"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    path = snapshot_dir / f"nsa_db_snapshot_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.zip"
+    path.write_bytes(build_backup_archive().getvalue())
+    logger.info("Daily DB snapshot written: %s", path)
+    return str(path)
+
+
+# Celery beat handler. Registered on the standalone ``celery_app.celery``
+# instance (same pattern as the other task modules); ``make_celery`` later
+# reconfigures that same instance with the app's broker/backend and the
+# ``daily-db-snapshot`` beat entry.
+try:
+    from celery_app import celery as _celery
+
+    @_celery.task(name="app.utils.backup.create_daily_db_snapshot_task")
+    def create_daily_db_snapshot_task() -> str:
+        """Celery-beat wrapper around :func:`create_daily_db_snapshot`."""
+        return create_daily_db_snapshot()
+
+except ImportError:  # pragma: no cover - Celery not installed (minimal deploys)
+    pass

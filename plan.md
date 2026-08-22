@@ -1,6 +1,6 @@
 # Implementation Plan — NSA Webservice Roadmap (Phases 0–20)
 
-> **Status:** ✅ Deepening Tasks D1–D5, S6a–d, S7, S2, S10a–c, Priority 6 infra, S9a (concurrency guard, fully fixed), Phase 16 (backup/export/import), Phase A (OCR pipeline foundation), Phase 13 (timeline engine + Gantt UI + global case-picker + entry points), **Phase 21 (Food Cell DO Intimation)**, **Phase 12 (Legal Validation Engine — 46 tests pass)**, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests pass)**, 7/7 Performance Quick Wins, **Phase 20 (Plugin Architecture — 23 tests pass, all 6 callers refactored)**, and **Phase 11 ✅ Complete (2026-08-08)** (23 tests pass, no regressions) all implemented & verified. Phases 15, 17, 18-19 pending; **Phase 18 partial** (models + migration + admin UI done; `@role_required` + comment API/UI + `tests/test_rbac.py` pending).
+> **Status:** ✅ Phases 0–14, 16, 20, 21, Phase A, Deepening D1–D5, S6a–d, S7, S2, S10a–c, S9a, Priority 6 infra, Priority 7, and **Phase 6 deferred** all implemented & verified. **RAG Phase 1–5 ✅** (437 RAG tests + 25 Agent A/integration/benchmark tests; 694 RAG tests total — `pytest --collect-only`, 2026-08-20). **Multi-Domain Phase 1 ✅** (37 tests, 2026-08-20). **P1-4 FSSAI re-ingest ✅** (15 tests, 2026-08-11). **Evaluation Framework ✅** (77 tests, 2026-08-12). **Benchmark v1.0 frozen ✅** (2026-08-12). **Rust PyO3 Normalizers ✅** (2026-08-12). **Remote Inference Layer ✅ + deployed** (Modal, 2026-08-16). **LangGraph Agent Pipeline ✅** (41 tests, 2026-08-16). **M5 checkpointing + HITL ✅** (15 tests, 2026-08-16). **FastAPI Gateway ✅** (50 tests, 2026-08-19). **Config seam** (`app/shared/config.py` `cfg` — AGENTS.md §3.6). Total: **1,780 tests** (694 RAG). Phases 15, 17, 18–19 ⚠️/❌ pending; Phase 18 partial (~30%). ENV-2/3/5/6/7/8 open.
 
 > **Generated:** 2026-08-06  
 > **Source:** Consolidated from `ROADMAP_ALIGNMENT_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `ENGINEERING_ASSESSMENT.md`, and `technical_debt_implementation_plan.md`  
@@ -25,7 +25,7 @@
 | **8** | PDF assembly engine — headers/footers, QR, signatures, bookmarks, hyperlinks                    | ✅     | `app/pdf_assembly/`                                              |
 | **9** | Version control — compare, restore, branching, history UI                                       | ✅     | `app/version_control/`, `app/services/version_control.py`        |
 
-### ⏳ Pending (Phases 11–20)
+### ✅ / ⚠️ / ❌ Status (Phases 11–21 + RAG & Infra Stack)
 
 | Phase  | Feature                                                                        | Status                              | Gap                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------ | ------------------------------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -39,8 +39,30 @@
 | **17** | Cloud sync — Supabase bridge, annexure sync, conflict resolution               | ⚠️ R2/B2 + Cloudinary + Sheets done | Supabase bridge, conflict resolution, sync-status UI                                                                                                                                                                                                                                                                                                                                           |
 | **18** | Multi-user RBAC — Role model, `@role_required`, comments, approval workflow    | ⚠️                                  | Role/UserRole/Comment models + migration + `is_admin`-based admin UI (`/auth/users`) done; `@role_required` + comment API/UI + role assignment + `tests/test_rbac.py` pending (verified 2026-08-07)                                                                                                                                                                                            |
 | **19** | AI case intelligence — evidence strength, traceability, readiness score        | ❌                                  | Not started                                                                                                                                                                                                                                                                                                                                                                                    |
-| **20** | Plugin architecture — OCR/AI/rule/PDF provider interfaces                      | ❌                                  | OCR and rules hardcoded                                                                                                                                                                                                                                                                                                                                                                        |
+| **20** | Plugin architecture — OCR/AI/rule/PDF provider interfaces                      | ✅                                  | ✅ Complete (2026-08-18) — `app/plugins/` (base ABCs + `PluginRegistry` singleton + 4 providers), all 6 callers refactored, `tests/test_plugins.py` 23/23 pass, config-driven selection (`OCR_PROVIDER`/`AI_PROVIDER`/`RULES_PROVIDER`/`PDF_PROVIDER`), backward-compatible shims, no new deps                                                                                                 |
 | **21** | Food Cell — DO Intimation generation, PDF export, forwarding after sample save | ✅                                  | `app/food_cell/` blueprint (`__init__.py`, `routes.py`, `services.py`, `tasks.py`, templates); `DoIntimation` model + `food_cell_forwarded` on `Sample`; post-save Celery hook in `app/sample/routes.py`; integrated with Priority 7 sync chain (Sheets + Airtable + Excel best-effort); `add_food_cell_do_intimation` migration; 15 tests in `tests/test_food_cell_do_intimation.py` all pass |
+
+### RAG & Infrastructure Stack (Sub-phases)
+
+| Sub-Phase                            | Status | Tests | Date       |
+| ------------------------------------ | ------ | ----- | ---------- |
+| RAG Phase 1 — Corpus pipeline        | ✅     | 117   | 2026-08-08 |
+| RAG Phase 2 — Generation             | ✅     | 40    | 2026-08-09 |
+| RAG Phase 3 — Verification           | ✅     | 48    | 2026-08-09 |
+| RAG Phase 4 — Evaluation             | ✅     | 49    | 2026-08-09 |
+| RAG Phase 5 — Integration            | ✅     | 31    | 2026-08-09 |
+| RAG Phase 3 Agent A (ingest+e2e)     | ✅     | 25    | 2026-08-09 |
+| Multi-Domain Phase 1                 | ✅     | 37    | 2026-08-20 |
+| P1-4 FSSAI re-ingest                 | ✅     | 15    | 2026-08-11 |
+| Evaluation Framework                 | ✅     | 77    | 2026-08-12 |
+| Benchmark v1.0                       | ✅     | 150q  | 2026-08-12 |
+| Rust PyO3 Normalizers                | ✅     | 45+   | 2026-08-12 |
+| Remote Inference (Modal)             | ✅     | 55    | 2026-08-16 |
+| LangGraph Agent Pipeline             | ✅     | 41    | 2026-08-16 |
+| M5 Checkpointing + HITL              | ✅     | 15    | 2026-08-16 |
+| FastAPI ASGI Gateway                 | ✅     | 50    | 2026-08-19 |
+| Config seam (`app/shared/config.py`) | ✅     | —     | 2026-08-22 |
+| Phase 6 (full rewrite)               | ❌     | —     | deferred   |
 
 ### New (Extraction → Storage → Autopopulation Pipeline)
 
@@ -71,7 +93,7 @@
 | 21   | Phase 17     | ⚠️ R2/B2 + Cloudinary + Sheets done; Supabase bridge, conflict resolution, sync-status UI pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `app/sync/`                                                                                                                                                                       |
 | 22   | **Phase 21** | Done (2026-08-06) — Food Cell DO Intimation: food_cell blueprint (services, routes, tasks, templates); DoIntimation model + food_cell_forwarded on Sample; HTML-to-PDF via WeasyPrint + stub fallback; Celery send_do_intimation task; post-save hook in sample/routes.py; best-effort sync to Sheets + Airtable + Excel; migration add_food_cell_do_intimation; 15 tests pass                                                                                                                                                                                                                                                                                                                                                                                                                | food_cell package, models/food_cell.py, sample/routes.py, init, celery_app.py, test_food_cell_do_intimation.py                                                                    |
 
-> **📌 Next 3 steps (highest future impact, smallest effort) — updated 2026-08-08 (Phase 14 now ✅, 21 tests):** **Phase 15** (Analytics Dashboard — aggregate queries + Chart.js/Leaflet; also exercises the new `selectin`/`load_only` query patterns; not started — no `app/analytics/` yet), **Phase 18** (finish Multi-User RBAC — models + migration + `is_admin` admin UI done; remaining: `@role_required`, comment API/UI, role assignment, `tests/test_rbac.py`), **Phase 19** (AI case intelligence — evidence strength, readiness score).
+> **📌 Next 3 steps (highest future impact, smallest effort) — updated 2026-08-20:** **Phase 15** (Analytics Dashboard — aggregate SQL queries + Chart.js/Leaflet; not started — no `app/analytics/` package), **Phase 18** (finish Multi-User RBAC — `@role_required` decorator + comment API/UI + role assignment + `tests/test_rbac.py`; models + migration + `is_admin` admin UI done), **Phase 19** (AI Case Intelligence — evidence strength + readiness score; not started — no `app/case_intelligence/` package). Plus: **RAG Query Interface UI** (task.md §7 — backend done, frontend form/template/JS/nav-link + 8 tests still planned).
 
 ---
 
@@ -190,12 +212,11 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 8. Streaming Excel generation
 9. Circuit breakers for external APIs
 
-### AI Readiness
+### AI Readiness (updated 2026-08-22)
 
-- **Current:** None — no AI integration exists
-- **Critical blockers:** No structured training data, no vector DB, no document indexing, no context management, no LLM integration layer
-- **Phase 11** (AI assistant) and **Phase 19** (case intelligence) are the AI entry points
-- **Foundation needed:** Add `rapidfuzz`, `openai`/`httpx`, vector DB (Qdrant/Pinecone), embeddings pipeline
+- **Phase 11 ✅** — AI Assistant (`app/ai_assistant/`): `AIAssistantService` (httpx-based, no new deps), 5 actions (summarize, refine, contradictions, annexures, draft prayers), editor sidebar, `POST /ai-assistant/assist`, 23 tests pass.
+- **RAG Stack ✅** — Full retrieval-augmented generation pipeline: Qdrant vector store, Modal remote embedding/reranker (all-mpnet-base-v2 768-dim, legal cross-encoder), 13K+ legal chunks indexed, 282-phase corpus pipeline, LangGraph self-correcting agent pipeline with M5 checkpointing + human-in-the-loop, FastAPI ASGI gateway at `/api/v2/*`. 694 RAG tests pass.
+- **Phase 19 ⚠️** — AI Case Intelligence not yet started (evidence strength + readiness score).
 
 ---
 

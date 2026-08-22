@@ -261,6 +261,12 @@
                     </a>
                     {% endif %}
                     <a
+                        href="{{ url_for('analytics.dashboard') }}"
+                        class="nav-link {% if request.blueprint == 'analytics' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-chart-line"></i> Analytics
+                    </a>
+                    <a
                         href="{{ url_for('annexure.index') }}"
                         class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}"
                     >

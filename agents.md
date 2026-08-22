@@ -171,7 +171,28 @@ QStash (webhook-based, no worker required on free tier) + Celery (for heavier jo
 - Audit hooks fire on SQLAlchemy `after_flush` for Adjudication, Bill, CaseFile
 - Security TODOs tracked in `task.md` (S7, S2, S9a, S6a, etc.)
 
-### 3.6 Deprecation Notes
+### 3.6 Configuration resolution — always via `cfg` (the config seam)
+
+All feature flags/settings resolve through **`app/shared/config.py`** (`cfg`, the
+declaration table + Pattern A rule). Never hand-roll a
+`try: current_app.config / except: os.environ` resolver.
+
+- Named access: `cfg.kg_fusion`, `cfg.reranker_model`, `cfg.ensemble_ce_head`
+- Dynamic keys (e.g. `{CATEGORY}_PROVIDER`): `cfg.get_str(key)`, `cfg.get_bool(key)`
+- Adding a flag = one `Setting(...)` row in the table + one `.env.example` entry
+  (docs parity is enforced by `tests/test_shared_config.py`)
+- Resolution (**Pattern A**): Flask config wins inside an app context; env is
+  read outside one; otherwise the declared default. `create_app()` calls
+  `seed_config_from_env(app)` so env vars behave identically in-context.
+- Boolean conventions are per-flag and declared (`opt_in`: string must be
+  `"true"`; `opt_out`: anything but `"false"`). String `"false"` in config
+  parses to `False` (the old `bool("false") is True` trap is fixed).
+
+See `CONTEXT.md` for the glossary entry. Replaced ~30 hand-rolled resolvers
+(~550 lines across tasks.py, agent/graph.py, api/deps.py, retrieval/*,
+plugins/registry.py) on 2026-08-22.
+
+### 3.7 Deprecation Notes
 
 - `datetime.utcnow()` → use `datetime.now(timezone.utc)` throughout
 - `Model.query.get()` → use `db.session.get(Model, id)`

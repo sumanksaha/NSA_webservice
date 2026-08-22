@@ -17,7 +17,6 @@ Feature flag: ``ENABLE_REFERENCE_EXPANSION`` (default false, per spec).
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,6 +25,7 @@ from app.rag.retrieval.reference_extractor import (
     extract_references,
     resolve_ref_to_provision,
 )
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,13 @@ EDGE_DEPENDS_ON = "depends_on"
 EDGE_CROSS_REFERENCES = "cross_references"
 
 _EDGE_NAMES = {
-    EDGE_REFS, EDGE_EXCEPTION, EDGE_SUBJECT_TO, EDGE_DEFINITION,
-    EDGE_COMPLEMENTS, EDGE_DEPENDS_ON, EDGE_CROSS_REFERENCES,
+    EDGE_REFS,
+    EDGE_EXCEPTION,
+    EDGE_SUBJECT_TO,
+    EDGE_DEFINITION,
+    EDGE_COMPLEMENTS,
+    EDGE_DEPENDS_ON,
+    EDGE_CROSS_REFERENCES,
 }
 
 
@@ -189,7 +194,7 @@ class ReferenceGraph:
                     relationship=edge_type,
                     confidence=ref.confidence,
                     source="text",
-                    evidence=text[max(0, ref.span_start - 10):ref.span_end + 10],
+                    evidence=text[max(0, ref.span_start - 10) : ref.span_end + 10],
                     target_provision_id=resolve_ref_to_provision(ref),
                 )
                 self.add_edge(edge)
@@ -260,19 +265,12 @@ def get_reference_graph() -> ReferenceGraph:
 
 
 def _reference_expansion_enabled() -> bool:
-    """Check if reference expansion is enabled via env / Flask config.
+    """Check if reference expansion is enabled via the shared config seam.
 
     Default is **off** per spec — the current production baseline must remain
     unchanged.
     """
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_REFERENCE_EXPANSION", False))
-    except Exception:
-        pass
-    return os.environ.get("ENABLE_REFERENCE_EXPANSION", "false").lower() == "true"
+    return cfg.reference_expansion
 
 
 def expand_references(
@@ -352,7 +350,7 @@ def expand_candidates(
         return []
 
     graph = graph or get_reference_graph()
-    graph.seed_from_chunks(chunks[:top_k * 2])
+    graph.seed_from_chunks(chunks[: top_k * 2])
 
     seen: set[str] = set()
     candidates: list[str] = []
@@ -401,4 +399,3 @@ if __name__ == "__main__":
     # Test expansion
     expansion = expand_references("chunk1", depth=1, graph=g)
     assert len(expansion) >= 1
-

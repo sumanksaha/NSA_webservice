@@ -198,38 +198,58 @@ def extract_references(
         end = m.end()
         while end > m.start() and text[end - 1].isspace():
             end -= 1
-        _add(Reference(
-            act=act_hint,
-            section=sec,
-            subsection=subsection,
-            clause=clause,
-            relation=None,
-            confidence=confidence,
-            span_start=m.start(),
-            span_end=end,
-            raw=text[m.start():end],
-        ))
+        _add(
+            Reference(
+                act=act_hint,
+                section=sec,
+                subsection=subsection,
+                clause=clause,
+                relation=None,
+                confidence=confidence,
+                span_start=m.start(),
+                span_end=end,
+                raw=text[m.start() : end],
+            )
+        )
 
     # 2. Rule references
     for m in _RULE_PAT.finditer(text):
-        _add(Reference(
-            act=act_hint, rule=m.group(2), confidence=CONFIDENCE_MEDIUM,
-            span_start=m.start(), span_end=m.end(), raw=m.group(0),
-        ))
+        _add(
+            Reference(
+                act=act_hint,
+                rule=m.group(2),
+                confidence=CONFIDENCE_MEDIUM,
+                span_start=m.start(),
+                span_end=m.end(),
+                raw=m.group(0),
+            )
+        )
 
     # 3. Schedule references
     for m in _SCHEDULE_PAT.finditer(text):
-        _add(Reference(
-            act=act_hint, schedule=m.group(1), confidence=CONFIDENCE_MEDIUM,
-            span_start=m.start(), span_end=m.end(), raw=m.group(0),
-        ))
+        _add(
+            Reference(
+                act=act_hint,
+                schedule=m.group(1),
+                confidence=CONFIDENCE_MEDIUM,
+                span_start=m.start(),
+                span_end=m.end(),
+                raw=m.group(0),
+            )
+        )
 
     # 4. Chapter references
     for m in _CHAPTER_PAT.finditer(text):
-        _add(Reference(
-            act=act_hint, chapter=m.group(1), confidence=CONFIDENCE_MEDIUM,
-            span_start=m.start(), span_end=m.end(), raw=m.group(0),
-        ))
+        _add(
+            Reference(
+                act=act_hint,
+                chapter=m.group(1),
+                confidence=CONFIDENCE_MEDIUM,
+                span_start=m.start(),
+                span_end=m.end(),
+                raw=m.group(0),
+            )
+        )
 
     # 5. Textual relation patterns (LOW confidence — no explicit section)
     for m in _RELATION_RE.finditer(text):
@@ -240,12 +260,16 @@ def extract_references(
                 relation_name = name
                 break
         if relation_name:
-            _add(Reference(
-                act=act_hint, relation=relation_name,
-                confidence=CONFIDENCE_LOW,
-                span_start=m.start(), span_end=m.end(),
-                raw=matched_text,
-            ))
+            _add(
+                Reference(
+                    act=act_hint,
+                    relation=relation_name,
+                    confidence=CONFIDENCE_LOW,
+                    span_start=m.start(),
+                    span_end=m.end(),
+                    raw=matched_text,
+                )
+            )
 
     refs.sort(key=lambda r: r.span_start)
     return refs
@@ -281,20 +305,6 @@ def resolve_ref_to_provision(ref: Reference) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
-def _reference_extraction_enabled() -> bool:
-    """Check if reference extraction is enabled via env / Flask config."""
-    try:
-        from flask import current_app
-
-        if current_app:
-            return bool(current_app.config.get("ENABLE_REFERENCE_EXTRACTION", True))
-    except Exception:
-        pass
-    import os
-
-    return os.environ.get("ENABLE_REFERENCE_EXTRACTION", "true").lower() != "false"
-
-
 # --------------------------------------------------------------------------- #
 # Self-check
 # --------------------------------------------------------------------------- #
@@ -306,17 +316,20 @@ if __name__ == "__main__":
     assert len(refs) >= 3, f"Expected >=3 refs, got {len(refs)}: {[r.canonical_ref() for r in refs]}"
 
     section_refs = [r for r in refs if r.section]
-    assert any(r.section == "31" and r.subsection == ["2"] and r.clause == ["a"] for r in section_refs), \
+    assert any(r.section == "31" and r.subsection == ["2"] and r.clause == ["a"] for r in section_refs), (
         f"Expected Section 31(2)(a), got: {[(r.section, r.subsection, r.clause) for r in section_refs]}"
-    assert any(r.section == "55" for r in section_refs), \
+    )
+    assert any(r.section == "55" for r in section_refs), (
         f"Expected Section 55, got: {[(r.section, r.subsection) for r in section_refs]}"
+    )
 
     high = high_confidence_refs(refs)
     assert all(r.confidence == CONFIDENCE_HIGH for r in high if r.section)
 
     relation_refs = [r for r in refs if r.relation]
-    assert any(r.relation == "subject_to" for r in relation_refs), \
+    assert any(r.relation == "subject_to" for r in relation_refs), (
         f"Expected 'subject_to' relation, got: {[r.relation for r in relation_refs]}"
+    )
 
     for _r in refs:
         pass

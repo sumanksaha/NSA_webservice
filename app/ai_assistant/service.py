@@ -254,4 +254,78 @@ class AIAssistantService:
         raise RuntimeError("LLM request failed after 3 attempts: " + str(last_exc)) from last_exc
 
 
-__all__ = ["ACTIONS", "AIAssistantService"]
+__all__ = ["ACTIONS", "ACTION_METHODS", "AIAssistantService", "dispatch_ai_action"]
+
+
+# ---------------------------------------------------------------------------- #
+# Action dispatch — the one seam both transports share
+# ---------------------------------------------------------------------------- #
+
+
+#: Maps API action names to AIAssistantService methods. Single source of
+#: truth — previously duplicated verbatim in ``ai_assistant/routes.py`` and
+#: ``api/routers.py`` (and already drifted there).
+ACTION_METHODS: dict[str, str] = {
+    "summarize": "summarize_text",
+    "refine_legal": "refine_legal_language",
+    "detect_contradictions": "detect_contradictions",
+    "suggest_annexures": "suggest_missing_annexures",
+    "draft_prayers": "draft_prayers",
+}
+
+#: Actions whose results are ``list[str]`` — serialized to a JSON string for
+#: transport (the historical response contract consumed by the UI).
+_LIST_RESULT_ACTIONS = frozenset({"detect_contradictions", "suggest_annexures"})
+
+
+def dispatch_ai_action(
+    service: Any,
+    action: str,
+    content: str,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate and dispatch one AI action, returning the response payload.
+
+    The shared domain function behind both the Flask ``/ai-assistant/assist``
+    route and ``POST /api/v2/ai-assistant/assist`` — transports reduce to
+    parse → call → translate-errors.
+
+    Args:
+        service: The active AI provider (plugin-registry resolved; proxies
+            ``AIAssistantService``).
+        action: One of :data:`ACTION_METHODS` keys.
+        content: The text to process (must be non-blank after stripping).
+        context: Optional dict; ``draft_prayers`` reads ``facts``/``grounds``.
+
+    Raises:
+        ValueError: Unknown action, or blank/whitespace-only content
+            (transports map to 400).
+        RuntimeError: ``"AI Assistant is not configured."`` when the service
+            is disabled (transports map to 503); any other RuntimeError
+            propagates (transports map to 500).
+        Exception: Provider failures propagate (transports map to 500).
+
+    Returns:
+        ``{"result": str, "tokens_used": int, "action": str}`` — list-valued
+        results are ``json.dumps``-ed to match the established contract.
+    """
+    if action not in ACTION_METHODS:
+        raise ValueError(f"Invalid action. Must be one of: {', '.join(sorted(ACTION_METHODS))}.")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("content must be a non-empty string.")
+    if not service.is_enabled():
+        raise RuntimeError("AI Assistant is not configured.")
+
+    context = context or {}
+    method = getattr(service, ACTION_METHODS[action])
+
+    if action == "draft_prayers":
+        # Calling convention per the service contract: positional facts/grounds
+        # from the request context (NOT the content field).
+        result = method(context.get("facts", ""), context.get("grounds", ""))
+    elif action in _LIST_RESULT_ACTIONS:
+        result = json.dumps(method(content))
+    else:
+        result = method(content)
+
+    return {"result": result, "tokens_used": service.tokens_used, "action": action}
