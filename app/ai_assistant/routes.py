@@ -14,7 +14,7 @@ import logging
 from flask import jsonify, request
 
 from app.ai_assistant import ai_bp
-from app.ai_assistant.service import dispatch_ai_action
+from app.ai_assistant.service import ACTION_METHODS, dispatch_ai_action  # noqa: F401 — re-exported for tests/conftest
 
 logger = logging.getLogger(__name__)
 

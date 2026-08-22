@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.inspection import inspection_bp
@@ -289,6 +290,9 @@ def update_inspection(inspection_id):
             current_app.logger.warning(f"Inspection Sheets sync failed: {e}")
 
         return jsonify({"message": "Inspection updated successfully"}), 200
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "Conflict: this inspection was modified by another user. Please reload and try again."}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update inspection: {e!s}"}), 500
@@ -305,6 +309,9 @@ def delete_inspection(inspection_id):
         db.session.delete(inspection)
         db.session.commit()
         return jsonify({"message": "Inspection deleted successfully"}), 200
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "Conflict: this inspection was modified by another user. Please reload and try again."}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete inspection: {e!s}"}), 500

@@ -385,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
     output = json.dumps(report, indent=indent, default=str)
     if args.output:
         Path(args.output).write_text(output, encoding="utf-8")
+    print(output)
     return 0
 
 

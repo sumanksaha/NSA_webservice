@@ -178,7 +178,8 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
                 deduplication_id=dedup_key,
                 failure_callback=_failure_callback_url(task_name),
             )
-            assert not isinstance(response, list)
+            if isinstance(response, list):
+                raise TypeError(f"QStash returned a batch list, expected single message: {response}")
             logger.info(
                 "Published task %s to QStash (message_id=%s)",
                 task_name,

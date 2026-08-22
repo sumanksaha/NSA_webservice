@@ -55,10 +55,11 @@ _MANUAL_ONLY_SECTIONS = frozenset({"58", "64"})
 
 # Fail loudly at import if the manual-only set drifts away from the canonical
 # whitelist (single source of truth: app.utils.sections_data.VALID_SECTION_IDS).
-assert _MANUAL_ONLY_SECTIONS <= VALID_SECTION_IDS, (
-    f"Manual-only sections {sorted(_MANUAL_ONLY_SECTIONS)} not a subset of "
-    f"VALID_SECTION_IDS {sorted(VALID_SECTION_IDS)}"
-)
+if not _MANUAL_ONLY_SECTIONS <= VALID_SECTION_IDS:
+    raise ValueError(
+        f"Manual-only sections {sorted(_MANUAL_ONLY_SECTIONS)} not a subset of "
+        f"VALID_SECTION_IDS {sorted(VALID_SECTION_IDS)}"
+    )
 
 # Checklist items indicating failure to comply with FSO directions -> Sec 55
 _DIRECTION_COMPLIANCE_ITEMS = {

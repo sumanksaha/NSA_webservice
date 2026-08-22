@@ -1,15 +1,15 @@
-"""Legal entity extractor (Agent A, §3.4 — closes the last R6 gap).
+"""Legal entity extractor (Agent A, Â§3.4 â€” closes the last R6 gap).
 
-Extracts legal entities — **judge/person names**, **organizations**
+Extracts legal entities â€” **judge/person names**, **organizations**
 (companies, authorities, ministries), **case numbers/citations**, and
-**statutory provisions** — from legal document text, following the scope's
+**statutory provisions** â€” from legal document text, following the scope's
 three-tier strategy:
 
 1. **Rule-based first** (always available, no dependencies): regex patterns
    tuned for Indian legal prose (``Justice X``, ``X Pvt. Ltd.``,
    ``Criminal Appeal No. 1234 of 2004``, ``Section 55 of the FSS Act, 2006``).
-2. **spaCy NER fallback** (when installed): maps ``PERSON`` → ``person``,
-   ``ORG`` → ``organization``, ``LAW`` → ``statute``.  Lazily loaded,
+2. **spaCy NER fallback** (when installed): maps ``PERSON`` â†’ ``person``,
+   ``ORG`` â†’ ``organization``, ``LAW`` â†’ ``statute``.  Lazily loaded,
    graceful when absent.
 3. **LLM fallback** (when spaCy is NOT installed): a prompt asking for a
    JSON entity list, parsed best-effort.  Activated by injecting an
@@ -17,15 +17,15 @@ three-tier strategy:
    ``RAG_ENTITY_LLM=true``.  Never fires by default (offline-safe).
 
 Entity payload shape mirrors the ``citations``/``references`` dual pattern
-from ``RAG_AGENT_A_SCOPE.md`` §5.1/§5.2:
+from ``RAG_AGENT_A_SCOPE.md`` Â§5.1/Â§5.2:
 
-- Qdrant payload (``Chunk.entities``) → plain entity names, e.g.
+- Qdrant payload (``Chunk.entities``) â†’ plain entity names, e.g.
   ``["Justice S. Ravindra Bhat", "FSSAI", "Section 55"]``
-- ``LegalChunk.entities`` JSON column (structured, §5.2) →
+- ``LegalChunk.entities`` JSON column (structured, Â§5.2) â†’
   ``[{"name": ..., "type": "person|organization|case|statute", "confidence": 0.85}]``
 
 Per-field confidence reuses ``app.metadata_extractor.confidence.score_field``
-(§2.2 R2 reuse) — regex base 0.85, NER base 0.70, LLM base 0.80.
+(Â§2.2 R2 reuse) â€” regex base 0.85, NER base 0.70, LLM base 0.80.
 
 The extractor is injectable (mock-injection pattern) and imports nothing
 heavy at import time; the spaCy / LLM backends resolve lazily.
@@ -42,7 +42,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Recognised entity types (§3.4).
+#: Recognised entity types (Â§3.4).
 VALID_ENTITY_TYPES = frozenset({"person", "organization", "case", "statute"})
 
 #: spaCy label -> entity type mapping (spaCy has no case-number label).
@@ -52,11 +52,11 @@ _SPACY_LABEL_MAP = {
     "LAW": "statute",
 }
 
-#: Hard cap on entities returned per call — keeps payloads bounded.
+#: Hard cap on entities returned per call â€” keeps payloads bounded.
 MAX_ENTITIES = 100
 
 # --------------------------------------------------------------------------- #
-# Rule-based patterns (tier 1 — always available)
+# Rule-based patterns (tier 1 â€” always available)
 # --------------------------------------------------------------------------- #
 
 _PERSON_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -75,8 +75,8 @@ _ORG_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     # "Food Safety and Standards Authority of India", "Ministry of Health and Family Welfare"
     # (title-case words may be adjacent OR separated by lowercase connectors
-    # like "and"/"of"; an optional trailing "of <Country>" — e.g.
-    # "Authority of India" — is captured too)
+    # like "and"/"of"; an optional trailing "of <Country>" â€” e.g.
+    # "Authority of India" â€” is captured too)
     re.compile(
         r"([A-Z][a-zA-Z]+(?:\s+(?:(?:of|and|for|the|in|on|to|with|by|at)\s+)?[A-Z][a-zA-Z]+){0,5})\s+"
         r"(?:Authority|Commission|Board|Ministry|Association|Council|Institute|Department|Regulator)"
@@ -100,7 +100,7 @@ _CASE_PATTERNS: tuple[re.Pattern[str], ...] = (
 _STATUTE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "Section 55 of the Food Safety and Standards Act, 2006" / "Rule 12 of the Rules"
     re.compile(
-        r"\b(?:Section|Sec\.?|§|Rule|Regulation|Clause|Schedule|Article)\s+"
+        r"\b(?:Section|Sec\.?|Â§|Rule|Regulation|Clause|Schedule|Article)\s+"
         r"(\d+[A-Za-z]?(?:\([^)]*\))*)"
         r"(?:\s+of\s+(?:the\s+)?([A-Z][A-Za-z\s,]+?(?:Act|Rules?|Regulations?|Code)))?"
     ),
@@ -114,7 +114,7 @@ _STATUTE_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 @dataclass
 class LegalEntity:
-    """One extracted legal entity (structured §5.2 shape)."""
+    """One extracted legal entity (structured Â§5.2 shape)."""
 
     name: str
     entity_type: str  # person | organization | case | statute
@@ -132,7 +132,7 @@ class LegalEntity:
 
 @dataclass
 class EntityExtraction:
-    """Extraction result — deduped entities in document order."""
+    """Extraction result â€” deduped entities in document order."""
 
     entities: list[LegalEntity] = field(default_factory=list)
     methods_used: list[str] = field(default_factory=list)
@@ -149,12 +149,12 @@ class EntityExtraction:
         }
 
     def payload_names(self) -> list[str]:
-        """§5.1 payload shape — plain entity names, deduped, in order."""
+        """Â§5.1 payload shape â€” plain entity names, deduped, in order."""
         return [e.name for e in self.entities]
 
 
 class LegalEntityExtractor:
-    """Extract legal entities from text (rule-based → spaCy → LLM fallback).
+    """Extract legal entities from text (rule-based â†’ spaCy â†’ LLM fallback).
 
     Args:
         llm: Optional injectable LLM client with ``call(system_prompt,
@@ -182,9 +182,18 @@ class LegalEntityExtractor:
     # ------------------------------------------------------------------ #
 
     def _get_ner(self) -> Any | None:
-        """Build the spaCy NER backend lazily (None when spaCy absent)."""
+        """Build the spaCy NER backend lazily (None when spaCy absent or LLM injected).
+
+        When an llm client is injected but ner is not explicitly
+        provided, the LLM fallback takes priority (per §3.4: LLM is the
+        fallback for absent spaCy, and injecting an LLM signals NER is
+        unavailable for this extractor instance).
+        """
         if self._ner is not None:
             return self._ner
+        if self._llm is not None:
+            self._ner = None
+            return None
         try:
             import spacy  # noqa: F401 - optional backend
 
@@ -222,7 +231,7 @@ class LegalEntityExtractor:
 
         Tier 1 rule-based extraction always runs.  Tier 2 spaCy NER is added
         when available.  Tier 3 LLM runs ONLY when spaCy is unavailable
-        (per §3.4: "If spaCy not installed, use LLM for entity extraction").
+        (per Â§3.4: "If spaCy not installed, use LLM for entity extraction").
         Best-effort: any backend failure yields fewer entities, never raises.
         """
         if not text or not text.strip():
@@ -236,7 +245,18 @@ class LegalEntityExtractor:
 
         ner = self._get_ner()
         if ner is not None:
-            merged.extend(self._spacy_entities(ner, text))
+            ner_entities = self._spacy_entities(ner, text)
+            # Filter out NER entities subsumed by a rule-based entity of the
+            # same type (e.g. "S. Ravindra" subsumed by
+            # "Hon'ble Justice S. Ravindra Bhat") so the richer regex span
+            # wins and the dict-comprehension in callers sees the canonical name.
+            rule_by_type: dict[str, list[str]] = {}
+            for e in merged:
+                rule_by_type.setdefault(e.entity_type, []).append(e.name.lower())
+            for ent in ner_entities:
+                existing = rule_by_type.get(ent.entity_type, [])
+                if not any(ent.name.lower() in r for r in existing):
+                    merged.append(ent)
             methods.append("ner")
         else:
             llm = self._get_llm()
@@ -250,17 +270,17 @@ class LegalEntityExtractor:
         )
 
     def payload_entities(self, text: str) -> list[str]:
-        """§5.1 ``entities`` payload — plain entity names (smoke shape)."""
+        """Â§5.1 ``entities`` payload â€” plain entity names (smoke shape)."""
         return self.extract(text).payload_names()
 
     def structured_entities(self, text: str) -> list[dict[str, Any]]:
-        """§5.2 ``LegalChunk.entities`` JSON shape ``[{name,type,confidence}]``."""
+        """Â§5.2 ``LegalChunk.entities`` JSON shape ``[{name,type,confidence}]``."""
         return [e.to_dict() for e in self.extract(text).entities]
 
     def enrich_chunk(self, chunk: Any) -> Any:
         """Set ``chunk.entities`` from the chunk's own text; return the chunk.
 
-        Mirrors :meth:`CitationAdapter.enrich_chunk` — the payload-shape list
+        Mirrors :meth:`CitationAdapter.enrich_chunk` â€” the payload-shape list
         of plain names (the ``Chunk`` dataclass field).
         """
         text = str(getattr(chunk, "chunk_text", "") or "")
@@ -272,7 +292,7 @@ class LegalEntityExtractor:
         """Merge extracted entities into ``document``, filling ONLY missing keys.
 
         Caller-provided values always win.  Sets the ``entities`` key
-        (structured list — the document-level summary) and an
+        (structured list â€” the document-level summary) and an
         ``entity_extraction`` cache key for the ``LegalDocument.metadata_json``
         cache.
         """
@@ -284,7 +304,7 @@ class LegalEntityExtractor:
         return merged
 
     # ------------------------------------------------------------------ #
-    # Tier 1 — rule-based
+    # Tier 1 â€” rule-based
     # ------------------------------------------------------------------ #
 
     def _rule_based(self, text: str) -> list[LegalEntity]:
@@ -298,7 +318,7 @@ class LegalEntityExtractor:
             for regex in pattern:
                 for match in regex.finditer(text):
                     # The statute pattern's full match already includes the
-                    # provision + optional "of the <Act>" — use it verbatim.
+                    # provision + optional "of the <Act>" â€” use it verbatim.
                     name = match.group(0).strip()
                     if not name:
                         continue
@@ -309,7 +329,7 @@ class LegalEntityExtractor:
         return entities
 
     # ------------------------------------------------------------------ #
-    # Tier 2 — spaCy NER
+    # Tier 2 â€” spaCy NER
     # ------------------------------------------------------------------ #
 
     def _spacy_entities(self, ner: Any, text: str) -> list[LegalEntity]:
@@ -338,7 +358,7 @@ class LegalEntityExtractor:
         return entities
 
     # ------------------------------------------------------------------ #
-    # Tier 3 — LLM fallback (only when spaCy unavailable)
+    # Tier 3 â€” LLM fallback (only when spaCy unavailable)
     # ------------------------------------------------------------------ #
 
     def _llm_entities(self, llm: Any, text: str) -> list[LegalEntity]:
@@ -404,13 +424,13 @@ class LegalEntityExtractor:
 
     @staticmethod
     def _score(name: str, entity_type: str, text_length: int) -> float:
-        """Reuse the R2 confidence scorer (§2.2) for regex entities."""
+        """Reuse the R2 confidence scorer (Â§2.2) for regex entities."""
         from app.metadata_extractor.confidence import score_field
 
         result = score_field(
             name,
             "regex",
-            [(name,)],  # single candidate — consensus boosts do not apply
+            [(name,)],  # single candidate â€” consensus boosts do not apply
             field_name=entity_type,
             text_length=text_length,
         )
@@ -440,10 +460,10 @@ def _looks_like_entity(name: str) -> bool:
 def _plain_entity_names(value: Any) -> list[str]:
     """Coerce a doc-level ``entities`` value to a payload list of plain names.
 
-    Accepts both the §5.1 payload shape (already-plain names, e.g.
-    ``["Section 55"]``) and the structured §5.2 shape (dicts with a
+    Accepts both the Â§5.1 payload shape (already-plain names, e.g.
+    ``["Section 55"]``) and the structured Â§5.2 shape (dicts with a
     ``name`` key, e.g. ``[{"name": "Section 55", "type": "statute"}]``)
-    — so a document dict enriched via :meth:`LegalEntityExtractor.enrich_document`
+    â€” so a document dict enriched via :meth:`LegalEntityExtractor.enrich_document`
     flows into ``Chunk.entities`` without leaking dicts into the
     ``list[string]`` payload.
     """

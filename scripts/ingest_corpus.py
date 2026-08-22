@@ -19,6 +19,7 @@ was a duplicate), 1 when any document failed to ingest.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -109,6 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     # Single-document results expose ``ok``; corpus summaries expose ``failed``.
     if summary.get("ok") is False or summary.get("failed", 0):
         return 1
+    # Print JSON summary to stdout.
+    if args.pretty_json:
+        print(json.dumps(summary, indent=2, default=str))
+    else:
+        print(json.dumps(summary, default=str))
     return 0
 
 

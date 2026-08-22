@@ -9,6 +9,7 @@ Follows the DB-setup pattern from ``tests/test_ai_assistant.py``
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 
 import pytest
@@ -30,18 +31,33 @@ def rag_app():
     db.drop_all()
     db.create_all()
     yield app
-    db.session.remove()
-    db.drop_all()
-    ctx.pop()
+    # _pop_leaked_flask_app_context (autouse, function scope) has already popped
+    # every app context by the time module teardown runs — guard session/db calls.
+    with contextlib.suppress(Exception):
+        db.session.remove()
+        db.drop_all()
+        ctx.pop()
 
 
 @pytest.fixture(scope="function")
 def env(rag_app):
-    """Function-scoped: fresh tables per test within the shared app."""
+    """Function-scoped: fresh tables per test within the shared app.
+
+    Pushes its own app context because the module-scoped rag_app context
+    is popped by the autouse _pop_leaked_flask_app_context fixture after
+    each test — without a fresh context, db.drop_all() raises
+    RuntimeError: Working outside of application context.
+    """
+    ctx = rag_app.app_context()
+    ctx.push()
     db.drop_all()
     db.create_all()
     yield rag_app
-    db.session.remove()
+    # The autouse _pop_leaked_flask_app_context teardown (in conftest.py)
+    # may have already popped our context — guard the session teardown.
+    with contextlib.suppress(Exception):
+        db.session.remove()
+        ctx.pop()
 
 
 class TestRAGQueryLogModel:

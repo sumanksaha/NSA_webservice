@@ -98,9 +98,12 @@ def _mock_httpx_response(content, tokens=42, status_code=200):
 def _cleanup():
     """Ensure fresh state per test."""
     yield
-    from app.extensions import db
+    from flask import has_app_context
 
-    db.session.remove()
+    if has_app_context():
+        from app.extensions import db
+
+        db.session.remove()
 
 
 # --------------------------------------------------------------------------- #

@@ -186,6 +186,14 @@ def main(argv: list[str] | None = None) -> int:
     # FSSAI collection. Hard fail — never silently proceed.
     foreign = [d for d in docs if not _is_fss_document(d)]
     if foreign:
+        import sys
+
+        for d in foreign:
+            print(f"ERROR: non-FSS document detected: {d['id']} ({d['source_uri']})", file=sys.stderr)
+        print(
+            "Aborting: non-FSS document would be wrongly stamped into the FSSAI collection (STEP-1 backup is insufficient).",
+            file=sys.stderr,
+        )
         return 2
 
     # Corpus-size expectation (audited baseline). Warn only — legitimate growth
@@ -209,11 +217,20 @@ def main(argv: list[str] | None = None) -> int:
         total_payloads += len(payloads)
 
     if args.dry_run:
+        print(f"total payloads: {total_payloads}")
+        for doc in docs:
+            doc_id = doc["id"]
+            count = len(by_doc.get(doc_id, []))
+            print(f"  {doc['source_uri']} chunks={count}")
+        print("dry-run: no Qdrant writes performed")
         return 0
 
     # Destructive guard: --delete-collection requires the STEP-1 rollback export
     # to exist, so the pre-rebuild collection is always recoverable (§7 rollback).
     if args.delete_collection and not BACKUP_PATH.exists():
+        import sys
+
+        print(f"ERROR: --delete-collection requires a STEP-1 backup at {BACKUP_PATH}", file=sys.stderr)
         return 2
 
     ctx = _app_context()

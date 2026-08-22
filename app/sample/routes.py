@@ -6,6 +6,7 @@ Provides endpoints for Sample CRUD operations and UI.
 from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.models import FSO, CaseFile, Sample
@@ -338,6 +339,9 @@ def update_sample(sample_id):
             current_app.logger.warning(f"Sample update sync failed: {e}")
 
         return jsonify({"message": "Sample updated successfully"}), 200
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "Conflict: this sample was modified by another user. Please reload and try again."}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update sample: {e!s}"}), 500
@@ -354,6 +358,9 @@ def delete_sample(sample_id):
         db.session.delete(sample)
         db.session.commit()
         return jsonify({"message": "Sample deleted successfully"}), 200
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "Conflict: this sample was modified by another user. Please reload and try again."}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete sample: {e!s}"}), 500

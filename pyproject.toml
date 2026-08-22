@@ -84,11 +84,23 @@ dependencies = [
   "uvicorn[standard]>=0.30.0",
   "asgiref>=3.8.0",
   "a2wsgi>=1.10.10",
-  "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
-  "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
-  "easyocr>=1.7.0",                # OCR engine 1 for scanned legal PDFs (English + Hindi)
+  # NOTE: heavy ML deps (sentence-transformers, fastembed, easyocr,
+  # opencv-python-headless) are OPTIONAL — install via the [ocr] and
+  # [embeddings] extras, or [all] for both.  The app boots and serves
+  # all non-OCR/non-embedding routes without them; remote inference
+  # (Modal / RAG_EMBED_ENDPOINT) is the production path.
+]
+
+[project.optional-dependencies]
+ocr = [
+  "easyocr>=1.7.0",                # OCR engine for scanned legal PDFs (English + Hindi)
   "opencv-python-headless>=4.9.0", # OCR image preprocessing (no GUI deps)
 ]
+embeddings = [
+  "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
+  "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
+]
+all = ["ocr", "embeddings"]
 
 [project.urls]
 Homepage = "https://github.com/sumanksaha/NSA_webservice"
@@ -198,7 +210,7 @@ ignore = [
 "app/utils/lookup.py" = ["S608"]
 "app/document_loader/*" = ["S110"]
 "app/inspection/verification_service.py" = ["S110"]
-"legal_paragraph_detection_engine/examples/*" = ["T201"]
+"legal_paragraph_detection_engine/examples/*" = ["T201", "S101"]
 "legal_paragraph_detection_engine/tests/*" = [
   "T201",
   "W293",
@@ -211,6 +223,8 @@ ignore = [
 "app/ocr_pipeline/detectors.py" = ["S110"]
 "app/ocr_pipeline/preprocessing.py" = ["S110"]
 "app/utils/sync.py" = ["S110"]
+"app/rag/retrieval/*" = ["S101"]  # internal invariant checks on rule-based parse results (equivalent to test assertions)
+"scripts/**/*" = ["B007", "T201", "S101"]  # CLI tools legitimately use print for stdout output
 "app/inspection/inspection_utils.py" = ["S311"]
 "app/sample/sample_utils.py" = ["S311"]
 "celery_verify.py" = ["S110"]
@@ -219,7 +233,6 @@ ignore = [
 "create_tables.py" = ["F403"]
 "find_routes.py" = ["SIM102"]
 "fuzzy_dedup_stage0.py" = ["F401", "S607"]
-"scripts/*" = ["B007"]
 "search_*.py" = ["B007", "S110", "SIM102"]
 "smoke_test.py" = ["T201"]
 "test_*.py" = ["T201", "W293"]
@@ -308,6 +321,10 @@ testpaths = ["tests", "legal_paragraph_detection_engine/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short --no-header"
+markers = [
+  "slow: marks tests that require Qdrant/network/heavy inference (deselected by 'fast-tests' CI job)",
+]
+
 filterwarnings = [
   "ignore::DeprecationWarning:flask_sqlalchemy.*",
   "ignore::DeprecationWarning:sqlalchemy.*",

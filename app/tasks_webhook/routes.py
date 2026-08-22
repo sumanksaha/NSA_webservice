@@ -194,7 +194,7 @@ def task_status(message_id):
     # record is guaranteed non-None here (found=True), but the return-type
     # annotation of get_task_status is ``dict | None`` — narrow it for static
     # analysis so ``**record`` is provably a mapping.
-    assert record is not None
+    assert record is not None  # type-narrowing guard for static analysis (S101 globally ignored)
     return jsonify({"message_id": message_id, **record}), 200
 
 

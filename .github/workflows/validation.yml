@@ -159,19 +159,12 @@ jobs:
               continue-on-error: true # Don't block PRs on type errors (transitional)
 
     # ---------------------------------------------------------------------------
-    # Job 4: Unit Testing — Pytest with Coverage
+    # Job 4: Fast Tests — Unit Tests (no Qdrant/network/heavy inference)
     # ---------------------------------------------------------------------------
-    test:
-        name: Unit Tests (Pytest + Coverage)
-        runs-on: ${{ matrix.os }}
-        timeout-minutes: 20
-        strategy:
-            fail-fast: false
-            matrix:
-                os:
-                    - ubuntu-24.04
-                    - windows-2022
-                    # - macos-15  # Uncomment when macOS testing is needed
+    test-fast:
+        name: Fast Tests (Pytest, no slow)
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
@@ -198,10 +191,54 @@ jobs:
                   python -m pip install --upgrade pip setuptools wheel
                   pip install -r requirements.txt -r requirements-dev.txt
 
-            - name: Run pytest with coverage
+            - name: Run fast (non-slow) tests
               run: |
-                  pytest --cov=app --cov-report=xml --cov-report=term-missing \
-                    -v --tb=short -x \
+                  pytest -m "not slow" --tb=short -q \
+                    legal_paragraph_detection_engine/tests/ tests/ 2>&1
+              continue-on-error: false
+              env:
+                  PYTHONPATH: ${{ github.workspace }}
+                  DISABLE_PDF_GENERATION: "true"
+                  SECRET_KEY: "ci-test-secret-key-do-not-use"
+
+    # ---------------------------------------------------------------------------
+    # Job 5: Slow Tests — Integration + RAG + DB-backed (Qdrant/network)
+    # ---------------------------------------------------------------------------
+    test-slow:
+        name: Slow Tests (Pytest, slow-marked)
+        runs-on: ubuntu-24.04
+        timeout-minutes: 20
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Set up Python ${{ env.PYTHON_VERSION }}
+              uses: actions/setup-python@v7
+              with:
+                  python-version: ${{ env.PYTHON_VERSION }}
+                  cache: "pip"
+                  cache-dependency-path: |
+                      requirements.txt
+                      requirements-dev.txt
+
+            - name: Install system dependencies (Linux)
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq libgobject-2.0-0 libpango-1.0-0 \
+                    libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 \
+                    tesseract-ocr 2>/dev/null || true
+
+            - name: Install Python dependencies (incl. optional ML extras)
+              run: |
+                  python -m pip install --upgrade pip setuptools wheel
+                  pip install -r requirements.txt -r requirements-dev.txt
+                  pip install -e ".[all]" 2>/dev/null || true
+
+            - name: Run slow (integration/RAG) tests with coverage
+              run: |
+                  pytest -m "slow" --cov=app --cov-report=xml --cov-report=term-missing \
+                    --tb=short -q \
                     legal_paragraph_detection_engine/tests/ tests/ 2>&1
               continue-on-error: false
               env:
@@ -213,22 +250,13 @@ jobs:
               if: success()
               uses: actions/upload-artifact@v7
               with:
-                  name: coverage-report-${{ matrix.os }}
+                  name: coverage-report
                   path: coverage.xml
                   retention-days: 7
 
-            - name: Upload test results
-              if: always()
-              uses: actions/upload-artifact@v7
-              with:
-                  name: test-results-${{ matrix.os }}
-                  path: |
-                      htmlcov/
-                      .pytest_cache/
-                  retention-days: 3
 
     # ---------------------------------------------------------------------------
-    # Job 5: Security Scanning — Bandit + pip-audit + safety
+    # Job 6: Security Scanning — Bandit + pip-audit + safety
     # ---------------------------------------------------------------------------
     security:
         name: Security Scan
@@ -278,7 +306,7 @@ jobs:
               continue-on-error: true
 
     # ---------------------------------------------------------------------------
-    # Job 6: Documentation Validation
+    # Job 7: Documentation Validation
     # ---------------------------------------------------------------------------
     docs:
         name: Documentation Validation
@@ -346,7 +374,7 @@ jobs:
               continue-on-error: true
 
     # ---------------------------------------------------------------------------
-    # Job 7: JavaScript — ESLint, Prettier, Node unit tests
+    # Job 8: JavaScript — ESLint, Prettier, Node unit tests
     # ---------------------------------------------------------------------------
     js-test:
         name: JS Lint, Format & Tests

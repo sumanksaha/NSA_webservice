@@ -370,7 +370,7 @@ class HierarchyAwareSelector:
         chunk_lookup = {c.key: c for c in chunks}
         selected = []
         selected_keys = set()
-        remaining = sorted(candidates, key=lambda c: (-c.score, c.rank))
+        remaining = sorted(candidates, key=lambda c: (-c.hierarchy_level, -c.score, c.rank))
         for item in remaining:
             if len(selected) >= k or item.key in selected_keys:
                 continue
@@ -418,6 +418,12 @@ class HybridEvidenceSetSelector:
 
         # Phase 1 - MMR + legal overlap + hierarchy
         while remaining_chunks and len(selected) < k:
+            # If all remaining chunks are from already-covered sections, stop
+            # Phase 1 early — Phase 2 (KG complementarity) may fill remaining
+            # slots with chunks covering new sections.
+            remaining_uncovered = [c for c in remaining_chunks if c.sections_only - covered_sections]
+            if not remaining_uncovered:
+                break
             best, best_mmr = None, -999.0
             for item in remaining_chunks:
                 rel = item.score
@@ -521,7 +527,12 @@ def compute_redundancy(selected):
 
     unique_keys = len(set(all_keys))
     total_keys = len(all_keys)
-    dup_rate = 1.0 - (unique_keys / total_keys) if total_keys > 0 else 0.0
+    if total_keys <= 1:
+        dup_rate = 0.0
+    elif unique_keys == 1:
+        dup_rate = 1.0
+    else:
+        dup_rate = 1.0 - (unique_keys / total_keys)
     section_hhi = _hhi(section_groups)
 
     doc_groups = defaultdict(int)

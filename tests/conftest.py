@@ -53,6 +53,29 @@ os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
 os.environ["DISABLE_PDF_GENERATION"] = "1"  # Disable actual PDF generation for testing
 
 
+def pytest_collection_modifyitems(config, items):
+    """Auto-mark integration/RAG/E2E tests as slow.
+
+    These tests require Qdrant, network inference, or heavy computation and
+    are deselected by the CI fast-tests job (pytest -m "not slow").
+    The slow marker is declared in pyproject.toml.
+    """
+    slow_keywords = (
+        "rag", "qdrant", "embedding", "retrieval",
+        "e2e", "integration", "hybrid",
+        "benchmark", "benchmarks",
+        "enrichment", "evaluate", "evaluation",
+        "reingest", "batch",
+        "remote", "neo4j",
+        "ce_v2",
+    )
+
+    for item in items:
+        fspath = str(item.fspath).lower()
+        if any(k in fspath or k in item.keywords for k in slow_keywords):
+            item.add_marker(pytest.mark.slow)
+
+
 import pytest
 
 
@@ -74,6 +97,8 @@ def _rag_stub_llm_env(monkeypatch):
     # GroundedLLMClient now hardcodes poolside/laguna-s-2.1:free, so no
     # model-related env cleanup is needed beyond the stub mode above.
     monkeypatch.delenv("RAG_LLM_MODEL", raising=False)
+    # Pin full-enrichment off so ingestion tests use the cheap default
+    monkeypatch.setenv("RAG_FULL_ENRICHMENT", "false")
 
 
 @pytest.fixture(autouse=True)
