@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  .analytics-page { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+  .analytics-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.5rem; padding-bottom: .75rem; border-bottom: 2px solid var(--border); }
+  .analytics-header h1 { margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 1.75rem; color: var(--text-heading, #0b3d91); }
+  .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .summary-card { padding: 1rem; border-radius: var(--radius, 8px); background: var(--bg-card, #fff); border: 1px solid var(--border, #d1d5db); text-align: center; }
+  .summary-card .value { font-size: 2rem; font-weight: 700; color: var(--text-heading, #0b3d91); }
+  .summary-card .label { font-size: .8rem; color: var(--text-muted, #6b7280); margin-top: .25rem; }
+  .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
+  .chart-card { background: var(--bg-card, #fff); border: 1px solid var(--border, #d1d5db); border-radius: var(--radius, 8px); padding: 1rem; }
+  .chart-card h3 { margin: 0 0 .75rem; font-size: 1rem; font-weight: 600; color: var(--text-heading, #0b3d91); }
+  .chart-card canvas { width: 100% !important; }
+  .map-card { background: var(--bg-card, #fff); border: 1px solid var(--border, #d1d5db); border-radius: var(--radius, 8px); padding: 1rem; margin-bottom: 1.5rem; }
+  .map-card h3 { margin: 0 0 .75rem; font-size: 1rem; font-weight: 600; color: var(--text-heading, #0b3d91); }
+  #fboMap { height: 380px; border-radius: var(--radius, 8px); }
+  .loading { text-align: center; color: var(--text-muted, #6b7280); padding: 3rem; font-size: .95rem; }
+  .analytics-error { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); padding: 1rem; border-radius: var(--radius, 8px); margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+  <div class="analytics-header">
+    <h1><i class="fa-solid fa-chart-line"></i> Analytics Dashboard</h1>
+  </div>
+
+  <div id="summaryCards" class="summary-cards">
+    <div class="summary-card"><div class="value" id="sumCaseFiles">—</div><div class="label">Case Files</div></div>
+    <div class="summary-card"><div class="value" id="sumAdjudications">—</div><div class="label">Adjudications</div></div>
+    <div class="summary-card"><div class="value" id="sumInspections">—</div><div class="label">Inspections</div></div>
+    <div class="summary-card"><div class="value" id="sumSamples">—</div><div class="label">Samples</div></div>
+    <div class="summary-card"><div class="value" id="sumEvidence">—</div><div class="label">Evidence Items</div></div>
+    <div class="summary-card"><div class="value" id="sumFboIssues">—</div><div class="label">FBO Issues</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-chart-bar"></i> Case Trends (by Month)</h3>
+      <canvas id="caseTrendsChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-chart-pie"></i> Inspection Compliance</h3>
+      <canvas id="complianceChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-chart-bar"></i> Sample Pipeline</h3>
+      <canvas id="sampleChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-balance-scale"></i> Legal Provisions Cited</h3>
+      <canvas id="provisionsChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-users"></i> FSO Activity (Top 15)</h3>
+      <canvas id="fsoChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fa-solid fa-chart-doughnut"></i> Evidence by Type</h3>
+      <canvas id="evidenceChart"></canvas>
+    </div>
+  </div>
+
+  <div class="map-card">
+    <h3><i class="fa-solid fa-map-location-dot"></i> FBO Locations</h3>
+    <div id="fboMap"></div>
+  </div>
+
+  <div id="analyticsLoading" class="loading">
+    <i class="fa-solid fa-spinner fa-spin"></i> Loading analytics data…
+  </div>
+  <div id="analyticsError" class="analytics-error" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Leaflet.js -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  var COLORS = ['#0b3d91', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+  function showLoading(show) {
+    var el = document.getElementById('analyticsLoading');
+    if (el) el.style.display = show ? 'block' : 'none';
+  }
+
+  function showError(msg) {
+    var el = document.getElementById('analyticsError');
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+    showLoading(false);
+  }
+
+  function renderSummary(s) {
+    if (!s) return;
+    document.getElementById('sumCaseFiles').textContent = s.case_files || 0;
+    document.getElementById('sumAdjudications').textContent = s.adjudications || 0;
+    document.getElementById('sumInspections').textContent = s.inspections || 0;
+    document.getElementById('sumSamples').textContent = s.samples || 0;
+    document.getElementById('sumEvidence').textContent = s.evidence || 0;
+    document.getElementById('sumFboIssues').textContent = s.fbo_issues || 0;
+  }
+
+  function renderCaseTrends(data) {
+    if (!data || !data.length) return;
+    var labels = data.map(function(d) { return d.month; });
+    var caseData = data.map(function(d) { return d.case_files; });
+    var adjData = data.map(function(d) { return d.adjudications; });
+    new Chart(document.getElementById('caseTrendsChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Case Files', data: caseData, backgroundColor: COLORS[0] },
+          { label: 'Adjudications', data: adjData, backgroundColor: COLORS[1] }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+  }
+
+  function renderCompliance(data) {
+    if (!data) return;
+    new Chart(document.getElementById('complianceChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Active', 'Dismissed'],
+        datasets: [{
+          data: [data.active || 0, data.dismissed || 0],
+          backgroundColor: [COLORS[2], COLORS[4]]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: { display: true, text: 'Total: ' + (data.total || 0) }
+        }
+      }
+    });
+  }
+
+  function renderSamplePipeline(data) {
+    if (!data || !data.length) return;
+    var labels = data.map(function(d) { return d.month; });
+    new Chart(document.getElementById('sampleChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Billed', data: data.map(function(d) { return d.billed; }), backgroundColor: COLORS[2] },
+          { label: 'Unbilled', data: data.map(function(d) { return d.unbilled; }), backgroundColor: COLORS[3] }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true, stacked: true }, x: { stacked: true } }
+      }
+    });
+  }
+
+  function renderProvisions(data) {
+    if (!data || !data.length) return;
+    new Chart(document.getElementById('provisionsChart'), {
+      type: 'bar',
+      data: {
+        labels: data.map(function(d) { return d.section; }),
+        datasets: [{
+          label: 'Times Cited',
+          data: data.map(function(d) { return d.count; }),
+          backgroundColor: COLORS.slice(0, data.length)
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+  }
+
+  function renderFSO(data) {
+    if (!data || !data.length) return;
+    new Chart(document.getElementById('fsoChart'), {
+      type: 'bar',
+      data: {
+        labels: data.map(function(d) { return d.fso; }),
+        datasets: [{
+          label: 'Inspections',
+          data: data.map(function(d) { return d.count; }),
+          backgroundColor: COLORS[0]
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+  }
+
+  function renderEvidence(data) {
+    if (!data) return;
+    var types = Object.keys(data).filter(function(k) { return k !== 'total'; });
+    var counts = types.map(function(k) { return data[k]; });
+    if (!types.length) return;
+    new Chart(document.getElementById('evidenceChart'), {
+      type: 'doughnut',
+      data: {
+        labels: types,
+        datasets: [{
+          data: counts,
+          backgroundColor: COLORS.slice(0, types.length)
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: { display: true, text: 'Total: ' + (data.total || 0) }
+        }
+      }
+    });
+  }
+
+  function renderMap(data) {
+    if (!data || !data.length) return;
+    var map = L.map('fboMap').setView([22.5726, 88.3639], 11); // Kolkata default
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(map);
+    var bounds = L.latLngBounds();
+    var stateColors = {
+      open: '#3b82f6',
+      permission_pending: '#f59e0b',
+      permission_granted: '#10b981',
+      closed: '#6b7280',
+      dismissed: '#ef4444'
+    };
+    data.forEach(function(pt) {
+      var color = stateColors[pt.state] || '#6b7280';
+      var marker = L.circleMarker([pt.lat, pt.lng], {
+        radius: 6,
+        fillColor: color,
+        color: '#fff',
+        weight: 1.5,
+        fillOpacity: 0.85
+      }).addTo(map);
+      marker.bindPopup(
+        '<strong>' + (pt.name || 'FBO') + '</strong><br>' +
+        'State: ' + pt.state + '<br>' +
+        'Source: ' + pt.source
+      );
+      bounds.extend([pt.lat, pt.lng]);
+    });
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }
+
+  // --- Fetch and render ---
+  fetch('/analytics/api/metrics', { headers: { Accept: 'application/json' } })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      showLoading(false);
+      if (data.error) { showError(data.error); return; }
+      renderSummary(data.summary);
+      renderCaseTrends(data.case_trends);
+      renderCompliance(data.inspection_compliance);
+      renderSamplePipeline(data.sample_pipeline);
+      renderProvisions(data.legal_provisions);
+      renderFSO(data.fso_activity);
+      renderEvidence(data.evidence);
+      renderMap(data.geo_data);
+    })
+    .catch(function(err) {
+      showError('Failed to load analytics: ' + err.message);
+    });
+})();
+</script>
+{% endblock %}
