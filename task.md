@@ -142,7 +142,7 @@ meantime.
 
 > Highest future impact, smallest effort — in this order. **Phases 11, 12, 13, 14, 16, 20, 21, A, Priority 6, Priority 7, Deepening D1–D5, S9a, S6a–d all ✅ DONE** (verified 2026-08-04 through 2026-08-22). RAG Phase 1–5 ✅, Multi-Domain Phase 1 ✅, FSSAI re-ingest ✅, Evaluation ✅, Benchmark ✅, Rust ✅, Remote Inference ✅, LangGraph ✅, M5 ✅, FastAPI Gateway ✅. **Phase 6 deferred**. List re-rolled for the remaining work:
 
-1. **Phase 15 — Analytics Dashboard** (`app/analytics/`). Aggregate SQL over `CaseFile`/`Adjudication`/`Inspection`/`Sample`/`FboIssue` + Chart.js/Leaflet dashboard. Natural consumer of the new `selectin`/`load_only` query patterns. Deliverable: `GET /analytics/api/metrics` + `tests/test_analytics.py`. **Verified 2026-08-07: not started** — no `app/analytics/` package, no routes, no nav link, no tests.
+1. ~~**Phase 15 — Analytics Dashboard**~~ ✅ **DONE (2026-08-22)** — `app/analytics/`: `GET /analytics/` dashboard (Chart.js charts + Leaflet FBO map) + `GET /analytics/api/metrics`; blueprint registered with base.html nav link; **15 tests pass** (`tests/test_analytics.py`). Note: monthly grouping uses SQLite `strftime` — swap for a portable expression when PostgreSQL analytics matter (same class as ENV-2/3).
 2. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator, comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain. Deliverable: `app/decorators.py` + comment routes + `tests/test_rbac.py`.
 3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. **Not started** — no `app/case_intelligence/` package, no routes, no tests.
 
@@ -1183,6 +1183,7 @@ curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Conte
 > **Task:** Add an ASGI coexistence gateway so new JSON APIs can be written in FastAPI without disrupting the Flask UI. `FASTAPI_IMPLEMENTATION_PLAN.md` is the working doc.
 
 **Phase 1 — Coexistence bootstrap:** Added `fastapi>=0.115`, `uvicorn[standard]>=0.30`, `asgiref>=3.8`, `a2wsgi>=1.10.10` to `pyproject.toml` `[project.optional-dependencies] api`. Created `asgi.py` — a FastAPI app mounting the Flask app via `a2wsgi.WSGIMiddleware` at `/`. Added `app/api/` package:
+
 - `app/api/__init__.py` — `create_asgi_app()` factory (FastAPI + CORS + middleware + router)
 - `app/api/deps.py` — `get_db()` (standalone `Session` from `DATABASE_URL`), `get_flag()`, `get_rag_pipeline()`
 - `app/api/routers.py` — `APIRouter` at `/api/v2/*`, delegating all logic to existing Flask services
@@ -1547,3 +1548,17 @@ Decision (2026-08-22 architecture review): out of scope for the transport-
 adapters deepening; needs a product-level decision (per-route key scopes?
 session-aware gateway? require API_V2_KEY in production?). Do not re-suggest
 as a refactor — it is a security policy question.
+
+## Ponytail Debt Ledger (recorded 2026-08-22)
+
+Scanned codebase for `ponytail:` comment markers (3 markers across 3 files, 2 with no trigger).
+
+`app/ai_assistant/service.py:153` — AI action methods kept on the service for API parity (routes.py + tasks.py dispatch via `_ACTION_METHODS` dict). ceiling: no separate file. upgrade: never — intended design, not debt.
+
+`app/rag/retrieval/reranker.py:245` — skip CE when confidence is already maximal (exact-match queries). ceiling: ~5-9s CE cost wasted on exact matches. upgrade: `no-trigger` — needs a flag or metric to auto-tune the skip threshold.
+
+`app/rag/retrieval/reranker.py:332` — dynamic CE skipping when entire sec_act head has exact matches. ceiling: only triggers when both section + Act detected. upgrade: `no-trigger` — needs a confidence histogram to revisit the skip logic.
+
+`app/utils/lookup.py:119` — TLS verification enabled for KMC portal (Sectigo cert). ceiling: `SECLEVEL=1` cipher downgrade. upgrade: revisit when KMC portal upgrades to TLS 1.3+.
+
+**3 markers, 2 with no trigger** (both CE-skipping heuristics in `reranker.py`).

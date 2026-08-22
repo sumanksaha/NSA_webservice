@@ -28,6 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ASGI fix**: `/api/v2/search/reindex` no longer 500s on its audit write
   (Flask app context now provided via `app.api.deps.get_flask_app`).
 
+### Added (2026-08-22)
+
+#### Phase 15 — Analytics Dashboard
+
+- **`app/analytics/`** blueprint at `/analytics`: interactive dashboard
+  (Chart.js charts + Leaflet FBO location map) fed by a single
+  `GET /analytics/api/metrics` JSON endpoint — summary counts across all six
+  major tables, monthly CaseFile/Adjudication trends, inspection compliance,
+  sample pipeline by billed state, legal provisions cited, FSO activity,
+  FBO issue states, evidence types, and geo coordinates.
+- Lightweight aggregate SQL (group-by + count only, no ORM hydration).
+- Nav link in `base.html`; auth-gated by the global login gate.
+- `tests/test_analytics.py` — **15 tests pass**.
+
 ### Added
 
 #### Priority 7 — Multi-Target Sheets Redundancy (Airtable + MS Excel Online)
