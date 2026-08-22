@@ -179,7 +179,6 @@ def sweep_refetch(args, weights, heads):
     load_dotenv(PROJECT_ROOT / ".env")
 
     from app import create_app
-    from app.rag.qdrant_client import QdrantStore
     from app.rag.retrieval import (
         DenseRetriever,
         HybridRetriever,
@@ -189,7 +188,6 @@ def sweep_refetch(args, weights, heads):
     )
     from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
     from app.rag.retrieval.reranker import EnsembleReranker
-    from app.rag.sparse_embedding import SparseEmbeddingService
     from evaluation.benchmark import load_questions
     from evaluation.report_ceiling import load_payload_index
     from evaluation.resolution import FamilyMap, matches_gold
@@ -213,13 +211,13 @@ def sweep_refetch(args, weights, heads):
 
         def get_hybrid(collection: str) -> HybridRetriever:
             if collection not in dense_cache:
-                dense_cache[collection] = DenseRetriever(collection_name=collection)
+                from app.rag.retrieval.factory import build_dense_retriever
+
+                dense_cache[collection] = build_dense_retriever(collection)
             if collection not in sparse_cache:
-                sparse_cache[collection] = SparseRetriever(
-                    corpus={},
-                    store=QdrantStore(collection_name=collection),
-                    embedder=SparseEmbeddingService(),
-                )
+                from app.rag.retrieval.factory import build_sparse_retriever
+
+                sparse_cache[collection] = build_sparse_retriever(collection)
             return HybridRetriever(
                 dense=dense_cache[collection],
                 sparse=sparse_cache[collection],

@@ -36,23 +36,17 @@ _reranker_cache: dict[str, Any] = {}
 
 def _dense(collection: str) -> Any:
     if collection not in _dense_cache:
-        from app.rag.retrieval import DenseRetriever
+        from app.rag.retrieval.factory import build_dense_retriever
 
-        _dense_cache[collection] = DenseRetriever(collection_name=collection)
+        _dense_cache[collection] = build_dense_retriever(collection)
     return _dense_cache[collection]
 
 
 def _sparse(collection: str) -> Any:
     if collection not in _sparse_cache:
-        from app.rag.qdrant_client import QdrantStore
-        from app.rag.retrieval import SparseRetriever
-        from app.rag.sparse_embedding import SparseEmbeddingService
+        from app.rag.retrieval.factory import build_sparse_retriever
 
-        _sparse_cache[collection] = SparseRetriever(
-            corpus={},
-            store=QdrantStore(collection_name=collection),
-            embedder=SparseEmbeddingService(),
-        )
+        _sparse_cache[collection] = build_sparse_retriever(collection)
     return _sparse_cache[collection]
 
 

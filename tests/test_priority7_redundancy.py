@@ -47,12 +47,18 @@ def app_ctx(_app):
     (``_is_empty_sqlite_db`` swallows the resulting errors and reports an
     empty DB; route fixtures fail at setup). Pushing per test keeps DB
     access and Pattern A config resolution working in every test body.
+
+    ``db.session.remove()`` detaches the scoped session from whatever
+    (now-popped) context owned it — a stale session here is the source of
+    intermittent "Working outside of application context" setup errors
+    under load.
     """
     from app.extensions import db
     from app.models import User
 
     ctx = _app.app_context()
     ctx.push()
+    db.session.remove()
     try:
         user = User.query.filter_by(username="p7testuser").first()
         yield _app, user

@@ -157,8 +157,18 @@ document.getElementById('billForm').addEventListener('submit', function(e) {
 
         if (outcome.status === 'error') {
             statusBox.className = 'info-box info-box--error';
-            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
-                (outcome.error || 'Bill generation failed.') + ' — the bill may still have been created.';
+            var msg = '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                (outcome.error || 'Bill generation failed.');
+            if (outcome.data && outcome.data.bill_id) {
+                // The Bill persisted; only the PDF step failed. Re-submitting
+                // the form would create a DUPLICATE bill — say so explicitly.
+                msg += '<br><small><i class="fa-solid fa-circle-info"></i> Bill #' +
+                    outcome.data.bill_id + ' was created — only the PDF failed. ' +
+                    'Do not re-submit this form; it would create a duplicate bill.</small>';
+            } else {
+                msg += ' — the bill may still have been created.';
+            }
+            statusBox.innerHTML = msg;
             return;
         }
 

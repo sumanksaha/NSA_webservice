@@ -83,16 +83,12 @@ def evaluate_model(
     torch.set_num_threads(4)
 
     from app import create_app
-    from app.rag.qdrant_client import QdrantStore
     from app.rag.retrieval import (
-        DenseRetriever,
         HybridRetriever,
         QueryClassifier,
         QueryParser,
-        SparseRetriever,
     )
     from app.rag.retrieval.identifier import identifier_query
-    from app.rag.sparse_embedding import SparseEmbeddingService
     from evaluation.resolution import matches_gold
 
     app = create_app()
@@ -120,13 +116,13 @@ def evaluate_model(
 
         def get_hybrid(collection):
             if collection not in dense_cache:
-                dense_cache[collection] = DenseRetriever(collection_name=collection)
+                from app.rag.retrieval.factory import build_dense_retriever
+
+                dense_cache[collection] = build_dense_retriever(collection)
             if collection not in sparse_cache:
-                sparse_cache[collection] = SparseRetriever(
-                    corpus={},
-                    store=QdrantStore(collection_name=collection),
-                    embedder=SparseEmbeddingService(),
-                )
+                from app.rag.retrieval.factory import build_sparse_retriever
+
+                sparse_cache[collection] = build_sparse_retriever(collection)
             return HybridRetriever(dense=dense_cache[collection], sparse=sparse_cache[collection], reranker=None)
 
         r1_sum = 0.0

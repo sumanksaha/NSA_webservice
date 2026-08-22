@@ -30,6 +30,7 @@
                         var err = new Error(data.error || "Request failed (" + resp.status + ")");
                         err.status = resp.status;
                         err.errors = data.errors || null;
+                        err.data = data; // full body — e.g. bill_id when only the PDF step failed
                         throw err;
                     }
                     return data;
@@ -49,6 +50,7 @@
                     status: "error",
                     error: err.message,
                     errors: err.errors || null,
+                    data: err.data || null,
                     result: null,
                 });
             });

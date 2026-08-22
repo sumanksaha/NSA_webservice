@@ -10,6 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Status: Phases 0–10, Deepening D1–D5, Infrastructure, S9a, Phase 16, Phase A, Phase 13,
 > Phase 21, and Priority 7 are implemented and verified. Phases 11–12, 14–15, 17–20 pending.
 
+### Changed (2026-08-22 architecture deepening)
+
+- **Bill issuance is atomic** (ADR-0001): the `Bill` row, `billed` flags, and
+  `BillSample` links now commit in ONE transaction — no Bill can exist without
+  its Samples marked billed. PDF-dispatch failures return the persisted
+  `bill_id` in the error body so the UI warns against duplicate re-submission.
+- **Retrieval composition root** (`app/rag/retrieval/factory.py`): the dense/
+  sparse/reranker stack is built in one module; `run_retrieval_pipeline` and the
+  evaluation harnesses delegate to it (eliminates the wrong-collection drift bug class).
+- **BackupTarget registry**: redundant backup targets (Sheets/Airtable/Excel/full
+  archive) are declared adapters; a new target is one registry row. The restore
+  engine is parameterized by target with one canonical module→worksheet table.
+- **Config seam completion**: all remaining hand-rolled `os.environ` resolvers in
+  `create_app()` removed; every declared flag is seeded (env or default); QStash
+  schedules register via the enumerable `ScheduledJobs` registry.
+- **ASGI fix**: `/api/v2/search/reindex` no longer 500s on its audit write
+  (Flask app context now provided via `app.api.deps.get_flask_app`).
+
 ### Added
 
 #### Priority 7 — Multi-Target Sheets Redundancy (Airtable + MS Excel Online)

@@ -429,7 +429,6 @@ def mine_live(
 ) -> dict[str, dict]:
     """Mine via live Qdrant retrieval at K=top_k."""
     from app import create_app
-    from app.rag.qdrant_client import QdrantStore
     from app.rag.retrieval import (
         DenseRetriever,
         HybridRetriever,
@@ -438,7 +437,6 @@ def mine_live(
         SparseRetriever,
     )
     from app.rag.retrieval.identifier import identifier_query
-    from app.rag.sparse_embedding import SparseEmbeddingService
 
     # Bound torch threads before the app import (which pulls in torch models).
     from evaluation.ranking_loss_trainer import configure_threads
@@ -455,13 +453,13 @@ def mine_live(
 
         def get_hybrid(collection: str) -> HybridRetriever:
             if collection not in dense_cache:
-                dense_cache[collection] = DenseRetriever(collection_name=collection)
+                from app.rag.retrieval.factory import build_dense_retriever
+
+                dense_cache[collection] = build_dense_retriever(collection)
             if collection not in sparse_cache:
-                sparse_cache[collection] = SparseRetriever(
-                    corpus={},
-                    store=QdrantStore(collection_name=collection),
-                    embedder=SparseEmbeddingService(),
-                )
+                from app.rag.retrieval.factory import build_sparse_retriever
+
+                sparse_cache[collection] = build_sparse_retriever(collection)
             return HybridRetriever(dense=dense_cache[collection], sparse=sparse_cache[collection], reranker=None)
 
         for i, q in enumerate(questions):

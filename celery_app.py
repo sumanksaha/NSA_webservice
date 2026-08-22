@@ -18,20 +18,15 @@ from celery import Celery
 
 logger = logging.getLogger(__name__)
 
-# Task modules that must be registered.  The bill/case-file PDF tasks are
-# imported lazily inside route handlers, so they are NOT registered by merely
-# importing the `app` package.  We register them explicitly in make_celery()
-# below (relying on Celery's ``include=``/``finalize()`` alone is unreliable:
-# the lazy ``celery.task(...)`` machinery is consumed during app-factory boot,
-# so a later finalize() import silently fails to register them).
-TASK_MODULES = [
-    "app.bill_generator.tasks",
-    "app.case_file_generator.tasks",
-    "app.inspection.tasks",
+# Celery-only task modules — no QStash webhook equivalent (e.g. beat-scheduled
+# jobs like the daily DB snapshot). Modules holding QStash-dispatchable tasks
+# are NOT listed here: they are derived inside make_celery() from
+# ``app.utils.qstash_client.TASK_REGISTRY`` (the single source of truth), so a
+# new QStash task registers its Celery module automatically and the two lists
+# cannot drift.
+CELERY_ONLY_TASK_MODULES = [
     "app.food_cell.tasks",
-    "app.knowledge_graph.tasks",
     "app.ai_assistant.tasks",
-    "app.rag.tasks",
     "app.utils.backup",
 ]
 
@@ -94,10 +89,17 @@ def make_celery(app):
     # process (which boots via this factory) knows about all tasks.  The
     # bill/case-file PDF tasks are only imported lazily inside route handlers,
     # so without this explicit import the worker would silently never run them.
-    # Each module is imported defensively: a single failing module must not
-    # disable the whole task queue (matches the codebase's lazy-import /
+    # QStash-dispatchable modules are derived from TASK_REGISTRY (single source
+    # of truth) — adding a QStash task registers it with both transports; each
+    # module is imported defensively: a single failing module must not disable
+    # the whole task queue (matches the codebase's lazy-import /
     # graceful-degradation philosophy).
-    for module in TASK_MODULES:
+    from app.utils.qstash_client import TASK_REGISTRY
+
+    task_modules = sorted(
+        {module for module, _attr in TASK_REGISTRY.values()} | set(CELERY_ONLY_TASK_MODULES)
+    )
+    for module in task_modules:
         try:
             import_module(module)
         except ImportError as exc:

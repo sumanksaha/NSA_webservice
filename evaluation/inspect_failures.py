@@ -18,18 +18,14 @@ import torch
 from dotenv import load_dotenv
 
 from app import create_app
-from app.rag.qdrant_client import QdrantStore
 from app.rag.retrieval import (
-    DenseRetriever,
     HybridRetriever,
     QueryClassifier,
     QueryParser,
     Reranker,
-    SparseRetriever,
 )
 from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
 from app.rag.retrieval.reranker import EnsembleReranker
-from app.rag.sparse_embedding import SparseEmbeddingService
 from evaluation.benchmark import load_questions
 from evaluation.report_ceiling import load_payload_index
 from evaluation.resolution import FamilyMap, matches_gold
@@ -104,12 +100,10 @@ def main() -> int:
                 continue
 
             collection = (q.collections or ["fssai_legal_768"])[0]
-            dense = DenseRetriever(collection_name=collection)
-            sparse = SparseRetriever(
-                corpus={},
-                store=QdrantStore(collection_name=collection),
-                embedder=SparseEmbeddingService(),
-            )
+            from app.rag.retrieval.factory import build_dense_retriever, build_sparse_retriever
+
+            dense = build_dense_retriever(collection)
+            sparse = build_sparse_retriever(collection)
             hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=None)
 
             qtype = classifier.classify(q.question)
