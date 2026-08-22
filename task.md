@@ -1,6 +1,6 @@
 # Task List & Detailed Implementation Plan — NSA Webservice
 
-> **Status:** ✅ Phases 0–14, 16, 20, 21, Phase A, Deepening D1–D5, S6a–d, S7, S2, S10a–c, S9a, Priority 6 infra, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests)**, **RAG Phase 1–5 ✅** (437 RAG tests + 25 Agent A/integration/benchmark; 694 RAG tests total), **Multi-Domain Phase 1 ✅** (37 tests), **P1-4 FSSAI re-ingest ✅** (15 tests), **Evaluation Framework ✅** (77 tests), **Benchmark v1.0 frozen ✅**, **Rust PyO3 Normalizers ✅**, **Remote Inference Layer ✅ + deployed (Modal)**, **LangGraph Agent Pipeline + M5 ✅** (75 tests), **FastAPI Gateway ✅** (50 tests), **Config seam** (`app/shared/config.py` `cfg` — §3.6), **Phase 6 deferred** all implemented & verified. Total: **1,780 tests** (694 RAG — `pytest --collect-only`, 2026-08-20). ENV-1 + ENV-4 resolved (2026-08-07). Phases 15, 17, 18–19 ⚠️/❌ pending; Phase 18 partial (~30%). ENV-2/3/5/6/7/8 open.
+> **Status:** ✅ Phases 0–15, 16, 20, 21, Phase A + **OCR Phases B–E**, Deepening D1–D5, S6a–d, S7, S2, S10a–c, S9a, Priority 6 infra, **Priority 7 (Multi-Target Sheets Redundancy — 43 tests)**, **RAG Phase 1–5 ✅** (437 RAG tests + 25 Agent A/integration/benchmark; 694 RAG tests total), **Multi-Domain Phase 1 ✅** (37 tests), **P1-4 FSSAI re-ingest ✅** (15 tests), **Evaluation Framework ✅** (77 tests), **Benchmark v1.0 frozen ✅**, **Rust PyO3 Normalizers ✅**, **Remote Inference Layer ✅ + deployed (Modal)**, **LangGraph Agent Pipeline + M5 ✅** (75 tests), **FastAPI Gateway ✅** (50 tests), **Config seam** (`app/shared/config.py` `cfg` — §3.6, completed 2026-08-22), **Phase 6 deferred** all implemented & verified. **2026-08-22 architecture deepening:** retrieval composition root (`app/rag/retrieval/factory.py`), `BackupTarget` registry + unified restore engine, `ScheduledJobs` registry (config seam completion), atomic `BillIssuance` transaction (ADR-0001), ASGI `/api/v2/search/reindex` audit-context fix, Phase 15 Analytics ✅, **OCR Phases B–E ✅** (review workflow / conflict resolution / autopopulation / feedback loop / bulk upload — 45 new tests) + EasyOCR plugin extraction-failure bug fix. Total: **~1,870 tests** (694 RAG — last full collect 2026-08-20; ~85 added since). ENV-1 + ENV-4 resolved (2026-08-07). Phases 17, 18–19 ⚠️/❌ pending; Phase 18 partial (~30%). ENV-2/3/5/6/7/8 open.
 
 > **Purpose:** Consolidated, actionable, highly detailed implementation plan and TODO list for AI agents and developers. Organized by priority with checkboxes, explicit file targets, data schemas, function signatures, routes, acceptance criteria, and testing strategies.
 > **Sources & Alignment:** `SECURITY_TODO.md`, `ALL_TODO_MERGED.md`, `ROADMAP_ALIGNMENT_REPORT.md`, `ENGINEERING_ASSESSMENT.md`, `CLOUDINARY_PHOTO_MODULE_IMPLEMENTATION_PLAN.md`, `REFACTORING_PLAN.md`.
@@ -136,15 +136,20 @@ meantime.
 - [x] **Remote Inference Layer (completed + deployed 2026-08-16).** Modal-hosted zero-local-model inference: `RemoteEmbedClient` (all-mpnet-base-v2, 768-dim) + `RemoteReranker` (legal cross-encoder, TEI mode) via `RAG_EMBED_ENDPOINT`/`RAG_RERANKER_ENDPOINT`. Qdrant BM25 for server-side sparse. `tests/test_remote_embedder.py` (18) + `tests/test_qdrant_bm25.py` (13) + `tests/test_remote_reranker.py` (24) — all pass.
 - [x] **LangGraph Agent Pipeline + M5 (completed 2026-08-16).** `app/rag/agent/` (state/nodes/graph/routes): self-correcting `StateGraph` classify → retrieve → generate → verify → conditional expand-and-retry (groundedness < 0.7, max 2 retries). M5: `review` node (interrupt), `POST /api/rag/query/agent/resume` `{thread_id, approved}`, `MemorySaver`/`PostgresSaver` checkpointers. `RAGQueryLog.pipeline` column stamped. `tests/test_rag_agent_state.py` (5) + `test_rag_agent_nodes.py` (17) + `test_rag_agent_graph.py` (12) + `test_rag_agent_routes.py` (7) + `test_rag_agent_m5.py` (15) — **75/75 pass**.
 - [x] **FastAPI ASGI Gateway (completed 2026-08-19).** `asgi.py` (FastAPI + a2wsgi.WSGIMiddleware mounting Flask); `app/api/deps.py` (`get_db`/`get_flag`/`get_rag_pipeline`); `app/api/routers.py` (`/api/v2/*` routes); SecurityHeadersMiddleware + ApiKeyAuthMiddleware; `render.yaml` → `uvicorn asgi:app`; OpenAPI at `/api/v2/docs`. `tests/test_asgi_py.py` — **50/50 pass**; `ruff` clean.
-- [x] **Config Seam (completed 2026-08-22).** `app/shared/config.py` (`cfg`) — single declaration table + Pattern A resolution (Flask config wins in app context, env outside, default otherwise). Replaced ~30 hand-rolled resolvers. `tests/test_shared_config.py` enforces docs parity. See AGENTS.md §3.6.
+- [x] **Config Seam — completed (2026-08-22).** `app/shared/config.py` (`cfg`) — single declaration table + Pattern A resolution (Flask config wins in app context, env outside, default otherwise). Replaced ~30 hand-rolled resolvers; `tests/test_shared_config.py` enforces docs parity. See AGENTS.md §3.6.
+- [x] **Architecture Deepening (2026-08-22).** Retrieval composition root (`app/rag/retrieval/factory.py::build_hybrid_retriever`) — pipeline + all evaluation harnesses build the dense/sparse/reranker stack through one module (kills the wrong-collection drift bug class); `BackupTarget` registry + parameterized restore engine (`app/services/backup_coordinator.py`, `app/utils/sync.py::restore_from_target_csv`) — one canonical module→worksheet table replaces three byte-identical copies; `ScheduledJobs` enumerable registry (`app/services/scheduled_jobs.py`) replacing import-time QStash schedule registration; config seam completed (all RAG flags declared, every declared key seeded env-or-default); Celery task modules derived from `TASK_REGISTRY` (single source of truth for both transports); atomic `BillIssuance` transaction (`app/bill_generator/issuance.py`, ADR-0001) with transport-free `IssuanceResult`; ASGI `/api/v2/search/reindex` audit-context fix (`app/api/deps.get_flask_app`); `/api/v2` eval-harness migration onto the factory. Tests: composition-root wiring, backup targets (7), scheduled jobs (5), bill issuance (14).
+- [x] **Phase 15 — Analytics Dashboard (completed 2026-08-22).** `app/analytics/` blueprint at `/analytics`: interactive dashboard (Chart.js charts + Leaflet FBO map) fed by `GET /analytics/api/metrics` (summary counts across six major tables, monthly case trends, inspection compliance, sample pipeline by billed state, legal provisions cited, FSO activity, FBO issue states, evidence types, geo coordinates); lightweight aggregate SQL; nav link in `base.html`. `tests/test_analytics.py` — **15/15 pass**. Note: monthly grouping uses SQLite `strftime` — swap for a portable expression when PostgreSQL analytics matter.
+- [x] **OCR Pipeline Phases B–E (completed 2026-08-22).** Full extraction→review→autopopulation pipeline on top of the Phase A foundation: review workflow + conflict-resolution queue (`app/ocr_extraction/`, `app/conflict_resolution/`; manual edits log `OCRCorrection` and update `extracted_json`; lab-report disagreements open `ConflictLog`), autopopulation prefill bundles + idempotent non-conforming-report FBO-issue drafting (`app/autopopulation/`), feedback dashboard with per-field accuracy + few-shot example store (`app/feedback_dashboard/`, `app/ocr_pipeline/feedback.py`), ZIP bulk upload with dedupe and per-file isolation (`POST /ocr/bulk-upload`). Shared persistence in `app/ocr_pipeline/persistence.py` (async task + bulk path cannot drift); missing-file contract preserved. **Bug fix:** EasyOCR plugin read the wrong attribute on pipeline results (`ocr_engine_used` vs `ocr_engine`) so real-path extractions silently returned empty text — fixed with strict-attribute regression tests. Tests: review 14, autopopulation 14, feedback 8, bulk upload 9; Phase A suite still 14/14.
 
-### 📌 Suggested Next 3 Steps (updated 2026-08-09)
+### 📌 Suggested Next 3 Steps (updated 2026-08-22)
 
-> Highest future impact, smallest effort — in this order. **Phases 11, 12, 13, 14, 16, 20, 21, A, Priority 6, Priority 7, Deepening D1–D5, S9a, S6a–d all ✅ DONE** (verified 2026-08-04 through 2026-08-22). RAG Phase 1–5 ✅, Multi-Domain Phase 1 ✅, FSSAI re-ingest ✅, Evaluation ✅, Benchmark ✅, Rust ✅, Remote Inference ✅, LangGraph ✅, M5 ✅, FastAPI Gateway ✅. **Phase 6 deferred**. List re-rolled for the remaining work:
+> Highest future impact, smallest effort — in this order. **Phases 11–15, 16, 20, 21, A + OCR B–E, Priority 6, Priority 7, Deepening D1–D5, S9a, S6a–d all ✅ DONE** (verified through 2026-08-22). RAG Phase 1–5 ✅, Multi-Domain Phase 1 ✅, FSSAI re-ingest ✅, Evaluation ✅, Benchmark ✅, Rust ✅, Remote Inference ✅, LangGraph ✅, M5 ✅, FastAPI Gateway ✅, Config seam ✅. **Phase 6 deferred**; Phase 17 partial (Supabase bridge / conflict resolution / sync-status UI remain). Re-rolled list:
 
-1. ~~**Phase 15 — Analytics Dashboard**~~ ✅ **DONE (2026-08-22)** — `app/analytics/`: `GET /analytics/` dashboard (Chart.js charts + Leaflet FBO map) + `GET /analytics/api/metrics`; blueprint registered with base.html nav link; **15 tests pass** (`tests/test_analytics.py`). Note: monthly grouping uses SQLite `strftime` — swap for a portable expression when PostgreSQL analytics matter (same class as ENV-2/3).
-2. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator, comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain. Deliverable: `app/decorators.py` + comment routes + `tests/test_rbac.py`.
-3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. **Not started** — no `app/case_intelligence/` package, no routes, no tests.
+1. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator (`app/decorators.py`), comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain.
+2. **Priority 5 — Cloudinary Testing & Hardening** (small bundle): unit tests for `extract_cloudinary_public_id`, `tenacity` retries on Cloudinary network calls, `GET /health/cloudinary`, `CLOUDINARY_URL` parsing support.
+3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. Natural consumer of the corpus KG (`kg/`) and Phase 14 case KG.
+
+> **Also open (non-blocking):** Rust Part 1 steps 1.6–1.7 blocked on Windows 10 SDK elevation (Parts 2–5 queued behind it); CE-v2 retrain cycle pending user-held P3 broken-OCR re-ingestion; agent-pipeline flag flip gated on a real-LLM A/B with `OPENROUTER_API_KEY`; ENV-10 Render dashboard env vars to confirm; priority7 fixture flake (observed twice under load, unreproducible — per-test `db.session.remove()` hardening landed 2026-08-22).
 
 ---
 
@@ -696,52 +701,31 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-### Phase B: Review Workflow
+### Phase B: Review Workflow — ✅ DONE (2026-08-22)
 
 - **Goal & Rationale:** Provide an editable UI review workflow for extracted OCR fields, auto-creating `OCRCorrection` records on manual edits and writing field discrepancies to `ConflictLog`.
-- **Target Files to Edit/Create:**
-    - `app/ocr_extraction/__init__.py`
-    - `app/ocr_extraction/routes.py`
-    - `app/ocr_extraction/service.py`
-    - `app/conflict_resolution/routes.py`
-    - `app/conflict_resolution/templates/conflict_resolution/queue.html`
-- **Detailed Implementation Plan:** Build interactive review form, track manual diffs into `OCRCorrection`, and surface conflicting values in the conflict resolution queue template.
-- **Acceptance Criteria & Test Plan:** Editing an extracted value writes an entry to `OCRCorrection` and updates target case fields.
+- **Implemented:** `app/ocr_extraction/` blueprint (`GET /ocr/documents`, `GET /ocr/documents/<id>/review`, `POST /ocr/documents/<id>/corrections` JSON+form, `POST /ocr/lab-parameters/<id>/correct`) + `service.py` (`apply_field_corrections`, `correct_lab_parameter`, `resolve_conflict`, `open_conflicts`). Manual diffs write `OCRCorrection` rows and update `extracted_json.fields`; a correction disagreeing with a lab-report value for the same field opens an unresolved `ConflictLog`. `app/conflict_resolution/` queue at `/conflict-resolution/` lists competing values with per-value "use this" resolution (applied back as a correction). Both blueprints registered at `/ocr` and `/conflict-resolution`.
+- **Tests:** `tests/test_ocr_review.py` — **14 pass**.
 
----
-
-### Phase C: Autopopulation
+### Phase C: Autopopulation — ✅ DONE (2026-08-22)
 
 - **Goal & Rationale:** Map verified OCR data directly into DO Letters, Bill Generators, Case Files, Adjudications, and Notices, auto-drafting `FboIssue` records for non-conforming lab reports.
-- **Target Files to Edit/Create:**
-    - `app/autopopulation/service.py`
-    - `app/autopopulation/mappings.py`
-    - `app/case_file_generator/routes.py`
-    - `app/bill_generator/routes.py`
-    - `app/adjudication/routes.py`
-- **Detailed Implementation Plan:** Construct unified field mapping dictionary (`mappings.py`) and trigger automatic form population across generator blueprints.
-- **Acceptance Criteria & Test Plan:** Triggering autopopulation pre-fills case forms without manual re-entry.
+- **Implemented:** `app/autopopulation/mappings.py` (declarative source-path → form-field maps for case_file/adjudication/bill), `service.py` (`build_verified_record` merging Sample + latest reviewed OCRDocument + lab params; `prefill()` projecting through MAPPINGS with dot-path resolution; `non_conforming_params()`; idempotent `draft_fbo_issue_for_sample()` using `source_type="sample"` per the `ck_source_type` constraint). Routes: `GET /autopopulation/prefill/<sample_id>`, `POST /autopopulation/draft-fbo-issue/<sample_id>`. Generator-form JS wiring is a follow-up (endpoints + service are the contract).
+- **Tests:** `tests/test_autopopulation.py` — **14 pass**.
 
----
-
-### Phase D: Feedback Loop
+### Phase D: Feedback Loop — ✅ DONE (2026-08-22)
 
 - **Goal & Rationale:** Track field correction rates and automatically inject corrected OCR examples into Vision-LLM prompts for continuous extraction improvement.
-- **Target Files to Edit/Create:**
-    - `app/feedback_dashboard/routes.py`
-    - `app/feedback_dashboard/templates/feedback_dashboard/index.html`
-    - `app/ocr_pipeline/tasks.py`
-- **Detailed Implementation Plan:** Calculate per-field accuracy metrics and run periodic Celery task `refresh_few_shot_examples`.
-- **Acceptance Criteria & Test Plan:** Feedback dashboard displays field error rates and prompt example count.
+- **Implemented:** `app/feedback_dashboard/` blueprint at `/feedback-dashboard` (dashboard page, `/api/metrics` per-field accuracy = 1 − corrected-docs ÷ extracted-docs, manual `POST /refresh-examples` trigger) + shared `app/ocr_pipeline/feedback.py::refresh_few_shot_examples_sync()` writing `instance/ocr/few_shot_examples.json` from recent corrections (lab-internal corrections excluded); Celery wrapper `refresh_few_shot_examples` registered alongside the pipeline task.
+- **Tests:** `tests/test_feedback_dashboard.py` — **8 pass**.
 
----
-
-### Phase E: Operational Modes
+### Phase E: Operational Modes — ✅ DONE (2026-08-22)
 
 - **Goal & Rationale:** Support both historical PDF bulk upload backfilling and real-time upload processing upon sample creation.
-- **Target Files to Edit/Create:** `app/ocr_extraction/routes.py`
-- **Detailed Implementation Plan:** Add `POST /ocr/bulk-upload` endpoint handling multi-file zip batches in background worker.
-- **Acceptance Criteria & Test Plan:** Bulk upload processes archive of PDFs and registers individual `OCRDocument` rows.
+- **Implemented:** `POST /ocr/bulk-upload` in `app/ocr_extraction/routes.py` — ZIP batches processed per-PDF via the shared `app/ocr_pipeline/persistence.py::run_ocr_pipeline()` (async dispatch when Celery is configured → 202, synchronous fallback otherwise → 200), SHA-256 dedupe against already-extracted documents, path-traversal-safe member extraction, per-file failure isolation. Real-time sample-creation processing remains the existing Phase A hook.
+- **Bug fix surfaced by these tests:** the EasyOCR plugin read `ocr_engine_used` on pipeline results that carry `ocr_engine` — every real EasyOCR-path extraction raised AttributeError inside the blanket try/except and silently produced empty text. Fixed to map the pipeline's actual field (regression tests use strict-attribute SimpleNamespace stubs; MagicMock had masked the bug).
+- **Refactor:** persistence extracted to `app/ocr_pipeline/persistence.py` so the Celery task and bulk path cannot drift.
+- **Tests:** `tests/test_ocr_bulk_upload.py` — **9 pass**; Phase A `tests/test_ocr_extraction.py` still **14/14**.
 
 ---
 

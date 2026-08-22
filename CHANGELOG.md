@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Status: Phases 0–10, Deepening D1–D5, Infrastructure, S9a, Phase 16, Phase A, Phase 13,
-> Phase 21, and Priority 7 are implemented and verified. Phases 11–12, 14–15, 17–20 pending.
+> Status: Phases 0–16, 20, 21, Phase A + OCR Phases B–E, Deepening D1–D5, S9a, Priority 6/7,
+> RAG Phases 1–5, Multi-Domain Phase 1, Evaluation Framework, Benchmark v1.0, Rust PyO3,
+> Remote Inference (Modal), LangGraph Agent Pipeline + M5, FastAPI Gateway, and the Config
+> seam are implemented and verified (~1,870 tests). Pending: Phase 17 remainder (Supabase
+> bridge, conflict resolution, sync-status UI), Phase 18 (~70% — RBAC decorator, comments,
+> role assignment), Phase 19, Cloudinary hardening, Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
 ### Changed (2026-08-22 architecture deepening)
 
@@ -32,26 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### OCR Pipeline Phases B-E (Extraction -> Review -> Autopopulation -> Feedback)
 
-- **Phase B Review Workflow**: pp/ocr_extraction/ blueprint (GET /ocr/documents,
+- **Phase B Review Workflow**: app/ocr_extraction/ blueprint (GET /ocr/documents,
   GET /ocr/documents/<id>/review, POST .../corrections) - manual edits write
   OCRCorrection rows and update extracted_json; corrections disagreeing with
-  lab-report values open ConflictLog entries. pp/conflict_resolution/ queue
+  lab-report values open ConflictLog entries. app/conflict_resolution/ queue
   at /conflict-resolution/ resolves them (chosen value applied as a correction).
-- **Phase C Autopopulation**: pp/autopopulation/ - verified-record builder
+- **Phase C Autopopulation**: app/autopopulation/ - verified-record builder
   (Sample + reviewed OCR + lab params), per-consumer prefill bundles via
   MAPPINGS (GET /autopopulation/prefill/<sample_id>), and idempotent
   auto-drafting of FBO issues for non-conforming lab reports.
-- **Phase D Feedback Loop**: pp/feedback_dashboard/ - per-field accuracy from
-  correction history + few-shot example store (
-efresh_few_shot_examples
-  Celery task / dashboard trigger).
+- **Phase D Feedback Loop**: app/feedback_dashboard/ - per-field accuracy from
+  correction history + few-shot example store (`refresh_few_shot_examples` Celery
+  task / dashboard trigger).
 - **Phase E Bulk Upload**: POST /ocr/bulk-upload - ZIP batches processed per-PDF
   (async when Celery is configured, sync fallback otherwise), SHA-256 dedupe,
   per-file failure isolation.
 - **Bug fix**: EasyOCR plugin crashed on every extraction
   (OCRResult has no attribute ocr_engine_used) - extractions silently returned
   empty text; now falls back to the engine name.
-- Shared persistence extracted to pp/ocr_pipeline/persistence.py so the async
+- Shared persistence extracted to app/ocr_pipeline/persistence.py so the async
   task and bulk path cannot drift. Tests: review (14), autopopulation (14),
   feedback (8), bulk upload (9); Phase A suite 14/14 still green.
 
@@ -272,7 +275,7 @@ efresh_few_shot_examples
 | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.0.0      | 2026-01-01 | Initial release                                                                                                                                                                                                                                                                        |
 | 1.0.1      | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix)                                                                                                                                                                                                                                  |
-| Unreleased | 2026-08-07 | Priority 7 (Airtable + Excel redundancy), Phase 21 (Food Cell DO Intimation), Phase 13 (Timeline + Gantt), Phase A (OCR), Phase 16 (Backup/Export), Phase 10 (Fuzzy search), Deepening D1–D5, S9a concurrency guard, Priority 6 infra, Performance Quick Wins 7/7, ENV-9 webhook fixes |
+| Unreleased | 2026-08-22 | Phase 15 (Analytics), Phase 18 partial, OCR Phases B–E (review/conflicts/autopopulation/feedback/bulk), architecture deepening (retrieval composition root, BackupTarget registry, ScheduledJobs, atomic BillIssuance per ADR-0001, config seam completion), EasyOCR extraction bug fix |
 
 ---
 
