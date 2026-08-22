@@ -233,6 +233,59 @@ class TestOCRProvider:
             assert result.text == ""
             assert result.page_count == 0
 
+    def test_extract_text_maps_ocr_engine_field(self):
+        """Regression (2026-08-22): pipeline page results carry ``ocr_engine``
+        (not ``ocr_engine_used``). The plugin must map that field into the
+        contract's ``ocr_engine_used`` — the old code read the wrong name and
+        crashed with AttributeError on the real EasyOCR path.
+
+        Uses SimpleNamespace (strict attributes) instead of MagicMock, which
+        silently auto-created the missing attribute and masked the bug.
+        """
+        from types import SimpleNamespace
+
+        from app.plugins.registry import PluginRegistry
+
+        registry = PluginRegistry.get_instance()
+        plugin = registry.get("ocr", "easyocr")
+
+        page_result = SimpleNamespace(
+            page=1,
+            text="Extracted text content",
+            confidence=0.93,
+            ocr_used=True,
+            ocr_engine="tesseract",  # the field the pipeline actually sets
+        )
+
+        with mock.patch("app.ocr_pipeline.pipeline.OCRPipeline") as mock_pipeline_cls:
+            instance = mock_pipeline_cls.return_value
+            instance.process_document.return_value = [page_result]
+
+            result = plugin.extract_text("/fake/path.pdf")
+
+        assert result.text == "Extracted text content"
+        assert result.ocr_engine_used == "tesseract"
+
+    def test_extract_text_defaults_engine_when_page_results_lack_it(self):
+        """Partial/error results may lack ``ocr_engine`` entirely — the engine
+        name then falls back to the plugin default instead of crashing."""
+        from types import SimpleNamespace
+
+        from app.plugins.registry import PluginRegistry
+
+        registry = PluginRegistry.get_instance()
+        plugin = registry.get("ocr", "easyocr")
+
+        partial_result = SimpleNamespace(page=1, text="", confidence=0.0, ocr_used=True)
+
+        with mock.patch("app.ocr_pipeline.pipeline.OCRPipeline") as mock_pipeline_cls:
+            instance = mock_pipeline_cls.return_value
+            instance.process_document.return_value = [partial_result]
+
+            result = plugin.extract_text("/fake/path.pdf")
+
+        assert result.ocr_engine_used == "easyocr"
+
     def test_lazy_import(self):
         """OCRProvider plugin does not import OCRPipeline at module load."""
 

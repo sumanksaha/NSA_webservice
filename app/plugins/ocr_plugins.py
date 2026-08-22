@@ -55,7 +55,13 @@ class EasyOCRPlugin(OCRProvider):
 
         combined_text = "\n\n".join(texts)
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-        engine = getattr(results[0], "ocr_engine_used", None) or "easyocr"
+        # The pipeline's page results carry ``ocr_engine`` (the engine that
+        # actually ran — EasyOCR, Tesseract, ...). Read it defensively: partial
+        # / error results may lack the attribute entirely.
+        engine = next(
+            (e for e in (getattr(r, "ocr_engine", "") or "" for r in results) if e),
+            "easyocr",
+        )
 
         return OCRResult(
             text=combined_text,
