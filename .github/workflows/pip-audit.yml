@@ -33,5 +33,7 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
 
-      - name: Run pip-audit on requirements.txt
-        run: pip-audit --requirement requirements.txt
+      - name: Run pip-audit on all requirements (runtime + dev)
+        # (G14, research §4.3): requirements-dev.txt was never scanned anywhere
+        # in the pipeline — now covered alongside runtime deps.
+        run: pip-audit --requirement requirements.txt --requirement requirements-dev.txt

@@ -28,6 +28,7 @@
 - [Development](#development)
 - [Testing](#testing)
 - [Deployment](#deployment)
+- [CI/CD](#cicd)
 - [API Reference](#api-reference)
 - [Contribution](#contribution)
 - [Coding Standards](#coding-standards)
@@ -54,12 +55,12 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Document Generation**           | PDF generation for permission letters, petitions, and legal notices                                                                                              |
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
-| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete                                                                                                                                           | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A)                                                                                         |
-| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                             | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests) |
-| **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                          |
-| **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                 |
-| **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                       |
-| **FastAPI Gateway (ASGI)**  | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2. |
+| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete                                                                                                                                           | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A)                                                                                                                          |
+| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                             | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests)                                  |
+| **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                                                           |
+| **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                                                  |
+| **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                                                        |
+| **FastAPI Gateway (ASGI)**        | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2. |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
 ---
@@ -249,43 +250,43 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Adjudication Engine** that suggests legal sections and generates adjudication documents.
 - **FBO Issue State Machine** with full audit‑trail logging.
 - **Billing Dashboard** exporting Excel reports.
-- **Robust Authentication** (Flask‑Login) and **Security Hardening** (CSP, HSTS, CSRF, session hardening).
+- **Robust Authentication** (Flask‑Login) and **Security Hardening** (CSP, HSTS, CSRF, session hardening, TLS verification, CI/CD security scanning).
 - **Hash‑Chained Audit Log** for tamper‑evident record keeping.
 - **Timeline Engine + Gantt** visualizing each case's milestones with warnings for chronologically invalid sequences (Phase 13).
 - **Full‑text + fuzzy search** across case files, adjudications, annexures, and evidence (SQLite FTS5 + RapidFuzz).
 - **Version history, branching, cross‑reference & TOC reports** for edited documents, and **backup / export / import** of complete cases.
 - **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
-- **Legal RAG vector search** over legal corpus via Qdrant, with hybrid dense + sparse retrieval, reranking, grounded generation, hallucination detection, and evaluation (Phases 1-5 complete — 437 tests).
+- **Legal RAG vector search** (694 tests) — full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation, LangGraph self-correcting agent with M5 checkpointing + human-in-the-loop.
 - **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
 
-| Area                      | Status         | Notes                                                                                                                              |
-| ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                                                                                                   |
-| Sample Management         | ✅ Complete    | Code generation, lab tracking                                                                                                      |
-| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                                                                                       |
-| Adjudication              | ✅ Complete    | Section suggestion, document generation                                                                                            |
-| FBO Issue State Machine   | ✅ Complete    | With audit trail                                                                                                                   |
-| Billing Dashboard         | ✅ Complete    | Excel export, filtering                                                                                                            |
-| Authentication            | ✅ Complete    | Flask‑Login, global gate                                                                                                           |
-| Audit Trail               | ✅ Complete    | Hash‑chained + RecordAudit                                                                                                         |
-| Security Hardening        | ✅ Complete    | CSP, HSTS, CSRF, session hardening                                                                                                 |
-| Timeline Engine + Gantt   | ✅ Complete    | Phase 13 — 21 tests, global picker + entry points                                                                                  |
-| Search (FTS5 + fuzzy)     | ✅ Complete    | Phase 10 — 56 tests                                                                                                                |
-| Version Control           | ✅ Complete    | Compare/restore/branch, history UI                                                                                                 |
-| Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                                                                                            |
-| OCR Pipeline              | ⚠️ Foundation  | Phase A done; Phases B–E pending                                                                                                   |
-| Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                                                                                                |
-| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval                                                                     |
-| Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests)                                                              |
-| Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                                                                                      |
-| Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                                                                                         |
-| Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                            |
-| CI/CD                     | ⚠️ Partial     | pip‑audit + Dependabot configured                                                                                                  |
-| RBAC / Roles              | ❌ Not Started | All users have full access                                                                                                         |
-| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                                                                                                   |
-| Tests                     | ✅ 80+ modules | ~1,887 test cases (694 RAG + 57 ASGI + 23 plugins + 1,113 existing), all passing                                                             |
-| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests) |
+| Area                      | Status         | Notes                                                                                                                                                                                                                                                                              |
+| ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                                                                                                                                                                                                                                                   |
+| Sample Management         | ✅ Complete    | Code generation, lab tracking                                                                                                                                                                                                                                                      |
+| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                                                                                                                                                                                                                                       |
+| Adjudication              | ✅ Complete    | Section suggestion, document generation                                                                                                                                                                                                                                            |
+| FBO Issue State Machine   | ✅ Complete    | With audit trail                                                                                                                                                                                                                                                                   |
+| Billing Dashboard         | ✅ Complete    | Excel export, filtering                                                                                                                                                                                                                                                            |
+| Authentication            | ✅ Complete    | Flask‑Login, global gate                                                                                                                                                                                                                                                           |
+| Audit Trail               | ✅ Complete    | Hash‑chained + RecordAudit                                                                                                                                                                                                                                                         |
+| Security Hardening        | ✅ Complete    | CSP, HSTS, CSRF, session hardening                                                                                                                                                                                                                                                 |
+| Timeline Engine + Gantt   | ✅ Complete    | Phase 13 — 21 tests, global picker + entry points                                                                                                                                                                                                                                  |
+| Search (FTS5 + fuzzy)     | ✅ Complete    | Phase 10 — 56 tests                                                                                                                                                                                                                                                                |
+| Version Control           | ✅ Complete    | Compare/restore/branch, history UI                                                                                                                                                                                                                                                 |
+| Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                                                                                                                                                                                                                                            |
+| OCR Pipeline              | ✅ Complete    | Phases A–E (extraction → review → autopopulation → feedback → bulk upload — 45 tests)                                                                                                                                                                                              |
+| Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                                                                                                                                                                                                                                                |
+| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval                                                                                                                                                                                                                     |
+| Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests)                                                                                                                                                                                                              |
+| Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                                                                                                                                                                                                                                      |
+| Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                                                                                                                                                                                                                                         |
+| Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                                                                                                                                                                            |
+| CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+Safety+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
+| RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
+| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                                                                                                                                                                                                                                                   |
+| Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
+| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
 
 ---
 
@@ -295,7 +296,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 - ✅ PostgreSQL production migration (targeted for Q3 2026)
 - ✅ Persistent Celery worker deployment
-- ✅ RBAC implementation (FSO, Admin, Auditor roles)
+- ✅ RBAC implementation (FSO, Admin, Auditor roles) — model scaffolding + migration + `is_admin` admin UI; `@role_required` decorator + comments + role assignment pending (~30% complete)
 
 ### Phase 2 – Platform Upgrade (Q4 2026)
 
@@ -307,7 +308,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 ### Phase 3 – Intelligence (Q1 2027)
 
 - Neo4j graph database integration for relationship queries
-- ✅ Qdrant vector store for semantic search over legal corpus (Phases 1-5 complete — 437 tests)
+- ✅ Qdrant vector store for semantic search over legal corpus (RAG Phases 1-5 complete — 694 tests)
 - LangGraph workflow orchestration
 - OpenRouter multi‑LLM gateway for AI‑assisted section suggestion and document drafting
 
@@ -327,7 +328,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 - [ ] PostgreSQL production migration
 - [ ] Persistent Celery worker deployment
-- [ ] RBAC implementation (FSO, Admin, Auditor roles)
+- [x] RBAC implementation (FSO, Admin, Auditor roles) — partial (models + migration + admin UI done)
 - [ ] TLS fix for KMC scraper
 - [ ] End-to-end test suite
 - [x] Docker containerization
@@ -577,6 +578,61 @@ celery -A celery_app.celery worker --loglevel=info
 
 ---
 
+## CI/CD
+
+The project implements **14 CI/CD gates (G1–G14)** — all complete and verified
+by `tests/test_cicd_gates.py` (46 structural tests). The full gate inventory
+lives in [`docs/CI_CD_RESEARCH.md`](docs/CI_CD_RESEARCH.md); the test file is
+the regression shield.
+
+| Gate | Name                   | What it does                                                                | Verified by                         |
+| ---- | ---------------------- | --------------------------------------------------------------------------- | ----------------------------------- |
+| G1   | Deploy gating          | `deploy.yml` triggers only after a green "Repository Validation" run        | `TestDeployGating` (4)              |
+| G2   | Staging environment    | `deploy_staging` → staging GitHub env + Render staging service on `main`    | `TestStagingEnvironment` (11)       |
+| G3   | Migrations             | `preDeployCommand: flask db upgrade` on web + staging services              | `TestRenderHealthAndMigrations` (5) |
+| G4   | Health check           | `healthCheckPath: /health` on web + staging                                 | `TestRenderHealthAndMigrations` (5) |
+| G5   | Full security blocking | Bandit (HIGH/HIGH), Safety, pip-audit — all blocking in `validation.yml`    | `TestSecurityGates` (3)             |
+| G6   | Coverage gate          | `fail_under = 60` (slow shard only)                                         | `TestCoverageGate` (2)              |
+| G7   | Docker path            | `ENTRYPOINT` + `CMD → uvicorn asgi:app` (ASGI)                              | `TestDockerConsistency` (4)         |
+| G8   | Release automation     | `release.yml` — `push: tags` + `workflow_dispatch` → `gh-release@v2`        | `TestReleaseWorkflow` (4)           |
+| G9   | Dependabot             | `pip` + `github-actions` + `npm` ecosystems, `rebase-strategy: all`         | `TestDependabot` (1)                |
+| G10  | Workflow hygiene       | checkout@v7, setup-python@v7, ruff≥0.16.3, ubuntu-24.04, concurrency groups | `TestWorkflowHygiene` (4)           |
+| G11  | ce-v2 gate             | `real-gate` job only runs on `workflow_dispatch`                            | `TestCeV2Gate` (1)                  |
+| G12  | Env parity             | `shared-secrets` envVarGroup (single `SECRET_KEY`), worker parity verified  | `TestEnvParity` (3)                 |
+| G13  | Deploy serialization   | `concurrency: { group: render-deploy }` in `deploy.yml`                     | `TestDeployGating` (4)              |
+| G14  | Dev dep scanning       | pip-audit scans `requirements-dev.txt` in validation + weekly pip-audit.yml | `TestSecurityGates` (3)             |
+
+### Deploy flow
+
+```
+1. PR → CI: lint + ruff + test-fast + Bandit + Safety + pip-audit
+2. Merge to main → CI: test-slow (with coverage, fail_under=60)
+3. On green "Repository Validation" → deploy.yml workflow_run:
+   a. deploy_staging → staging environment (Render staging service, `main`)
+   b. deploy → production (only if staging succeeds)
+4. Tags (`v*.*.*`) → release.yml → GitHub Release (auto-notes)
+```
+
+> **Setup required for first deploy:** render.yaml `autoDeploy: false` means
+> Render won't auto-deploy on push — the `deploy.yml` workflow curls the deploy
+> hook pinned to the validated SHA. Create the Render Deploy Hook and store as
+> `RENDER_DEPLOY_HOOK_URL` (production) and `RENDER_STAGING_DEPLOY_HOOK_URL`
+> (staging) repo secrets.
+
+### Security scanning
+
+| Scanner       | Config file         | Scope              | Threshold | Blocking? |
+| ------------- | ------------------- | ------------------ | --------- | --------- |
+| **Bandit**    | `pyproject.toml`    | `app/`             | HIGH/HIGH | ✅ Yes    |
+| **Safety**    | —                   | `requirements.txt` | any       | ✅ Yes    |
+| **pip-audit** | `requirements*.txt` | All dependencies   | any       | ✅ Yes    |
+
+Bandit skips `B101` (assert), `B311` (random), `B324` (hashlib) as known false
+positives. SARIF results upload to GitHub Code Scanning but remain
+`continue-on-error` so reporting never masks scan failures.
+
+---
+
 ## API Reference
 
 > **Note:** API documentation is auto-generated from code. Endpoints follow a RESTful convention.
@@ -692,7 +748,10 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - CSRF protection (flask-wtf)
 - Session hardening (30min TTL, HttpOnly, SameSite)
 - Hash-chained audit logging
-- Optimistic concurrency control
+- Optimistic concurrency control (`StaleDataError → 409`)
+- TLS certificate verification on all external lookups (S7)
+- CI/CD security scanning: Bandit (HIGH/HIGH), Safety, pip-audit — all blocking (G5)
+- Dependency scanning: Dependabot (pip + github-actions + npm)
 
 ### Level 4: Testing & Validation ✅
 

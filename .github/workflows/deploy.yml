@@ -1,9 +1,16 @@
 # =============================================================================
-# NSA Webservice — Gated Production Deploy (Render)
+# NSA Webservice — Gated Deploy (Staging → Production via Render)
 # =============================================================================
 # Deploys to Render ONLY after the "Repository Validation" workflow passes on
-# main (CI/CD research doc §4.1 — closes gaps G1 "tests don't gate deploys"
-# and G13 "no deploy serialization").
+# main (CI/CD research doc §4.1, §4.4 — closes gaps G1, G2, G13).
+#
+# Two deploy legs:
+#   1. deploy_staging — fires on validation success, targets the `staging`
+#      GitHub environment (open, no required reviewer). Uses the staging
+#      Render deploy hook.
+#   2. deploy         — depends on staging success, targets the `production`
+#      GitHub environment (required reviewer + optional wait-timer configured
+#      in GitHub Settings → Environments). Uses the production Render deploy hook.
 #
 # Mechanism (per official docs):
 #   * workflow_run fires when the named workflow concludes; this file must
@@ -13,80 +20,139 @@
 #     ?ref=<sha> to pin the exact validated commit:
 #     https://render.com/docs/deploy-hooks ("Using with GitHub Actions")
 #
-# REQUIRED SETUP (one-time, dashboard-side):
-#   1. render.yaml sets autoDeploy: false on both services.
-#   2. In Render: Settings → Deploy Hook → copy the URL.
+# REQUIRED SETUP (one-time, GitHub + Render dashboard):
+#   1. render.yaml: autoDeploy=false on both web services (already set).
+#   2. In Render: Settings → Deploy Hook → copy the STAGING hook URL.
 #   3. In GitHub: Settings → Secrets and variables → Actions → new secret
-#      RENDER_DEPLOY_HOOK_URL with that URL.
+#      RENDER_STAGING_DEPLOY_HOOK_URL with that URL.
+#   4. Repeat for the PRODUCTION deploy hook → RENDER_DEPLOY_HOOK_URL.
+#   5. GitHub environments: create `staging` (open) and `production` (with
+#      required reviewer). See §4.4 of the research doc.
 #
-# Manual deploys remain possible via workflow_dispatch (uses the same hook).
+# Manual deploys remain possible via workflow_dispatch (uses the production hook
+# by default; set the target to `staging` via the ref input for staging).
 # =============================================================================
 
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: ["Repository Validation"] # must match validation.yml `name:`
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: "Git ref to deploy (branch, tag, or commit SHA)"
-        required: false
-        default: "main"
-        type: string
+    workflow_run:
+        workflows: ["Repository Validation"] # must match validation.yml `name:`
+        types: [completed]
+        branches: [main] # workflow_run requires the file on the default branch
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: "Deployment target"
+                required: false
+                default: "production"
+                type: choice
+                options:
+                    - production
+                    - staging
+            ref:
+                description: "Git ref to deploy (branch, tag, or commit SHA)"
+                required: false
+                default: "main"
+                type: string
 
 concurrency:
-  group: render-deploy # serialize deploys — never overlap production cutovers
-  cancel-in-progress: false
+    group: render-deploy # serialize deploys — never overlap production cutovers
+    cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
-    name: Deploy validated commit to Render
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # ── G2: Staging deploy — fires on validation success, no approval needed ──
+    deploy_staging:
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.environment == 'staging'
+        name: Deploy validated commit to Staging
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        environment: staging
+        steps:
+            - name: Resolve the commit being deployed
+              id: ref
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "sha=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+                  fi
 
-    environment:
-      name: production
-      url: https://food-adjudication-portal.onrender.com
+            - name: Trigger Render staging deploy hook (pinned to the validated commit)
+              env:
+                  RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+                  REF: ${{ steps.ref.outputs.sha }}
+              run: |
+                  test -n "$RENDER_STAGING_DEPLOY_HOOK_URL" || {
+                    echo "::error::RENDER_STAGING_DEPLOY_HOOK_URL secret is not set. See the setup checklist in this file's header."
+                    exit 1
+                  }
+                  case "$RENDER_STAGING_DEPLOY_HOOK_URL" in
+                    *\?*) HOOK="${RENDER_STAGING_DEPLOY_HOOK_URL}&ref=${REF}" ;;
+                    *)    HOOK="${RENDER_STAGING_DEPLOY_HOOK_URL}?ref=${REF}" ;;
+                  esac
+                  curl --fail --silent --show-error --retry 3 --retry-delay 10 "$HOOK"
 
-    steps:
-      - name: Resolve the commit being deployed
-        id: ref
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "sha=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          fi
+            - name: Verify staging /health
+              run: |
+                  echo "Staging deploy triggered for ${REF}; Render health gate (/health) controls cutover."
+                  # Render builds here install playwright+chromium (5–15 min typical);
+                  # poll up to ~10 min before declaring failure.
+                  curl --fail --retry-all-errors --connect-timeout 10 --retry 40 --retry-delay 15 \
+                    https://food-adjudication-portal-staging.onrender.com/health
 
-      - name: Trigger Render deploy hook (pinned to the validated commit)
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-          REF: ${{ steps.ref.outputs.sha }}
-        run: |
-          test -n "$RENDER_DEPLOY_HOOK_URL" || {
-            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set. See the setup checklist in this file's header."
-            exit 1
-          }
-          # The hook URL already carries ?key=... — append &ref= when present,
-          # otherwise use ?ref= (separator-safe per render.com/docs/deploy-hooks).
-          case "$RENDER_DEPLOY_HOOK_URL" in
-            *\?*) HOOK="${RENDER_DEPLOY_HOOK_URL}&ref=${REF}" ;;
-            *)    HOOK="${RENDER_DEPLOY_HOOK_URL}?ref=${REF}" ;;
-          esac
-          curl --fail --silent --show-error --retry 3 --retry-delay 10 "$HOOK"
+    # ── Production deploy — depends on staging success ──────────────────────
+    deploy:
+        # NOTE: needs + skipped dependency = skipped job in GitHub Actions, so the
+        # guard must include !cancelled() && needs.deploy_staging.result != 'failure'
+        # or a workflow_dispatch→production run (where staging is intentionally
+        # skipped) would itself be silently skipped.
+        if: >-
+            !cancelled() &&
+            needs.deploy_staging.result != 'failure' &&
+            ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+             (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'))
+        name: Deploy validated commit to Production
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        needs: deploy_staging
+        environment:
+            name: production
+            url: https://food-adjudication-portal.onrender.com
 
-      - name: Wait for the deploy to go live, then verify /health
-        run: |
-          # Render's healthCheckPath (/health) already gates traffic cutover
-          # server-side (https://render.com/docs/health-checks); this is the
-          # post-deploy verification leg for the Actions log.
-          echo "Deploy triggered for ${REF}; Render health gate (/health) controls cutover."
-          sleep 30
-          curl --fail --retry 5 --retry-delay 15 \
-            https://food-adjudication-portal.onrender.com/health
+        steps:
+            - name: Resolve the commit being deployed
+              id: ref
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "sha=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Trigger Render deploy hook (pinned to the validated commit)
+              env:
+                  RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+                  REF: ${{ steps.ref.outputs.sha }}
+              run: |
+                  test -n "$RENDER_DEPLOY_HOOK_URL" || {
+                    echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set. See the setup checklist in this file's header."
+                    exit 1
+                  }
+                  # The hook URL already carries ?key=... — append &ref= when present,
+                  # otherwise use ?ref= (separator-safe per render.com/docs/deploy-hooks).
+                  case "$RENDER_DEPLOY_HOOK_URL" in
+                    *\?*) HOOK="${RENDER_DEPLOY_HOOK_URL}&ref=${REF}" ;;
+                    *)    HOOK="${RENDER_DEPLOY_HOOK_URL}?ref=${REF}" ;;
+                  esac
+                  curl --fail --silent --show-error --retry 3 --retry-delay 10 "$HOOK"
+
+            - name: Wait for the deploy to go live, then verify /health
+              run: |
+                  # Render's healthCheckPath (/health) already gates traffic cutover
+                  # server-side (https://render.com/docs/health-checks); this is the
+                  # post-deploy verification leg for the Actions log.
+                  echo "Deploy triggered for ${REF}; Render health gate (/health) controls cutover."
+                  # Same long build window as staging — poll up to ~10 min.
+                  curl --fail --retry-all-errors --connect-timeout 10 --retry 40 --retry-delay 15 \
+                    https://food-adjudication-portal.onrender.com/health

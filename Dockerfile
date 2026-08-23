@@ -70,16 +70,26 @@ COPY --from=builder /root/.local /root/.local
 # Copy application source.
 COPY . .
 
+# Ensure the entrypoint script is executable (Windows git checkouts lose the
+# executable bit; Docker builds run on Linux where this matters).
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Ensure the instance folder (SQLite fallback / uploads) is writable.
 RUN mkdir -p /app/instance /app/uploads /app/logs && chmod -R 777 /app/instance /app/uploads
 
-# Migrations are applied explicitly at deploy time (see render.yaml startCommand
-# and the gunicorn entrypoint below), so no `flask db upgrade` here.
+# Migrations run via the entrypoint (docker-entrypoint.sh) at container start,
+# which calls `flask db upgrade` before handing off to the CMD. This keeps the
+# Docker path consistent with render.yaml's preDeployCommand approach.
 EXPOSE 8000
 
-# gunicorn: 2 sync workers is fine for the Flask app; heavy PDF/OCR work is
-# offloaded to the Celery worker (separate docker-compose service).
+# ENTRYPOINT ensures migrations run before the server binds, regardless of
+# whether the container is started via docker-compose or a direct `docker run`.
+ENTRYPOINT ["./docker-entrypoint.sh"]
+
+# ASGI gateway — matches render.yaml startCommand (asgi.py mounts Flask via
+# a2wsgi.WSGIMiddleware at /, providing both /api/v2/* FastAPI routes and
+# all Flask routes under one server).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status==200 else 1)"
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60", "app:app"]
+CMD ["uvicorn", "asgi:app", "--host", "0.0.0.0", "--port", "8000"]

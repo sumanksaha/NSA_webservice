@@ -281,21 +281,29 @@ jobs:
                   pip install -r requirements-dev.txt
 
             - name: Run Bandit (static security analysis)
+              # BLOCKING (G5, research §4.3): HIGH-severity findings fail the
+              # gate. B101 (assert), B311 (random), B324 (hashlib) are skipped
+              # as known false positives in web-app/server contexts.
               run: |
                   bandit --configfile pyproject.toml -r app/ -s B101,B311,B324 \
                     --confidence HIGH --severity HIGH -f sarif \
-                    -o bandit-results.sarif 2>&1 || true
-              continue-on-error: true
+                    -o bandit-results.sarif 2>&1
 
             - name: Run pip-audit (dependency vulnerability scan)
+              # BLOCKING (G5, research §4.3): known CVEs in runtime requirements
+              # fail the gate — matching the standalone pip-audit.yml, which is
+              # already blocking on main. Fix = bump/replace the flagged pin.
+              # (G14, research §4.3): audit dev dependencies too — requirements-dev.txt
+              # was never scanned anywhere in the pipeline.
               run: |
-                  pip-audit --requirement requirements.txt --desc 2>&1 || true
-              continue-on-error: true
+                  pip-audit --requirement requirements.txt --requirement requirements-dev.txt --desc
+              continue-on-error: false
 
             - name: Run Safety (additional dependency scan)
+              # BLOCKING (G5, research §4.3): overlaps pip-audit with a different
+              # vulnerability DB; both must agree there is no untriaged noise.
               run: |
-                  safety check -r requirements.txt --full-report 2>&1 || true
-              continue-on-error: true
+                  safety check -r requirements.txt --full-report 2>&1
 
             - name: Upload Bandit SARIF results
               if: always()

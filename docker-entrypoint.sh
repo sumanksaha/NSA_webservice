@@ -13,6 +13,10 @@
 #                       mounting code volume in dev and migrations are handled
 #                       externally)
 # ──────────────────────────────────────────────────────────────────────────────
+# Migrations are applied at container start via the Dockerfile ENTRYPOINT
+# (FLASK_APP=app:create_app flask db upgrade) — matching render.yaml's
+# preDeployCommand, a failing migration fails the container rather than
+# silently boot-looping into broken state.
 set -e
 
 echo "[entrypoint] NSA Webservice container starting"
@@ -27,10 +31,8 @@ else
     echo "[entrypoint] Running database migrations (flask db upgrade)..."
     # flask db upgrade is idempotent — safe to run on every container start.
     # Uses FLASK_APP=app:create_app (app.py at project root → create_app factory).
-    flask db upgrade || {
-        echo "[entrypoint] WARNING: flask db upgrade failed — continuing anyway"
-        echo "[entrypoint]           The app will start; DB errors surface per-request."
-    }
+    # Fail-loud: a broken migration prevents the container from serving traffic.
+    flask db upgrade
     echo "[entrypoint] Migrations complete."
 fi
 

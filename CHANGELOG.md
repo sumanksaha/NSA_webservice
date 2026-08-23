@@ -10,9 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Status: Phases 0–16, 20, 21, Phase A + OCR Phases B–E, Deepening D1–D5, S9a, Priority 6/7,
 > RAG Phases 1–5, Multi-Domain Phase 1, Evaluation Framework, Benchmark v1.0, Rust PyO3,
 > Remote Inference (Modal), LangGraph Agent Pipeline + M5, FastAPI Gateway, and the Config
-> seam are implemented and verified (~1,900 tests). Pending: Phase 17 remainder (Supabase
-> bridge, conflict resolution, sync-status UI), Phase 18 (~70% — RBAC decorator, comments,
-> role assignment), Phase 19, Rust Parts 1.6+ / 2–5, CE-v2 retrain.
+> seam are implemented and verified (~1,900 tests). **CI/CD gates G1–G14 complete
+> (2026-08-23) — deploy gating, staging env, pre-deploy migrations, health check, full
+> security blocking (Bandit+Safety+pip-audit), coverage gate, Docker ASGI path, release
+> automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy
+> serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** Pending:
+> Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Phase 18
+> (~30% — RBAC decorator, comments, role assignment), Phase 19, Rust Parts 1.6+ / 2–5,
+> CE-v2 retrain.
 
 ### Added (2026-08-23)
 
@@ -20,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`CLOUDINARY_URL` shorthand**: the single `cloudinary://<api_key>:<api_secret>@<cloud_name>`
   variable is now honoured (`_parse_cloudinary_url` / `_cloudinary_credentials`); it wins over
-  the three discrete variables, and a *malformed* URL falls back to them instead of
+  the three discrete variables, and a _malformed_ URL falls back to them instead of
   hard-disabling the backend.
 - **Network retries**: upload/destroy SDK calls run through a tenacity exponential-backoff
   policy (3 attempts, 0.5 s→4 s, transient ConnectionError/Timeout only — non-transient
@@ -48,13 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~1,900 tests) verifiably runs on 3.11.15 locally, and the codebase uses no 3.12-only
   syntax (verified: zero PEP 695 usages). CI keeps running 3.12.
 
-### Changed (2026-08-24)
+### Changed (2026-08-23)
 
 #### CI/CD gate package (docs/CI_CD_RESEARCH.md §4–§5)
 
 - **Deploys are now gated** (G1/G13): `render.yaml` sets `autoDeploy: false` on both
   services; the rewritten `.github/workflows/deploy.yml` triggers via `workflow_run`
-  on a *successful* "Repository Validation" run on main, curls the Render deploy hook
+  on a _successful_ "Repository Validation" run on main, curls the Render deploy hook
   pinned to the validated SHA (`?ref=`), serializes deploys with a `render-deploy`
   concurrency group, and verifies `/health` post-deploy. Manual deploys remain via
   `workflow_dispatch`. **Setup required:** create the Render Deploy Hook and store it
@@ -69,6 +74,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (stops ~40-min torch runs on qualifying pushes); lint.yml gains a cancel-in-progress
   concurrency group, aligns to checkout@v7/setup-python@v7/`ruff>=0.16.3`
   (pre-commit parity) and pins ubuntu-24.04; pip-audit.yml gains a concurrency group.
+
+#### G2 — Staging environment
+
+- **Staging deploy leg** (deploy.yml): on validation success, a `deploy_staging` job
+  targets the `staging` GitHub environment (open, no required reviewer) and triggers
+  the staging Render deploy hook (`RENDER_STAGING_DEPLOY_HOOK_URL`). Production deploy
+  (`needs: deploy_staging`) waits for staging to succeed before cutover.
+  **Setup required:** create the Render Staging Deploy Hook and store as
+  `RENDER_STAGING_DEPLOY_HOOK_URL`; create a `staging` GitHub environment
+  (Settings → Environments → New environment).
+- **Staging web service** (render.yaml): `food-adjudication-portal-staging` deploys
+  from the `upgradation` branch (`branch: upgradation`), `autoDeploy: false`,
+  with `healthCheckPath: /health`, `preDeployCommand: flask db upgrade`, and the
+  shared `shared-secrets` envVarGroup. Separate free-tier staging database
+  (`nsa-webservice-staging-db`) avoids polluting prod data.
+
+#### G8 — Release automation activated
+
+- **release.yml is now active**: `workflow_dispatch` (create tag + release from a
+  chosen branch) and `push: tags: "v*.*.*"` (create release when a tag is pushed) both
+  supported. Uses `softprops/action-gh-release@v2` with `generate_release_notes: true`.
+  `if: false` placeholder removed; `permissions: contents: write, discussions: write`
+  preserved. Version is declared by the tag name — `pyproject.toml` version is not
+  auto-bumped by this workflow.
+
+#### G6 — Coverage gate added
+
+- `fail_under = 60` declared in `[tool.coverage.report]` (pyproject.toml). Coverage is
+  measured only in the slow-test shard (`--cov=app`); the threshold is conservative and
+  should be ratcheted up after first CI run.
+
+#### G14 — Dev dependency scanning
+
+- pip-audit now scans `requirements-dev.txt` alongside `requirements.txt` in both
+  `validation.yml` (blocking) and `pip-audit.yml` (blocking, weekly schedule).
+
+#### G5 — Full security scan blocking
+
+- Bandit and Safety in `validation.yml` security job are now **blocking** (removed
+  `continue-on-error: true` and `|| true`). Bandit runs with `--confidence HIGH
+--severity HIGH -s B101,B311,B324` (only HIGH/HIGH findings, known false positives
+  skipped). Safety scans `requirements.txt` with `--full-report`. The SARIF _upload_
+  step remains `if: always()` / `continue-on-error` so SARIF reporting degrades
+  gracefully without masking scan failures.
+
+#### G7 — Docker path wired
+
+- Dockerfile gains `ENTRYPOINT ["./docker-entrypoint.sh"]` (was missing — entrypoint
+  migrations were unreachable); `CMD` changed from `gunicorn app:app` (WSGI) to
+  `uvicorn asgi:app` (ASGI) to match render.yaml; `chmod +x` added for Windows checkout.
+  docker-compose.yml web service aligned to `uvicorn asgi:app`; `FLASK_APP` corrected
+  to `app:create_app` (factory reference). docker-entrypoint.sh now fails loudly on
+  migration errors instead of swallowed `|| true` warnings.
+
+#### Regression shield
+
+- `tests/test_cicd_gates.py` — 46 structural tests pinning G1–G14
+  invariants directly against YAML/TOML files. Runs in the `test-fast` CI job
+  (`-m "not slow"`), zero external dependencies.
 
 ### Changed (2026-08-22 architecture deepening)
 
@@ -113,7 +177,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared persistence extracted to app/ocr_pipeline/persistence.py so the async
   task and bulk path cannot drift. Tests: review (14), autopopulation (14),
   feedback (8), bulk upload (9); Phase A suite 14/14 still green.
-
 
 #### Phase 15 — Analytics Dashboard
 
@@ -327,11 +390,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-| Version    | Date       | Description                                                                                                                                                                                                                                                                            |
-| ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0.0      | 2026-01-01 | Initial release                                                                                                                                                                                                                                                                        |
-| 1.0.1      | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix)                                                                                                                                                                                                                                  |
-| Unreleased | 2026-08-22 | Phase 15 (Analytics), Phase 18 partial, OCR Phases B–E (review/conflicts/autopopulation/feedback/bulk), architecture deepening (retrieval composition root, BackupTarget registry, ScheduledJobs, atomic BillIssuance per ADR-0001, config seam completion), EasyOCR extraction bug fix |
+| Version    | Date       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0.0      | 2026-01-01 | Initial release                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 1.0.1      | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Unreleased | 2026-08-23 | CI/CD gates G1–G14 complete (deploy gating, staging env, pre-deploy migrations, health check, full security blocking Bandit+Safety+pip-audit, coverage gate fail_under=60, Docker ASGI path, release automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy serialization, dev-dep scanning — 46 test_cicd_gates.py tests). Cloudinary hardening (CLOUDINARY_URL parsing, tenacity retries, /health/cloudinary). ENV-6/7/8 resolved. OCR Phases B–E complete (45 tests). Phase 15 Analytics complete (15 tests). RAG UI gaps 1–8 resolved. Rust Part 1 scaffold complete. |
 
 ---
 

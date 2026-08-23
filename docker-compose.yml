@@ -13,11 +13,12 @@ services:
     image: nsa-webservice:latest
     container_name: nsa-webservice-web
     restart: unless-stopped
-    command: gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 60 app:app
+    # ASGI gateway — matches render.yaml startCommand (asgi.py mounts Flask via
+    # a2wsgi.WSGIMiddleware). ENTRYPOINT from the Dockerfile runs flask db upgrade.
+    command: uvicorn asgi:app --host 0.0.0.0 --port 8000
     env_file: .env
     environment:
-      - FLASK_APP=app.py
-      - SKIP_FSO_STARTUP_SYNC=0
+      - FLASK_APP=app:create_app
     ports:
       - "8000:8000"
     depends_on:

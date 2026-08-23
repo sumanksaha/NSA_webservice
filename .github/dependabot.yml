@@ -3,21 +3,55 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Kolkata"
-    target-branch: "main"
-    labels:
-      - "dependencies"
-      - "pip"
-    commit-message:
-      prefix: "deps"
-      prefix-development: "deps(dev)"
-      include: "scope"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "sumanksaha"
+    - package-ecosystem: "pip"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "09:00"
+          timezone: "Asia/Kolkata"
+      target-branch: "main"
+      labels:
+          - "dependencies"
+          - "pip"
+      commit-message:
+          prefix: "deps"
+          prefix-development: "deps(dev)"
+          include: "scope"
+      open-pull-requests-limit: 10
+      reviewers:
+          - "sumanksaha"
+
+    # GitHub Actions used by .github/workflows/* — keeps checkout/setup-python etc.
+    # from floating across major versions (research doc gap G9).
+    # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "09:00"
+          timezone: "Asia/Kolkata"
+      target-branch: "main"
+      labels:
+          - "dependencies"
+          - "github-actions"
+      commit-message:
+          prefix: "deps(actions)"
+      open-pull-requests-limit: 5
+
+    # npm dev tooling (ESLint/Prettier via package.json + package-lock.json)
+    - package-ecosystem: "npm"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "09:00"
+          timezone: "Asia/Kolkata"
+      target-branch: "main"
+      labels:
+          - "dependencies"
+          - "npm"
+      commit-message:
+          prefix: "deps(npm)"
+      open-pull-requests-limit: 5

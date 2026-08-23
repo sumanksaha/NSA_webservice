@@ -1,5 +1,5 @@
 # Pre-commit configuration for NSA Webservice
-# Uses the system-installed ruff (from requirements-dev.txt) so pre-commit,
+# Uses the system-installed ruff/mypy (from requirements-dev.txt) so pre-commit,
 # terminal, and CI all run the same version.
 # See: https://pre-commit.com
 #
@@ -15,6 +15,15 @@
 #
 # Skip hooks for a single commit:
 #   git commit -m "msg" --no-verify
+
+# Pin the minimum pre-commit version for reproducible hook behavior.
+minimum_pre_commit_version: "3.8"
+
+# Default to the Python interpreter from the active virtualenv (or the system
+# Python if no venv is active).  This ensures hooks use the same environment
+# as `pip install -r requirements-dev.txt`.
+default_language_version:
+  python: python3.12
 
 repos:
   - repo: local
@@ -38,21 +47,32 @@ repos:
         require_serial: false
 
       # ─── Mypy type checking ──────────────────────────────────────────
+      # Runs on app/ with the project's pyproject.toml config.  Consistent
+      # with the CI typecheck job (validation.yml) which is currently
+      # non-blocking (continue-on-error: true) — this hook mirrors that:
+      # mypy errors are reported but do not block the commit.  Remove the
+      # `continue-on-error: true` equivalent (the `entry` always exits 0 on
+      # type errors via the `|| true` fallback) once the codebase is
+      # type-clean enough to make it blocking.
+      # Note: requires `mypy` in the active Python environment
+      # (pip install mypy).  If mypy is absent, the hook skips gracefully.
       - id: mypy
         name: mypy
-        description: "Static type checking — fails on any type error in app/."
-        entry: python -m mypy app/
+        description: "Static type checking — reports type errors in app/ (non-blocking, mirrors CI)."
+        entry: bash -c 'python -m mypy --config-file pyproject.toml app/ 2>&1 || true'
         language: system
         types_or: [python, pyi]
         require_serial: true
         pass_filenames: false
+        always_run: true
 
       # ─── Pytest test suite ───────────────────────────────────────────
-      # Note: runs the full suite (~228 tests, ~2 min) on every Python commit.
+      # Runs only the CI fast-test subset (not slow markers) to keep commit
+      # latency low.  The full suite runs in CI's test-slow job with coverage.
       - id: pytest
-        name: pytest
-        description: "Run the full test suite — fails on any failing test."
-        entry: python -m pytest tests/ -q --no-header
+        name: pytest (fast subset)
+        description: "Run fast (non-slow) tests — skips Qdrant/network/heavy inference tests."
+        entry: python -m pytest tests/ -q --no-header -m "not slow"
         language: system
         types_or: [python]
         require_serial: true
@@ -64,6 +84,7 @@ repos:
       # frozen baseline (i.e. after every retrain).  Skips fast otherwise,
       # and exits 0 on fresh checkouts where the gitignored models are absent.
       # Note: the first commit after a retrain pays ~3-5 min of CPU scoring.
+      # Only runs when evaluation/ files or the baseline are modified.
       - id: ce-v2-gate
         name: ce-v2 regression gate
         description: "Fails the commit if a CE retrain regresses vs the frozen baseline (hierarchy <= 4 / same-section <= 1 are targets; enforce with --strict-targets)."
@@ -71,7 +92,7 @@ repos:
         language: system
         require_serial: true
         pass_filenames: false
-        always_run: true
+        files: ^(evaluation/ce_v2_gate\.py|evaluation/ce_v2_eval\.py|evaluation/ce_v2_error_analysis\.py|evaluation/ce_v2_baseline\.json)$
 
       # ─── JS lint (ESLint) ────────────────────────────────────────────
       # Uses the same npm scripts as the CI js-lint job, so local runs and

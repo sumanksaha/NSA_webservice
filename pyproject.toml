@@ -354,6 +354,12 @@ omit = [
 command_line = "-m pytest"
 
 [tool.coverage.report]
+# Coverage gate (CI/CD research doc G6 / §4.3): fail the slow-test shard if
+# line coverage drops below this threshold. Start conservative (measured via
+# full slow-shard run in CI) and ratchet up. pytest-cov reads this value from
+# the coverage config automatically — no CLI flag needed in validation.yml.
+# To re-measure in CI: check the "Coverage" annotation on the test-slow job.
+fail_under = 60
 exclude_lines = [
   "pragma: no cover",
   "def __repr__",

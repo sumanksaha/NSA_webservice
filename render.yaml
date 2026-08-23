@@ -1,4 +1,22 @@
-# Render Blueprint Configuration for NSA Webservice
+# =============================================================================
+# NSA Webservice — Render Blueprint Configuration
+# =============================================================================
+#
+# Shared secrets (CI/CD research doc G12 / §4.6): a single envVarGroup holds
+# secrets that both services (web + worker) must share. Using generateValue
+# per-service produced two different SECRET_KEYs; this group guarantees one.
+# https://render.com/docs/blueprint-spec — "Environment variable groups"
+#
+# Services: web (prod) + staging-web (staging) + worker (prod Celery).
+# Staging deploys via the `staging` GitHub environment / deploy hook after
+# CI passes; production deploys after staging succeeds (deploy.yml).
+# =============================================================================
+
+envVarGroups:
+    - name: shared-secrets
+      envVars:
+          - key: SECRET_KEY
+            generateValue: true
 
 services:
     - type: web
@@ -17,18 +35,18 @@ services:
       # Migration safety (gap G3 / research §5): run Alembic in Render's
       # pre-deploy step (build → pre-deploy → start) so a failed migration
       # cancels the deploy BEFORE traffic cutover instead of killing boot.
-      # Requires a Render instance plan that supports pre-deploy commands —
-      # verify in the dashboard; if unsupported, move this back into
-      # startCommand (Alembic upgrade is idempotent for applied revisions).
+      # preDeployCommand requires a paid instance plan; on free tier it is
+      # ignored, so startCommand retains an idempotent `flask db upgrade`
+      # boot-time fallback — migrations always run on at least one path.
       preDeployCommand: FLASK_APP=app:create_app flask db upgrade
-      startCommand: uvicorn asgi:app --host 0.0.0.0 --port 10000
+      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
       envVars:
           - key: DATABASE_URL
             fromDatabase:
                 name: nsa-webservice-db
                 property: connectionString
           - key: SECRET_KEY
-            generateValue: true
+            fromGroup: shared-secrets
           - key: REDIS_URL
             sync: false
           - key: SPREADSHEET_ID
@@ -105,21 +123,36 @@ services:
             value: "false"
           - key: RAG_KG_FUSION
             value: "false"
+          - key: RAG_KG_MAX_PROVISIONS
+            value: "5"
+          - key: RAG_HALLUCINATION_DETECTOR
+            value: "true"
 
-    - type: worker
-      name: food-adjudication-celery-worker
+    # ── G2: Staging web service — built from the default branch (main),
+    #    deployed via deploy.yml → staging environment → Render deploy hook
+    #    (?ref=<validated main SHA>). Auto-deploy is OFF so staging only
+    #    receives CI-validated commits.
+    #    https://render.com/docs/deploy-hooks ("Using with GitHub Actions")
+    - type: web
+      name: food-adjudication-portal-staging
       env: python
-      # Gated together with the web service — see the web service note above.
+      branch: main
+      # G1: autoDeploy false — staging deploys through deploy.yml's deploy_staging job
       autoDeploy: false
+      # G4: health check — same /health endpoint as production
+      healthCheckPath: /health
       buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
-      startCommand: celery -A app.celery worker --loglevel=info
+      # G3: pre-deploy migrations — same pattern as production (with the
+      # same idempotent boot-time fallback for free-tier plans)
+      preDeployCommand: FLASK_APP=app:create_app flask db upgrade
+      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
       envVars:
           - key: DATABASE_URL
             fromDatabase:
-                name: nsa-webservice-db
+                name: nsa-webservice-staging-db
                 property: connectionString
           - key: SECRET_KEY
-            generateValue: true
+            fromGroup: shared-secrets
           - key: REDIS_URL
             sync: false
           - key: SPREADSHEET_ID
@@ -142,8 +175,14 @@ services:
             value: "false"
           - key: PDF_USE_DIRECT_URLS
             value: "false"
-          - key: SKIP_FSO_STARTUP_SYNC
-            value: "1"
+          - key: QSTASH_TOKEN
+            sync: false
+          - key: QSTASH_CURRENT_SIGNING_KEY
+            sync: false
+          - key: QSTASH_NEXT_SIGNING_KEY
+            sync: false
+          - key: PUBLIC_BASE_URL
+            sync: false
           - key: CLOUDINARY_CLOUD_NAME
             sync: false
           - key: CLOUDINARY_API_KEY
@@ -180,9 +219,125 @@ services:
             value: sentence-transformers/all-mpnet-base-v2
           - key: RAG_FULL_ENRICHMENT
             value: "false"
+          - key: API_V2_KEY
+            sync: false
+          - key: RAG_USE_AGENT_PIPELINE
+            value: "false"
+          - key: RAG_AGENT_HITL
+            value: "false"
+          - key: RAG_KG_EXPANSION
+            value: "false"
+          - key: RAG_KG_FUSION
+            value: "false"
+          - key: RAG_KG_MAX_PROVISIONS
+            value: "5"
+          - key: RAG_HALLUCINATION_DETECTOR
+            value: "true"
+
+    - type: worker
+      name: food-adjudication-celery-worker
+      env: python
+      # Gated together with the web service — see the web service note above.
+      autoDeploy: false
+      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
+      startCommand: celery -A app.celery worker --loglevel=info
+      envVars:
+          - key: DATABASE_URL
+            fromDatabase:
+                name: nsa-webservice-db
+                property: connectionString
+          - key: SECRET_KEY
+            fromGroup: shared-secrets
+          - key: REDIS_URL
+            sync: false
+          - key: SPREADSHEET_ID
+            sync: false
+          - key: GOOGLE_CREDENTIALS_JSON
+            sync: false
+          - key: R2_ACCESS_KEY
+            sync: false
+          - key: R2_SECRET_KEY
+            sync: false
+          - key: R2_BUCKET
+            sync: false
+          - key: R2_ENDPOINT
+            sync: false
+          - key: R2_PUBLIC_BASE_URL
+            sync: false
+          - key: R2_REGION
+            value: auto
+          - key: DISABLE_PDF_GENERATION
+            value: "false"
+          - key: PDF_USE_DIRECT_URLS
+            value: "false"
+          - key: SKIP_FSO_STARTUP_SYNC
+            value: "1"
+          - key: QSTASH_TOKEN
+            sync: false
+          - key: QSTASH_CURRENT_SIGNING_KEY
+            sync: false
+          - key: QSTASH_NEXT_SIGNING_KEY
+            sync: false
+          - key: PUBLIC_BASE_URL
+            sync: false
+          - key: CLOUDINARY_CLOUD_NAME
+            sync: false
+          - key: CLOUDINARY_API_KEY
+            sync: false
+          - key: CLOUDINARY_API_SECRET
+            sync: false
+          - key: AIRTABLE_API_KEY
+            sync: false
+          - key: AIRTABLE_BASE_ID
+            sync: false
+          - key: ENABLE_AIRTABLE_SYNC
+            value: "true"
+          - key: MS_TENANT_ID
+            sync: false
+          - key: MS_CLIENT_ID
+            sync: false
+          - key: MS_CLIENT_SECRET
+            sync: false
+          - key: MS_DRIVE_ID
+            sync: false
+          - key: MS_SPREADSHEET_ID
+            sync: false
+          - key: ENABLE_EXCEL_SYNC
+            value: "false"
+          - key: RAG_QDRANT_URL
+            sync: false
+          - key: RAG_QDRANT_API_KEY
+            sync: false
+          - key: RAG_QDRANT_COLLECTION
+            value: fssai_legal_768
+          - key: RAG_VECTOR_SIZE
+            value: "768"
+          - key: RAG_EMBEDDING_MODEL
+            value: sentence-transformers/all-mpnet-base-v2
+          - key: RAG_FULL_ENRICHMENT
+            value: "false"
+          - key: RAG_KG_MAX_PROVISIONS
+            value: "5"
+          - key: RAG_HALLUCINATION_DETECTOR
+            value: "true"
+          - key: API_V2_KEY
+            sync: false
+          - key: RAG_USE_AGENT_PIPELINE
+            value: "false"
+          - key: RAG_AGENT_HITL
+            value: "false"
+          - key: RAG_KG_EXPANSION
+            value: "false"
+          - key: RAG_KG_FUSION
+            value: "false"
 
 databases:
     - name: nsa-webservice-db
       plan: free
       databaseName: nsa_db
+      user: nsa_user
+    # G2: separate staging database for the staging web service
+    - name: nsa-webservice-staging-db
+      plan: free
+      databaseName: nsa_staging_db
       user: nsa_user

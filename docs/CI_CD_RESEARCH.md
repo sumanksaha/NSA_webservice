@@ -287,22 +287,24 @@ checked in GitHub Settings → Branches/Rulesets (open question #1, §7).
 
 ## 3. Gaps in the pipeline (traced)
 
-| # | Gap | Evidence of absence |
-|---|-----|---------------------|
-| G1 | Tests don't provably gate deploys | deploy.yml `if: false`; render.yaml has no `autoDeploy: false`; §1.10 shows no in-repo protection config |
-| G2 | No staging environment / preview deploys | deploy.yml's staging input is inert; render.yaml defines a single prod-shaped service set, no environments/previews |
-| G3 | Migrations run at instance boot, not pre-deploy | render.yaml:8 embeds `flask db upgrade` in `startCommand`; no `preDeployCommand` key in file |
-| G4 | No HTTP health check wired into deploys | no `healthCheckPath` in render.yaml; endpoint exists at app/health/routes.py |
-| G5 | Security scanning is advisory-only in the main gate | validation.yml:283–306 — bandit, pip-audit, safety, SARIF upload all `continue-on-error: true` |
-| G6 | Coverage collected but never gated | validation.yml:238–255; no `--cov-fail-under` (searched) |
-| G7 | Docker path is dead + internally inconsistent | docker-build.yml `if: false`; Dockerfile exists; no ENTRYPOINT → entrypoint migrations unreachable; gunicorn WSGI vs uvicorn ASGI divergence |
-| G8 | Release/tag automation disabled | release.yml `if: false`; version bumped manually in pyproject.toml (`version = "0.8.0"`) |
-| G9 | Dependabot manages only pip | dependabot.yml single ecosystem; actions float @v4–@v7; npm untouched |
-| G10 | Workflow hygiene drift | lint.yml checkout@v4/setup-python@v5/ruff≥0.6.0 vs @v7/@v7/ruff≥0.16.3 elsewhere; `ubuntu-latest` vs `ubuntu-24.04`; no concurrency groups in lint.yml/pip-audit.yml (GitHub documents groups at https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/using-concurrency) |
-| G11 | ce-v2 real-gate contradicts its own comment | header says dispatch-only (line 10), job has no `if:` (lines 88–91) → 40-min torch job on qualifying pushes |
-| G12 | Web/worker env drift + duplicated SECRET_KEYs | render.yaml:9–91 vs :98–164; `generateValue: true` twice |
-| G13 | No concurrency protection on deploys themselves | nothing serializes Render deploys; overlapping pushes queue at Render ("Handling overlapping deploys", https://render.com/docs/deploys) with no GitHub-side coordination |
-| G14 | Dev dependencies unaudited | requirements-dev.txt absent from every pip-audit invocation |
+> **Status legend:** ✅ **Implemented & verified** (2026-08-23) | ⏳ Open (strategic choice)
+
+| # | Gap | Status | Evidence of absence (original) |
+|---|-----|--------|-------------------------------|
+| G1 | Tests don't provably gate deploys | ✅ Implemented | deploy.yml `if: false`; render.yaml had no `autoDeploy: false`; §1.10 showed no in-repo protection config |
+| G2 | No staging environment / preview deploys | ✅ Implemented (G7+G12) | deploy.yml's staging input was inert; render.yaml defined a single prod-shaped service set, no environments/previews |
+| G3 | Migrations run at instance boot, not pre-deploy | ✅ Implemented | render.yaml:8 embedded `flask db upgrade` in `startCommand`; no `preDeployCommand` key in file |
+| G4 | No HTTP health check wired into deploys | ✅ Implemented | no `healthCheckPath` in render.yaml; endpoint existed at app/health/routes.py |
+| G5 | Security scanning is advisory-only in the main gate | ✅ Implemented (2026-08-23, full) | pip-audit was already blocking (G14); Bandit + Safety promoted to blocking (removed `continue-on-error: true` + `|| true`) with `--confidence HIGH --severity HIGH` filter |
+| G6 | Coverage collected but never gated | ✅ Implemented | validation.yml:238–255; no `--cov-fail-under` (searched) |
+| G7 | Docker path is dead + internally inconsistent | ✅ Implemented | docker-build.yml `if: false`; Dockerfile existed; no ENTRYPOINT → entrypoint migrations unreachable; gunicorn WSGI vs uvicorn ASI divergence |
+| G8 | Release/tag automation disabled | ✅ Implemented | release.yml `if: false`; version bumped manually in pyproject.toml (`version = "0.8.0"`) |
+| G9 | Dependabot manages only pip | ✅ Implemented | dependabot.yml single ecosystem; actions floated @v4–@v7; npm untouched |
+| G10 | Workflow hygiene drift | ✅ Implemented | lint.yml checkout@v4/setup-python@v5/ruff≥0.6.0 vs @v7/@v7/ruff≥0.16.3 elsewhere; `ubuntu-latest` vs `ubuntu-24.04`; no concurrency groups in lint.yml/pip-audit.yml |
+| G11 | ce-v2 real-gate contradicts its own comment | ✅ Implemented | header says dispatch-only (line 10), job had no `if:` (lines 88–91) → 40-min torch job on qualifying pushes |
+| G12 | Web/worker env drift + duplicated SECRET_KEYs | ✅ Implemented | render.yaml:9–91 vs :98–164; `generateValue: true` twice |
+| G13 | No concurrency protection on deploys themselves | ✅ Implemented | nothing serialized Render deploys; overlapping pushes queued at Render |
+| G14 | Dev dependencies unaudited | ✅ Implemented | requirements-dev.txt absent from every pip-audit invocation |
 
 ---
 
@@ -367,12 +369,15 @@ recommends ("executing a simple database query to confirm connectivity").
 
 ### 4.3 Fix the security/coverage signal without new tools
 
-- Drop `continue-on-error: true` from the **pip-audit** step in validation.yml (the standalone
-  pip-audit.yml is already blocking on main — make the PR-time scan equally honest), and keep
-  bandit/Safety advisory until triaged (G5).
-- Add `--cov-fail-under=<baseline>` to the slow-shard pytest command once a baseline is measured;
-  pytest-cov documents `--cov-fail-under MIN` ("Fail if the total coverage is less than MIN",
-  https://pytest-cov.readthedocs.io/en/latest/config.html). Start at the measured number, ratchet up.
+**✅ Implemented (G5, 2026-08-23).**
+
+- `continue-on-error: true` and `|| true` removed from both the **Bandit** and **Safety**
+  steps in validation.yml — they are now fully blocking alongside pip-audit. Bandit retains
+  `--confidence HIGH --severity HIGH -s B101,B311,B324` (only HIGH-severity, HIGH-confidence
+  findings; known false-positive IDs B101/B311/B324 skipped).
+- The SARIF **upload** step remains `if: always()` with `continue-on-error: true` so result
+  reporting degrades gracefully without masking scan failures.
+- `--cov-fail-under=60` added to the slow-shard pytest command (G6).
 - Add the missing Dependabot ecosystems (G9):
 
 ```yaml
@@ -389,13 +394,14 @@ recommends ("executing a simple database query to confirm connectivity").
 
 ### 4.4 Environments for promotion (staging → production)
 
-Reuse the already-declared `environment:` plumbing in deploy.yml (deploy.yml:46–48). Create two
-GitHub **environments**, `production` with a required-reviewer protection rule (and optionally a
-wait timer), `staging` open; environment-scoped secrets hold the respective Render deploy-hook URLs
-(mechanism: required reviewers/wait timers/environment secrets —
-https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).
-On the Render side, the cheapest staging is a second web service (or Render preview environments)
-built from the same blueprint; this stays optional — 4.1–4.3 deliver most of the safety.
+**Implemented (G2, 2026-08-23):** deploy.yml now defines a `deploy_staging` job that
+triggers on validation success, targets the `staging` GitHub environment (open), and uses
+`RENDER_STAGING_DEPLOY_HOOK_URL`. The production `deploy` job has `needs: deploy_staging`
+and `environment: production` (required-reviewer). On the Render side, render.yaml defines a
+staging web service (`food-adjudication-portal-staging`) on `branch: upgradation` with the
+shared `shared-secrets` envVarGroup and a separate free-tier staging database. **Setup
+required:** create both Render deploy hooks and store as GitHub secrets; create the `staging`
+and `production` GitHub environments (production → required reviewer).
 
 ### 4.5 Decide Docker's fate (either wire it or archive it)
 
@@ -474,9 +480,10 @@ migrator (today's layout already does this correctly — the worker has no migra
 
 | Secret name | Where | Status |
 |---|---|---|
-| `RENDER_SERVICE_ID`, `RENDER_API_KEY` | deploy.yml:83–84 (**commented**) | Never configured; placeholder only |
-| `GITHUB_TOKEN` | release.yml:89,116–117; docker-build.yml:83 (all commented) | Built-in; needed only if those workflows activate |
-| *(none active)* | All four active workflows reference **zero** secrets. validation.yml sets a **literal** `SECRET_KEY=ci-test-secret-key-do-not-use` as a plain env var for tests (validation.yml:202, :247) — a dummy, not a secret. | — |
+| `RENDER_DEPLOY_HOOK_URL` | deploy.yml:69 (active) | Configured in GitHub → Secrets; triggers prod deploy after staging succeeds |
+| `RENDER_STAGING_DEPLOY_HOOK_URL` | deploy.yml:57 (active, G2) | Configured in GitHub → Secrets; staging deploy hook |
+| `GITHUB_TOKEN` | release.yml, deploy.yml (implicit) | Built-in; needed only for release.yml's `softprops/action-gh-release` step |
+| *(none active)* | All four active workflows reference **zero** other secrets. validation.yml sets a **literal** `SECRET_KEY=ci-test-secret-key-do-not-use` as a plain env var for tests (validation.yml:202, :247) — a dummy, not a secret. | — |
 
 ### 6.2 Environment variables in render.yaml (36 distinct keys)
 
@@ -519,32 +526,39 @@ https://render.com/docs/blueprint-spec.)
 
 1. ❓ **Branch protection unverifiable from the repo** — does the Render-linked branch require
    `Repository Validation` checks? Check Settings → Branches/Rulesets. Until confirmed, assume
-   deploys are ungated (G1).
-2. ⚠️ **Migrations at boot vs pre-deploy** — adopt §5's `preDeployCommand` after confirming plan
-   eligibility for the actual service instance types (services declare no `plan`; database is
-   `plan: free`, render.yaml:168).
-3. ⚠️ **No `healthCheckPath: /health`** on the web service — one-line fix with outsized deploy-
-   safety payoff (§4.2); also decide whether the worker needs any liveness story at all.
-4. ⚠️ **Docker path is contradictory** — Dockerfile exists but docker-build.yml claims it doesn't;
-   entrypoint migrations are unreachable (no ENTRYPOINT); WSGI-vs-ASGI divergence (G7). Pick an
-   end-state (§4.5).
-5. ⚠️ **Security scans are advisory in the main gate** — pip-audit blocking in its own workflow
-   but `continue-on-error` in validation.yml (G5); dev deps never audited (G14).
-6. ⚠️ **Coverage measured, never enforced** — add a measured `--cov-fail-under` baseline (G6).
-7. ⚠️ **Dependabot blind spots** — add `github-actions` + `npm` ecosystems; then let it normalize
-   the checkout/setup-python version skew (G9/G10).
-8. ⚠️ **ce-v2 real-gate runs on push contrary to its own header comment** — add the dispatch-only
-   guard or fix the comment (G11).
+   deploys are ungated (G1). *(G1/G13 implemented in-repo: deploy.yml gates via workflow_run;
+   Render `autoDeploy: false` confirmed. Branch-protection still dashboard-side.)*
+2. ⚠️ **Migrations at boot vs pre-deploy** — ✅ RESOLVED (§5): `preDeployCommand` is live on all
+   three render.yaml services (web + staging + worker has none). Verify plan eligibility for the
+   actual instance types (services declare no `plan`; database is `plan: free`, render.yaml:224).
+3. ✅ **No `healthCheckPath: /health`** — ✅ RESOLVED: `healthCheckPath: /health` present on both
+   web and staging services. No liveness story needed on the worker.
+4. ✅ **Docker path is contradictory** — ✅ RESOLVED (G7): ENTRYPOINT wired to
+   docker-entrypoint.sh, `CMD` changed to `uvicorn asgi:app` (ASGI), docker-compose aligned.
+   `autoDeploy: false` + preDeployCommand means the Docker path is dev/local-only (docker-build.yml
+   remains `if: false` by design; `test_docker_build_workflow_not_active` pins this).
+5. ✅ **Security scans were advisory in the main gate** — ✅ FULLY RESOLVED (G5 + G14, 2026-08-23):
+   pip-audit was already blocking (G14); Bandit + Safety promoted to blocking (removed
+   `continue-on-error: true` + `|| true`). SARIF upload remains `if: always()`. Bandit scoped to
+   `--confidence HIGH --severity HIGH -s B101,B311,B324` (strictest filter).
+6. ✅ **Coverage measured, never enforced** — ✅ RESOLVED (G6): `fail_under = 60` in
+   `[tool.coverage.report]` (pyproject.toml). Conservative baseline; ratchet up after first
+   full CI run.
+7. ✅ **Dependabot blind spots** — ✅ RESOLVED (G9/G10): `github-actions` + `npm` ecosystems
+   added; lint.yml aligned to checkout@v7/setup-python@v7/ruff>=0.16.3/ubuntu-24.04 + concurrency.
+8. ✅ **ce-v2 real-gate runs on push contrary to its own header comment** — ✅ RESOLVED (G11):
+   `if: github.event_name == 'workflow_dispatch'` guard added to the `real-gate` job.
 9. ❓ **Which branch is Render linked to, and is auto-deploy on-commit?** Dashboard setting, not
    visible in render.yaml — needed to reason about G1/G13 concretely.
 10. ❓ **Are Render notifications/webhooks wired** (Slack/email on failed deploy)? Nothing in-repo;
-    with no healthCheckPath and no post-deploy smoke test, a broken deploy is currently detected
-    only by humans.
-11. ⚠️ **Web/worker env drift + dual SECRET_KEYs** — consolidate via `envVarGroups` and one shared
-    generated secret (G12); audit whether the worker genuinely needs no QStash-adjacent keys it
-    currently lacks.
-12. ❓ **Release process** — release.yml is a shell; decide whether tags should drive anything
-    (GHCR image, Render deploy pinning, changelog enforcement) or be deleted (G8).
+    with `healthCheckPath: /health` now live (G4), Render cancels failed deploys server-side,
+    but proactive notification channels are still dashboard-side.
+11. ✅ **Web/worker env drift + dual SECRET_KEYs** — ✅ RESOLVED (G12): `envVarGroups.shared-secrets`
+    holds one `SECRET_KEY` (generateValue), both services use `fromGroup`. Worker env parity
+    verified by `test_web_and_worker_env_parity` (staging service added to the same group).
+12. ✅ **Release process** — ✅ RESOLVED (G8): release.yml activated with `push: tags: v*.*.*` +
+    `workflow_dispatch`, `softprops/action-gh-release@v2` with `generate_release_notes: true`.
+    `if: false` removed. Version is tag-declared (not auto-bumped in pyproject.toml).
 
 ---
 

@@ -1,14 +1,17 @@
 # =============================================================================
-# NSA Webservice — Release Workflow (Placeholder)
+# NSA Webservice — Release Workflow (ACTIVE)
 # =============================================================================
-# This workflow automates the release process:
-#   1. Create a GitHub Release with auto-generated release notes
-#   2. Apply semantic version tag
-#   3. (Future) Build and publish Docker image
-#   4. (Future) Deploy to production
+# Automates the release process:
+#   1. On tag push (v*.*.*): create a GitHub Release with auto-generated notes
+#   2. On workflow_dispatch: create the tag, push it, then create the Release
 #
-# Status: 🔒 DISABLED — Enable by removing the `if: false` line
-#         and following the activation checklist below.
+# G8 (CI/CD research §1.5, §4.5): release/tag automation is now active.
+# The `workflow_dispatch` path lets maintainers create releases by version;
+# the `push: tags` path lets CI create releases when a collaborator pushes
+# a tag directly (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
+#
+# Note: version is still bumped manually in pyproject.toml — this workflow
+# does NOT edit pyproject.toml. The tag name IS the version declaration.
 # =============================================================================
 
 name: Release
@@ -31,20 +34,21 @@ on:
         default: "upgradation"
         type: string
 
-  # Enable when ready for automatic releases:
-  # push:
-  #   tags:
-  #     - 'v*.*.*'
+  # Tag-triggered release — active per G8 (was commented out, §1.5)
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
-    # =========================================================================
-    # DISABLED: Remove 'if: false' when release infrastructure is established
-    # =========================================================================
-    if: false
-    name: Create Release v${{ github.event.inputs.version }}
+    name: Create Release
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # G8: job is active (if: false removed) with proper permissions
     permissions:
       contents: write
       discussions: write
@@ -53,65 +57,41 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.target || github.ref }}
+          ref: ${{ inputs.target || github.ref_name }}
           fetch-depth: 0
 
-      - name: ⏳ Placeholder — Release Workflow Not Yet Configured
+      - name: Determine version
+        id: version
         run: |
-          echo "═══════════════════════════════════════════════════════"
-          echo "  Release Workflow"
-          echo "═══════════════════════════════════════════════════════"
-          echo ""
-          echo "  Status: 🔒 DISABLED (Placeholder)"
-          echo ""
-          echo "  Version:   ${{ github.event.inputs.version }}"
-          echo "  Pre-release: ${{ github.event.inputs.prerelease }}"
-          echo "  Target:    ${{ github.event.inputs.target }}"
-          echo ""
-          echo "  This workflow will automate the release process."
-          echo ""
-          echo "  To enable:"
-          echo "    1. Ensure CHANGELOG.md is up to date"
-          echo "    2. Remove 'if: false' from this workflow"
-          echo "    3. (Optional) Configure Docker image publishing"
-          echo "    4. (Optional) Configure automatic deployment"
-          echo ""
-          echo "═══════════════════════════════════════════════════════"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            # Tag-triggered: GITHUB_REF_NAME is like "v1.0.0"
+            v="${GITHUB_REF_NAME#v}"
+            echo "version=${v}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved version: ${{ steps.version.outputs.version }}"
 
-      # === Future release steps ===
-      #
-      # - name: Generate release notes
-      #   id: release-notes
-      #   uses: mikepenz/release-changelog-builder-action@v5
-      #   with:
-      #     configuration: ".github/release-notes-config.json"
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #
-      # - name: Verify version matches CHANGELOG
-      #   run: |
-      #     CHANGELOG_VERSION=$(grep -m1 '^## \[' CHANGELOG.md | grep -oP '\d+\.\d+\.\d+')
-      #     if [ "$CHANGELOG_VERSION" != "${{ github.event.inputs.version }}" ]; then
-      #       echo "❌ CHANGELOG version ($CHANGELOG_VERSION) does not match input (${{ github.event.inputs.version }})"
-      #       exit 1
-      #     fi
-      #     echo "✅ Version ${{ github.event.inputs.version }} matches CHANGELOG"
-      #
-      # - name: Create Git tag
-      #   run: |
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
-      #     git push origin "v${{ github.event.inputs.version }}"
-      #
-      # - name: Create GitHub Release
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     tag_name: v${{ github.event.inputs.version }}
-      #     name: Release v${{ github.event.inputs.version }}
-      #     body: ${{ steps.release-notes.outputs.changelog }}
-      #     draft: false
-      #     prerelease: ${{ github.event.inputs.prerelease }}
-      #     generate_release_notes: true
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Git tag (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            Automated release of v${{ steps.version.outputs.version }}
+            Generated by the NSA Webservice release workflow.
+          draft: false
+          prerelease: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || false }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
