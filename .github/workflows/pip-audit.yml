@@ -12,9 +12,14 @@ on:
   schedule:
     - cron: "0 6 * * 1"  # Every Monday at 06:00 UTC
 
+# Weekly scheduled scans don't need to pile up when pushes already triggered one
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository

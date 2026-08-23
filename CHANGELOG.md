@@ -48,6 +48,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (~1,900 tests) verifiably runs on 3.11.15 locally, and the codebase uses no 3.12-only
   syntax (verified: zero PEP 695 usages). CI keeps running 3.12.
 
+### Changed (2026-08-24)
+
+#### CI/CD gate package (docs/CI_CD_RESEARCH.md §4–§5)
+
+- **Deploys are now gated** (G1/G13): `render.yaml` sets `autoDeploy: false` on both
+  services; the rewritten `.github/workflows/deploy.yml` triggers via `workflow_run`
+  on a *successful* "Repository Validation" run on main, curls the Render deploy hook
+  pinned to the validated SHA (`?ref=`), serializes deploys with a `render-deploy`
+  concurrency group, and verifies `/health` post-deploy. Manual deploys remain via
+  `workflow_dispatch`. **Setup required:** create the Render Deploy Hook and store it
+  as the `RENDER_DEPLOY_HOOK_URL` repo secret (checklist in deploy.yml header).
+- **`healthCheckPath: /health`** on the web service (G4): Render now probes real DB
+  connectivity before traffic cutover and cancels failed deploys automatically.
+- **Migrations moved to `preDeployCommand`** (G3): `flask db upgrade` runs in Render's
+  pre-deploy step (build → pre-deploy → start) so a failing migration cancels the deploy
+  before cutover instead of killing boot; startCommand is now just uvicorn. Verify the
+  instance plan supports pre-deploy commands; fallback documented in render.yaml.
+- **Hygiene batch** (G10/G11): ce-v2 `real-gate` job restricted to `workflow_dispatch`
+  (stops ~40-min torch runs on qualifying pushes); lint.yml gains a cancel-in-progress
+  concurrency group, aligns to checkout@v7/setup-python@v7/`ruff>=0.16.3`
+  (pre-commit parity) and pins ubuntu-24.04; pip-audit.yml gains a concurrency group.
+
 ### Changed (2026-08-22 architecture deepening)
 
 - **Bill issuance is atomic** (ADR-0001): the `Bill` row, `billed` flags, and

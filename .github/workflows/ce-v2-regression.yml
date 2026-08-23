@@ -86,6 +86,10 @@ jobs:
           ruff check evaluation/ce_v2_eval.py evaluation/ce_v2_error_analysis.py evaluation/ce_v2_gate.py
 
   real-gate:
+    # Dispatch-only, matching the file header's documented contract ("real-gate
+    # (dispatch only)") — without this guard the job's torch install + HF
+    # downloads ran on every qualifying push (~40 min of runner time).
+    if: github.event_name == 'workflow_dispatch'
     name: Real gate (published HF assets)
     runs-on: ubuntu-24.04
     timeout-minutes: 40

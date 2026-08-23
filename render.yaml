@@ -4,8 +4,24 @@ services:
     - type: web
       name: food-adjudication-portal
       env: python
+      # Deploy gating (CI/CD research doc §4.1, gap G1): auto-deploy is OFF so
+      # production only ever receives commits that passed the "Repository
+      # Validation" workflow — deploys are triggered by .github/workflows/deploy.yml
+      # via the Render deploy hook (secret RENDER_DEPLOY_HOOK_URL).
+      autoDeploy: false
+      # HTTP health check (gap G4): Render probes GET /health before routing
+      # traffic to new instances and cancels the deploy if checks never pass,
+      # keeping old instances serving. https://render.com/docs/health-checks
+      healthCheckPath: /health
       buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
-      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
+      # Migration safety (gap G3 / research §5): run Alembic in Render's
+      # pre-deploy step (build → pre-deploy → start) so a failed migration
+      # cancels the deploy BEFORE traffic cutover instead of killing boot.
+      # Requires a Render instance plan that supports pre-deploy commands —
+      # verify in the dashboard; if unsupported, move this back into
+      # startCommand (Alembic upgrade is idempotent for applied revisions).
+      preDeployCommand: FLASK_APP=app:create_app flask db upgrade
+      startCommand: uvicorn asgi:app --host 0.0.0.0 --port 10000
       envVars:
           - key: DATABASE_URL
             fromDatabase:
@@ -93,6 +109,8 @@ services:
     - type: worker
       name: food-adjudication-celery-worker
       env: python
+      # Gated together with the web service — see the web service note above.
+      autoDeploy: false
       buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
       startCommand: celery -A app.celery worker --loglevel=info
       envVars:
