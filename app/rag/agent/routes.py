@@ -46,12 +46,40 @@ def _use_hitl() -> bool:
     return cfg.agent_hitl
 
 
+#: Warn once per process — the durability situation only changes on restart.
+_hitl_durability_warned = False
+
+
+def _warn_hitl_durability() -> bool:
+    """Warn once when HITL runs on the non-durable memory checkpointer.
+
+    Returns whether the configured checkpointer is durable so callers can
+    surface it in the 202 ``awaiting_review`` payload (gap #5): paused
+    threads under ``MemorySaver`` are lost whenever the process restarts.
+    """
+    global _hitl_durability_warned
+    from app.rag.agent.graph import checkpointer_is_durable
+
+    durable = checkpointer_is_durable()
+    if not durable and not _hitl_durability_warned:
+        logger.warning(
+            "RAG_AGENT_HITL is enabled with the in-memory checkpointer — "
+            "paused threads are LOST on process restart. Set "
+            "RAG_AGENT_CHECKPOINTER=postgres for production HITL."
+        )
+        _hitl_durability_warned = True
+    return durable
+
+
 @rag_bp.route("/query/agent", methods=["POST"])
 def query_agent():
     """Full RAG pipeline as a LangGraph agent (opt-in via the flag).
 
     Request JSON: same as ``/api/rag/query`` — ``query`` (required),
-    ``top_k`` (default 10), ``collection_name``, ``filters``.
+    ``top_k`` (default 10), ``collection_name``, ``filters`` — plus an
+    optional ``use_agent`` boolean that overrides the
+    ``RAG_USE_AGENT_PIPELINE`` config flag for this single request (the
+    UI's "Use agent pipeline" checkbox).
 
     Response JSON: a ``RAGResponse``-schema dict (identical shape to the
     legacy route) with an extra ``pipeline: "agent"`` marker and an
@@ -73,8 +101,16 @@ def query_agent():
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
+    requested_agent = payload.get("use_agent")
+    if requested_agent is not None and not isinstance(requested_agent, bool):
+        return jsonify({"error": "use_agent must be a boolean."}), 400
+
+    # Per-request override wins over the RAG_USE_AGENT_PIPELINE flag so the
+    # UI's "Use agent pipeline" checkbox controls the pipeline per query.
+    use_agent = _use_agent_pipeline() if requested_agent is None else requested_agent
+
     # Flag off → identical behaviour to the legacy pipeline.
-    if not _use_agent_pipeline():
+    if not use_agent:
         from app.rag.routes import query
 
         return query()
@@ -104,6 +140,7 @@ def query_agent():
 
     # M5 human-in-the-loop: the graph paused at the review interrupt.
     if _use_hitl() and "__interrupt__" in result:
+        durable = _warn_hitl_durability()
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
         return (
@@ -111,6 +148,7 @@ def query_agent():
                 "status": "awaiting_review",
                 "thread_id": thread_id,
                 "review": review,
+                "durable": durable,
                 "hint": "POST /api/rag/query/agent/resume with {thread_id, approved}.",
             }),
             202,
@@ -160,6 +198,7 @@ def query_agent_resume():
         return jsonify({"error": f"RAG agent resume failed: {exc}"}), 500
 
     if "__interrupt__" in result:
+        durable = _warn_hitl_durability()
         interrupts = result["__interrupt__"]
         review = interrupts[0].value if interrupts else {}
         return (
@@ -167,6 +206,7 @@ def query_agent_resume():
                 "status": "awaiting_review",
                 "thread_id": thread_id,
                 "review": review,
+                "durable": durable,
             }),
             202,
         )

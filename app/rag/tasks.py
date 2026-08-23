@@ -557,6 +557,49 @@ def run_generation_pipeline(
     service = GroundedGenerationService()
     rag_response = service.generate(query, chunk_objects, query_type)
 
+    # Phase 3 claim-level verification on the live path (2026-08-23): when
+    # RAG_HALLUCINATION_DETECTOR is enabled (default), run the
+    # HallucinationDetector chain (claims → evidence → citations → score)
+    # over the generated answer and merge its verdict into the response.
+    # Augments (never replaces) the heuristic ResponseSanitizer: sanitizer
+    # flags are always kept, and claim-level hallucinations the sanitizer
+    # missed are *escalated* into the top-level fields.  Best-effort by
+    # design — never raises, so a detector failure cannot break a query.
+    verification: dict[str, Any] | None = None
+    if cfg.hallucination_detector and rag_response.answer and chunk_objects:
+        try:
+            from app.rag.verification import HallucinationDetector
+
+            report = HallucinationDetector().detect(
+                rag_response.answer,
+                chunk_objects,
+                citations=list(rag_response.citations),
+            )
+            extra_claims = [
+                claim for claim in report.hallucinated_claims if claim not in rag_response.hallucinated_claims
+            ]
+            verification = {
+                "enabled": True,
+                "detected": report.detected,
+                "groundedness_score": report.groundedness_score,
+                "claims_total": len(report.claims),
+                "claims_verified": len(report.verified_claims),
+                "claims_unverified": len(report.unverified_claims),
+                "llm_verified": report.llm_verified,
+                "confidence": report.confidence,
+                "escalated_claims": len(extra_claims),
+            }
+            # Escalate only — never de-escalate a sanitizer flag.
+            if extra_claims:
+                rag_response.hallucinated_claims = [
+                    *rag_response.hallucinated_claims,
+                    *extra_claims,
+                ]
+                rag_response.hallucination_detected = True
+        except Exception as exc:
+            logger.warning("run_generation_pipeline: hallucination detection failed: %s", exc)
+            verification = {"enabled": True, "error": str(exc)}
+
     total_latency_ms = int((time.monotonic() - start) * 1000)
     logger.info(
         "run_generation_pipeline: query=%r chunks=%d groundedness=%s lat=%dms",
@@ -586,6 +629,7 @@ def run_generation_pipeline(
         "debug": rag_response.debug,
         "kg_expansion": kg_expansion,
         "kg_contract": kg_contract,
+        "verification": verification,
         "pipeline": pipeline or "legacy",
     }
 

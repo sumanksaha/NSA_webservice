@@ -88,6 +88,14 @@ _TABLE: tuple[Setting, ...] = (
         "memory",
         help="M5 checkpointer: 'memory' (default) or 'postgres'.",
     ),
+    Setting(
+        "RAG_HALLUCINATION_DETECTOR",
+        "hallucination_detector",
+        bool,
+        True,
+        opt_in=False,
+        help="Phase 3 claim-level HallucinationDetector in run_generation_pipeline.",
+    ),
     # --- Retrieval pipeline flags -------------------------------------------
     Setting(
         "RAG_RETRIEVAL_CACHE",
@@ -362,6 +370,20 @@ _TABLE: tuple[Setting, ...] = (
     # --- Runtime / plugins ------------------------------------------------------
     Setting("RAG_TORCH_THREADS", "torch_threads", int, 4, help="Torch intra/inter-op thread cap for RAG inference."),
     Setting("OCR_PROVIDER", "ocr_provider", str, "easyocr", help="Active OCR plugin."),
+    Setting(
+        "OCR_LANGUAGES",
+        "ocr_languages",
+        str,
+        "english,hindi",
+        help="Comma-separated languages for the active OCR provider (adapter splits on ',').",
+    ),
+    Setting(
+        "OCR_USE_GPU",
+        "ocr_use_gpu",
+        bool,
+        False,
+        help="GPU for OCR inference (keep false on CPU-only hosts, e.g. Render free tier).",
+    ),
     Setting("AI_PROVIDER", "ai_provider", str, "openrouter", help="Active AI plugin."),
     Setting("RULES_PROVIDER", "rules_provider", str, "fssai_default", help="Active rules plugin."),
     Setting("PDF_PROVIDER", "pdf_provider", str, "weasyprint", help="Active PDF plugin."),

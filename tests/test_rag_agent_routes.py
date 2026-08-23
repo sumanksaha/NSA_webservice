@@ -134,12 +134,9 @@ def test_agent_route_propagates_collection_and_filters(monkeypatch, _app_env):
         captured["collection_name"] = state.get("collection_name")
         captured["filters"] = state.get("filters")
         captured["top_k"] = state.get("top_k")
-        return {
-            "response": {"pipeline": "agent", "answer": "ok", "agent": {"retry_count": 0}}
-        }
+        return {"response": {"pipeline": "agent", "answer": "ok", "agent": {"retry_count": 0}}}
 
     monkeypatch.setattr(graph_mod, "run_agent", fake_run_agent)
-
 
     resp = client.post(
         "/api/rag/query/agent",
@@ -154,3 +151,42 @@ def test_agent_route_propagates_collection_and_filters(monkeypatch, _app_env):
     assert captured["collection_name"] == "criminal_legal_768"
     assert captured["filters"] == {"act_name": "BNS"}
     assert captured["top_k"] == 7
+
+
+# ---------------------------------------------------------------------- #
+# Per-request use_agent override (the UI's "Use agent pipeline" checkbox)
+# ---------------------------------------------------------------------- #
+
+
+def test_use_agent_true_overrides_flag_off(monkeypatch, _app_env):
+    """use_agent=true in the request runs the agent even when the flag is off."""
+    app, client = _app_env
+    app.config["RAG_USE_AGENT_PIPELINE"] = False
+    _patch_agent_graph(monkeypatch)
+
+    resp = client.post("/api/rag/query/agent", json={"query": "q", "use_agent": True})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["pipeline"] == "agent"
+    assert data["answer"] == "agent answer"
+
+
+def test_use_agent_false_overrides_flag_on(monkeypatch, _app_env):
+    """use_agent=false in the request delegates to legacy even when flag is on."""
+    app, client = _app_env
+    app.config["RAG_USE_AGENT_PIPELINE"] = True
+    _patch_legacy_query(monkeypatch, app)
+
+    resp = client.post("/api/rag/query/agent", json={"query": "penalty", "use_agent": False})
+    assert resp.status_code == 200
+    assert resp.get_json()["answer"] == "legacy answer"
+
+
+def test_non_bool_use_agent_returns_400(monkeypatch, _app_env):
+    """A non-boolean use_agent value is rejected with 400."""
+    app, client = _app_env
+    app.config["RAG_USE_AGENT_PIPELINE"] = True
+
+    resp = client.post("/api/rag/query/agent", json={"query": "q", "use_agent": "yes"})
+    assert resp.status_code == 400
+    assert "use_agent" in resp.get_json()["error"]

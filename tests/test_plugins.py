@@ -293,15 +293,19 @@ class TestOCRProvider:
         # Check that app.ocr_pipeline is not in sys.modules just from importing plugin
         # (it may already be there from app factory, so we test that the plugin
         # module itself does not hard-import it at class-definition time)
-        # The class body should not execute OCRPipeline import
-        # (the import is inside extract_text method body)
+        # The class body should not execute OCRPipeline/OCREngine imports:
+        # they must stay inside the implementation method bodies (lazy).
+        # Updated 2026-08-23: extract_text now dispatches to _extract_document /
+        # _extract_image; extract_text itself is pure dispatch (no imports),
+        # and each implementation method lazily imports its backend.
         import inspect
 
         import app.plugins.ocr_plugins as ocr_plugins_mod
 
-        source = inspect.getsource(ocr_plugins_mod.EasyOCRPlugin.extract_text)
-        # The import should be inside the method, not at module level
-        assert "from app.ocr_pipeline" in source or "import" in source
+        for method_name in ("_extract_document", "_extract_image"):
+            source = inspect.getsource(getattr(ocr_plugins_mod.EasyOCRPlugin, method_name))
+            # The backend import should be inside the method, not at module level
+            assert "from app.ocr_pipeline" in source
 
 
 # --------------------------------------------------------------------------- #

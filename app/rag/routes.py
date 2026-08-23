@@ -31,10 +31,74 @@ def _rag_enabled() -> bool:
     return cfg.rag_enabled
 
 
+# Circuit-breaker wrapper for the legacy query route — module-level so the
+# open/closed state survives across requests (that is the point of a breaker).
+_query_breaker = None
+
+
+def _get_query_breaker():
+    """Return the shared :class:`ResilientRAGPipeline` for ``/api/rag/query``.
+
+    The pipeline callable resolves ``app.rag.tasks.run_generation_pipeline``
+    *at call time* (late binding), so tests can keep monkeypatching it.  The
+    singleton gives the flagship Flask endpoint the same closed→open→half-open
+    protection + stub fallback that ``/api/v2/rag/generate`` already gets via
+    ``app/api/deps.py::get_rag_pipeline``.
+    """
+    global _query_breaker
+    if _query_breaker is None:
+        import app.rag.tasks as tasks_mod
+        from app.rag.resilient import ResilientRAGPipeline
+
+        def _pipeline(query: str, top_k: int = 10, **kwargs):
+            return tasks_mod.run_generation_pipeline(query=query, top_k=top_k, **kwargs)
+
+        _query_breaker = ResilientRAGPipeline(pipeline_fn=_pipeline)
+    return _query_breaker
+
+
 @rag_bp.route("/health")
 def health():
-    """RAG pipeline health probe (public — no auth required)."""
-    return jsonify({"status": "ok", "phase": "5", "phase_name": "ingestion_api"})
+    """RAG pipeline health probe (public — no auth required).
+
+    Beyond a liveness ``status``, this reports the ops signals from the
+    RAG UI audit (2026-08-23):
+
+    * ``llm.mode`` — ``"stub"`` or ``"live"`` so deployments can assert
+      real-LLM operation in production (gap #2; stub answers look
+      plausible but are canned).
+    * ``agent_hitl`` / ``agent_checkpointer`` / ``agent_hitl_durable`` —
+      HITL durability: the default in-memory checkpointer loses paused
+      threads on restart (gap #5).
+    """
+    llm_info: dict = {"mode": "unknown", "model": None}
+    try:
+        from app.rag.generation.llm_client import GroundedLLMClient
+
+        client = GroundedLLMClient()
+        llm_info = {"mode": "stub" if client.use_stub else "live", "model": client.model}
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("health: LLM mode probe failed: %s", exc)
+
+    hitl_info: dict = {
+        "agent_hitl": bool(cfg.agent_hitl),
+        "agent_checkpointer": cfg.agent_checkpointer,
+        "agent_hitl_durable": False,
+    }
+    try:
+        from app.rag.agent.graph import checkpointer_is_durable
+
+        hitl_info["agent_hitl_durable"] = checkpointer_is_durable()
+    except Exception as exc:  # pragma: no cover - langgraph optional
+        logger.debug("health: checkpointer durability probe failed: %s", exc)
+
+    return jsonify({
+        "status": "ok",
+        "phase": "5",
+        "phase_name": "ingestion_api",
+        "llm": llm_info,
+        **hitl_info,
+    })
 
 
 @rag_bp.route("/", methods=["GET"])
@@ -235,9 +299,12 @@ def query():
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
     try:
-        from app.rag.tasks import run_generation_pipeline
-
-        result = run_generation_pipeline(
+        # Routed through the ResilientRAGPipeline circuit breaker (2026-08-23):
+        # repeated pipeline failures open the circuit and requests degrade to
+        # the stub fallback instead of hammering a dead Qdrant/LLM — matching
+        # /api/v2/rag/generate.  The breaker never raises; a fully-degraded
+        # response is returned with ``debug.degraded_mode`` set.
+        result = _get_query_breaker().run(
             query=query_str,
             top_k=top_k,
             collection_name=payload.get("collection_name"),

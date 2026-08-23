@@ -27,22 +27,43 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class PageText:
+    """Per-page extraction entry — typed replacement for raw page dicts.
+
+    Attributes:
+        page: 1-based page number.
+        text: Extracted text for this page (may be empty).
+        confidence: Engine confidence for this page (0.0–1.0).
+        engine: Name of the engine that produced this page's text.
+    """
+
+    page: int = 1
+    text: str = ""
+    confidence: float = 0.0
+    engine: str = ""
+
+
+@dataclass
 class OCRResult:
     """Structured result from an OCR provider.
+
+    This is THE canonical result shape at the OCR extraction seam — every
+    caller consumes this type regardless of which engine ran inside the
+    provider implementation.
 
     Attributes:
         text: Extracted text (concatenated across pages).
         confidence: Aggregate confidence score (0.0–1.0).
         ocr_engine_used: Name of the engine that produced the result.
         page_count: Number of pages processed.
-        page_results: Per-page detail dicts (optional).
+        page_results: Typed per-page detail (:class:`PageText`).
     """
 
     text: str = ""
     confidence: float = 0.0
     ocr_engine_used: str = ""
     page_count: int = 0
-    page_results: list[dict[str, Any]] = field(default_factory=list)
+    page_results: list[PageText] = field(default_factory=list)
 
 
 @dataclass
@@ -70,6 +91,9 @@ class OCRProvider(ABC):
 
     Implementations must lazily import their backend (EasyOCR, PaddleOCR,
     Tesseract) so that ``import app.plugins`` never triggers a hard dependency.
+    ``extract_text`` accepts both document paths (PDF) and image paths
+    (JPG/PNG/TIFF/…); the document-vs-image dispatch is implementation
+    detail behind this seam.
     """
 
     @abstractmethod
@@ -77,12 +101,21 @@ class OCRProvider(ABC):
         """Extract structured text from a file.
 
         Args:
-            file_path: Path to a PDF, image, or other supported format.
+            file_path: Path to a PDF or image file.
 
         Returns:
             An :class:`OCRResult` with the extracted text and metadata.
         """
         ...
+
+    def available(self) -> bool:
+        """Whether the backend can actually run (deps installed/configured).
+
+        Default is optimistic (True); providers with cheap dependency probes
+        should override so callers can degrade gracefully without attempting
+        an extraction.
+        """
+        return True
 
     @staticmethod
     def _safe_path(file_path: str | Path) -> str:
@@ -155,5 +188,6 @@ __all__ = [
     "OCRProvider",
     "OCRResult",
     "PDFProvider",
+    "PageText",
     "RuleProvider",
 ]

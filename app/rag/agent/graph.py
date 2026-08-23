@@ -91,6 +91,18 @@ def _checkpointer_kind() -> str:
     return cfg.agent_checkpointer.lower()
 
 
+def checkpointer_is_durable() -> bool:
+    """Whether the configured checkpointer survives process restarts.
+
+    Only the ``postgres`` checkpointer is durable; the in-process
+    ``MemorySaver`` loses paused (interrupted) HITL threads whenever the
+    worker restarts (RAG UI audit gap #5).  ``/api/rag/health`` and the
+    HITL 202 payloads surface this so operators can verify production
+    HITL durability.
+    """
+    return _checkpointer_kind() == "postgres"
+
+
 #: In-process MemorySaver singleton — shared across requests so a paused
 #: (interrupted) thread can be resumed by a later HTTP call.
 _memory_saver: Any | None = None

@@ -111,6 +111,42 @@
                 "</div>";
         }
 
+        var verificationHtml = "";
+        var ver = data.verification;
+        if (ver && ver.enabled) {
+            if (ver.error) {
+                // Best-effort detector — surface the failure without alarming users.
+                verificationHtml =
+                    '<div class="rag-verification" title="' +
+                    esc(ver.error) +
+                    '">' +
+                    "Claim verification unavailable for this answer." +
+                    "</div>";
+            } else {
+                var verified = ver.claims_verified || 0;
+                var total = ver.claims_total || 0;
+                var unverified = ver.claims_unverified || 0;
+                var cls = ver.detected ? " rag-verification-warning" : "";
+                verificationHtml =
+                    '<div class="rag-verification' +
+                    cls +
+                    '">' +
+                    (ver.detected ? "\u26a0 " : "\u2713 ") +
+                    "Claim verification \u2014 " +
+                    verified +
+                    "/" +
+                    total +
+                    " claims evidence-backed" +
+                    (unverified > 0 ? " \u00b7 " + unverified + " unverified" : "") +
+                    (ver.escalated_claims > 0
+                        ? " \u00b7 " + ver.escalated_claims + " escalated"
+                        : "") +
+                    " \u00b7 score: " +
+                    fmtNum(ver.groundedness_score) +
+                    "</div>";
+            }
+        }
+
         var chunkHtml = "";
         var chunks = data.retrieved_chunks || [];
         if (chunks.length) {
@@ -157,8 +193,20 @@
                 "</div>";
         }
 
+        // Gap #2: make stub-mode answers impossible to mistake for live
+        // LLM output — the client marks model names of "stub-…" as canned.
+        var stubHtml = "";
+        if (data.llm_model && String(data.llm_model).indexOf("stub") === 0) {
+            stubHtml =
+                '<div class="rag-stub-warning">' +
+                "\u26a0 <strong>Stub mode</strong> \u2014 this answer was generated " +
+                "without a live LLM (no OPENROUTER_API_KEY configured on the server)." +
+                "</div>";
+        }
+
         var html =
             '<div class="rag-answer-card">' +
+            stubHtml +
             '<div class="rag-answer-meta">' +
             '<span class="rag-gauge">Groundedness: ' +
             fmtNum(data.groundedness_score) +
@@ -177,6 +225,7 @@
             esc(data.answer || "(no answer generated)") +
             "</div>" +
             hallucHtml +
+            verificationHtml +
             citationHtml +
             agentHtml +
             chunkHtml +
@@ -208,10 +257,16 @@
         var query = document.getElementById("ragQuery").value.trim();
         var domain = document.getElementById("ragDomain").value;
         var topK = parseInt(document.getElementById("ragTopK").value, 10) || 10;
+        var useAgent = document.getElementById("ragUseAgent");
 
         var payload = { query: query, top_k: topK };
         if (domain) {
             payload.collection_name = domain + "_legal_768";
+        }
+        // Per-request pipeline override — the server honors this over the
+        // RAG_USE_AGENT_PIPELINE config flag (fixes the previously dead checkbox).
+        if (useAgent) {
+            payload.use_agent = useAgent.checked;
         }
         return { payload: payload, query: query };
     }
@@ -280,6 +335,7 @@
 
                 showStatus(statusEl, "Answer generated.", "success");
                 renderResponse(out.data);
+                saveHistoryEntry(ctx.query, out.data);
             })
             .catch(function () {
                 setLoading(btn, false);
@@ -331,7 +387,10 @@
                     return;
                 }
                 showStatus(statusEl, "Answer finalized.", "success");
+                var reviewedQuery =
+                    _reviewState && _reviewState.review ? _reviewState.review.query || "" : "";
                 renderResponse(out.data);
+                saveHistoryEntry(reviewedQuery, out.data);
             })
             .catch(function () {
                 var a = document.getElementById("ragApproveBtn");
@@ -344,6 +403,103 @@
             });
     }
 
+    // ------------------------------------------------------------------ //
+    // Session history (localStorage) — conversation semantics for the
+    // one-shot endpoint (gap #6): past turns stay visible, reloadable,
+    // and clearable across page loads within the same browser.
+    // ------------------------------------------------------------------ //
+
+    var HISTORY_KEY = "ragSessionHistory";
+    var HISTORY_MAX = 20;
+
+    function pad2(n) {
+        return (n < 10 ? "0" : "") + n;
+    }
+
+    function loadHistory() {
+        try {
+            var raw = window.localStorage.getItem(HISTORY_KEY);
+            var items = raw ? JSON.parse(raw) : [];
+            return Array.isArray(items) ? items : [];
+        } catch {
+            return []; // corrupted storage — treat as empty
+        }
+    }
+
+    function persistHistory(items) {
+        try {
+            window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+        } catch {
+            /* storage unavailable (private mode / quota) — history is best-effort */
+        }
+    }
+
+    function saveHistoryEntry(query, data) {
+        if (!query && !(data && data.answer)) return;
+        var items = loadHistory();
+        items.unshift({ query: query || "", ts: Date.now(), data: data || {} });
+        if (items.length > HISTORY_MAX) items = items.slice(0, HISTORY_MAX);
+        persistHistory(items);
+        renderHistory();
+    }
+
+    function clearHistory() {
+        persistHistory([]);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        var panel = document.getElementById("ragHistoryPanel");
+        if (!panel) return;
+        var items = loadHistory();
+        if (!items.length) {
+            panel.style.display = "none";
+            panel.innerHTML = "";
+            return;
+        }
+        var html =
+            '<div class="rag-history-header">' +
+            "<strong>Session history</strong> (" +
+            items.length +
+            ")" +
+            ' <button id="ragClearHistoryBtn" type="button" class="rag-history-clear">Clear</button>' +
+            "</div>";
+        items.forEach(function (item, i) {
+            var when = new Date(item.ts || Date.now());
+            var hhmm = pad2(when.getHours()) + ":" + pad2(when.getMinutes());
+            html +=
+                '<div class="rag-history-item" data-idx="' +
+                i +
+                '">' +
+                '<span class="rag-history-q">' +
+                truncate(item.query || "(no question)", 120) +
+                "</span>" +
+                '<span class="rag-history-meta">' +
+                hhmm +
+                (item.data && item.data.llm_model ? " \u00b7 " + esc(item.data.llm_model) : "") +
+                "</span>" +
+                "</div>";
+        });
+        panel.innerHTML = html;
+        panel.style.display = "block";
+
+        var clearBtn = document.getElementById("ragClearHistoryBtn");
+        if (clearBtn) clearBtn.addEventListener("click", clearHistory);
+        Array.prototype.forEach.call(panel.querySelectorAll(".rag-history-item"), function (el) {
+            el.addEventListener("click", function () {
+                var idx = parseInt(el.getAttribute("data-idx"), 10);
+                var item = loadHistory()[idx];
+                if (!item) return;
+                // Reload the turn AND prefill the box so follow-ups
+                // start from the earlier question.
+                var ta = document.getElementById("ragQuery");
+                if (ta) ta.value = item.query || "";
+                hideReview();
+                renderResponse(item.data || {});
+            });
+        });
+    }
+
     function init() {
         var ready = function () {
             var submitBtn = document.getElementById("ragSubmitBtn");
@@ -353,6 +509,7 @@
             if (!submitBtn) return;
 
             submitBtn.addEventListener("click", submitQuery);
+            renderHistory();
             if (approveBtn)
                 approveBtn.addEventListener("click", function () {
                     resumeReview(true);
@@ -387,5 +544,10 @@
         hideStatus: hideStatus,
         setLoading: setLoading,
         init: init,
+        // Session-history seam (exposed for tests / power users).
+        loadHistory: loadHistory,
+        saveHistoryEntry: saveHistoryEntry,
+        clearHistory: clearHistory,
+        renderHistory: renderHistory,
     };
 })(window, document);

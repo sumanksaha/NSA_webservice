@@ -96,6 +96,16 @@ class GroundedLLMClient:
     # Public API
     # ------------------------------------------------------------------ #
 
+    @property
+    def use_stub(self) -> bool:
+        """Whether calls are served by the deterministic stub.
+
+        True when no API key is configured or ``RAG_USE_STUB_LLM=true``.
+        Ops signal: ``/api/rag/health`` reports this as ``llm.mode`` so
+        deployments can assert live-LLM operation (RAG UI audit gap #2).
+        """
+        return self._use_stub
+
     def call(
         self,
         system_prompt: str,
