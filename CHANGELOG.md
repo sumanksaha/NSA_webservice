@@ -10,9 +10,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Status: Phases 0–16, 20, 21, Phase A + OCR Phases B–E, Deepening D1–D5, S9a, Priority 6/7,
 > RAG Phases 1–5, Multi-Domain Phase 1, Evaluation Framework, Benchmark v1.0, Rust PyO3,
 > Remote Inference (Modal), LangGraph Agent Pipeline + M5, FastAPI Gateway, and the Config
-> seam are implemented and verified (~1,870 tests). Pending: Phase 17 remainder (Supabase
+> seam are implemented and verified (~1,900 tests). Pending: Phase 17 remainder (Supabase
 > bridge, conflict resolution, sync-status UI), Phase 18 (~70% — RBAC decorator, comments,
-> role assignment), Phase 19, Cloudinary hardening, Rust Parts 1.6+ / 2–5, CE-v2 retrain.
+> role assignment), Phase 19, Rust Parts 1.6+ / 2–5, CE-v2 retrain.
+
+### Added (2026-08-23)
+
+#### Priority 5 — Cloudinary Testing & Hardening
+
+- **`CLOUDINARY_URL` shorthand**: the single `cloudinary://<api_key>:<api_secret>@<cloud_name>`
+  variable is now honoured (`_parse_cloudinary_url` / `_cloudinary_credentials`); it wins over
+  the three discrete variables, and a *malformed* URL falls back to them instead of
+  hard-disabling the backend.
+- **Network retries**: upload/destroy SDK calls run through a tenacity exponential-backoff
+  policy (3 attempts, 0.5 s→4 s, transient ConnectionError/Timeout only — non-transient
+  errors fail fast without burning the budget). An exhausted upload degrades to `None`
+  so `upload_photo` falls back to R2/B2 instead of raising.
+- **`GET /health/cloudinary`** (public, auth-exempt like `/health`): reports credential
+  source, cloud name, SDK availability, and a best-effort API reachability ping; always
+  200 so monitoring can distinguish not-configured from configured-but-broken.
+- Tests: `tests/test_storage_cloudinary.py` — 30 tests (URL parsing, credential
+  precedence, retry semantics, public-id extraction, health probe), all mocked, no network.
+- Dependency: `tenacity>=8.2.0` added to core dependencies.
+
+#### Environment debt closed (task.md)
+
+- **ENV-6 (cv2/OpenCV)**: RESOLVED — `opencv-python-headless` was already declared under
+  the `[ocr]` extra; the environment now has OpenCV installed and `tests/test_ocr_pipeline.py`
+  passes 24/24. `ImagePreprocessor.process()` still degrades gracefully (no-op) when cv2
+  is absent.
+- **ENV-7 (Dependabot staleness)**: `.github/dependabot.yml` now sets `rebase-strategy: "all"`
+  (plus the existing `target-branch: main`) so version-bump PRs are rebased onto main every
+  run instead of piling up stale branches. Existing stale branches need a one-time manual
+  close/rebase.
+- **ENV-8 (Python floor vs reality)**: `requires-python` relaxed to `">=3.11"` with a 3.11
+  classifier added and black/ruff `target-version` set to `py311` — the entire suite
+  (~1,900 tests) verifiably runs on 3.11.15 locally, and the codebase uses no 3.12-only
+  syntax (verified: zero PEP 695 usages). CI keeps running 3.12.
 
 ### Changed (2026-08-22 architecture deepening)
 

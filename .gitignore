@@ -395,6 +395,7 @@ instance/saved/
 instance/editor_images/
 instance/jinja2_cache/
 instance/temp_uploads/
+instance/ocr/
 .opencode/
 backups/*.json
 
