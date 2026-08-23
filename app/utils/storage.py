@@ -28,8 +28,10 @@ warning.
 import logging
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, urlsplit
 from uuid import uuid4
+
+from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
@@ -166,21 +168,90 @@ def _get_content_type(ext):
 # lazily so the module is importable even when `cloudinary` isn't installed.
 _cloudinary = None  # cached configured cloudinary module handle
 
+#: Transient network failures worth retrying (exponential backoff).  Anything
+#: else — bad credentials, invalid image payload — fails fast instead of
+#: burning the retry budget.
+_TRANSIENT_NETWORK_ERRORS = (ConnectionError, TimeoutError)
+
+#: Shared retry policy for Cloudinary upload/destroy network calls.  Tests may
+#: swap this for a zero-wait equivalent via ``monkeypatch.setattr`` — the
+#: call sites resolve the module attribute at call time.
+_CLOUDINARY_RETRYING = Retrying(
+    retry=retry_if_exception_type(_TRANSIENT_NETWORK_ERRORS),
+    wait=wait_exponential(multiplier=0.5, max=8),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
+
+
+def _parse_cloudinary_url(url):
+    """Parse a ``cloudinary://<api_key>:<api_secret>@<cloud_name>`` shorthand.
+
+    Returns ``{"api_key", "api_secret", "cloud_name"}`` with URL-encoded
+    components decoded, or ``None`` when the string is empty, uses a wrong
+    scheme, or is missing any of the three components.  Never raises —
+    one malformed variable must not hard-disable a correct deployment.
+    """
+    if not url or "://" not in url:
+        return None
+    split = urlsplit(url)
+    if split.scheme.lower() != "cloudinary":
+        return None
+    credentials_part, sep, cloud_name = split.netloc.rpartition("@")
+    if not sep or "@" in cloud_name:
+        return None
+    api_key, key_sep, api_secret = credentials_part.partition(":")
+    if not key_sep or not api_key or not api_secret or not cloud_name:
+        return None
+    return {
+        "api_key": unquote(api_key),
+        "api_secret": unquote(api_secret),
+        "cloud_name": unquote(cloud_name),
+    }
+
+
+def _cloudinary_credentials():
+    """Resolve Cloudinary credentials from the environment.
+
+    Precedence: a well-formed ``CLOUDINARY_URL`` wins over the discrete
+    ``CLOUDINARY_CLOUD_NAME``/``CLOUDINARY_API_KEY``/``CLOUDINARY_API_SECRET``
+    variables; a *malformed* URL falls back to the discrete vars; partial
+    discrete configuration counts as unconfigured.  Returns ``None`` when no
+    usable credentials exist.
+    """
+    from_url = _parse_cloudinary_url(os.environ.get("CLOUDINARY_URL", ""))
+    if from_url:
+        return from_url
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
+    api_key = os.environ.get("CLOUDINARY_API_KEY")
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET")
+    if cloud_name and api_key and api_secret:
+        return {"cloud_name": cloud_name, "api_key": api_key, "api_secret": api_secret}
+    return None
+
 
 def _cloudinary_configured() -> bool:
-    """True only when all three Cloudinary credential env vars are present."""
-    return all(os.environ.get(k) for k in ("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"))
+    """True only when usable Cloudinary credentials resolve (URL or discrete)."""
+    return _cloudinary_credentials() is not None
 
 
 def _get_cloudinary():
     """Lazily import + configure the Cloudinary SDK and cache the handle.
 
     Returns the configured ``cloudinary`` module (global config set), or
-    ``None`` when the SDK is not installed - callers then fall back to R2/B2.
+    ``None`` when credentials are absent or the SDK is not installed - callers
+    then fall back to R2/B2.
     """
     global _cloudinary
     if _cloudinary is not None:
         return _cloudinary
+    creds = _cloudinary_credentials()
+    if not creds:
+        logger.warning(
+            "Cloudinary not configured (set CLOUDINARY_URL or "
+            "CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET); falling back to R2/B2.",
+        )
+        return None
     try:
         import cloudinary
         from cloudinary import uploader  # noqa: F401  (ensures submodule importable)
@@ -190,17 +261,9 @@ def _get_cloudinary():
             "falling back to R2/B2. Add `cloudinary` to dependencies to enable it.",
         )
         return None
-    cloudinary.config(
-        cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
-        api_key=os.environ["CLOUDINARY_API_KEY"],
-        api_secret=os.environ["CLOUDINARY_API_SECRET"],
-        secure=True,  # deliver HTTPS URLs
-    )
+    cloudinary.config(**creds, secure=True)  # deliver HTTPS URLs
     _cloudinary = cloudinary
-    logger.info(
-        "Cloudinary storage client initialised (cloud=%s)",
-        os.environ["CLOUDINARY_CLOUD_NAME"],
-    )
+    logger.info("Cloudinary storage client initialised (cloud=%s)", creds["cloud_name"])
     return _cloudinary
 
 
@@ -229,17 +292,29 @@ def _extract_cloudinary_public_id(file_url):
 
 def _upload_to_cloudinary(file_obj, adjudication_id):
     """Upload one image to Cloudinary; return the secure HTTPS URL, or
-    ``None`` if Cloudinary is configured-but-unusable (caller falls back)."""
+    ``None`` if Cloudinary is configured-but-unusable (caller falls back).
+
+    Transient network failures are retried with exponential backoff
+    (``_CLOUDINARY_RETRYING``); a non-transient error fails fast; an
+    exhausted retry budget degrades to ``None`` instead of raising.
+    """
     cld = _get_cloudinary()
     if cld is None:
         return None
     file_obj.seek(0)
     public_id = f"inspections/{adjudication_id}/{uuid4().hex}"
-    result = cld.uploader.upload(
-        file_obj,
-        public_id=public_id,
-        resource_type="image",
-    )
+    try:
+        for attempt in _CLOUDINARY_RETRYING:  # module attr — tests swap it
+            with attempt:
+                result = cld.uploader.upload(
+                    file_obj,
+                    public_id=public_id,
+                    resource_type="image",
+                )
+                break
+    except Exception:
+        logger.exception("Cloudinary upload failed after retries (public_id=%s)", public_id)
+        return None
     url = result["secure_url"]
     logger.info("Uploaded photo to Cloudinary (public_id=%s) -> %s", public_id, url)
     return url
@@ -248,7 +323,9 @@ def _upload_to_cloudinary(file_obj, adjudication_id):
 def _delete_from_cloudinary(file_url):
     """Delete a Cloudinary asset by deriving its public_id from its URL.
     Idempotent: an already-absent asset is treated as success (mirrors
-    R2's "NoSuchKey -> success" behaviour)."""
+    R2's "NoSuchKey -> success" behaviour).  Transient network failures
+    are retried (``_CLOUDINARY_RETRYING``); exhaustion returns ``False``
+    instead of raising."""
     cld = _get_cloudinary()
     if cld is None:
         logger.warning("Cloudinary URL present but SDK not installed; cannot delete %s", file_url)
@@ -258,7 +335,10 @@ def _delete_from_cloudinary(file_url):
         logger.warning("Could not derive Cloudinary public_id from URL: %s", file_url)
         return False
     try:
-        result = cld.uploader.destroy(public_id, resource_type="image")
+        for attempt in _CLOUDINARY_RETRYING:  # module attr — tests swap it
+            with attempt:
+                result = cld.uploader.destroy(public_id, resource_type="image")
+                break
     except Exception:
         logger.exception("delete_photo: failed to delete Cloudinary asset (public_id=%s)", public_id)
         return False

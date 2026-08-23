@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime
 
 from flask import Blueprint, jsonify
@@ -66,3 +67,58 @@ def health():
     }
     code = 200 if db_status == "connected" else 503
     return jsonify(payload), code
+
+
+@health_bp.route("/health/cloudinary")
+def cloudinary():
+    """Cloudinary backend probe (Priority 5 — Testing & Hardening).
+
+    Public + always **200**: orchestrators must be able to distinguish
+    ``not-configured`` from ``configured-but-unreachable`` without either
+    being treated as a service outage.  Reports the resolved credential
+    source, whether the SDK is installed, and a live API reachability probe
+    (``api.ping()``) — the latter only when credentials exist.
+    """
+    from app.utils import storage
+
+    creds = storage._cloudinary_credentials()
+    configured = creds is not None
+    if configured:
+        url_value = os.environ.get("CLOUDINARY_URL", "")
+        credential_source = "cloudinary_url" if storage._parse_cloudinary_url(url_value) else "discrete"
+    else:
+        credential_source = "none"
+
+    api_reachable = None
+    api_error = None
+    if configured:
+        cld = storage._get_cloudinary()
+        if cld is None:
+            api_reachable = False
+            api_error = "Cloudinary SDK not installed"
+        else:
+            try:
+                cld.api.ping()
+                api_reachable = True
+            except Exception as exc:
+                api_reachable = False
+                api_error = str(exc)
+
+    try:
+        import cloudinary  # noqa: F401
+
+        sdk = "installed"
+    except ImportError:
+        sdk = "missing"
+
+    payload = {
+        "status": "ok",
+        "configured": configured,
+        "credential_source": credential_source,
+        "cloud_name": (creds or {}).get("cloud_name"),
+        "sdk": sdk,
+        "api_reachable": api_reachable,
+        "api_error": api_error,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    return jsonify(payload), 200

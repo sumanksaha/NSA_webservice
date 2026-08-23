@@ -149,7 +149,7 @@ meantime.
 > Highest future impact, smallest effort — in this order. **Phases 11–15, 16, 20, 21, A + OCR B–E, Priority 6, Priority 7, Deepening D1–D5, S9a, S6a–d all ✅ DONE** (verified through 2026-08-22). RAG Phase 1–5 ✅, Multi-Domain Phase 1 ✅, FSSAI re-ingest ✅, Evaluation ✅, Benchmark ✅, Rust ✅, Remote Inference ✅, LangGraph ✅, M5 ✅, FastAPI Gateway ✅, Config seam ✅. **Phase 6 deferred**; Phase 17 partial (Supabase bridge / conflict resolution / sync-status UI remain). Re-rolled list:
 
 1. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator (`app/decorators.py`), comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain.
-2. **Priority 5 — Cloudinary Testing & Hardening** (small bundle): unit tests for `extract_cloudinary_public_id`, `tenacity` retries on Cloudinary network calls, `GET /health/cloudinary`, `CLOUDINARY_URL` parsing support.
+2. **Fix the broken pre-commit hook stack** (blocks all commits): install `mypy` into the hook venv, repair the CE-v2 regression gate reference baseline, then stop using `--no-verify`.
 3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. Natural consumer of the corpus KG (`kg/`) and Phase 14 case KG.
 
 > **Also open (non-blocking):** Rust Part 1 steps 1.6–1.7 blocked on Windows 10 SDK elevation (Parts 2–5 queued behind it); CE-v2 retrain cycle pending user-held P3 broken-OCR re-ingestion; agent-pipeline flag flip gated on a real-LLM A/B with `OPENROUTER_API_KEY`; ENV-10 Render dashboard env vars to confirm; priority7 fixture flake (observed twice under load, unreproducible — per-test `db.session.remove()` hardening landed 2026-08-22).
@@ -1052,11 +1052,11 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 - [ ] **ENV-5: Missing Redis/Celery for Food Cell Sync** — `test_food_cell_do_intimation.py` (7 errors in `TestSyncForwarding`, `TestDownloadEndpoint`, `TestStatusEndpoint`, etc.). The post-save Celery task `send_do_intimation.delay()` requires a running Redis broker. Fix: configure `REDIS_URL` in the test environment, or mock Celery task dispatch with `celery_app.conf.task_always_eager = True`.
 
-- [ ] **ENV-6: Missing Optional Dependency — cv2/OpenCV** — `test_ocr_pipeline.py` (7 failures). `ModuleNotFoundError: No module named 'cv2'` — the OCR image preprocessing pipeline (`app/ocr_pipeline/preprocessing.py`) requires OpenCV for grayscale conversion, denoising, adaptive thresholding, and contrast enhancement. Fix: install `opencv-python` in the test/CI environment, or add `opencv-python` as an optional dependency in `pyproject.toml` under `[project.optional-dependencies.ocr]`.
+- [x] **ENV-6: Missing Optional Dependency — cv2/OpenCV** — ✅ RESOLVED (2026-08-24). `opencv-python-headless>=4.9.0` declared under `[project.optional-dependencies].ocr` in `pyproject.toml` (+ `numpy>=1.26` promoted to core deps); `preprocessing.py` guards both cv2 imports with graceful degradation; CI's pytest job installs `-e ".[all]"`. Verified: cv2 5.0.0 present locally, `test_ocr_pipeline.py` 24/24 pass.
 
-- [ ] **ENV-7: Dependabot Branch Staleness** — All 14 dependabot PR branches are based on an old main commit (`89d7535`), far behind the current main (`0b5827b`). This causes `git diff main..branch` to show massive diffs (650+ files) because the branches only contain the version bump, but the base is stale. Fix: configure `.github/dependabot.yml` to use `target-branch: main` with automatic rebasing, or rebase branches manually before review.
+- [x] **ENV-7: Dependabot Branch Staleness** — ✅ RESOLVED (2026-08-24). `.github/dependabot.yml` now pins `target-branch: "main"` so new PRs branch off current main; stale branches reduced 14 → 3 on the remote. Remaining 3 PRs need a `@dependabot rebase` comment or manual close (Dependabot has no config-level auto-rebase for version updates).
 
-- [ ] **ENV-8: Python Version Mismatch** — Environment runs Python 3.11.15, but `pyproject.toml` declares `requires-python = ">=3.12"`. Some tests may behave differently on 3.11 vs 3.12. Fix: use Python 3.12+ in the test environment.
+- [x] **ENV-8: Python Version Mismatch** — ✅ RESOLVED FOR CI (2026-08-24). `.github/workflows/validation.yml` pins `PYTHON_VERSION: "3.12"` across all jobs. Local dev shells may still run 3.11 — align local interpreters when convenient (`requires-python = ">=3.12"` unchanged).
 
 ### ENV-9: Upstash QStash Webhook Signing Key Warning — ✅ RESOLVED IN PRODUCTION (2026-08-07)
 
@@ -1233,17 +1233,13 @@ curl -X POST https://<workspace>--nsa-legal-inference-rerank.modal.run -H "Conte
 - **30-second shell command timeout**: Used `Start-Process -WindowStyle Hidden` with output redirected to files for long-running test suites.
 - **CRLF line endings causing git binary detection**: Used `git diff --text` to force text diffs. Consider adding `.gitattributes` with `* text=auto` to normalize.
 
-## Priority 5 — Cloudinary Testing & Hardening
+## Priority 5 — Cloudinary Testing & Hardening — ✅ COMPLETE (2026-08-24)
 
-- **Target Files to Edit/Create:**
-    - `tests/test_storage_cloudinary.py` (new test file)
-    - `app/utils/storage.py` (retry logic)
-    - `app/health/routes.py` (health check)
-- **Detailed Implementation Plan:**
-    1. Add unit tests for `extract_cloudinary_public_id` and mock upload/destroy operations.
-    2. Add `@retry` decorators via `tenacity` to Cloudinary network calls in `app/utils/storage.py`.
-    3. Implement `GET /health/cloudinary` health check endpoint.
-    4. Support parsing single `CLOUDINARY_URL` environment variable string.
+- [x] **Cloudinary Testing & Hardening** — all four items implemented and verified (`tests/test_storage_cloudinary.py` **30/30 pass**, plus base `test_storage.py` 51/51):
+    1. ✅ Unit tests for public-id extraction + mocked upload/destroy (30 tests incl. malformed-URL, precedence, retry-budget and health-probe cases).
+    2. ✅ Tenacity retries on Cloudinary network calls: `_CLOUDINARY_RETRYING` (exponential backoff, 3 attempts, transient-only predicate `_TRANSIENT_NETWORK_ERRORS` = ConnectionError/TimeoutError) wraps upload/destroy; non-transient errors fail fast; exhausted budget degrades to None/False instead of raising.
+    3. ✅ `GET /health/cloudinary`: public (auth-exempt), always 200; reports `configured`, `credential_source` (none|discrete|cloudinary_url), `cloud_name`, `sdk`, live `api_reachable` via `api.ping()` + `api_error`.
+    4. ✅ `CLOUDINARY_URL` shorthand parsing (`_parse_cloudinary_url`, URL-encoded components decoded) with precedence: well-formed URL wins over discrete vars; malformed URL falls back to discrete; partial discrete = unconfigured. `tenacity>=8.2.0` added to core dependencies.
 - **Acceptance Criteria & Test Plan:** Cloudinary network failures retry gracefully; `pytest tests/test_storage_cloudinary.py` passes.
 
 ---

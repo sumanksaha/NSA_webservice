@@ -312,6 +312,7 @@ def create_app(db_uri: str | None = None):
         "auth.login",
         "static",
         "health.health",
+        "health.cloudinary",
         # Lookup endpoints - public for form prefill/autocomplete
         "case_file_generator.lookup_sample",
         "case_file_generator.list_samples_for_datalist",
