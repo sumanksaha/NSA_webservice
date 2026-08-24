@@ -196,7 +196,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
   `legacy`/`agent`; `scripts/ab_agent_vs_legacy.py` runs the frozen
   benchmark through both paths against the live stack.
 - 56 tests across `tests/test_rag_agent_{state,nodes,graph,routes,m5}.py`
-    - pipeline-field tests, all stub-LLM / no network.
+  - pipeline-field tests, all stub-LLM / no network.
 
 ---
 
@@ -284,7 +284,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                                                                                                                                                                            |
 | CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+Safety+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
-| PostgreSQL Migration      | ⚠️ In Progress | Schema ready, production pending                                                                                                                                                                                                                                                   |
+| PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase) |                                                                                                                                                                                                                                                   |
 | Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
 | Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
 
@@ -432,6 +432,7 @@ NSA_webservice/
 │   ├── case_file_generator/    # Case file blueprint
 │   ├── fbo_issue/              # FBO issue tracking blueprint
 │   ├── plugins/                # Phase 20: plugin architecture (base, registry, ocr/ai/rules/pdf plugins)
+│   ├── sync/                   # Phase 17: Supabase sync blueprint (models, routes, supabase_sync service)
 │   ├── inspection/             # Inspection blueprint
 │   ├── sample/                 # Sample management blueprint
 │   ├── services/               # Shared services
@@ -641,7 +642,7 @@ positives. SARIF results upload to GitHub Code Scanning but remain
 
 | Blueprint           | Prefix                 | Description                                                                |
 | ------------------- | ---------------------- | -------------------------------------------------------------------------- |
-| Auth                | `/auth`                | Login/logout                                                               |
+| Auth                | `/auth`                | Login/logout, first-setup admin bootstrap, admin user management (create/toggle-admin/reset-password/delete), self-service password change |
 | Inspection          | `/inspection`          | Inspection CRUD + photo evidence                                           |
 | Sample              | `/sample`              | Sample management                                                          |
 | Case File           | `/case_file_generator` | Case file generation                                                       |
@@ -662,6 +663,7 @@ positives. SARIF results upload to GitHub Code Scanning but remain
 | Audit               | `/admin`               | Audit log viewer                                                           |
 | Settings            | `/settings`            | Admin settings                                                             |
 | Health              | `/health`              | Health probe (public)                                                      |
+| Sync (Phase 17)     | `/sync`                | Supabase PostgreSQL sync dashboard (pooler-safe engine, keepalive)         |
 
 ### Response Format
 
