@@ -102,7 +102,7 @@
 > **Status:** All 14 CI/CD gaps from `docs/CI_CD_RESEARCH.md` are implemented and verified by `tests/test_cicd_gates.py` (**46/46 pass**). Full research + gap analysis in `docs/CI_CD_RESEARCH.md`; this section is the implementation summary.
 
 | Gate | Description | Key Files Modified | Verification |
-|------|-------------|--------------------|--------------|
+| ------ | ------------- | -------------------- | -------------- |
 | G1 | Deploy gating | `.github/workflows/deploy.yml` | `TestDeployGating` (4) |
 | G2 | Staging environment | `render.yaml`, `deploy.yml` | `TestStagingEnvironment` (11) |
 | G3 | Pre-deploy migrations | `render.yaml` (`preDeployCommand`) | `TestRenderHealthAndMigrations` (5) |
@@ -131,7 +131,7 @@
 ### Security scanning config
 
 | Scanner | Config | Scope | Threshold | Blocking? |
-|---------|--------|-------|-----------|-----------|
+| --------- | -------- | ------- | ----------- | ----------- |
 | Bandit | `pyproject.toml` | `app/` | HIGH/HIGH | ✅ Yes |
 | Safety | — | `requirements.txt` | any | ✅ Yes |
 | pip-audit | — | `requirements*.txt` | any | ✅ Yes |
@@ -339,11 +339,11 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 > (`tests/test_rag_csrf.py`). Tests: `tests/test_rag_query_breaker.py` (5) + `test_rag_detector_hotpath.py` (4) + `test_rag_ui_gaps.py` (11) + `test_ab_parity_gate.py` (13) + `test_rag_csrf.py` (5) = **38 tests**, all pass.
 
 - **Target Files to Edit/Create:**
-    - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
-    - Create `app/rag/templates/rag/query.html` — form + results sections
-    - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
-    - Modify `app/templates/base.html` — add "Legal RAG" nav tab
-    - Modify `.env.example` — document `RAG_ENABLED` flag
+  - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
+  - Create `app/rag/templates/rag/query.html` — form + results sections
+  - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
+  - Modify `app/templates/base.html` — add "Legal RAG" nav tab
+  - Modify `.env.example` — document `RAG_ENABLED` flag
 
 ### Architecture
 
@@ -695,9 +695,9 @@ A **preliminary knowledge graph** was extracted from the 24-document FSSAI corpu
 - **88 nodes**: 24 documents + 57 sections + 3 canonical authorities + 4 jurisdictions
 - **199 edges**: 133 document→section, 24 document→authority, 27 document→jurisdiction, 15 section_cooccurrence pairs
 - **3 canonical authorities** (down from 6 raw variants):
-    - `FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA` — 10 docs (normalized from `FSSAI`, `fssai`, full-name variants)
-    - `MINISTRY OF HEALTH AND FAMILY WELFARE` — 9 docs
-    - `MINISTRY OF LAW AND JUSTICE` — 3 docs
+  - `FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA` — 10 docs (normalized from `FSSAI`, `fssai`, full-name variants)
+  - `MINISTRY OF HEALTH AND FAMILY WELFARE` — 9 docs
+  - `MINISTRY OF LAW AND JUSTICE` — 3 docs
 - **57 sections** with semantic descriptions (50/57 mapped to FSS Act section meanings)
 - **Section co-occurrence hotspots**: Section 4 (duties) + Section 92 (regulations) appear together in 28 documents — the "duties + regulatory power" foundation
 - **Chunk quality**: All 13,104 chunks grade C; 48 quality issues (18 too short, 22 missing content hash, 8 too long)
