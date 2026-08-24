@@ -738,3 +738,33 @@ The Phase 14 knowledge graph engine (`app/knowledge_graph/`) is **✅ Complete (
 Phase 19 would benefit from both the corpus knowledge graph (for legal provision context) and the runtime knowledge graph (for case-specific entity traversal). The `knowledge_graph.json` artifact provides the authority normalization map and section semantic descriptions that `MetadataAdapter` and `CitationAdapter` could consume.
 
 ---
+
+---
+
+## 12. UI/UX Usability & Loading Plan (2026-08-24)
+
+### ✅ Completed (commit `a871966`)
+
+| # | Upgrade | Detail |
+| - | ------- | ------ |
+| 1 | Self-hosted FontAwesome 6.4.0 | `app/static/vendor/fontawesome/` (all.min.css + fa-solid-900/fa-regular-400 woff2). Removes cdnjs.cloudflare.com third-party request; zero template changes for the ~35 icons in use. |
+| 2 | Self-hosted Google Fonts | Inter (300–700) + Merriweather (400/600) as 12 unicode-range-subset woff2 + `app/static/vendor/fonts/gf.css`. Georgia dropped from the request (system font). Removes fonts.googleapis.com/gstatic requests. |
+| 3 | Static cache busting | `create_app` context processor wraps `url_for('static', ...)` to append `?v=<file mtime>` — deploys automatically invalidate browser caches across all 51 templates. |
+
+Verified: rendered pages contain zero third-party asset references; vendored assets serve 200; auth suite 82 pass.
+
+### ⬜ Pending (priority order)
+
+| # | Upgrade | Detail |
+| - | ------- | ------ |
+| 4 | Move inline timeline-picker CSS out of `base.html` (~150 lines) into a cached `.css` file | base.html shrinks; login page stops carrying picker styles. |
+| 5 | Flash messages: auto-dismiss success/info after N seconds + `aria-live="polite"` region | Users currently train to ignore persistent flashes. |
+| 6 | Case-picker feed fetch on first open (not page load) if not already deferred | Free per-page-load win; verify current behavior first. |
+| 7 | Table wrappers for mobile: `.table-wrap { overflow-x: auto }` applied to wide admin/list tables | Cheapest mobile fix; no per-page redesign. |
+| 8 | Login form: add `autocomplete="username"` / `autocomplete="current-password"` | Password-manager support. |
+| 9 | Reuse `task_status.js` spinner/disabled pattern for slow form buttons lacking pending state (PDF generation, RAG query) | Consistent loading feedback. |
+
+### Explicitly rejected
+
+- Inline-SVG replacement of all FontAwesome icons (~35 icons × 51 templates diff for bytes now served locally anyway)
+- Dark mode, Tailwind, React/Vite migration, any JS build pipeline — violates the keep-Flask/no-build-pipeline decision (AGENTS.md §1); server-rendered Jinja2 + vanilla JS stays.
