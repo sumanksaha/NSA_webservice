@@ -187,6 +187,18 @@ def create_app(db_uri: str | None = None):
         app.logger.warning("DATABASE_URL not set - falling back to SQLite")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # Pooler-safe Postgres connection options (Supabase/pgbouncer, Render PG):
+    # pre_ping drops dead connections; sslmode=require is mandatory for both
+    # hosts; modest pool sizing respects free-tier connection caps.
+    if str(app.config["SQLALCHEMY_DATABASE_URI"]).startswith(("postgresql://", "postgres://")):
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,
+            "pool_size": 5,
+            "max_overflow": 5,
+            "pool_recycle": 280,
+            "connect_args": {"sslmode": "require"},
+        }
+
     # Redis configuration (can be set via environment variable)
     app.config["REDIS_URL"] = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -398,6 +410,7 @@ def create_app(db_uri: str | None = None):
     from app.sample.routes import sample_bp
     from app.search import search_bp
     from app.settings.routes import settings_bp
+    from app.sync import sync_bp
     from app.tasks_webhook import tasks_webhook_bp
     from app.timeline import timeline_bp
     from app.validation import validation_bp
@@ -428,6 +441,7 @@ def create_app(db_uri: str | None = None):
     app.register_blueprint(health_bp)
     app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
     app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
+    app.register_blueprint(sync_bp, url_prefix="/sync")
     from app.ai_assistant import ai_bp
 
     app.register_blueprint(ai_bp, url_prefix="/ai-assistant")

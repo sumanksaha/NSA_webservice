@@ -278,6 +278,14 @@
                     >
                         <i class="fa-solid fa-folder-open"></i> Evidence
                     </a>
+                    {% if config.get('ENABLE_SUPABASE_SYNC', False) %}
+                    <a
+                        href="{{ url_for('sync.index') }}"
+                        class="nav-link {% if request.blueprint == 'sync' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Cloud Sync
+                    </a>
+                    {% endif %}
                 </nav>
 
                 <div class="nav-user">

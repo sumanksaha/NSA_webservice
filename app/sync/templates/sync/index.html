@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Cloud Sync — Supabase{% endblock %}
+
+{% block extra_css %}
+<style>
+  .sync-page { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+  .sync-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.5rem; padding-bottom: .75rem; border-bottom: 2px solid var(--border); }
+  .sync-header h1 { margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 1.75rem; color: var(--text-heading, #0b3d91); }
+  .sync-header .sync-badge { display: inline-flex; align-items: center; gap: .375rem; font-size: .75rem; font-weight: 600; padding: .25rem .625rem; border-radius: 999px; }
+  .sync-badge--on { background: var(--color-success-bg, #dcfce7); color: var(--color-success-fg, #15803d); border: 1px solid var(--color-success-border, #86efac); }
+  .sync-badge--off { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); }
+
+  .sync-config-warning { padding: .875rem 1rem; border-radius: var(--radius, 8px); margin-bottom: 1rem; font-size: .9rem; }
+  .sync-config-warning--error { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); }
+
+  .sync-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  @media (max-width: 768px) { .sync-grid { grid-template-columns: 1fr; } }
+
+  .sync-card { background: var(--bg-card, #fff); border: 1px solid var(--border, #d9d5c7); border-radius: var(--radius, 8px); padding: 1.25rem; box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,.06)); }
+  .sync-card h2 { margin-top: 0; font-family: 'Merriweather', Georgia, serif; font-size: 1.2rem; color: var(--text-primary, #0b3d91); display: flex; align-items: center; gap: .5rem; }
+  .sync-card h3 { font-size: .95rem; color: var(--text-body, #374151); margin: 0 0 .5rem; }
+
+  .sync-stats-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .sync-stats-table th, .sync-stats-table td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--border, #e5e7eb); }
+  .sync-stats-table th { font-weight: 600; color: var(--text-secondary, #6b7280); font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+  .sync-stats-table td .stat-value { font-weight: 600; color: var(--text-primary, #0b3d91); }
+  .sync-stats-table .dirty-badge { font-size: .7rem; font-weight: 700; padding: .15rem .5rem; border-radius: 999px; }
+  .dirty-clean { background: var(--color-success-bg, #dcfce7); color: var(--color-success-fg, #15803d); }
+  .dirty-dirty { background: var(--color-warning-bg, #fffbeb); color: var(--color-warning-fg, #92400e); }
+
+  .sync-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+  .sync-actions .btn { min-width: 100px; }
+
+  .sync-status-box { padding: .75rem 1rem; border-radius: var(--radius, 8px); margin-top: 1rem; font-size: .875rem; }
+  .sync-status-box--info { background: var(--color-info-bg, #eff6ff); color: var(--color-info-fg, #1d4ed8); border: 1px solid var(--color-info-border, #bfdbfe); }
+  .sync-status-box--success { background: var(--color-success-bg, #dcfce7); color: var(--color-success-fg, #15803d); border: 1px solid var(--color-success-border, #86efac); }
+  .sync-status-box--error { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); }
+
+  .sync-conflicts { margin-top: 1.5rem; }
+  .conflict-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border-radius: var(--radius, 8px); background: var(--bg-card, #fff); border: 1px solid var(--border, #d9d5c7); margin-bottom: .5rem; }
+  .conflict-row .conflict-detail { flex: 1; }
+  .conflict-row .conflict-id { font-weight: 700; color: var(--text-primary, #0b3d91); font-size: .85rem; }
+  .conflict-row .conflict-meta { font-size: .75rem; color: var(--text-muted, #6b7280); margin-top: .25rem; }
+  .conflict-actions { display: flex; gap: .5rem; }
+  .conflict-actions .btn { font-size: .75rem; padding: .4rem .75rem; }
+
+  .sync-log { font-size: .8rem; font-family: var(--font-mono, 'SFMono-Regular', Consolas, monospace); max-height: 240px; overflow-y: auto; }
+  .sync-log-item { padding: .3rem .5rem; border-bottom: 1px solid var(--border, #e5e7eb); }
+  .sync-log-item:last-child { border-bottom: none; }
+  .sync-log-status-ok { color: var(--color-success-fg, #15803d); }
+  .sync-log-status-error { color: var(--color-error-fg, #b91c1c); }
+  .sync-log-status-partial { color: var(--color-warning-fg, #92400e); }
+  .sync-log-status-disabled { color: var(--text-muted, #9ca3af); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sync-page">
+  <div class="sync-header">
+    <h1><i class="fa-solid fa-cloud-arrow-up"></i> Cloud Sync</h1>
+    <span class="sync-badge {% if sync_enabled %}sync-badge--on{% else %}sync-badge--off{% endif %}">
+      <i class="fa-solid {% if sync_enabled %}fa-circle-check{% else %}fa-circle-xmark{% endif %}"></i>
+      {% if sync_enabled %}Enabled{% else %}Disabled{% endif %}
+    </span>
+  </div>
+
+  {% if supabase_not_configured %}
+  <div class="sync-config-warning sync-config-warning--error">
+    <strong><i class="fa-solid fa-triangle-exclamation"></i> Supabase is not configured.</strong>
+    Set the following environment variables to enable cloud sync:
+    <code>SUPABASE_URL</code>, <code>SUPABASE_API_KEY</code>, and
+    <code>ENABLE_SUPABASE_SYNC=true</code>.
+  </div>
+  {% else %}
+  <div class="sync-config-warning sync-status-box--info">
+    <i class="fa-solid fa-info-circle"></i> Connected to {{ supabase_url }}.
+    Dashboard refreshes every {{ sync_interval }} seconds.
+  </div>
+  {% endif %}
+
+  <div class="sync-grid">
+    <!-- Model stats -->
+    <div class="sync-card">
+      <h2><i class="fa-solid fa-table"></i> Sync Status</h2>
+      {% if row_counts %}
+      <table class="sync-stats-table">
+        <thead>
+          <tr><th>Model</th><th>Total Rows</th><th>Dirty (unsynced)</th></tr>
+        </thead>
+        <tbody>
+          {% for table, count in row_counts.items() %}
+          <tr>
+            <td>{{ table }}</td>
+            <td class="stat-value">{{ count }}</td>
+            <td>
+              {% set dirty = dirty_counts.get(table, 0) %}
+              {% if dirty > 0 %}
+                <span class="dirty-badge dirty-dirty">{{ dirty }} pending</span>
+              {% else %}
+                <span class="dirty-badge dirty-clean">synced</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--text-muted, #6b7280);">No models configured for sync.</p>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="sync-card">
+      <h2><i class="fa-solid fa-play"></i> Sync Actions</h2>
+      <div class="sync-actions">
+        <button id="btnPush" type="button" class="btn btn-primary" {% if supabase_not_configured %}disabled{% endif %}>
+          <i class="fa-solid fa-upload"></i> Push Local → Supabase
+        </button>
+        <button id="btnPull" type="button" class="btn btn-secondary" {% if supabase_not_configured %}disabled{% endif %}>
+          <i class="fa-solid fa-download"></i> Pull Supabase → Local
+        </button>
+      </div>
+      <div id="syncActionStatus" class="sync-status-box" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Pending conflicts -->
+  {% if pending_conflicts %}
+  <div class="sync-card sync-conflicts">
+    <h2><i class="fa-solid fa-exclamation-triangle"></i> Pending Conflicts ({{ pending_conflicts|length }})</h2>
+    {% for c in pending_conflicts %}
+    <div class="conflict-row">
+      <div class="conflict-detail">
+        <div class="conflict-id">
+          {{ c.table_name }} #{{ c.local_id }} — {{ c.direction }} conflict
+        </div>
+        <div class="conflict-meta">
+          Local v{{ c.local_version }} vs Remote v{{ c.remote_version }} ·
+          {{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '—' }}
+        </div>
+      </div>
+      <div class="conflict-actions">
+        <button type="button" class="btn btn-success btn-sm"
+          onclick="resolveConflict({{ c.id }}, 'local')">
+          <i class="fa-solid fa-check"></i> Keep Local
+        </button>
+        <button type="button" class="btn btn-danger btn-sm"
+          onclick="resolveConflict({{ c.id }}, 'remote')">
+          <i class="fa-solid fa-cloud"></i> Use Remote
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="sync-card sync-conflicts">
+    <h2><i class="fa-solid fa-check-circle"></i> Conflicts</h2>
+    <p style="color: var(--text-muted, #6b7280); font-size: .875rem;">No pending conflicts.</p>
+  </div>
+  {% endif %}
+
+  <!-- Recent sync log -->
+  <div class="sync-card">
+    <h2><i class="fa-solid fa-clock"></i> Recent Sync Activity</h2>
+    {% if recent_logs %}
+    <div class="sync-log">
+      {% for entry in recent_logs %}
+      <div class="sync-log-item sync-log-status-{{ entry.status }}">
+        <span style="font-weight:600;">{{ entry.operation }}</span> ·
+        {{ entry.status }} ·
+        pushed: {{ entry.pushed }}, pulled: {{ entry.pulled }}, conflicts: {{ entry.conflicts }} ·
+        {{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else '—' }}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted, #6b7280); font-size: .875rem;">No sync activity yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  "use strict";
+
+  function showStatus(msg, kind) {
+    var el = document.getElementById("syncActionStatus");
+    if (!el) return;
+    el.className = "sync-status-box sync-status-box--" + (kind || "info");
+    el.style.display = "block";
+    el.innerHTML = '<span class="rag-spinner"></span> ' + msg;
+  }
+
+  function hideStatus() {
+    var el = document.getElementById("syncActionStatus");
+    if (!el) return;
+    el.style.display = "none";
+  }
+
+  function setLoading(btn, loading) {
+    var icon = btn.querySelector("i");
+    if (loading) {
+      btn.disabled = true;
+      if (icon) icon.className = "fa-solid fa-spinner fa-spin";
+    } else {
+      btn.disabled = false;
+      if (icon) {
+        var action = btn.id === "btnPush" ? "fa-upload" : "fa-download";
+        icon.className = "fa-solid " + action;
+      }
+    }
+  }
+
+  function doSync(url, btn, label) {
+    var statusEl = document.getElementById("syncActionStatus");
+    if (!btn) return;
+    setLoading(btn, true);
+    showStatus(label + "…", "info");
+    hideStatus();
+
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    })
+      .then(function (resp) {
+        return resp.json().then(function (data) {
+          return { ok: resp.ok, status: resp.status, data: data };
+        });
+      })
+      .then(function (out) {
+        setLoading(btn, false);
+        if (!out.ok) {
+          showStatus((out.data && out.data.error) || ("HTTP " + out.status), "error");
+          return;
+        }
+        var d = out.data;
+        var msg = label + " complete — pushed: " + d.pushed + ", pulled: " + d.pulled + ", conflicts: " + d.conflicts;
+        showStatus(msg, d.status === "error" ? "error" : (d.status === "partial" ? "info" : "success"));
+        // Auto-reload after a successful sync.
+        if (d.status !== "error") {
+          setTimeout(function () { window.location.reload(); }, 1500);
+        }
+      })
+      .catch(function () {
+        setLoading(btn, false);
+        showStatus("Network error — please try again.", "error");
+      });
+  }
+
+  window.resolveConflict = function (id, winner) {
+    fetch("/sync/resolve-conflict/" + id, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ winner: winner })
+    })
+      .then(function (resp) { return resp.json(); })
+      .then(function () { window.location.reload(); })
+      .catch(function () { alert("Network error — please try again."); });
+  };
+
+  var pushBtn = document.getElementById("btnPush");
+  var pullBtn = document.getElementById("btnPull");
+  if (pushBtn) pushBtn.addEventListener("click", function () { doSync("/sync/push", pushBtn, "Push"); });
+  if (pullBtn) pullBtn.addEventListener("click", function () { doSync("/sync/pull", pullBtn, "Pull"); });
+})();
+</script>
+{% endblock %}

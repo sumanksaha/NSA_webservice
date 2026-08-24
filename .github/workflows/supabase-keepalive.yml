@@ -1,0 +1,25 @@
+# Supabase free-tier keep-alive (2026-08-24).
+# Supabase pauses free Postgres projects after ~7 days of inactivity; this
+# pings the deployed app's public /health endpoint daily so the pooled DB
+# connection never goes stale long enough to trigger the pause.
+# Override the target via the PROD_HEALTH_URL repo variable if the domain changes.
+name: supabase-keepalive
+
+on:
+    schedule:
+        - cron: "17 6 * * *" # daily 06:17 UTC
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+
+jobs:
+    ping:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Ping /health
+              run: |
+                  URL="${{ vars.PROD_HEALTH_URL || 'https://nsa-webservice.onrender.com/health' }}"
+                  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 "$URL")
+                  echo "GET $URL -> $code"
+                  test "$code" = "200"

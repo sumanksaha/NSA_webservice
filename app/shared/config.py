@@ -387,6 +387,35 @@ _TABLE: tuple[Setting, ...] = (
     Setting("AI_PROVIDER", "ai_provider", str, "openrouter", help="Active AI plugin."),
     Setting("RULES_PROVIDER", "rules_provider", str, "fssai_default", help="Active rules plugin."),
     Setting("PDF_PROVIDER", "pdf_provider", str, "weasyprint", help="Active PDF plugin."),
+    Setting(
+        "ENABLE_SUPABASE_SYNC",
+        "supabase_sync_enabled",
+        bool,
+        False,
+        help="Enable Supabase cloud-sync bridge (Phase 17).",
+        opt_in=True,
+    ),
+    Setting(
+        "SUPABASE_URL",
+        "supabase_url",
+        str,
+        "",
+        help="Supabase project URL for the cloud-sync bridge.",
+    ),
+    Setting(
+        "SUPABASE_API_KEY",
+        "supabase_api_key",
+        str,
+        "",
+        help="Supabase anon/service-role key for the cloud-sync bridge.",
+    ),
+    Setting(
+        "SUPABASE_SYNC_INTERVAL",
+        "supabase_sync_interval",
+        int,
+        300,
+        help="Polling interval (seconds) for automatic sync operations.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

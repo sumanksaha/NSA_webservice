@@ -151,7 +151,7 @@ meantime.
 
 > Highest future impact, smallest effort — in this order. **Phases 11–16, 20, 21, A + OCR B–E, Priority 6, Priority 7, Deepening D1–D5, S9a, S6a–d, Phase 15, and CI/CD gates G1–G14 all ✅ DONE** (verified through 2026-08-23). RAG Phase 1–5 ✅, Multi-Domain Phase 1 ✅, FSSAI re-ingest ✅, Evaluation ✅, Benchmark ✅, Rust ✅, Remote Inference ✅, LangGraph ✅, M5 ✅, FastAPI Gateway ✅, Config seam ✅. **Phase 6 deferred**; Phase 17 partial (Supabase bridge / conflict resolution / sync-status UI remain). Re-rolled list:
 
-1. **Phase 17 — Cloud Sync / Supabase Bridge** (largest remaining gap). `R2/B2 + Cloudinary + Sheets/Airtable/Excel sync already done (Priority 7); only the Supabase bridge, conflict resolution, and sync-status UI remain. New `app/sync/` blueprint per plan.md §3.2.
+1. **Phase 17 — Cloud Sync / Supabase Bridge** (largest remaining gap). `R2/B2 + Cloudinary + Sheets/Airtable/Excel sync already done (Priority 7); only the Supabase bridge, conflict resolution, and sync-status UI remain. New`app/sync/` blueprint per plan.md §3.2.
 2. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator (`app/decorators.py`), comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain.
 3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. Natural consumer of the corpus KG (`kg/`) and Phase 14 case KG.
 
@@ -1548,3 +1548,42 @@ Scanned codebase for `ponytail:` comment markers (3 markers across 3 files, 2 wi
 `app/utils/lookup.py:119` — TLS verification enabled for KMC portal (Sectigo cert). ceiling: `SECLEVEL=1` cipher downgrade. upgrade: revisit when KMC portal upgrades to TLS 1.3+.
 
 **3 markers, 2 with no trigger** (both CE-skipping heuristics in `reranker.py`).
+
+## Supabase Postgres Migration — remaining work (recorded 2026-08-24)
+
+Code-side migration prep is complete (pooler-safe engine options in
+`app/__init__.py`, `scripts/migrate_render_to_supabase.sh`, keep-alive workflow
+`.github/workflows/supabase-keepalive.yml`, Supabase schema built + stamped at
+`merge_heads_phase17`). Remaining items, in order:
+
+- **SB-1 (BLOCKER): Data migration.** Run
+  `RENDER_DATABASE_URL=... SUPABASE_DIRECT_URL=... bash scripts/migrate_render_to_supabase.sh`
+  against the live Render Postgres. Verify per-table row counts (script diffs
+  them automatically). Supabase currently holds schema only — cutover before
+  this = data loss.
+- **SB-2 (BLOCKER): render.yaml `fromDatabase:` wiring.** `DATABASE_URL` is
+  pulled from Render Postgres on all three services (prod web, staging web,
+  celery worker). Switch all three to `sync: false` and set the Supabase
+  POOLED (6543) URL in the Render dashboard — otherwise the next blueprint
+  deploy reverts the dashboard change.
+- **SB-3: Remove `databases:` block** (`render.yaml` end of file) once
+  migration is verified, so blueprint sync stops provisioning Render PGs.
+  Do NOT decommission the Render DBs until SB-1 row counts verify and prod
+  serves 200s from Supabase.
+- **SB-4: Migrations-over-pgbouncer.** Boot-time `flask db upgrade` runs
+  against the pooled 6543 URL. Works with psycopg2 (no prepared statements)
+  but should go direct: add `SUPABASE_DIRECT_URL` (5432) env var to both web
+  services and wrap the migration step, e.g.
+  `preDeployCommand: FLASK_APP=app:create_app sh -c 'DATABASE_URL=$SUPABASE_DIRECT_URL flask db upgrade'`
+  (same pattern in `startCommand`).
+- **SB-5: Rotate the Supabase DB password** post-cutover (Settings → Database
+  → reset) — the current one transited an AI chat session. Update both
+  `DATABASE_URL` and `SUPABASE_DIRECT_URL` afterwards.
+- **SB-6: Verify Celery worker pool sizing** against Supabase free-tier
+  connection caps once the worker points at Supabase (engine options apply
+  only if the worker boots via `create_app` — confirm `app/celery.py` does).
+- **SB-7: Keep-alive verification.** `.github/workflows/supabase-keepalive.yml`
+  pings `/health` daily at 06:17 UTC (Supabase pauses free projects after ~7
+  days idle). Confirm the first scheduled run succeeds; set the
+  `PROD_HEALTH_URL` repo variable if the Render domain differs from
+  `nsa-webservice.onrender.com` (default).
