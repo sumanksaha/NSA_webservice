@@ -115,6 +115,21 @@ def create_app(db_uri: str | None = None):
     """
     app = App(__name__)
 
+    # Cache-busting for static assets: append the file's mtime as ?v= to every
+    # url_for('static', ...) so deploys invalidate browser caches.
+    @app.context_processor
+    def _dated_url_for():
+        from flask import url_for as _url_for
+
+        def dated_url_for(endpoint, **values):
+            if endpoint == "static" and values.get("filename"):
+                file_path = os.path.join(app.root_path, "static", values["filename"])
+                if os.path.exists(file_path):
+                    values["v"] = int(os.stat(file_path).st_mtime)
+            return _url_for(endpoint, **values)
+
+        return dict(url_for=dated_url_for)
+
     # Load environment variables from .env file before any config
     load_dotenv()
 
