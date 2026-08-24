@@ -86,6 +86,20 @@ def _guard_admin_action(target, self_message, last_admin_message) -> Response | 
 from app.utils.auth import admin_required
 
 
+def _password_rule_error(password, confirm, label="Password"):
+    """Shared password policy for all auth forms.
+
+    Returns the flash message on violation (minimum length, confirmation
+    match), or None when the pair is acceptable. ``label`` distinguishes
+    self-service change ("New password") from creation/reset forms.
+    """
+    if len(password) < 8:
+        return f"{label} must be at least 8 characters long."
+    if password != confirm:
+        return f"{label} and confirmation do not match."
+    return None
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     # If already logged in, redirect to the main app
@@ -98,14 +112,14 @@ def login():
 
         if not username or not password:
             flash("Username and password are required.", "error")
-            return render_template("auth/login.html")
+            return render_template("auth/login.html", show_setup=(User.query.count() == 0))
 
         user = User.query.filter_by(username=username).first()
 
         if user is None or not check_password_hash(user.password_hash, password):
             _log_login_event("login_failed")
             flash("Invalid username or password.", "error")
-            return render_template("auth/login.html")
+            return render_template("auth/login.html", show_setup=(User.query.count() == 0))
 
         login_user(user, remember=False)
         session.permanent = True  # Activate PERMANENT_SESSION_LIFETIME
@@ -119,7 +133,58 @@ def login():
 
         return redirect(url_for("case_file_generator.index"))
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", show_setup=(User.query.count() == 0))
+
+
+@auth_bp.route("/first-setup", methods=["GET", "POST"])
+def first_setup():
+    """One-time self-service registration for the very first admin user.
+
+    Only accessible when the ``user`` table is completely empty (new database
+    deployment).  The first user is always granted admin rights.  Once at
+    least one user exists the route returns 404 and the link vanishes from
+    the login page.
+    """
+    # Guard: refuse if any user already exists.
+    if User.query.count() > 0:
+        abort(404)
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+
+        if not username or not password or not confirm:
+            flash("All fields are required.", "error")
+            return render_template("auth/first_setup.html")
+
+        if len(username) > 80:
+            flash("Username must be 80 characters or fewer.", "error")
+            return render_template("auth/first_setup.html")
+
+        error = _password_rule_error(password, confirm)
+        if error:
+            flash(error, "error")
+            return render_template("auth/first_setup.html")
+
+        # Re-check race: another request may have created a user while this
+        # one was being filled in.
+        if User.query.count() > 0:
+            abort(404)
+
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            is_admin=True,
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        _log_user_audit("user_created", user.id, user.id)
+        flash(f"Admin user '{username}' created. You can now log in.", "success")
+        return redirect(url_for("auth.login"))
+
+    return render_template("auth/first_setup.html")
 
 
 @auth_bp.route("/logout")
@@ -152,12 +217,9 @@ def change_password():
             flash("Current password is incorrect.", "error")
             return render_template("auth/change_password.html")
 
-        if len(new_password) < 8:
-            flash("New password must be at least 8 characters long.", "error")
-            return render_template("auth/change_password.html")
-
-        if new_password != confirm:
-            flash("New password and confirmation do not match.", "error")
+        error = _password_rule_error(new_password, confirm, label="New password")
+        if error:
+            flash(error, "error")
             return render_template("auth/change_password.html")
 
         if check_password_hash(current_user.password_hash, new_password):
@@ -206,12 +268,9 @@ def create_user():
             flash(f"Username '{username}' is already taken.", "error")
             return render_template("auth/create_user.html")
 
-        if len(password) < 8:
-            flash("New password must be at least 8 characters long.", "error")
-            return render_template("auth/create_user.html")
-
-        if password != confirm:
-            flash("New password and confirmation do not match.", "error")
+        error = _password_rule_error(password, confirm, label="New password")
+        if error:
+            flash(error, "error")
             return render_template("auth/create_user.html")
 
         user = User(
@@ -246,12 +305,9 @@ def reset_password(user_id):
             flash("All fields are required.", "error")
             return render_template("auth/reset_password.html", target=target)
 
-        if len(new_password) < 8:
-            flash("New password must be at least 8 characters long.", "error")
-            return render_template("auth/reset_password.html", target=target)
-
-        if new_password != confirm:
-            flash("New password and confirmation do not match.", "error")
+        error = _password_rule_error(new_password, confirm, label="New password")
+        if error:
+            flash(error, "error")
             return render_template("auth/reset_password.html", target=target)
 
         target.password_hash = generate_password_hash(new_password)

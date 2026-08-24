@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}First-Time Setup — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <h2 class="mb--sm">First-Time Setup</h2>
+            <p class="form-hint">
+                No users found. Create the initial admin account to get started.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="info-box {% if category == 'error' %}info-box--error{% else %}info-box--success{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('auth.first_setup') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required
+                       placeholder="e.g. admin" autocomplete="username">
+            </div>
+
+            <div class="form-group mt--sm">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required
+                       placeholder="At least 8 characters" autocomplete="new-password">
+            </div>
+
+            <div class="form-group mt--sm">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-input" required
+                       placeholder="Re-enter the password" autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg login-btn">
+                <i class="fa-solid fa-user-shield"></i> Create Admin &amp; Start
+            </button>
+            <p class="form-hint mt--sm">
+                <a href="{{ url_for('auth.login') }}">&larr; Back to login</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

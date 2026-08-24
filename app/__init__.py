@@ -314,14 +314,13 @@ def create_app(db_uri: str | None = None):
         except (ValueError, TypeError):
             return None
 
-    login_manager.init_app(app)
-
     # ------------------------------------------------------------------
     # Global login gate — every route requires authentication UNLESS it
     # is one of the public endpoints listed below.
     # ------------------------------------------------------------------
     public_endpoints = {
         "auth.login",
+        "auth.first_setup",
         "static",
         "health.health",
         "health.cloudinary",
