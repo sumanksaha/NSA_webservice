@@ -61,8 +61,14 @@ def upgrade():
     with op.batch_alter_table("fbo_issue_audit", schema=None) as batch_op:
         batch_op.create_index("idx_fbo_issue_audit_issue_id", ["issue_id"], unique=False)
 
-    with op.batch_alter_table("case_files", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("applicable_sections", sa.String(length=50), nullable=True))
+    # case_files.applicable_sections already exists via the baseline
+    # (7e5a0f6c9561) / add_missing_base_tables CREATE TABLE — only add it if a
+    # legacy DB somehow lacks it, otherwise fresh upgrades fail with duplicate column.
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    if "applicable_sections" not in [c["name"] for c in insp.get_columns("case_files")]:
+        with op.batch_alter_table("case_files", schema=None) as batch_op:
+            batch_op.add_column(sa.Column("applicable_sections", sa.String(length=50), nullable=True))
 
     # ### end Alembic commands ###
 
