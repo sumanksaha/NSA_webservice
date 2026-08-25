@@ -41,8 +41,8 @@ WEBHOOK_PATH = "/tasks/run"
 FAILURE_CALLBACK_PATH = "/tasks/failed"
 
 # QStash schedule endpoint for recurring tasks.
-# Docs: https://upstash.com/docs/qstash/features/schedule
-_SCHEDULE_ENDPOINT = "schedule"
+# Docs: https://upstash.com/docs/qstash/features/schedules
+_SCHEDULE_ENDPOINT = "https://qstash.upstash.io/v2/schedules"
 
 # Redis keys + TTL for the task-status store (frontend polling).
 TASK_STATUS_KEY = "qstash:task:{message_id}"
@@ -250,16 +250,16 @@ def publish_recurring(
         headers = {
             "Authorization": f"Bearer {os.environ['QSTASH_TOKEN']}",
             "Content-Type": "application/json",
-            "Upstash-Failure-Callback-Url": failure_url,
         }
         body = {
             "destination": webhook_url,
             "cron": schedule,
             "body": json.dumps(payload or {}),
             "method": "POST",
+            "failureCallback": failure_url,
         }
         resp = httpx.post(
-            "https://api.upstash.com/v2/qstash/schedule",
+            _SCHEDULE_ENDPOINT,
             headers=headers,
             json=body,
             timeout=30,
