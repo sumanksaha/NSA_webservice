@@ -203,7 +203,7 @@
                         href="{{ url_for('case_file_generator.index') }}"
                         class="nav-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}"
                     >
-                        <i class="fa-solid fa-folder-open"></i> Sample -adjudication
+                        <i class="fa-solid fa-folder-open"></i> Sample-adjudication
                     </a>
                     <a
                         href="{{ url_for('sample.index') }}"
@@ -218,16 +218,10 @@
                         <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
                     </a>
                     <a
-                        href="{{ url_for('billing.index') }}"
-                        class="nav-link {% if request.blueprint == 'billing' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-file-invoice-dollar"></i> Billing
-                    </a>
-                    <a
                         href="{{ url_for('adjudication.index') }}"
                         class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}"
                     >
-                        <i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication
+                        <i class="fa-solid fa-scale-balanced"></i> Non-sample adjudication
                     </a>
                     <a
                         href="{{ url_for('bill_generator.index') }}"
@@ -261,18 +255,6 @@
                     >
                         <i class="fa-solid fa-chart-line"></i> Analytics
                     </a>
-                    <a
-                        href="{{ url_for('annexure.index') }}"
-                        class="nav-link {% if request.blueprint == 'annexure' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-paperclip"></i> Annexures
-                    </a>
-                    <a
-                        href="{{ url_for('evidence.index') }}"
-                        class="nav-link {% if request.blueprint == 'evidence' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-folder-open"></i> Evidence
-                    </a>
                     {% if config.get('ENABLE_SUPABASE_SYNC', False) %}
                     <a
                         href="{{ url_for('sync.index') }}"
@@ -298,6 +280,13 @@
                         <i class="fa-solid fa-user"></i> {{ current_user.username }}
                     </span>
                     {% if current_user.is_admin %}
+                    <a
+                        href="{{ url_for('auth.create_user') }}"
+                        class="btn btn-secondary btn-sm"
+                        title="Add new user"
+                    >
+                        <i class="fa-solid fa-user-plus"></i> Add User
+                    </a>
                     <a
                         href="{{ url_for('auth.users') }}"
                         class="btn btn-secondary btn-sm"
