@@ -235,6 +235,8 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 | 9   | Long transaction boundaries              | HIGH                               | Medium | Separate DB commit from sync        |
 | 10  | Sequential PDF generation                | MEDIUM                             | Medium | ThreadPoolExecutor                  |
 
+> **Resolved (2026-08-25):** FSSAI license/registration lookups (`lookup_fssai`) no longer read git-tracked SQLite files at request time — they are exact-match PK gets (`db.session.get`) against Supabase Postgres tables `fssai_licenses` / `fssai_registrations`, refreshed bi-monthly via `scripts/load_fssai_lookup.py` (runbook: `docs/FSSAI_LOOKUP_REFRESH.md`). This retires `_resolve_db_path`'s CWD/INSTANCE_PATH fragility and removes ~21 MB of binary data from the repo. Verified live: counts exact, 400-PK diff vs original SQLite = 0 mismatches.
+
 ### Quick Wins (1-2 days, immediate impact)
 
 1. ✅ SQLAlchemy connection pooling (`app/__init__.py:200-210`)
