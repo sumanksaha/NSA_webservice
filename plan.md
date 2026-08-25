@@ -34,7 +34,7 @@
 | **12** | Legal rule engine — ValidationEngine (score, warnings, errors, suggestions)    | ✅                                  | `app/validation/` — 7 rules + `ValidationEngine` (score `clamp(100−15·err−5·warn)` + grades) + `POST /validation/validate` + `GET /validation/case/<id>`; blueprint registered; workbench + index/editor UI via shared `validation_drawer.js`; 46 tests pass                                                                                                                                   |
 | **13** | Timeline engine — auto-generated events, Gantt UI                              | ✅                                  | `app/timeline/` — extraction engine, view/API/refresh routes, vertical + Gantt UI + global case-picker + entry points; 21 tests pass                                                                                                                                                                                                                                                           |
 | **14** | Knowledge graph — entity/relationship extraction, traversal API                | ✅                                  | Full engine + Cytoscape.js UI + API + SQL persistence + 21 tests + Neo4j Aura integration (2026-08-10): APOC dynamic labels, 9 uniqueness constraints, 3 property indexes, QStash async + sync fallback route, 15 Neo4j tests pass.                                                                                                                                                            | `app/knowledge_graph/` |
-| **15** | Analytics dashboard — aggregate queries, charts, geo map                       | ✅                                  | `app/analytics/` — `GET /analytics/` dashboard (Chart.js + Leaflet FBO map) + `GET /analytics/api/metrics` (summary counts, monthly case trends, inspection compliance, sample pipeline, legal provisions, FSO activity, FBO issues, evidence, geo data); lightweight aggregate SQL; blueprint registered at `/analytics` with base.html nav link. **15 tests pass** (2026-08-22)                                                                                                                                                                                                                                                              |
+| **15** | Analytics dashboard — aggregate queries, charts, geo map                       | ✅                                  | `app/analytics/` — `GET /analytics/` dashboard (Chart.js + Leaflet FBO map) + `GET /analytics/api/metrics` (summary counts, monthly case trends, inspection compliance, sample pipeline, legal provisions, FSO activity, FBO issues, evidence, geo data); lightweight aggregate SQL; blueprint registered at `/analytics` with base.html nav link. **15 tests pass** (2026-08-22)              |
 | **16** | Backup & export — JSON export, case import, scheduled backups                  | ✅                                  | `export_case_as_json()`, `export_case_as_zip()`, `import_case_from_json()` in `app/case_file_generator/services.py`; 3 routes in `routes.py`; Celery beat `daily-db-snapshot` at midnight UTC (`celery_app.py`, `app/utils/backup.py`); settings UI (`settings/backup.html`, `settings/routes.py`). 14 tests in `tests/test_case_backup.py` all pass.                                          |
 | **17** | Cloud sync — Supabase bridge, annexure sync, conflict resolution               | ⚠️ R2/B2 + Cloudinary + Sheets done | Supabase bridge, conflict resolution, sync-status UI                                                                                                                                                                                                                                                                                                                                           |
 | **18** | Multi-user RBAC — Role model, `@role_required`, comments, approval workflow    | ⚠️                                  | Role/UserRole/Comment models + migration + `is_admin`-based admin UI (`/auth/users`) done; `@role_required` + comment API/UI + role assignment + `tests/test_rbac.py` pending (verified 2026-08-07)                                                                                                                                                                                            |
@@ -68,7 +68,7 @@
 
 | Phase   | Feature                                                                                                                  | Status |
 | ------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
-| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ✅ | Phase A foundation + **Phases B–E complete (2026-08-22)** — review workflow (`/ocr`), conflict-resolution queue, autopopulation prefill + FBO-issue auto-drafting, feedback dashboard with few-shot loop, ZIP bulk upload; EasyOCR plugin extraction bug fixed. Tests: review 14, autopopulation 14, feedback 8, bulk 9 + Phase A 14 |
+| **A–E** | OCR extraction (Vision-LLM + zonal OCR), review/commit workflow, conflict resolution, autopopulation, feedback dashboard | ✅     | Phase A foundation + **Phases B–E complete (2026-08-22)** — review workflow (`/ocr`), conflict-resolution queue, autopopulation prefill + FBO-issue auto-drafting, feedback dashboard with few-shot loop, ZIP bulk upload; EasyOCR plugin extraction bug fixed. Tests: review 14, autopopulation 14, feedback 8, bulk 9 + Phase A 14        |
 | **F**   | Food Cell DO Intimation — automated DO letter generation, PDF export, and forwarding after FSO sample save               | ✅     | `app/food_cell/` blueprint; `DoIntimation` model; `generate_and_forward_do_intimation()` service; Celery `send_do_intimation` task; post-save trigger in `app/sample/routes.py`; routes: PDF download, HTML view, status, regenerate; best-effort sync to Sheets + Airtable + Excel; `add_food_cell_do_intimation` migration; 15 tests pass |
 
 ---
@@ -83,7 +83,7 @@
 | 11   | **Phase A**  | ✅ **Done (2026-08-06)** — OCR extraction services + Celery task + persistence tests. `process_document_ocr()` (regex+NER field extraction), `split_pdf_bundle()` (PyMuPDF), `process_ocr_document_async` Celery task (persists `OCRDocument` + `LabTestParameter`). `tests/test_ocr_extraction.py` — **14/14 pass**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `app/services/ocr_extraction.py`, `app/services/page_splitter.py`, `app/ocr_pipeline/tasks.py`, `tests/test_ocr_extraction.py`                                                    |
 | 12   | Phase 12     | ✅ Done (2026-08-07) — `app/validation/` (7 rules + engine + routes); blueprint registered; shared `validation_drawer.js` UI (workbench + case/adjudication index + document editor); 46 tests pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | new blueprint                                                                                                                                                                     |
 | 13   | Phase 13     | ✅ **Done (2026-08-06)** — `TimelineEngine` (extract / refresh / validate_sequence / build_payload), 3 routes (`/timeline/case/<id>`, `/timeline/api/case/<id>`, `/timeline/api/case/<id>/refresh`), vertical-timeline + Gantt UI with document links. case_file events persisted to `timeline_event`; adjudication served ephemerally (FK constraint). Access: global nav case-picker (keyboard-navigable search dropdown), both index-page panels, document-editor button, search results, evidence/annexure/inspection/audit/version-control/sample entry points, sample-detail `case_id`+`timeline_url`. Also wired orphaned `app/audit` routes (audit log viewer was 404) and fixed stale `edit_case_file`/`edit_adjudication` url_for names. `tests/test_timeline.py` — **21/21 pass**. | `app/timeline/engine.py`, `app/timeline/routes.py`, `app/timeline/templates/timeline/index.html`, `app/templates/base.html`, `tests/test_timeline.py`                             |
-| 14   | Phase 15     | ✅ **Done (2026-08-22)** — `app/analytics/` blueprint at `/analytics`: Chart.js + Leaflet map + `GET /analytics/api/metrics`; 15 tests pass.                                                                                                                                                                                                                                                                                               | `app/analytics/`, `tests/test_analytics.py`                                                                                                          |
+| 14   | Phase 15     | ✅ **Done (2026-08-22)** — `app/analytics/` blueprint at `/analytics`: Chart.js + Leaflet map + `GET /analytics/api/metrics`; 15 tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `app/analytics/`, `tests/test_analytics.py`                                                                                                                                       |
 | 15   | Phase 18     | ⚠️ Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + `tests/test_rbac.py` pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `app/models/auth.py`, `app/decorators.py`                                                                                                                                         |
 | 16   | Phase 16     | ✅ **Done** — JSON export, ZIP export, case import, daily Celery beat, settings UI, 14 tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `case_file_generator/routes.py`, `celery_app.py`                                                                                                                                  |
 | 17   | Phase 11     | ✅ **Complete (2026-08-08)** — `app/ai_assistant/` (service + routes + tasks + JS sidebar); `httpx`-based `AIAssistantService` (no new deps); `POST /ai-assistant/assist`; editor sidebar; `tests/test_ai_assistant.py` **23/23 pass**, no regressions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `app/ai_assistant/`, `app/static/js/ai_assistant.js`, `tests/test_ai_assistant.py`                                                                                                |
@@ -91,7 +91,7 @@
 | 19   | Phase 14     | ✅ **Done (2026-08-08)** — KnowledgeGraphEngine extracts 8 node types + 6 directed edge types from CaseFile/Adjudication; Cytoscape.js view/API routes; SQL persistence to Entity/Relationship tables (case_file only, idempotent); Neo4j sync adapter available (env-gated, dormant). 21 tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |                                                                                                                                                                                   | `app/knowledge_graph/` |
 | 20   | Phase 20     | ✅ Complete (2026-08-18) — plugin architecture with registry + ABCs, all 6 callers refactored, 23 tests pass, config-driven provider selection (`OCR_PROVIDER`/`AI_PROVIDER`/`RULES_PROVIDER`/`PDF_PROVIDER`), backward-compatible shims, no new deps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |                                                                                                                                                                                   | new blueprint          |
 | 21   | Phase 17     | ⚠️ R2/B2 + Cloudinary + Sheets done; Supabase bridge, conflict resolution, sync-status UI pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `app/sync/`                                                                                                                                                                       |
-| 22   | **Phase 21** | ✅ **Done (2026-08-06)** — Food Cell DO Intimation: food_cell blueprint (services, routes, tasks, templates); DoIntimation model + food_cell_forwarded on Sample; HTML-to-PDF via WeasyPrint + stub fallback; Celery send_do_intimation task; post-save hook in sample/routes.py; best-effort sync to Sheets + Airtable + Excel; migration add_food_cell_do_intimation; 15 tests pass                                                                                                                                                                                                                                                                                                                                                                                                                | food_cell package, models/food_cell.py, sample/routes.py, init, celery_app.py, test_food_cell_do_intimation.py                                                                    |
+| 22   | **Phase 21** | ✅ **Done (2026-08-06)** — Food Cell DO Intimation: food_cell blueprint (services, routes, tasks, templates); DoIntimation model + food_cell_forwarded on Sample; HTML-to-PDF via WeasyPrint + stub fallback; Celery send_do_intimation task; post-save hook in sample/routes.py; best-effort sync to Sheets + Airtable + Excel; migration add_food_cell_do_intimation; 15 tests pass                                                                                                                                                                                                                                                                                                                                                                                                         | food_cell package, models/food_cell.py, sample/routes.py, init, celery_app.py, test_food_cell_do_intimation.py                                                                    |
 
 > **📌 Next 3 steps (highest future impact, smallest effort) — updated 2026-08-23:** **Phase 17** (Supabase bridge + conflict resolution + sync-status UI in `app/sync/`; R2/B2/Cloudinary/Sheets/Airtable/Excel sync already done), **Phase 18** (finish Multi-User RBAC — `@role_required` decorator + comment API/UI + role assignment + `tests/test_rbac.py`; models + migration + `is_admin` admin UI done), **Phase 19** (AI Case Intelligence — evidence strength + readiness score; not started). Plus: **RAG Query Interface UI** (task.md §7 — backend done, frontend form/template/JS/nav-link + 8 tests still planned). Pre-commit hook stack fixed (`.pre-commit-config.yaml` hardened: mypy non-blocking `|| true`, pytest fast-subset filter, ce-v2-gate file-scoped, `minimum_pre_commit_version` pin; 5 new `TestPreCommitConfig` tests). CI/CD gates G1–G14 all ✅ done (see §5).
 
@@ -101,22 +101,22 @@
 
 > **Status:** All 14 CI/CD gaps from `docs/CI_CD_RESEARCH.md` are implemented and verified by `tests/test_cicd_gates.py` (**46/46 pass**). Full research + gap analysis in `docs/CI_CD_RESEARCH.md`; this section is the implementation summary.
 
-| Gate | Description | Key Files Modified | Verification |
-| ------ | ------------- | -------------------- | -------------- |
-| G1 | Deploy gating | `.github/workflows/deploy.yml` | `TestDeployGating` (4) |
-| G2 | Staging environment | `render.yaml`, `deploy.yml` | `TestStagingEnvironment` (11) |
-| G3 | Pre-deploy migrations | `render.yaml` (`preDeployCommand`) | `TestRenderHealthAndMigrations` (5) |
-| G4 | Health check probe | `render.yaml` (`healthCheckPath`) | `TestRenderHealthAndMigrations` (5) |
-| G5 | Full security blocking | `validation.yml` | `TestSecurityGates` (3) |
-| G6 | Coverage gate | `pyproject.toml` (`fail_under=60`) | `TestCoverageGate` (2) |
-| G7 | Docker ASGI path | `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh` | `TestDockerConsistency` (4) |
-| G8 | Release automation | `.github/workflows/release.yml` | `TestReleaseWorkflow` (4) |
-| G9 | Dependabot | `.github/dependabot.yml` | `TestDependabot` (1) |
-| G10 | Workflow hygiene | `lint.yml`, `pip-audit.yml` | `TestWorkflowHygiene` (4) |
-| G11 | ce-v2 dispatch-only | `ce-v2-regression.yml` | `TestCeV2Gate` (1) |
-| G12 | Env parity | `render.yaml` (`envVarGroups`) | `TestEnvParity` (3) |
-| G13 | Deploy serialization | `deploy.yml` (concurrency) | `TestDeployGating` (4) |
-| G14 | Dev dep scanning | `validation.yml`, `pip-audit.yml` | `TestSecurityGates` (3) |
+| Gate | Description            | Key Files Modified                                         | Verification                        |
+| ---- | ---------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| G1   | Deploy gating          | `.github/workflows/deploy.yml`                             | `TestDeployGating` (4)              |
+| G2   | Staging environment    | `render.yaml`, `deploy.yml`                                | `TestStagingEnvironment` (11)       |
+| G3   | Pre-deploy migrations  | `render.yaml` (`preDeployCommand`)                         | `TestRenderHealthAndMigrations` (5) |
+| G4   | Health check probe     | `render.yaml` (`healthCheckPath`)                          | `TestRenderHealthAndMigrations` (5) |
+| G5   | Full security blocking | `validation.yml`                                           | `TestSecurityGates` (3)             |
+| G6   | Coverage gate          | `pyproject.toml` (`fail_under=60`)                         | `TestCoverageGate` (2)              |
+| G7   | Docker ASGI path       | `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh` | `TestDockerConsistency` (4)         |
+| G8   | Release automation     | `.github/workflows/release.yml`                            | `TestReleaseWorkflow` (4)           |
+| G9   | Dependabot             | `.github/dependabot.yml`                                   | `TestDependabot` (1)                |
+| G10  | Workflow hygiene       | `lint.yml`, `pip-audit.yml`                                | `TestWorkflowHygiene` (4)           |
+| G11  | ce-v2 dispatch-only    | `ce-v2-regression.yml`                                     | `TestCeV2Gate` (1)                  |
+| G12  | Env parity             | `render.yaml` (`envVarGroups`)                             | `TestEnvParity` (3)                 |
+| G13  | Deploy serialization   | `deploy.yml` (concurrency)                                 | `TestDeployGating` (4)              |
+| G14  | Dev dep scanning       | `validation.yml`, `pip-audit.yml`                          | `TestSecurityGates` (3)             |
 
 ### Deploy flow
 
@@ -130,11 +130,11 @@
 
 ### Security scanning config
 
-| Scanner | Config | Scope | Threshold | Blocking? |
-| --------- | -------- | ------- | ----------- | ----------- |
-| Bandit | `pyproject.toml` | `app/` | HIGH/HIGH | ✅ Yes |
-| Safety | — | `requirements.txt` | any | ✅ Yes |
-| pip-audit | — | `requirements*.txt` | any | ✅ Yes |
+| Scanner   | Config           | Scope               | Threshold | Blocking? |
+| --------- | ---------------- | ------------------- | --------- | --------- |
+| Bandit    | `pyproject.toml` | `app/`              | HIGH/HIGH | ✅ Yes    |
+| Safety    | —                | `requirements.txt`  | any       | ✅ Yes    |
+| pip-audit | —                | `requirements*.txt` | any       | ✅ Yes    |
 
 Bandit skips `B101` (assert), `B311` (random), `B324` (hashlib). SARIF upload stays `continue-on-error` so reporting never masks failures.
 
@@ -162,7 +162,7 @@ Bandit skips `B101` (assert), `B311` (random), `B324` (hashlib). SARIF upload st
 | `app/validation/`        | Legal rule engine       | ✅ DONE — `__init__.py`, `engine.py`, `rules.py`, `routes.py`; shared `validation_drawer.js` UI; 46 tests                                                                                                                 |
 | `app/timeline/`          | Timeline engine         | ✅ DONE — `__init__.py`, `engine.py`, `routes.py`, `templates/timeline/index.html`; global picker in `base.html` + entry points; 21 tests                                                                                 |
 | `app/food_cell/`         | Food Cell DO Intimation | ✅ DONE — `__init__.py`, `routes.py`, `services.py`, `tasks.py`, `templates/food_cell/do_intimation.html`, `templates/food_cell/do_intimation_inline.html`                                                                |
-| `app/analytics/`         | Analytics dashboard     | ✅ DONE — `__init__.py`, `routes.py` + `templates/`                                                                                                                                                                                  |
+| `app/analytics/`         | Analytics dashboard     | ✅ DONE — `__init__.py`, `routes.py` + `templates/`                                                                                                                                                                       |
 | `app/ai_assistant/`      | AI assistant            | `__init__.py`, `service.py`, `routes.py`, `templates/`, `static/js/`                                                                                                                                                      |
 | `app/case_intelligence/` | AI case intelligence    | `__init__.py`, `engine.py`                                                                                                                                                                                                |
 | `app/knowledge_graph/`   | Knowledge graph         | `__init__.py`, `engine.py`, `routes.py`, `neo4j_sync.py`, `templates/knowledge_graph/view.html`                                                                                                                           |
@@ -224,7 +224,7 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 
 | #   | Bottleneck                               | Impact                             | Effort | Recommended Fix                     |
 | --- | ---------------------------------------- | ---------------------------------- | ------ | ----------------------------------- |
-| 1   | SQLite for production                    | CRITICAL (no write concurrency)    | Medium | Migrate to PostgreSQL               |
+| 1   | Dev/test–production DB parity (was: "SQLite for production" — prod has run Postgres via `DATABASE_URL` since Priority 6) | MEDIUM (Postgres-specific behavior untested locally) | Medium | docker-compose local Postgres for dev + point conftest at it (CI `test-postgres` job already exists) |
 | 2   | Synchronous Sheets sync on every request | CRITICAL (50-70% of request time)  | Medium | Celery async + batch sync           |
 | 3   | In-memory PDF generation                 | HIGH (50-100MB per PDF)            | High   | Separate PDF service or async queue |
 | 4   | N+1 queries in list views                | HIGH (101 queries for 100 samples) | Low    | JOIN / eager loading                |
@@ -341,11 +341,11 @@ Document Upload → Page Splitter → Vision-LLM/Zonal OCR Extraction → Raw St
 > (`tests/test_rag_csrf.py`). Tests: `tests/test_rag_query_breaker.py` (5) + `test_rag_detector_hotpath.py` (4) + `test_rag_ui_gaps.py` (11) + `test_ab_parity_gate.py` (13) + `test_rag_csrf.py` (5) = **38 tests**, all pass.
 
 - **Target Files to Edit/Create:**
-  - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
-  - Create `app/rag/templates/rag/query.html` — form + results sections
-  - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
-  - Modify `app/templates/base.html` — add "Legal RAG" nav tab
-  - Modify `.env.example` — document `RAG_ENABLED` flag
+    - Modify `app/rag/routes.py` — add `GET /` route rendering `rag/query.html`
+    - Create `app/rag/templates/rag/query.html` — form + results sections
+    - Create `app/static/js/rag_query.js` — AJAX POST to `/api/rag/query/agent`, render `RAGResponse`, handle 202/HITL resume
+    - Modify `app/templates/base.html` — add "Legal RAG" nav tab
+    - Modify `.env.example` — document `RAG_ENABLED` flag
 
 ### Architecture
 
@@ -697,9 +697,9 @@ A **preliminary knowledge graph** was extracted from the 24-document FSSAI corpu
 - **88 nodes**: 24 documents + 57 sections + 3 canonical authorities + 4 jurisdictions
 - **199 edges**: 133 document→section, 24 document→authority, 27 document→jurisdiction, 15 section_cooccurrence pairs
 - **3 canonical authorities** (down from 6 raw variants):
-  - `FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA` — 10 docs (normalized from `FSSAI`, `fssai`, full-name variants)
-  - `MINISTRY OF HEALTH AND FAMILY WELFARE` — 9 docs
-  - `MINISTRY OF LAW AND JUSTICE` — 3 docs
+    - `FOOD SAFETY AND STANDARDS AUTHORITY OF INDIA` — 10 docs (normalized from `FSSAI`, `fssai`, full-name variants)
+    - `MINISTRY OF HEALTH AND FAMILY WELFARE` — 9 docs
+    - `MINISTRY OF LAW AND JUSTICE` — 3 docs
 - **57 sections** with semantic descriptions (50/57 mapped to FSS Act section meanings)
 - **Section co-occurrence hotspots**: Section 4 (duties) + Section 92 (regulations) appear together in 28 documents — the "duties + regulatory power" foundation
 - **Chunk quality**: All 13,104 chunks grade C; 48 quality issues (18 too short, 22 missing content hash, 8 too long)
@@ -747,24 +747,24 @@ Phase 19 would benefit from both the corpus knowledge graph (for legal provision
 
 ### ✅ Completed (commit `a871966`)
 
-| # | Upgrade | Detail |
-| - | ------- | ------ |
-| 1 | Self-hosted FontAwesome 6.4.0 | `app/static/vendor/fontawesome/` (all.min.css + fa-solid-900/fa-regular-400 woff2). Removes cdnjs.cloudflare.com third-party request; zero template changes for the ~35 icons in use. |
-| 2 | Self-hosted Google Fonts | Inter (300–700) + Merriweather (400/600) as 12 unicode-range-subset woff2 + `app/static/vendor/fonts/gf.css`. Georgia dropped from the request (system font). Removes fonts.googleapis.com/gstatic requests. |
-| 3 | Static cache busting | `create_app` context processor wraps `url_for('static', ...)` to append `?v=<file mtime>` — deploys automatically invalidate browser caches across all 51 templates. |
+| #   | Upgrade                       | Detail                                                                                                                                                                                                       |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Self-hosted FontAwesome 6.4.0 | `app/static/vendor/fontawesome/` (all.min.css + fa-solid-900/fa-regular-400 woff2). Removes cdnjs.cloudflare.com third-party request; zero template changes for the ~35 icons in use.                        |
+| 2   | Self-hosted Google Fonts      | Inter (300–700) + Merriweather (400/600) as 12 unicode-range-subset woff2 + `app/static/vendor/fonts/gf.css`. Georgia dropped from the request (system font). Removes fonts.googleapis.com/gstatic requests. |
+| 3   | Static cache busting          | `create_app` context processor wraps `url_for('static', ...)` to append `?v=<file mtime>` — deploys automatically invalidate browser caches across all 51 templates.                                         |
 
 Verified: rendered pages contain zero third-party asset references; vendored assets serve 200; auth suite 82 pass.
 
 ### ⬜ Pending (priority order)
 
-| # | Upgrade | Detail |
-| - | ------- | ------ |
-| 4 | Move inline timeline-picker CSS out of `base.html` (~150 lines) into a cached `.css` file | base.html shrinks; login page stops carrying picker styles. |
-| 5 | Flash messages: auto-dismiss success/info after N seconds + `aria-live="polite"` region | Users currently train to ignore persistent flashes. |
-| 6 | Case-picker feed fetch on first open (not page load) if not already deferred | Free per-page-load win; verify current behavior first. |
-| 7 | Table wrappers for mobile: `.table-wrap { overflow-x: auto }` applied to wide admin/list tables | Cheapest mobile fix; no per-page redesign. |
-| 8 | Login form: add `autocomplete="username"` / `autocomplete="current-password"` | Password-manager support. |
-| 9 | Reuse `task_status.js` spinner/disabled pattern for slow form buttons lacking pending state (PDF generation, RAG query) | Consistent loading feedback. |
+| #   | Upgrade                                                                                                                 | Detail                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 4   | Move inline timeline-picker CSS out of `base.html` (~150 lines) into a cached `.css` file                               | base.html shrinks; login page stops carrying picker styles. |
+| 5   | Flash messages: auto-dismiss success/info after N seconds + `aria-live="polite"` region                                 | Users currently train to ignore persistent flashes.         |
+| 6   | Case-picker feed fetch on first open (not page load) if not already deferred                                            | Free per-page-load win; verify current behavior first.      |
+| 7   | Table wrappers for mobile: `.table-wrap { overflow-x: auto }` applied to wide admin/list tables                         | Cheapest mobile fix; no per-page redesign.                  |
+| 8   | Login form: add `autocomplete="username"` / `autocomplete="current-password"`                                           | Password-manager support.                                   |
+| 9   | Reuse `task_status.js` spinner/disabled pattern for slow form buttons lacking pending state (PDF generation, RAG query) | Consistent loading feedback.                                |
 
 ### Explicitly rejected
 
