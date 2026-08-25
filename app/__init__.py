@@ -308,11 +308,18 @@ def create_app(db_uri: str | None = None):
     db.init_app(app)
 
     # Initialize security extensions
-    csrf.init_app(app)
+    #
+    # NOTE: talisman.init_app() must be called EXACTLY ONCE (above). A second
+    # bare call here (`talisman.init_app(app, force_https=False)`) silently
+    # reset the CSP to flask-talisman's default
+    # (`default-src 'self'; object-src 'none'`), stripping `script-src
+    # 'unsafe-inline'` and blocking every inline <script> block in the
+    # templates: FSSAI/CE lookup buttons stopped populating fields and the
+    # document editor booted with an undefined window.CASE_ID.
+    # Regression-pinned by tests/test_csp_headers.py.
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
     login_manager.login_message = "Please log in to access this page."
-    talisman.init_app(app, force_https=False)
 
     # Initialize Flask-Migrate
     Migrate(app, db)
