@@ -407,3 +407,6 @@ rust/Cargo.lock
 
 
 db/*.db
+
+nsa_render_backup.sql
+_tmp_*.py
