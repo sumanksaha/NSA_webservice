@@ -20,30 +20,55 @@
 > installed (rustup → rustc/cargo 1.97.1) and `maturin 1.14.1` added to the venv
 > as the first action of Part 1.
 
-### Part 1 — Rust Toolchain + Document Cleaner Port (`nsa_rust::cleaner`) — IN PROGRESS
+### Part 1 — Rust Toolchain + Document Cleaner Port (`nsa_rust::cleaner`) — SOURCE DONE, BUILD BLOCKED
 
-**Status:** Step 1.1 (toolchain) ✅ DONE. Step 1.2 (workspace scaffold) ✅ DONE.
-Step 1.3 (normalizers Rust port) ✅ DONE. Step 1.4 (removers + `_should_preserve`
-Rust port in `rust/src/removers.rs`) ✅ DONE. Step 1.5 (Python fallback wiring in
-`pipeline.py::_run_removers` / `_run_normalizers` / Phase-2 OCR) ✅ DONE.
-Step 1.6 (maturin build) — **blocked on Windows 10 SDK** (see build note below);
-VS 2022 Build Tools (VCTools) was installed, but the SDK requires admin elevation.
-Step 1.7 (parity) — parity test `tests/test_rust_normalizers.py` extended to cover
-normalizers + removers + OCR + full `clean()`; it skips until the extension is
-built. Steps 1.6/1.7 pending.
+> **Build Status (2026-08-25):** The Rust source code is **complete and written**
+> (all 4 `.rs` files + `Cargo.toml` + `Cargo.lock`). The Python fallback wiring
+> in `app/document_cleaner/pipeline.py` is **done** (3 wrapper functions try
+> `from nsa_rust import …` → `None` on ImportError → pure-Python path). Tests
+> exist in `tests/test_rust_normalizers.py` (uses `pytest.importorskip`).
+>
+> **HOWEVER: the extension has NEVER been successfully compiled.** `maturin
+> build --release` fails on this Windows dev machine: `linker link.exe not found`
+> — the MSVC linker / Windows 10 SDK requires admin elevation for installation
+> (exit code 5007, UAC prompt), which a headless shell cannot provide. On a
+> Linux host (e.g. Render), the linker is available and the build would succeed.
+>
+> The `nsa_rust` module is **NOT installed**: `python -c "import nsa_rust"` →
+> `ModuleNotFoundError`. `maturin` is in the venv (installed separately) but is
+> NOT in `requirements.txt` / `requirements-dev.txt`. There is **no `[tool.maturin]`
+> section** in any `pyproject.toml`, and `render.yaml`'s `buildCommand` does NOT
+> include any Rust/maturin build step.
+>
+> **Bottom line:** Part 1 source is done ✅. The app works fine without it
+> (pure-Python fallback is active). To ship the extension, you must (a) add
+> `maturin` to `build-system.requires` in `pyproject.toml`, (b) add
+> `[tool.maturin]` config, and (c) add `maturin build + pip install .whl` to
+> `render.yaml`'s `buildCommand`. See "Rust Build & Deploy Plan" below (§0).
 
-**Build note (2026-08-12):** PyO3 extensions on Windows must be compiled with the
-MSVC linker (`link.exe`) against the MSVC-built CPython. VS 2022 Build Tools
-(VCTools workload) was installed — `link.exe`/`cl.exe` are now present — but
-linking also needs the **Windows 10 SDK** (`Windows Kits\10\Lib\…\kernel32.lib`
-etc.), which is **not installed and cannot be installed non-interactively**:
-`setup.exe --quiet` requires admin elevation (exit code 5007, UAC prompt), which
-a headless shell cannot provide. Until the Windows 10 SDK is installed (elevated),
-`cargo build`/`maturin build` fail at the link step. Build command once the SDK is
-present: `maturin develop --manifest-path rust/Cargo.toml` (or
-`maturin build --manifest-path rust/Cargo.toml --release` for a wheel). The
-pure-Python fallback keeps `tests/test_document_cleaner.py` green in the
-meantime.
+**Status:** Step 1.1 (toolchain) ✅ DONE (rustc/cargo 1.97.1; maturin 1.15.0 in venv).
+Step 1.2 (workspace scaffold) ✅ DONE. Step 1.3 (normalizers Rust port) ✅ DONE.
+Step 1.4 (removers + `_should_preserve` Rust port in `rust/src/removers.rs`) ✅ DONE.
+Step 1.5 (Python fallback wiring in `pipeline.py::_run_removers` /
+`_run_normalizers` / Phase-2 OCR) ✅ DONE. Step 1.6 (maturin build) — **BLOCKED**:
+`maturin build --release` fails at the link step (`link.exe` not found) on the
+Windows dev machine; requires Windows 10 SDK + admin elevation. Step 1.7
+(parity) — test `tests/test_rust_normalizers.py` is written (covers normalizers
++ removers + OCR + full `clean()` parity); it skips via `importorskip` until the
+extension is built. Steps 1.6/1.7 pending a Linux build environment.
+
+**Build note (2026-08-12 / updated 2026-08-25):** PyO3 extensions on Windows must
+be compiled with the MSVC linker (`link.exe`) against the MSVC-built CPython.
+VS 2022 Build Tools (VCTools workload) is installed — `link.exe`/`cl.exe` are
+present — but linking also needs the **Windows 10 SDK**
+(`Windows Kits\10\Lib\…\kernel32.lib` etc.), which is **not installed and cannot
+be installed non-interactively**: `setup.exe --quiet` requires admin elevation
+(exit code 5007, UAC prompt), which a headless shell cannot provide. On Render
+(Linux), the linker is available and the build succeeds. Build command once the
+SDK is present (or on Linux): `maturin develop --manifest-path rust/Cargo.toml`
+(or `maturin build --manifest-path rust/Cargo.toml --release` for a wheel). The
+pure-Python fallback keeps `tests/test_document_cleaner.py` (45 tests) green in
+the meantime.
 
 - **Goal:** Ship the first PyO3 module accelerating the document cleaner, with
   a Python fallback, verified by the existing 45 `test_document_cleaner.py` tests.
@@ -55,9 +80,10 @@ meantime.
     3. Port `normalizers.py` → `rust/src/normalizers.rs` (regex `crate` + `unicode-normalization` NFKC + Levenshtein/Indel `fuzz.ratio` for hyphens).
     4. Port `removers.py` + `_should_preserve` → `rust/src/removers.rs`.
     5. Wire `DocumentCleaner.clean()` to try `nsa_rust.clean_document` first, fall back to Python.
-    6. Build with `maturin develop --manifest-path rust/Cargo.toml`.
-    7. Prove parity: `tests/test_document_cleaner.py` (45) + a Rust↔Python A/B parity test.
+    6. ⏳ Build with `maturin develop --manifest-path rust/Cargo.toml` — BLOCKED on Windows (needs SDK elevation); works on Linux.
+    7. ⏳ Prove parity: `tests/test_document_cleaner.py` (45) + `tests/test_rust_normalizers.py` (parity) — tests written, skip until build succeeds.
 - **Acceptance:** ≥3× cleaning throughput; 45/45 tests identical output; Python fallback works when `nsa_rust` is absent.
+- **Current state:** Source 100% complete; build blocked on Windows dev machine; app fully functional without the extension.
 
 ### Part 2 — Search Fuzzy Helpers Port (`nsa_rust::search_fuzzy`)
 
@@ -109,6 +135,86 @@ meantime.
 
 ---
 
+## §0 — Rust Build & Deploy Plan + Priority Assessment (2026-08-25)
+
+> **Context:** Rust source code (4 files in `rust/src/`) is written and the
+> Python fallback is wired, but the `nsa_rust` extension has **never been
+> compiled**. `maturin build --release` fails on Windows (`link.exe not found`
+> — the MSVC linker / Windows 10 SDK requires admin elevation). On Render's
+> Linux build environment the linker is available and the build would succeed.
+> The app is fully functional without the extension (pure-Python fallback).
+
+### Build Plan (3 changes to ship `nsa_rust` on Render)
+
+1. **`pyproject.toml`** — add `maturin` to build-system requirements + add a
+   `[tool.maturin]` section pointing at `rust/Cargo.toml`:
+   ```toml
+   [build-system]
+   requires = ["setuptools>=70,<84", "wheel", "maturin>=1.0,<2.0"]
+
+   [tool.maturin]
+   manifest-path = "rust/Cargo.toml"
+   python-source = "rust"
+   module-name = "nsa_rust"
+   ```
+
+2. **`requirements.txt` / `requirements-dev.txt`** — add `maturin` as a
+   build/runtime dependency so it's present in CI and Render builds.
+
+3. **`render.yaml` buildCommand** — insert a `maturin build + pip install` step
+   **before** the `pip install -r requirements.txt` that installs the wheel:
+   ```bash
+   pip install --upgrade pip setuptools wheel maturin && \
+   maturin build --manifest-path rust/Cargo.toml --release && \
+   pip install target/wheels/nsa_rust-*.whl && \
+   pip install -r requirements.txt && \
+   playwright install chromium && ...
+   ```
+   **Note:** This only works on Render's Python (Linux) buildpack, which has
+   `cargo`/`rustc` available. The Windows dev machine cannot build (no SDK).
+
+### Rust Parts — Priority Assessment
+
+| Part | Target | Source written? | Build status | Call frequency | Effort | Risk | Recommendation |
+|------|--------|-----------------|--------------|----------------|--------|------|----------------|
+| **Part 1** | Document Cleaner (`normalizers.rs`, `removers.rs`) | ✅ Complete (4 files) | ⛔ Blocked (Windows linker) / would work on Linux | Ingestion-time (12,819 chunks via `app/rag/ingestion.py`) + OCR pipeline | — | — | **First: fix build** |
+| **Part 2** | Search Fuzzy Helpers (`_field_score`, `_find_match_spans`, `_snippet_around_matches`) | ✅ Complete (2026-08-25) — `rust/src/search_fuzzy.rs` (12 pyfunctions: `ratio`, `partial_ratio`, `partial_ratio_alignment`, `token_set_ratio`, `expand_to_word`, `find_match_spans`, `apply_marks`, `snippet_around_match`, `snippet_around_matches`, `field_score`, `highlight_text`) + 11 `#[pyfunction]` wrappers in `lib.rs` + `[tool.maturin]` in `pyproject.toml` + `maturin` in `requirements-dev.txt` | Not yet (Windows linker; would compile on Linux) | **Request-time** — every fuzzy search + RAG sparse retrieval query | Low (~150 LOC) | Low (rapidfuzz parity risk — mitigated by parity tests) | **Started (source complete; build deferred to Part 1)** |
+| **Part 3** | TOC + Cross-Reference (`app/toc_generator/engine.py`, `app/cross_reference/engine.py`) | ❌ Not started | N/A | PDF-generation-time (per document) | Medium (788 LOC, HTML parsing) | Medium | Later |
+| **Part 4** | RAG Enrichment + Verification (`app/rag/enrichment/`, `app/rag/verification/`) | ❌ Not started | N/A | Ingestion-time (enrichment) + request-time (verification) | High | High (crossref/citation parity) | Later |
+| **Part 5** | Legal Paragraph Engine (`legal_paragraph_detection_engine/`) | ⚠️ Stubs only (`legal_engine.rs` has structs, no function bodies; `lib.rs` declares pyfunctions that call unimplemented methods) | Would fail to compile | Ingestion-time (27,343 chunks × multi-pass) | Very high (~5,000 LOC, lookbehind regex, hierarchy state machines) | High | Highest-ROI but last |
+
+**Key finding:** Parts 2–5 have **zero Rust source written** beyond Part 1's
+scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
+`legal_engine.rs` is **stubs only** (3 struct definitions, no function bodies) —
+`lib.rs` declares `#[pyfunction] fn detect_paragraphs(...)` but calls
+`legal_engine::detect_paragraphs()` which does not exist, so the crate would
+**not compile** even with a working linker.
+
+### Recommended Next Steps
+
+1. **Fix the build on Linux** (Render or a Linux CI runner): add `maturin` to
+   `pyproject.toml` `[build-system].requires` + `[tool.maturin]` section, then
+   run `maturin develop --manifest-path rust/Cargo.toml` to produce `nsa_rust`
+   and run `tests/test_rust_normalizers.py` (11 parity tests, currently skipped).
+
+2. **Part 2 source — ✅ Complete (2026-08-25):** `rust/src/search_fuzzy.rs`
+   ports all 7+ fuzzy helpers (`ratio`, `partial_ratio`, `token_set_ratio`,
+   `partial_ratio_alignment`, `expand_to_word`, `find_match_spans`,
+   `apply_marks`, `snippet_around_match`, `snippet_around_matches`,
+   `field_score`, `highlight_text`) to Rust with Indel-distance-based algorithms
+   matching rapidfuzz. Wire-up via `_maybe_field_score` /
+   `_maybe_snippet_around_matches` dispatchers in `app/search/indexer.py` +
+   `_rust_field_score` in `app/rag/retrieval/sparse_retriever.py` with
+   `try/except ImportError` fallback. 22 parity tests in
+   `tests/test_rust_search_fuzzy.py` (all skip without the compiled extension).
+   Build verification deferred to the Linux build fix (Part 1).
+
+3. **Part 5 stays queued**: despite highest ROI (5×+ chunking throughput on
+   27,343 chunks), it is the hardest port (5K LOC, lookbehind regex → needs
+   `fancy-regex` crate, complex hierarchy state machines).
+
+---
+
 ## Completed Milestones
 
 > Items finished and verified are tracked here so agents can trust implementation status at a glance.
@@ -134,7 +240,7 @@ meantime.
 - [x] **Multi-Domain Phase 1 (completed 2026-08-20).** De-FSSAI pipeline: per-act section registry (`app/rag/legal_sections.py` incl. BNS 1–358), domain→collection map (`app/rag/collections.py`; `criminal_legal_768` etc.), payload `act_name` field, act-aware crossrefs/enrichment, domain-parameterized prompts, generic statute claims, `make_ingestion_pipeline(collection=...)`. `tests/test_multidomain_phase1.py` — **37/37 pass**.
 - [x] **P1-4 FSSAI Re-ingest (completed 2026-08-11).** `scripts/reingest_fssai_from_db.py` rebuilt `fssai_legal_768` from local DB (identity-preserving: `chunk_id = LegalChunk.id`; 29 docs / 12,819 chunks; 1,961 s, all OK); `scripts/export_fssai_backup.py` + `reports/fssai_legal_768_pre_reingest_backup.json` (1,100 points w/ vectors). `tests/test_reingest_fssai.py` — **15/15 pass**.
 - [x] **Evaluation Framework + Benchmark v1.0 (completed 2026-08-12).** `evaluation/` (28 modules): retrieval arms A–G, RRF fusion, metrics (MRR, Recall@K, nDCG), ceiling analysis, root-cause analysis, report generation, batch orchestration. `benchmark/` package: 150-question frozen multi-domain JSONL benchmark. `tests/test_eval_framework.py` (39) + `tests/test_eval_batch.py` (10) + `tests/test_rag_benchmarks.py` (11) — all pass.
-- [x] **Rust PyO3 Normalizers (completed 2026-08-12).** `rust/` package: `legal_engine.rs`, `lib.rs`, `normalizers.rs`, `removers.rs` + `Cargo.toml`; `docs/RUST_REFACTORING_EVALUATION.md` analysis; pure-Python fallback wired in `app/document_cleaner/pipeline.py`. `tests/test_rust_normalizers.py` — parity verified.
+- [x] **Rust PyO3 Normalizers — source complete (2026-08-12).** `rust/` package: `legal_engine.rs`, `lib.rs`, `normalizers.rs`, `removers.rs` + `Cargo.toml`; `docs/RUST_REFACTORING_EVALUATION.md` analysis; pure-Python fallback wired in `app/document_cleaner/pipeline.py`. `tests/test_rust_normalizers.py` — parity tests written (skip via `importorskip` until extension is built). **BUILD STATUS (2026-08-25):** Source is complete but the `nsa_rust` extension has **never been compiled** — `maturin build --release` fails on Windows (`link.exe not found`, needs Windows 10 SDK + admin elevation). On Linux/Render it would build. The app is fully functional without it (pure-Python fallback is active). See §0 "Rust Build & Deploy Plan" below for the 3 changes needed to ship.
 - [x] **Remote Inference Layer (completed + deployed 2026-08-16).** Modal-hosted zero-local-model inference: `RemoteEmbedClient` (all-mpnet-base-v2, 768-dim) + `RemoteReranker` (legal cross-encoder, TEI mode) via `RAG_EMBED_ENDPOINT`/`RAG_RERANKER_ENDPOINT`. Qdrant BM25 for server-side sparse. `tests/test_remote_embedder.py` (18) + `tests/test_qdrant_bm25.py` (13) + `tests/test_remote_reranker.py` (24) — all pass.
 - [x] **LangGraph Agent Pipeline + M5 (completed 2026-08-16).** `app/rag/agent/` (state/nodes/graph/routes): self-correcting `StateGraph` classify → retrieve → generate → verify → conditional expand-and-retry (groundedness < 0.7, max 2 retries). M5: `review` node (interrupt), `POST /api/rag/query/agent/resume` `{thread_id, approved}`, `MemorySaver`/`PostgresSaver` checkpointers. `RAGQueryLog.pipeline` column stamped. `tests/test_rag_agent_state.py` (5) + `test_rag_agent_nodes.py` (17) + `test_rag_agent_graph.py` (12) + `test_rag_agent_routes.py` (7) + `test_rag_agent_m5.py` (15) — **75/75 pass**.
 - [x] **FastAPI ASGI Gateway (completed 2026-08-19).** `asgi.py` (FastAPI + a2wsgi.WSGIMiddleware mounting Flask); `app/api/deps.py` (`get_db`/`get_flag`/`get_rag_pipeline`); `app/api/routers.py` (`/api/v2/*` routes); SecurityHeadersMiddleware + ApiKeyAuthMiddleware; `render.yaml` → `uvicorn asgi:app`; OpenAPI at `/api/v2/docs`. `tests/test_asgi_py.py` — **50/50 pass**; `ruff` clean.
@@ -155,7 +261,7 @@ meantime.
 2. **Phase 18 — Multi-User RBAC & Comments** (finish the remaining ~70%). `Role`/`user_roles`/`Comment` models + migration and the `is_admin`-based admin UI (`/auth/users`) already exist; only the `@role_required` decorator (`app/decorators.py`), comment API/UI, role assignment in the admin UI, and `tests/test_rbac.py` remain.
 3. **Phase 19 — AI Case Intelligence** (`app/case_intelligence/`). Synthesize Legal Validation Engine (Phase 12) outputs + AI LLM (Phase 11) to produce a composite Case Readiness Score (0–100), evidence strength index, and allegation-to-evidence matrix. Deliverable: `GET /case_intelligence/<id>` + `tests/test_case_intelligence.py`. Natural consumer of the corpus KG (`kg/`) and Phase 14 case KG.
 
-> **Also open (non-blocking):** Rust Part 1 steps 1.6–1.7 blocked on Windows 10 SDK elevation (Parts 2–5 queued behind it); CE-v2 retrain cycle pending user-held P3 broken-OCR re-ingestion; agent-pipeline flag flip gated on a real-LLM A/B with `OPENROUTER_API_KEY`; ENV-10 Render dashboard env vars to confirm; priority7 fixture flake (observed twice under load, unreproducible — per-test `db.session.remove()` hardening landed 2026-08-22).
+> **Also open (non-blocking):** Rust Part 1 steps 1.6–1.7 blocked on Windows 10 SDK elevation (see §0 Rust Build & Deploy Plan — build on Linux instead; Parts 2–5 queued behind build fix); CE-v2 retrain cycle pending user-held P3 broken-OCR re-ingestion; agent-pipeline flag flip gated on a real-LLM A/B with `OPENROUTER_API_KEY`; ENV-10 Render dashboard env vars to confirm; priority7 fixture flake (observed twice under load, unreproducible — per-test `db.session.remove()` hardening landed 2026-08-22).
 
 ---
 

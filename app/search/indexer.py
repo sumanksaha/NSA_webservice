@@ -51,6 +51,45 @@ ENTITY_TYPES = frozenset({
 
 _FTS_TABLE = "search_index"
 
+# ---------------------------------------------------------------------------
+# Rust acceleration (Part 2) — lazy import of nsa_rust fuzzy helpers.
+# On ImportError the pure-Python rapidfuzz-backed implementations below are
+# used as fallback.  See tests/test_rust_search_fuzzy.py for parity tests.
+# ---------------------------------------------------------------------------
+
+try:
+    from nsa_rust import field_score as _rust_field_score
+    from nsa_rust import highlight_text as _rust_highlight_text
+    from nsa_rust import snippet_around_matches as _rust_snippet_around_matches
+except ImportError:  # pragma: no cover - depends on build environment
+    _rust_field_score = None
+    _rust_snippet_around_matches = None
+    _rust_highlight_text = None
+    _rust_snippet_around_matches = None
+    _rust_highlight_text = None
+
+
+def _maybe_field_score(query: str, text: str) -> float:
+    """Best fuzzy similarity (0–100). Uses Rust when available, else Python."""
+    if _rust_field_score is not None:
+        try:
+            return _rust_field_score(query, text)
+        except Exception:
+            pass
+    return _field_score(query, text)
+
+
+def _maybe_snippet_around_matches(
+    query: str, text: str, width: int = 80, fuzzy_word_threshold: float = 60.0
+) -> str:
+    """Word-bounded <mark>-highlighted snippet. Uses Rust when available."""
+    if _rust_snippet_around_matches is not None:
+        try:
+            return _rust_snippet_around_matches(query, text, width, fuzzy_word_threshold)
+        except Exception:
+            pass
+    return _snippet_around_matches(query, text, width, fuzzy_word_threshold)
+
 _CREATE_FTS_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS " + _FTS_TABLE + " USING fts5(\n"
     "    entity_type UNINDEXED,\n"
@@ -536,6 +575,11 @@ def _highlight_title(query, title):
         return title
     if _FTS5_OPERATOR_RE.search(query):
         return title
+    if _rust_highlight_text is not None:
+        try:
+            return _rust_highlight_text(query, title, 60.0)
+        except Exception:
+            pass
     return _highlight_text(query, title)
 
 
@@ -571,13 +615,13 @@ def fuzzy_search_fallback(query, entity_type=None, limit=20, threshold=65.0):
         records = db.session.execute(db.select(model)).scalars().all()
         for record in records:
             title, content = _build_doc(record, etype)
-            title_score = _field_score(query, title)
-            content_score = _field_score(query, content)
+            title_score = _maybe_field_score(query, title)
+            content_score = _maybe_field_score(query, content)
             combined = f"{title} {content}".strip()
             score = max(
                 title_score,
                 content_score,
-                _field_score(query, combined),
+                _maybe_field_score(query, combined),
             )
             if score < threshold:
                 continue
@@ -585,9 +629,9 @@ def fuzzy_search_fallback(query, entity_type=None, limit=20, threshold=65.0):
             # Prefer content context; fall back to the title only when the
             # match lives there (e.g. a case-number query).
             if content and content_score >= title_score:
-                snippet = _snippet_around_matches(query, content)
+                snippet = _maybe_snippet_around_matches(query, content)
             elif title:
-                snippet = _snippet_around_matches(query, title)
+                snippet = _maybe_snippet_around_matches(query, title)
             else:
                 snippet = ""
 
@@ -692,7 +736,7 @@ def _search_like(query, entity_type, limit):
                 "entity_type": etype,
                 "entity_id": str(row.id),
                 "title": _highlight_title(query, title) or title,
-                "snippet": _snippet_around_matches(query, content),
+                "snippet": _maybe_snippet_around_matches(query, content),
             })
 
     return results

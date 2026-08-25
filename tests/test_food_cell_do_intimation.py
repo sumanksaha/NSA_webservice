@@ -103,13 +103,17 @@ def _clean_instance(app):
 
 
 def _patch_sync_fns():
-    """Set module-level sync function cache to no-op stubs."""
+    """Stub the shared sync seam for food_cell tests.
+
+    Food_cell now delegates triple-target sync to
+    :func:`app.services.sync_orchestrator.sync_row`. Patch the name as bound
+    in this module (a ``from ... import sync_row`` binding), not the source
+    module, so calls inside ``generate_and_forward_do_intimation`` resolve to
+    the stub. Returns a no-op success SyncResult.
+    """
     import app.food_cell.services as fcs
 
-    fcs._sync_lock = True
-    fcs._sync_to_sheets = lambda *a, **kw: True
-    fcs._sync_to_airtable = lambda *a, **kw: True
-    fcs._sync_to_excel = lambda *a, **kw: True
+    fcs.sync_row = lambda *a, **k: {"sheets": True, "airtable": True, "excel": True}
 
 
 # --------------------------------------------------------------------------- #
@@ -173,11 +177,12 @@ class TestPdfGeneration:
     """Test 2: PDF bytes are generated from HTML."""
 
     def test_pdf_bytes_from_html(self, sample, app):
-        from app.food_cell.services import _render_html, _render_pdf
+        from app.food_cell.renderer import DODocumentRenderer
 
         with app.app_context():
-            html = _render_html(sample)
-            pdf_path = _render_pdf(html, sample)
+            renderer = DODocumentRenderer()
+            html = renderer.render_html(sample)
+            pdf_path = renderer.render_pdf(html, sample)
 
         assert pdf_path.endswith(".pdf")
         assert os.path.isfile(pdf_path)

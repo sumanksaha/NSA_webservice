@@ -405,3 +405,5 @@ rust/target/
 rust/Cargo.lock
 *.pyd
 
+
+db/*.db

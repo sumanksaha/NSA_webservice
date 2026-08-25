@@ -19,6 +19,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > (~30% — RBAC decorator, comments, role assignment), Phase 19, Rust Parts 1.6+ / 2–5,
 > CE-v2 retrain.
 
+### Added (2026-08-25)
+
+#### FSSAI Lookup → Supabase Postgres Migration — Step 1: Models
+
+- **`app/models/lookup.py`**: `FssaiLicense` (table `fssai_licenses`, PK `license_no`) and
+  `FssaiRegistration` (table `fssai_registrations`, PK `registration_no`) — static
+  reference-data models backing `lookup_fssai()` in `app/utils/lookup.py`
+  (per `docs/FSSAI_LOOKUP_POSTGRES_PLAN.md`). Both registered in the
+  `app/models/__init__.py` re-export.
+- **All columns are `Text`** to match the SQLite sources exactly; data columns nullable so
+  the bulk loader cannot fail on sparse rows. In particular `expiry_date` stays a
+  `DD-MM-YYYY` pass-through string (callers never parse or compare it) — a typed `Date`
+  column would change the API response contract.
+- The PK gives the exact-match lookup index for free (no additional indexes — lookups are
+  exact-match only, no fuzzy/LIKE paths).
+- Module docstring documents the **historical naming inversion** (prefix `"1"` =
+  _Registration-category_ FBOs resolving to the _license_ table, and vice versa for `"2"`)
+  with an explicit do-not-swap warning, per the research findings.
+- **Dormant by design**: nothing reads these tables until Step 3 (`lookup_fssai()` rewrite)
+  and Step 4 (Alembic migration + `.db` removal) land together — zero-risk to merge alone.
+- Verified: in-memory round-trip via `db.session.get()` (hit + not-found → `None`);
+  `ruff check` + `ruff format --check` clean; `tests/test_step1.py` + `tests/test_step3.py`
+  **31/31 pass** (no regressions). Full primary-source verification of every plan claim:
+  `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md`.
+
+### Added (2026-08-25, later)
+
+#### FSSAI Lookup → Supabase Postgres Migration — Steps 2–6: Complete
+
+- **`scripts/load_fssai_lookup.py`** (Step 2): idempotent bulk loader — read-only SQLite
+  sources → `INSERT … ON CONFLICT (<pk>) DO UPDATE` upserts into Postgres via `DATABASE_URL`
+  (`--dry-run`, `--batch-size`, `--db-url`; dialect-aware postgres/sqlite insert). Tests:
+  `tests/test_load_fssai_lookup.py` (offline SQLite-target fixtures).
+- **`migrations/versions/add_fssai_lookup_tables.py`** (Step 4a): creates `fssai_licenses`
+    - `fssai_registrations` (all `Text`, PK only, no extra indexes); verified on a throwaway
+      SQLite DB and applied to Supabase (head `add_fssai_lookup_tables`).
+- **`app/utils/lookup.py` rewritten** (Step 3): `lookup_fssai()` now resolves prefix
+  `"1"`/`"2"` via `db.session.get(FssaiLicense/FssaiRegistration, no)` — return contract
+  byte-exact incl. error strings and `source` values; `_resolve_db_path()` and the
+  `LICENSE_DB_PATH`/`REGISTRATION_DB_PATH` constants deleted; `DB_DIR` retained for the
+  KMC lock files used by `lookup_ce()`. Tests: `tests/test_lookup_fssai_postgres.py`.
+- **Step 4b**: `db/license_data.db` / `db/registration_data.db` (~21 MB) removed from git;
+  local copies kept as refresh inputs; `db/*.db` gitignored. **Step 5**: refresh runbook at
+  `docs/FSSAI_LOOKUP_REFRESH.md`.
+- **Live verification against Supabase**: row counts exact (22,599 / 57,453); known-number
+  hits through the real code path for both prefixes; not-found/bad-prefix/empty error paths
+  byte-exact; 400 randomly sampled PKs compared column-by-column against the original SQLite
+  files — **0 mismatches**. Targeted suites 39/39 pass.
+
 ### Added (2026-08-23)
 
 #### Priority 5 — Cloudinary Testing & Hardening
@@ -395,6 +444,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 1.0.0      | 2026-01-01 | Initial release                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 1.0.1      | 2026-07-26 | Security updates (authentication, CSRF, CSP, TLS fix)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Unreleased | 2026-08-23 | CI/CD gates G1–G14 complete (deploy gating, staging env, pre-deploy migrations, health check, full security blocking Bandit+Safety+pip-audit, coverage gate fail_under=60, Docker ASGI path, release automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy serialization, dev-dep scanning — 46 test_cicd_gates.py tests). Cloudinary hardening (CLOUDINARY_URL parsing, tenacity retries, /health/cloudinary). ENV-6/7/8 resolved. OCR Phases B–E complete (45 tests). Phase 15 Analytics complete (15 tests). RAG UI gaps 1–8 resolved. Rust Part 1 scaffold complete. |
+| Unreleased | 2026-08-25 | FSSAI lookup Postgres migration started: Step 1 models landed (`app/models/lookup.py`: `FssaiLicense` / `FssaiRegistration`, Text PKs, registered in `app/models`; dormant until Steps 3+4). Primary-source plan verification in `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` (16 claims, live row counts 22,599 / 57,453).                                                                                                                                                                                                                                                                                   |
 
 ---
 

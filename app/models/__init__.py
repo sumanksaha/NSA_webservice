@@ -30,6 +30,7 @@ from app.models.enrichment import (
 from app.models.food_cell import DoIntimation
 from app.models.inspection import FSO, AuditLog, Inspection
 from app.models.issue import FboIssue, FboIssueAudit
+from app.models.lookup import FssaiLicense, FssaiRegistration
 from app.models.ocr import (
     ConflictLog,
     FieldAuthority,

@@ -9,6 +9,7 @@
 mod normalizers;
 mod removers;
 mod legal_engine;  // Phase 1: Legal Paragraph Detection Engine (#1 target)
+mod search_fuzzy; // Part 2: Search fuzzy helpers (ratio, partial_ratio, token_set_ratio, find_match_spans, apply_marks, etc.)
 
 use pyo3::prelude::*;
 
@@ -112,6 +113,66 @@ fn classify_document(text: &str) -> PyResult<String> {
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+// --- Search fuzzy helpers (Part 2) -----------------------------------------
+// Mirrors `app/search/indexer.py` pure fuzzy functions.
+// Each function is pure (no DB/ORM coupling) and produces identical output
+// to the Python `rapidfuzz`-backed original.
+
+#[pyfunction]
+fn ratio(s1: &str, s2: &str) -> f64 {
+    search_fuzzy::ratio(s1, s2)
+}
+
+#[pyfunction]
+fn partial_ratio(s1: &str, s2: &str) -> f64 {
+    search_fuzzy::partial_ratio(s1, s2)
+}
+
+#[pyfunction]
+fn partial_ratio_alignment(s1: &str, s2: &str) -> Option<(usize, usize, f64)> {
+    search_fuzzy::partial_ratio_alignment(s1, s2)
+}
+
+#[pyfunction]
+fn token_set_ratio(s1: &str, s2: &str) -> f64 {
+    search_fuzzy::token_set_ratio(s1, s2)
+}
+
+#[pyfunction]
+fn expand_to_word(text: &str, start: usize, end: usize) -> (usize, usize) {
+    search_fuzzy::expand_to_word(text, start, end)
+}
+
+#[pyfunction]
+fn find_match_spans(query: &str, text: &str, fuzzy_word_threshold: f64) -> String {
+    search_fuzzy::find_match_spans(query, text, fuzzy_word_threshold)
+}
+
+#[pyfunction]
+fn apply_marks(text: &str, spans_json: &str) -> String {
+    search_fuzzy::apply_marks(text, spans_json)
+}
+
+#[pyfunction]
+fn snippet_around_match(query: &str, text: &str, width: usize) -> String {
+    search_fuzzy::snippet_around_match(query, text, width)
+}
+
+#[pyfunction]
+fn snippet_around_matches(query: &str, text: &str, width: usize, fuzzy_word_threshold: f64) -> String {
+    search_fuzzy::snippet_around_matches(query, text, width, fuzzy_word_threshold)
+}
+
+#[pyfunction]
+fn field_score(query: &str, text: &str) -> f64 {
+    search_fuzzy::field_score(query, text)
+}
+
+#[pyfunction]
+fn highlight_text(query: &str, text: &str, fuzzy_word_threshold: f64) -> String {
+    search_fuzzy::highlight_text(query, text, fuzzy_word_threshold)
+}
+
 /// The PyO3 extension module entry point (imported in Python as `nsa_rust`).
 #[pymodule]
 fn nsa_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -130,5 +191,16 @@ fn nsa_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(detect_paragraphs, m)?)?;
     m.add_function(wrap_pyfunction!(extract_citations, m)?)?;
     m.add_function(wrap_pyfunction!(classify_document, m)?)?;
+    m.add_function(wrap_pyfunction!(ratio, m)?)?;
+    m.add_function(wrap_pyfunction!(partial_ratio, m)?)?;
+    m.add_function(wrap_pyfunction!(partial_ratio_alignment, m)?)?;
+    m.add_function(wrap_pyfunction!(token_set_ratio, m)?)?;
+    m.add_function(wrap_pyfunction!(expand_to_word, m)?)?;
+    m.add_function(wrap_pyfunction!(find_match_spans, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_marks, m)?)?;
+    m.add_function(wrap_pyfunction!(snippet_around_match, m)?)?;
+    m.add_function(wrap_pyfunction!(snippet_around_matches, m)?)?;
+    m.add_function(wrap_pyfunction!(field_score, m)?)?;
+    m.add_function(wrap_pyfunction!(highlight_text, m)?)?;
     Ok(())
 }

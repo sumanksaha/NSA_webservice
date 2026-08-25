@@ -1,8 +1,6 @@
 import json
 import logging
-import os
 import re
-import sqlite3
 import ssl
 import time
 from pathlib import Path
@@ -22,24 +20,11 @@ except ImportError:
     fcntl = None
 
 BASE_DIR = Path(__file__).parent.resolve()
-# app/utils is nested two levels deep from the workspace root
-WORKSPACE_DIR = (Path(__file__).parent.parent.parent).resolve()
-# Robust DB path discovery: search relative to this file, workspace, instance, and current working directory
-def _resolve_db_path(filename: str) -> Path:
-    candidates = [
-        WORKSPACE_DIR / "db" / filename,
-        Path.cwd() / "db" / filename,
-        Path(__file__).parent.parent / "db" / filename,
-        Path(os.environ.get("INSTANCE_PATH", "")) / filename if os.environ.get("INSTANCE_PATH") else None,
-    ]
-    for c in candidates:
-        if c and c.exists():
-            return c
-    return WORKSPACE_DIR / "db" / filename
-
-DB_DIR = WORKSPACE_DIR / "db"
-LICENSE_DB_PATH = _resolve_db_path("license_data.db")
-REGISTRATION_DB_PATH = _resolve_db_path("registration_data.db")
+# app/utils is nested two levels deep from the workspace root.
+# Backs KMC rate-limit lock files (.kmc_lookup_lock / .kmc_last_request_time)
+# used by lookup_ce(); must remain writable. The FSSAI reference data itself
+# now lives in Postgres (app/models/lookup.py) — see docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md.
+DB_DIR = (Path(__file__).parent.parent.parent).resolve() / "db"
 
 # Rate limiting for KMC CE lookup (govt website - 40 second gap required)
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests
@@ -48,50 +33,48 @@ _KMC_LAST_REQUEST_TIME_PATH = DB_DIR / ".kmc_last_request_time"
 
 
 def lookup_fssai(license_no: str):
-    """Look up an FSSAI License/Registration number.
-    Numbers starting with '1' are Registration-category FBOs -> license_records in license_data.db.
-    Numbers starting with '2' are License-category FBOs -> registration_records in registration_data.db.
-    Returns a dict with companyName/fullAddress/expiryDate/source, or None if not found/error.
+    """Look up an FSSAI License/Registration number (Postgres-backed).
+
+    Exact primary-key match on the reference tables ``fssai_licenses`` /
+    ``fssai_registrations`` (:mod:`app.models.lookup`), refreshed via
+    ``scripts/load_fssai_lookup.py``.
+
+    .. warning:: Naming inversion (historical, intentional): numbers starting
+       with ``'1'`` belong to *Registration-category* FBOs even though they
+       resolve to the **license** table (``fssai_licenses``), and vice versa
+       for ``'2'`` -> ``fssai_registrations``.  The mapping is mechanical,
+       not semantic — do not swap the tables.
+
+    Returns ``(dict | None, error | None)``: on success a dict with
+    companyName/fullAddress/expiryDate/source, else ``(None, error)``.
+    Requires an active Flask application context (all callers are route
+    handlers).
     """
+    # Local imports avoid import cycles during app factory bootstrap
+    # (blueprints import this module before extensions are fully wired).
+    from app.extensions import db
+    from app.models.lookup import FssaiLicense, FssaiRegistration
+
     if not license_no:
         return None, "License/Registration number is required."
 
     prefix = license_no[0]
     if prefix == "1":
-        db_path, table, col, source = LICENSE_DB_PATH, "license_records", "license_no", "license_data"
+        model, source = FssaiLicense, "license_data"
     elif prefix == "2":
-        db_path, table, col, source = (
-            REGISTRATION_DB_PATH,
-            "registration_records",
-            "registration_no",
-            "registration_data",
-        )
+        model, source = FssaiRegistration, "registration_data"
     else:
         return None, "Unrecognized License/Registration number prefix (expected to start with 1 or 2)."
 
-    if not Path(db_path).exists():
-        return None, f"Lookup database not found: {Path(db_path).name}."
-
-    conn = sqlite3.connect(db_path)
-    try:
-        conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            f"SELECT company_name, full_address, expiry_date FROM {table} WHERE {col} = ?",
-            (license_no,),
-        ).fetchone()
-    except Exception as e:
-        logger.error("FSSAI lookup query failed: %s", e)
-        return None, f"Database error: {e!s}"
-    finally:
-        conn.close()
+    row = db.session.get(model, license_no)  # PK lookup; identity-map cached
 
     if not row:
         return None, "License/Registration number not found."
 
     return {
-        "companyName": row["company_name"],
-        "fullAddress": row["full_address"],
-        "expiryDate": row["expiry_date"],
+        "companyName": row.company_name,
+        "fullAddress": row.full_address,
+        "expiryDate": row.expiry_date,
         "source": source,
     }, None
 

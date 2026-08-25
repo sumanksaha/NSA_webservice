@@ -13,7 +13,7 @@ from app.models import FSO, CaseFile, Sample
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
-from app.sample.sample_utils import generate_sample_code
+from app.sample.sample_utils import generate_sample_code, sample_to_sync_row
 from app.services.sync_orchestrator import sync_row
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
@@ -197,20 +197,7 @@ def create_sample():
 
         # Sync to Google Sheets (Step 5)
         try:
-            row_dict = {
-                "id": sample.id,
-                "sample_code": sample.sample_code,
-                "sample_name": sample.sample_name,
-                "sample_type": sample.sample_type or "",
-                "fso_name": sample.fso_name,
-                "collection_date": sample.collection_date,
-                "submission_date": sample.submission_date or "",
-                "retailer_fssai": sample.retailer_fssai or "",
-                "retailer_name": sample.retailer_name or "",
-                "price": sample.price or "",
-                "created_at": sample.created_at.isoformat() if sample.created_at else "",
-                "synced_at": "",
-            }
+            row_dict = sample_to_sync_row(sample)
             result = sync_row("sample_repo", row_dict, entity_id=sample.id)
             if result["sheets"]:
                 # Update synced_at timestamp
@@ -321,20 +308,7 @@ def update_sample(sample_id):
 
         # Sync to Google Sheets (Step 5)
         try:
-            row_dict = {
-                "id": sample.id,
-                "sample_code": sample.sample_code,
-                "sample_name": sample.sample_name,
-                "sample_type": sample.sample_type or "",
-                "fso_name": sample.fso_name,
-                "collection_date": sample.collection_date,
-                "submission_date": sample.submission_date or "",
-                "retailer_fssai": sample.retailer_fssai or "",
-                "retailer_name": sample.retailer_name or "",
-                "price": sample.price or "",
-                "created_at": sample.created_at.isoformat() if sample.created_at else "",
-                "synced_at": datetime.now(UTC).isoformat(),
-            }
+            row_dict = sample_to_sync_row(sample, synced_at=datetime.now(UTC).isoformat())
             sync_row("sample_repo", row_dict, entity_id=sample.id)
         except Exception as e:
             current_app.logger.warning(f"Sample update sync failed: {e}")
@@ -342,7 +316,9 @@ def update_sample(sample_id):
         return jsonify({"message": "Sample updated successfully"}), 200
     except StaleDataError:
         db.session.rollback()
-        return jsonify({"error": "Conflict: this sample was modified by another user. Please reload and try again."}), 409
+        return jsonify({
+            "error": "Conflict: this sample was modified by another user. Please reload and try again."
+        }), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update sample: {e!s}"}), 500
@@ -361,7 +337,9 @@ def delete_sample(sample_id):
         return jsonify({"message": "Sample deleted successfully"}), 200
     except StaleDataError:
         db.session.rollback()
-        return jsonify({"error": "Conflict: this sample was modified by another user. Please reload and try again."}), 409
+        return jsonify({
+            "error": "Conflict: this sample was modified by another user. Please reload and try again."
+        }), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete sample: {e!s}"}), 500

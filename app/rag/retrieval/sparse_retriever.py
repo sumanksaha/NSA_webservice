@@ -29,6 +29,15 @@ from app.rag.retrieval.result import RetrievedChunk, SearchResult
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Rust acceleration (Part 2) — lazy import of nsa_rust.field_score.
+# On ImportError the pure-Python rapidfuzz-backed `_field_score` is used.
+# ---------------------------------------------------------------------------
+try:
+    from nsa_rust import field_score as _rust_field_score
+except ImportError:  # pragma: no cover - depends on build environment
+    _rust_field_score = None
+
 
 class SparseRetriever:
     """Sparse lexical retriever — BM25 Qdrant vectors with rapidfuzz fallback.
@@ -89,9 +98,17 @@ class SparseRetriever:
         Mirrors ``app/search/indexer.py::``_field_score``: combines
         ``token_set_ratio`` (multi-word queries) with ``partial_ratio``
         (substring tolerance) and returns the maximum.
+
+        Uses the Rust-accelerated ``nsa_rust.field_score`` when available
+        (Part 2), falling back to the rapidfuzz-backed Python implementation.
         """
         if not text:
             return 0.0
+        if _rust_field_score is not None:
+            try:
+                return _rust_field_score(query, text)
+            except Exception:
+                pass
         return max(
             fuzz.token_set_ratio(query, text),
             fuzz.partial_ratio(query, text),

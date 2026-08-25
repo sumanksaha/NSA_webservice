@@ -425,6 +425,13 @@ exclude = [
   "*.yml",
 ]
 
+[tool.maturin]
+module-name = "nsa_rust"
+manifest-path = "rust/Cargo.toml"
+# The Rust extension is optional — pure-Python fallbacks exist in the app.
+# Build with:  maturin develop  (from project root)
+# On Render/CI: maturin build --release -m rust/Cargo.toml
+
 # =============================================================================
 # Tool: isort - Import sorting (used via Ruff, config here for reference)
 # =============================================================================

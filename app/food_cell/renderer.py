@@ -1,12 +1,10 @@
 """DO Intimation document renderer — rendering / storage helpers.
 
-Extracted from :mod:`app.food_cell.services` so that the seven private
-helpers (``_render_html``, ``_render_pdf``, ``_store_intimation``,
-``_next_do_reference_no``, ``_build_sync_row``) that deal with *document
-generation* live in a focused class.  ``services.py`` keeps only the
-orchestration (``generate_and_forward_do_intimation``) and the triple-sync
-call, which still depends on module-level sync-function caches that the
-existing tests mock directly.
+Extracted from :mod:`app.food_cell.services` so that the document-generation
+helpers (render HTML/PDF, persist paths, build the sync row, mint the DO
+reference) live in one focused class.  ``services.py`` keeps only the
+orchestration (``generate_and_forward_do_intimation``) and delegates the
+triple-target sync to :func:`app.services.sync_orchestrator.sync_row`.
 
 Typical usage::
 
