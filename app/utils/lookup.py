@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import sqlite3
 import ssl
@@ -23,9 +24,22 @@ except ImportError:
 BASE_DIR = Path(__file__).parent.resolve()
 # app/utils is nested two levels deep from the workspace root
 WORKSPACE_DIR = (Path(__file__).parent.parent.parent).resolve()
+# Robust DB path discovery: search relative to this file, workspace, instance, and current working directory
+def _resolve_db_path(filename: str) -> Path:
+    candidates = [
+        WORKSPACE_DIR / "db" / filename,
+        Path.cwd() / "db" / filename,
+        Path(__file__).parent.parent / "db" / filename,
+        Path(os.environ.get("INSTANCE_PATH", "")) / filename if os.environ.get("INSTANCE_PATH") else None,
+    ]
+    for c in candidates:
+        if c and c.exists():
+            return c
+    return WORKSPACE_DIR / "db" / filename
+
 DB_DIR = WORKSPACE_DIR / "db"
-LICENSE_DB_PATH = DB_DIR / "license_data.db"
-REGISTRATION_DB_PATH = DB_DIR / "registration_data.db"
+LICENSE_DB_PATH = _resolve_db_path("license_data.db")
+REGISTRATION_DB_PATH = _resolve_db_path("registration_data.db")
 
 # Rate limiting for KMC CE lookup (govt website - 40 second gap required)
 _KMC_RATE_LIMIT_SECONDS = 40  # Minimum gap between KMC portal requests

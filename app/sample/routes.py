@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from flask import current_app, jsonify, render_template, request
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.extensions import db
+from app.extensions import csrf, db
 from app.models import FSO, CaseFile, Sample
 
 # Import the blueprint from __init__.py
@@ -103,6 +103,7 @@ def list_samples():
     )
 
 
+@csrf.exempt
 @sample_bp.route("/lookup_retailer", methods=["POST"])
 def lookup_retailer():
     """Lookup retailer information by FSSAI number."""
