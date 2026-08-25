@@ -243,7 +243,9 @@ def publish_recurring(
     try:
         import httpx
 
-        base = os.environ["PUBLIC_BASE_URL"].rstrip("/")
+        base = os.environ["PUBLIC_BASE_URL"].strip().rstrip("/")
+        if not base.startswith(("http://", "https://")):
+            base = f"https://{base}"
         webhook_url = f"{base}{WEBHOOK_PATH}/{task_name}"
         failure_url = f"{base}{FAILURE_CALLBACK_PATH}/{task_name}"
 
