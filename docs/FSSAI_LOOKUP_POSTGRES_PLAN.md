@@ -1,6 +1,6 @@
 # Plan: Move FSSAI Lookup DBs into Supabase Postgres
 
-**Status:** Proposed — not yet implemented
+**Status:** ✅ Implemented & verified against live Supabase (2026-08-25) — see `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` §6 Implementation log for per-step evidence and live-verification results.
 **Date:** 2026-08-25
 **Motivation:** The two SQLite lookup databases (`db/license_data.db`, `db/registration_data.db`) are git-tracked binaries (~21 MB) resolved via fragile filesystem-path discovery (`_resolve_db_path` in `app/utils/lookup.py`). On Render's ephemeral filesystem this is a recurring failure source. Moving them into the existing Supabase Postgres (which already hosts application data) eliminates path resolution entirely and simplifies the bi-monthly data refresh.
 

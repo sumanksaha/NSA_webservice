@@ -219,6 +219,8 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
 
 > Items finished and verified are tracked here so agents can trust implementation status at a glance.
 
+- [x] **FSSAI Lookup → Supabase Postgres Migration — Steps 2–6 (completed 2026-08-25).** `scripts/load_fssai_lookup.py` (idempotent `ON CONFLICT` bulk loader + `tests/test_load_fssai_lookup.py`); migration `migrations/versions/add_fssai_lookup_tables.py`; `app/utils/lookup.py::lookup_fssai()` rewritten via `db.session.get(FssaiLicense/FssaiRegistration)` with byte-exact return contract (SQLite path helpers deleted, `DB_DIR` kept for KMC locks) + `tests/test_lookup_fssai_postgres.py`; ~21 MB `db/*.db` removed from git (gitignored, kept locally as refresh inputs); refresh runbook `docs/FSSAI_LOOKUP_REFRESH.md`. Verified live against Supabase: counts exact (22,599 / 57,453), 400-PK column diff vs SQLite = 0 mismatches, targeted suites 39/39 pass. Full evidence: `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` §6.
+
 - [x] **Pre-commit Hook Stack Fixed (2026-08-23).** Hardened `.pre-commit-config.yaml` so the stack no longer blocks commits: (1) added `minimum_pre_commit_version: "3.8"` + `default_language_version` for reproducibility; (2) mypy hook now non-blocking (`|| true` fallback mirroring CI's `continue-on-error: true`); (3) pytest hook runs only the fast subset (`-m "not slow"`) instead of the full ~228-test suite; (4) ce-v2-gate hook is file-scoped (`files:` filter) instead of `always_run: true` so it skips on non-evaluation commits. Added 5 `TestPreCommitConfig` tests pinning these invariants. Tests: **47/47 pass** (`test_cicd_gates.py`).
 
 - [x] **Phase 4 — Annexure Replace** (`POST /annexure/<id>/replace` + UI button + 8 tests). Replaces the stored file on an existing annexure in place: re-extracts hash/page-count/OCR/size/MIME, keeps the annexure id + letter so document references stay valid, rejects content-hash duplicates of _other_ annexures (self re-upload allowed), deletes the old file after commit, and audit-logs `ANNEXURE_REPLACED`. Files: `app/annexure/routes.py`, `app/annexure/templates/annexure/index.html`, `tests/test_annexure.py`.
@@ -1070,13 +1072,15 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-### D8: Tighten `app/utils/lookup.py` — OPEN (Module Depth: 1 to 4)
+### D8: Tighten `app/utils/lookup.py` — PARTIALLY DONE (Module Depth: 1 to 4)
 
-> Two license lookups with _inconsistently inconsistent contracts_ in one 47-line module. `lookup_fssai` returns `(dict|None, str|None)` (tuple: data, error); `lookup_ce` returns `dict|None` and can _raise_ (httpx/file I/O). Six call sites across 5 blueprints handle the two shapes differently. `lookup_ce` is a 50-line god-function mixing rate-limiting (fcntl file lock + timestamp), SSL context config, cookie-warming HTTP client, JSON repair (regex), and response data-shaping.
+> **FSSAI half RESOLVED (2026-08-25):** `lookup_fssai()` migrated from SQLite to Postgres via `db.session.get()` (see `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` §6) — `_resolve_db_path`, `LICENSE_DB_PATH`, `REGISTRATION_DB_PATH` deleted; return contract unchanged; verified live against Supabase. Remaining scope below is the **`lookup_ce` god-function + unified error contract**.
+>
+> Two license lookups with _inconsistent contracts_ in one module. `lookup_fssai` returns `(dict|None, str|None)` (tuple: data, error); `lookup_ce` returns `dict|None` and can _raise_ (httpx/file I/O). Six call sites across 5 blueprints handle the two shapes differently. `lookup_ce` is a 50-line god-function mixing rate-limiting (fcntl file lock + timestamp), SSL context config, cookie-warming HTTP client, JSON repair (regex), and response data-shaping.
 
 **Files:**
 
-- `app/utils/lookup.py:14-16` — `LICENSE_DB_PATH`, `REGISTRATION_DB_PATH` (SQLite backend paths)
+- `app/utils/lookup.py:14-15` — `DB_DIR` (now only backs KMC lock files; SQLite path helpers removed 2026-08-25)
 - `app/utils/lookup.py:28-32` — `_KMC_LOCK_PATH`, `_KMC_LAST_REQUEST_TIME_PATH`, `_KMC_RATE_LIMIT_SECONDS`
 - `app/utils/lookup.py:37-56` — `lookup_fssai(license_no)` -> `(dict|None, str|None)`
 - `app/utils/lookup.py:58-end` — `lookup_ce(license_no)` -> `dict|None` (50 lines, god-function)
