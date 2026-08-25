@@ -568,6 +568,29 @@ def create_app(db_uri: str | None = None):
 
         ensure_search_table()
 
+        # ------------------------------------------------------------------
+        # Seed default admin account on first boot (empty user table).
+        # Credentials: username=admin  password=admin123
+        # The admin can change the password after first login via the
+        # "Change password" button in the top-right corner.
+        # ------------------------------------------------------------------
+        from app.models import User
+
+        if User.query.count() == 0:
+            from werkzeug.security import generate_password_hash
+
+            default_admin = User(
+                username="admin",
+                password_hash=generate_password_hash("admin123"),
+                is_admin=True,
+            )
+            db.session.add(default_admin)
+            db.session.commit()
+            app.logger.info(
+                "Default admin account created (username=admin). "
+                "Change the password after first login."
+            )
+
     # ------------------------------------------------------------------
     # Auto-restore on empty database (Render free-tier rotation safety net):
     # when AUTO_RESTORE_ON_EMPTY_DB=true and every mapped table has zero rows,
