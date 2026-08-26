@@ -438,6 +438,7 @@ def create_app(db_uri: str | None = None):
     from app.inspection.routes import inspection_bp
     from app.knowledge_graph import kg_bp
     from app.legal_analysis import legal_analysis_bp
+    from app.notepad import notepad_bp
     from app.sample.routes import sample_bp
     from app.search import search_bp
     from app.settings.routes import settings_bp
@@ -472,6 +473,7 @@ def create_app(db_uri: str | None = None):
     app.register_blueprint(health_bp)
     app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
     app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
+    app.register_blueprint(notepad_bp, url_prefix="/notepad")
     app.register_blueprint(sync_bp, url_prefix="/sync")
     from app.ai_assistant import ai_bp
 

@@ -1,0 +1,87 @@
+{% extends "base.html" %} {% block title %}{{ note.status|capitalize }} Note{% endblock %} {% block
+content %}
+<div class="container">
+    <p><a href="{{ url_for('notepad.index') }}">&larr; Back to Notepad</a></p>
+    <h1>Note</h1>
+    <p>
+        <span class="badge bg-secondary">{{ note.status }}</span>
+        {% if not note.is_shared %}<span class="badge bg-dark">private</span>{% endif %}
+        <small class="text-muted"
+            >{{ note.author.username }} · {{ note.created_at.strftime('%Y-%m-%d %H:%M') }}</small
+        >
+    </p>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <pre style="white-space: pre-wrap">{{ note.content_text }}</pre>
+        </div>
+    </div>
+
+    {% if current_user.id == note.author_id %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <form
+            method="post"
+            action="{{ url_for('notepad.evaluate', note_id=note.id) }}"
+            onsubmit="this.querySelector('button').disabled = true"
+        >
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Evaluate with AI
+            </button>
+        </form>
+        <form
+            method="post"
+            action="{{ url_for('notepad.set_status', note_id=note.id) }}"
+            class="input-group input-group-sm"
+            style="max-width: 480px"
+        >
+            <select name="status" class="form-select form-select-sm">
+                <option value="implemented">implemented</option>
+                <option value="dismissed">dismissed</option>
+            </select>
+            <input
+                name="implemented_note"
+                class="form-control form-control-sm"
+                placeholder="what was done / where it landed"
+            />
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Set</button>
+        </form>
+        <form method="post" action="{{ url_for('notepad.set_visibility', note_id=note.id) }}">
+            <input
+                type="hidden"
+                name="is_shared"
+                value="{{ 'false' if note.is_shared else 'true' }}"
+            />
+            <button type="submit" class="btn btn-outline-dark btn-sm">
+                {{ 'Make private' if note.is_shared else 'Share with all FSOs' }}
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <h3>Evaluations <small class="text-muted">(oldest first)</small></h3>
+    {% for ev, p in evaluations %}
+    <div class="card mb-2">
+        <div class="card-body">
+            <small class="text-muted"
+                >{{ ev.provider_model }} · {{ ev.created_at.strftime('%Y-%m-%d %H:%M') }} ·
+                feasibility {{ p.feasibility_score }}/10</small
+            >
+            <h5>Summary</h5>
+            <p>{{ p.summary }}</p>
+            <h5>Implementation plan</h5>
+            <p>{{ p.implementation_plan }}</p>
+            <h5>Risks</h5>
+            <p>{{ p.risks }}</p>
+            <h5>Game theory</h5>
+            <p>{{ p.game_theory }}</p>
+            <h5>Talebian lens</h5>
+            <p>{{ p.talebian }}</p>
+            <h5>First principles</h5>
+            <p>{{ p.first_principles }}</p>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">Not evaluated yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

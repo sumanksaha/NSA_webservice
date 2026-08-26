@@ -247,6 +247,12 @@
                     >
                         <i class="fa-solid fa-magnifying-glass"></i> Search
                     </a>
+                    <a
+                        href="{{ url_for('notepad.index') }}"
+                        class="nav-link {% if request.blueprint == 'notepad' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-note-sticky"></i> Notepad
+                    </a>
                     {% if config.get('RAG_ENABLED', True) %}
                     <a
                         href="{{ url_for('rag.query_ui') }}"

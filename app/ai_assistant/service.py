@@ -147,6 +147,53 @@ class AIAssistantService:
         except (json.JSONDecodeError, TypeError):
             return [result] if result.strip() else []
 
+    def evaluate_note(self, text: str) -> dict:
+        """Evaluate a Notepad note through four structured lenses.
+
+        Returns a dict with exactly the seven payload keys: ``summary``,
+        ``implementation_plan``, ``risks``, ``game_theory``, ``talebian``,
+        ``first_principles``, ``feasibility_score`` (int 1-10). Raises on
+        provider failure; light validation fills missing fields so a
+        slightly-lazy LLM response still lands as a complete record.
+        """
+        prompt = (
+            "You are evaluating an idea or to-do submitted by a Food Safety "
+            "Officer for implementation in their legal-workflow platform. "
+            "Respond with ONLY a JSON object (no markdown fences, no prose) "
+            "with exactly these keys:\n"
+            '- "summary": 2-3 sentence restatement of what is being proposed\n'
+            '- "implementation_plan": concrete ordered steps and which parts '
+            "of a Flask/SQLAlchemy codebase they would touch\n"
+            '- "risks": risks, unknowns and failure modes\n'
+            '- "game_theory": incentives of everyone involved — who gains, '
+            "who bears the cost, where skin-in-the-game is missing\n"
+            '- "talebian": fragility vs antifragility analysis — what breaks '
+            "under stress, how to gain from disorder, optionality over "
+            "forecasting\n"
+            '- "first_principles": what would we build with zero assumptions? '
+            "Strip away convention and reason from fundamentals\n"
+            '- "feasibility_score": integer 1-10 (10 = trivially feasible)\n\n'
+            "Submission:\n" + text
+        )
+        result, _ = self._request(prompt, max_tokens=2048)
+        try:
+            data = json.loads(result)
+        except json.JSONDecodeError as err:
+            raise ValueError("AI did not return valid JSON") from err
+        if not isinstance(data, dict):
+            raise ValueError("AI did not return a JSON object")
+        for key in (
+            "summary",
+            "implementation_plan",
+            "risks",
+            "game_theory",
+            "talebian",
+            "first_principles",
+            "feasibility_score",
+        ):
+            data.setdefault(key, "")
+        return data
+
     def draft_prayers(self, facts: str, grounds: str) -> str:
         """Draft prayer clauses for a legal document based on facts and grounds.
 

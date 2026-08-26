@@ -416,6 +416,15 @@ _TABLE: tuple[Setting, ...] = (
         300,
         help="Polling interval (seconds) for automatic sync operations.",
     ),
+    # --- Notepad --------------------------------------------------------------
+    Setting(
+        "NOTEPAD_AI_ENABLED",
+        "notepad_ai_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help="Kill switch for Notepad AI evaluation (LLM spend). 503 when off.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

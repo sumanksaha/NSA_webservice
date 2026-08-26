@@ -99,6 +99,17 @@ Talebian antifragility, first-principles lenses) stored as JSON; re-runs
 append rather than overwrite. Never abbreviated "DO" — that collides with DO
 Intimation.
 
+### Daily Plan
+
+A short AI-generated battle plan for an FSO's own open Notes — the top 3–5
+Notes worth doing today plus a full ranking of the rest. Plans are
+**append-only** (`DailyPlan` rows, never overwritten), cover **own notes
+only** (never another FSO's shared notes, since status transitions are
+author-only), and order items **least-time-first** (effort buckets `quick` /
+`medium` / `long`, tie-broken by portfolio-level lens scores). A past plan is
+evidence: its hit-rate (implemented vs. planned) feeds back into future plan
+generation and the feature's kill criterion.
+
 (Existing domain language lives in AGENTS.md §1 — CaseFile vs Adjudication,
 Canonical Key Contract, hash-chained audit, optimistic concurrency. Add new
 named concepts here as they crystallize.)
