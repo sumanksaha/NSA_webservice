@@ -95,6 +95,7 @@ block content %}
                         {% endif %} {% endif %}
                     </th>
                     <th>Corrective Implemented</th>
+                    <th>Notice</th>
                     <th>Photos</th>
                     <th>Actions</th>
                 </tr>
@@ -115,6 +116,17 @@ block content %}
                         {% else %}
                         <span class="status-badge status-badge--success">
                             <i class="fa-solid fa-circle-check"></i> No
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if inspection.notice_issued_at %}
+                        <span class="status-badge status-badge--success" title="Improvement Notice issued {{ inspection.notice_issued_at.strftime('%d %b %Y') }}">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </span>
+                        {% else %}
+                        <span class="status-badge" style="opacity: 0.4;" title="No Improvement Notice issued">
+                            <i class="fa-solid fa-file-lines"></i>
                         </span>
                         {% endif %}
                     </td>
@@ -147,8 +159,7 @@ block content %}
                                 <i class="fa-solid fa-eye"></i>
                             </a>
                             <a
-                                href="#"
-                                onclick="editInspection({{ inspection.id }})"
+                                href="{{ url_for('inspection.edit_inspection', inspection_id=inspection.id) }}"
                                 class="btn btn-secondary btn-sm"
                                 title="Edit"
                             >
@@ -167,7 +178,7 @@ block content %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="text--center">
+                    <td colspan="9" class="text--center">
                         <div class="empty-state">
                             <i class="fa-solid fa-inbox"></i>
                             <p>No inspections found</p>
@@ -335,10 +346,6 @@ block content %}
         urlParams.set("sort_by", sortBy);
         urlParams.set("sort_order", sortOrder);
         window.location.search = urlParams.toString();
-    }
-
-    function editInspection(inspectionId) {
-        alert("Edit inspection " + inspectionId + " - redirect to edit page");
     }
 
     function confirmDelete(inspectionId) {

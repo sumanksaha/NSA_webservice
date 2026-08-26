@@ -6,8 +6,9 @@ webhook endpoint. This lets the app run heavy tasks (PDF generation) without
 a persistent background worker — which the Render free tier does not support.
 
 If QStash is not configured (missing env vars) or the publish call fails, this
-module falls back to running the task synchronously via Celery's ``.apply()``
-so work is never silently lost (the same behavior as before QStash).
+module falls back to running the task synchronously via ``_run_task_inline``
+(which calls ``Task.run()`` directly, bypassing Celery's result backend) so
+work is never silently lost (the same behavior as before QStash).
 """
 
 import hashlib
@@ -116,6 +117,39 @@ def resolve_task(task_name: str):
     return getattr(module, attr)
 
 
+def _run_task_inline(task_name: str, payload: dict) -> Any:
+    """Execute a QStash task synchronously **without** a Celery result backend.
+
+    This replaces the previous ``task.apply(kwargs=payload).result`` pattern.
+    Celery's ``.apply()`` calls ``backend.mark_as_done()`` to persist the
+    result in Redis.  When ``REDIS_URL`` uses ``rediss://`` without the
+    ``ssl_cert_reqs`` query parameter, Celery's Redis backend raises
+    ``ValueError: A rediss:// URL must have parameter ssl_cert_reqs ...`` —
+    crashing every sync-fallback invocation (and the QStash webhook) even
+    though the task body itself ran fine.
+
+    The fix: call ``Task.run()`` directly.  ``.run()`` is a bound method on
+    Celery ``Task`` objects (so ``self`` is auto-injected for ``bind=True``
+    tasks), executes the task function inline, and returns its result
+    **without** touching the result backend.
+
+    For the non-Celery fallback path (``celery is None`` → a plain function
+    or the ``_SyncFunc`` shim from ``knowledge_graph/tasks.py``), we fall
+    back to the existing ``.apply(kwargs=...).result`` interface, which works
+    because those shims don't use a Redis backend.
+
+    The caller must already be within a Flask app context (route handlers
+    and webhook endpoints always are), so ``ContextTask.__call__``'s
+    app-context wrapping is redundant here.
+    """
+    task = resolve_task(task_name)
+    if hasattr(task, "run"):
+        # Celery Task — run() is a bound method, self is auto-passed.
+        return task.run(**payload)
+    # Non-Celery shim (e.g. _SyncFunc) or plain function — use .apply().
+    return task.apply(kwargs=payload).result
+
+
 def qstash_configured() -> bool:
     """True when every env var required to publish to QStash is present."""
     return bool(
@@ -200,7 +234,7 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
         "QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL) — executing %s synchronously",
         task_name,
     )
-    result = resolve_task(task_name).apply(kwargs=payload).result
+    result = _run_task_inline(task_name, payload)
     return {"mode": "sync", "result": result}
 
 

@@ -21,9 +21,9 @@ from app.extensions import csrf
 from app.tasks_webhook import tasks_webhook_bp
 from app.utils.qstash_client import (
     TASK_REGISTRY,
+    _run_task_inline,
     get_task_status,
     qstash_configured,
-    resolve_task,
     store_task_status,
 )
 
@@ -99,18 +99,20 @@ def run_task(task_name):
     if message_id:
         store_task_status(message_id, "running", task_name=task_name)
 
+    # Execute via _run_task_inline (Task.run() directly) to avoid Celery's
+    # result-backend I/O, which crashes on rediss:// URLs lacking ssl_cert_reqs.
     try:
-        task = resolve_task(task_name)
-        result = task.apply(kwargs=payload).result
+        result = _run_task_inline(task_name, payload)
     except Exception as exc:
         logger.error("Webhook task %s failed: %s", task_name, exc)
         if message_id:
             store_task_status(message_id, "error", task_name=task_name, error=str(exc))
         return jsonify({"error": str(exc)}), 500
 
-    # Eager .apply() captures task exceptions (e.g. ValueError for a
-    # missing/unsupported file) INTO the result instead of raising — treat
-    # that as an error, and reflect task-returned error dicts too, so the
+    # _run_task_inline calls Task.run() directly, so a task-body exception
+    # propagates here (caught by the try/except above) rather than being
+    # captured into an EagerResult.  A task may also *return* an Exception
+    # object or an error-status dict — treat those as failures too, so the
     # status store never reports a failure as "completed".
     if isinstance(result, Exception):
         logger.error("Webhook task %s returned exception: %s", task_name, result)

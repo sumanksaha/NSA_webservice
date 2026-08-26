@@ -241,4 +241,20 @@ def inspection_detail(inspection_id):
         .all()
     )
     fso_names = get_all_fso_names()
-    return render_template("inspection/detail.html", inspection=inspection, photos=photos, fso_names=fso_names)
+
+    # Parse checklist JSON for template rendering
+    checklist = None
+    if inspection.checklist_json:
+        try:
+            import json
+            checklist = json.loads(inspection.checklist_json)
+        except (ValueError, TypeError):
+            checklist = None
+
+    return render_template(
+        "inspection/detail.html",
+        inspection=inspection,
+        photos=photos,
+        fso_names=fso_names,
+        checklist=checklist,
+    )

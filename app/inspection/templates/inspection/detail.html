@@ -77,6 +77,111 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         </div>
     </div>
 
+    <!-- Checklist Section -->
+    {% if checklist %}
+    <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Checklist</h3>
+        {% if not inspection.notice_issued_at %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openChecklistModal()">
+            <i class="fa-solid fa-pen"></i> Edit Checklist
+        </button>
+        {% endif %}
+    </div>
+    {% set checklist_labels = {
+        'clean_premise': 'Clean Premises',
+        'refrigerator_clean': 'Refrigerator Clean',
+        'proper_attire': 'Proper Attire',
+        'proper_covered_utensil': 'Covered Utensils',
+        'date_tag': 'Date Tagging',
+        'veg_nonveg_separation': 'Veg/Non-Veg Separation',
+        'food_segregation': 'Food Segregation',
+        'license_display': 'License Display',
+        'artificial_colour': 'Artificial Colours',
+        'Expired_item': 'Expired Items',
+        'Pest_report': 'Pest Control Report',
+        'Water_report': 'Water Test Report',
+    } %}
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin: 0.5rem 0 1rem;">
+        {% for field, label in checklist_labels.items() %}
+        {% if field in checklist %}
+        <div class="detail-field" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius);">
+            <label style="font-weight: 500; font-size: 0.875rem;">{{ label }}</label>
+            <span class="detail-value">
+                {% if checklist[field] == 'yes' %}
+                <span class="status-badge status-badge--success" style="font-size: 0.75rem;"><i class="fa-solid fa-check"></i> Yes</span>
+                {% elif checklist[field] == 'no' %}
+                <span class="status-badge status-badge--error" style="font-size: 0.75rem;"><i class="fa-solid fa-xmark"></i> No</span>
+                {% else %}
+                <span class="status-badge" style="font-size: 0.75rem;">{{ checklist[field] }}</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Summary of non-compliant items -->
+    {% set violations = [] %}
+    {% for field, value in checklist.items() %}
+        {% if value == 'no' and field in checklist_labels %}
+            {% set _ = violations.append(checklist_labels[field]) %}
+        {% endif %}
+    {% endfor %}
+    {% if violations %}
+    <div class="info-box info-box--warning" style="margin-bottom: 1rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <strong>{{ violations|length }} non-compliant item(s):</strong> {{ violations|join(', ') }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Checklist Quick-Edit Modal -->
+    <div id="checklistModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 640px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-clipboard-check"></i> Edit Checklist</h3>
+                <button type="button" onclick="closeChecklistModal()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+            </div>
+
+            <form id="checklistEditForm">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem;">
+                    {% set modal_items = [
+                        ('clean_premise', 'Clean Premises'),
+                        ('refrigerator_clean', 'Refrigerator Clean'),
+                        ('proper_attire', 'Proper Attire'),
+                        ('proper_covered_utensil', 'Covered Utensils'),
+                        ('date_tag', 'Date Tagging'),
+                        ('veg_nonveg_separation', 'Veg/Non-Veg Separation'),
+                        ('food_segregation', 'Food Segregation'),
+                        ('license_display', 'License Display'),
+                        ('artificial_colour', 'Artificial Colours'),
+                        ('Expired_item', 'Expired Items'),
+                        ('Pest_report', 'Pest Control Report'),
+                        ('Water_report', 'Water Test Report'),
+                    ] %}
+                    {% for field, label in modal_items %}
+                    <div style="padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: var(--radius, 6px);">
+                        <label style="font-weight: 600; font-size: 0.875rem; display: block; margin-bottom: 0.25rem;">{{ label }}</label>
+                        <select name="{{ field }}" style="width: 100%; padding: 0.4rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.875rem;">
+                            <option value="">-- Select --</option>
+                            <option value="yes" {% if checklist.get(field) == 'yes' %}selected{% endif %}>Yes</option>
+                            <option value="no" {% if checklist.get(field) == 'no' %}selected{% endif %}>No</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.25rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeChecklistModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="checklistSaveBtn">
+                        <i class="fa-solid fa-save"></i> Save Checklist
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Photo Evidence Section -->
     <div class="section-header">
         <h3><i class="fa-solid fa-camera"></i> Photo Evidence</h3>
@@ -218,6 +323,77 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         {% endif %}
     </div>
 
+    <!-- Improvement Notice Section -->
+    {% if not inspection.is_dismissed %}
+    <div class="section-header">
+        <h3><i class="fa-solid fa-file-lines"></i> Improvement Notice (u/s 32 FSS Act)</h3>
+        {% if inspection.notice_issued_at %}
+        <span class="status-badge status-badge--success">
+            <i class="fa-solid fa-circle-check"></i> Notice Issued
+        </span>
+        {% else %}
+        <span class="status-badge status-badge--warning">
+            <i class="fa-solid fa-clock"></i> Not Yet Issued
+        </span>
+        {% endif %}
+    </div>
+
+    {% if inspection.notice_issued_at %}
+    <div class="info-box info-box--success" style="margin-bottom: 1rem;">
+        <i class="fa-solid fa-info-circle"></i>
+        This inspection was frozen on {{ inspection.notice_issued_at.strftime('%d %B %Y at %H:%M') }} when the Improvement Notice was first issued. Inspection data can no longer be edited.
+    </div>
+    {% endif %}
+
+    <div class="btn-group" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" class="btn btn-primary" onclick="openNoticeEditor()">
+            <i class="fa-solid fa-pen-to-square"></i> Preview & Edit Notice
+        </button>
+        <a href="{{ url_for('food_cell.view_improvement_notice_html', inspection_id=inspection.id) }}"
+           class="btn btn-secondary" target="_blank">
+            <i class="fa-solid fa-eye"></i> View Notice (HTML)
+        </a>
+        <a href="{{ url_for('food_cell.download_improvement_notice_pdf', inspection_id=inspection.id) }}"
+           class="btn btn-secondary">
+            <i class="fa-solid fa-file-pdf"></i> Download Notice (PDF)
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Improvement Notice Editor Modal -->
+    <div id="noticeEditorModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 960px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-shrink: 0;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-file-pen"></i> Improvement Notice — Edit & Preview</h3>
+                <button type="button" onclick="closeNoticeEditor()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: 1; min-height: 0; overflow: hidden;">
+                <!-- Quill Editor -->
+                <div style="display: flex; flex-direction: column; min-height: 0;">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-pen"></i> Edit Content</label>
+                    <div id="noticeQuillEditor" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px;"></div>
+                </div>
+
+                <!-- Live Preview -->
+                <div style="display: flex; flex-direction: column; min-height: 0;">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-eye"></i> Live Preview</label>
+                    <iframe id="noticePreviewFrame" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px; background: #fff;"></iframe>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-shrink: 0;">
+                <button type="button" onclick="closeNoticeEditor()" class="btn btn-secondary">Cancel</button>
+                <button type="button" onclick="downloadOriginalNotice()" class="btn btn-secondary">
+                    <i class="fa-solid fa-file-pdf"></i> Download Original PDF
+                </button>
+                <button type="button" onclick="downloadEditedNotice()" class="btn btn-primary">
+                    <i class="fa-solid fa-download"></i> Save & Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Action Buttons -->
     <div class="flex-between--wrap mt--lg">
         <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
@@ -243,7 +419,15 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" />
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
     // ===================================================================
@@ -522,6 +706,148 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     }
 
     // ===================================================================
+    // Improvement Notice Preview / Edit
+    // ===================================================================
+    var noticeQuill = null;
+
+    function openNoticeEditor() {
+        var modal = document.getElementById('noticeEditorModal');
+        modal.style.display = 'flex';
+
+        var editorDiv = document.getElementById('noticeQuillEditor');
+        var previewFrame = document.getElementById('noticePreviewFrame');
+
+        // Show loading state
+        editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading notice preview...</p>';
+
+        // Fetch the current notice HTML from the server
+        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
+        .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to load notice'); });
+            return r.text();
+        })
+        .then(function(html) {
+            // Initialize Quill if not already done
+            if (!noticeQuill) {
+                noticeQuill = new Quill('#noticeQuillEditor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['blockquote'],
+                            ['clean']
+                        ]
+                    }
+                });
+            }
+
+            // Strip the <html>, <head>, <style>, <body> wrappers — keep just the inner content
+            var content = html;
+            var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            if (bodyMatch) {
+                content = bodyMatch[1];
+            }
+            // Remove style tags
+            content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+            // Remove script tags
+            content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+            // Remove the .no-print actions div
+            content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
+
+            noticeQuill.root.innerHTML = content;
+
+            // Show initial preview in the iframe
+            var previewStyles = 'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 20px; color: #000; }' +
+                'table { border-collapse: collapse; width: 100%; }' +
+                'th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }' +
+                'th { background: #eee; }' +
+                '.letterhead { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 18px; }' +
+                '.letterhead h1 { font-size: 16pt; margin: 0; }' +
+                '.subtitle { font-size: 10pt; color: #555; }' +
+                '.header-line { font-size: 9pt; color: #555; margin-bottom: 6px; }' +
+                '.body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12px; }' +
+                '.signature-block { margin-top: 48px; }' +
+                'ol.actions-list { padding-left: 24px; line-height: 1.8; }';
+
+            function updateNoticePreview() {
+                previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + previewStyles + '</style></head><body>' + noticeQuill.root.innerHTML + '</body></html>';
+            }
+            updateNoticePreview();
+
+            // Sync editor changes to preview in real time (debounced)
+            var previewSyncTimer = null;
+            noticeQuill.on('text-change', function() {
+                clearTimeout(previewSyncTimer);
+                previewSyncTimer = setTimeout(updateNoticePreview, 300);
+            });
+        })
+        .catch(function(err) {
+            editorDiv.innerHTML = '<div class="info-box info-box--error"><i class="fa-solid fa-circle-exclamation"></i> ' + err.message + '</div>';
+        });
+    }
+
+    function closeNoticeEditor() {
+        document.getElementById('noticeEditorModal').style.display = 'none';
+    }
+
+    function downloadEditedNotice() {
+        if (!noticeQuill) return;
+
+        var html = noticeQuill.root.innerHTML;
+        // Wrap in a full HTML document
+        var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+            'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 20px; color: #000; }' +
+            'table { border-collapse: collapse; width: 100%; }' +
+            'th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }' +
+            'th { background: #eee; }' +
+            '.letterhead { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 18px; }' +
+            '.letterhead h1 { font-size: 16pt; margin: 0; }' +
+            '.subtitle { font-size: 10pt; color: #555; }' +
+            '.body-text { font-size: 11pt; line-height: 1.6; }' +
+            '.signature-block { margin-top: 48px; }' +
+            'ol.actions-list { padding-left: 24px; }' +
+            '</style></head><body>' + html + '</body></html>';
+
+        // Send to server to save and generate PDF
+        var formData = new FormData();
+        formData.append('html', fullHtml);
+
+        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/save', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(result) {
+            if (result.ok) {
+                // Download the PDF
+                window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
+                closeNoticeEditor();
+            } else {
+                alert('Error: ' + (result.data.error || 'Failed to save'));
+            }
+        })
+        .catch(function(err) {
+            alert('Error: ' + err.message);
+        });
+    }
+
+    function downloadOriginalNotice() {
+        window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
+    }
+
+    // Close notice editor on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('noticeEditorModal');
+            if (modal && modal.style.display === 'flex') {
+                closeNoticeEditor();
+            }
+        }
+    });
+
+    // ===================================================================
     // Lightbox Logic
     // ===================================================================
     function openLightbox(src, locality, status, capturedAt) {
@@ -560,7 +886,62 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
             closeLightbox();
+            closeChecklistModal();
         }
+    });
+
+    // ===================================================================
+    // Checklist Quick-Edit Modal
+    // ===================================================================
+    var INSPECTION_ID = {{ inspection.id }};
+
+    function openChecklistModal() {
+        document.getElementById('checklistModal').style.display = 'flex';
+    }
+
+    function closeChecklistModal() {
+        document.getElementById('checklistModal').style.display = 'none';
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('checklistModal').addEventListener('click', function(e) {
+        if (e.target === this) closeChecklistModal();
+    });
+
+    document.getElementById('checklistEditForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if (!confirm('Save checklist changes? This may affect Improvement Notice violations.')) {
+            return;
+        }
+
+        var saveBtn = document.getElementById('checklistSaveBtn');
+        var originalHtml = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+
+        var formData = new FormData(this);
+
+        fetch('/inspection/' + INSPECTION_ID, {
+            method: 'PUT',
+            body: formData
+        })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(result) {
+            if (result.ok) {
+                closeChecklistModal();
+                window.location.reload();
+            } else {
+                alert('Error: ' + (result.data.error || 'Failed to save checklist'));
+            }
+        })
+        .catch(function(err) {
+            alert('Error: ' + err.message);
+        })
+        .finally(function() {
+            saveBtn.innerHTML = originalHtml;
+            saveBtn.disabled = false;
+        });
     });
 </script>
 {% endblock %}

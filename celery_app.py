@@ -12,11 +12,40 @@ Exports two things:
 """
 
 import logging
+import ssl
 from importlib import import_module
+from urllib.parse import urlparse, urlunparse
 
 from celery import Celery
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_redis_url(url: str) -> str:
+    """Ensure ``rediss://`` URLs carry ``ssl_cert_reqs`` for Celery.
+
+    Celery's Redis result backend (unlike ``redis.from_url()`` used by
+    ``qstash_client._get_redis``) *requires* the ``ssl_cert_reqs`` query
+    parameter on ``rediss://`` URLs.  Without it, ``.apply()`` and any
+    result-backend operation raise::
+
+        ValueError: A rediss:// URL must have parameter ssl_cert_reqs
+        ...
+
+    This crashes every sync-fallback invocation and every QStash webhook
+    delivery (which both use ``Task.run()`` via ``_run_task_inline`` — though
+    the run() fix means the result backend is no longer touched by those paths,
+    Celery workers and ``celery -A celery_app beat`` still need a valid URL).
+    """
+    if not url or not url.startswith("rediss://"):
+        return url
+    parsed = urlparse(url)
+    if "ssl_cert_reqs" in parsed.query:
+        return url
+    sep = "&" if parsed.query else ""
+    new_query = f"{parsed.query}{sep}ssl_cert_reqs={ssl.CERT_REQUIRED}"
+    return urlunparse(parsed._replace(query=new_query))
+
 
 # Celery-only task modules — no QStash webhook equivalent (e.g. beat-scheduled
 # jobs like the daily DB snapshot). Modules holding QStash-dispatchable tasks
@@ -48,8 +77,8 @@ def make_celery(app):
     safely access ``db.session``, ``current_app``, and other extensions.
     """
     celery.conf.update(
-        broker_url=app.config["REDIS_URL"],
-        result_backend=app.config["REDIS_URL"],
+        broker_url=_normalize_redis_url(app.config["REDIS_URL"]),
+        result_backend=_normalize_redis_url(app.config["REDIS_URL"]),
     )
 
     # Merge Flask app config into Celery config (Celery ignores unknown keys)
@@ -96,9 +125,7 @@ def make_celery(app):
     # graceful-degradation philosophy).
     from app.utils.qstash_client import TASK_REGISTRY
 
-    task_modules = sorted(
-        {module for module, _attr in TASK_REGISTRY.values()} | set(CELERY_ONLY_TASK_MODULES)
-    )
+    task_modules = sorted({module for module, _attr in TASK_REGISTRY.values()} | set(CELERY_ONLY_TASK_MODULES))
     for module in task_modules:
         try:
             import_module(module)

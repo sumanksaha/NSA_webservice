@@ -1,0 +1,211 @@
+{% extends "inspection/base_inspection.html" %}
+
+{% block title %}Edit Inspection - {{ inspection.inspection_code }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header flex-between--wrap">
+        <h2><i class="fa-solid fa-pen-to-square"></i> Edit Inspection</h2>
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">
+            {{ inspection.inspection_code }}
+        </span>
+    </div>
+
+    <form id="editInspectionForm" action="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}" method="post" class="inspection-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Inspection Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Inspection Information</h3>
+        </div>
+
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="food_safety_officer_name" class="form-label">Food Safety Officer</label>
+                <select id="food_safety_officer_name" name="food_safety_officer_name" class="form-select">
+                    <option value="">-- Select FSO --</option>
+                    {% for fso in fso_names %}
+                    <option value="{{ fso }}" {% if inspection.fso_name == fso %}selected{% endif %}>{{ fso }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="inspection_date" class="form-label">Inspection Date</label>
+                <input type="date" id="inspection_date" name="inspection_date" class="form-input"
+                       value="{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else '' }}"
+                       onchange="updateComplianceDeadline()">
+            </div>
+        </div>
+
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="compliance_deadline" class="form-label">Compliance Deadline</label>
+                <input type="date" id="compliance_deadline" name="compliance_deadline" class="form-input"
+                       value="{{ inspection.compliance_deadline.strftime('%Y-%m-%d') if inspection.compliance_deadline else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="concerned_food" class="form-label">Concerned Food</label>
+                <input type="text" id="concerned_food" name="concerned_food" class="form-input"
+                       value="{{ inspection.concerned_food or '' }}" placeholder="Enter concerned food item">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="visit_purpose" class="form-label">Visit Purpose</label>
+                <select id="visit_purpose" name="visit_purpose" class="form-select">
+                    <option value="">-- Select purpose --</option>
+                    <option value="routine" {% if inspection.visit_purpose == 'routine' %}selected{% endif %}>Routine Inspection</option>
+                    <option value="complaint" {% if inspection.visit_purpose == 'complaint' %}selected{% endif %}>Complaint</option>
+                </select>
+                <small class="form-hint">Used by the Work Diary — pick why this visit was made.</small>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="problem" class="form-label">Problem Description</label>
+                <textarea id="problem" name="problem" class="form-textarea" placeholder="Describe the problem or violation found">{{ inspection.problem or '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Inspection Checklist -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Checklist</h3>
+            <p class="form-hint">Mark each item as compliant (Yes) or non-compliant (No). Non-compliant items feed into Improvement Notices.</p>
+        </div>
+
+        <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; padding: 0.5rem 0;">
+            {% set checklist_items = [
+                ('clean_premise', 'Clean Premises', 'Is the premise clean and well-maintained?'),
+                ('refrigerator_clean', 'Refrigerator Clean', 'Are refrigerators clean and at proper temperature?'),
+                ('proper_attire', 'Proper Attire', 'Are food handlers wearing proper protective attire?'),
+                ('proper_covered_utensil', 'Covered Utensils', 'Are food and utensils properly covered?'),
+                ('date_tag', 'Date Tagging', 'Are stored food items properly date-tagged?'),
+                ('veg_nonveg_separation', 'Veg/Non-Veg Separation', 'Is vegetarian and non-vegetarian food separated?'),
+                ('food_segregation', 'Food Segregation', 'Is proper food segregation maintained?'),
+                ('license_display', 'License Display', 'Is the FSSAI license prominently displayed?'),
+                ('artificial_colour', 'Artificial Colours', 'Are artificial colours used in food preparation?'),
+                ('Expired_item', 'Expired Items', 'Are expired food items present on premises?'),
+                ('Pest_report', 'Pest Control Report', 'Is a pest control report available?'),
+                ('Water_report', 'Water Test Report', 'Is a potable water test report available?'),
+            ] %}
+            {% for field, label, description in checklist_items %}
+            <div class="form-group" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius);">
+                <label for="{{ field }}" class="form-label" style="font-weight: 600; font-size: 0.875rem;">{{ label }}</label>
+                <p class="form-hint" style="margin-bottom: 0.4rem; font-size: 0.75rem;">{{ description }}</p>
+                <select id="{{ field }}" name="{{ field }}" class="form-select">
+                    <option value="">-- Select --</option>
+                    <option value="yes" {% if checklist.get(field) == 'yes' %}selected{% endif %}>Yes</option>
+                    <option value="no" {% if checklist.get(field) == 'no' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- FBO Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-building"></i> FBO Information</h3>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fssai_license" class="form-label">FSSAI License/Registration Number</label>
+                <input type="text" id="fssai_license" name="fssai_license" class="form-input"
+                       value="{{ inspection.fssai_license or '' }}" placeholder="Enter FSSAI number">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ce_license_no" class="form-label">KMC CE License Number</label>
+                <input type="text" id="ce_license_no" name="ce_license_no" class="form-input"
+                       value="{{ inspection.ce_license_no or '' }}" placeholder="Enter KMC CE license number">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="fbo_name" class="form-label">FBO Name</label>
+                <input type="text" id="fbo_name" name="fbo_name" class="form-input"
+                       value="{{ inspection.fbo_name or '' }}" placeholder="Enter FBO name">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="fbo_address" class="form-label">FBO Address</label>
+                <textarea id="fbo_address" name="fbo_address" class="form-textarea" placeholder="Enter FBO address">{{ inspection.fbo_address or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> Save Changes
+                </button>
+                <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-xmark"></i> Cancel
+                </a>
+                <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-list"></i> View All Inspections
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateComplianceDeadline() {
+    const inspectionDateInput = document.getElementById('inspection_date');
+    const complianceDeadlineInput = document.getElementById('compliance_deadline');
+
+    const inspectionDate = inspectionDateInput.value;
+    if (!inspectionDate) {
+        complianceDeadlineInput.value = '';
+        return;
+    }
+
+    const date = new Date(inspectionDate);
+    date.setDate(date.getDate() + 30);
+    const deadline = date.toISOString().split('T')[0];
+    complianceDeadlineInput.value = deadline;
+}
+
+// Form submission handling
+document.getElementById('editInspectionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    submitBtn.disabled = true;
+
+    try {
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+            method: 'PUT',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Inspection updated successfully!');
+            window.location.href = '{{ url_for("inspection.inspection_detail", inspection_id=inspection.id) }}';
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update inspection'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

@@ -49,6 +49,34 @@ def index():
     return render_template("inspection/index.html", fso_names=fso_names)
 
 
+@inspection_bp.route("/<int:inspection_id>/edit")
+def edit_inspection(inspection_id):
+    """Inspection edit form page."""
+    inspection = db.session.get(Inspection, inspection_id)
+    if not inspection:
+        return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
+
+    if inspection.notice_issued_at is not None:
+        return jsonify({"error": "Inspection is frozen: an Improvement Notice has already been issued for it."}), 409
+
+    fso_names = get_all_fso_names()
+
+    # Parse checklist JSON for template rendering
+    checklist = None
+    if inspection.checklist_json:
+        try:
+            checklist = json.loads(inspection.checklist_json)
+        except (ValueError, TypeError):
+            checklist = None
+
+    return render_template(
+        "inspection/edit.html",
+        inspection=inspection,
+        fso_names=fso_names,
+        checklist=checklist or {},
+    )
+
+
 @inspection_bp.route("/list")
 def list_inspections():
     """List all inspections with pagination, sorting, and filtering."""
@@ -310,6 +338,16 @@ def update_inspection(inspection_id):
             inspection.compliance_deadline = calculate_compliance_deadline(inspection.inspection_date)
     if "compliance_deadline" in form_data:
         inspection.compliance_deadline = parse_date(form_data["compliance_deadline"].strip())
+
+    # Update checklist if any checklist fields are present
+    checklist_updated = False
+    for field in CHECKLIST_FIELDS:
+        if field in form_data:
+            checklist_updated = True
+            break
+    if checklist_updated:
+        checklist = {field: form_data[field].strip() for field in CHECKLIST_FIELDS if form_data.get(field, "").strip()}
+        inspection.checklist_json = json.dumps(checklist) if checklist else None
 
     try:
         db.session.commit()

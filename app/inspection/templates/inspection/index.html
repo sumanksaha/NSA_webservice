@@ -62,6 +62,40 @@
             </div>
         </div>
 
+        <!-- Inspection Checklist -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Checklist</h3>
+            <p class="form-hint">Mark each item as compliant (Yes) or non-compliant (No). Non-compliant items feed into Improvement Notices.</p>
+        </div>
+
+        <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; padding: 0.5rem 0;">
+            {% set checklist_items = [
+                ('clean_premise', 'Clean Premises', 'Is the premise clean and well-maintained?'),
+                ('refrigerator_clean', 'Refrigerator Clean', 'Are refrigerators clean and at proper temperature?'),
+                ('proper_attire', 'Proper Attire', 'Are food handlers wearing proper protective attire?'),
+                ('proper_covered_utensil', 'Covered Utensils', 'Are food and utensils properly covered?'),
+                ('date_tag', 'Date Tagging', 'Are stored food items properly date-tagged?'),
+                ('veg_nonveg_separation', 'Veg/Non-Veg Separation', 'Is vegetarian and non-vegetarian food separated?'),
+                ('food_segregation', 'Food Segregation', 'Is proper food segregation maintained?'),
+                ('license_display', 'License Display', 'Is the FSSAI license prominently displayed?'),
+                ('artificial_colour', 'Artificial Colours', 'Are artificial colours used in food preparation?'),
+                ('Expired_item', 'Expired Items', 'Are expired food items present on premises?'),
+                ('Pest_report', 'Pest Control Report', 'Is a pest control report available?'),
+                ('Water_report', 'Water Test Report', 'Is a potable water test report available?'),
+            ] %}
+            {% for field, label, description in checklist_items %}
+            <div class="form-group" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius);">
+                <label for="{{ field }}" class="form-label" style="font-weight: 600; font-size: 0.875rem;">{{ label }}</label>
+                <p class="form-hint" style="margin-bottom: 0.4rem; font-size: 0.75rem;">{{ description }}</p>
+                <select id="{{ field }}" name="{{ field }}" class="form-select">
+                    <option value="">-- Select --</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+
         <!-- Photo Evidence -->
         <div class="section-header">
             <h3><i class="fa-solid fa-camera"></i> Photo Evidence</h3>
