@@ -194,7 +194,7 @@ async def v2_rag_generate(req: GenerateRequest, db: Session = Depends(get_db)) -
 
 
 @app.post("/api/v2/rag/retrieve")
-async def v2_rag_retrieve(req: GenerateRequest) -> dict[str, Any]:
+async def v2_rag_retrieve(req: GenerateRequest) -> dict[str, Any] | JSONResponse:
     """Live hybrid retrieval — dense (Qdrant + remote embeddings, RAG_REMOTE_EMBED)
     + sparse (Qdrant BM25 / rapidfuzz), fused via RRF (k=60).
 
@@ -208,7 +208,7 @@ async def v2_rag_retrieve(req: GenerateRequest) -> dict[str, Any]:
     if not get_flag("RAG_ENABLED"):
         return JSONResponse({"error": "RAG is disabled."}, status_code=503)
 
-    dense = DenseRetriever(collection_name=req.collection_name)
+    dense = DenseRetriever(collection_name=req.collection_name or "fssai_legal_768")
     sparse = SparseRetriever(store=dense._client) if dense._client else SparseRetriever()
     retriever = HybridRetriever(dense=dense, sparse=sparse)
     try:
@@ -239,7 +239,7 @@ def _result_to_dict(result: Any) -> dict[str, Any]:
 
 
 @app.post("/api/v2/rag/query/agent")
-async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any]:
+async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONResponse:
     """Full RAG pipeline as a LangGraph agent (M3, M5).
 
     Delegates to ``app.rag.agent.graph.run_agent`` when ``RAG_USE_AGENT_PIPELINE``
@@ -293,7 +293,7 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any]:
 
 
 @app.post("/api/v2/rag/query/agent/resume")
-async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any]:
+async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any] | JSONResponse:
     """Resume a paused M5 human-in-the-loop run (mirrors the Flask route)."""
     use_hitl = get_flag("RAG_AGENT_HITL")
     if not use_hitl:
@@ -333,7 +333,7 @@ async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Mount Flask at the root — all non-/api/v2 paths fall through to Flask.
 # --------------------------------------------------------------------------- #
-app.mount("/", WSGIMiddleware(flask_app.wsgi_app))
+app.mount("/", WSGIMiddleware(flask_app.wsgi_app))  # type: ignore[arg-type]
 
 # NOTE: FastAPI owns /api/v2/* natively above; Flask (mounted at /) serves
 # the remainder including /api/rag/* and the full UI.
@@ -342,4 +342,4 @@ app.mount("/", WSGIMiddleware(flask_app.wsgi_app))
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000)))
+    uvicorn.run("asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000)))  # pi-lens-ignore: ast-grep:unchecked-throwing-call-python

@@ -1,3 +1,14 @@
 {
-    "ignore": [".vscode/settings.json"]
+    "ignore": [".vscode/settings.json"],
+    "rules": {
+        "sqlalchemy-dynamic-typing": {
+            "disable": [
+                "reportCallIssue",
+                "Pyright:reportCallIssue",
+                "Pyright:reportAttributeAccessIssue",
+                "Pyright:reportFunctionMemberAccess",
+                "reportOptionalMemberAccess"
+            ]
+        }
+    }
 }

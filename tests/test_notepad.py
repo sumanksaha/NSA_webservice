@@ -186,7 +186,7 @@ def _patch_ai(monkeypatch, *, result=None, exc=None):
         def evaluate_note(self, text):
             if exc is not None:
                 raise exc
-            return dict(result)
+            return dict(result)  # pyright: ignore[reportCallIssue, reportArgumentType]
 
     monkeypatch.setattr(nr, "_ai_service", lambda: _FakeService())
 
@@ -195,7 +195,7 @@ class TestEvaluate:
     def test_flag_off_returns_error_and_no_row(self, monkeypatch):
         from app.shared.config import cfg
 
-        app, clients, ctx = _setup_test_env()
+        _, clients, ctx = _setup_test_env()
         try:
             note = _make_note(clients["alice"][0].id, "idea")
             monkeypatch.setattr(cfg, "notepad_ai_enabled", False)

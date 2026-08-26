@@ -568,7 +568,6 @@ class TestNotepadAccess:
 class TestFsoAccountService:
     def test_create_fso_account_binds_and_assigns_role(self, two_officers):
         from app.auth.provisioning import create_fso_account
-
         from app.extensions import db
         from app.models import User
 
@@ -595,7 +594,6 @@ class TestFsoAccountService:
 class TestSeedFsoUsers:
     def test_seeds_all_unbound_fsos_and_is_idempotent(self, two_officers):
         from app.auth.provisioning import seed_fso_users
-
         from app.extensions import db
         from app.models import User
 
@@ -655,7 +653,6 @@ class TestCreateUserRouteRoleField:
 
     def test_route_rejects_duplicate_binding(self, env):
         from app.auth.provisioning import create_fso_account
-
         from app.extensions import db
         from app.models import FSO
 

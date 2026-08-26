@@ -68,12 +68,22 @@ def pytest_collection_modifyitems(config, items):
     The slow marker is declared in pyproject.toml.
     """
     slow_keywords = (
-        "rag", "qdrant", "embedding", "retrieval",
-        "e2e", "integration", "hybrid",
-        "benchmark", "benchmarks",
-        "enrichment", "evaluate", "evaluation",
-        "reingest", "batch",
-        "remote", "neo4j",
+        "rag",
+        "qdrant",
+        "embedding",
+        "retrieval",
+        "e2e",
+        "integration",
+        "hybrid",
+        "benchmark",
+        "benchmarks",
+        "enrichment",
+        "evaluate",
+        "evaluation",
+        "reingest",
+        "batch",
+        "remote",
+        "neo4j",
         "ce_v2",
     )
 

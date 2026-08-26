@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 from collections import Counter, defaultdict
@@ -111,10 +112,15 @@ def _gap_bucket(payload: dict) -> str:
 def load_payloads(live: bool) -> list[dict]:
     if not live and CACHE.exists():
         out = []
-        with open(CACHE, encoding="utf-8") as f:
-            for line in f:
-                out.append(json.loads(line)["payload"])
-        return out
+        try:
+            with open(CACHE, encoding="utf-8") as f:
+                for line in f:
+                    out.append(json.loads(line)["payload"])
+        except (OSError, ValueError, KeyError) as exc:
+            # corrupt/partial cache — fall through to a live fetch instead of crashing
+            logging.getLogger(__name__).warning("coverage cache unreadable (%s); refetching live", exc)
+        else:
+            return out
     from app import create_app
     from app.rag.qdrant_client import QdrantStore
     from evaluation.resolution import build_payload_index
@@ -157,7 +163,8 @@ def audit(payloads: list[dict]) -> dict:
             "pct": round(idn / len(pls) * 100, 1) if pls else 0.0,
         }
     type_rows: dict[str, dict] = {}
-    for dt in sorted({p.get("document_type") for p in payloads}):
+    doc_types = {p.get("document_type") for p in payloads} - {None}
+    for dt in sorted(doc_types):  # type: ignore[type-var]
         pls = [p for p in substantive if p.get("document_type") == dt]
         idn = sum(1 for p in pls if is_identified(p))
         type_rows[dt] = {

@@ -57,12 +57,12 @@ def _case_status_counts() -> list[dict]:
     )
     # Merge into a single series
     months: dict[str, dict[str, int]] = {}
-    for row in case_counts:
-        months.setdefault(row.month, {"case_files": 0, "adjudications": 0})
-        months[row.month]["case_files"] = row.count
-    for row in adj_counts:
-        months.setdefault(row.month, {"case_files": 0, "adjudications": 0})
-        months[row.month]["adjudications"] = row.count
+    for month, case_n in case_counts:  # type: ignore[misc]
+        months.setdefault(month, {"case_files": 0, "adjudications": 0})
+        months[month]["case_files"] = int(case_n)
+    for month, adj_n in adj_counts:  # type: ignore[misc]
+        months.setdefault(month, {"case_files": 0, "adjudications": 0})
+        months[month]["adjudications"] = int(adj_n)
     return [
         {"month": m, "case_files": v["case_files"], "adjudications": v["adjudications"]}
         for m, v in sorted(months.items())
@@ -169,7 +169,7 @@ def _evidence_summary() -> dict:
     rows = (
         db.session.query(
             Evidence.evidence_type,
-            func.count(Evidence.id).label("count"),
+            func.count(Evidence.id).label("count"),  # pyright: ignore[reportArgumentType]
         )
         .group_by(Evidence.evidence_type)
         .all()
@@ -213,7 +213,7 @@ def _summary_counts() -> dict:
         "adjudications": db.session.query(func.count(Adjudication.id)).scalar() or 0,
         "inspections": db.session.query(func.count(Inspection.id)).scalar() or 0,
         "samples": db.session.query(func.count(Sample.id)).scalar() or 0,
-        "evidence": db.session.query(func.count(Evidence.id)).scalar() or 0,
+        "evidence": db.session.query(func.count(Evidence.id)).scalar() or 0,  # pyright: ignore[reportArgumentType]
         "fbo_issues": db.session.query(func.count(FboIssue.id)).scalar() or 0,
     }
 

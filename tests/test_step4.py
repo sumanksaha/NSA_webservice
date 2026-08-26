@@ -298,6 +298,7 @@ class TestDismissAction:
 
             # Verify fields are set
             result = db.session.get(Inspection, inspection.id)
+            assert result is not None
             assert result.is_dismissed
             assert result.dismissed_by == "Test FSO"
             assert result.dismissed_at is not None

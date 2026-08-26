@@ -409,7 +409,6 @@ def create_app(db_uri: str | None = None):
         flash("You do not have access to that section.", "error")
         return redirect(landing_endpoint(current_user))
 
-
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words
 

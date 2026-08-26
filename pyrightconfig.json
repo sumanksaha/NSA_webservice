@@ -5,5 +5,11 @@
         "C:/Users/Suman saha/AppData/Local/hermes/hermes-agent/venv/Lib/site-packages",
         "C:/Users/Suman saha/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages"
     ],
-    "pythonVersion": "3.11"
+    "pythonVersion": "3.11",
+
+    "//": "reportCallIssue off repo-wide: the codebase uses legacy SQLAlchemy declarative style (db.Column without Mapped[] annotations), so pyright can't see model constructor kwargs — ~240 false positives across every ORM call site. Upgrade path: migrate models to SQLAlchemy 2.0 `Mapped[x] = mapped_column(...)` annotations, then remove this.",
+    "reportCallIssue": false,
+
+    "reportAttributeAccessIssue": false,
+    "reportFunctionMemberAccess": false
 }

@@ -211,7 +211,7 @@ def create_sample():
             try:
                 from app.food_cell.tasks import send_do_intimation
 
-                send_do_intimation.delay(sample.id)
+                send_do_intimation.delay(sample.id)  # pyright: ignore[reportFunctionMemberAccess]
             except Exception as e:
                 current_app.logger.warning(f"DO intimation trigger failed: {e}")
 
