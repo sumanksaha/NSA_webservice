@@ -193,7 +193,7 @@ async def v2_rag_generate(req: GenerateRequest, db: Session = Depends(get_db)) -
     return result
 
 
-@app.post("/api/v2/rag/retrieve")
+@app.post("/api/v2/rag/retrieve", response_model=None)
 async def v2_rag_retrieve(req: GenerateRequest) -> dict[str, Any] | JSONResponse:
     """Live hybrid retrieval — dense (Qdrant + remote embeddings, RAG_REMOTE_EMBED)
     + sparse (Qdrant BM25 / rapidfuzz), fused via RRF (k=60).
@@ -238,7 +238,7 @@ def _result_to_dict(result: Any) -> dict[str, Any]:
     }
 
 
-@app.post("/api/v2/rag/query/agent")
+@app.post("/api/v2/rag/query/agent", response_model=None)
 async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONResponse:
     """Full RAG pipeline as a LangGraph agent (M3, M5).
 
@@ -292,7 +292,7 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONRes
     return result.get("response") or {}
 
 
-@app.post("/api/v2/rag/query/agent/resume")
+@app.post("/api/v2/rag/query/agent/resume", response_model=None)
 async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any] | JSONResponse:
     """Resume a paused M5 human-in-the-loop run (mirrors the Flask route)."""
     use_hitl = get_flag("RAG_AGENT_HITL")
@@ -342,4 +342,6 @@ app.mount("/", WSGIMiddleware(flask_app.wsgi_app))  # type: ignore[arg-type]
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000)))  # pi-lens-ignore: ast-grep:unchecked-throwing-call-python
+    uvicorn.run(
+        "asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000))
+    )  # pi-lens-ignore: ast-grep:unchecked-throwing-call-python
