@@ -86,3 +86,30 @@ class NoteEvaluation(db.Model):
 
     def __repr__(self) -> str:
         return f"<NoteEvaluation id={self.id} note={self.note_id}>"
+
+
+class DailyPlan(db.Model):
+    """One append-only AI-generated daily battle plan for a user's own notes.
+
+    ``payload`` is JSON with exactly three fields: ``items`` (top 3-5:
+    note_id / effort_bucket quick|medium|long / why), ``ranking`` (full
+    ordered list of open own-notes), and ``portfolio_rationale`` (markdown
+    prose from the three lenses applied to the sequence).
+    """
+
+    __tablename__ = "daily_plan"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    author_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    payload = db.Column(db.Text, nullable=False)  # JSON blob: items/ranking/portfolio_rationale
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (db.Index("idx_daily_plan_author_id", "author_id"),)
+
+    def __repr__(self) -> str:
+        return f"<DailyPlan id={self.id} author={self.author_id}>"

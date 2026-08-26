@@ -37,9 +37,10 @@ def _pop_leaked_flask_app_context():
     """
     yield
     try:
-        from flask import has_app_context
-        from flask.globals import app_ctx
+        from flask.globals import app_ctx, has_app_context, has_request_context, request_ctx
 
+        while has_request_context():
+            request_ctx.pop()
         while has_app_context():
             app_ctx.pop()
     except Exception:  # pragma: no cover - nothing to pop / Flask internals
@@ -48,6 +49,12 @@ def _pop_leaked_flask_app_context():
 
 os.environ["SKIP_FSO_STARTUP_SYNC"] = "1"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
+
+# Phase 18 RBAC gate is deny-by-default for users without seeded roles; the
+# dedicated RBAC suite (tests/test_rbac.py) tests blueprint_allowed() directly.
+# Route suites exercise notepad/inspection/etc. behavior, not permissions, so
+# enforcement stays off session-wide. Set DISABLE_RBAC=0 in a test body to opt in.
+os.environ["DISABLE_RBAC"] = "1"
 
 # Phase 8: PDF Assembly Engine tests configuration
 os.environ["DISABLE_PDF_GENERATION"] = "1"  # Disable actual PDF generation for testing

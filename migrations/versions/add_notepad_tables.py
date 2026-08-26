@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "add_notepad_tables"
-down_revision = "add_inspection_checklist_notice"
+down_revision = "merge_inspection_heads"
 branch_labels = None
 depends_on = None
 

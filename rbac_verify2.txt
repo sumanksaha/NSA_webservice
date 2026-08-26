@@ -1,0 +1,97 @@
+============================= test session starts =============================
+collected 92 items
+
+tests\test_rbac.py ............................................          [ 47%]
+tests\test_workdiary.py .................FFFFFFFF.F.                     [ 78%]
+tests\test_backup_monitoring.py ............                             [ 91%]
+tests\test_route_collisions.py ..                                        [ 93%]
+tests\test_inspection_checklist.py FFF                                   [ 96%]
+tests\test_csp_headers.py ...                                            [100%]
+
+================================== FAILURES ===================================
+_______________ TestRoutes.test_index_lists_entries_and_filters _______________
+tests\test_workdiary.py:221: in test_index_lists_entries_and_filters
+    assert resp.status_code == 200
+E   assert 302 == 200
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+______________________ TestRoutes.test_index_empty_state ______________________
+tests\test_workdiary.py:229: in test_index_empty_state
+    assert resp.status_code == 200
+E   assert 302 == 200
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+____________ TestRoutes.test_index_rejects_unknown_fso_gracefully _____________
+tests\test_workdiary.py:235: in test_index_rejects_unknown_fso_gracefully
+    assert resp.status_code == 200
+E   assert 302 == 200
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+_______________ TestRoutes.test_preview_renders_official_report _______________
+tests\test_workdiary.py:242: in test_preview_renders_official_report
+    assert resp.status_code == 200
+E   assert 302 == 200
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+_________________ TestRoutes.test_report_pads_to_minimum_rows _________________
+tests\test_workdiary.py:258: in test_report_pads_to_minimum_rows
+    assert 'class="empty-row"' in body  # blank rows keep the printed form height
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 'class="empty-row"' in '<!doctype html>\n<html lang=en>\n<title>Redirecting...</title>\n<h1>Redirecting...</h1>\n<p>You should be redirected automatically to the target URL: <a href="/case_file_generator/">/case_file_generator/</a>. If not, click the link.\n'
+_____________ TestRoutes.test_create_route_persists_visit_purpose _____________
+tests\test_workdiary.py:270: in test_create_route_persists_visit_purpose
+    assert resp.status_code == 201, resp.get_data(as_text=True)
+E   AssertionError: <!doctype html>
+E     <html lang=en>
+E     <title>Redirecting...</title>
+E     <h1>Redirecting...</h1>
+E     <p>You should be redirected automatically to the target URL: <a href="/case_file_generator/">/case_file_generator/</a>. If not, click the link.
+E     
+E   assert 302 == 201
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+____________ TestRoutes.test_create_route_rejects_invalid_purpose _____________
+tests\test_workdiary.py:289: in test_create_route_rejects_invalid_purpose
+    assert resp.status_code == 400
+E   assert 302 == 400
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+____________________ TestRoutes.test_pdf_download_success _____________________
+tests\test_workdiary.py:299: in test_pdf_download_success
+    assert resp.status_code == 200
+E   assert 302 == 200
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+___________________ TestRoutes.test_pdf_failure_returns_503 ___________________
+tests\test_workdiary.py:319: in test_pdf_failure_returns_503
+    assert resp.status_code == 503
+E   assert 302 == 503
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+____ TestChecklistCapture.test_create_with_checklist_stores_and_returns_it ____
+tests\test_inspection_checklist.py:64: in test_create_with_checklist_stores_and_returns_it
+    assert resp.status_code in (200, 201), resp.data
+E   AssertionError: b'<!doctype html>
+E     <html lang=en>
+E     <title>Redirecting...</title>
+E     <h1>Redirecting...</h1>
+E     <p>You should be redirected automatically to the target URL: <a href="/case_file_generator/">/case_file_generator/</a>. If not, click the link.
+E     '
+E   assert 302 in (200, 201)
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+_____ TestChecklistCapture.test_create_without_checklist_leaves_it_empty ______
+tests\test_inspection_checklist.py:81: in test_create_without_checklist_leaves_it_empty
+    assert resp.status_code in (200, 201)
+E   assert 302 in (200, 201)
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+_ TestChecklistCapture.test_violation_defaults_follow_adjudication_conventions _
+tests\test_inspection_checklist.py:96: in test_violation_defaults_follow_adjudication_conventions
+    assert resp.status_code in (200, 201)
+E   assert 302 in (200, 201)
+E    +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+=========================== short test summary info ===========================
+FAILED tests/test_workdiary.py::TestRoutes::test_index_lists_entries_and_filters
+FAILED tests/test_workdiary.py::TestRoutes::test_index_empty_state - assert 3...
+FAILED tests/test_workdiary.py::TestRoutes::test_index_rejects_unknown_fso_gracefully
+FAILED tests/test_workdiary.py::TestRoutes::test_preview_renders_official_report
+FAILED tests/test_workdiary.py::TestRoutes::test_report_pads_to_minimum_rows
+FAILED tests/test_workdiary.py::TestRoutes::test_create_route_persists_visit_purpose
+FAILED tests/test_workdiary.py::TestRoutes::test_create_route_rejects_invalid_purpose
+FAILED tests/test_workdiary.py::TestRoutes::test_pdf_download_success - asser...
+FAILED tests/test_workdiary.py::TestRoutes::test_pdf_failure_returns_503 - as...
+FAILED tests/test_inspection_checklist.py::TestChecklistCapture::test_create_with_checklist_stores_and_returns_it
+FAILED tests/test_inspection_checklist.py::TestChecklistCapture::test_create_without_checklist_leaves_it_empty
+FAILED tests/test_inspection_checklist.py::TestChecklistCapture::test_violation_defaults_follow_adjudication_conventions
+================== 12 failed, 80 passed in 505.01s (0:08:25) ==================

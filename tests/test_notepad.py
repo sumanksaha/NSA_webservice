@@ -193,10 +193,12 @@ def _patch_ai(monkeypatch, *, result=None, exc=None):
 
 class TestEvaluate:
     def test_flag_off_returns_error_and_no_row(self, monkeypatch):
+        from app.shared.config import cfg
+
         app, clients, ctx = _setup_test_env()
         try:
             note = _make_note(clients["alice"][0].id, "idea")
-            app.config["NOTEPAD_AI_ENABLED"] = False
+            monkeypatch.setattr(cfg, "notepad_ai_enabled", False)
             _, client = clients["alice"]
             resp = client.post(f"/notepad/{note.id}/evaluate")
             assert resp.status_code == 503

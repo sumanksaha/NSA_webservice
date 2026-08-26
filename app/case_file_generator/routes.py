@@ -380,12 +380,24 @@ def lookup_fssai_route():
 
 @case_file_generator_bp.route("/regenerate/<int:case_id>", methods=["GET"])
 def regenerate_case_files(case_id):
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
     return _regenerate_case_file(case_id)
 
 
 @case_file_generator_bp.route("/generate_case_file", methods=["POST"])
 def generate_case_file_route():
     form_data = request.form.to_dict()
+
+    # Phase 18 RBAC: an fso-role account always owns what it creates — the
+    # bound officer name overrides whatever the form submitted.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        form_data["food_safety_officer_name"] = scope
 
     validation_errors = validate_case_file_form(form_data)
     if validation_errors:
@@ -551,12 +563,23 @@ def _case_type_from_args() -> str:
     return request.args.get("case_type", "case_file")
 
 
+def _case_visible_to_current_user(case_id: int, case_type: str) -> bool:
+    """Phase 18 record-level scope for module-level case routes."""
+    from flask_login import current_user
+
+    from app.shared.rbac import case_visible_to_user
+
+    return case_visible_to_user(current_user, case_type, case_id)
+
+
 @case_file_generator_bp.route("/api/cases/<int:case_id>/export.json", methods=["GET"])
 @login_required
 def export_case_json_route(case_id: int):
     """Full JSON export of a case + annexures + evidence + versions."""
     from app.case_file_generator.services import export_case_as_json
 
+    if not _case_visible_to_current_user(case_id, _case_type_from_args()):
+        return jsonify({"error": "Case not found"}), 404
     try:
         data = export_case_as_json(case_id, _case_type_from_args())
     except ValueError as exc:
@@ -575,6 +598,8 @@ def export_case_zip_route(case_id: int):
     from app.case_file_generator.services import export_case_as_zip
 
     case_type = _case_type_from_args()
+    if not _case_visible_to_current_user(case_id, case_type):
+        return jsonify({"error": "Case not found"}), 404
     try:
         zip_bytes = export_case_as_zip(case_id, case_type)
     except ValueError as exc:

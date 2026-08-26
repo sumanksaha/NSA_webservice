@@ -7,7 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.auth import auth_bp
 from app.extensions import db
-from app.models import RecordAudit, User
+from app.models import RecordAudit, Role, User
 
 
 def _is_safe_redirect_url(target):
@@ -254,6 +254,32 @@ def create_user():
         password = request.form.get("password", "")
         confirm = request.form.get("confirm_password", "")
         make_admin = request.form.get("is_admin") == "on"
+        role = (request.form.get("role") or "").strip().lower()
+        fso_name = (request.form.get("fso_name") or "").strip()
+
+        if role == "fso":
+            # Phase 18 RBAC — bound FSO account via the provisioning seam.
+            from app.auth.provisioning import ProvisioningError, create_fso_account
+
+            try:
+                user = create_fso_account(
+                    username,
+                    fso_name,
+                    password,
+                    creator_id=current_user.id,
+                )
+            except ProvisioningError as exc:
+                flash(str(exc), "error")
+                return render_template("auth/create_user.html")
+
+            if password != confirm:
+                db.session.delete(user)
+                db.session.commit()
+                flash("Passwords do not match.", "error")
+                return render_template("auth/create_user.html")
+            _log_user_audit("user_created", current_user.id, user.id)
+            flash(f"FSO account '{username}' created for {fso_name}.", "success")
+            return redirect(url_for("auth.users"))
 
         if not username or not password or not confirm:
             flash("All fields are required.", "error")
@@ -280,12 +306,21 @@ def create_user():
         )
         db.session.add(user)
         db.session.commit()
+        if make_admin:
+            from app.shared.rbac import ADMIN_ROLE, ensure_roles
+
+            ensure_roles()
+            admin_role = Role.query.filter_by(name=ADMIN_ROLE).one()
+            user.roles.append(admin_role)
+            db.session.commit()
         _log_user_audit("user_created", current_user.id, user.id)
         role_desc = "admin" if make_admin else "user"
         flash(f"User '{username}' created ({role_desc}).", "success")
         return redirect(url_for("auth.users"))
 
-    return render_template("auth/create_user.html")
+    from app.utils.fso_data import get_all_fso_names
+
+    return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
 
 @auth_bp.route("/users/<int:user_id>/reset-password", methods=["GET", "POST"])

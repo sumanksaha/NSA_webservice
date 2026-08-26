@@ -133,7 +133,15 @@ class DocumentCaseManager:
             # Recent cases only — the index page is the landing view for both
             # blueprints, so keep the 'Case Timelines' panel cheap instead of
             # scanning the whole table on every load.
-            recent_cases = self.model.query.order_by(self.model.created_at.desc()).limit(50).all()
+            from flask_login import current_user
+
+            from app.shared.rbac import scoped_officer_name
+
+            query = self.model.query
+            scope = scoped_officer_name(current_user)
+            if scope is not None:
+                query = query.filter(self._officer_column() == scope)
+            recent_cases = query.order_by(self.model.created_at.desc()).limit(50).all()
             return render_template(
                 f"{self.template_dir}/index.html",
                 cases=[self._case_summary(c) for c in recent_cases],
@@ -142,34 +150,42 @@ class DocumentCaseManager:
 
         @bp.route("/cases", methods=["GET"])
         def list_cases():
-            cases = self.model.query.order_by(self.model.created_at.desc()).all()
+            from flask_login import current_user
+
+            from app.shared.rbac import scoped_officer_name
+
+            query = self.model.query
+            scope = scoped_officer_name(current_user)
+            if scope is not None:
+                query = query.filter(self._officer_column() == scope)
+            cases = query.order_by(self.model.created_at.desc()).all()
             return jsonify([self._case_summary(c) for c in cases])
 
         @bp.route("/case/<int:case_id>", methods=["GET"])
         def get_case(case_id):
             case = self.get_case(case_id)
-            if case is None:
+            if case is None or not self._visible_to_current_user(case):
                 return jsonify({"error": f"Case with id {case_id} not found"}), 404
             return jsonify(self.model_to_dict_fn(case))
 
         @bp.route("/case/by_number/<case_number>", methods=["GET"])
         def get_case_by_number(case_number):
             case = self.get_case_by_number(case_number)
-            if case is None:
+            if case is None or not self._visible_to_current_user(case):
                 return jsonify({"error": f"Case with number {case_number} not found"}), 404
             return jsonify(self.model_to_dict_fn(case))
 
         @bp.route("/<int:case_id>/editor", methods=["GET"])
         def edit_case(case_id):
             case = self.get_case(case_id)
-            if case is None:
+            if case is None or not self._visible_to_current_user(case):
                 return jsonify({"error": f"Case with id {case_id} not found"}), 404
             return self.render_editor(case_id)
 
         @bp.route("/<int:case_id>/xref_report", methods=["GET"])
         def xref_report(case_id):
             case = self.get_case(case_id)
-            if case is None:
+            if case is None or not self._visible_to_current_user(case):
                 return jsonify({"error": f"Case with id {case_id} not found"}), 404
             doc_type = request.args.get("doc_type", "petition")
             annotated_html = self._render_document(case_id, doc_type)
@@ -189,7 +205,7 @@ class DocumentCaseManager:
         @bp.route("/<int:case_id>/toc_report", methods=["GET"])
         def toc_report(case_id):
             case = self.get_case(case_id)
-            if case is None:
+            if case is None or not self._visible_to_current_user(case):
                 return jsonify({"error": f"Case with id {case_id} not found"}), 404
             doc_type = request.args.get("doc_type", "petition")
             annotated_html = self._render_document(case_id, doc_type)
@@ -214,6 +230,9 @@ class DocumentCaseManager:
         def renumber_annexures(case_id):
             from app.cross_reference.engine import CrossReferenceEngine
 
+            case = self.get_case(case_id)
+            if case is None or not self._visible_to_current_user(case):
+                return jsonify({"error": f"Case with id {case_id} not found"}), 404
             kwargs = self._case_kwarg(case_id)
             updates = CrossReferenceEngine().renumber_annexures(**kwargs)
             return jsonify({"status": "ok", "updates": updates, "count": len(updates)})
@@ -632,6 +651,23 @@ class DocumentCaseManager:
     # ------------------------------------------------------------------ #
     # Model-specific property accessors (override via subclasses or callbacks)
     # ------------------------------------------------------------------ #
+
+    def _officer_column(self):
+        """The model attribute holding the responsible officer's name."""
+        if self.case_type == "case_file":
+            return self.model.food_safety_officer_name
+        return self.model.food_safety_officer
+
+    def _visible_to_current_user(self, case) -> bool:
+        """Phase 18 record-level scope: officers see only their own cases."""
+        from flask_login import current_user
+
+        from app.shared.rbac import scoped_officer_name
+
+        scope = scoped_officer_name(current_user)
+        if scope is None:
+            return True
+        return getattr(case, self._officer_column().key, None) == scope
 
     def _case_summary(self, case) -> dict:
         """Return a summary dict for list_cases — delegates to CaseQueryService."""

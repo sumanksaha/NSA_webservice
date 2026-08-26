@@ -1,0 +1,77 @@
+{% extends "base.html" %} {% block title %}Daily Plan{% endblock %} {% block content %}
+<div class="page-header mb--lg">
+    <h1><i class="fa-solid fa-list-check"></i> Daily Plan</h1>
+    <p class="form-hint">
+        AI-picked battle plan: top 3–5 notes worth doing today, least-time-first.
+    </p>
+</div>
+
+{% if plan %}
+<div class="card bg--subtle mb--lg">
+    <h2 class="mb--sm">Today's battle plan</h2>
+    <ol class="mb--md">
+        {% for entry, status in items %}
+        <li class="mb--sm">
+            <span class="status-badge">{{ entry.effort_bucket }}</span>
+            {% if status == "implemented" %}<span class="status-badge status-badge--success"
+                ><i class="fa-solid fa-check-double"></i> Implemented</span
+            >
+            {% elif status == "dismissed" %}<span class="status-badge status-badge--error"
+                >Dismissed</span
+            >
+            {% endif %} — {{ entry.why }}
+            <a href="{{ url_for('notepad.detail', note_id=entry.note_id) }}" class="ms--sm"
+                >view note</a
+            >
+        </li>
+        {% endfor %}
+    </ol>
+</div>
+
+{% if portfolio_rationale %}
+<div class="card bg--subtle mb--lg">
+    <h2 class="mb--sm">Why this order</h2>
+    <div class="prose">{{ portfolio_rationale }}</div>
+</div>
+{% endif %} {% if ranking %}
+<div class="card bg--subtle mb--lg">
+    <h2 class="mb--sm">Full ranking</h2>
+    <ol>
+        {% for entry, status in ranking %}
+        <li>
+            <span class="status-badge">{{ entry.effort_bucket }}</span>
+            {{ entry.why }}
+            <a href="{{ url_for('notepad.detail', note_id=entry.note_id) }}" class="ms--sm"
+                >view note</a
+            >
+        </li>
+        {% endfor %}
+    </ol>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('notepad.generate_plan') }}">
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() if csrf_token is defined else '' }}"
+    />
+    <button type="submit" class="btn btn-secondary">
+        <i class="fa-solid fa-rotate"></i> Regenerate
+    </button>
+</form>
+{% else %}
+<div class="card bg--subtle">
+    <p>No plan yet. Generate one from your open notes.</p>
+    <form method="post" action="{{ url_for('notepad.generate_plan') }}">
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() if csrf_token is defined else '' }}"
+        />
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Plan my day
+        </button>
+    </form>
+</div>
+{% endif %} {% endblock %}

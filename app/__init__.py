@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, request, url_for
+from flask import Flask, current_app, flash, redirect, request, url_for
 from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -216,6 +216,9 @@ def create_app(db_uri: str | None = None):
 
     # Redis configuration (can be set via environment variable)
     app.config["REDIS_URL"] = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    # Phase 18: tests disable the RBAC gate session-wide via conftest; per-app
+    # override stays possible by setting this key after create_app().
+    app.config["DISABLE_RBAC"] = os.environ.get("DISABLE_RBAC", "") == "1"
 
     # Google Sheets configuration (can be set via environment variables)
     app.config["SPREADSHEET_ID"] = os.environ.get("SPREADSHEET_ID")
@@ -384,6 +387,29 @@ def create_app(db_uri: str | None = None):
         if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
             return redirect(url_for("auth.login", next=request.url))
 
+    @app.before_request
+    def enforce_rbac():
+        """Phase 18 role gate — deny-by-default beyond ALWAYS_ALLOWED.
+
+        Redirects (with an explanatory flash) instead of a dead 403 page;
+        nav links for disallowed blueprints are hidden in base.html so this
+        mostly guards direct URLs and stale bookmarks.
+        """
+        from app.shared.rbac import blueprint_allowed, landing_endpoint
+
+        if current_app.config.get("DISABLE_RBAC"):
+            return None
+        if not current_user.is_authenticated:
+            return None
+        endpoint = request.endpoint
+        if not endpoint or endpoint in public_endpoints:
+            return None
+        if blueprint_allowed(current_user, request.blueprint):
+            return None
+        flash("You do not have access to that section.", "error")
+        return redirect(landing_endpoint(current_user))
+
+
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words
 
@@ -484,6 +510,11 @@ def create_app(db_uri: str | None = None):
     from app.analytics import analytics_bp
 
     app.register_blueprint(analytics_bp, url_prefix="/analytics")
+    # Comments API (Phase 18) — visibility inherited from the parent case
+    from app.comments import comments_bp
+
+    app.register_blueprint(comments_bp)
+
     # Work diary (accumulates Inspections per FSO; preview + PDF download)
     from app.workdiary import workdiary_bp
 
@@ -599,7 +630,15 @@ def create_app(db_uri: str | None = None):
         # ------------------------------------------------------------------
         from app.models import User
 
-        if User.query.count() == 0:
+        try:
+            _user_count = User.query.count()
+        except Exception:  # pragma: no cover - pre-migration schema (flask db upgrade)
+            # DB predates the current models; skip seeding so `flask db upgrade`
+            # can boot and bring the schema up. Seeding happens on next boot.
+            app.logger.warning("User table not queryable yet — skipping admin seed.")
+            _user_count = 1
+
+        if _user_count == 0:
             from werkzeug.security import generate_password_hash
 
             default_admin = User(

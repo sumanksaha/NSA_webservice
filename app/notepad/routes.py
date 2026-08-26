@@ -7,7 +7,7 @@ import json
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from app.extensions import db
-from app.models import Note, NoteEvaluation
+from app.models import DailyPlan, Note, NoteEvaluation
 from app.shared.config import cfg
 
 notepad_bp = Blueprint("notepad", __name__, template_folder="templates")
@@ -29,6 +29,113 @@ def _ai_service():
     from app.ai_assistant.service import AIAssistantService
 
     return AIAssistantService()
+
+
+#: Effort buckets for daily-plan sequencing (SPT: least-time-first).
+_EFFORT_BUCKETS = ("quick", "medium", "long")
+_PLAN_PAYLOAD_KEYS = ("items", "ranking", "portfolio_rationale")
+
+
+def _validate_plan_payload(payload: dict, offered_ids: set[int]) -> str | None:
+    """Light validation; returns an error message or None."""
+    if not isinstance(payload, dict):
+        return "AI returned a non-object plan."
+    missing = [k for k in _PLAN_PAYLOAD_KEYS if k not in payload]
+    if missing:
+        return f"AI returned an incomplete plan (missing: {', '.join(missing)})."
+    for entry in list(payload.get("items") or []) + list(payload.get("ranking") or []):
+        if entry.get("effort_bucket") not in _EFFORT_BUCKETS:
+            return f"Invalid effort bucket: {entry.get('effort_bucket')!r}."
+        if entry.get("note_id") not in offered_ids:
+            return f"Plan references note {entry.get('note_id')} which was not offered."
+    return None
+
+
+@notepad_bp.route("/plan/generate", methods=["POST"])
+def generate_plan():
+    """One synchronous AI call over the user's open notes -> one DailyPlan row.
+
+    Append-only: regenerating inserts a new row, never updates.
+    """
+    from flask_login import current_user
+
+    if not cfg.notepad_ai_enabled:
+        abort(503, description="Notepad AI planning is disabled.")
+
+    open_notes = (
+        Note.query
+        .filter(
+            Note.author_id == current_user.id,
+            Note.status.notin_(("implemented", "dismissed")),
+        )
+        .order_by(Note.created_at.desc())
+        .all()
+    )
+
+    service = _ai_service()
+    if not service.is_enabled():
+        flash("AI assistant is not configured (missing provider/API key).", "warning")
+        return redirect(url_for("notepad.index"))
+
+    offered = [{"id": n.id, "content_text": n.content_text} for n in open_notes]
+    try:
+        payload = service.plan_open_notes(offered)
+    except Exception as exc:  # graceful: never persist a failed plan
+        flash(f"AI planning failed: {exc}", "danger")
+        return redirect(url_for("notepad.index"))
+
+    error = _validate_plan_payload(payload, {n.id for n in open_notes})
+    if error:
+        flash(error, "warning")
+        return redirect(url_for("notepad.index"))
+
+    db.session.add(DailyPlan(author_id=current_user.id, payload=json.dumps(payload)))
+    db.session.commit()
+    flash("Daily plan generated.", "success")
+    return redirect(url_for("notepad.view_plan"))
+
+
+@notepad_bp.route("/plan")
+def view_plan():
+    """Show the latest Daily Plan for the current user with live status badges."""
+    from flask_login import current_user
+
+    plan = (
+        DailyPlan.query
+        .filter_by(author_id=current_user.id)
+        .order_by(DailyPlan.created_at.desc(), DailyPlan.id.desc())
+        .first()
+    )
+
+    items_with_status = []
+    ranking = []
+    rationale = None
+    if plan:
+        try:
+            payload = json.loads(plan.payload)
+        except (json.JSONDecodeError, TypeError):
+            payload = {}
+        rationale = payload.get("portfolio_rationale")
+        all_entries = [
+            *(payload.get("items") or []),
+            *(payload.get("ranking") or []),
+        ]
+        status_by_id = {
+            n.id: n.status for n in Note.query.filter(Note.id.in_([e["note_id"] for e in all_entries])).all()
+        } or {}
+        for entry in payload.get("items") or []:
+            items_with_status.append((entry, status_by_id.get(entry["note_id"])))
+        seen = {e["note_id"] for e in payload.get("items") or []}
+        for entry in payload.get("ranking") or []:
+            if entry["note_id"] not in seen:
+                ranking.append((entry, status_by_id.get(entry["note_id"])))
+    return render_template(
+        "notepad/plan.html",
+        plan=plan,
+        items=items_with_status,
+        ranking=ranking,
+        portfolio_rationale=rationale,
+    )
 
 
 @notepad_bp.route("/")

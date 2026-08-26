@@ -86,6 +86,23 @@ with unresolved violations remains listed as an open issue until this state is
 asserted (with actor + timestamp + audit note). There is no deadline
 precondition for asserting it.
 
+### Role gate (`ROLE_BLUEPRINTS`)
+
+**Module:** `app/shared/rbac.py`. Phase 18's authorization seam. Maps each
+non-admin role to the Flask blueprints it may reach; admins bypass entirely.
+Consumed by the `enforce_rbac` before_request gate (deny = flash + redirect to
+the role's landing page) and by `base.html` nav visibility. Adding a feature
+to a role = one set entry, shipped with deploy.
+
+### FSO account binding
+
+A user holding the **`fso`** role is bound 1:1 to an entry of the `fso` table
+via `users.fso_name` (set at provisioning, unique among active accounts).
+The binding drives record-level scoping: CaseFile/Adjudication/Inspection/
+Work Diary rows whose officer name equals the binding are visible; everything
+else fails closed (admins see all). Creates force-stamp the bound name
+server-side.
+
 ### Note
 
 A single item in the **Notepad** intake queue (`app/notepad/`, `/notepad`):

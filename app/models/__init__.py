@@ -31,7 +31,7 @@ from app.models.food_cell import DoIntimation
 from app.models.inspection import FSO, AuditLog, Inspection
 from app.models.issue import FboIssue, FboIssueAudit
 from app.models.lookup import FssaiLicense, FssaiRegistration
-from app.models.notepad import Note, NoteEvaluation
+from app.models.notepad import DailyPlan, Note, NoteEvaluation
 from app.models.ocr import (
     ConflictLog,
     FieldAuthority,

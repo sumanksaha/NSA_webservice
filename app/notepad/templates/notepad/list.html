@@ -1,6 +1,11 @@
 {% extends "base.html" %} {% block title %}Notepad{% endblock %} {% block content %}
 <div class="container">
-    <h1><i class="fa-solid fa-note-sticky"></i> Notepad</h1>
+    <h1>
+        <i class="fa-solid fa-note-sticky"></i> Notepad
+        <a href="{{ url_for('notepad.view_plan') }}" class="btn btn-secondary btn-sm ms-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Plan my day
+        </a>
+    </h1>
     <p class="text-muted">Paste ideas, to-dos, or proposals. Shared with all FSOs by default.</p>
 
     <form

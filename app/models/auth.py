@@ -15,10 +15,18 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    # Phase 18 RBAC: the FSO this account belongs to (required when the user
+    # holds the `fso` role; NULL for pure admins). Free-text mirror of
+    # fso.fso_name rather than an FK so legacy officer strings still resolve.
+    fso_name = db.Column(db.String(100), db.ForeignKey("fso.fso_name"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     def get_id(self):
         return str(self.id)
+
+    def has_role(self, name: str) -> bool:
+        """True when ``name`` is among the roles explicitly assigned to this user."""
+        return any(role.name == name for role in self.roles)
 
     def __repr__(self):
         return f"<User {self.username}>"

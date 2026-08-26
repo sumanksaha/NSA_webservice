@@ -44,6 +44,28 @@ def _filters_from_request() -> dict[str, str | None]:
     }
 
 
+def _enforce_scope(filters: dict[str, str | None], *, strict: bool = False):
+    """Lock diary filters to the bound FSO for non-admin users.
+
+    ``strict`` (preview/PDF) bounces explicit cross-officer requests to the
+    landing page with a flash; the interactive index just silently locks to
+    the bound officer.
+    """
+    from flask import flash, redirect, url_for
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is None:
+        return None
+    if strict and filters.get("fso_name") not in (None, scope):
+        flash("You can only view your own work diary.", "error")
+        return redirect(url_for("case_file_generator.index"))
+    filters["fso_name"] = scope
+    return None
+
+
 def _url_for_filters(endpoint: str, filters: dict[str, str | None]) -> str:
     """Build ``url_for(endpoint, **filters)``, dropping empty filter values."""
     from flask import url_for
@@ -89,6 +111,9 @@ def _period_labels(filters: dict[str, str | None]) -> dict[str, str]:
 def index():
     """Work Diary landing page: filters + accumulated inspection rows."""
     filters = _filters_from_request()
+    blocked = _enforce_scope(filters)
+    if blocked is not None:
+        return blocked
     entries = engine.build_entries(**filters)
     return render_template(
         "workdiary/index.html",
@@ -105,6 +130,9 @@ def index():
 def preview():
     """Official Work Diary report, print-ready (opens in a new tab)."""
     filters = _filters_from_request()
+    blocked = _enforce_scope(filters, strict=True)
+    if blocked is not None:
+        return blocked
     entries = engine.build_entries(**filters)
     return render_template(
         "workdiary/report.html",
@@ -119,6 +147,9 @@ def preview():
 def pdf():
     """Download the current diary report as a PDF."""
     filters = _filters_from_request()
+    blocked = _enforce_scope(filters, strict=True)
+    if blocked is not None:
+        return blocked
     entries = engine.build_entries(**filters)
     html = render_template(
         "workdiary/report.html",

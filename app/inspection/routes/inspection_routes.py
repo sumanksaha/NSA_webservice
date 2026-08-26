@@ -62,6 +62,15 @@ def list_inspections():
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name)
 
+    # Phase 18 RBAC: fso-role users see only their own inspections.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        query = query.filter(Inspection.fso_name == scope)
+
     if filter_fso:
         query = query.filter(Inspection.fso_name == filter_fso)
 
@@ -116,6 +125,15 @@ def list_inspections():
 def create_inspection():
     """Create a new inspection record."""
     form_data = request.form.to_dict()
+
+    # Phase 18 RBAC: an fso-role account always owns what it creates.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        form_data["food_safety_officer_name"] = scope
 
     food_safety_officer_name = form_data.get("food_safety_officer_name", "").strip()
     inspection_date = form_data.get("inspection_date", "").strip()

@@ -324,7 +324,18 @@
 
         <div class="nav-overlay" id="navOverlay"></div>
 
-        <main class="layout-container">{% block content %}{% endblock %}</main>
+        <main class="layout-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="status">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
 
         <!-- Global Timeline case-picker modal -->
         <div

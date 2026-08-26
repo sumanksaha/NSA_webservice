@@ -194,6 +194,49 @@ class AIAssistantService:
             data.setdefault(key, "")
         return data
 
+    def plan_open_notes(self, notes: list[dict]) -> dict:
+        """Build a Daily Plan from a user's open Notepad notes.
+
+        ``notes`` is a list of ``{"id": int, "content_text": str}``.
+        Returns a dict with exactly three keys: ``items`` (top 3-5 battle
+        plan entries: note_id / effort_bucket quick|medium|long / why),
+        ``ranking`` (full ordered list, same entry shape), and
+        ``portfolio_rationale`` (markdown prose applying the game-theory,
+        Talebian and first-principles lenses to the *sequence*).
+        Sequencing principle: shortest-task-first (SPT) — effort ascending,
+        tie-broken by lens score. Raises on provider failure; the route
+        owns payload validation.
+        """
+        notes_block = "\n".join(f"- id={n['id']}: {n['content_text']}" for n in notes)
+        prompt = (
+            "You are planning one day of work for a Food Safety Officer. "
+            "Below are their open to-do notes. Respond with ONLY a JSON "
+            "object (no markdown fences, no prose) with exactly these keys:\n"
+            '- "items": array of 3-5 entries worth doing TODAY — each an '
+            'object {"note_id": int, "effort_bucket": "quick"|"medium"|'
+            '"long", "why": 1-2 sentence justification}\n'
+            '- "ranking": ALL offered notes ordered best-to-do-first, same '
+            "entry shape\n"
+            '- "portfolio_rationale": markdown prose applying these lenses '
+            "to the SEQUENCE, not individual items: game theory (which quick "
+            "win buys cooperation for the hard ones), Talebian antifragility "
+            "(prefer the reversible experiment first; name what should be "
+            "ignored today), first principles (what unblocks or makes the "
+            "rest trivial)\n\n"
+            "Sequencing rule: least-time-first — order by effort_bucket "
+            "ascending (quick before medium before long); break ties by "
+            "which task teaches most or unlocks others.\n\n"
+            "Open notes:\n" + notes_block
+        )
+        result, _ = self._request(prompt, max_tokens=2048)
+        try:
+            data = json.loads(result)
+        except json.JSONDecodeError as err:
+            raise ValueError("AI did not return valid JSON") from err
+        if not isinstance(data, dict):
+            raise ValueError("AI did not return a JSON object")
+        return data
+
     def draft_prayers(self, facts: str, grounds: str) -> str:
         """Draft prayer clauses for a legal document based on facts and grounds.
 

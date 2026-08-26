@@ -22,7 +22,9 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="testfso", password_hash="pbkdf2:sha256$test$dummy")
+    # is_admin: Phase 18 scoping stamps create with scoped_officer_name();
+    # these tests exercise checklist capture, not scoping — admins are unscoped.
+    user = User(username="testfso", password_hash="pbkdf2:sha256$test$dummy", is_admin=True)
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()

@@ -53,6 +53,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   test now seeds its own `FssaiLicense` row (was failing on missing reference
   data) — both green.
 
+### Added (2026-08-26)
+
+#### Phase 18 RBAC — Multi-User Roles
+
+- **Roles wired up**: pre-existing `role`/`user_roles` tables now drive access.
+  Roles: `admin` (bypass) and `fso` (individual Food Safety Officer). Existing
+  accounts backfilled to `admin`.
+- **Central gate**: `enforce_rbac` before_request driven by `ROLE_BLUEPRINTS`
+  (`app/shared/rbac.py`). fso → sample adjudication, non-sample adjudication,
+  notepad, inspection, work diary, comments. Blocked routes flash +
+  redirect to the officer's landing page (Sample Adjudication list).
+- **Record-level scoping**: CaseFile/Adjudication/Inspection lists and detail
+  routes filtered to the bound officer; creates force-stamp
+  `users.fso_name` server-side; mismatched legacy names fail closed (404);
+  child routes (editor/xref/toc/annexures/export/regenerate/comments) inherit
+  parent visibility. Billing stays admin-only.
+- **Work Diary**: locked to the bound officer for fso users — picker removed,
+  direct URLs to other officers' diaries redirect.
+- **Provisioning**: extended admin Add User form (Role + FSO dropdown,
+  1:1 binding enforced); `scripts/seed_fso_users.py` bulk-seeds the 21 FSOs;
+  migration `add_user_fso_name`.
+- **Comments API**: `app/comments/` — read/add on visible cases, delete by
+  author or admin.
+- **Notepad activated**: blueprint registered + migration for
+  `note`/`note_evaluation` (shared-by-default Notes per CONTEXT.md).
+- Tests: `tests/test_rbac.py` 44/44.
+
 ### Added (2026-08-25)
 
 #### FSSAI Lookup → Supabase Postgres Migration — Step 1: Models

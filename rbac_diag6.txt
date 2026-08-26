@@ -1,0 +1,18 @@
+============================= test session starts =============================
+collected 1 item
+
+tests\test_rbac.py INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+ERROR [flask_migrate] Error: Multiple heads are present; please specify a single target revision
+DBG users=[(1, 'u_officer_a'), (2, 'u_officer_b')] sessA='1' sessB='2'
+F
+
+================================== FAILURES ===================================
+______________ TestNotepadAccess.test_status_change_author_only _______________
+tests\test_rbac.py:538: in test_status_change_author_only
+    print("DBG resp_b location:", resp_b.headers.get("Location"))
+                                  ^^^^^^
+E   UnboundLocalError: cannot access local variable 'resp_b' where it is not associated with a value
+=========================== short test summary info ===========================
+FAILED tests/test_rbac.py::TestNotepadAccess::test_status_change_author_only
+============================== 1 failed in 9.13s ==============================

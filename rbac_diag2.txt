@@ -1,0 +1,18 @@
+============================= test session starts =============================
+collected 1 item
+
+tests\test_rbac.py INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+ERROR [flask_migrate] Error: Multiple heads are present; please specify a single target revision
+DBG uid='1' type=str author_id=1
+F
+
+================================== FAILURES ===================================
+______________ TestNotepadAccess.test_status_change_author_only _______________
+tests\test_rbac.py:541: in test_status_change_author_only
+    assert resp_a.status_code in (200, 302)
+E   assert 403 in (200, 302)
+E    +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+=========================== short test summary info ===========================
+FAILED tests/test_rbac.py::TestNotepadAccess::test_status_change_author_only
+============================= 1 failed in 10.29s ==============================

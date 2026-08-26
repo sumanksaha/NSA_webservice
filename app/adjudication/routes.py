@@ -358,6 +358,13 @@ def suggest_sections_route():
 def regenerate_adjudication_documents(case_id):
     """Regenerate documents from an existing adjudication case."""
     adj = Adjudication.query.get_or_404(case_id)
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404
     form_data = adjudication_to_dict(adj)
 
     context = _prepare_adjudication_context(form_data)
@@ -452,6 +459,15 @@ def regenerate_adjudication_documents(case_id):
 def generate_all():
     """Create a new adjudication case and generate PDFs in-memory."""
     form_data = request.form.to_dict()
+
+    # Phase 18 RBAC: an fso-role account always owns what it creates.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        form_data["food_safety_officer_name"] = scope
 
     adj = _process_adjudication_form(form_data)
     db.session.add(adj)
