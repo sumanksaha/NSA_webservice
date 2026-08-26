@@ -1,12 +1,11 @@
-{% extends "inspection/base_inspection.html" %}
-
-{% block title %}History{% endblock %}
-
-{% block content %}
+{% extends "inspection/base_inspection.html" %} {% block title %}History{% endblock %} {% block
+content %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-history"></i> Inspection History</h2>
-        <p class="form-hint">Dismissed inspections and inspections linked to adjudication</p>
+        <p class="form-hint">
+            Inspections with corrective measures implemented or linked to adjudication
+        </p>
     </div>
 
     <!-- Filter Panel -->
@@ -18,16 +17,42 @@
                     <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
-                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
+                        <option value="{{ fso }}" {% if filter_fso="" ="fso" %}selected{% endif %}>
+                            {{ fso }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="filter-group">
                     <label for="filter_type">Filter by Type</label>
                     <select id="filter_type" name="type" class="form-select">
-                        <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All</option>
-                        <option value="dismissed" {% if filter_type == 'dismissed' %}selected{% endif %}>Dismissed</option>
-                        <option value="adjudicated" {% if filter_type == 'adjudicated' %}selected{% endif %}>Adjudicated</option>
+                        <option value="all" {% if filter_type="" ="all" %}selected{% endif %}>
+                            All
+                        </option>
+                        <option
+                            value="dismissed"
+                            {%
+                            if
+                            filter_type=""
+                            ="dismissed"
+                            %}selected{%
+                            endif
+                            %}
+                        >
+                            Corrective Implemented
+                        </option>
+                        <option
+                            value="adjudicated"
+                            {%
+                            if
+                            filter_type=""
+                            ="adjudicated"
+                            %}selected{%
+                            endif
+                            %}
+                        >
+                            Adjudicated
+                        </option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -35,7 +60,10 @@
                         <button type="submit" class="btn btn-secondary btn-sm">
                             <i class="fa-solid fa-filter"></i> Apply Filters
                         </button>
-                        <a href="{{ url_for('inspection.history') }}" class="btn btn-secondary btn-sm">
+                        <a
+                            href="{{ url_for('inspection.history') }}"
+                            class="btn btn-secondary btn-sm"
+                        >
                             <i class="fa-solid fa-times"></i> Clear
                         </a>
                     </div>
@@ -50,45 +78,35 @@
             <thead>
                 <tr>
                     <th onclick="sortTable('inspection_code')">
-                        Inspection Code
-                        {% if sort_by == 'inspection_code' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Code {% if sort_by == 'inspection_code' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('fso_name')">
-                        FSO
-                        {% if sort_by == 'fso_name' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        FSO {% if sort_by == 'fso_name' %} {% if sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th>FBO Name</th>
                     <th onclick="sortTable('inspection_date')">
-                        Inspection Date
-                        {% if sort_by == 'inspection_date' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Date {% if sort_by == 'inspection_date' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('dismissed_at')">
-                        Closed Date
-                        {% if sort_by == 'dismissed_at' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Closed Date {% if sort_by == 'dismissed_at' %} {% if sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th>Status</th>
                     <th>Photos</th>
@@ -103,26 +121,22 @@
                     <td>{{ inspection.fbo_name or '-' }}</td>
                     <td>{{ inspection.inspection_date }}</td>
                     <td>
-                        {% if inspection.dismissed_at %}
-                            {{ inspection.dismissed_at.strftime('%Y-%m-%d %H:%M') if inspection.dismissed_at else '-' }}
-                        {% elif inspection.adjudication_id %}
-                            {{ inspection.created_at.strftime('%Y-%m-%d %H:%M') if inspection.created_at else '-' }}
-                        {% else %}
-                            -
-                        {% endif %}
+                        {% if inspection.dismissed_at %} {{
+                        inspection.dismissed_at.strftime('%Y-%m-%d %H:%M') if
+                        inspection.dismissed_at else '-' }} {% elif inspection.adjudication_id %} {{
+                        inspection.created_at.strftime('%Y-%m-%d %H:%M') if inspection.created_at
+                        else '-' }} {% else %} - {% endif %}
                     </td>
                     <td>
                         {% if inspection.is_dismissed %}
-                            <span class="status-badge status-badge--error">
-                                <i class="fa-solid fa-circle-xmark"></i> Dismissed
-                            </span>
+                        <span class="status-badge status-badge--error">
+                            <i class="fa-solid fa-check-double"></i> Corrective Implemented
+                        </span>
                         {% elif inspection.adjudication_id %}
-                            <span class="status-badge status-badge--success">
-                                <i class="fa-solid fa-scale-balanced"></i> Adjudicated
-                            </span>
-                        {% else %}
-                            -
-                        {% endif %}
+                        <span class="status-badge status-badge--success">
+                            <i class="fa-solid fa-scale-balanced"></i> Adjudicated
+                        </span>
+                        {% else %} - {% endif %}
                     </td>
                     <td>
                         <span class="photo-badge" data-inspection-id="{{ inspection.id }}">
@@ -132,13 +146,19 @@
                     </td>
                     <td>
                         <div class="btn-group">
-                            <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
-                               class="btn btn-secondary btn-sm" title="View">
+                            <a
+                                href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="View"
+                            >
                                 <i class="fa-solid fa-eye"></i>
                             </a>
                             {% if inspection.adjudication_id %}
-                            <a href="{{ url_for('adjudication.get_adjudication_case', case_id=inspection.adjudication_id) }}"
-                               class="btn btn-secondary btn-sm" title="View Adjudication">
+                            <a
+                                href="{{ url_for('adjudication.get_adjudication_case', case_id=inspection.adjudication_id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="View Adjudication"
+                            >
                                 <i class="fa-solid fa-file-lines"></i>
                             </a>
                             {% endif %}
@@ -159,9 +179,7 @@
         </table>
     </div>
 
-    <p class="text--center mb--md">
-        Showing {{ inspections|length }} history records
-    </p>
+    <p class="text--center mb--md">Showing {{ inspections|length }} history records</p>
 
     <div class="flex-between--wrap">
         <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">
@@ -171,58 +189,60 @@
             <i class="fa-solid fa-list"></i> All Inspections
         </a>
         <a href="{{ url_for('inspection.open_issues') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-clock"></i> Open Issues ({{ open_count if open_count is defined else 0 }})
+            <i class="fa-solid fa-clock"></i> Open Issues ({{ open_count if open_count is defined
+            else 0 }})
         </a>
         <a href="{{ url_for('inspection.pending_action') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-exclamation-triangle"></i> Pending Action ({{ pending_count if pending_count is defined else 0 }})
+            <i class="fa-solid fa-exclamation-triangle"></i> Pending Action ({{ pending_count if
+            pending_count is defined else 0 }})
         </a>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
-// Fetch photo counts for all inspection badges on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const badges = document.querySelectorAll('.photo-badge');
-    badges.forEach(function(badge) {
-        const inspectionId = badge.dataset.inspectionId;
-        if (inspectionId) {
-            fetch('/inspection/' + inspectionId + '/photos')
-                .then(function(response) { return response.json(); })
-                .then(function(photos) {
-                    const count = photos ? photos.length : 0;
-                    const countSpan = badge.querySelector('.photo-badge-count');
-                    countSpan.textContent = count;
-                    if (count > 0) {
-                        badge.classList.add('has-photos');
-                    } else {
-                        badge.classList.add('no-photos');
-                    }
-                })
-                .catch(function() {
-                    badge.classList.add('no-photos');
-                });
-        }
+    // Fetch photo counts for all inspection badges on page load
+    document.addEventListener("DOMContentLoaded", function () {
+        const badges = document.querySelectorAll(".photo-badge");
+        badges.forEach(function (badge) {
+            const inspectionId = badge.dataset.inspectionId;
+            if (inspectionId) {
+                fetch("/inspection/" + inspectionId + "/photos")
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (photos) {
+                        const count = photos ? photos.length : 0;
+                        const countSpan = badge.querySelector(".photo-badge-count");
+                        countSpan.textContent = count;
+                        if (count > 0) {
+                            badge.classList.add("has-photos");
+                        } else {
+                            badge.classList.add("no-photos");
+                        }
+                    })
+                    .catch(function () {
+                        badge.classList.add("no-photos");
+                    });
+            }
+        });
     });
-});
 
-// Sort table by clicking headers
-function sortTable(column) {
-    let sortBy = column;
-    let sortOrder = 'asc';
+    // Sort table by clicking headers
+    function sortTable(column) {
+        let sortBy = column;
+        let sortOrder = "asc";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentSortBy = urlParams.get('sort_by') || 'dismissed_at';
-    const currentSortOrder = urlParams.get('sort_order') || 'desc';
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSortBy = urlParams.get("sort_by") || "dismissed_at";
+        const currentSortOrder = urlParams.get("sort_order") || "desc";
 
-    if (currentSortBy === column) {
-        sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+        if (currentSortBy === column) {
+            sortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+        }
+
+        urlParams.set("sort_by", sortBy);
+        urlParams.set("sort_order", sortOrder);
+        window.location.search = urlParams.toString();
     }
-
-    urlParams.set('sort_by', sortBy);
-    urlParams.set('sort_order', sortOrder);
-    window.location.search = urlParams.toString();
-}
 </script>
 {% endblock %}

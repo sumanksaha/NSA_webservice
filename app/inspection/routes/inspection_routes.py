@@ -257,6 +257,9 @@ def update_inspection(inspection_id):
     if not inspection:
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
+    if inspection.notice_issued_at is not None:
+        return jsonify({"error": "Inspection is frozen: an Improvement Notice has already been issued for it."}), 409
+
     form_data = request.form.to_dict()
 
     if "food_safety_officer_name" in form_data:

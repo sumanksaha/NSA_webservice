@@ -46,7 +46,7 @@ class TestDerivedStateQueries:
     """Tests for derived-state query logic."""
 
     def test_open_issues_query(self, app, test_fso):
-        """Test Open Issues query: compliance_deadline >= today AND is_dismissed = false AND adjudication_id IS NULL."""
+        """Open Issues query: NOT corrective-implemented AND adjudication_id IS NULL (no deadline filter)."""
         with app.app_context():
             today = date.today()
             future_date = today + timedelta(days=30)
@@ -112,15 +112,18 @@ class TestDerivedStateQueries:
             db.session.add_all([open1, pending, dismissed, adjudicated])
             db.session.commit()
 
-            # Query for Open Issues
+            # Query for Open Issues — new semantics: no deadline filter;
+            # every non-corrective, non-adjudicated inspection stays listed.
             open_issues = Inspection.query.filter(
-                Inspection.compliance_deadline >= today,
                 ~Inspection.is_dismissed,
                 Inspection.adjudication_id.is_(None),
             ).all()
 
-            assert len(open_issues) == 1
-            assert open_issues[0].inspection_code == "INSP-2026-00001"
+            assert len(open_issues) == 2
+            assert {i.inspection_code for i in open_issues} == {
+                "INSP-2026-00001",
+                "INSP-2026-00002",
+            }
 
     def test_pending_action_query(self, app, test_fso):
         """Test Pending Action query: compliance_deadline < today AND is_dismissed = false AND adjudication_id IS NULL."""

@@ -1,8 +1,15 @@
-"""Food Cell routes — DO Intimation download / HTML view / regenerate."""
+"""Food Cell routes — DO Intimation download / HTML view / regenerate.
+
+Also serves Improvement Notice documents (u/s 32 of the FSS Act), which are
+always keyed to an *Inspection* (never a Sample). The first render/download
+freezes the inspection record via ``Inspection.notice_issued_at``.
+"""
 
 from __future__ import annotations
 
+import json
 import os
+from datetime import UTC, datetime
 
 from flask import (
     abort,
@@ -14,9 +21,12 @@ from flask_login import login_required
 
 from app.extensions import db
 from app.food_cell import food_cell_bp
+from app.food_cell.renderer import DODocumentRenderer
 from app.food_cell.services import generate_and_forward_do_intimation
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
+from app.models.inspection import Inspection
+from app.shared.context_derivers import derive_actions, derive_violations
 
 
 @food_cell_bp.route("/do-intimation/<int:sample_id>/pdf")
@@ -99,4 +109,76 @@ def do_intimation_status(sample_id: int):
             "has_pdf": bool(intimation.pdf_url),
         }),
         200,
+    )
+
+
+# ------------------------------------------------------------------------- #
+# Improvement Notice routes (u/s 32 FSS Act) — inspection-keyed
+# ------------------------------------------------------------------------- #
+
+
+def _inspection_violations(inspection: Inspection) -> list[dict[str, str]]:
+    """Derive violations from the inspection's stored checklist."""
+    try:
+        checklist = json.loads(inspection.checklist_json) if inspection.checklist_json else {}
+    except (ValueError, TypeError):
+        checklist = {}
+    return derive_violations(checklist)
+
+
+# ponytail: stateless class, one instance per request is fine; share a module
+# singleton only if profiling ever says so.
+_notice_renderer = DODocumentRenderer()
+
+
+def _freeze_inspection(inspection: Inspection) -> None:
+    """Stamp first-issue time; non-null ``notice_issued_at`` freezes edits."""
+    if inspection.notice_issued_at is None:
+        inspection.notice_issued_at = datetime.now(UTC)
+        db.session.commit()
+
+
+@food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/html")
+@login_required
+def view_improvement_notice_html(inspection_id: int):
+    """View the Improvement Notice HTML for an *inspection*."""
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+    violations = _inspection_violations(inspection)
+    if not violations:
+        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
+
+    actions = derive_actions(violations)
+    deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
+    html = _notice_renderer.render_improvement_notice_html(
+        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+    )
+    _freeze_inspection(inspection)
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/pdf")
+@login_required
+def download_improvement_notice_pdf(inspection_id: int):
+    """Download the Improvement Notice PDF for an *inspection*."""
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+    violations = _inspection_violations(inspection)
+    if not violations:
+        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
+
+    actions = derive_actions(violations)
+    deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
+    html = _notice_renderer.render_improvement_notice_html(
+        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+    )
+    pdf_path = _notice_renderer.render_improvement_notice_pdf(html, inspection)
+    _freeze_inspection(inspection)
+    return send_file(
+        pdf_path,
+        as_attachment=True,
+        download_name=f"Improvement_Notice_{inspection_id}.pdf",
+        mimetype="application/pdf",
     )

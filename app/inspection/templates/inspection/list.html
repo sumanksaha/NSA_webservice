@@ -1,8 +1,5 @@
-{% extends "inspection/base_inspection.html" %}
-
-{% block title %}Inspection List{% endblock %}
-
-{% block content %}
+{% extends "inspection/base_inspection.html" %} {% block title %}Inspection List{% endblock %} {%
+block content %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-list"></i> Inspection List</h2>
@@ -17,26 +14,41 @@
                     <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
-                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
+                        <option value="{{ fso }}" {% if filter_fso="" ="fso" %}selected{% endif %}>
+                            {{ fso }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="filter-group">
                     <label for="filter_date_from">From Date</label>
-                    <input type="date" id="filter_date_from" name="inspection_date_from" class="form-input"
-                           value="{{ filter_date_from or '' }}">
+                    <input
+                        type="date"
+                        id="filter_date_from"
+                        name="inspection_date_from"
+                        class="form-input"
+                        value="{{ filter_date_from or '' }}"
+                    />
                 </div>
                 <div class="filter-group">
                     <label for="filter_date_to">To Date</label>
-                    <input type="date" id="filter_date_to" name="inspection_date_to" class="form-input"
-                           value="{{ filter_date_to or '' }}">
+                    <input
+                        type="date"
+                        id="filter_date_to"
+                        name="inspection_date_to"
+                        class="form-input"
+                        value="{{ filter_date_to or '' }}"
+                    />
                 </div>
                 <div class="filter-group">
                     <div class="btn-group">
                         <button type="submit" class="btn btn-secondary btn-sm">
                             <i class="fa-solid fa-filter"></i> Apply Filters
                         </button>
-                        <a href="{{ url_for('inspection.list_inspections') }}" class="btn btn-secondary btn-sm">
+                        <a
+                            href="{{ url_for('inspection.list_inspections') }}"
+                            class="btn btn-secondary btn-sm"
+                        >
                             <i class="fa-solid fa-times"></i> Clear
                         </a>
                     </div>
@@ -51,47 +63,38 @@
             <thead>
                 <tr>
                     <th onclick="sortTable('inspection_code')">
-                        Inspection Code
-                        {% if sort_by == 'inspection_code' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Code {% if sort_by == 'inspection_code' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('fso_name')">
-                        FSO
-                        {% if sort_by == 'fso_name' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        FSO {% if sort_by == 'fso_name' %} {% if sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th>FBO Name</th>
                     <th onclick="sortTable('inspection_date')">
-                        Inspection Date
-                        {% if sort_by == 'inspection_date' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Date {% if sort_by == 'inspection_date' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('compliance_deadline')">
-                        Compliance Deadline
-                        {% if sort_by == 'compliance_deadline' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Compliance Deadline {% if sort_by == 'compliance_deadline' %} {% if
+                        sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
-                    <th>Dismissed</th>
+                    <th>Corrective Implemented</th>
                     <th>Photos</th>
                     <th>Actions</th>
                 </tr>
@@ -106,19 +109,21 @@
                     <td>{{ inspection.compliance_deadline }}</td>
                     <td>
                         {% if inspection.is_dismissed %}
-                            <span class="status-badge status-badge--error">
-                                <i class="fa-solid fa-circle-xmark"></i> Yes
-                            </span>
+                        <span class="status-badge status-badge--error">
+                            <i class="fa-solid fa-check-double"></i> Yes
+                        </span>
                         {% else %}
-                            <span class="status-badge status-badge--success">
-                                <i class="fa-solid fa-circle-check"></i> No
-                            </span>
+                        <span class="status-badge status-badge--success">
+                            <i class="fa-solid fa-circle-check"></i> No
+                        </span>
                         {% endif %}
                     </td>
                     <td>
-                        <span class="photo-badge"
-                              data-inspection-id="{{ inspection.id }}"
-                              data-adjudication-id="{{ inspection.adjudication_id or '' }}">
+                        <span
+                            class="photo-badge"
+                            data-inspection-id="{{ inspection.id }}"
+                            data-adjudication-id="{{ inspection.adjudication_id or '' }}"
+                        >
                             <i class="fa-solid fa-camera"></i>
                             <span class="photo-badge-count">0</span>
                         </span>
@@ -126,21 +131,35 @@
                     <td>
                         <div class="btn-group">
                             {% if inspection.adjudication_id %}
-                            <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=inspection.adjudication_id, kind='adjudication') }}"
-                               class="btn btn-secondary btn-sm" title="Adjudication timeline">
+                            <a
+                                href="{{ url_for('timeline.view', case_id_or_adjudication_id=inspection.adjudication_id, kind='adjudication') }}"
+                                class="btn btn-secondary btn-sm"
+                                title="Adjudication timeline"
+                            >
                                 <i class="fa-solid fa-timeline"></i>
                             </a>
                             {% endif %}
-                            <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
-                               class="btn btn-secondary btn-sm" title="View">
+                            <a
+                                href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="View"
+                            >
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            <a href="#" onclick="editInspection({{ inspection.id }})"
-                               class="btn btn-secondary btn-sm" title="Edit">
+                            <a
+                                href="#"
+                                onclick="editInspection({{ inspection.id }})"
+                                class="btn btn-secondary btn-sm"
+                                title="Edit"
+                            >
                                 <i class="fa-solid fa-edit"></i>
                             </a>
-                            <a href="#" onclick="confirmDelete({{ inspection.id }})"
-                               class="btn btn-secondary btn-sm" title="Delete">
+                            <a
+                                href="#"
+                                onclick="confirmDelete({{ inspection.id }})"
+                                class="btn btn-secondary btn-sm"
+                                title="Delete"
+                            >
                                 <i class="fa-solid fa-trash"></i>
                             </a>
                         </div>
@@ -164,24 +183,25 @@
     {% if pagination.pages > 1 %}
     <div class="pagination">
         {% if pagination.has_prev %}
-        <a href="{{ url_for('inspection.list_inspections', page=pagination.prev_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
-           class="btn btn-secondary btn-sm">
+        <a
+            href="{{ url_for('inspection.list_inspections', page=pagination.prev_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+            class="btn btn-secondary btn-sm"
+        >
             <i class="fa-solid fa-chevron-left"></i> Previous
         </a>
-        {% endif %}
-
-        {% for page_num in pagination.iter_pages() %}
-            {% if page_num %}
-            <a href="{{ url_for('inspection.list_inspections', page=page_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
-               class="btn btn-secondary btn-sm {% if page_num == pagination.page %}active{% endif %}">{{ page_num }}</a>
-            {% else %}
-            <span class="btn btn-secondary btn-sm">…</span>
-            {% endif %}
-        {% endfor %}
-
-        {% if pagination.has_next %}
-        <a href="{{ url_for('inspection.list_inspections', page=pagination.next_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
-           class="btn btn-secondary btn-sm">
+        {% endif %} {% for page_num in pagination.iter_pages() %} {% if page_num %}
+        <a
+            href="{{ url_for('inspection.list_inspections', page=page_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+            class="btn btn-secondary btn-sm {% if page_num == pagination.page %}active{% endif %}"
+            >{{ page_num }}</a
+        >
+        {% else %}
+        <span class="btn btn-secondary btn-sm">…</span>
+        {% endif %} {% endfor %} {% if pagination.has_next %}
+        <a
+            href="{{ url_for('inspection.list_inspections', page=pagination.next_num, sort_by=sort_by, sort_order=sort_order, fso_name=filter_fso, inspection_date_from=filter_date_from, inspection_date_to=filter_date_to) }}"
+            class="btn btn-secondary btn-sm"
+        >
             Next <i class="fa-solid fa-chevron-right"></i>
         </a>
         {% endif %}
@@ -207,131 +227,148 @@
         </a>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
-// Fetch photo counts for all inspection badges using InspectionPhoto (via adjudication_id)
-document.addEventListener('DOMContentLoaded', function() {
-    const badges = document.querySelectorAll('.photo-badge');
-    badges.forEach(function(badge) {
-        const adjId = badge.dataset.adjudicationId;
-        if (!adjId) {
-            badge.classList.add('no-photos');
-            return;
-        }
+    // Fetch photo counts for all inspection badges using InspectionPhoto (via adjudication_id)
+    document.addEventListener("DOMContentLoaded", function () {
+        const badges = document.querySelectorAll(".photo-badge");
+        badges.forEach(function (badge) {
+            const adjId = badge.dataset.adjudicationId;
+            if (!adjId) {
+                badge.classList.add("no-photos");
+                return;
+            }
 
-        fetch('/inspection/' + adjId + '/photos')
-            .then(function(r) { return r.json(); })
-            .then(function(photos) {
-                var count = photos ? photos.length : 0;
-                var countSpan = badge.querySelector('.photo-badge-count');
-                countSpan.textContent = count;
-                if (count > 0) {
-                    badge.classList.add('has-photos');
-                    badge.dataset.photoCount = count;
-                    badge.dataset.photos = JSON.stringify(photos);
-                    badge.style.cursor = 'pointer';
-                    badge.title = count + ' photo(s) — click to view';
-                    badge.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        showPhotoPopover(JSON.parse(this.dataset.photos), this);
-                    });
-                }
-            })
-            .catch(function() {
-                badge.classList.add('no-photos');
-            });
-    });
-});
-
-// Click-to-view thumbnail popover
-function showPhotoPopover(photos, anchorEl) {
-    var existing = document.getElementById('photoPopover');
-    if (existing) existing.remove();
-
-    var popover = document.createElement('div');
-    popover.id = 'photoPopover';
-    popover.style.cssText = 'position:fixed;z-index:999;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-width:400px;max-height:300px;overflow-y:auto;';
-
-    var closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = 'float:right;border:none;background:none;font-size:1.4rem;cursor:pointer;color:var(--accent-secondary);';
-    closeBtn.onclick = function() { popover.remove(); };
-    popover.appendChild(closeBtn);
-
-    var grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;';
-
-    photos.forEach(function(p) {
-        var a = document.createElement('a');
-        a.href = p.file_url;
-        a.target = '_blank';
-        a.title = p.caption || 'Photo evidence';
-        var img = document.createElement('img');
-        img.src = p.file_url;
-        img.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border);';
-        img.onerror = function() { this.style.display = 'none'; };
-        a.appendChild(img);
-        grid.appendChild(a);
+            fetch("/inspection/" + adjId + "/photos")
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (photos) {
+                    var count = photos ? photos.length : 0;
+                    var countSpan = badge.querySelector(".photo-badge-count");
+                    countSpan.textContent = count;
+                    if (count > 0) {
+                        badge.classList.add("has-photos");
+                        badge.dataset.photoCount = count;
+                        badge.dataset.photos = JSON.stringify(photos);
+                        badge.style.cursor = "pointer";
+                        badge.title = count + " photo(s) — click to view";
+                        badge.addEventListener("click", function (e) {
+                            e.preventDefault();
+                            showPhotoPopover(JSON.parse(this.dataset.photos), this);
+                        });
+                    }
+                })
+                .catch(function () {
+                    badge.classList.add("no-photos");
+                });
+        });
     });
 
-    popover.appendChild(grid);
-    document.body.appendChild(popover);
+    // Click-to-view thumbnail popover
+    function showPhotoPopover(photos, anchorEl) {
+        var existing = document.getElementById("photoPopover");
+        if (existing) existing.remove();
 
-    var rect = anchorEl.getBoundingClientRect();
-    popover.style.left = Math.min(rect.left, window.innerWidth - 420) + 'px';
-    popover.style.top = (rect.bottom + 8) + 'px';
+        var popover = document.createElement("div");
+        popover.id = "photoPopover";
+        popover.style.cssText =
+            "position:fixed;z-index:999;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-width:400px;max-height:300px;overflow-y:auto;";
 
-    document.addEventListener('click', function closeHandler(e) {
-        if (!popover.contains(e.target) && e.target !== anchorEl) {
+        var closeBtn = document.createElement("button");
+        closeBtn.innerHTML = "&times;";
+        closeBtn.style.cssText =
+            "float:right;border:none;background:none;font-size:1.4rem;cursor:pointer;color:var(--accent-secondary);";
+        closeBtn.onclick = function () {
             popover.remove();
-            document.removeEventListener('click', closeHandler);
-        }
-    });
-}
+        };
+        popover.appendChild(closeBtn);
 
-// Sort table by clicking headers
-function sortTable(column) {
-    let sortBy = column;
-    let sortOrder = 'asc';
+        var grid = document.createElement("div");
+        grid.style.cssText =
+            "display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentSortBy = urlParams.get('sort_by') || 'inspection_date';
-    const currentSortOrder = urlParams.get('sort_order') || 'desc';
+        photos.forEach(function (p) {
+            var a = document.createElement("a");
+            a.href = p.file_url;
+            a.target = "_blank";
+            a.title = p.caption || "Photo evidence";
+            var img = document.createElement("img");
+            img.src = p.file_url;
+            img.style.cssText =
+                "width:100%;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border);";
+            img.onerror = function () {
+                this.style.display = "none";
+            };
+            a.appendChild(img);
+            grid.appendChild(a);
+        });
 
-    if (currentSortBy === column) {
-        sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
-    }
+        popover.appendChild(grid);
+        document.body.appendChild(popover);
 
-    urlParams.set('sort_by', sortBy);
-    urlParams.set('sort_order', sortOrder);
-    window.location.search = urlParams.toString();
-}
+        var rect = anchorEl.getBoundingClientRect();
+        popover.style.left = Math.min(rect.left, window.innerWidth - 420) + "px";
+        popover.style.top = rect.bottom + 8 + "px";
 
-function editInspection(inspectionId) {
-    alert('Edit inspection ' + inspectionId + ' - redirect to edit page');
-}
-
-function confirmDelete(inspectionId) {
-    if (confirm('Are you sure you want to delete inspection ' + inspectionId + '? This cannot be undone.')) {
-        fetch('/inspection/' + inspectionId, {
-            method: 'DELETE'
-        }).then(function(response) {
-            if (response.ok) {
-                alert('Inspection deleted successfully');
-                window.location.reload();
-            } else {
-                return response.json();
+        document.addEventListener("click", function closeHandler(e) {
+            if (!popover.contains(e.target) && e.target !== anchorEl) {
+                popover.remove();
+                document.removeEventListener("click", closeHandler);
             }
-        }).then(function(data) {
-            if (data) {
-                alert('Error: ' + (data.error || 'Failed to delete inspection'));
-            }
-        }).catch(function(error) {
-            alert('Error: ' + error.message);
         });
     }
-}
+
+    // Sort table by clicking headers
+    function sortTable(column) {
+        let sortBy = column;
+        let sortOrder = "asc";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSortBy = urlParams.get("sort_by") || "inspection_date";
+        const currentSortOrder = urlParams.get("sort_order") || "desc";
+
+        if (currentSortBy === column) {
+            sortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+        }
+
+        urlParams.set("sort_by", sortBy);
+        urlParams.set("sort_order", sortOrder);
+        window.location.search = urlParams.toString();
+    }
+
+    function editInspection(inspectionId) {
+        alert("Edit inspection " + inspectionId + " - redirect to edit page");
+    }
+
+    function confirmDelete(inspectionId) {
+        if (
+            confirm(
+                "Are you sure you want to delete inspection " +
+                    inspectionId +
+                    "? This cannot be undone."
+            )
+        ) {
+            fetch("/inspection/" + inspectionId, {
+                method: "DELETE",
+            })
+                .then(function (response) {
+                    if (response.ok) {
+                        alert("Inspection deleted successfully");
+                        window.location.reload();
+                    } else {
+                        return response.json();
+                    }
+                })
+                .then(function (data) {
+                    if (data) {
+                        alert("Error: " + (data.error || "Failed to delete inspection"));
+                    }
+                })
+                .catch(function (error) {
+                    alert("Error: " + error.message);
+                });
+        }
+    }
 </script>
 {% endblock %}

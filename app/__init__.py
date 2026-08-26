@@ -391,6 +391,12 @@ def create_app(db_uri: str | None = None):
     app.jinja_env.filters["format_date"] = format_date_indian
     app.jinja_env.filters["format_date_indian"] = format_date_indian
 
+    # Inspection templates call datetime.datetime.now() directly; expose the
+    # module as a global so they don't 500 (open_issues.html did).
+    import datetime as _datetime_mod
+
+    app.jinja_env.globals["datetime"] = _datetime_mod
+
     # Flask-Login already exposes current_user in all templates,
     # no need for a custom context_processor.
 
@@ -601,10 +607,7 @@ def create_app(db_uri: str | None = None):
             )
             db.session.add(default_admin)
             db.session.commit()
-            app.logger.info(
-                "Default admin account created (username=admin). "
-                "Change the password after first login."
-            )
+            app.logger.info("Default admin account created (username=admin). Change the password after first login.")
 
     # ------------------------------------------------------------------
     # Auto-restore on empty database (Render free-tier rotation safety net):

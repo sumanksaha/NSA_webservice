@@ -1,12 +1,12 @@
-{% extends "inspection/base_inspection.html" %}
-
-{% block title %}Pending Action{% endblock %}
-
-{% block content %}
+{% extends "inspection/base_inspection.html" %} {% block title %}Pending Action{% endblock %} {%
+block content %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-exclamation-triangle"></i> Pending Action</h2>
-        <p class="form-hint">Inspections with compliance deadline passed, not dismissed, and not linked to adjudication</p>
+        <p class="form-hint">
+            Inspections with compliance deadline passed, not dismissed, and not linked to
+            adjudication
+        </p>
     </div>
 
     <!-- Filter Panel -->
@@ -18,7 +18,9 @@
                     <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
-                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
+                        <option value="{{ fso }}" {% if filter_fso="" ="fso" %}selected{% endif %}>
+                            {{ fso }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -27,7 +29,10 @@
                         <button type="submit" class="btn btn-secondary btn-sm">
                             <i class="fa-solid fa-filter"></i> Apply Filters
                         </button>
-                        <a href="{{ url_for('inspection.pending_action') }}" class="btn btn-secondary btn-sm">
+                        <a
+                            href="{{ url_for('inspection.pending_action') }}"
+                            class="btn btn-secondary btn-sm"
+                        >
                             <i class="fa-solid fa-times"></i> Clear
                         </a>
                     </div>
@@ -42,45 +47,36 @@
             <thead>
                 <tr>
                     <th onclick="sortTable('inspection_code')">
-                        Inspection Code
-                        {% if sort_by == 'inspection_code' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Code {% if sort_by == 'inspection_code' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('fso_name')">
-                        FSO
-                        {% if sort_by == 'fso_name' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        FSO {% if sort_by == 'fso_name' %} {% if sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th>FBO Name</th>
                     <th onclick="sortTable('inspection_date')">
-                        Inspection Date
-                        {% if sort_by == 'inspection_date' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Inspection Date {% if sort_by == 'inspection_date' %} {% if sort_order ==
+                        'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th onclick="sortTable('compliance_deadline')">
-                        Compliance Deadline
-                        {% if sort_by == 'compliance_deadline' %}
-                            {% if sort_order == 'asc' %}
-                                <i class="fa-solid fa-sort-up"></i>
-                            {% else %}
-                                <i class="fa-solid fa-sort-down"></i>
-                            {% endif %}
-                        {% endif %}
+                        Compliance Deadline {% if sort_by == 'compliance_deadline' %} {% if
+                        sort_order == 'asc' %}
+                        <i class="fa-solid fa-sort-up"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort-down"></i>
+                        {% endif %} {% endif %}
                     </th>
                     <th>Days Overdue</th>
                     <th>Photos</th>
@@ -96,8 +92,9 @@
                     <td>{{ inspection.inspection_date }}</td>
                     <td>{{ inspection.compliance_deadline }}</td>
                     <td>
-                        <span class="status-badge status-badge--error" style="font-weight: 600;">
-                            {{ inspection.days_overdue }} day{{ 's' if inspection.days_overdue != 1 else '' }}
+                        <span class="status-badge status-badge--error" style="font-weight: 600">
+                            {{ inspection.days_overdue }} day{{ 's' if inspection.days_overdue != 1
+                            else '' }}
                         </span>
                     </td>
                     <td>
@@ -108,20 +105,33 @@
                     </td>
                     <td>
                         <div class="btn-group">
-                            <a href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
-                               class="btn btn-secondary btn-sm" title="View">
+                            <a
+                                href="{{ url_for('inspection.inspection_detail', inspection_id=inspection.id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="View"
+                            >
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            <a href="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}"
-                               class="btn btn-secondary btn-sm" title="Edit">
+                            <a
+                                href="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="Edit"
+                            >
                                 <i class="fa-solid fa-edit"></i>
                             </a>
-                            <a href="#" onclick="confirmDismiss({{ inspection.id }})"
-                               class="btn btn-secondary btn-sm" title="Dismiss">
-                                <i class="fa-solid fa-ban"></i>
+                            <a
+                                href="#"
+                                onclick="confirmDismiss({{ inspection.id }})"
+                                class="btn btn-secondary btn-sm"
+                                title="Corrective Measures Implemented"
+                            >
+                                <i class="fa-solid fa-check-double"></i>
                             </a>
-                            <a href="{{ url_for('inspection.create_adjudication_from_inspection', inspection_id=inspection.id) }}"
-                               class="btn btn-primary btn-sm" title="Create Adjudication">
+                            <a
+                                href="{{ url_for('inspection.create_adjudication_from_inspection', inspection_id=inspection.id) }}"
+                                class="btn btn-primary btn-sm"
+                                title="Create Adjudication"
+                            >
                                 <i class="fa-solid fa-scale-balanced"></i>
                             </a>
                         </div>
@@ -141,9 +151,7 @@
         </table>
     </div>
 
-    <p class="text--center mb--md">
-        Showing {{ inspections|length }} pending actions
-    </p>
+    <p class="text--center mb--md">Showing {{ inspections|length }} pending actions</p>
 
     <div class="flex-between--wrap">
         <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">
@@ -153,7 +161,8 @@
             <i class="fa-solid fa-list"></i> All Inspections
         </a>
         <a href="{{ url_for('inspection.open_issues') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-clock"></i> Open Issues ({{ open_count if open_count is defined else 0 }})
+            <i class="fa-solid fa-clock"></i> Open Issues ({{ open_count if open_count is defined
+            else 0 }})
         </a>
         <a href="{{ url_for('inspection.history') }}" class="btn btn-secondary">
             <i class="fa-solid fa-history"></i> History
@@ -161,123 +170,134 @@
     </div>
 </div>
 
-<!-- Dismiss Confirmation Modal -->
-<div id="dismissModal" class="lightbox-modal" style="display: none;">
-    <div class="card bg--subtle" style="max-width: 500px; margin: auto; box-shadow: var(--shadow-card-hover);">
+<!-- Corrective Measures Confirmation Modal -->
+<div id="dismissModal" class="lightbox-modal" style="display: none">
+    <div
+        class="card bg--subtle"
+        style="max-width: 500px; margin: auto; box-shadow: var(--shadow-card-hover)"
+    >
         <h3 class="mb--sm">
-            <i class="fa-solid fa-exclamation-triangle" style="color: var(--color-warning);"></i>
-            Confirm Dismiss
+            <i class="fa-solid fa-exclamation-triangle" style="color: var(--color-warning)"></i>
+            Corrective Measures Implemented
         </h3>
-        <p class="mb--sm">Are you sure you want to dismiss this inspection? This action cannot be undone in the UI.</p>
+        <p class="mb--sm">
+            Confirm that corrective measures have been implemented for this inspection? This closes
+            it out and cannot be undone in the UI.
+        </p>
         <p class="form-hint mb--lg">
-            <strong>Inspection:</strong> <span id="dismissInspectionCode"></span><br>
-            <strong>FBO:</strong> <span id="dismissFboName"></span><br>
+            <strong>Inspection:</strong> <span id="dismissInspectionCode"></span><br />
+            <strong>FBO:</strong> <span id="dismissFboName"></span><br />
             <strong>FSO:</strong> <span id="dismissFsoName"></span>
         </p>
         <div class="flex-between">
             <button onclick="cancelDismiss()" class="btn btn-secondary">Cancel</button>
             <button onclick="confirmDismissFinal()" class="btn btn-danger">
-                <i class="fa-solid fa-ban"></i> Dismiss
+                <i class="fa-solid fa-check-double"></i> Confirm
             </button>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const badges = document.querySelectorAll('.photo-badge');
-    badges.forEach(function(badge) {
-        const inspectionId = badge.dataset.inspectionId;
-        if (inspectionId) {
-            fetch('/inspection/' + inspectionId + '/photos')
-                .then(function(response) { return response.json(); })
-                .then(function(photos) {
-                    const count = photos ? photos.length : 0;
-                    const countSpan = badge.querySelector('.photo-badge-count');
-                    countSpan.textContent = count;
-                    if (count > 0) {
-                        badge.classList.add('has-photos');
-                    } else {
-                        badge.classList.add('no-photos');
-                    }
-                })
-                .catch(function() {
-                    badge.classList.add('no-photos');
-                });
-        }
+    document.addEventListener("DOMContentLoaded", function () {
+        const badges = document.querySelectorAll(".photo-badge");
+        badges.forEach(function (badge) {
+            const inspectionId = badge.dataset.inspectionId;
+            if (inspectionId) {
+                fetch("/inspection/" + inspectionId + "/photos")
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (photos) {
+                        const count = photos ? photos.length : 0;
+                        const countSpan = badge.querySelector(".photo-badge-count");
+                        countSpan.textContent = count;
+                        if (count > 0) {
+                            badge.classList.add("has-photos");
+                        } else {
+                            badge.classList.add("no-photos");
+                        }
+                    })
+                    .catch(function () {
+                        badge.classList.add("no-photos");
+                    });
+            }
+        });
     });
-});
 
-let dismissInspectionId = null;
+    let dismissInspectionId = null;
 
-function sortTable(column) {
-    let sortBy = column;
-    let sortOrder = 'asc';
+    function sortTable(column) {
+        let sortBy = column;
+        let sortOrder = "asc";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentSortBy = urlParams.get('sort_by') || 'compliance_deadline';
-    const currentSortOrder = urlParams.get('sort_order') || 'asc';
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSortBy = urlParams.get("sort_by") || "compliance_deadline";
+        const currentSortOrder = urlParams.get("sort_order") || "asc";
 
-    if (currentSortBy === column) {
-        sortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+        if (currentSortBy === column) {
+            sortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+        }
+
+        urlParams.set("sort_by", sortBy);
+        urlParams.set("sort_order", sortOrder);
+        window.location.search = urlParams.toString();
     }
 
-    urlParams.set('sort_by', sortBy);
-    urlParams.set('sort_order', sortOrder);
-    window.location.search = urlParams.toString();
-}
+    function confirmDismiss(inspectionId) {
+        dismissInspectionId = inspectionId;
 
-function confirmDismiss(inspectionId) {
-    dismissInspectionId = inspectionId;
+        const row = event.target.closest("tr");
+        const code = row.cells[0].textContent.trim();
+        const fboName = row.cells[2].textContent.trim();
+        const fsoName = row.cells[1].textContent.trim();
 
-    const row = event.target.closest('tr');
-    const code = row.cells[0].textContent.trim();
-    const fboName = row.cells[2].textContent.trim();
-    const fsoName = row.cells[1].textContent.trim();
+        document.getElementById("dismissInspectionCode").textContent = code;
+        document.getElementById("dismissFboName").textContent = fboName || "N/A";
+        document.getElementById("dismissFsoName").textContent = fsoName;
 
-    document.getElementById('dismissInspectionCode').textContent = code;
-    document.getElementById('dismissFboName').textContent = fboName || 'N/A';
-    document.getElementById('dismissFsoName').textContent = fsoName;
-
-    document.getElementById('dismissModal').style.display = 'flex';
-}
-
-function cancelDismiss() {
-    dismissInspectionId = null;
-    document.getElementById('dismissModal').style.display = 'none';
-}
-
-function confirmDismissFinal() {
-    if (!dismissInspectionId) return;
-
-    const inspectionId = dismissInspectionId;
-    dismissInspectionId = null;
-    document.getElementById('dismissModal').style.display = 'none';
-
-    fetch('/inspection/' + inspectionId + '/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: ''
-    }).then(function(response) {
-        if (response.ok) {
-            return response.json();
-        } else {
-            return response.json().then(function(data) { throw new Error(data.error || 'Failed to dismiss'); });
-        }
-    }).then(function(data) {
-        alert('Success: ' + data.message + '\nInspection Code: ' + data.inspection_code);
-        window.location.reload();
-    }).catch(function(error) {
-        alert('Error: ' + error.message);
-    });
-}
-
-document.getElementById('dismissModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        cancelDismiss();
+        document.getElementById("dismissModal").style.display = "flex";
     }
-});
+
+    function cancelDismiss() {
+        dismissInspectionId = null;
+        document.getElementById("dismissModal").style.display = "none";
+    }
+
+    function confirmDismissFinal() {
+        if (!dismissInspectionId) return;
+
+        const inspectionId = dismissInspectionId;
+        dismissInspectionId = null;
+        document.getElementById("dismissModal").style.display = "none";
+
+        fetch("/inspection/" + inspectionId + "/implement_corrective_measures", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "",
+        })
+            .then(function (response) {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    return response.json().then(function (data) {
+                        throw new Error(data.error || "Failed to record corrective measures");
+                    });
+                }
+            })
+            .then(function (data) {
+                alert("Success: " + data.message + "\nInspection Code: " + data.inspection_code);
+                window.location.reload();
+            })
+            .catch(function (error) {
+                alert("Error: " + error.message);
+            });
+    }
+
+    document.getElementById("dismissModal").addEventListener("click", function (e) {
+        if (e.target === this) {
+            cancelDismiss();
+        }
+    });
 </script>
 {% endblock %}

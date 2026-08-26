@@ -110,9 +110,9 @@ class DODocumentRenderer:
         """Render the DO intimation *html* to PDF and store it."""
         return self._render_pdf_to_file(html, sample, "do_intimation")
 
-    def render_improvement_notice_pdf(self, html: str, sample: Any) -> str:
+    def render_improvement_notice_pdf(self, html: str, inspection: Any) -> str:
         """Render the Improvement Notice *html* to PDF and store it."""
-        return self._render_pdf_to_file(html, sample, "improvement_notice")
+        return self._render_pdf_to_file(html, inspection, "improvement_notice")
 
     # ------------------------------------------------------------------ #
     # Improvement Notice rendering
@@ -120,7 +120,7 @@ class DODocumentRenderer:
 
     def build_improvement_notice_context(
         self,
-        sample: Any,
+        inspection: Any,
         violations: list[dict[str, str]] | None = None,
         actions: list[str] | None = None,
         compliance_deadline: str | None = None,
@@ -128,23 +128,24 @@ class DODocumentRenderer:
     ) -> dict[str, Any]:
         """Build the Jinja2 context dict for the improvement notice template.
 
-        Maps :class:`~app.models.billing.Sample` fields to the template's
-        canonical variable names (``fbo_name``, ``fbo_address``, etc.).
-        Extra rendering parameters (violations, actions, deadline, enclosures)
-        are passed through as-is.
+        Maps :class:`~app.models.inspection.Inspection` fields to the
+        template's canonical variable names (``fbo_name``, ``fbo_address``,
+        etc.). Improvement Notices are always inspection-keyed, never
+        sample-keyed. Extra rendering parameters (violations, actions,
+        deadline, enclosures) are passed through as-is.
         """
         return {
-            "fbo_name": getattr(sample, "retailer_name", None),
-            "fbo_address": getattr(sample, "manufacturer_details", None),
+            "fbo_name": getattr(inspection, "fbo_name", None),
+            "fbo_address": getattr(inspection, "fbo_address", None),
             "inspection_date": (
-                sample.collection_date.strftime("%d/%m/%Y")
-                if getattr(sample, "collection_date", None)
+                inspection.inspection_date.strftime("%d/%m/%Y")
+                if getattr(inspection, "inspection_date", None)
                 else None
             ),
-            "fbo_fssai": getattr(sample, "retailer_fssai", None),
-            "fso_name": getattr(sample, "fso_name", None),
+            "fbo_fssai": getattr(inspection, "fssai_license", None),
+            "fso_name": getattr(inspection, "fso_name", None),
             "notice_date": datetime.now(UTC).strftime("%d/%m/%Y"),
-            "improvement_notice_ref": getattr(sample, "sample_code", None),
+            "improvement_notice_ref": getattr(inspection, "inspection_code", None),
             "violations": violations or [],
             "actions": actions or [],
             "compliance_deadline": compliance_deadline,
@@ -153,20 +154,19 @@ class DODocumentRenderer:
 
     def render_improvement_notice_html(
         self,
-        sample: Any,
+        inspection: Any,
         violations: list[dict[str, str]] | None = None,
         actions: list[str] | None = None,
         compliance_deadline: str | None = None,
         enclosures: list[str] | None = None,
     ) -> str:
-        """Render the Improvement Notice HTML template for *sample*.
+        """Render the Improvement Notice HTML template for *inspection*.
 
-        Violations and actions are passed through from the caller (typically
-        the inspection/adjudication layer).  When omitted, the violations
-        table and actions list render with graceful *empty* fallbacks.
+        Violations and actions come from the inspection's checklist via
+        ``derive_violations`` / ``derive_actions``.
         """
         context = self.build_improvement_notice_context(
-            sample, violations, actions, compliance_deadline, enclosures
+            inspection, violations, actions, compliance_deadline, enclosures
         )
         return render_template("food_cell/improvement_notice.html", **context)
 

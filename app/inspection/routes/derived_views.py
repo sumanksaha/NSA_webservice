@@ -13,16 +13,17 @@ from app.utils.fso_data import get_all_fso_names
 
 @inspection_bp.route("/open")
 def open_issues():
-    """Open Issues view: inspections where compliance_deadline >= today AND is_dismissed = false AND adjudication_id IS NULL."""
+    """Open Issues view: every inspection that is neither corrective-implemented
+    (internal flag: is_dismissed) nor adjudication-linked — no deadline filter.
+    Stays listed until the FSO asserts corrective measures or an adjudication closes it.
+    """
     from app.models import FSO
 
-    today = date.today().isoformat()
     sort_by = request.args.get("sort_by", "compliance_deadline")
     sort_order = request.args.get("sort_order", "asc")
     filter_fso = request.args.get("fso_name")
 
     query = Inspection.query.join(FSO, Inspection.fso_name == FSO.fso_name).filter(
-        Inspection.compliance_deadline >= today,
         ~Inspection.is_dismissed,
         Inspection.adjudication_id.is_(None),
     )
@@ -118,44 +119,43 @@ def history():
     )
 
 
-@inspection_bp.route("/<int:inspection_id>/dismiss", methods=["POST"])
-def dismiss_inspection(inspection_id):
-    """Dismiss an inspection (Pending Action only)."""
+@inspection_bp.route("/<int:inspection_id>/implement_corrective_measures", methods=["POST"])
+def implement_corrective_measures(inspection_id):
+    """FSO asserts corrective measures implemented (replaces dismissal).
+
+    No deadline precondition — any inspection can be closed out at any time;
+    audited with who/when. Internal storage reuses the legacy dismissed_*
+    columns to avoid a Postgres column rename migration.
+    """
     inspection = db.session.get(Inspection, inspection_id)
     if not inspection:
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
-    today = date.today().isoformat()
-    if inspection.compliance_deadline >= today:
-        return jsonify({"error": "Only Pending Action inspections (past deadline) can be dismissed"}), 400
-
     if inspection.is_dismissed:
-        return jsonify({"error": "Inspection is already dismissed"}), 400
+        return jsonify({"error": "Corrective measures already implemented for this inspection"}), 400
 
     if inspection.adjudication_id:
         return jsonify({"error": "Inspection already linked to adjudication"}), 400
 
-    dismissed_by = request.form.get("dismissed_by", inspection.fso_name)
+    implemented_by = request.form.get("implemented_by", inspection.fso_name)
 
     inspection.is_dismissed = True
-    inspection.dismissed_by = dismissed_by
+    inspection.dismissed_by = implemented_by
     inspection.dismissed_at = datetime.now(UTC)
 
     try:
         db.session.commit()
         return (
-            jsonify(
-                {
-                    "message": "Inspection dismissed successfully",
-                    "inspection_id": inspection.id,
-                    "inspection_code": inspection.inspection_code,
-                }
-            ),
+            jsonify({
+                "message": "Corrective measures implemented successfully",
+                "inspection_id": inspection.id,
+                "inspection_code": inspection.inspection_code,
+            }),
             200,
         )
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Failed to dismiss inspection: {e!s}"}), 500
+        return jsonify({"error": f"Failed to record corrective measures: {e!s}"}), 500
 
 
 @inspection_bp.route("/<int:inspection_id>/create_adjudication", methods=["GET"])
@@ -213,13 +213,11 @@ def link_adjudication(inspection_id, adjudication_id):
     try:
         db.session.commit()
         return (
-            jsonify(
-                {
-                    "message": "Inspection linked to adjudication successfully",
-                    "inspection_id": inspection.id,
-                    "adjudication_id": adjudication.id,
-                }
-            ),
+            jsonify({
+                "message": "Inspection linked to adjudication successfully",
+                "inspection_id": inspection.id,
+                "adjudication_id": adjudication.id,
+            }),
             200,
         )
     except Exception as e:
@@ -237,7 +235,8 @@ def inspection_detail(inspection_id):
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
     photos = (
-        Evidence.query.filter_by(inspection_id=inspection_id, evidence_type="photo")
+        Evidence.query
+        .filter_by(inspection_id=inspection_id, evidence_type="photo")
         .order_by(Evidence.uploaded_at.desc())
         .all()
     )

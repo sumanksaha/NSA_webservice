@@ -1,12 +1,10 @@
-{% extends "inspection/base_inspection.html" %}
-
-{% block title %}Inspection Detail - {{ inspection.inspection_code }}{% endblock %}
-
-{% block content %}
+{% extends "inspection/base_inspection.html" %} {% block title %}Inspection Detail - {{
+inspection.inspection_code }}{% endblock %} {% block content %}
 <div class="card">
     <div class="card-header flex-between--wrap">
         <h2><i class="fa-solid fa-file-lines"></i> Inspection Detail</h2>
-        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600;">            {{ inspection.inspection_code }}
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">
+            {{ inspection.inspection_code }}
         </span>
     </div>
 
@@ -32,17 +30,17 @@
             <label>Status</label>
             <span class="detail-value">
                 {% if inspection.is_dismissed %}
-                    <span class="status-badge status-badge--error">
-                        <i class="fa-solid fa-circle-xmark"></i> Dismissed
-                    </span>
+                <span class="status-badge status-badge--error">
+                    <i class="fa-solid fa-check-double"></i> Corrective Implemented
+                </span>
                 {% elif inspection.adjudication_id %}
-                    <span class="status-badge status-badge--success">
-                        <i class="fa-solid fa-scale-balanced"></i> Adjudicated
-                    </span>
+                <span class="status-badge status-badge--success">
+                    <i class="fa-solid fa-scale-balanced"></i> Adjudicated
+                </span>
                 {% else %}
-                    <span class="status-badge status-badge--warning">
-                        <i class="fa-solid fa-clock"></i> Active
-                    </span>
+                <span class="status-badge status-badge--warning">
+                    <i class="fa-solid fa-clock"></i> Active
+                </span>
                 {% endif %}
             </span>
         </div>
@@ -69,11 +67,11 @@
             <label>FBO Address</label>
             <span class="detail-value">{{ inspection.fbo_address or 'N/A' }}</span>
         </div>
-        <div class="detail-field" style="grid-column: 1 / -1;">
+        <div class="detail-field" style="grid-column: 1 / -1">
             <label>Concerned Food</label>
             <span class="detail-value">{{ inspection.concerned_food or 'N/A' }}</span>
         </div>
-        <div class="detail-field" style="grid-column: 1 / -1;">
+        <div class="detail-field" style="grid-column: 1 / -1">
             <label>Problem Description</label>
             <span class="detail-value">{{ inspection.problem or 'N/A' }}</span>
         </div>
@@ -82,36 +80,54 @@
     <!-- Photo Evidence Section -->
     <div class="section-header">
         <h3><i class="fa-solid fa-camera"></i> Photo Evidence</h3>
-        <p class="form-hint">Capture or upload photos for this inspection. GPS location will be collected automatically for verification.</p>
+        <p class="form-hint">
+            Capture or upload photos for this inspection. GPS location will be collected
+            automatically for verification.
+        </p>
     </div>
 
     <!-- Photo Upload Area -->
     <div class="card bg--subtle">
         <!-- Hidden fields for photo metadata -->
-        <input type="hidden" id="photo_inspection_id" value="{{ inspection.id }}">
-        <input type="hidden" id="photo_lat" value="">
-        <input type="hidden" id="photo_lng" value="">
-        <input type="hidden" id="photo_accuracy" value="">
-        <input type="hidden" id="photo_captured_at" value="">
+        <input type="hidden" id="photo_inspection_id" value="{{ inspection.id }}" />
+        <input type="hidden" id="photo_lat" value="" />
+        <input type="hidden" id="photo_lng" value="" />
+        <input type="hidden" id="photo_accuracy" value="" />
+        <input type="hidden" id="photo_captured_at" value="" />
 
         <!-- Drop zone / Capture area -->
-        <div class="photo-dropzone" id="photoDropzone" onclick="document.getElementById('photoInput').click()">
+        <div
+            class="photo-dropzone"
+            id="photoDropzone"
+            onclick="document.getElementById('photoInput').click()"
+        >
             <div class="dropzone-content" id="dropzoneContent">
-                <i class="fa-solid fa-camera" style="font-size: 3rem; color: var(--accent-primary);"></i>
-                <p class="form-label" style="margin: 10px 0 5px; font-weight: 500;">Capture or Select Photo</p>
+                <i
+                    class="fa-solid fa-camera"
+                    style="font-size: 3rem; color: var(--accent-primary)"
+                ></i>
+                <p class="form-label" style="margin: 10px 0 5px; font-weight: 500">
+                    Capture or Select Photo
+                </p>
                 <p class="form-hint">Tap to use camera or choose from gallery</p>
             </div>
-            <div class="dropzone-preview" id="dropzonePreview" style="display: none;">
-                <img id="photoPreview" src="" alt="Photo preview">
+            <div class="dropzone-preview" id="dropzonePreview" style="display: none">
+                <img id="photoPreview" src="" alt="Photo preview" />
                 <div class="preview-overlay">
                     <span class="preview-status" id="previewStatus">Ready to upload</span>
                 </div>
             </div>
-            <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
+            <input
+                type="file"
+                id="photoInput"
+                accept="image/*"
+                capture="environment"
+                style="display: none"
+            />
         </div>
 
         <!-- Photo metadata display -->
-        <div class="photo-meta" id="photoMeta" style="display: none;">
+        <div class="photo-meta" id="photoMeta" style="display: none">
             <div class="meta-row">
                 <span class="meta-label"><i class="fa-solid fa-location-dot"></i> Location:</span>
                 <span class="meta-value" id="metaLocation">Waiting for GPS...</span>
@@ -127,7 +143,7 @@
         </div>
 
         <!-- Upload button -->
-        <div class="photo-actions" id="photoActions" style="display: none;">
+        <div class="photo-actions" id="photoActions" style="display: none">
             <button type="button" class="btn btn-primary" onclick="uploadPhoto()" id="uploadBtn">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo
             </button>
@@ -137,7 +153,7 @@
         </div>
 
         <!-- Upload progress -->
-        <div id="uploadProgress" class="mt--sm" style="display: none;">
+        <div id="uploadProgress" class="mt--sm" style="display: none">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
@@ -145,37 +161,47 @@
         </div>
 
         <!-- Upload error message -->
-        <div id="uploadError" class="mt--sm" style="display: none;">
-        </div>
+        <div id="uploadError" class="mt--sm" style="display: none"></div>
 
         <!-- OCR status (shown while async OCR runs, then the extracted text) -->
-        <div id="ocrStatus" class="mt--sm" style="display: none;">
+        <div id="ocrStatus" class="mt--sm" style="display: none">
             <div class="info-box" id="ocrStatusBox"></div>
         </div>
     </div>
 
     <!-- Photo Gallery -->
-    <div class="card bg--subtle" style="margin-top: 1.25rem;">
-        <h3 class="mb--sm"><i class="fa-solid fa-images"></i> Uploaded Photos
+    <div class="card bg--subtle" style="margin-top: 1.25rem">
+        <h3 class="mb--sm">
+            <i class="fa-solid fa-images"></i> Uploaded Photos
             <span class="photo-count" id="photoCount">({{ photos|length }})</span>
         </h3>
 
         {% if photos %}
         <div class="photo-grid" id="photoGrid">
             {% for photo in photos %}
-            <div class="photo-card" data-image-id="{{ photo.id }}" onclick="openLightbox('{{ photo.filepath }}', '{{ photo.locality or 'Unknown' }}', '{{ photo.verification_status }}', '{{ photo.captured_at.strftime('%Y-%m-%d %H:%M') if photo.captured_at else 'N/A' }}')">
+            <div
+                class="photo-card"
+                data-image-id="{{ photo.id }}"
+                onclick="openLightbox('{{ photo.filepath }}', '{{ photo.locality or 'Unknown' }}', '{{ photo.verification_status }}', '{{ photo.captured_at.strftime('%Y-%m-%d %H:%M') if photo.captured_at else 'N/A' }}')"
+            >
                 <div class="photo-thumb">
-                    <img src="{{ photo.filepath }}" alt="Photo evidence" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23eee%22 width=%22200%22 height=%22200%22/><text fill=%22%23999%22 font-size=%2214%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>Image not found</text></svg>'">
+                    <img
+                        src="{{ photo.filepath }}"
+                        alt="Photo evidence"
+                        loading="lazy"
+                        onerror="
+                            this.src =
+                                'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23eee%22 width=%22200%22 height=%22200%22/><text fill=%22%23999%22 font-size=%2214%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>Image not found</text></svg>'
+                        "
+                    />
                 </div>
                 <div class="photo-info">
                     <span class="photo-status status-{{ photo.verification_status|lower }}">
                         {% if photo.verification_status == 'PASS' %}
-                            <i class="fa-solid fa-circle-check"></i> Verified
-                        {% elif photo.verification_status == 'FLAG' %}
-                            <i class="fa-solid fa-circle-exclamation"></i> Flagged
-                        {% else %}
-                            <i class="fa-solid fa-clock"></i> Pending
-                        {% endif %}
+                        <i class="fa-solid fa-circle-check"></i> Verified {% elif
+                        photo.verification_status == 'FLAG' %}
+                        <i class="fa-solid fa-circle-exclamation"></i> Flagged {% else %}
+                        <i class="fa-solid fa-clock"></i> Pending {% endif %}
                     </span>
                     <span class="photo-locality" title="{{ photo.locality or 'Unknown location' }}">
                         <i class="fa-solid fa-location-dot"></i> {{ photo.locality or 'Unknown' }}
@@ -186,7 +212,7 @@
         </div>
         {% else %}
         <div class="empty-gallery" id="emptyGallery">
-            <i class="fa-solid fa-image" style="font-size: 2.5rem; color: var(--border);"></i>
+            <i class="fa-solid fa-image" style="font-size: 2.5rem; color: var(--border)"></i>
             <p>No photos uploaded yet</p>
         </div>
         {% endif %}
@@ -206,10 +232,10 @@
 </div>
 
 <!-- Lightbox Modal -->
-<div id="lightboxModal" class="lightbox-modal" style="display: none;">
+<div id="lightboxModal" class="lightbox-modal" style="display: none">
     <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
     <div class="lightbox-content">
-        <img id="lightboxImage" src="" alt="Photo">
+        <img id="lightboxImage" src="" alt="Photo" />
         <div class="lightbox-details">
             <p><strong>Location:</strong> <span id="lightboxLocation"></span></p>
             <p><strong>Status:</strong> <span id="lightboxStatus"></span></p>
@@ -217,314 +243,324 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
-// ===================================================================
-// Photo Upload Logic
-// ===================================================================
-let selectedFile = null;
-let gpsPosition = null;
+    // ===================================================================
+    // Photo Upload Logic
+    // ===================================================================
+    let selectedFile = null;
+    let gpsPosition = null;
 
-const dropzone = document.getElementById('photoDropzone');
-const photoInput = document.getElementById('photoInput');
-const dropzoneContent = document.getElementById('dropzoneContent');
-const dropzonePreview = document.getElementById('dropzonePreview');
-const photoPreview = document.getElementById('photoPreview');
-const previewStatus = document.getElementById('previewStatus');
-const photoMeta = document.getElementById('photoMeta');
-const photoActions = document.getElementById('photoActions');
-const uploadBtn = document.getElementById('uploadBtn');
-const uploadProgress = document.getElementById('uploadProgress');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const uploadError = document.getElementById('uploadError');
+    const dropzone = document.getElementById("photoDropzone");
+    const photoInput = document.getElementById("photoInput");
+    const dropzoneContent = document.getElementById("dropzoneContent");
+    const dropzonePreview = document.getElementById("dropzonePreview");
+    const photoPreview = document.getElementById("photoPreview");
+    const previewStatus = document.getElementById("previewStatus");
+    const photoMeta = document.getElementById("photoMeta");
+    const photoActions = document.getElementById("photoActions");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const uploadProgress = document.getElementById("uploadProgress");
+    const progressFill = document.getElementById("progressFill");
+    const progressText = document.getElementById("progressText");
+    const uploadError = document.getElementById("uploadError");
 
-photoInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    selectedFile = file;
-    showPreview(file);
-    getGPSPosition();
-});
-
-dropzone.addEventListener('dragover', function(e) {
-    e.preventDefault();
-    this.style.borderColor = 'var(--accent-primary)';
-    this.style.backgroundColor = 'rgba(22, 36, 74, 0.03)';
-});
-
-dropzone.addEventListener('dragleave', function(e) {
-    e.preventDefault();
-    this.style.borderColor = 'var(--border)';
-    this.style.backgroundColor = 'transparent';
-});
-
-dropzone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    this.style.borderColor = 'var(--border)';
-    this.style.backgroundColor = 'transparent';
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    photoInput.addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
         selectedFile = file;
         showPreview(file);
         getGPSPosition();
+    });
+
+    dropzone.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        this.style.borderColor = "var(--accent-primary)";
+        this.style.backgroundColor = "rgba(22, 36, 74, 0.03)";
+    });
+
+    dropzone.addEventListener("dragleave", function (e) {
+        e.preventDefault();
+        this.style.borderColor = "var(--border)";
+        this.style.backgroundColor = "transparent";
+    });
+
+    dropzone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        this.style.borderColor = "var(--border)";
+        this.style.backgroundColor = "transparent";
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith("image/")) {
+            selectedFile = file;
+            showPreview(file);
+            getGPSPosition();
+        }
+    });
+
+    function showPreview(file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            photoPreview.src = e.target.result;
+            dropzoneContent.style.display = "none";
+            dropzonePreview.style.display = "block";
+            previewStatus.textContent = "Photo selected - ready to upload";
+            previewStatus.style.color = "var(--color-success)";
+        };
+        reader.readAsDataURL(file);
     }
-});
 
-function showPreview(file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        photoPreview.src = e.target.result;
-        dropzoneContent.style.display = 'none';
-        dropzonePreview.style.display = 'block';
-        previewStatus.textContent = 'Photo selected - ready to upload';
-        previewStatus.style.color = 'var(--color-success)';
-    };
-    reader.readAsDataURL(file);
-}
+    function getGPSPosition() {
+        photoMeta.style.display = "block";
+        document.getElementById("metaLocation").textContent = "Getting GPS position...";
+        document.getElementById("metaAccuracy").textContent = "...";
+        document.getElementById("metaCapturedAt").textContent = new Date().toLocaleString();
 
-function getGPSPosition() {
-    photoMeta.style.display = 'block';
-    document.getElementById('metaLocation').textContent = 'Getting GPS position...';
-    document.getElementById('metaAccuracy').textContent = '...';
-    document.getElementById('metaCapturedAt').textContent = new Date().toLocaleString();
-
-    if (!navigator.geolocation) {
-        document.getElementById('metaLocation').textContent = 'GPS not available on this device';
-        showPhotoActions();
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        function(position) {
-            gpsPosition = position;
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-
-            document.getElementById('metaLocation').textContent = lat.toFixed(6) + '°N, ' + lng.toFixed(6) + '°E';
-            document.getElementById('metaAccuracy').textContent = '±' + accuracy.toFixed(1) + 'm';
-
-            document.getElementById('photo_lat').value = lat;
-            document.getElementById('photo_lng').value = lng;
-            document.getElementById('photo_accuracy').value = accuracy;
-            document.getElementById('photo_captured_at').value = new Date().toISOString();
-
+        if (!navigator.geolocation) {
+            document.getElementById("metaLocation").textContent =
+                "GPS not available on this device";
             showPhotoActions();
-        },
-        function(error) {
-            let msg = 'GPS error: ';
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    msg += 'Permission denied. Please enable location services.';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    msg += 'Position unavailable.';
-                    break;
-                case error.TIMEOUT:
-                    msg += 'GPS timed out. Try again.';
-                    break;
-                default:
-                    msg += error.message;
-            }
-            document.getElementById('metaLocation').textContent = msg;
-            showPhotoActions();
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-}
+            return;
+        }
 
-function showPhotoActions() {
-    photoActions.style.display = 'flex';
-}
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                gpsPosition = position;
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
 
-function resetPhotoUpload() {
-    selectedFile = null;
-    gpsPosition = null;
-    photoInput.value = '';
-    dropzoneContent.style.display = 'flex';
-    dropzonePreview.style.display = 'none';
-    photoMeta.style.display = 'none';
-    photoActions.style.display = 'none';
-    uploadProgress.style.display = 'none';
-    uploadError.style.display = 'none';
-    document.getElementById('photo_lat').value = '';
-    document.getElementById('photo_lng').value = '';
-    document.getElementById('photo_accuracy').value = '';
-    document.getElementById('photo_captured_at').value = '';
-}
+                document.getElementById("metaLocation").textContent =
+                    lat.toFixed(6) + "°N, " + lng.toFixed(6) + "°E";
+                document.getElementById("metaAccuracy").textContent =
+                    "±" + accuracy.toFixed(1) + "m";
 
-function uploadPhoto() {
-    if (!selectedFile) {
-        showError('Please select a photo first.');
-        return;
-    }
+                document.getElementById("photo_lat").value = lat;
+                document.getElementById("photo_lng").value = lng;
+                document.getElementById("photo_accuracy").value = accuracy;
+                document.getElementById("photo_captured_at").value = new Date().toISOString();
 
-    const inspectionId = document.getElementById('photo_inspection_id').value;
-    const lat = document.getElementById('photo_lat').value;
-    const lng = document.getElementById('photo_lng').value;
-    const accuracy = document.getElementById('photo_accuracy').value;
-    const capturedAt = document.getElementById('photo_captured_at').value;
-
-    if (!lat || !lng || !accuracy || !capturedAt) {
-        showError('GPS data not available. Please wait for GPS or try again.');
-        return;
-    }
-
-    uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
-    uploadProgress.style.display = 'block';
-    uploadError.style.display = 'none';
-    progressFill.style.width = '30%';
-    progressText.textContent = 'Uploading photo...';
-
-    const formData = new FormData();
-    formData.append('image', selectedFile);
-    formData.append('inspection_id', inspectionId);
-    formData.append('lat', lat);
-    formData.append('lng', lng);
-    formData.append('accuracy', accuracy);
-    formData.append('captured_at', capturedAt);
-
-    fetch('/inspection/photo-upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(function(response) {
-        progressFill.style.width = '70%';
-        progressText.textContent = 'Processing...';
-        return response.json().then(function(data) {
-            if (response.ok) {
-                return data;
-            } else {
-                throw new Error(data.error || 'Upload failed');
-            }
-        });
-    })
-    .then(function(data) {
-        progressFill.style.width = '100%';
-        progressText.textContent = 'Photo uploaded successfully!';
-        progressText.style.color = 'var(--color-success)';
-
-        previewStatus.textContent = '✓ Uploaded successfully';
-        previewStatus.style.color = 'var(--color-success)';
-
-        // If OCR was queued asynchronously (QStash), poll until it completes
-        // and show the extracted text; otherwise reload to refresh the gallery.
-        if (data.ocr_task_id) {
-            var ocrWrapper = document.getElementById('ocrStatus');
-            var ocrBox = document.getElementById('ocrStatusBox');
-            ocrWrapper.style.display = 'block';
-            ocrBox.className = 'info-box';
-            ocrBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> OCR in progress — extracting text from the photo…';
-
-            TaskPoll.pollStatus(data.ocr_task_id, function(outcome) {
-                if (outcome.status === 'error') {
-                    ocrBox.className = 'info-box info-box--error';
-                    ocrBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> OCR failed: ' +
-                        (outcome.error || 'unknown error');
-                } else {
-                    ocrBox.className = 'info-box info-box--success';
-                    ocrBox.innerHTML = '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
-                        formatOcrResult(outcome.result || {});
+                showPhotoActions();
+            },
+            function (error) {
+                let msg = "GPS error: ";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        msg += "Permission denied. Please enable location services.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        msg += "Position unavailable.";
+                        break;
+                    case error.TIMEOUT:
+                        msg += "GPS timed out. Try again.";
+                        break;
+                    default:
+                        msg += error.message;
                 }
-                setTimeout(function() { window.location.reload(); }, 2500);
+                document.getElementById("metaLocation").textContent = msg;
+                showPhotoActions();
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+
+    function showPhotoActions() {
+        photoActions.style.display = "flex";
+    }
+
+    function resetPhotoUpload() {
+        selectedFile = null;
+        gpsPosition = null;
+        photoInput.value = "";
+        dropzoneContent.style.display = "flex";
+        dropzonePreview.style.display = "none";
+        photoMeta.style.display = "none";
+        photoActions.style.display = "none";
+        uploadProgress.style.display = "none";
+        uploadError.style.display = "none";
+        document.getElementById("photo_lat").value = "";
+        document.getElementById("photo_lng").value = "";
+        document.getElementById("photo_accuracy").value = "";
+        document.getElementById("photo_captured_at").value = "";
+    }
+
+    function uploadPhoto() {
+        if (!selectedFile) {
+            showError("Please select a photo first.");
+            return;
+        }
+
+        const inspectionId = document.getElementById("photo_inspection_id").value;
+        const lat = document.getElementById("photo_lat").value;
+        const lng = document.getElementById("photo_lng").value;
+        const accuracy = document.getElementById("photo_accuracy").value;
+        const capturedAt = document.getElementById("photo_captured_at").value;
+
+        if (!lat || !lng || !accuracy || !capturedAt) {
+            showError("GPS data not available. Please wait for GPS or try again.");
+            return;
+        }
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+        uploadProgress.style.display = "block";
+        uploadError.style.display = "none";
+        progressFill.style.width = "30%";
+        progressText.textContent = "Uploading photo...";
+
+        const formData = new FormData();
+        formData.append("image", selectedFile);
+        formData.append("inspection_id", inspectionId);
+        formData.append("lat", lat);
+        formData.append("lng", lng);
+        formData.append("accuracy", accuracy);
+        formData.append("captured_at", capturedAt);
+
+        fetch("/inspection/photo-upload", {
+            method: "POST",
+            body: formData,
+        })
+            .then(function (response) {
+                progressFill.style.width = "70%";
+                progressText.textContent = "Processing...";
+                return response.json().then(function (data) {
+                    if (response.ok) {
+                        return data;
+                    } else {
+                        throw new Error(data.error || "Upload failed");
+                    }
+                });
+            })
+            .then(function (data) {
+                progressFill.style.width = "100%";
+                progressText.textContent = "Photo uploaded successfully!";
+                progressText.style.color = "var(--color-success)";
+
+                previewStatus.textContent = "✓ Uploaded successfully";
+                previewStatus.style.color = "var(--color-success)";
+
+                // If OCR was queued asynchronously (QStash), poll until it completes
+                // and show the extracted text; otherwise reload to refresh the gallery.
+                if (data.ocr_task_id) {
+                    var ocrWrapper = document.getElementById("ocrStatus");
+                    var ocrBox = document.getElementById("ocrStatusBox");
+                    ocrWrapper.style.display = "block";
+                    ocrBox.className = "info-box";
+                    ocrBox.innerHTML =
+                        '<i class="fa-solid fa-spinner fa-spin"></i> OCR in progress — extracting text from the photo…';
+
+                    TaskPoll.pollStatus(data.ocr_task_id, function (outcome) {
+                        if (outcome.status === "error") {
+                            ocrBox.className = "info-box info-box--error";
+                            ocrBox.innerHTML =
+                                '<i class="fa-solid fa-circle-exclamation"></i> OCR failed: ' +
+                                (outcome.error || "unknown error");
+                        } else {
+                            ocrBox.className = "info-box info-box--success";
+                            ocrBox.innerHTML =
+                                '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                                formatOcrResult(outcome.result || {});
+                        }
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 2500);
+                    });
+                } else if (data.ocr_result) {
+                    var ocrBox2 = document.getElementById("ocrStatusBox");
+                    var ocrWrapper2 = document.getElementById("ocrStatus");
+                    ocrWrapper2.style.display = "block";
+                    ocrBox2.className = "info-box info-box--success";
+                    ocrBox2.innerHTML =
+                        '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                        formatOcrResult(data.ocr_result);
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, 2500);
+                } else {
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, 1500);
+                }
+            })
+            .catch(function (error) {
+                uploadProgress.style.display = "none";
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo';
+                showError(error.message || "Failed to upload photo. Please try again.");
             });
-        } else if (data.ocr_result) {
-            var ocrBox2 = document.getElementById('ocrStatusBox');
-            var ocrWrapper2 = document.getElementById('ocrStatus');
-            ocrWrapper2.style.display = 'block';
-            ocrBox2.className = 'info-box info-box--success';
-            ocrBox2.innerHTML = '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
-                formatOcrResult(data.ocr_result);
-            setTimeout(function() { window.location.reload(); }, 2500);
+    }
+
+    function showError(message) {
+        uploadError.style.display = "block";
+        uploadError.className = "info-box info-box--error";
+        uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
+    }
+
+    // Format the OCR extraction result dict (e.g. {p1: "text", _pages_processed: 1})
+    // into a short readable summary. Ignores underscore-prefixed metadata keys.
+    function formatOcrResult(result) {
+        var keys = Object.keys(result || {}).filter(function (k) {
+            return k.charAt(0) !== "_";
+        });
+        if (keys.length === 0) {
+            return "No text extracted from this photo.";
+        }
+        var parts = keys.map(function (k) {
+            var text = String(result[k] || "").trim();
+            if (text.length > 120) {
+                text = text.slice(0, 120) + "…";
+            }
+            return "<div><code>[" + k + "]</code> " + escapeHtml(text) + "</div>";
+        });
+        return '<div class="ocr-text">' + parts.join("") + "</div>";
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ===================================================================
+    // Lightbox Logic
+    // ===================================================================
+    function openLightbox(src, locality, status, capturedAt) {
+        document.getElementById("lightboxImage").src = src;
+        document.getElementById("lightboxLocation").textContent = locality;
+
+        let statusText = status;
+        let statusColor = "var(--text-body)";
+        if (status === "PASS") {
+            statusText = "Verified (PASS)";
+            statusColor = "var(--color-success)";
+        } else if (status === "FLAG") {
+            statusText = "Flagged (FLAG)";
+            statusColor = "var(--color-error)";
         } else {
-            setTimeout(function() {
-                window.location.reload();
-            }, 1500);
+            statusText = "Pending";
+            statusColor = "var(--color-warning)";
         }
-    })
-    .catch(function(error) {
-        uploadProgress.style.display = 'none';
-        uploadBtn.disabled = false;
-        uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo';
-        showError(error.message || 'Failed to upload photo. Please try again.');
-    });
-}
+        document.getElementById("lightboxStatus").innerHTML =
+            '<span style="color: ' + statusColor + '">' + statusText + "</span>";
+        document.getElementById("lightboxCapturedAt").textContent = capturedAt;
 
-function showError(message) {
-    uploadError.style.display = 'block';
-    uploadError.className = 'info-box info-box--error';
-    uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
-}
-
-// Format the OCR extraction result dict (e.g. {p1: "text", _pages_processed: 1})
-// into a short readable summary. Ignores underscore-prefixed metadata keys.
-function formatOcrResult(result) {
-    var keys = Object.keys(result || {}).filter(function(k) {
-        return k.charAt(0) !== '_';
-    });
-    if (keys.length === 0) {
-        return 'No text extracted from this photo.';
+        document.getElementById("lightboxModal").style.display = "flex";
     }
-    var parts = keys.map(function(k) {
-        var text = String(result[k] || '').trim();
-        if (text.length > 120) {
-            text = text.slice(0, 120) + '…';
+
+    function closeLightbox() {
+        document.getElementById("lightboxModal").style.display = "none";
+    }
+
+    document.getElementById("lightboxModal").addEventListener("click", function (e) {
+        if (e.target === this) {
+            closeLightbox();
         }
-        return '<div><code>[' + k + ']</code> ' + escapeHtml(text) + '</div>';
     });
-    return '<div class="ocr-text">' + parts.join('') + '</div>';
-}
 
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-// ===================================================================
-// Lightbox Logic
-// ===================================================================
-function openLightbox(src, locality, status, capturedAt) {
-    document.getElementById('lightboxImage').src = src;
-    document.getElementById('lightboxLocation').textContent = locality;
-
-    let statusText = status;
-    let statusColor = 'var(--text-body)';
-    if (status === 'PASS') {
-        statusText = 'Verified (PASS)';
-        statusColor = 'var(--color-success)';
-    } else if (status === 'FLAG') {
-        statusText = 'Flagged (FLAG)';
-        statusColor = 'var(--color-error)';
-    } else {
-        statusText = 'Pending';
-        statusColor = 'var(--color-warning)';
-    }
-    document.getElementById('lightboxStatus').innerHTML = '<span style="color: ' + statusColor + '">' + statusText + '</span>';
-    document.getElementById('lightboxCapturedAt').textContent = capturedAt;
-
-    document.getElementById('lightboxModal').style.display = 'flex';
-}
-
-function closeLightbox() {
-    document.getElementById('lightboxModal').style.display = 'none';
-}
-
-document.getElementById('lightboxModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeLightbox();
-    }
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeLightbox();
-    }
-});
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            closeLightbox();
+        }
+    });
 </script>
 {% endblock %}
