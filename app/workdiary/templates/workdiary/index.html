@@ -76,13 +76,50 @@
         </table>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2" style="flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="openDiaryEditor()">
+            <i class="fa-solid fa-pen-to-square"></i> Preview & Edit
+        </button>
         <a href="{{ preview_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary">
             <i class="fa-solid fa-eye"></i> Preview
         </a>
-        <a href="{{ pdf_url }}" class="btn btn-primary">
+        <a href="{{ pdf_url }}" class="btn btn-secondary">
             <i class="fa-solid fa-file-pdf"></i> Download PDF
         </a>
+    </div>
+
+    <!-- Work Diary Editor Modal -->
+    <div id="diaryEditorModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 960px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-shrink: 0;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-book-open"></i> Work Diary — Edit & Preview</h3>
+                <button type="button" onclick="closeDiaryEditor()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: 1; min-height: 0; overflow: hidden;">
+                <!-- Quill Editor -->
+                <div style="display: flex; flex-direction: column; min-height: 0;">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-pen"></i> Edit Content</label>
+                    <div id="diaryQuillEditor" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px;"></div>
+                </div>
+
+                <!-- Live Preview -->
+                <div style="display: flex; flex-direction: column; min-height: 0;">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-eye"></i> Live Preview</label>
+                    <iframe id="diaryPreviewFrame" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px; background: #fff;"></iframe>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-shrink: 0; flex-wrap: wrap;">
+                <button type="button" onclick="closeDiaryEditor()" class="btn btn-secondary">Cancel</button>
+                <button type="button" onclick="revertDiaryToOriginal()" class="btn btn-secondary" id="revertDiaryBtn">
+                    <i class="fa-solid fa-rotate-left"></i> Revert to Original
+                </button>
+                <button type="button" onclick="downloadDiaryPdf()" class="btn btn-primary">
+                    <i class="fa-solid fa-download"></i> Save & Download PDF
+                </button>
+            </div>
+        </div>
     </div>
     {% else %}
     <div class="alert alert-info">
@@ -91,4 +128,192 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" />
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
+<script>
+var diaryQuill = null;
+var DIARY_PREVIEW_URL = '{{ preview_url }}';
+var DIARY_PDF_SAVE_URL = '{{ url_for("workdiary.save_edited") }}';
+
+function getDiaryPreviewStyles() {
+    return '@page { size: A4; margin: 20mm; }' +
+        'body { font-family: Times New Roman, Times, serif; color: #000; margin: 30px; font-size: 15px; line-height: 1.4; }' +
+        '.title { text-align: center; font-size: 20px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }' +
+        '.meta-row { display: flex; justify-content: space-between; font-size: 15px; margin: 6px 0; }' +
+        '.meta-row span.label { font-style: italic; }' +
+        '.meta-line { border-bottom: 1px solid #000; display: inline-block; min-width: 180px; }' +
+        'table { width: 100%; border-collapse: collapse; margin-top: 15px; }' +
+        'th, td { border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: left; vertical-align: top; }' +
+        'th { text-align: center; font-style: italic; }' +
+        'th.roman { text-align: center; font-weight: normal; }' +
+        'td.date-col { width: 12%; }' +
+        'td.place-col { width: 22%; }' +
+        'td.purpose-col { width: 30%; }' +
+        'td.activity-col { width: 36%; }' +
+        '.empty-row td { height: 28px; }' +
+        '.sign-block { margin-top: 60px; text-align: right; }' +
+        '.sign-line { border-top: 1px solid #000; width: 260px; margin-left: auto; padding-top: 4px; font-size: 14px; text-align: center; }' +
+        '.countersign { margin-top: 50px; font-size: 14px; }' +
+        '.countersign .underline { text-decoration: underline; font-weight: bold; }' +
+        '.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }' +
+        '.badge.bg-warning { background: #ffc107; color: #000; }' +
+        '.badge.bg-secondary { background: #6c757d; color: #fff; }' +
+        '@media print { body { margin: 12mm; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }';
+}
+
+function openDiaryEditor() {
+    var modal = document.getElementById('diaryEditorModal');
+    modal.style.display = 'flex';
+
+    var editorDiv = document.getElementById('diaryQuillEditor');
+    var previewFrame = document.getElementById('diaryPreviewFrame');
+
+    editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading diary preview...</p>';
+
+    fetch(DIARY_PREVIEW_URL)
+    .then(function(r) {
+        if (!r.ok) throw new Error('Failed to load diary preview');
+        return r.text();
+    })
+    .then(function(html) {
+        if (!diaryQuill) {
+            diaryQuill = new Quill('#diaryQuillEditor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['blockquote'],
+                        ['clean']
+                    ]
+                }
+            });
+        }
+
+        var content = html;
+        var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        if (bodyMatch) content = bodyMatch[1];
+        content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+        content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+        diaryQuill.root.innerHTML = content;
+
+        function updateDiaryPreview() {
+            previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + getDiaryPreviewStyles() + '</style></head><body>' + diaryQuill.root.innerHTML + '</body></html>';
+        }
+        updateDiaryPreview();
+
+        var syncTimer = null;
+        diaryQuill.on('text-change', function() {
+            clearTimeout(syncTimer);
+            syncTimer = setTimeout(updateDiaryPreview, 300);
+        });
+    })
+    .catch(function(err) {
+        editorDiv.innerHTML = '<div class="info-box info-box--error"><i class="fa-solid fa-circle-exclamation"></i> ' + err.message + '</div>';
+    });
+}
+
+function closeDiaryEditor() {
+    document.getElementById('diaryEditorModal').style.display = 'none';
+}
+
+function revertDiaryToOriginal() {
+    if (!confirm('Revert to the original diary? All your edits will be lost.')) return;
+
+    var editorDiv = document.getElementById('diaryQuillEditor');
+    var previewFrame = document.getElementById('diaryPreviewFrame');
+
+    editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Reverting...</p>';
+
+    fetch(DIARY_PREVIEW_URL)
+    .then(function(r) {
+        if (!r.ok) throw new Error('Failed to load original diary');
+        return r.text();
+    })
+    .then(function(html) {
+        if (!diaryQuill) {
+            diaryQuill = new Quill('#diaryQuillEditor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['blockquote'],
+                        ['clean']
+                    ]
+                }
+            });
+        }
+
+        var content = html;
+        var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        if (bodyMatch) content = bodyMatch[1];
+        content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+        content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+        diaryQuill.root.innerHTML = content;
+        previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + getDiaryPreviewStyles() + '</style></head><body>' + content + '</body></html>';
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+    });
+}
+
+function downloadDiaryPdf() {
+    if (!diaryQuill) return;
+
+    var html = diaryQuill.root.innerHTML;
+    var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+        getDiaryPreviewStyles() +
+        '</style></head><body>' + html + '</body></html>';
+
+    var formData = new FormData();
+    formData.append('html', fullHtml);
+
+    var params = new URLSearchParams(window.location.search);
+    for (var [k, v] of params.entries()) {
+        formData.append(k, v);
+    }
+
+    fetch(DIARY_PDF_SAVE_URL, {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to save'); });
+        return r.blob();
+    })
+    .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'workdiary_edited.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        closeDiaryEditor();
+    })
+    .catch(function(err) {
+        alert('Error: ' + err.message);
+    });
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var modal = document.getElementById('diaryEditorModal');
+        if (modal && modal.style.display === 'flex') closeDiaryEditor();
+    }
+});
+</script>
 {% endblock %}

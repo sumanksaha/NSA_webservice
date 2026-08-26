@@ -37,7 +37,7 @@ def env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="diaryuser", password_hash="pbkdf2:sha256$test$dummy")
+    user = User(username="diaryuser", password_hash="pbkdf2:sha256$test$dummy", is_admin=True)
     db.session.add(user)
     db.session.add(FSO(fso_name="Officer A"))
     db.session.add(FSO(fso_name="Officer B"))

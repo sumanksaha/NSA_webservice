@@ -382,8 +382,11 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 </div>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-shrink: 0;">
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-shrink: 0; flex-wrap: wrap;">
                 <button type="button" onclick="closeNoticeEditor()" class="btn btn-secondary">Cancel</button>
+                <button type="button" onclick="revertNoticeToOriginal()" class="btn btn-secondary" id="revertNoticeBtn">
+                    <i class="fa-solid fa-rotate-left"></i> Revert to Original
+                </button>
                 <button type="button" onclick="downloadOriginalNotice()" class="btn btn-secondary">
                     <i class="fa-solid fa-file-pdf"></i> Download Original PDF
                 </button>
@@ -710,6 +713,34 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     // ===================================================================
     var noticeQuill = null;
 
+    // Print-optimized CSS matching the Improvement Notice PDF template exactly.
+    // Uses pt units for WeasyPrint parity, A4 page geometry, and proper margins.
+    function getNoticePreviewStyles() {
+        return '@page { size: A4; margin: 72pt 54pt; }' +
+            'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 0; color: #000; font-size: 11pt; line-height: 1.6; }' +
+            '.page { page-break-after: always; padding: 72pt 54pt; position: relative; max-width: 210mm; margin: 0 auto; background: #fff; box-shadow: 0 0 8px rgba(0,0,0,0.1); }' +
+            '.letterhead { border-bottom: 2pt solid #000; padding-bottom: 12pt; margin-bottom: 18pt; }' +
+            '.letterhead h1 { font-size: 16pt; font-weight: bold; margin: 0; }' +
+            '.letterhead .subtitle { font-size: 10pt; color: #555; margin-top: 4pt; }' +
+            '.header-line { font-size: 9pt; color: #555; margin-bottom: 6pt; }' +
+            '.body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12pt; }' +
+            '.body-text b { font-weight: bold; }' +
+            '.signature-block { margin-top: 48pt; }' +
+            '.signature-line { border-top: 1pt solid #000; width: 180pt; padding-top: 4pt; font-size: 11pt; }' +
+            '.no-print { display: none; }' +
+            'table { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt; }' +
+            'table th, table td { border: 1pt solid #000; padding: 4pt 8pt; text-align: left; vertical-align: top; }' +
+            'table th { background-color: #eee; font-weight: bold; }' +
+            'table tr { page-break-inside: avoid; break-inside: avoid; }' +
+            'table.violation-table { width: 100%; }' +
+            'table.violation-table th { background-color: #eee; }' +
+            'table.summary th { background-color: #eee; }' +
+            'ol.actions-list { margin: 12pt 0; padding-left: 24pt; line-height: 1.8; }' +
+            'ol.actions-list li { margin-bottom: 6pt; }' +
+            '.footer { font-size: 8pt; color: #777; border-top: 1pt solid #ccc; padding-top: 6pt; margin-top: 24pt; }' +
+            '@media print { body { margin: 0; } .page { box-shadow: none; margin: 0; } }';
+    }
+
     function openNoticeEditor() {
         var modal = document.getElementById('noticeEditorModal');
         modal.style.display = 'flex';
@@ -759,20 +790,8 @@ inspection.inspection_code }}{% endblock %} {% block content %}
             noticeQuill.root.innerHTML = content;
 
             // Show initial preview in the iframe
-            var previewStyles = 'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 20px; color: #000; }' +
-                'table { border-collapse: collapse; width: 100%; }' +
-                'th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }' +
-                'th { background: #eee; }' +
-                '.letterhead { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 18px; }' +
-                '.letterhead h1 { font-size: 16pt; margin: 0; }' +
-                '.subtitle { font-size: 10pt; color: #555; }' +
-                '.header-line { font-size: 9pt; color: #555; margin-bottom: 6px; }' +
-                '.body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12px; }' +
-                '.signature-block { margin-top: 48px; }' +
-                'ol.actions-list { padding-left: 24px; line-height: 1.8; }';
-
             function updateNoticePreview() {
-                previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + previewStyles + '</style></head><body>' + noticeQuill.root.innerHTML + '</body></html>';
+                previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + getNoticePreviewStyles() + '</style></head><body>' + noticeQuill.root.innerHTML + '</body></html>';
             }
             updateNoticePreview();
 
@@ -796,18 +815,9 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         if (!noticeQuill) return;
 
         var html = noticeQuill.root.innerHTML;
-        // Wrap in a full HTML document
+        // Wrap in a full HTML document with the same CSS used for preview
         var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-            'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 20px; color: #000; }' +
-            'table { border-collapse: collapse; width: 100%; }' +
-            'th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }' +
-            'th { background: #eee; }' +
-            '.letterhead { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 18px; }' +
-            '.letterhead h1 { font-size: 16pt; margin: 0; }' +
-            '.subtitle { font-size: 10pt; color: #555; }' +
-            '.body-text { font-size: 11pt; line-height: 1.6; }' +
-            '.signature-block { margin-top: 48px; }' +
-            'ol.actions-list { padding-left: 24px; }' +
+            getNoticePreviewStyles() +
             '</style></head><body>' + html + '</body></html>';
 
         // Send to server to save and generate PDF
@@ -835,6 +845,54 @@ inspection.inspection_code }}{% endblock %} {% block content %}
 
     function downloadOriginalNotice() {
         window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
+    }
+
+    function revertNoticeToOriginal() {
+        if (!confirm('Revert to the original template? All your edits will be lost.')) return;
+
+        var editorDiv = document.getElementById('noticeQuillEditor');
+        var previewFrame = document.getElementById('noticePreviewFrame');
+
+        editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Reverting...</p>';
+
+        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
+        .then(function(r) {
+            if (!r.ok) throw new Error('Failed to load original notice');
+            return r.text();
+        })
+        .then(function(html) {
+            // Re-init Quill if needed
+            if (!noticeQuill) {
+                noticeQuill = new Quill('#noticeQuillEditor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['blockquote'],
+                            ['clean']
+                        ]
+                    }
+                });
+            }
+
+            var content = html;
+            var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            if (bodyMatch) content = bodyMatch[1];
+            content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+            content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+            content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
+
+            noticeQuill.root.innerHTML = content;
+
+            // Refresh preview
+            var previewStyles = getNoticePreviewStyles();
+            previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + previewStyles + '</style></head><body>' + content + '</body></html>';
+        })
+        .catch(function(err) {
+            alert('Error: ' + err.message);
+        });
     }
 
     // Close notice editor on Escape

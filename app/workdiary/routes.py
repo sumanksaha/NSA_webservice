@@ -143,6 +143,50 @@ def preview():
     )
 
 
+@workdiary_bp.route("/save", methods=["POST"])
+def save_edited():
+    """Save an edited Work Diary HTML and generate PDF.
+
+    Accepts a ``html`` form field with the full edited HTML document,
+    saves it to disk, and returns the PDF bytes for download.
+    """
+    from flask import current_app, jsonify, request
+
+    filters = _filters_from_request()
+    blocked = _enforce_scope(filters, strict=True)
+    if blocked is not None:
+        return blocked
+
+    html_content = request.form.get("html", "")
+    if not html_content.strip():
+        return jsonify({"error": "No HTML content provided."}), 400
+
+    # Save the edited HTML to disk
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    html_dir = Path(current_app.instance_path) / "workdiary" / "html"
+    html_dir.mkdir(parents=True, exist_ok=True)
+    ts = int(datetime.now(UTC).timestamp())
+    fso_part = re.sub(r"[^A-Za-z0-9_-]+", "_", filters.get("fso_name") or "all")
+    html_filename = f"workdiary_{fso_part}_{ts}.html"
+    html_path = str(html_dir / html_filename)
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(html_content)
+
+    # Generate PDF from the edited HTML
+    pdf_bytes, pdf_error = generate_pdf_from_html(html_content)
+    if pdf_bytes is None:
+        return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 503
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=_pdf_filename(filters),
+    )
+
+
 @workdiary_bp.route("/pdf")
 def pdf():
     """Download the current diary report as a PDF."""

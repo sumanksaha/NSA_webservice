@@ -14,7 +14,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_login import login_required
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -383,6 +383,55 @@ def regenerate_case_files(case_id):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
     return _regenerate_case_file(case_id)
+
+
+@case_file_generator_bp.route("/preview", methods=["POST"])
+def preview_case_file_route():
+    """Render Petition + Permission Letter HTML from form data for review.
+
+    Unlike ``generate_case_file_route``, this does NOT create a CaseFile
+    record or dispatch a PDF task — it returns the rendered HTML so the
+    user can review both documents in the Quill editor before committing.
+    """
+    form_data = request.form.to_dict()
+
+    # Phase 18 RBAC: an fso-role account always owns what it creates — the
+    # bound officer name overrides whatever the form submitted.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        form_data["food_safety_officer_name"] = scope
+
+    validation_errors = validate_case_file_form(form_data)
+    if validation_errors:
+        return (
+            jsonify({
+                "error": "Please correct the highlighted fields below.",
+                "errors": validation_errors,
+            }),
+            400,
+        )
+
+    case_data = process_form_data(form_data)
+
+    petition_html = str(render_template("case_file_generator/petition.html", **case_data))
+    permission_html = str(render_template("case_file_generator/permission_letter.html", **case_data))
+
+    # Phase 6+7: cross-reference pass (renumbering, enclosures, TOC).
+    # No case_id available — photo/embed enrichment is skipped gracefully.
+    from app.utils.pdf_utils import post_process_pdf_html
+
+    petition_html = post_process_pdf_html(petition_html)
+    permission_html = post_process_pdf_html(permission_html)
+
+    return jsonify({
+        "petition_html": petition_html,
+        "permission_html": permission_html,
+        "case_number": case_data.get("case_number", ""),
+    })
 
 
 @case_file_generator_bp.route("/generate_case_file", methods=["POST"])

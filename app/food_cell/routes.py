@@ -182,3 +182,40 @@ def download_improvement_notice_pdf(inspection_id: int):
         download_name=f"Improvement_Notice_{inspection_id}.pdf",
         mimetype="application/pdf",
     )
+
+
+@food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/save", methods=["POST"])
+@login_required
+def save_edited_improvement_notice(inspection_id: int):
+    """Save an edited Improvement Notice HTML and generate PDF.
+
+    Accepts a ``html`` form field with the full edited HTML document,
+    saves it to disk, and generates a PDF from it.
+    """
+    from flask import request
+
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+
+    html_content = request.form.get("html", "")
+    if not html_content.strip():
+        return jsonify({"error": "No HTML content provided."}), 400
+
+    # Save the edited HTML to disk
+    html_dir = Path(current_app.instance_path) / "food_cell" / "html"
+    html_dir.mkdir(parents=True, exist_ok=True)
+    html_filename = f"improvement_notice_{inspection_id}_edited_{int(datetime.now(UTC).timestamp())}.html"
+    html_path = str(html_dir / html_filename)
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(html_content)
+
+    # Generate PDF from the edited HTML
+    pdf_path = _notice_renderer.render_improvement_notice_pdf(html_content, inspection)
+    _freeze_inspection(inspection)
+
+    return jsonify({
+        "message": "Edited notice saved successfully.",
+        "html_path": html_path,
+        "pdf_path": pdf_path,
+    }), 200
