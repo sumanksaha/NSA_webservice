@@ -346,6 +346,10 @@ def create_app(db_uri: str | None = None):
         "static",
         "health.health",
         "health.cloudinary",
+        # Backup monitoring — public dead-man's-switch for uptime probes
+        "health.backups",
+        # CSP violation collector — browsers post here without session/CSRF
+        "health.csp_report",
         # Lookup endpoints - public for form prefill/autocomplete
         "case_file_generator.lookup_sample",
         "case_file_generator.list_samples_for_datalist",
@@ -472,6 +476,10 @@ def create_app(db_uri: str | None = None):
     from app.analytics import analytics_bp
 
     app.register_blueprint(analytics_bp, url_prefix="/analytics")
+    # Work diary (accumulates Inspections per FSO; preview + PDF download)
+    from app.workdiary import workdiary_bp
+
+    app.register_blueprint(workdiary_bp)
     # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
     from app.rag import rag_bp
 

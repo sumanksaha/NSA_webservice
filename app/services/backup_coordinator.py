@@ -28,6 +28,11 @@ from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
+#: A backup is considered fresh if newer than this many hours. The daily
+#: QStash schedule fires every 24h, so 26h tolerates exactly one missed run
+#: before ``/health/backups`` flips to ``stale`` (→ HTTP 503 dead-man's-switch).
+BACKUP_FRESHNESS_HOURS = 26
+
 #: R2 key prefix for full-archive ZIP snapshots.
 ARCHIVE_PREFIX = "nsa_backups/full_archives/"
 
@@ -98,7 +103,105 @@ def run_backup() -> dict:
         "Redundant backup complete: %s",
         " ".join(f"{t.name}={results.get(t.result_key)}" for t in TARGETS),
     )
+
+    # S10c: persist the outcome so /health/backups can act as the
+    # dead-man's-switch monitor. Best-effort — a bookkeeping failure must
+    # never fail the backup itself.
+    record_backup_result(results)
+
     return results
+
+
+def record_backup_result(results: dict) -> None:
+    """Persist the last backup outcome into the ``settings`` table.
+
+    Stores two keys:
+      - ``last_backup_at``      — ISO-8601 UTC timestamp of this run
+      - ``last_backup_results`` — JSON map of per-target success flags
+
+    Never raises: monitoring bookkeeping is strictly secondary to the
+    backup itself.
+    """
+    try:
+        import json
+
+        from app.extensions import db
+        from app.models.config import Settings
+
+        per_target = {k: v for k, v in results.items() if isinstance(v, bool)}
+        db.session.merge(
+            Settings(
+                key="last_backup_at",
+                value=datetime.now(UTC).isoformat(),
+                value_type="string",
+                description="UTC timestamp of the last redundant-backup run (S10c).",
+            )
+        )
+        db.session.merge(
+            Settings(
+                key="last_backup_results",
+                value=json.dumps(per_target),
+                value_type="json",
+                description="Per-target success flags of the last redundant-backup run (S10c).",
+            )
+        )
+        db.session.commit()
+        logger.info("Backup bookkeeping recorded (%s)", per_target)
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning("Failed to record backup bookkeeping: %s", e)
+        try:
+            from app.extensions import db
+
+            db.session.rollback()
+        except Exception:  # pragma: no cover - defensive
+            pass
+
+
+def last_backup_status() -> dict:
+    """Summarize the recorded backup state for ``/health/backups``.
+
+    Returns ``{"status", "last_backup_at", "age_hours", "targets"}`` where
+    status is one of:
+      - ``"never"``    — no backup has ever been recorded
+      - ``"stale"``    — last run older than BACKUP_FRESHNESS_HOURS
+      - ``"degraded"`` — recent run but at least one target failed
+      - ``"ok"``       — fresh and every target succeeded
+    Unparseable/absent DB state degrades to ``"never"`` rather than raising.
+    """
+    last_at_raw = None
+    targets: dict = {}
+    try:
+        from app.models.config import Settings
+
+        last_at_raw = Settings.get("last_backup_at")
+        targets = Settings.get("last_backup_results") or {}
+    except Exception as e:  # DB unavailable — treat as never-backed-up
+        logger.warning("Could not read backup bookkeeping: %s", e)
+
+    if not last_at_raw:
+        return {"status": "never", "last_backup_at": None, "age_hours": None, "targets": {}}
+
+    try:
+        last_at = datetime.fromisoformat(last_at_raw)
+        if last_at.tzinfo is None:
+            last_at = last_at.replace(tzinfo=UTC)
+    except (TypeError, ValueError):
+        return {"status": "never", "last_backup_at": None, "age_hours": None, "targets": {}}
+
+    age_hours = round((datetime.now(UTC) - last_at).total_seconds() / 3600, 2)
+    if age_hours > BACKUP_FRESHNESS_HOURS:
+        status = "stale"
+    elif any(v is False for v in targets.values()):
+        status = "degraded"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "last_backup_at": last_at.isoformat(),
+        "age_hours": age_hours,
+        "targets": targets,
+    }
 
 
 def export_full_archive_to_r2() -> str | None:

@@ -1,7 +1,7 @@
 # CONTEXT.md — Domain & Architecture Glossary
 
-> Living glossary for AI agents and developers. Terms here are the *names of
-> good seams* — use them exactly when discussing design. Created during the
+> Living glossary for AI agents and developers. Terms here are the _names of
+> good seams_ — use them exactly when discussing design. Created during the
 > 2026-08-22 architecture review (Candidate 1: the config seam). ADRs live in
 > `docs/adr/` (none yet).
 
@@ -59,6 +59,45 @@ Bill **atomically together with** marking those Samples billed and linking them
 Load-bearing invariant: **no Bill exists unless its Samples are marked billed**
 (and vice versa within one issuance). A Bill whose PDF failed is recoverable; a
 duplicated Bill is not — so persistence never depends on sync or PDF success.
+
+### Inspection Checklist
+
+The 12 yes/no hygiene-and-compliance items an FSO records during an inspection
+(premises, refrigeration, attire, utensils, date tagging, veg/non-veg
+separation, food segregation, licence display, artificial colour, expired
+items, pest report, water report). Answering a flagged way on an item
+constitutes an observed **violation**. The same item set and flag semantics
+apply to non-sample Adjudications; the checklist is captured at inspection
+time regardless of whether a sample was drawn.
+
+### Improvement Notice (u/s 32, FSS Act)
+
+The statutory document directing an FBO to take corrective action by a
+compliance deadline. Always keyed to an **Inspection** — never to a Sample.
+Its violations table is derived from the **Inspection Checklist**; its
+corrective actions are derived from the violated items. Generated lazily: the
+first render/download of the notice freezes the inspection record.
+
+### Corrective Measures Implemented
+
+The terminal state of an open inspection issue: the FBO has corrected the
+reported problem. Replaces the retired concept of "dismissal". An inspection
+with unresolved violations remains listed as an open issue until this state is
+asserted (with actor + timestamp + audit note). There is no deadline
+precondition for asserting it.
+
+### Note
+
+A single item in the **Notepad** intake queue (`app/notepad/`, `/notepad`):
+free-form content — pasted text or PDF-extracted text — representing an idea,
+a to-do, or a proposal. A Note is **shared with all FSOs by default**; the
+author may make it private (author-only). It is _not_ a legal
+record (no hash-chained audit). Lifecycle: `new → evaluated → implemented |`
+`dismissed`. Evaluation means one append-only **NoteEvaluation**: an AI-
+generated structured record (implementation plan, risks, game-theory,
+Talebian antifragility, first-principles lenses) stored as JSON; re-runs
+append rather than overwrite. Never abbreviated "DO" — that collides with DO
+Intimation.
 
 (Existing domain language lives in AGENTS.md §1 — CaseFile vs Adjudication,
 Canonical Key Contract, hash-chained audit, optimistic concurrency. Add new

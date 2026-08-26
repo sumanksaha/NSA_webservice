@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Work Diary of Food Safety Officer (FSO)</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  body { font-family: 'Times New Roman', Times, serif; color: #000; margin: 30px; }
+  .title { text-align: center; font-size: 20px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
+  .meta-row { display: flex; justify-content: space-between; font-size: 15px; margin: 6px 0; }
+  .meta-row span.label { font-style: italic; }
+  .meta-line { border-bottom: 1px solid #000; display: inline-block; min-width: 180px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th, td { border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: left; vertical-align: top; }
+  th { text-align: center; font-style: italic; }
+  th.roman { text-align: center; font-weight: normal; }
+  td.date-col { width: 12%; }
+  td.place-col { width: 22%; }
+  td.purpose-col { width: 30%; }
+  td.activity-col { width: 36%; }
+  .empty-row td { height: 28px; }
+  .sign-block { margin-top: 60px; text-align: right; }
+  .sign-line { border-top: 1px solid #000; width: 260px; margin-left: auto; padding-top: 4px; font-size: 14px; text-align: center; }
+  .countersign { margin-top: 50px; font-size: 14px; }
+  .countersign .underline { text-decoration: underline; font-weight: bold; }
+  @media print {
+    body { margin: 12mm; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="title">Work Diary of Food Safety Officer (FSO)</div>
+
+  <div class="meta-row">
+    <span><span class="label">Name:</span> <span class="meta-line">{{ fso_label }}</span></span>
+    <span><span class="label">Month:</span> <span class="meta-line">{{ month_label }}</span></span>
+    <span><span class="label">Year:</span> <span class="meta-line">{{ year_label }}</span></span>
+  </div>
+  <div class="meta-row">
+    <span style="width:100%;"><span class="label">Place of Posting:</span> <span class="meta-line" style="min-width:70%;">&nbsp;</span></span>
+  </div>
+  <div class="meta-row">
+    <span style="width:100%;"><span class="label">Area of Jurisdiction:</span> <span class="meta-line" style="min-width:70%;">&nbsp;</span></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Place of Visit</th>
+        <th>Purpose</th>
+        <th>Activity</th>
+      </tr>
+      <tr>
+        <th class="roman">(i)</th>
+        <th class="roman">(ii)</th>
+        <th class="roman">(iii)</th>
+        <th class="roman">(iv)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td class="date-col">{{ e.date.strftime('%d-%m-%Y') if e.date else '' }}</td>
+        <td class="place-col">{{ e.place_of_visit }}</td>
+        <td class="purpose-col">{{ e.purpose }}</td>
+        <td class="activity-col">{{ e.activity }}</td>
+      </tr>
+      {% endfor %}
+      {% for _ in range(pad_rows) %}
+      <tr class="empty-row"><td class="date-col">&nbsp;</td><td class="place-col">&nbsp;</td><td class="purpose-col">&nbsp;</td><td class="activity-col">&nbsp;</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sign-block">
+    <div class="sign-line">Signature of Food Safety Officer (FSO)</div>
+  </div>
+
+  <div class="countersign">
+    <div class="underline">Countersigned</div>
+    <div>Designated Officer (DO)</div>
+  </div>
+
+</body>
+</html>

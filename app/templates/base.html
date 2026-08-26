@@ -218,6 +218,12 @@
                         <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
                     </a>
                     <a
+                        href="{{ url_for('workdiary.index') }}"
+                        class="nav-link {% if request.blueprint == 'workdiary' %}active{% endif %}"
+                    >
+                        <i class="fa-solid fa-book-open"></i> Work Diary
+                    </a>
+                    <a
                         href="{{ url_for('adjudication.index') }}"
                         class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}"
                     >

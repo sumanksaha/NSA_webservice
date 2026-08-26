@@ -50,6 +50,31 @@ CHECKLIST_RULES: dict[str, tuple[str, str]] = {
     "Water_report": ("Water Test Report Missing", "Potable water testing unavailable."),
 }
 
+CHECKLIST_FIELDS: tuple[str, ...] = (
+    "clean_premise",
+    "refrigerator_clean",
+    "proper_attire",
+    "proper_covered_utensil",
+    "date_tag",
+    "veg_nonveg_separation",
+    "food_segregation",
+    "license_display",
+    "artificial_colour",
+    "Expired_item",
+    "Pest_report",
+    "Water_report",
+)
+
+
+def derive_actions(violations: list[dict[str, str]]) -> list[str]:
+    """Derive corrective actions for an Improvement Notice from violations.
+
+    One action per violation, same order. Each action names the violated
+    item (``title``) and what was observed, as a directive sentence.
+    """
+    return [f"Take corrective action: {v['title']} — {v['observation']}" for v in violations]
+
+
 # Special violation rules that are not in the checklist but need to be checked
 SPECIAL_VIOLATION_RULES: dict[str, tuple[str, str]] = {
     "artificial_colour": ("Use of Artificial Colours", "Artificial colours were reportedly used in food preparation."),
@@ -271,12 +296,10 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
     for field_name, (title, observation) in CHECKLIST_RULES.items():
         field_value = form_data.get(field_name)
         if field_value is not None and is_violation(field_value):
-            violations.append(
-                {
-                    "title": title,
-                    "observation": observation,
-                }
-            )
+            violations.append({
+                "title": title,
+                "observation": observation,
+            })
 
     # Check special violations (fields marked as 'yes' indicate violations)
     for field_name, (title, observation) in SPECIAL_VIOLATION_RULES.items():
@@ -284,19 +307,15 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
         if field_value is not None:
             if isinstance(field_value, str):
                 if field_value.strip().lower() == "yes":
-                    violations.append(
-                        {
-                            "title": title,
-                            "observation": observation,
-                        }
-                    )
-            elif field_value:
-                violations.append(
-                    {
+                    violations.append({
                         "title": title,
                         "observation": observation,
-                    }
-                )
+                    })
+            elif field_value:
+                violations.append({
+                    "title": title,
+                    "observation": observation,
+                })
 
     return violations
 

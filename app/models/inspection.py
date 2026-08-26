@@ -34,6 +34,12 @@ class Inspection(db.Model):
     fbo_address = db.Column(db.Text, nullable=True)
     concerned_food = db.Column(db.String(200), nullable=True)
     problem = db.Column(db.Text, nullable=True)
+    # Explicit diary purpose picked by the FSO at entry time:
+    # "routine" | "complaint" | NULL (legacy rows fall back to the
+    # problem-presence heuristic in WorkDiaryEngine.derive_purpose).
+    visit_purpose = db.Column(db.String(20), nullable=True)
+    checklist_json = db.Column(db.Text, nullable=True)  # JSON: {field_name: "yes"/"no"} for the 12-item checklist
+    notice_issued_at = db.Column(db.DateTime, nullable=True)  # first Improvement Notice render freezes the record
     inspection_date = db.Column(db.DateTime, nullable=False)
     compliance_deadline = db.Column(db.DateTime, nullable=False)
     is_dismissed = db.Column(db.Boolean, default=False)

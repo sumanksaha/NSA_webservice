@@ -1,12 +1,19 @@
+import json
+import logging
 import os
 from datetime import UTC, datetime
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import current_user
 
-from app.extensions import db
+from app.extensions import csrf, db
 
 health_bp = Blueprint("health", __name__)
+
+# Module-scoped logger — deliberately NOT ``current_app.logger``: the shared
+# "app" logger gets silenced in some embedding contexts (e.g. pytest sessions),
+# and CSP reports must always reach the configured root handler.
+logger = logging.getLogger(__name__)
 
 
 @health_bp.route("/health")
@@ -122,3 +129,59 @@ def cloudinary():
         "timestamp": datetime.now(UTC).isoformat(),
     }
     return jsonify(payload), 200
+
+
+@health_bp.route("/health/backups")
+def backups():
+    """Backup dead-man's-switch (S10c — Database backup monitoring).
+
+    Public so external uptime monitors can alert on it. Returns 200 while
+    the last redundant backup is fresh and every target succeeded, and 503
+    when no backup was ever recorded, the last run is stale, or a target
+    failed — giving free-tier deployments an alerting path without extra
+    infrastructure.
+    """
+    from app.services.backup_coordinator import last_backup_status
+
+    status = last_backup_status()
+    payload = {**status, "freshness_threshold_hours": 26, "timestamp": datetime.now(UTC).isoformat()}
+    code = 200 if status["status"] == "ok" else 503
+    return jsonify(payload), code
+
+
+@csrf.exempt
+@health_bp.route("/csp-report", methods=["POST"])
+def csp_report():
+    """Receive browser CSP violation reports (S2 residual).
+
+    Browsers POST these fire-and-forget when a page violates the enforced
+    policy configured in ``create_app()`` (``report_uri="/csp-report"``).
+    The body uses non-JSON content types (``application/csp-report`` or
+    ``application/reports+json``) and carries no CSRF token, so this route
+    is CSRF-exempt and public by design; only a bounded slice of the body
+    is read and everything is logged, never trusted.
+
+    Always answers 204 — a violation collector must never become another
+    error surface for the browser console.
+    """
+    raw = request.get_data(cache=False)[:4096]  # bound memory from hostile bodies
+    try:
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        payload = {}
+
+    report = payload.get("csp-report") or payload.get("csp-violation-report") or {}
+    brief = {
+        key: report.get(key)
+        for key in (
+            "document-uri",
+            "violated-directive",
+            "effective-directive",
+            "blocked-uri",
+            "source-file",
+            "line-number",
+        )
+        if report.get(key)
+    }
+    logger.warning("CSP violation reported: %s", brief or "(unparseable report)")
+    return "", 204

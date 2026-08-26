@@ -68,20 +68,14 @@ def regenerate_do_intimation(sample_id: int):
     intimation = generate_and_forward_do_intimation(sample_id, sample=sample, force=True)
     if intimation is None:
         return jsonify({"error": "Failed to generate DO intimation"}), 500
-    return jsonify(
-        {
-            "intimation_id": intimation.id,
-            "do_reference_no": intimation.do_reference_no,
-            "status": intimation.status,
-            "pdf_url": intimation.pdf_url,
-            "sync_status": intimation.sync_status,
-            "food_cell_forwarded": (
-                intimation.food_cell_forwarded.isoformat()
-                if intimation.food_cell_forwarded
-                else None
-            ),
-        }
-    ), 200
+    return jsonify({
+        "intimation_id": intimation.id,
+        "do_reference_no": intimation.do_reference_no,
+        "status": intimation.status,
+        "pdf_url": intimation.pdf_url,
+        "sync_status": intimation.sync_status,
+        "food_cell_forwarded": (intimation.food_cell_forwarded.isoformat() if intimation.food_cell_forwarded else None),
+    }), 200
 
 
 @food_cell_bp.route("/do-intimation/<int:sample_id>/status")
@@ -92,21 +86,17 @@ def do_intimation_status(sample_id: int):
     if intimation is None:
         return jsonify({"exists": False}), 200
     return (
-        jsonify(
-            {
-                "exists": True,
-                "intimation_id": intimation.id,
-                "do_reference_no": intimation.do_reference_no,
-                "status": intimation.status,
-                "food_cell_forwarded": (
-                    intimation.food_cell_forwarded.isoformat()
-                    if intimation.food_cell_forwarded
-                    else None
-                ),
-                "sync_status": intimation.sync_status,
-                "has_html": bool(intimation.html_path),
-                "has_pdf": bool(intimation.pdf_url),
-            }
-        ),
+        jsonify({
+            "exists": True,
+            "intimation_id": intimation.id,
+            "do_reference_no": intimation.do_reference_no,
+            "status": intimation.status,
+            "food_cell_forwarded": (
+                intimation.food_cell_forwarded.isoformat() if intimation.food_cell_forwarded else None
+            ),
+            "sync_status": intimation.sync_status,
+            "has_html": bool(intimation.html_path),
+            "has_pdf": bool(intimation.pdf_url),
+        }),
         200,
     )

@@ -45,6 +45,18 @@
 
         <div class="form-row">
             <div class="form-group full-width">
+                <label for="visit_purpose" class="form-label">Visit Purpose <span class="required"></span></label>
+                <select id="visit_purpose" name="visit_purpose" class="form-select" required>
+                    <option value="">-- Select purpose --</option>
+                    <option value="routine">Routine Inspection</option>
+                    <option value="complaint">Complaint</option>
+                </select>
+                <small class="form-hint">Used by the Work Diary — pick why this visit was made.</small>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
                 <label for="problem" class="form-label">Problem Description</label>
                 <textarea id="problem" name="problem" class="form-textarea" placeholder="Describe the problem or violation found"></textarea>
             </div>

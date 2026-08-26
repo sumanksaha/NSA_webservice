@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Improvement Notice — {{ fbo_name or 'FBO' }}</title>
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; margin: 0; padding: 0; color: #000; }
+        .page { page-break-after: always; padding: 72pt 54pt; position: relative; }
+        .letterhead { border-bottom: 2pt solid #000; padding-bottom: 12pt; margin-bottom: 18pt; }
+        .letterhead h1 { font-size: 16pt; font-weight: bold; margin: 0; }
+        .letterhead .subtitle { font-size: 10pt; color: #555; margin-top: 4pt; }
+        .header-line { font-size: 9pt; color: #555; margin-bottom: 6pt; }
+        .body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12pt; }
+        .body-text b { font-weight: bold; }
+        .signature-block { margin-top: 48pt; }
+        .signature-line { border-top: 1pt solid #000; width: 180pt; padding-top: 4pt; font-size: 11pt; }
+        .footer { position: fixed; bottom: 18pt; left: 54pt; right: 54pt; font-size: 8pt; color: #777; border-top: 1pt solid #ccc; padding-top: 6pt; }
+        .qr { position: absolute; top: 54pt; right: 54pt; }
+        .no-print { display: none; }
+
+        /* Violations table */
+        table.violation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12pt 0;
+            font-size: 10pt;
+        }
+        table.violation-table th,
+        table.violation-table td {
+            border: 1pt solid #000;
+            padding: 4pt 8pt;
+            text-align: left;
+            vertical-align: top;
+        }
+        table.violation-table th {
+            background-color: #eee;
+            font-weight: bold;
+        }
+        table.violation-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Actions list */
+        ol.actions-list {
+            margin: 12pt 0;
+            padding-left: 24pt;
+            line-height: 1.8;
+        }
+        ol.actions-list li {
+            margin-bottom: 6pt;
+        }
+
+        /* Summary table for FBO details */
+        table.summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12pt 0;
+            font-size: 10pt;
+        }
+        table.summary th, table.summary td {
+            border: 1pt solid #000;
+            padding: 4pt 8pt;
+            text-align: left;
+        }
+        table.summary th {
+            background-color: #eee;
+        }
+
+        /* Inline browser actions (hidden when rendering to PDF) */
+        .actions { margin: 18pt 0; text-align: right; }
+        .actions a { color: #0b3d91; text-decoration: none; margin-left: 12pt; }
+        .actions a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <!-- Letterhead -->
+    <div class="letterhead">
+        <h1>Govt. of India • Ministry of Health &amp; Family Welfare</h1>
+        <div class="subtitle">Food Safety and Standards Authority of India</div>
+    </div>
+
+    <!-- Notice date -->
+    <div class="header-line">{{ notice_date or '—' }}</div>
+
+    <!-- Recipient -->
+    <div class="header-line">To,<br>
+        The Designated Officer,<br>
+        Food Cell,<br>
+        Kolkata Municipal Corporation.
+    </div>
+
+    <div class="body-text">
+        <!-- Reference number (optional) -->
+        {% if improvement_notice_ref %}
+        <p><b>Improvement Notice Ref: {{ improvement_notice_ref }}</b></p>
+        {% endif %}
+
+        <!-- Subject -->
+        <p><b>Subject: Inspection report regarding an inspection of {{ fbo_name or '[FBO Name]' }} situated at {{ fbo_address or '[FBO Address]' }} on {{ inspection_date or '[Inspection Date]' }}.</p>
+
+        <!-- Salutation -->
+        <p>Sir/Madam,</p>
+
+        <!-- FBO summary (optional) -->
+        {% if fbo_name or fbo_fssai %}
+        <table class="summary">
+            {% if fbo_name %}
+            <tr><th>FBO Name</th><td>{{ fbo_name }}</td></tr>
+            {% endif %}
+            {% if fbo_address %}
+            <tr><th>Address</th><td>{{ fbo_address }}</td></tr>
+            {% endif %}
+            {% if fbo_fssai %}
+            <tr><th>FSSAI License No.</th><td>{{ fbo_fssai }}</td></tr>
+            {% endif %}
+            {% if inspection_date %}
+            <tr><th>Inspection Date</th><td>{{ inspection_date }}</td></tr>
+            {% endif %}
+            {% if fso_name %}
+            <tr><th>Food Safety Officer</th><td>{{ fso_name }}</td></tr>
+            {% endif %}
+        </table>
+        {% endif %}
+
+        <!-- Part 1: Inspection findings -->
+        <p>An inspection was performed at <b>{{ fbo_address or '[FBO Address]' }}</b> on <b>{{ inspection_date or '[Inspection Date]' }}</b>, and the following deviation was observed.</p>
+
+        {% if violations %}
+        <table class="violation-table">
+            <tr>
+                <th style="width: 8%">Sl.</th>
+                <th style="width: 32%">Nature of Deviation</th>
+                <th>Observation</th>
+            </tr>
+            {% for v in violations %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ v.title }}</td>
+                <td>{{ v.observation }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p><i>No specific deviations were recorded during the inspection.</i></p>
+        {% endif %}
+
+        <!-- Part 2: Improvement notice grounds -->
+        <p>Based on the following observations, an improvement notice u/s 32 may kindly be granted on the following ground:</p>
+
+        {% if actions %}
+        <ol class="actions-list">
+            {% for action in actions %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p><i>No specific remedial actions prescribed.</i></p>
+        {% endif %}
+
+        <!-- Compliance deadline (optional) -->
+        {% if compliance_deadline %}
+        <p>
+            The FBO is hereby directed to comply with the above observations and
+            take the required corrective action on or before <b>{{ compliance_deadline }}</b>.
+        </p>
+        {% endif %}
+
+        <!-- Enclosures (optional) -->
+        {% if enclosures %}
+        <p>Enclosures:</p>
+        <ol>
+            {% for enc in enclosures %}
+            <li>{{ enc }}</li>
+            {% endfor %}
+        </ol>
+        {% endif %}
+
+        <!-- Signatory block -->
+        <div class="signature-block">
+            <p><b>Food Safety Officer</b><br>
+               {{ fso_name or '[FSO Name]' }}<br>
+               Food Safety Officer<br>
+               Kolkata Municipal Corporation<br>
+               {{ notice_date or '—' }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        This document is electronically generated. Page 1 of 1.
+        {% if improvement_notice_ref %}Improvement Notice Ref: {{ improvement_notice_ref }}{% endif %}
+    </div>
+
+    <!-- Inline browser actions (hidden in PDF) -->
+    {% block actions %}{% endblock %}
+</div>
+</body>
+</html>

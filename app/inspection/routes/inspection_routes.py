@@ -1,5 +1,6 @@
 """Core inspection CRUD routes: index, list, create, get, update, delete."""
 
+import json
 from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
@@ -10,6 +11,7 @@ from app.inspection import inspection_bp
 from app.inspection.inspection_utils import calculate_compliance_deadline, generate_inspection_code
 from app.models import FSO, Inspection
 from app.services.sync_orchestrator import sync_row
+from app.shared.context_derivers import CHECKLIST_FIELDS
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
 
@@ -141,6 +143,12 @@ def create_inspection():
     fbo_address = form_data.get("fbo_address", "").strip() or None
     concerned_food = form_data.get("concerned_food", "").strip() or None
     problem = form_data.get("problem", "").strip() or None
+    checklist = {field: form_data[field].strip() for field in CHECKLIST_FIELDS if form_data.get(field, "").strip()}
+
+    visit_purpose = (form_data.get("visit_purpose") or "").strip().lower()
+    if visit_purpose not in ("", "routine", "complaint"):
+        return jsonify({"error": 'visit_purpose must be "routine" or "complaint"'}), 400
+    visit_purpose = visit_purpose or None
 
     inspection = Inspection(
         inspection_code=inspection_code,
@@ -151,6 +159,8 @@ def create_inspection():
         fbo_address=fbo_address,
         concerned_food=concerned_food,
         problem=problem,
+        visit_purpose=visit_purpose,
+        checklist_json=json.dumps(checklist) if checklist else None,
         inspection_date=parse_date(inspection_date),
         compliance_deadline=compliance_deadline,
         is_dismissed=False,
@@ -200,6 +210,16 @@ def create_inspection():
         return jsonify({"error": f"Failed to create inspection: {e!s}"}), 500
 
 
+def _parse_checklist(raw: str | None) -> dict | None:
+    """Parse the stored checklist JSON; corrupt rows degrade to None."""
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+
+
 @inspection_bp.route("/<int:inspection_id>", methods=["GET"])
 def get_inspection(inspection_id):
     """Get a specific inspection by ID."""
@@ -217,6 +237,8 @@ def get_inspection(inspection_id):
         "fbo_address": inspection.fbo_address,
         "concerned_food": inspection.concerned_food,
         "problem": inspection.problem,
+        "visit_purpose": inspection.visit_purpose,
+        "checklist": _parse_checklist(inspection.checklist_json),
         "inspection_date": inspection.inspection_date,
         "compliance_deadline": inspection.compliance_deadline,
         "is_dismissed": inspection.is_dismissed,
@@ -256,6 +278,11 @@ def update_inspection(inspection_id):
         inspection.concerned_food = form_data["concerned_food"].strip() or None
     if "problem" in form_data:
         inspection.problem = form_data["problem"].strip() or None
+    if "visit_purpose" in form_data:
+        purpose_value = (form_data["visit_purpose"] or "").strip().lower()
+        if purpose_value not in ("", "routine", "complaint"):
+            return jsonify({"error": 'visit_purpose must be "routine" or "complaint"'}), 400
+        inspection.visit_purpose = purpose_value or None
     if "inspection_date" in form_data:
         inspection.inspection_date = parse_date(form_data["inspection_date"].strip())
         if "compliance_deadline" not in form_data or not form_data.get("compliance_deadline", "").strip():
@@ -292,7 +319,9 @@ def update_inspection(inspection_id):
         return jsonify({"message": "Inspection updated successfully"}), 200
     except StaleDataError:
         db.session.rollback()
-        return jsonify({"error": "Conflict: this inspection was modified by another user. Please reload and try again."}), 409
+        return jsonify({
+            "error": "Conflict: this inspection was modified by another user. Please reload and try again."
+        }), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update inspection: {e!s}"}), 500
@@ -311,7 +340,9 @@ def delete_inspection(inspection_id):
         return jsonify({"message": "Inspection deleted successfully"}), 200
     except StaleDataError:
         db.session.rollback()
-        return jsonify({"error": "Conflict: this inspection was modified by another user. Please reload and try again."}), 409
+        return jsonify({
+            "error": "Conflict: this inspection was modified by another user. Please reload and try again."
+        }), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete inspection: {e!s}"}), 500

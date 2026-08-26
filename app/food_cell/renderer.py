@@ -6,6 +6,9 @@ reference) live in one focused class.  ``services.py`` keeps only the
 orchestration (``generate_and_forward_do_intimation``) and delegates the
 triple-target sync to :func:`app.services.sync_orchestrator.sync_row`.
 
+Also renders Improvement Notice documents (u/s 32 of the FSS Act) via
+:meth:`render_improvement_notice_html` / :meth:`render_improvement_notice_pdf`.
+
 Typical usage::
 
     from app.food_cell.renderer import DODocumentRenderer
@@ -61,13 +64,27 @@ class DODocumentRenderer:
         """Render the DO intimation HTML template for *sample*."""
         return render_template("food_cell/do_intimation.html", sample=sample)
 
-    def render_pdf(self, html: str, sample: Any) -> str:
-        """Render *html* to PDF and store it, returning the local filepath.
+    # ------------------------------------------------------------------ #
+    # PDF rendering (shared by DO Intimation and Improvement Notice)
+    # ------------------------------------------------------------------ #
 
-        When WeasyPrint is unavailable (e.g. in test environments with
-        ``DISABLE_PDF_GENERATION=1``), a minimal valid 1-page PDF stub is
-        written so downstream consumers (download endpoint, file checks)
-        still work.
+    _PDF_STUB = (
+        b"%PDF-1.4\n"
+        b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+        b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+        b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj\n"
+        b"xref\n0 4\n0000000000 65535 f \n"
+        b"0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n"
+        b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF\n"
+    )
+
+    def _render_pdf_to_file(self, html: str, sample: Any, prefix: str) -> str:
+        """Render *html* to PDF via the PDF provider plugin and store on disk.
+
+        When the provider is unavailable (e.g. test envs with
+        ``DISABLE_PDF_GENERATION=1``) a minimal valid 1-page PDF stub is
+        written so downstream consumers (download endpoint, file checks) still
+        work.
         """
         from app.plugins.registry import PluginRegistry
 
@@ -79,23 +96,79 @@ class DODocumentRenderer:
                 sample.id,
                 error,
             )
-            pdf_bytes = (
-                b"%PDF-1.4\n"
-                b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-                b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
-                b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj\n"
-                b"xref\n0 4\n0000000000 65535 f \n"
-                b"0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n"
-                b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF\n"
-            )
+            pdf_bytes = self._PDF_STUB
 
-        filename = f"do_intimation_{sample.id}_{int(datetime.now(UTC).timestamp())}.pdf"
+        filename = f"{prefix}_{sample.id}_{int(datetime.now(UTC).timestamp())}.pdf"
         upload_dir = Path(current_app.instance_path) / "food_cell" / "pdfs"
         upload_dir.mkdir(parents=True, exist_ok=True)
         filepath = str(upload_dir / filename)
         with open(filepath, "wb") as fh:
             fh.write(pdf_bytes)
         return filepath
+
+    def render_pdf(self, html: str, sample: Any) -> str:
+        """Render the DO intimation *html* to PDF and store it."""
+        return self._render_pdf_to_file(html, sample, "do_intimation")
+
+    def render_improvement_notice_pdf(self, html: str, sample: Any) -> str:
+        """Render the Improvement Notice *html* to PDF and store it."""
+        return self._render_pdf_to_file(html, sample, "improvement_notice")
+
+    # ------------------------------------------------------------------ #
+    # Improvement Notice rendering
+    # ------------------------------------------------------------------ #
+
+    def build_improvement_notice_context(
+        self,
+        sample: Any,
+        violations: list[dict[str, str]] | None = None,
+        actions: list[str] | None = None,
+        compliance_deadline: str | None = None,
+        enclosures: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Build the Jinja2 context dict for the improvement notice template.
+
+        Maps :class:`~app.models.billing.Sample` fields to the template's
+        canonical variable names (``fbo_name``, ``fbo_address``, etc.).
+        Extra rendering parameters (violations, actions, deadline, enclosures)
+        are passed through as-is.
+        """
+        return {
+            "fbo_name": getattr(sample, "retailer_name", None),
+            "fbo_address": getattr(sample, "manufacturer_details", None),
+            "inspection_date": (
+                sample.collection_date.strftime("%d/%m/%Y")
+                if getattr(sample, "collection_date", None)
+                else None
+            ),
+            "fbo_fssai": getattr(sample, "retailer_fssai", None),
+            "fso_name": getattr(sample, "fso_name", None),
+            "notice_date": datetime.now(UTC).strftime("%d/%m/%Y"),
+            "improvement_notice_ref": getattr(sample, "sample_code", None),
+            "violations": violations or [],
+            "actions": actions or [],
+            "compliance_deadline": compliance_deadline,
+            "enclosures": enclosures or [],
+        }
+
+    def render_improvement_notice_html(
+        self,
+        sample: Any,
+        violations: list[dict[str, str]] | None = None,
+        actions: list[str] | None = None,
+        compliance_deadline: str | None = None,
+        enclosures: list[str] | None = None,
+    ) -> str:
+        """Render the Improvement Notice HTML template for *sample*.
+
+        Violations and actions are passed through from the caller (typically
+        the inspection/adjudication layer).  When omitted, the violations
+        table and actions list render with graceful *empty* fallbacks.
+        """
+        context = self.build_improvement_notice_context(
+            sample, violations, actions, compliance_deadline, enclosures
+        )
+        return render_template("food_cell/improvement_notice.html", **context)
 
     def store(self, intimation: Any, sample: Any, html: str, pdf_path: str) -> None:
         """Persist HTML and PDF paths on the *intimation* record."""

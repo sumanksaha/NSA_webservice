@@ -19,6 +19,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > (~30% — RBAC decorator, comments, role assignment), Phase 19, Rust Parts 1.6+ / 2–5,
 > CE-v2 retrain.
 
+### Added (2026-08-26)
+
+#### Security hardening close-out (S10c + S2 residual)
+
+- **Backup monitoring (S10c):** `run_backup()` records per-target outcomes to
+  the `settings` table (`last_backup_at`, `last_backup_results`) via
+  `record_backup_result()`; new public `GET /health/backups` dead-man's-switch
+  returns 200 while fresh/all-ok and **503** on never/stale(>26h)/degraded —
+  point any uptime monitor at it for alerting.
+- **CSP violation collector (S2):** new public, CSRF-exempt `POST /csp-report`
+  accepting legacy (`csp-report`) and Report-To (`csp-violation-report`)
+  payloads with a bounded 4 KB body; logs directive/blocked-uri at WARNING
+  and always answers 204.
+- Tests: `tests/test_backup_monitoring.py` 12/12.
+
+#### Work Diary (per-FSO inspection diary)
+
+- **`app/workdiary/`** blueprint (`/workdiary`): per-FSO work diary accumulated
+  read-only from Inspections — Date, Place of Visit, Purpose, Activity — with
+  FSO / date-range / purpose filters.
+- **Explicit visit purpose:** new nullable `Inspection.visit_purpose`
+  (`"routine"` | `"complaint"`; migration `add_inspection_visit_purpose`),
+  required select on the inspection entry form, validated in create/update
+  routes; `WorkDiaryEngine.derive_purpose` prefers it over the legacy
+  problem-presence heuristic for NULL rows.
+- **Official report:** `/workdiary/preview` + `/workdiary/pdf` render
+  `report.html`, reproducing `FSO_Work_Diary_Template.html` (meta header,
+  roman-numeral columns, ≥15 rows incl. blank padding, FSO signature +
+  DO countersign); PDF via the central `generate_pdf_from_html()` pipeline.
+- Registered blueprint + "Work Diary" nav tab in `base.html`.
+- Tests: `tests/test_workdiary.py` 28/28; `test_route_collisions.py` lookup
+  test now seeds its own `FssaiLicense` row (was failing on missing reference
+  data) — both green.
+
 ### Added (2026-08-25)
 
 #### FSSAI Lookup → Supabase Postgres Migration — Step 1: Models
