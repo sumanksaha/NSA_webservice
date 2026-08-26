@@ -14,10 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > (2026-08-23) — deploy gating, staging env, pre-deploy migrations, health check, full
 > security blocking (Bandit+Safety+pip-audit), coverage gate, Docker ASGI path, release
 > automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy
-> serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** Pending:
-> Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Phase 18
-> (~30% — RBAC decorator, comments, role assignment), Phase 19, Rust Parts 1.6+ / 2–5,
-> CE-v2 retrain.
+> serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
+> Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Phase 19,
+> Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
 ### Added (2026-08-26)
 
@@ -79,6 +78,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Notepad activated**: blueprint registered + migration for
   `note`/`note_evaluation` (shared-by-default Notes per CONTEXT.md).
 - Tests: `tests/test_rbac.py` 44/44.
+
+### Added (2026-08-26)
+
+#### Redis/Celery Connection Fix + Sync Fallback
+
+- **`celery_app.py`**: new `_normalize_redis_url()` appends
+  `?ssl_cert_reqs=2` (`ssl.CERT_REQUIRED`) to `rediss://` URLs, fixing
+  `ValueError: A rediss:// URL must have parameter ssl_cert_reqs…` from
+  Celery's `RedisBackend.__init__` when `REDIS_URL` is an SSL URL without the
+  parameter. Used for both `broker_url` and `result_backend`.
+- **`app/utils/qstash_client.py`**: new `_run_task_inline()` calls
+  `task.run(**payload)` directly for Celery Tasks (bypassing the result
+  backend), falling back to `.apply()` for non-Celery shims. The sync fallback
+  in `publish_task()` uses it — no more Redis result-backend round-trip on
+  the synchronous path. Fixes the 500 traceback that occurred when WeasyPrint
+  was missing (the error was masked by the Celery backend crash).
+- **`app/tasks_webhook/routes.py`**: `run_task` route now uses
+  `_run_task_inline()` instead of `task.apply(kwargs=payload).result`.
+- Tests: `tests/test_sync_fallback_fix.py` 11/11.
+
+#### Case File Document Preview (TDD)
+
+- **`POST /case_file_generator/preview`**: new route `preview_case_file_route()`
+  in `app/case_file_generator/routes.py` — validates form data, processes via
+  `process_form_data()`, renders `petition.html` + `permission_letter.html`
+  through `post_process_pdf_html()`, returns JSON `{petition_html,
+  permission_html, case_number}` with RBAC stamping.
+- **UI**: Preview button (`#previewBtn`) + modal with petition/permission
+  iframe tabs in `app/case_file_generator/templates/case_file_generator/index.html`.
+  Fixed `showPreviewTab(tab, btn)` — was using `event.target` without an
+  `event` parameter; now takes `btn` as second parameter.
+- Tests: `tests/test_preview_case_file.py` 9/9.
+
+#### Adjudication Document Preview (TDD)
+
+- **`POST /adjudication/preview`**: new route `preview_adjudication_route()`
+  in `app/adjudication/routes.py` + `validate_adjudication_form()` validator
+  (required fields + date-field checks) — processes form data, renders both
+  templates, returns JSON `{petition_html, permission_html, case_number,
+  case_type}` with RBAC stamping.
+- **UI**: Preview button + modal with iframe tabs in
+  `app/adjudication/templates/adjudication/index.html`.
+- Tests: `tests/test_preview_adjudication.py` 9/9.
 
 ### Added (2026-08-25)
 

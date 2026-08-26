@@ -5,7 +5,6 @@ from form data WITHOUT creating a CaseFile record or dispatching a PDF task.
 The user reviews the rendered HTML in the Quill editor before committing.
 """
 
-
 import pytest
 
 from app.extensions import db
