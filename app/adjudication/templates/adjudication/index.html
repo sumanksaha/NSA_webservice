@@ -2,6 +2,28 @@
 
 {% block title %}NSA Non sample- adjudication Portal{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Preview modal (Phase 1 — adjudication document preview before generation) */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; }
+    .modal-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+    .modal-content { position: relative; background: var(--bg-card); border-radius: 12px; width: 90vw; max-width: 1000px; margin: 2vh auto; top: 0; display: flex; flex-direction: column; height: 90vh; box-shadow: 0 4px 32px rgba(0,0,0,0.3); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); border-radius: 12px 12px 0 0; }
+    .modal-header h3 { margin: 0; font-size: 1.3rem; }
+    .modal-tabs { display: flex; margin: 0; padding: 0; border-bottom: 1px solid var(--border); list-style: none; background: var(--bg-subtle); }
+    .modal-tabs li { flex: 1; text-align: center; }
+    .tab-btn { width: 100%; padding: 12px 16px; border: none; background: none; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    .tab-btn:hover { background: var(--bg-subtle); }
+    .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); background: var(--bg); }
+    .modal-body { flex: 1; position: relative; overflow: hidden; }
+    .preview-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; }
+    .preview-frame:not(.active) { display: none; }
+    .modal-footer { display: flex; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border); }
+    .close-preview-x { position: absolute; top: 12px; right: 12px; font-size: 1.2rem; color: var(--text-secondary); cursor: pointer; }
+    .status-indicator { font-size: 0.85rem; font-style: italic; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -241,11 +263,43 @@
         </div>
 
         <div class="actions-centered">
+            <button type="button" class="btn btn-secondary btn-lg" id="previewBtn">
+                <i class="fa-solid fa-eye"></i> Preview Documents
+            </button>
             <button type="submit" class="btn btn-primary btn-lg">
                 <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
             </button>
         </div>
     </form>
+</div>
+
+<!-- Preview Modal (Phase 1 - adjudication document preview before generation) -->
+<div id="previewModal" class="modal-overlay" style="display: none;">
+    <div class="modal-backdrop" onclick="closePreview()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-eye"></i> Document Preview</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closePreview()">
+                <i class="fa-solid fa-x"></i> Close
+            </button>
+        </div>
+        <ul class="modal-tabs">
+            <li><button class="tab-btn active" onclick="showPreviewTab('petition', this)">Petition</button></li>
+            <li><button class="tab-btn" onclick="showPreviewTab('permission', this)">Permission Letter</button></li>
+        </ul>
+        <div class="modal-body">
+            <iframe id="previewPetition" class="preview-frame active" title="Petition Preview"></iframe>
+            <iframe id="previewPermission" class="preview-frame" title="Permission Letter Preview"></iframe>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closePreview()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Edit
+            </button>
+            <button type="button" class="btn btn-primary" id="previewGenerateBtn" onclick="closePreviewAndGenerate()">
+                <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Case Timelines panel (Phase 13) -->
@@ -542,9 +596,91 @@
             suggestStatus.className = "status-indicator status--error";
         }
     });
-</script>
 
-<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
+    // --- Preview Modal (Phase 1 — adjudication document preview before generation) ---
+    var previewBtn = document.getElementById('previewBtn');
+    var previewModal = document.getElementById('previewModal');
+    var previewPetitionHtml = null;
+    var previewPermissionHtml = null;
+    var caseForm = document.querySelector("form[action*='generate_all']");
+
+    function showPreview() {
+        if (!previewBtn) return;
+        previewBtn.disabled = true;
+        previewBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering…';
+
+        var formData = new FormData(caseForm);
+        var statusBox = document.createElement('div');
+        statusBox.className = 'status-indicator';
+        previewBtn.parentNode.insertBefore(statusBox, previewBtn.nextSibling);
+        statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
+
+        fetch('{{ url_for("adjudication.preview_adjudication_route") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(resp => resp.json())
+        .then(data => {
+            if (data.error) {
+                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Preview failed') + (data.errors ? ': ' + Object.values(data.errors).join(', ') : '');
+                statusBox.className = 'status-indicator status--error';
+            } else {
+                previewPetitionHtml = data.petition_html;
+                previewPermissionHtml = data.permission_html;
+                var iframeP = document.getElementById('previewPetition');
+                var iframePerm = document.getElementById('previewPermission');
+                iframeP.contentDocument.write(previewPetitionHtml);
+                iframeP.contentDocument.close();
+                iframePerm.contentDocument.write(previewPermissionHtml);
+                iframePerm.contentDocument.close();
+                previewModal.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + err.message;
+            statusBox.className = 'status-indicator status--error';
+        })
+        .finally(() => {
+            previewBtn.disabled = false;
+            previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
+            if (statusBox && statusBox.parentNode) statusBox.parentNode.removeChild(statusBox);
+        });
+    }
+
+    function closePreview() {
+        previewModal.style.display = 'none';
+    }
+
+    function showPreviewTab(tab, btn) {
+        var petitionFrame = document.getElementById('previewPetition');
+        var permissionFrame = document.getElementById('previewPermission');
+        var tabs = document.querySelectorAll('.modal-tabs .tab-btn');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        petitionFrame.classList.toggle('active', tab === 'petition');
+        permissionFrame.classList.toggle('active', tab === 'permission');
+        if (btn) btn.classList.add('active');
+    }
+
+    function closePreviewAndGenerate() {
+        closePreview();
+        caseForm.submit();
+    }
+
+    // Wire up the Preview button
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPreview();
+        });
+    }
+
+    // Close modal on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && previewModal && previewModal.style.display === 'block') {
+            closePreview();
+        }
+    });
+</script>
 <script>
     ValidationDrawer.initRowButtons({
         buttonsSelector: '.js-validate-case',

@@ -19,6 +19,7 @@ import zipfile
 from datetime import UTC, datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask_login import login_required
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -210,6 +211,57 @@ def _prepare_adjudication_context(case_data):
     context[DERIVED_SAME_ENTITY] = False
     context["violations"] = context[DERIVED_VIOLATIONS]
     return context
+
+
+# --------------------------------------------------------------------------- #
+# Form validation
+# --------------------------------------------------------------------------- #
+
+_ADJUDICATION_REQUIRED_FIELDS: dict[str, str] = {
+    "case_number": "Case Number",
+    "food_safety_officer_name": "Food Safety Officer Name",
+    "fbo_owner": "FBO Owner",
+    "fbo_name": "FBO Name",
+    "fbo_address": "FBO Address",
+    "fssai_license": "FSSAI License / Registration No",
+    "first_inspection_date": "First Inspection Date",
+    "compliance_deadline": "Compliance Deadline",
+    "followup_inspection_date": "Follow-up Inspection Date",
+}
+
+_ADJUDICATION_DATE_FIELDS: list[str] = [
+    "first_inspection_date",
+    "compliance_deadline",
+    "complaint_date",
+    "followup_inspection_date",
+    "authorization_date",
+]
+
+
+def validate_adjudication_form(form_data: dict) -> dict[str, str]:
+    """Validate adjudication form data. Returns dict of field → error message."""
+    errors: dict[str, str] = {}
+    for field, label in _ADJUDICATION_REQUIRED_FIELDS.items():
+        value = form_data.get(field, "")
+        if value is None or (isinstance(value, str) and not value.strip()):
+            errors[field] = f"{label} is required."
+
+    for field in _ADJUDICATION_DATE_FIELDS:
+        value = form_data.get(field, "")
+        if not value:
+            continue
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except (TypeError, ValueError):
+            label = _ADJUDICATION_REQUIRED_FIELDS.get(field, field.replace("_", " ").title())
+            errors[field] = f"{label} must be a valid date."
+
+    # authorization_date is required when NOT pre-authorization
+    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
+    if not is_pre_authorization and not form_data.get("authorization_date", "").strip():
+        errors["authorization_date"] = "Authorization Date is required for non-pre-authorization cases."
+
+    return errors
 
 
 # --------------------------------------------------------------------------- #
@@ -453,6 +505,60 @@ def regenerate_adjudication_documents(case_id):
         download_name=f"{zip_prefix}_Case_{form_data.get('case_number', 'unknown')}_Regenerated.zip",
         mimetype="application/zip",
     )
+
+
+@adjudication_bp.route("/preview", methods=["POST"])
+@login_required
+def preview_adjudication_route():
+    """Render Petition + Permission Letter HTML from form data for review.
+
+    Unlike ``generate_all``, this does NOT create an Adjudication record or
+    generate a PDF — it returns the rendered HTML so the user can review both
+    documents in the Quill editor before committing.
+    """
+    form_data = request.form.to_dict()
+
+    # Phase 18 RBAC: an fso-role account always owns what it creates — the
+    # bound officer name overrides whatever the form submitted.
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None:
+        form_data["food_safety_officer_name"] = scope
+
+    validation_errors = validate_adjudication_form(form_data)
+    if validation_errors:
+        return (
+            jsonify({
+                "error": "Please correct the highlighted fields below.",
+                "errors": validation_errors,
+            }),
+            400,
+        )
+
+    context = _prepare_adjudication_context(form_data)
+
+    # Templates reference ``adjudication.photos`` — set empty since we're
+    # previewing from form data, not an existing record.
+    context["adjudication"] = {"photos": [], "photo_embeds": []}
+
+    petition_html = str(render_template("adjudication/template_nonsample_petition.html", **context))
+    permission_html = str(render_template("adjudication/Legal_NonsampleAdjudication_Template.html", **context))
+
+    # Phase 6+7: cross-reference pass (renumbering, enclosures, TOC).
+    # No case_id available — photo/embed enrichment is skipped gracefully.
+    from app.utils.pdf_utils import post_process_pdf_html
+
+    petition_html = post_process_pdf_html(petition_html)
+    permission_html = post_process_pdf_html(permission_html)
+
+    return jsonify({
+        "petition_html": petition_html,
+        "permission_html": permission_html,
+        "case_number": form_data.get("case_number", ""),
+    })
 
 
 @adjudication_bp.route("/generate_all", methods=["POST"])
