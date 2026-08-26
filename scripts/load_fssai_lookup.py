@@ -76,6 +76,9 @@ def resolve_db_url(cli_value: str | None) -> str:
     env_url = os.environ.get("DATABASE_URL")
     if env_url:
         return env_url
+    # Running as `python scripts/load_fssai_lookup.py` puts scripts/ (not the
+    # repo root) on sys.path, so `import app` fails unless we add the root.
+    sys.path.insert(0, str(BASE_DIR))
     from app import create_app
 
     return create_app().config["SQLALCHEMY_DATABASE_URI"]
