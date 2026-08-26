@@ -199,6 +199,7 @@
                 </button>
 
                 <nav class="nav-tabs" id="navList">
+                    <!-- Primary navigation: always visible, pinned left -->
                     <a
                         href="{{ url_for('case_file_generator.index') }}"
                         class="nav-link {% if request.blueprint == 'case_file_generator' %}active{% endif %}"
@@ -217,64 +218,93 @@
                     >
                         <i class="fa-solid fa-magnifying-glass-chart"></i> Inspection
                     </a>
-                    <a
-                        href="{{ url_for('workdiary.index') }}"
-                        class="nav-link {% if request.blueprint == 'workdiary' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-book-open"></i> Work Diary
-                    </a>
-                    <a
-                        href="{{ url_for('adjudication.index') }}"
-                        class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-scale-balanced"></i> Non-sample adjudication
-                    </a>
-                    <a
-                        href="{{ url_for('bill_generator.index') }}"
-                        class="nav-link {% if request.blueprint == 'bill_generator' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-receipt"></i> Bill Generator
-                    </a>
-                    <a
-                        href="{{ url_for('settings.index') }}"
-                        class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-gear"></i> Settings
-                    </a>
-                    <a
-                        href="{{ url_for('search.index') }}"
-                        class="nav-link {% if request.blueprint == 'search' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-magnifying-glass"></i> Search
-                    </a>
-                    <a
-                        href="{{ url_for('notepad.index') }}"
-                        class="nav-link {% if request.blueprint == 'notepad' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-note-sticky"></i> Notepad
-                    </a>
-                    {% if config.get('RAG_ENABLED', True) %}
-                    <a
-                        href="{{ url_for('rag.query_ui') }}"
-                        class="nav-link {% if request.blueprint == 'rag' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-robot"></i> Legal RAG
-                    </a>
-                    {% endif %}
-                    <a
-                        href="{{ url_for('analytics.dashboard') }}"
-                        class="nav-link {% if request.blueprint == 'analytics' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-chart-line"></i> Analytics
-                    </a>
-                    {% if config.get('ENABLE_SUPABASE_SYNC', False) %}
-                    <a
-                        href="{{ url_for('sync.index') }}"
-                        class="nav-link {% if request.blueprint == 'sync' %}active{% endif %}"
-                    >
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Cloud Sync
-                    </a>
-                    {% endif %}
+                    <!-- Overflow group: secondary navigation under a CSS-only dropdown -->
+                    <li class="nav-more">
+                        <details>
+                            <summary class="nav-link nav-link--more" aria-haspopup="true">
+                                <i class="fa-solid fa-ellipsis-vertical"></i> Options
+                            </summary>
+                            <ul class="nav-more__list">
+                                <li>
+                                    <a
+                                        href="{{ url_for('workdiary.index') }}"
+                                        class="nav-link {% if request.blueprint == 'workdiary' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-book-open"></i> Work Diary
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="{{ url_for('adjudication.index') }}"
+                                        class="nav-link {% if request.blueprint == 'adjudication' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-scale-balanced"></i> Non-sample
+                                        adjudication
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="{{ url_for('bill_generator.index') }}"
+                                        class="nav-link {% if request.blueprint == 'bill_generator' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-receipt"></i> Bill Generator
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="{{ url_for('settings.index') }}"
+                                        class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-gear"></i> Settings
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="{{ url_for('search.index') }}"
+                                        class="nav-link {% if request.blueprint == 'search' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-magnifying-glass"></i> Search
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="{{ url_for('notepad.index') }}"
+                                        class="nav-link {% if request.blueprint == 'notepad' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-note-sticky"></i> Notepad
+                                    </a>
+                                </li>
+                                {% if config.get('RAG_ENABLED', True) %}
+                                <li>
+                                    <a
+                                        href="{{ url_for('rag.query_ui') }}"
+                                        class="nav-link {% if request.blueprint == 'rag' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-robot"></i> Legal RAG
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li>
+                                    <a
+                                        href="{{ url_for('analytics.dashboard') }}"
+                                        class="nav-link {% if request.blueprint == 'analytics' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-chart-line"></i> Analytics
+                                    </a>
+                                </li>
+                                {% if config.get('ENABLE_SUPABASE_SYNC', False) %}
+                                <li>
+                                    <a
+                                        href="{{ url_for('sync.index') }}"
+                                        class="nav-link {% if request.blueprint == 'sync' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Cloud Sync
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </details>
+                    </li>
                 </nav>
 
                 <div class="nav-user">
@@ -325,16 +355,13 @@
         <div class="nav-overlay" id="navOverlay"></div>
 
         <main class="layout-container">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages">
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}" role="status">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-            {% block content %}{% endblock %}
+            {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" role="status">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %} {% endwith %} {% block content %}{% endblock %}
         </main>
 
         <!-- Global Timeline case-picker modal -->
@@ -424,6 +451,33 @@
                 window.addEventListener("resize", function () {
                     if (window.innerWidth >= 768) {
                         toggleNav(false);
+                    }
+                });
+            })();
+
+            // "More" overflow dropdown: click-away + close-on-route
+            (function () {
+                var moreDetails = document.querySelector(".nav-more details");
+                if (!moreDetails) return;
+
+                // Close on outside click / keyup
+                function closeMore() {
+                    moreDetails.removeAttribute("open");
+                }
+                document.addEventListener("click", function (e) {
+                    if (!moreDetails.contains(e.target)) {
+                        closeMore();
+                    }
+                });
+                document.addEventListener("keyup", function (e) {
+                    if (e.key === "Escape") closeMore();
+                });
+
+                // Close after navigating (handles in-page SPA-like and full reloads)
+                moreDetails.addEventListener("click", function (e) {
+                    var link = e.target.closest("a");
+                    if (link) {
+                        closeMore();
                     }
                 });
             })();

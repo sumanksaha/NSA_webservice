@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 def _case_status_counts() -> list[dict]:
     """Count CaseFile + Adjudication records by creation month."""
     case_counts = (
-        db.session.query(
+        db.session
+        .query(
             func.strftime("%Y-%m", CaseFile.created_at).label("month"),
             func.count(CaseFile.id).label("count"),
         )
@@ -47,7 +48,8 @@ def _case_status_counts() -> list[dict]:
         .all()
     )
     adj_counts = (
-        db.session.query(
+        db.session
+        .query(
             func.strftime("%Y-%m", Adjudication.created_at).label("month"),
             func.count(Adjudication.id).label("count"),
         )
@@ -72,7 +74,8 @@ def _case_status_counts() -> list[dict]:
 def _inspection_compliance() -> dict:
     """Count inspections by compliance status (dismissed vs active)."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             Inspection.is_dismissed,
             func.count(Inspection.id).label("count"),
         )
@@ -92,7 +95,8 @@ def _inspection_compliance() -> dict:
 def _sample_pipeline() -> list[dict]:
     """Breakdown of samples by collection month and billed status."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             func.strftime("%Y-%m", Sample.collection_date).label("month"),
             Sample.billed,
             func.count(Sample.id).label("count"),
@@ -108,10 +112,7 @@ def _sample_pipeline() -> list[dict]:
             months[row.month]["billed"] = row.count
         else:
             months[row.month]["unbilled"] = row.count
-    return [
-        {"month": m, "billed": v["billed"], "unbilled": v["unbilled"]}
-        for m, v in sorted(months.items())
-    ]
+    return [{"month": m, "billed": v["billed"], "unbilled": v["unbilled"]} for m, v in sorted(months.items())]
 
 
 def _legal_provisions() -> list[dict]:
@@ -125,9 +126,7 @@ def _legal_provisions() -> list[dict]:
     }
     result = []
     for col, label in sections.items():
-        count = db.session.query(func.count(Adjudication.id)).filter(
-            getattr(Adjudication, col) == "yes"
-        ).scalar()
+        count = db.session.query(func.count(Adjudication.id)).filter(getattr(Adjudication, col) == "yes").scalar()
         result.append({"section": label, "count": count})
     return result
 
@@ -135,7 +134,8 @@ def _legal_provisions() -> list[dict]:
 def _fso_activity() -> list[dict]:
     """Count inspections per FSO (top 15)."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             Inspection.fso_name,
             func.count(Inspection.id).label("count"),
         )
@@ -150,7 +150,8 @@ def _fso_activity() -> list[dict]:
 def _fbo_issue_summary() -> dict:
     """Count FBO issues by state."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             FboIssue.state,
             func.count(FboIssue.id).label("count"),
         )
@@ -167,7 +168,8 @@ def _fbo_issue_summary() -> dict:
 def _evidence_summary() -> dict:
     """Count evidence records by type."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             Evidence.evidence_type,
             func.count(Evidence.id).label("count"),  # pyright: ignore[reportArgumentType]
         )
@@ -184,7 +186,8 @@ def _evidence_summary() -> dict:
 def _geo_map_data() -> list[dict]:
     """Select FBO locations with non-null coordinates for the Leaflet map."""
     rows = (
-        db.session.query(
+        db.session
+        .query(
             FboIssue.fbo_name,
             FboIssue.reg_lat,
             FboIssue.reg_lng,
