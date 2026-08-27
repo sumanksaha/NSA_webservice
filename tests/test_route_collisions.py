@@ -79,7 +79,6 @@ def test_lookup_endpoints_reachable_anonymously():
         assert seeded == 1, f"seeded license not visible after commit (count={seeded})"
 
         client = app.test_client()
-
         lookups = [
             (
                 "case_file_generator.lookup_fssai_route",

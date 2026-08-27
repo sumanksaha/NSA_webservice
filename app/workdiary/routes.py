@@ -27,6 +27,11 @@ engine = WorkDiaryEngine()
 
 MIN_REPORT_ROWS = 15  # blank rows kept in the printed form, per the template
 
+
+def _visual_row_count(entries: list[dict]) -> int:
+    """Count visual rows after date-merging (for padding calculation)."""
+    return len([e for e in entries if e.get("is_first_in_date", True)])
+
 _PURPOSE_CHOICES = (
     ("", "All"),
     ("routine", PURPOSE_ROUTINE),
@@ -134,10 +139,11 @@ def preview():
     if blocked is not None:
         return blocked
     entries = engine.build_entries(**filters)
+    visual = _visual_row_count(entries)
     return render_template(
         "workdiary/report.html",
         entries=entries,
-        pad_rows=max(MIN_REPORT_ROWS - len(entries), 0),
+        pad_rows=max(MIN_REPORT_ROWS - visual, 0),
         fso_label=filters.get("fso_name") or "\u00a0",
         **_period_labels(filters),
     )
@@ -195,10 +201,11 @@ def pdf():
     if blocked is not None:
         return blocked
     entries = engine.build_entries(**filters)
+    visual = _visual_row_count(entries)
     html = render_template(
         "workdiary/report.html",
         entries=entries,
-        pad_rows=max(MIN_REPORT_ROWS - len(entries), 0),
+        pad_rows=max(MIN_REPORT_ROWS - visual, 0),
         fso_label=filters.get("fso_name") or "\u00a0",
         **_period_labels(filters),
     )

@@ -66,6 +66,8 @@ def _make_inspection(
     fbo_address: str | None = "12 MG Road",
     problem: str | None = None,
     visit_purpose: str | None = None,
+    concerned_food: str | None = None,
+    fssai_license: str | None = None,
 ) -> None:
     from app.extensions import db
     from app.models import Inspection
@@ -78,6 +80,8 @@ def _make_inspection(
             fbo_address=fbo_address,
             problem=problem,
             visit_purpose=visit_purpose,
+            concerned_food=concerned_food,
+            fssai_license=fssai_license,
             inspection_date=datetime(year, month, day, 10, 30),
             compliance_deadline=datetime(year, month, day, 0, 0),
             is_dismissed=False,
@@ -129,27 +133,102 @@ class TestRowShaping:
         e = entries[0]
         assert e["inspection_code"] == "INSP-WD-1"
         assert e["date"] == datetime(2026, 3, 5, 10, 30)
-        assert e["place_of_visit"] == "12 MG Road"
+        assert "12 MG Road" in e["place_of_visit"]
+        assert "Sweet Shop" in e["place_of_visit"]
         assert e["purpose"] == PURPOSE_ROUTINE
-        assert e["activity"] == "Routine inspection of Sweet Shop"
+        assert "Routine inspection of Sweet Shop" in e["activity"]
+
+    def test_place_includes_license(self, env):
+        _make_inspection("INSP-WD-LIC", "Officer A", 5)
+        from app.extensions import db
+        from app.models import Inspection
+
+        insp = db.session.query(Inspection).filter_by(inspection_code="INSP-WD-LIC").one()
+        insp.fssai_license = "FSSAI-12345"
+        db.session.commit()
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert "License: FSSAI-12345" in entries[0]["place_of_visit"]
 
     def test_place_falls_back_to_fbo_name_then_dash(self, env):
         _make_inspection("INSP-WD-2", "Officer A", 6, fbo_address=None, fbo_name="Kiosk")
         _make_inspection("INSP-WD-3", "Officer A", 7, fbo_address=None, fbo_name=None)
         entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
-        assert [e["place_of_visit"] for e in entries] == ["Kiosk", "\u2014"]
+        place_texts = [e["place_of_visit"].replace("<br>", " ") for e in entries]
+        assert "Kiosk" in place_texts[0]
+        assert "\u2014" in place_texts[1]
 
     def test_complaint_activity_includes_problem(self, env):
         _make_inspection("INSP-WD-4", "Officer B", 8, problem="Milk adulteration")
         e = WorkDiaryEngine().build_entries(fso_name="Officer B")[0]
         assert e["purpose"] == PURPOSE_COMPLAINT
         assert "Milk adulteration" in e["activity"]
+        assert "Enquiry into complaint" in e["activity"]
+
+    def test_activity_includes_concerned_food(self, env):
+        _make_inspection("INSP-WD-FOOD", "Officer A", 9, fbo_name="Dairy Farm")
+        from app.extensions import db
+        from app.models import Inspection
+
+        insp = db.session.query(Inspection).filter_by(inspection_code="INSP-WD-FOOD").one()
+        insp.concerned_food = "Milk"
+        db.session.commit()
+        e = WorkDiaryEngine().build_entries(fso_name="Officer A")[0]
+        assert "(Milk)" in e["activity"]
+
+    def test_activity_includes_notice_date(self, env):
+        from datetime import datetime as dt
+
+        _make_inspection("INSP-WD-NOTICE", "Officer A", 10, fbo_name="Café")
+        from app.extensions import db
+        from app.models import Inspection
+
+        insp = db.session.query(Inspection).filter_by(inspection_code="INSP-WD-NOTICE").one()
+        insp.notice_issued_at = dt(2026, 3, 10, 14, 0)
+        db.session.commit()
+        e = WorkDiaryEngine().build_entries(fso_name="Officer A")[0]
+        assert "Notice issued: 10-03-2026" in e["activity"]
 
     def test_sorted_by_date_oldest_first(self, env):
         _make_inspection("INSP-WD-B", "Officer A", 20)
         _make_inspection("INSP-WD-A", "Officer A", 10)
         entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
         assert [e["inspection_code"] for e in entries] == ["INSP-WD-A", "INSP-WD-B"]
+
+
+class TestDateGrouping:
+    def test_same_date_entries_are_grouped(self, env):
+        _make_inspection("INSP-WD-G1", "Officer A", 5, fbo_name="Shop A")
+        _make_inspection("INSP-WD-G2", "Officer A", 5, fbo_name="Shop B")
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert len(entries) == 2
+        assert entries[0]["is_first_in_date"] is True
+        assert entries[0]["date_rowspan"] == 2
+        assert entries[1]["is_first_in_date"] is False
+        assert entries[1]["date_rowspan"] == 0
+
+    def test_different_dates_get_separate_groups(self, env):
+        _make_inspection("INSP-WD-G3", "Officer A", 5, fbo_name="Shop A")
+        _make_inspection("INSP-WD-G4", "Officer A", 6, fbo_name="Shop B")
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert entries[0]["is_first_in_date"] is True
+        assert entries[0]["date_rowspan"] == 1
+        assert entries[1]["is_first_in_date"] is True
+        assert entries[1]["date_rowspan"] == 1
+
+    def test_single_entry_gets_rowspan_1(self, env):
+        _make_inspection("INSP-WD-G5", "Officer A", 5)
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert entries[0]["is_first_in_date"] is True
+        assert entries[0]["date_rowspan"] == 1
+
+    def test_three_same_date_entries(self, env):
+        _make_inspection("INSP-WD-G6", "Officer A", 5, fbo_name="A")
+        _make_inspection("INSP-WD-G7", "Officer A", 5, fbo_name="B")
+        _make_inspection("INSP-WD-G8", "Officer A", 5, fbo_name="C")
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert entries[0]["date_rowspan"] == 3
+        assert entries[1]["date_rowspan"] == 0
+        assert entries[2]["date_rowspan"] == 0
 
 
 # --------------------------------------------------------------------------- #

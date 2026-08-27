@@ -60,8 +60,10 @@
                 {% for e in entries %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td>{{ e.date.strftime('%d-%m-%Y') if e.date else '&mdash;'|safe }}</td>
-                    <td>{{ e.place_of_visit }}</td>
+                    {% if e.is_first_in_date %}
+                    <td rowspan="{{ e.date_rowspan }}" style="vertical-align: middle; font-weight: 600;">{{ e.date.strftime('%d-%m-%Y') if e.date else '&mdash;'|safe }}</td>
+                    {% endif %}
+                    <td>{{ e.place_of_visit | safe }}</td>
                     <td>
                         {% if e.purpose == 'Complaint' %}
                         <span class="badge bg-warning text-dark">{{ e.purpose }}</span>
@@ -69,7 +71,7 @@
                         <span class="badge bg-secondary">{{ e.purpose }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ e.activity }}</td>
+                    <td>{{ e.activity | safe }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

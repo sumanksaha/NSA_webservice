@@ -14,10 +14,11 @@
   th, td { border: 1px solid #000; padding: 6px 8px; font-size: 14px; text-align: left; vertical-align: top; }
   th { text-align: center; font-style: italic; }
   th.roman { text-align: center; font-weight: normal; }
-  td.date-col { width: 12%; }
+  td.date-col { width: 12%; vertical-align: middle; text-align: center; }
   td.place-col { width: 22%; }
   td.purpose-col { width: 30%; }
   td.activity-col { width: 36%; }
+  td.date-col[rowspan] { font-weight: bold; }
   .empty-row td { height: 28px; }
   .sign-block { margin-top: 60px; text-align: right; }
   .sign-line { border-top: 1px solid #000; width: 260px; margin-left: auto; padding-top: 4px; font-size: 14px; text-align: center; }
@@ -64,10 +65,12 @@
     <tbody>
       {% for e in entries %}
       <tr>
-        <td class="date-col">{{ e.date.strftime('%d-%m-%Y') if e.date else '' }}</td>
-        <td class="place-col">{{ e.place_of_visit }}</td>
+        {% if e.is_first_in_date %}
+        <td class="date-col" rowspan="{{ e.date_rowspan }}">{{ e.date.strftime('%d-%m-%Y') if e.date else '' }}</td>
+        {% endif %}
+        <td class="place-col">{{ e.place_of_visit | safe }}</td>
         <td class="purpose-col">{{ e.purpose }}</td>
-        <td class="activity-col">{{ e.activity }}</td>
+        <td class="activity-col">{{ e.activity | safe }}</td>
       </tr>
       {% endfor %}
       {% for _ in range(pad_rows) %}

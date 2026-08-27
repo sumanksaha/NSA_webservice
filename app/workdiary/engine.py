@@ -89,7 +89,9 @@ class WorkDiaryEngine:
             )
 
         inspections = query.order_by(Inspection.inspection_date.asc(), Inspection.id.asc()).all()
-        return [self._to_entry(insp) for insp in inspections]
+        entries = [self._to_entry(insp) for insp in inspections]
+        self._annotate_date_groups(entries)
+        return entries
 
     @staticmethod
     def derive_purpose(problem: str | None, visit_purpose: str | None = None) -> str:
@@ -112,19 +114,74 @@ class WorkDiaryEngine:
 
     def _to_entry(self, insp: Inspection) -> dict[str, Any]:
         purpose = self.derive_purpose(insp.problem, insp.visit_purpose)
-        place = (insp.fbo_address or "").strip() or (insp.fbo_name or "").strip() or "\u2014"
+
+        # --- Column 2: Place of Visit (FBO name + address + license) ---
+        fbo_name = (insp.fbo_name or "").strip()
+        fbo_address = (insp.fbo_address or "").strip()
+        license_no = (insp.fssai_license or "").strip()
+
+        place_lines: list[str] = []
+        if fbo_name and fbo_address:
+            place_lines.append(f"{fbo_name}, {fbo_address}")
+        elif fbo_address:
+            place_lines.append(fbo_address)
+        elif fbo_name:
+            place_lines.append(fbo_name)
+        else:
+            place_lines.append("\u2014")
+        if license_no:
+            place_lines.append(f"License: {license_no}")
+        place_of_visit = "<br>".join(place_lines)
+
+        # --- Column 4: Activity (enriched with food item + notice info) ---
+        concerned_food = (insp.concerned_food or "").strip()
+        notice_date = (
+            insp.notice_issued_at.strftime("%d-%m-%Y") if insp.notice_issued_at else None
+        )
+
         if purpose == PURPOSE_COMPLAINT:
             problem_brief = (insp.problem or "").strip()
-            activity = f"Enquiry into complaint ({problem_brief})" if problem_brief else "Enquiry into complaint"
+            activity = f"Enquiry into complaint: {problem_brief}" if problem_brief else "Enquiry into complaint"
+            if fbo_name:
+                food_clause = f" ({concerned_food})" if concerned_food else ""
+                activity += f"<br>Inspected {fbo_name}{food_clause}"
         else:
-            subject = (insp.fbo_name or "").strip() or "food premises"
-            activity = f"Routine inspection of {subject}"
+            subject = fbo_name or "food premises"
+            food_clause = f" ({concerned_food})" if concerned_food else ""
+            activity = f"Routine inspection of {subject}{food_clause}"
+
+        if notice_date:
+            activity += f"<br>Notice issued: {notice_date}."
+
         return {
             "inspection_id": insp.id,
             "inspection_code": insp.inspection_code,
             "fso_name": insp.fso_name,
             "date": insp.inspection_date,
-            "place_of_visit": place,
+            "place_of_visit": place_of_visit,
             "purpose": purpose,
             "activity": activity,
         }
+
+    @staticmethod
+    def _annotate_date_groups(entries: list[dict[str, Any]]) -> None:
+        """Add ``is_first_in_date`` and ``date_rowspan`` for merged-date rendering.
+
+        Mutates each entry dict in-place so that the template can use
+        ``rowspan`` on the first row of a date group and skip the date
+        cell on subsequent rows.
+        """
+        from collections import OrderedDict
+
+        # Group entries by calendar date
+        groups: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+        for entry in entries:
+            d = entry["date"]
+            key = d.strftime("%Y-%m-%d") if d else "__none__"
+            groups.setdefault(key, []).append(entry)
+
+        for _key, group in groups.items():
+            rowspan = len(group)
+            for i, entry in enumerate(group):
+                entry["is_first_in_date"] = i == 0
+                entry["date_rowspan"] = rowspan if i == 0 else 0
