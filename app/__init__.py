@@ -558,6 +558,9 @@ def create_app(db_uri: str | None = None):
         from sqlalchemy import inspect as sa_inspect
 
         engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+        from app.guard_rail import install_guard
+
+        install_guard(engine)
         inspector = sa_inspect(engine)
         if "fso" not in inspector.get_table_names():
             db.create_all()
