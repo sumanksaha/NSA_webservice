@@ -125,6 +125,7 @@ class DODocumentRenderer:
         actions: list[str] | None = None,
         compliance_deadline: str | None = None,
         enclosures: list[str] | None = None,
+        is_inspection_report: bool = False,
     ) -> dict[str, Any]:
         """Build the Jinja2 context dict for the improvement notice template.
 
@@ -160,6 +161,7 @@ class DODocumentRenderer:
             "enclosures": enclosures or [],
             "signature_path": str(sig_path) if sig_path else None,
             "signature_data_uri": get_signature_data_uri(fso_name),
+            "is_inspection_report": is_inspection_report,
         }
 
     def render_improvement_notice_html(
@@ -169,6 +171,7 @@ class DODocumentRenderer:
         actions: list[str] | None = None,
         compliance_deadline: str | None = None,
         enclosures: list[str] | None = None,
+        is_inspection_report: bool = False,
     ) -> str:
         """Render the Improvement Notice HTML template for *inspection*.
 
@@ -176,7 +179,12 @@ class DODocumentRenderer:
         ``derive_violations`` / ``derive_actions``.
         """
         context = self.build_improvement_notice_context(
-            inspection, violations, actions, compliance_deadline, enclosures
+            inspection,
+            violations,
+            actions,
+            compliance_deadline,
+            enclosures,
+            is_inspection_report=is_inspection_report,
         )
         return render_template("food_cell/improvement_notice.html", **context)
 

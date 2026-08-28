@@ -24,7 +24,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Inches, Pt, RGBColor
+from docx.shared import Cm, Pt, RGBColor
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,9 @@ class CaseFileWordConverter:
         cell_l = table.cell(0, 0)
         cell_l.width = Cm(8)
         p = cell_l.paragraphs[0]
-        r = p.add_run(f"1. {ctx.get('food_safety_officer_name', '')}\nFood Safety Officer\nKolkata Municipal Corporation")
+        r = p.add_run(
+            f"1. {ctx.get('food_safety_officer_name', '')}\nFood Safety Officer\nKolkata Municipal Corporation"
+        )
         r.font.size = Pt(10)
 
         p2 = cell_l.add_paragraph()
@@ -318,8 +320,20 @@ class CaseFileWordConverter:
         # Enclosures
         p7 = doc.add_paragraph()
         p7.space_before = Pt(16)
-        r = p7.add_run("Enclosure-")
+        r = p7.add_run("List of Enclosures")
         r.bold = True
+
+        enclosure_items = [
+            f"Photocopies of Form V dated {ctx.get('inspection_date', '')}",
+            f"Photocopies of Form VI dated {ctx.get('inspection_date', '')}",
+            f"Lab submission receipt dated {ctx.get('do_receipt_date', '')}",
+            f"Analyst Report {ctx.get('analyst_report_no', '')} dated {ctx.get('analyst_report_date', '')}",
+            f"Directive {ctx.get('directive_letter_no', '')} dated {ctx.get('directive_letter_date', '')}",
+            "Authorization of Designated Officer dated __________________",
+        ]
+        for i, item in enumerate(enclosure_items, 1):
+            pi = doc.add_paragraph(style="List Number")
+            pi.add_run(item)
 
     # ------------------------------------------------------------------ #
     # Shared helpers
@@ -331,134 +345,142 @@ class CaseFileWordConverter:
 
         facts = [
             (
-                f'That the complainant above named is the Food Safety Officer '
+                f"That the complainant above named is the Food Safety Officer "
                 f'(hereinafter referred to as the "FSO") appointed u/s 37 of the Food '
-                f'Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata '
-                f'Municipal Corporation and he has been authorised by the Designated '
-                f'Officer, Kolkata Municipal Corporation dated {ctx.get("authorization_date", "")} '
-                f'to launch the present complaint for adjudication before the Ld. '
-                f'Adjudicating Officer, Kolkata Municipal Corporation.'
+                f"Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata "
+                f"Municipal Corporation and he has been authorised by the Designated "
+                f"Officer, Kolkata Municipal Corporation dated {ctx.get('authorization_date', '')} "
+                f"to launch the present complaint for adjudication before the Ld. "
+                f"Adjudicating Officer, Kolkata Municipal Corporation."
             ),
             (
-                f'That on {ctx.get("inspection_date", "")} at {ctx.get("inspection_time", "")}, '
-                f'FSO inspected the premises of {ctx.get("retailer_fbo_name", "")} '
+                f"That on {ctx.get('inspection_date', '')} at {ctx.get('inspection_time', '')}, "
+                f"FSO inspected the premises of {ctx.get('retailer_fbo_name', '')} "
                 f'(hereinafter referred to as the "retailer") situated at '
-                f'{ctx.get("retailer_address", "")}, Lic No- {ctx.get("retailer_fssai", "")}, '
-                f'where he found that said business was operated by '
-                f'{ctx.get("retailer_name", "")}, who also disclosed that he was looking '
-                f'after the day to day affairs of the retailer including storage and '
-                f'selling of food articles.'
+                f"{ctx.get('retailer_address', '')}, Lic No- {ctx.get('retailer_fssai', '')}, "
+                f"where he found that said business was operated by "
+                f"{ctx.get('retailer_name', '')}, who also disclosed that he was looking "
+                f"after the day to day affairs of the retailer including storage and "
+                f"selling of food articles."
             ),
             (
-                f'That on inspection, it was found that different kinds of packaged food '
-                f'articles such as {ctx.get("other_food_articles", "")} along with '
-                f'{ctx.get("product_name", "")} stored there-in and exhibited for sale '
-                f'for human consumption. Among the Food articles, one packet of '
-                f'{ctx.get("product_name", "")} which appeared to FSO to be inferior in '
-                f'quality and thus he intended to take sample for the purpose of analysis '
-                f'by the Food Analyst.'
+                f"That on inspection, it was found that different kinds of packaged food "
+                f"articles such as {ctx.get('other_food_articles', '')} along with "
+                f"{ctx.get('product_name', '')} stored there-in and exhibited for sale "
+                f"for human consumption. Among the Food articles, one packet of "
+                f"{ctx.get('product_name', '')} which appeared to FSO to be inferior in "
+                f"quality and thus he intended to take sample for the purpose of analysis "
+                f"by the Food Analyst."
             ),
             (
-                f'That for the purpose of taking sample, and analyzing the said food '
-                f'article by the Food Analyst, FSO called a local witness namely '
-                f'Sandipan Sikder and in his presence the complainant served the notice '
-                f'in form VA upon {ctx.get("retailer_name", "")} the above named which '
-                f'was duly filled up and signed by the complainant and the witnesses.'
+                f"That for the purpose of taking sample, and analyzing the said food "
+                f"article by the Food Analyst, FSO called a local witness namely "
+                f"Sandipan Sikder and in his presence the complainant served the notice "
+                f"in form VA upon {ctx.get('retailer_name', '')} the above named which "
+                f"was duly filled up and signed by the complainant and the witnesses."
             ),
             (
-                f'That in presence of the Sample witnesses, the FSO / Complainant '
-                f'purchased about {ctx.get("sample_quantity", "")} of '
-                f'{ctx.get("product_name", "")} ({ctx.get("packet_count", "")} packets, '
-                f'{ctx.get("batch_no", "")}, {ctx.get("mfg_date", "")}, '
+                f"That in presence of the Sample witnesses, the FSO / Complainant "
+                f"purchased about {ctx.get('sample_quantity', '')} of "
+                f"{ctx.get('product_name', '')} ({ctx.get('packet_count', '')} packets, "
+                f"{ctx.get('batch_no', '')}, {ctx.get('mfg_date', '')}, "
                 f'{ctx.get("expiry_date", "")}) (hereinafter referred to as the "sample"), '
-                f'manufactured by {ctx.get("manufacturer_fbo_name", "")}, '
-                f'{ctx.get("manufacturer_address", "")}, manufacturer Lic No - '
-                f'{ctx.get("manufacturer_fssai", "")}, (herein referred to as the '
+                f"manufactured by {ctx.get('manufacturer_fbo_name', '')}, "
+                f"{ctx.get('manufacturer_address', '')}, manufacturer Lic No - "
+                f"{ctx.get('manufacturer_fssai', '')}, (herein referred to as the "
                 f'"manufacturer"), from the food business premises of '
-                f'{ctx.get("retailer_fbo_name", "")}, where it was kept and exhibited '
-                f'for sale for human consumption and the retailer received a total amounting '
-                f'to Rs. {ctx.get("total_cost", "")} ({ctx.get("cost_in_words", "")}) from '
-                f'the complainant toward a sale proceed against which retailer issued a '
-                f'valid cash receipt.'
+                f"{ctx.get('retailer_fbo_name', '')}, where it was kept and exhibited "
+                f"for sale for human consumption and the retailer received a total amounting "
+                f"to Rs. {ctx.get('total_cost', '')} ({ctx.get('cost_in_words', '')}) from "
+                f"the complainant toward a sale proceed against which retailer issued a "
+                f"valid cash receipt."
             ),
             (
-                f'That the complainant sealed the samples and labeled in accordance with '
-                f'the norms of FSSAI rules and no Formalin was added in accordance with '
-                f'the method mentioned in Food Safety and Standards Act, 2006 and Rules '
-                f'2011 & Regulations made there under on {ctx.get("inspection_date", "")}, '
-                f'Then each packet was labelled with sample label coupon form which bears '
-                f'the signature of the complainant, persons in charge of '
-                f'{ctx.get("retailer_fbo_name", "")} the sample witnesses and code no. '
-                f'of sample i.e {ctx.get("sample_code", "")}'
+                f"That the complainant sealed the samples and labeled in accordance with "
+                f"the norms of FSSAI rules and no Formalin was added in accordance with "
+                f"the method mentioned in Food Safety and Standards Act, 2006 and Rules "
+                f"2011 & Regulations made there under on {ctx.get('inspection_date', '')}, "
+                f"Then each packet was labelled with sample label coupon form which bears "
+                f"the signature of the complainant, persons in charge of "
+                f"{ctx.get('retailer_fbo_name', '')} the sample witnesses and code no. "
+                f"of sample i.e {ctx.get('sample_code', '')}"
             ),
             (
-                f'That each sample-packet with same and identical label was completely '
-                f'wrapped with thick brown paper and the ends of the paper were neatly '
-                f'folded in and were fixed by means of gum. A paper slip bearing signature '
-                f'of Designated Officer with date and sample code no. '
-                f'{ctx.get("sample_code", "")} which was issued by the Designated Officer, '
-                f'Kolkata Municipal Corporation was pasted on the wrapper from bottom to '
-                f'top on each sample-Packet. Then the signature of the person in charge was '
-                f'taken on each part of the sample in such a manner that the paper slip and '
-                f'the wrapper both carried a part of the signature of the person in charge. '
-                f'Each packed sample-packet was further secured by strong red tape with knot '
-                f'both above and across the sample-packet covered with brown paper. Then each '
-                f'knot was covered by means of sealing wax on which distinct and clear '
-                f'impression of the seal of Food Safety Officer was put on. One at the top, '
-                f'one at the bottom and other two on the body of the packet following the '
-                f'Rule 2.4.1 of the Food Safety & Standards Rules, 2011 in presence of '
-                f'sample witness.'
+                f"That each sample-packet with same and identical label was completely "
+                f"wrapped with thick brown paper and the ends of the paper were neatly "
+                f"folded in and were fixed by means of gum. A paper slip bearing signature "
+                f"of Designated Officer with date and sample code no. "
+                f"{ctx.get('sample_code', '')} which was issued by the Designated Officer, "
+                f"Kolkata Municipal Corporation was pasted on the wrapper from bottom to "
+                f"top on each sample-Packet. Then the signature of the person in charge was "
+                f"taken on each part of the sample in such a manner that the paper slip and "
+                f"the wrapper both carried a part of the signature of the person in charge. "
+                f"Each packed sample-packet was further secured by strong red tape with knot "
+                f"both above and across the sample-packet covered with brown paper. Then each "
+                f"knot was covered by means of sealing wax on which distinct and clear "
+                f"impression of the seal of Food Safety Officer was put on. One at the top, "
+                f"one at the bottom and other two on the body of the packet following the "
+                f"Rule 2.4.1 of the Food Safety & Standards Rules, 2011 in presence of "
+                f"sample witness."
             ),
             (
-                f'That one sealed packet containing one sample packet (Part I) of along with '
-                f'a copy of memorandum duly filled in Form VI bearing code no. '
-                f'{ctx.get("sample_code", "")} and specimen impression of the seal used by '
-                f'the complainant Food Safety Officer was sent to the Food Analyst, Central '
-                f'Laboratory (Food), K.M.C. under due entry in the peon book, which was duly '
-                f'received by the Food Analyst, K.M.C. on {ctx.get("do_receipt_date", "")} '
-                f'under Laboratory Registration No {ctx.get("lab_registration_no", "")}.'
+                f"That one sealed packet containing one sample packet (Part I) of along with "
+                f"a copy of memorandum duly filled in Form VI bearing code no. "
+                f"{ctx.get('sample_code', '')} and specimen impression of the seal used by "
+                f"the complainant Food Safety Officer was sent to the Food Analyst, Central "
+                f"Laboratory (Food), K.M.C. under due entry in the peon book, which was duly "
+                f"received by the Food Analyst, K.M.C. on {ctx.get('do_receipt_date', '')} "
+                f"under Laboratory Registration No {ctx.get('lab_registration_no', '')}."
             ),
             (
-                f'Two sealed packets — one containing two sample packets (Part II and Part III) '
-                f'along with two copies of the memorandum duly filled in form VI bearing code '
-                f'no. {ctx.get("sample_code", "")} and another containing one sample packet '
-                f'(Part IV) along with one copy of the memorandum duly filled in Form VI '
-                f'bearing code no. {ctx.get("sample_code", "")} were deposited at the Food '
-                f'Cell under due entry in the peon book.'
+                f"Two sealed packets — one containing two sample packets (Part II and Part III) "
+                f"along with two copies of the memorandum duly filled in form VI bearing code "
+                f"no. {ctx.get('sample_code', '')} and another containing one sample packet "
+                f"(Part IV) along with one copy of the memorandum duly filled in Form VI "
+                f"bearing code no. {ctx.get('sample_code', '')} were deposited at the Food "
+                f"Cell under due entry in the peon book."
             ),
             (
-                f'That in due course of time the complaint received the report of Food '
-                f'Analyst bearing No: {ctx.get("analyst_report_no", "")} Dated '
-                f'{ctx.get("analyst_report_date", "")} through the Designated Officer along '
-                f'with a directive letter Vide No: {ctx.get("directive_letter_no", "")} '
-                f'Dated {ctx.get("directive_letter_date", "")} which reveals that sampled '
-                f'food article is'
-                + (f' The sample was found to be {ctx.get("analysis_result", "")}.' if ctx.get("analysis_result") else '')
+                f"That in due course of time the complaint received the report of Food "
+                f"Analyst bearing No: {ctx.get('analyst_report_no', '')} Dated "
+                f"{ctx.get('analyst_report_date', '')} through the Designated Officer along "
+                f"with a directive letter Vide No: {ctx.get('directive_letter_no', '')} "
+                f"Dated {ctx.get('directive_letter_date', '')} which reveals that sampled "
+                f"food article is"
+                + (
+                    f" The sample was found to be {ctx.get('analysis_result', '')}."
+                    if ctx.get("analysis_result")
+                    else ""
+                )
             ),
             (
-                f'That one copy of aforesaid Food Analyst report along with a forwarding '
-                f'letter of Designated Officer vide No {ctx.get("directive_letter_no", "")} '
-                f'Dated {ctx.get("directive_letter_date", "")} has been served upon '
-                + (f'{ctx.get("retailer_name", "")} on {ctx.get("retailer_report_receive_date", "")} and to {ctx.get("manufacturer_name", "")} on {ctx.get("manufacturer_report_receive_date", "")}' if not same_entity else f'{ctx.get("retailer_name", "")} on {ctx.get("retailer_report_receive_date", "")}')
-                + f' by the complainant and the receipt of the same has been duly acknowledged. '
-                f'FSO also asked the manufacturer to prefer an appeal before Designated Officer '
-                f'against the finding of Food Analyst but the manufacturer did not prefer an '
-                f'appeal against the report of Food Analyst.'
+                f"That one copy of aforesaid Food Analyst report along with a forwarding "
+                f"letter of Designated Officer vide No {ctx.get('directive_letter_no', '')} "
+                f"Dated {ctx.get('directive_letter_date', '')} has been served upon "
+                + (
+                    f"{ctx.get('retailer_name', '')} on {ctx.get('retailer_report_receive_date', '')} and to {ctx.get('manufacturer_name', '')} on {ctx.get('manufacturer_report_receive_date', '')}"
+                    if not same_entity
+                    else f"{ctx.get('retailer_name', '')} on {ctx.get('retailer_report_receive_date', '')}"
+                )
+                + " by the complainant and the receipt of the same has been duly acknowledged. "
+                "FSO also asked the manufacturer to prefer an appeal before Designated Officer "
+                "against the finding of Food Analyst but the manufacturer did not prefer an "
+                "appeal against the report of Food Analyst."
             ),
             (
-                f'That the sample of {ctx.get("product_name", "")} is found to be in '
-                f'contravention of Section 26(2)(ii) of the Food Safety and Standards Act, '
-                f'2006 and thus the Food Business Operator(s) should be penalized '
-                f'u/s {sections_display} of the Food Safety and Standards Act, 2006.'
+                f"That the sample of {ctx.get('product_name', '')} is found to be in "
+                f"contravention of Section 26(2)(ii) of the Food Safety and Standards Act, "
+                f"2006 and thus the Food Business Operator(s) should be penalized "
+                f"u/s {sections_display} of the Food Safety and Standards Act, 2006."
             ),
             (
-                f'That Food Safety Officer submitted all the relevant documents in connection '
-                f'with above sample and placed before the Designated Officer for his perusal '
-                f'and further proceedings.'
+                "That Food Safety Officer submitted all the relevant documents in connection "
+                "with above sample and placed before the Designated Officer for his perusal "
+                "and further proceedings."
             ),
             (
-                f'That the Designated officer authorized Food Safety Officer to file with '
-                f'the Adjudicating Officer an application for Adjudication.'
+                "That the Designated officer authorized Food Safety Officer to file with "
+                "the Adjudicating Officer an application for Adjudication."
             ),
         ]
         return facts
@@ -468,30 +490,34 @@ class CaseFileWordConverter:
         analysis_result = ctx.get("analysis_result", "")
         return [
             (
-                f'That the sample of {ctx.get("product_name", "")} collected from the '
-                f'premises of {ctx.get("retailer_fbo_name", "")} on '
-                f'{ctx.get("inspection_date", "")} vide code No. '
-                f'{ctx.get("sample_code", "")} was analysed by the Food Analyst, and the '
-                f'report bearing No. {ctx.get("analyst_report_no", "")} dated '
-                f'{ctx.get("analyst_report_date", "")} revealed that the sampled food article'
-                + (f' was found to be {analysis_result}.' if analysis_result else ' was not conforming to the standards prescribed under the Food Safety and Standards Act, 2006.')
+                f"That the sample of {ctx.get('product_name', '')} collected from the "
+                f"premises of {ctx.get('retailer_fbo_name', '')} on "
+                f"{ctx.get('inspection_date', '')} vide code No. "
+                f"{ctx.get('sample_code', '')} was analysed by the Food Analyst, and the "
+                f"report bearing No. {ctx.get('analyst_report_no', '')} dated "
+                f"{ctx.get('analyst_report_date', '')} revealed that the sampled food article"
+                + (
+                    f" was found to be {analysis_result}."
+                    if analysis_result
+                    else " was not conforming to the standards prescribed under the Food Safety and Standards Act, 2006."
+                )
             ),
             (
-                f'That the said food article is in contravention of the provisions of '
-                f'Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and the '
-                f'Food Business Operator(s) are liable to be penalised '
-                f'u/s {sections_display} of the Food Safety and Standards Act, 2006.'
+                f"That the said food article is in contravention of the provisions of "
+                f"Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and the "
+                f"Food Business Operator(s) are liable to be penalised "
+                f"u/s {sections_display} of the Food Safety and Standards Act, 2006."
             ),
             (
-                f'That the Food Business Operator(s) did not prefer any appeal against the '
-                f'report of the Food Analyst within the stipulated time as provided under '
-                f'Section 46(4) of the Food Safety and Standards Act, 2006.'
+                "That the Food Business Operator(s) did not prefer any appeal against the "
+                "report of the Food Analyst within the stipulated time as provided under "
+                "Section 46(4) of the Food Safety and Standards Act, 2006."
             ),
             (
-                f'That the complainant has submitted all the relevant documents in connection '
-                f'with the above sample before the Designated Officer, who after perusal of '
-                f'the same has authorised the complainant to file the present petition for '
-                f'adjudication.'
+                "That the complainant has submitted all the relevant documents in connection "
+                "with the above sample before the Designated Officer, who after perusal of "
+                "the same has authorised the complainant to file the present petition for "
+                "adjudication."
             ),
         ]
 

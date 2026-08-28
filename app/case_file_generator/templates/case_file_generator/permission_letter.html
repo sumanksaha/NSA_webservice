@@ -65,8 +65,15 @@
     </div>
 
         <div class="enclosure">
-        <p><strong>Enclosure-</strong></p>
-        <ol data-cross-reference="enclosures"></ol>
+        <p><strong>List of Enclosures</strong></p>
+        <ol>
+            <li>Photocopies of Form V dated {{ inspection_date }}</li>
+            <li>Photocopies of Form VI dated {{ inspection_date }}</li>
+            <li>Lab submission receipt dated {{ do_receipt_date }}</li>
+            <li>Analyst Report {{ analyst_report_no }} dated {{ analyst_report_date }}</li>
+            <li>Directive {{ directive_letter_no }} dated {{ directive_letter_date }}</li>
+            <li>Authorization of Designated Officer dated __________________</li>
+        </ol>
     </div>
 
     <div class="header">Date - <span id="current-date"></span></div>

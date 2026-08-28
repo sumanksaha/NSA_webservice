@@ -11,9 +11,11 @@ import io
 import json
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from flask import (
     abort,
+    current_app,
     jsonify,
     render_template,
     send_file,
@@ -23,8 +25,8 @@ from flask_login import login_required
 from app.extensions import db
 from app.food_cell import food_cell_bp
 from app.food_cell.renderer import DODocumentRenderer
-from app.food_cell.word_converter import ImprovementNoticeWordConverter
 from app.food_cell.services import generate_and_forward_do_intimation
+from app.food_cell.word_converter import ImprovementNoticeWordConverter
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
 from app.models.inspection import Inspection
@@ -148,15 +150,18 @@ def view_improvement_notice_html(inspection_id: int):
     if inspection is None:
         abort(404, description="Inspection not found.")
     violations = _inspection_violations(inspection)
-    if not violations:
-        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
-
-    actions = derive_actions(violations)
+    has_violations = bool(violations)
+    actions = derive_actions(violations) if has_violations else []
     deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
     html = _notice_renderer.render_improvement_notice_html(
-        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+        inspection,
+        violations=violations,
+        actions=actions,
+        compliance_deadline=deadline,
+        is_inspection_report=not has_violations,
     )
-    _freeze_inspection(inspection)
+    if has_violations:
+        _freeze_inspection(inspection)
     return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
@@ -168,16 +173,19 @@ def download_improvement_notice_pdf(inspection_id: int):
     if inspection is None:
         abort(404, description="Inspection not found.")
     violations = _inspection_violations(inspection)
-    if not violations:
-        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
-
-    actions = derive_actions(violations)
+    has_violations = bool(violations)
+    actions = derive_actions(violations) if has_violations else []
     deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
     html = _notice_renderer.render_improvement_notice_html(
-        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+        inspection,
+        violations=violations,
+        actions=actions,
+        compliance_deadline=deadline,
+        is_inspection_report=not has_violations,
     )
     pdf_path = _notice_renderer.render_improvement_notice_pdf(html, inspection)
-    _freeze_inspection(inspection)
+    if has_violations:
+        _freeze_inspection(inspection)
     return send_file(
         pdf_path,
         as_attachment=True,
@@ -194,17 +202,15 @@ def download_improvement_notice_docx(inspection_id: int):
     if inspection is None:
         abort(404, description="Inspection not found.")
     violations = _inspection_violations(inspection)
-    if not violations:
-        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
-
-    actions = derive_actions(violations)
-    deadline = (
-        inspection.compliance_deadline.strftime("%d/%m/%Y")
-        if inspection.compliance_deadline
-        else None
-    )
+    has_violations = bool(violations)
+    actions = derive_actions(violations) if has_violations else []
+    deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
     context = _notice_renderer.build_improvement_notice_context(
-        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+        inspection,
+        violations=violations,
+        actions=actions,
+        compliance_deadline=deadline,
+        is_inspection_report=not has_violations,
     )
     converter = ImprovementNoticeWordConverter()
     docx_bytes = converter.build(context)
@@ -285,11 +291,7 @@ def send_improvement_notice_email_route(inspection_id: int):
 
     # Build context and generate .docx
     actions = derive_actions(violations)
-    deadline = (
-        inspection.compliance_deadline.strftime("%d/%m/%Y")
-        if inspection.compliance_deadline
-        else None
-    )
+    deadline = inspection.compliance_deadline.strftime("%d/%m/%Y") if inspection.compliance_deadline else None
     context = _notice_renderer.build_improvement_notice_context(
         inspection, violations=violations, actions=actions, compliance_deadline=deadline
     )
