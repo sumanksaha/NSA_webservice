@@ -303,6 +303,11 @@
                            class="btn btn-primary btn-sm" title="Download both as Word ZIP">
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
+                        <button type="button" class="btn btn-secondary btn-sm js-copy-letter"
+                                data-url="{{ url_for('case_file_generator.copy_letter', case_id=c.id, doc_type='petition') }}"
+                                title="Copy Petition letter body to clipboard for Gmail">
+                            <i class="fa-solid fa-copy"></i> Copy Letter
+                        </button>
                     </td>
                 </tr>
                 {% else %}
@@ -625,5 +630,50 @@
         statusId: 'case-file-val-status',
         endpoint: '{{ url_for("validation.validate") }}'
     });
+</script>
+
+<script>
+// Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
+document.querySelectorAll('.js-copy-letter').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+        var url = this.getAttribute('data-url');
+        var originalHTML = this.innerHTML;
+        this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
+        this.disabled = true;
+
+        try {
+            var resp = await fetch(url);
+            if (!resp.ok) throw new Error('Failed to load letter');
+            var html = await resp.text();
+
+            // Copy as rich HTML so Gmail paste retains formatting
+            var blob = new Blob([html], { type: 'text/html' });
+            var plainBlob = new Blob([html], { type: 'text/plain' });
+            var item = new ClipboardItem({
+                'text/html': blob,
+                'text/plain': plainBlob
+            });
+            await navigator.clipboard.write([item]);
+
+            this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            this.classList.add('btn-success');
+            var self = this;
+            setTimeout(function() {
+                self.innerHTML = originalHTML;
+                self.classList.remove('btn-success');
+                self.disabled = false;
+            }, 2000);
+        } catch (err) {
+            this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
+            this.classList.add('btn-danger');
+            var self = this;
+            setTimeout(function() {
+                self.innerHTML = originalHTML;
+                self.classList.remove('btn-danger');
+                self.disabled = false;
+            }, 2000);
+        }
+    });
+});
 </script>
 {% endblock %}

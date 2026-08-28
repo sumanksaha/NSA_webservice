@@ -812,3 +812,38 @@ def download_both_docx(case_id: int):
         download_name=f"Case_File_{label}_Word.zip",
         mimetype="application/zip",
     )
+
+
+# ---------------------------------------------------------------------------
+# Copy Letter — returns rendered HTML for copy-paste into Gmail
+# ---------------------------------------------------------------------------
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/copy-letter/<doc_type>")
+@login_required
+def copy_letter(case_id: int, doc_type: str):
+    """Return rendered HTML letter body for copy-paste into Gmail.
+
+    ``doc_type`` is ``petition`` or ``permission``.
+    """
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    if doc_type not in ("petition", "permission"):
+        return jsonify({"error": "Invalid doc_type"}), 400
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+
+    template_map = {
+        "petition": "case_file_generator/petition.html",
+        "permission": "case_file_generator/permission_letter.html",
+    }
+    html = str(render_template(template_map[doc_type], **case_data))
+
+    from app.utils.pdf_utils import post_process_pdf_html
+
+    html = post_process_pdf_html(html)
+
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}

@@ -882,3 +882,60 @@ def download_both_docx(case_id: int):
         download_name=f"Adjudication_{label}_Word.zip",
         mimetype="application/zip",
     )
+
+
+# ---------------------------------------------------------------------------
+# Copy Letter — returns rendered HTML letter body for copy-paste into Gmail
+# ---------------------------------------------------------------------------
+
+
+@adjudication_bp.route("/case/<int:case_id>/copy-letter/<doc_type>")
+@login_required
+def copy_letter(case_id: int, doc_type: str):
+    """Return rendered HTML letter body for copy-paste into Gmail.
+
+    ``doc_type`` is ``petition`` or ``permission``.
+    """
+    adj = Adjudication.query.get_or_404(case_id)
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404
+
+    if doc_type not in ("petition", "permission"):
+        return jsonify({"error": "Invalid doc_type"}), 400
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    # Include photos for petition rendering
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    context["adjudication"] = {
+        "photos": verified_photos,
+        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
+    }
+
+    template_map = {
+        "petition": "adjudication/template_nonsample_petition.html",
+        "permission": "adjudication/Legal_NonsampleAdjudication_Template.html",
+    }
+    html = str(render_template(template_map[doc_type], **context))
+
+    from app.utils.pdf_utils import post_process_pdf_html
+
+    html = post_process_pdf_html(html, adjudication_id=case_id)
+
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
