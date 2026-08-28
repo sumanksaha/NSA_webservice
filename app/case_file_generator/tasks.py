@@ -283,6 +283,5 @@ def _metadata(
     }
 
 
-# Register as Celery task if celery is available
-if celery is not None:
-    generate_case_file_pdf = celery.task(bind=True, max_retries=3)(generate_case_file_pdf)
+# Synchronous - Celery/QStash removed per user directive.
+# Registering removed; call generate_case_file_pdf() directly.

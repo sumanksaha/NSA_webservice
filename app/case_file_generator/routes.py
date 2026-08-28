@@ -339,8 +339,6 @@ def _regenerate_case_file(case_id):
     form_data = case_file_to_dict(case_file)
     case_data = process_form_data(form_data)
 
-    from app.utils.qstash_client import make_dedup_key, publish_task
-
     payload = {"case_file_id": case_file.id, "case_data": case_data}
     try:
         dispatched = publish_task(
@@ -563,37 +561,20 @@ def generate_case_file_route():
 
     case_data = process_form_data(form_data)
     payload = {"case_file_id": case_file_record.id, "case_data": case_data}
+    # Synchronous PDF generation (QStash/Celery removed)
+    from app.case_file_generator.tasks import generate_case_file_pdf
+
     try:
-        dispatched = publish_task(
-            "generate_case_file_pdf",
-            payload=payload,
-            dedup_key=make_dedup_key("generate_case_file_pdf", case_file_record.id, payload),
-        )
+        pdf_result = generate_case_file_pdf(case_file_id=case_file_record.id, case_data=case_data)
     except Exception as exc:
-        current_app.logger.error("Case file PDF dispatch failed: %s", exc)
+        current_app.logger.error("Case file PDF generation failed: %s", exc)
         return jsonify({"error": f"Case file PDF generation failed: {exc}"}), 500
-
-    if dispatched["mode"] == "async":
-        return (
-            jsonify({
-                "message": "Case file created; PDF generation queued",
-                "case_file_id": case_file_record.id,
-                "task_id": dispatched["message_id"],
-            }),
-            202,
-        )
-
-    result = dispatched["result"]
-    if result.get("status") == "error":
-        error_msg = result.get("error", "PDF generation failed")
-        current_app.logger.error("Case file PDF generation returned error: %s", error_msg)
-        return jsonify({"error": error_msg}), 500
 
     return (
         jsonify({
-            "message": "Case file created; PDF generated",
+            "message": "Case file created; PDF generated synchronously",
             "case_file_id": case_file_record.id,
-            "pdf_result": result,
+            "pdf_result": pdf_result,
         }),
         200,
     )
