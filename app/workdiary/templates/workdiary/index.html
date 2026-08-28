@@ -54,6 +54,7 @@
                     <th scope="col">Place of Visit</th>
                     <th scope="col">Purpose</th>
                     <th scope="col">Activity</th>
+                    <th scope="col">Sample Collected</th>
                 </tr>
             </thead>
             <tbody>
@@ -71,7 +72,14 @@
                         <span class="badge bg-secondary">{{ e.purpose }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ e.activity | safe }}</td>
+                                        <td>{{ e.activity | safe }}</td>
+                    <td>
+                        {% if e.sample_collected %}
+                        <span class="badge bg-success"><i class="fa-solid fa-check"></i> {{ e.sample_code }}</span>
+                        {% else %}
+                        <span class="text-muted">No sample</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

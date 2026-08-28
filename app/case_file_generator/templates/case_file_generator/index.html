@@ -3,25 +3,8 @@
 {% block title %}Sample -adjudication{% endblock %}
 
 {% block content %}
-<style>
-    /* Preview modal (Phase 1 — document preview before generation) */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; }
-    .modal-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { position: relative; background: var(--bg-card); border-radius: 12px; width: 90vw; max-width: 900px; height: 85vh; display: flex; flex-direction: column; margin: 5vh auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); border-radius: 12px 12px 0 0; }
-    .modal-header h3 { margin: 0; font-size: 1.3rem; }
-    .modal-tabs { display: flex; margin: 0; padding: 0; border-bottom: 1px solid var(--border); list-style: none; background: var(--bg-subtle); }
-    .modal-tabs li { flex: 1; text-align: center; }
-    .tab-btn { width: 100%; padding: 12px 16px; border: none; background: none; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
-    .tab-btn:hover { background: rgba(0,0,0,0.03); color: var(--text-body); }
-    .tab-btn.active { color: var(--color-info); border-bottom-color: var(--color-info); }
-    .modal-body { flex: 1; position: relative; overflow: hidden; }
-    .preview-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; }
-    .preview-frame:not(.active) { display: none; }
-    .modal-footer { display: flex; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border); background: var(--bg-subtle); border-radius: 0 0 12px 12px; }
-    .modal-footer .btn { margin: 0 4px; }
-    .close-preview-x { position: absolute; top: 12px; right: 12px; font-size: 1.2rem; color: var(--text-secondary); cursor: pointer; }
-</style>
+{% set modal_accent = 'var(--color-info)' %}
+{% include '_preview_modal.html' with context %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-folder-open"></i> Sample -adjudication</h2>
@@ -52,12 +35,12 @@
                 <input type="date" id="authorization_date" name="authorization_date" class="form-input" required>
             </div>
             <div class="form-group">
-                <label for="sample_draw_date" class="form-label">Sample Draw Date <span class="required"></span></label>
-                <input type="date" id="sample_draw_date" name="sample_draw_date" class="form-input" required>
+                <label for="inspection_date" class="form-label">Sample Draw Date <span class="required"></span></label>
+                <input type="date" id="inspection_date" name="inspection_date" class="form-input" required>
             </div>
             <div class="form-group">
-                <label for="sample_draw_time" class="form-label">Sample Draw Time <span class="required"></span></label>
-                <input type="time" id="sample_draw_time" name="sample_draw_time" class="form-input" required value="12:40">
+                <label for="inspection_time" class="form-label">Sample Draw Time <span class="required"></span></label>
+                <input type="time" id="inspection_time" name="inspection_time" class="form-input" required>
             </div>
         </div>
 
@@ -65,10 +48,9 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-industry"></i> Manufacturer Information</h3>
         </div>
-        <div class="form-group">
-            <label for="manufacturer_fssai_license" class="form-label">Manufacturer FSSAI Number <span class="required"></span></label>
-            <div class="lookup-wrapper">
-                <input type="text" id="manufacturer_fssai_license" name="manufacturer_fssai_license" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+        <div class="form-group">                <label for="manufacturer_fssai" class="form-label">Manufacturer FSSAI Number <span class="required"></span></label>
+                <div class="lookup-wrapper">
+                    <input type="text" id="manufacturer_fssai" name="manufacturer_fssai" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
                 <button type="button" class="btn btn-secondary" onclick="lookupFssai('manufacturer')">Lookup</button>
             </div>
             <div id="manufacturer_info" class="info-box" style="display: none;"></div>
@@ -76,12 +58,12 @@
 
         <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="manufacturer_person_name" class="form-label">Manufacturer Name</label>
-                <input type="text" id="manufacturer_person_name" name="manufacturer_person_name" class="form-input" required placeholder="FBO Owner Name">
+                <label for="manufacturer_name" class="form-label">Manufacturer Name</label>
+                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" required placeholder="FBO Owner Name">
             </div>
             <div class="form-group">
-                <label for="manufacturer_trade_name" class="form-label">Manufacturer FBO Name</label>
-                <input type="text" id="manufacturer_trade_name" name="manufacturer_trade_name" class="form-input" required placeholder="FBO Trade Name">
+                <label for="manufacturer_fbo_name" class="form-label">Manufacturer FBO Name</label>
+                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" required placeholder="FBO Trade Name">
             </div>
         </div>
 
@@ -96,10 +78,9 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-shop"></i> Retailer Information</h3>
         </div>
-        <div class="form-group">
-            <label for="retailer_fssai_license" class="form-label">Retailer FSSAI Number <span class="required"></span></label>
-            <div class="lookup-wrapper">
-                <input type="text" id="retailer_fssai_license" name="retailer_fssai_license" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
+        <div class="form-group">                <label for="retailer_fssai" class="form-label">Retailer FSSAI Number <span class="required"></span></label>
+                <div class="lookup-wrapper">
+                    <input type="text" id="retailer_fssai" name="retailer_fssai" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
                 <button type="button" class="btn btn-secondary" onclick="lookupFssai('retailer')">Lookup</button>
             </div>
             <div id="retailer_info" class="info-box" style="display: none;"></div>
@@ -107,12 +88,12 @@
 
         <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="retailer_person_name" class="form-label">Retailer Name</label>
-                <input type="text" id="retailer_person_name" name="retailer_person_name" class="form-input" required placeholder="Retailer Name">
+                <label for="retailer_name" class="form-label">Retailer Name</label>
+                <input type="text" id="retailer_name" name="retailer_name" class="form-input" required placeholder="Retailer Name">
             </div>
             <div class="form-group">
-                <label for="retailer_trade_name" class="form-label">Retailer FBO Name</label>
-                <input type="text" id="retailer_trade_name" name="retailer_trade_name" class="form-input" required placeholder="Retailer Trade Name">
+                <label for="retailer_fbo_name" class="form-label">Retailer FBO Name</label>
+                <input type="text" id="retailer_fbo_name" name="retailer_fbo_name" class="form-input" required placeholder="Retailer Trade Name">
             </div>
         </div>
 
@@ -157,11 +138,11 @@
             </div>
             <div class="form-group">
                 <label for="sample_quantity" class="form-label">Sample Quantity</label>
-                <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" required value="1000g">
+                <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" required placeholder="e.g., 1000g">
             </div>
             <div class="form-group">
                 <label for="packet_count" class="form-label">Packet Count</label>
-                <input type="number" id="packet_count" name="packet_count" class="form-input" required value="4">
+                <input type="number" id="packet_count" name="packet_count" class="form-input" required placeholder="e.g., 4">
             </div>
         </div>
 
@@ -176,18 +157,18 @@
             </div>
             <div class="form-group">
                 <label for="total_cost" class="form-label">Total Cost (Rs.)</label>
-                <input type="text" id="total_cost" name="total_cost" class="form-input" required value="500">
+                <input type="text" id="total_cost" name="total_cost" class="form-input" required placeholder="e.g., 500">
             </div>
             <div class="form-group">
                 <label for="cost_in_words" class="form-label">Cost in Words</label>
-                <input type="text" id="cost_in_words" name="cost_in_words" class="form-input" required value="Rupees Five Hundred Only">
+                <input type="text" id="cost_in_words" name="cost_in_words" class="form-input" placeholder="Auto-derived from Total Cost if left empty">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="other_food_articles" class="form-label">Other Food Articles Found</label>
-                <input type="text" id="other_food_articles" name="other_food_articles" class="form-input" value="Chanachur, Nimki, Roasted Chana">
+                <input type="text" id="other_food_articles" name="other_food_articles" class="form-input" placeholder="e.g., Chanachur, Nimki, Roasted Chana">
             </div>
         </div>
 
@@ -196,13 +177,10 @@
                 <label for="sample_code" class="form-label">Sample Code</label>
                 <input type="text" id="sample_code" name="sample_code" class="form-input" required placeholder="e.g., SL/WB/110223/2025/13061">
             </div>
-            <div class="form-group">
-                <label for="sample_submission_date" class="form-label">Sample Submission Date</label>
-                <input type="date" id="sample_submission_date" name="sample_submission_date" class="form-input" required>
-            </div>
+
             <div class="form-group">
                 <label for="lab_registration_no" class="form-label">Lab Registration Number</label>
-                <input type="text" id="lab_registration_no" name="lab_registration_no" class="form-input" required value="WB/FOOD/2025/001">
+                <input type="text" id="lab_registration_no" name="lab_registration_no" class="form-input" required placeholder="e.g., WB/FOOD/2025/001">
             </div>
             <div class="form-group">
                 <label for="do_receipt_date" class="form-label">DO Receipt Date</label>
@@ -215,7 +193,7 @@
             <h3><i class="fa-solid fa-flask"></i> Analysis Result & Regulatory Action</h3>
         </div>
         <div class="form-group">
-            <label class="form-label">Select Analysis Result Category:</label>
+            <label class="form-label">Analysis Result <span class="required"></span> <small class="text-muted">(select all that apply)</small></label>
             <div class="analysis-result-group">
                 <label class="toggle-card">
                     <input type="checkbox" id="is_misbranded" name="is_misbranded" value="misbranded">
@@ -261,16 +239,13 @@
         <div class="form-row form-row--3">
             <div class="form-group">
                 <label for="applicable_regulation" class="form-label">Applicable Regulation</label>
-                <input type="text" id="applicable_regulation" name="applicable_regulation" class="form-input" value="Regulation No 5(9)">
+                <input type="text" id="applicable_regulation" name="applicable_regulation" class="form-input" placeholder="e.g., Regulation No 5(9)">
             </div>
             <div class="form-group">
                 <label for="applicable_clause" class="form-label">Applicable Clause</label>
-                <input type="text" id="applicable_clause" name="applicable_clause" class="form-input" value="Clause (zf) of subsection 1 of section 3 of the FSSA,2006">
+                <input type="text" id="applicable_clause" name="applicable_clause" class="form-input" placeholder="e.g., Clause (zf) of subsection 1 of section 3 of the FSSA,2006">
             </div>
-            <div class="form-group">
-                <label for="sample_name" class="form-label">Sample Name</label>
-                <input type="text" id="sample_name" name="sample_name" class="form-input" value="Taaja Jalpan Nilgiri Chanachur">
-            </div>
+
         </div>
 
         <div class="actions-centered">
@@ -284,34 +259,6 @@
     </form>
 </div>
 
-<!-- Preview Modal (Phase 1 — document preview before generation) -->
-<div id="previewModal" class="modal-overlay" style="display: none;">
-    <div class="modal-backdrop" onclick="closePreview()"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-eye"></i> Document Preview</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="closePreview()">
-                <i class="fa-solid fa-xmark"></i> Close
-            </button>
-        </div>
-        <ul class="modal-tabs">
-            <li><button class="tab-btn active" onclick="showPreviewTab('petition', this)">Petition</button></li>
-            <li><button class="tab-btn" onclick="showPreviewTab('permission', this)">Permission Letter</button></li>
-        </ul>
-        <div class="modal-body">
-            <iframe id="previewPetition" class="preview-frame active" title="Petition Preview"></iframe>
-            <iframe id="previewPermission" class="preview-frame" title="Permission Letter Preview"></iframe>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closePreview()">
-                <i class="fa-solid fa-pen"></i> Edit More
-            </button>
-            <button type="button" id="previewGenerateBtn" class="btn btn-primary">
-                <i class="fa-solid fa-file-zipper"></i> Generate Case Files
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- Case Timelines panel (Phase 13) -->
 <div class="card mt--lg">
@@ -344,6 +291,18 @@
                                 title="Run legal validation on this case file">
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
+                        <a href="{{ url_for('case_file_generator.download_petition_docx', case_id=c.id) }}"
+                           class="btn btn-secondary btn-sm" title="Download Petition as Word">
+                            <i class="fa-solid fa-file-word"></i> Petition
+                        </a>
+                        <a href="{{ url_for('case_file_generator.download_permission_docx', case_id=c.id) }}"
+                           class="btn btn-secondary btn-sm" title="Download Permission Letter as Word">
+                            <i class="fa-solid fa-file-word"></i> Permission
+                        </a>
+                        <a href="{{ url_for('case_file_generator.download_both_docx', case_id=c.id) }}"
+                           class="btn btn-primary btn-sm" title="Download both as Word ZIP">
+                            <i class="fa-solid fa-file-zipper"></i> Word ZIP
+                        </a>
                     </td>
                 </tr>
                 {% else %}
@@ -365,9 +324,11 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
-    // --- Preview Modal (Phase 1 — document preview before generation) ---
-    var previewPetitionHtml = null;
-    var previewPermissionHtml = null;
+    // --- Preview via shared PreviewModal ---
+    // Wire generate button to trigger form submission
+    PreviewModal.onGenerate = function() {
+        document.getElementById('caseFileForm').dispatchEvent(new Event('submit'));
+    };
 
     async function showPreview() {
         var previewBtn = document.getElementById('previewBtn');
@@ -403,21 +364,8 @@
                 return;
             }
 
-            // Write HTML into iframes
-            previewPetitionHtml = data.petition_html;
-            previewPermissionHtml = data.permission_html;
-
-            var iframeP = document.getElementById('previewPetition');
-            var iframePerm = document.getElementById('previewPermission');
-            iframeP.contentDocument.open();
-            iframeP.contentDocument.write(previewPetitionHtml);
-            iframeP.contentDocument.close();
-            iframePerm.contentDocument.open();
-            iframePerm.contentDocument.write(previewPermissionHtml);
-            iframePerm.contentDocument.close();
-
             statusBox.style.display = 'none';
-            document.getElementById('previewModal').style.display = 'block';
+            PreviewModal.open(data.petition_html, data.permission_html);
         } catch (error) {
             statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + error.message;
             statusBox.className = 'info-box info-box--error';
@@ -427,39 +375,11 @@
         }
     }
 
-    function closePreview() {
-        document.getElementById('previewModal').style.display = 'none';
-    }
-
-    function showPreviewTab(tab, btn) {
-        var petitionFrame = document.getElementById('previewPetition');
-        var permissionFrame = document.getElementById('previewPermission');
-        var tabs = document.querySelectorAll('.modal-tabs .tab-btn');
-        tabs.forEach(function(t) { t.classList.remove('active'); });
-        petitionFrame.classList.toggle('active', tab === 'petition');
-        permissionFrame.classList.toggle('active', tab === 'permission');
-        if (btn) btn.classList.add('active');
-    }
-
     // Wire up the Preview button
     document.getElementById('previewBtn').addEventListener('click', function(e) {
         e.preventDefault();
         clearFieldErrors();
         showPreview();
-    });
-
-    // Generate from preview modal
-    document.getElementById('previewGenerateBtn').addEventListener('click', function() {
-        closePreview();
-        // Trigger the main form submission
-        document.getElementById('caseFileForm').dispatchEvent(new Event('submit'));
-    });
-
-    // Close modal on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && document.getElementById('previewModal').style.display === 'block') {
-            closePreview();
-        }
     });
 
     // Load sample codes on page load
@@ -511,22 +431,19 @@
 
             document.getElementById('sample_id').value = result.id;
 
-            const sampleName = result.sample_name || '';
+            const productName = result.product_name || '';
             const retailerFssai = result.retailer_fssai || '';
             const retailerName = result.retailer_name || '';
-            const submissionDate = result.submission_date || '';
             const price = result.price || '';
 
-            document.getElementById('sample_name').value = sampleName;
-
+            if (productName) {
+                document.getElementById('product_name').value = productName;
+            }
             if (retailerFssai) {
-                document.getElementById('retailer_fssai_license').value = retailerFssai;
+                document.getElementById('retailer_fssai').value = retailerFssai;
             }
             if (retailerName) {
-                document.getElementById('retailer_person_name').value = retailerName;
-            }
-            if (submissionDate) {
-                document.getElementById('sample_submission_date').value = submissionDate;
+                document.getElementById('retailer_name').value = retailerName;
             }
             if (price) {
                 document.getElementById('total_cost').value = price;

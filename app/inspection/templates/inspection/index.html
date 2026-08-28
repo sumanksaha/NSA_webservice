@@ -62,6 +62,25 @@
             </div>
         </div>
 
+        <!-- Sample Collection Section -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-flask"></i> Sample Collection</h3>
+            <p class="form-hint">Indicate if a sample was collected during this inspection and provide the sample code.</p>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sample_collected" class="form-label">Sample Collected</label>
+                <input type="checkbox" id="sample_collected" name="sample_collected" class="form-check-input">
+                <small class="form-hint">Check if a sample was collected during this inspection</small>
+            </div>
+            <div class="form-group" id="sampleCodeGroup" style="display: none;">
+                <label for="sample_code" class="form-label">Sample Code</label>
+                <input type="text" id="sample_code" name="sample_code" class="form-input" placeholder="Enter sample code (e.g., SL/WB/XXXXXX/XXXX/XXXXX)">
+                <small class="form-hint">Required if sample was collected. Format: SL/WB/XXXXXX/XXXX/XXXXX</small>
+            </div>
+        </div>
+
         <!-- Inspection Checklist -->
         <div class="section-header">
             <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Checklist</h3>
@@ -542,6 +561,31 @@ function updateComplianceDeadline() {
     const deadline = date.toISOString().split('T')[0];
     complianceDeadlineInput.value = deadline;
     complianceDeadlineInput.readOnly = false;
+}
+
+// Toggle sample code field visibility
+function toggleSampleCodeField() {
+    const sampleCollectedCheckbox = document.getElementById('sample_collected');
+    const sampleCodeGroup = document.getElementById('sampleCodeGroup');
+    sampleCodeGroup.style.display = sampleCollectedCheckbox.checked ? 'block' : 'none';
+    
+    // Clear the sample code when hiding the field
+    if (!sampleCollectedCheckbox.checked) {
+        document.getElementById('sample_code').value = '';
+    }
+}
+
+// Initialize sample code toggle on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const sampleCollectedCheckbox = document.getElementById('sample_collected');
+    if (sampleCollectedCheckbox) {
+        sampleCollectedCheckbox.addEventListener('change', toggleSampleCodeField);
+        // Set initial state based on checkbox value
+        toggleSampleCodeField();
+    }
+});
+
+// Update compliance deadline when inspection date changes
 }
 
 // Form submission handling

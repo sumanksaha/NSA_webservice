@@ -417,6 +417,119 @@ templates** (the project already uses Jinja2), reducing the Python module
 from 1,041 → ~700 LOC. This is a **deletion** opportunity, not a deepening
 one.
 
+
+### Candidate 7: RAG God-Orchestrator — Feature-Gate Extraction ✅
+
+**Files:** `app/rag/tasks.py` (L122–312 → now ~80 lines),
+`app/rag/retrieval/cache.py` (NEW), `app/rag/retrieval/stages.py` (NEW)
+
+**Problem:**
+`run_retrieval_pipeline` was a 190-line orchestrator with two embedded
+concerns: (1) a module-level LRU+TTL cache implemented as raw globals
+(`_RETRIEVAL_CACHE` `OrderedDict` + `_CACHE_LOCK` + 3 private functions),
+and (2) 3 scattered feature-gated enrichment steps whose `if cfg.X:` blocks
++ lazy imports were inlined directly in the function body.
+
+```python
+# Before: 3 inline enrichment blocks (L255–284) in a single 190-line function
+legal_identities: list[dict[str, Any]] = []
+...
+from app.rag.retrieval.legal_identity import _legal_identity_enabled, parse_legal_identity
+from app.rag.retrieval.reference_graph import _reference_expansion_enabled
+if _legal_identity_enabled() and result.chunks:
+    legal_identities = [parse_legal_identity(c).to_dict() for c in result.chunks]
+if _reference_expansion_enabled() and result.chunks:
+    try: ...
+    except Exception: ...
+if cfg.evidence_selector and result.chunks:
+    try: ...
+    except Exception: ...
+```
+
+**Deletion test:** Delete the enrichment logic → 3 `if cfg.X:` blocks
+reappear inline in any new orchestrator of the same shape. Delete the cache
+globals → the LRU/TTL/`threading.Lock` pattern reappears as module-level
+state. **The module is earning its keep, but the interface grows with it.**
+
+**Solution:** Two extractions:
+
+1. **`RetrievalCache` class** (`app/rag/retrieval/cache.py`) — promote the
+   `OrderedDict` + `threading.Lock` globals into an injectable, testable
+   value object with `get()`, `put()`, `clear()`, `max_size`, `ttl_seconds`.
+   Backward-compat shims (`_cache_get`, `_cache_put`, `clear_retrieval_cache`)
+   delegate to a module-level `_default_cache` singleton. `run_retrieval_pipeline`
+   gained an optional `cache: RetrievalCache | None = None` parameter.
+
+2. **Stage registry** (`app/rag/retrieval/stages.py`) — the 3 post-retrieval
+   enrichment stages become an ordered `POST_RETRIEVAL_STAGES` list of
+   `RetrievalStage` dataclasses (`name`, `is_enabled`, `enrich`, `output_key`,
+   `default`, `isolate`). `apply_stages(query, result)` iterates the registry,
+   skipping disabled stages, error-isolating when `isolate=True`, and
+   propagating when `isolate=False` — preserving the exact original
+   try/except boundary (legal_identity propagates; ref-expansion and
+   evidence_selector are best-effort).
+
+The 2 pre-retrieval stages (`legal_query_typing`, `identifier_route`) remain
+inline — their outputs are heterogeneous (passed to `hybrid.retrieve` vs.
+returned in the output dict) and don't fit the uniform registry shape.
+
+**Benefits:**
+
+- **Locality:** The 3 enrichment `if` blocks (42 lines) collapse to a single
+  `apply_stages(query, result)` call. Adding a new enrichment stage = one
+  `RetrievalStage(...)` entry, no edit to the orchestrator.
+- **Testability:** `RetrievalCache` is tested with 9 pure unit tests
+  (no Flask/DB/Qdrant). `apply_stages` is tested with 10 pure unit tests
+  using fake stages (no Qdrant needed). The existing 4 integration tests
+  in `test_rag_retrieval_cache.py` continue to pass unchanged via the
+  backward-compat shims.
+- **Injectability:** `run_retrieval_pipeline(cache=RetrievalCache(max_size=0))`
+  can now be called with a zero-size/no-op cache for tests that want to
+  bypass caching entirely.
+
+**Estimated effort:** 2 days
+**Tests affected:** 0 existing tests modified; 19 new tests added
+(`test_retrieval_cache_class.py` + `test_retrieval_stages.py`). 110 existing
+RAG tests pass with zero regressions.
+
+**Dependency category:** In-process. Cache is pure `OrderedDict` + `Lock`.
+Stages registry is pure iteration; enrich functions carry their own lazy
+imports. No new external seams needed.
+
+**Follow-up consolidation (agent evidence_node):** The LangGraph agent's
+`evidence_node` (in `app/rag/agent/nodes.py`) was **recomputing**
+`select_evidence_set` on the same chunks that `run_retrieval_pipeline`
+already enriched via `apply_stages`.  Consolidated on 2026-08-27:
+`retrieve_node` now forwards `evidence_set` from the pipeline result into
+`RAGState`; `evidence_node` is a pure pass-through (records the audit trail
+entry, no recomputation). Error isolation for the evidence-selector stage
+now lives in `apply_stages` (`isolate=True`), tested in
+`test_retrieval_stages.py`.  17 agent node tests + 42 graph/M5/state tests
+pass with zero regressions.
+
+**Follow-up consolidation (RRF formula duplication, 2026-08-27):** The RRF
+formula `1/(rank+1+rrf_k)` was copy-pasted across **5 sites** — 3 inline
+loops in `HybridRetriever.retrieve`, `kg.hybrid.rrf_fuse_chunks`, and
+`evaluation.fusion.rrf_fuse_items`.  Extracted `reciprocal_rank_fuse()` into
+`app/rag/retrieval/rrf.py` (pure scoring; returns `dict[key, float]`).
+All 3 callers were refactored to use it — the score-formula duplication
+collapsed to 1 implementation.  10 new tests in `tests/test_rrf.py`; 55
+tests across 5 suites pass with zero regressions (test_rrf,
+test_fusion_rrf, test_hybrid_vs_dense, test_hybrid_retriever,
+test_kg_hybrid_expander).
+
+---
+
+### Candidate 8: Excel Styling Boilerplate — DONE
+
+**Files:** `app/billing/billing_utils.py`, `app/billing/excel_styler.py` (NEW)
+
+Extracted the 3× copy-pasted styling blocks (header fill, data-cell border,
+column-width auto-adjust) into a `SheetStyler` class with
+`style_header()`, `style_data_cell()`, `style_total_row()`, `auto_adjust_widths()`.
+256 → 211 lines in `billing_utils.py`; 11 new tests in
+`test_billing_excel_styler.py`. All 28 billing tests pass; `ruff` clean.
+
 ---
 
 ## 4. Prioritized Backlog
@@ -428,6 +541,8 @@ one.
 | P4       | DocumentCaseManager query split | 2 days      | CaseQueryService, standalone lookups         | Low    | DONE   |
 | P1       | QdrantIndexer split             | 2–3 days    | Test isolation, cleaner hooks               | Low    | PENDING|
 | P2       | ValidationEngine assembler      | 2 days      | 46 tests become DB-free                      | Low    | PENDING|
+| P5       | RAG God-Orchestrator extract    | 2 days      | RetrievalCache + stage registry, 190→~80 LOC| Low    | DONE   |
+| P6       | Excel styling boilerplate        | 1 day       | SheetStyler, 256→211 LOC                     | Low    | DONE   |
 
 ---
 

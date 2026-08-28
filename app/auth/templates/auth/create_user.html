@@ -46,7 +46,43 @@
                        placeholder="Re-enter the new password" autocomplete="new-password">
             </div>
 
-            <div class="form-group mt--sm">
+            <hr style="margin: 1.25rem 0; border: none; border-top: 1px solid var(--border, #ddd);">
+
+            <div class="form-group">
+                <label for="role" class="form-label">Account Type</label>
+                <select id="role" name="role" class="form-input" onchange="toggleFsoFields()">
+                    <option value="">Regular User</option>
+                    <option value="admin">Admin</option>
+                    <option value="fso">Food Safety Officer (FSO)</option>
+                </select>
+            </div>
+
+            <!-- FSO-specific fields (shown when role=FSO) -->
+            <div id="fsoFields" style="display: none;">
+                <div class="form-group mt--sm">
+                    <label for="fso_name" class="form-label">FSO Name</label>
+                    <select id="fso_name" name="fso_name" class="form-input">
+                        <option value="">— Select FSO —</option>
+                        {% for name in fso_names %}
+                        <option value="{{ name }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-hint">Select the officer this account belongs to.</p>
+                </div>
+
+                <div class="form-group mt--sm">
+                    <label for="fso_email" class="form-label">Gmail Address</label>
+                    <input type="email" id="fso_email" name="fso_email" class="form-input"
+                           placeholder="e.g. fsobrx@gmail.com"
+                           autocomplete="email">
+                    <p class="form-hint">
+                        The FSO's Gmail address for sending Improvement Notices.
+                        SMTP settings (smtp.gmail.com:587/TLS) are auto-configured.
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-group mt--sm" id="adminField" style="display: none;">
                 <label class="ce-copy-label" for="is_admin">
                     <input type="checkbox" id="is_admin" name="is_admin">
                     Grant admin rights (can manage users)
@@ -62,4 +98,28 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleFsoFields() {
+        var role = document.getElementById('role').value;
+        var fsoFields = document.getElementById('fsoFields');
+        var adminField = document.getElementById('adminField');
+
+        if (role === 'fso') {
+            fsoFields.style.display = 'block';
+            adminField.style.display = 'none';
+            document.getElementById('is_admin').checked = false;
+        } else if (role === 'admin') {
+            fsoFields.style.display = 'none';
+            adminField.style.display = 'block';
+            document.getElementById('is_admin').checked = true;
+        } else {
+            fsoFields.style.display = 'none';
+            adminField.style.display = 'none';
+            document.getElementById('is_admin').checked = false;
+        }
+    }
+</script>
 {% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Email Settings: {{ fso.fso_name }} — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card" style="max-width: 520px;">
+        <div class="login-header">
+            <div class="login-icon">
+                <i class="fa-solid fa-envelope-gear"></i>
+            </div>
+            <h2 class="mb--sm">Email Settings</h2>
+            <p class="form-hint">
+                Configure Gmail for <strong>{{ fso.fso_name }}</strong> to send Improvement Notices.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="info-box {% if category == 'error' %}info-box--error{% else %}info-box--success{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('auth.fso_email_edit', fso_name=fso.fso_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="email" class="form-label">Gmail Address</label>
+                <input type="email" id="email" name="email" class="form-input"
+                       value="{{ fso.email or '' }}"
+                       placeholder="e.g. fsobrx@gmail.com"
+                       autocomplete="email"
+                       oninput="autoFillGmail(this.value)">
+                <p class="form-hint">The FSO's Gmail address. SMTP settings auto-fill below.</p>
+            </div>
+
+            <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border, #ddd);">
+
+            <!-- SMTP settings (pre-filled for Gmail) -->
+            <div class="grid--2" style="gap: 0.75rem;">
+                <div class="form-group">
+                    <label for="smtp_host" class="form-label">SMTP Host</label>
+                    <input type="text" id="smtp_host" name="smtp_host" class="form-input"
+                           value="{{ fso.smtp_host or 'smtp.gmail.com' }}">
+                </div>
+                <div class="form-group">
+                    <label for="smtp_port" class="form-label">Port</label>
+                    <input type="number" id="smtp_port" name="smtp_port" class="form-input"
+                           value="{{ fso.smtp_port or 587 }}" min="1" max="65535">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="smtp_user" class="form-label">SMTP Username</label>
+                <input type="text" id="smtp_user" name="smtp_user" class="form-input"
+                       value="{{ fso.smtp_user or fso.email or '' }}"
+                       placeholder="Same as Gmail address">
+                <p class="form-hint">Usually the same as the Gmail address.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="smtp_password" class="form-label">App Password</label>
+                <input type="password" id="smtp_password" name="smtp_password" class="form-input"
+                       value="{{ fso.smtp_password or '' }}"
+                       placeholder="16-character app password"
+                       autocomplete="off">
+                <p class="form-hint">
+                    Use a
+                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">
+                        Gmail App Password
+                    </a>
+                    (not your regular password). Generate one at
+                    <code>myaccount.google.com/apppasswords</code>.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label class="ce-copy-label" for="smtp_use_tls">
+                    <input type="checkbox" id="smtp_use_tls" name="smtp_use_tls"
+                           {% if fso.smtp_use_tls or fso.smtp_use_tls is none %}checked{% endif %}>
+                    Enable TLS encryption (recommended)
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; justify-content: flex-end;">
+                <a href="{{ url_for('auth.fso_email_list') }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </form>
+
+        {% if not fso.email %}
+        <div style="margin-top: 1.5rem; padding: 1rem; background: #f0f4fa; border-radius: 6px; border-left: 3px solid #1a3a6b;">
+            <p style="margin: 0; font-size: 0.875rem; color: #333;">
+                <strong><i class="fa-solid fa-lightbulb"></i> Quick Setup:</strong>
+                Enter the FSO's Gmail address above, and the SMTP settings will auto-fill.
+                You'll need to generate a
+                <a href="https://myaccount.google.com/apppasswords" target="_blank">Gmail App Password</a>
+                (requires 2FA enabled on the Google account).
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-fill Gmail SMTP settings when a @gmail.com address is detected
+    function autoFillGmail(value) {
+        if (value && value.endsWith('@gmail.com')) {
+            document.getElementById('smtp_host').value = 'smtp.gmail.com';
+            document.getElementById('smtp_port').value = '587';
+            document.getElementById('smtp_user').value = value;
+            document.getElementById('smtp_use_tls').checked = true;
+        }
+    }
+
+    // Run on page load in case email is pre-filled
+    (function() {
+        var emailField = document.getElementById('email');
+        if (emailField && emailField.value) {
+            autoFillGmail(emailField.value);
+        }
+    })();
+</script>
+{% endblock %}

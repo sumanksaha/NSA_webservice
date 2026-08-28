@@ -23,13 +23,10 @@ from typing import Any
 
 from app.rag.retrieval.dense_retriever import DenseRetriever
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
+from app.rag.retrieval.rrf import DEFAULT_RRF_K, reciprocal_rank_fuse
 from app.rag.retrieval.sparse_retriever import SparseRetriever
 
 logger = logging.getLogger(__name__)
-
-#: RRF constant — controls how much lower-ranked results contribute.
-#: Standard value from the original RRF paper (Cormack et al., 2009).
-_RRF_K = 60.0
 
 
 class HybridRetriever:
@@ -47,7 +44,7 @@ class HybridRetriever:
         dense: DenseRetriever,
         sparse: SparseRetriever,
         reranker: Any | None = None,
-        rrf_k: float = _RRF_K,
+        rrf_k: float = DEFAULT_RRF_K,
     ) -> None:
         self.dense = dense
         self.sparse = sparse
@@ -117,11 +114,15 @@ class HybridRetriever:
                             # text — the cluster computes the BM25 vector.
                             hybrid = getattr(sparse_store, "hybrid_search_text", None)
                             if not callable(hybrid):
-                                raise RuntimeError("store lacks hybrid_search_text (server BM25 requires qdrant-client >= 1.12)")
+                                raise RuntimeError(
+                                    "store lacks hybrid_search_text (server BM25 requires qdrant-client >= 1.12)"
+                                )
                             points = hybrid(dense_vector, query, top_k=top_k, filters=filters)
                         else:
                             sparse_vector = sparse_embed(query)
-                            points = sparse_store.hybrid_search(dense_vector, sparse_vector, top_k=top_k, filters=filters)
+                            points = sparse_store.hybrid_search(
+                                dense_vector, sparse_vector, top_k=top_k, filters=filters
+                            )
                         from app.rag.retrieval.dense_retriever import DenseRetriever
 
                         fused = [DenseRetriever._payload_to_chunk(p) for p in points]
@@ -154,38 +155,24 @@ class HybridRetriever:
                 logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
         # RRF fusion — rank-based, so scores from different retrievers are
-        # comparable regardless of scale.
-        chunk_scores: dict[str, float] = {}
+        # comparable regardless of scale.  The core scoring is delegated to
+        # ``reciprocal_rank_fuse`` (app.rag.retrieval.rrf) to eliminate the
+        # duplicated formula across the dense, sparse, and identifier arms.
+        ranked_lists = [
+            dense_result.chunks,
+            sparse_result.chunks,
+            *(ident_result.chunks if ident_result else []),
+        ]
+        chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=self._rrf_k)
+
+        # Build the chunk_map with keep-higher-score upsert.  For the first
+        # list (dense, chunk_map empty) this is equivalent to first-wins.
         chunk_map: dict[str, RetrievedChunk] = {}
-
-        for rank, chunk in enumerate(dense_result.chunks):
-            chunk_id = chunk.chunk_id
-            chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0.0) + 1.0 / (rank + 1 + self._rrf_k)
-            if chunk_id not in chunk_map:
-                chunk_map[chunk_id] = chunk
-
-        for rank, chunk in enumerate(sparse_result.chunks):
-            chunk_id = chunk.chunk_id
-            chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0.0) + 1.0 / (rank + 1 + self._rrf_k)
-            if chunk_id not in chunk_map:
-                chunk_map[chunk_id] = chunk
-            else:
-                # Merge: keep the higher score
-                existing = chunk_map[chunk_id]
-                if chunk.score > existing.score:
-                    chunk_map[chunk_id] = chunk
-
-        if ident_result is not None:
-            for rank, chunk in enumerate(ident_result.chunks):
-                chunk_id = chunk.chunk_id
-                chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0.0) + 1.0 / (rank + 1 + self._rrf_k)
-                if chunk_id not in chunk_map:
-                    chunk_map[chunk_id] = chunk
-                else:
-                    # Merge: keep the higher score
-                    existing = chunk_map[chunk_id]
-                    if chunk.score > existing.score:
-                        chunk_map[chunk_id] = chunk
+        for ranked in ranked_lists:
+            for chunk in ranked:
+                key = chunk.chunk_id
+                if key not in chunk_map or chunk.score > chunk_map[key].score:
+                    chunk_map[key] = chunk
 
         # Sort by fused RRF score descending
         fused_ids = sorted(chunk_scores, key=chunk_scores.get, reverse=True)  # type: ignore[arg-type]

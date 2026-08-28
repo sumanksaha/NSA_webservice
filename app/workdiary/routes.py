@@ -32,6 +32,7 @@ def _visual_row_count(entries: list[dict]) -> int:
     """Count visual rows after date-merging (for padding calculation)."""
     return len([e for e in entries if e.get("is_first_in_date", True)])
 
+
 _PURPOSE_CHOICES = (
     ("", "All"),
     ("routine", PURPOSE_ROUTINE),

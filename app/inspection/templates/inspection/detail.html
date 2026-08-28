@@ -44,6 +44,26 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 {% endif %}
             </span>
         </div>
+        <div class="detail-field">
+            <label>Sample Collected</label>
+            <span class="detail-value">
+                {% if inspection.sample_collected %}
+                <span class="status-badge status-badge--success">
+                    <i class="fa-solid fa-check"></i> Yes
+                </span>
+                {% else %}
+                <span class="status-badge" style="opacity: 0.4;">
+                    <i class="fa-solid fa-xmark"></i> No
+                </span>
+                {% endif %}
+            </span>
+        </div>
+        {% if inspection.sample_collected and inspection.sample_code %}
+        <div class="detail-field" style="grid-column: 1 / -1">
+            <label>Sample Code</label>
+            <span class="detail-value">{{ inspection.sample_code }}</span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="section-header">
@@ -357,6 +377,13 @@ inspection.inspection_code }}{% endblock %} {% block content %}
            class="btn btn-secondary">
             <i class="fa-solid fa-file-pdf"></i> Download Notice (PDF)
         </a>
+        <a href="{{ url_for('food_cell.download_improvement_notice_docx', inspection_id=inspection.id) }}"
+           class="btn btn-secondary">
+            <i class="fa-solid fa-file-word"></i> Download Notice (Word)
+        </a>
+        <button type="button" class="btn btn-secondary" onclick="openEmailModal()">
+            <i class="fa-solid fa-envelope"></i> Send via Email
+        </button>
     </div>
     {% endif %}
 
@@ -422,6 +449,38 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         </div>
     </div>
 </div>
+
+<!-- Email Modal -->
+<div id="emailModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+    <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 520px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;"><i class="fa-solid fa-envelope"></i> Send Improvement Notice</h3>
+            <button type="button" onclick="closeEmailModal()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+        </div>
+        <form id="emailForm" onsubmit="return sendNoticeEmail(event)">
+            <div style="margin-bottom: 1rem;">
+                <label for="recipientEmail" style="display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem;">Recipient Email</label>
+                <input type="email" id="recipientEmail" name="recipient_email" required
+                    placeholder="designated.officer@kmc.gov.in"
+                    style="width: 100%; padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.95rem;" />
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label for="emailSubject" style="display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem;">Subject</label>
+                <input type="text" id="emailSubject" name="subject"
+                    value="Improvement Notice — {{ inspection.fbo_name or 'FBO' }} ({{ inspection.inspection_code }})"
+                    style="width: 100%; padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.95rem;" />
+            </div>
+            <div id="emailStatus" style="display: none; margin-bottom: 1rem; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem;"></div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button type="button" onclick="closeEmailModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="emailSendBtn" class="btn btn-primary">
+                    <i class="fa-solid fa-paper-plane"></i> Send
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_css %}
@@ -952,6 +1011,8 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     // Checklist Quick-Edit Modal
     // ===================================================================
     var INSPECTION_ID = {{ inspection.id }};
+    var INSPECTION_CODE = '{{ inspection.inspection_code }}';
+    var FBO_NAME = '{{ inspection.fbo_name or "" }}';
 
     function openChecklistModal() {
         document.getElementById('checklistModal').style.display = 'flex';
@@ -1001,5 +1062,64 @@ inspection.inspection_code }}{% endblock %} {% block content %}
             saveBtn.disabled = false;
         });
     });
+
+    // ===================================================================
+    // Email Modal
+    // ===================================================================
+    function openEmailModal() {
+        document.getElementById('emailModal').style.display = 'flex';
+        document.getElementById('emailStatus').style.display = 'none';
+        document.getElementById('emailSendBtn').disabled = false;
+        document.getElementById('recipientEmail').focus();
+    }
+
+    function closeEmailModal() {
+        document.getElementById('emailModal').style.display = 'none';
+        document.getElementById('emailForm').reset();
+        // Restore default subject
+        document.getElementById('emailSubject').value =
+            'Improvement Notice \u2014 ' + (FBO_NAME || 'FBO') + ' (' + INSPECTION_CODE + ')';
+    }
+
+    function sendNoticeEmail(e) {
+        e.preventDefault();
+        var btn = document.getElementById('emailSendBtn');
+        var status = document.getElementById('emailStatus');
+        var origHtml = btn.innerHTML;
+
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+        btn.disabled = true;
+        status.style.display = 'none';
+
+        var formData = new FormData(document.getElementById('emailForm'));
+
+        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/email', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(result) {
+            status.style.display = 'block';
+            if (result.ok) {
+                status.style.background = '#d4edda';
+                status.style.color = '#155724';
+                status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + (result.data.message || 'Email sent successfully.');
+            } else {
+                status.style.background = '#f8d7da';
+                status.style.color = '#721c24';
+                status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (result.data.error || 'Failed to send email.');
+            }
+        })
+        .catch(function(err) {
+            status.style.display = 'block';
+            status.style.background = '#f8d7da';
+            status.style.color = '#721c24';
+            status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Network error: ' + err.message;
+        })
+        .finally(function() {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        });
+    }
 </script>
 {% endblock %}

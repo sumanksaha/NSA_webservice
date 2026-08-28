@@ -105,26 +105,26 @@
       <div class="column">
         {% if same_entity %}
         <div class="entry">
-          <div><strong>{{ retailer_person_name }}</strong></div>
+          <div><strong>{{ retailer_name }}</strong></div>
           <div><strong>Retailer-cum-Manufacturer</strong></div>
-          <div>{{ retailer_trade_name }}</div>
+          <div>{{ retailer_fbo_name }}</div>
           <div>{{ retailer_address }}</div>
-          <div>{{ retailer_fssai_license }}</div>
+          <div>{{ retailer_fssai }}</div>
         </div>
         {% else %}
         <div class="entry">
-          <div><strong>{{ manufacturer_person_name }}</strong></div>
+          <div><strong>{{ manufacturer_name }}</strong></div>
           <div><strong>Manufacturer</strong></div>
-          <div>{{ manufacturer_trade_name }}</div>
+          <div>{{ manufacturer_fbo_name }}</div>
           <div>{{ manufacturer_address }}</div>
-          <div>{{ manufacturer_fssai_license }}</div>
+          <div>{{ manufacturer_fssai }}</div>
         </div>
         <div class="entry">
-          <div><strong>{{ retailer_person_name }}</strong></div>
+          <div><strong>{{ retailer_name }}</strong></div>
           <div><strong>Retailer</strong></div>
-          <div>{{ retailer_trade_name }}</div>
+          <div>{{ retailer_fbo_name }}</div>
           <div>{{ retailer_address }}</div>
-          <div>{{ retailer_fssai_license }}</div>
+          <div>{{ retailer_fssai }}</div>
         </div>
         {% endif %}
       </div>
@@ -153,12 +153,12 @@
         </li>
         <li>
           That on
-          <strong> {{ sample_draw_date }} at {{ sample_draw_time }}</strong>, FSO
+          <strong> {{ inspection_date }} at {{ inspection_time }}</strong>, FSO
           inspected the premises of
-          <strong> {{ retailer_trade_name }} </strong> (hereinafter referred to as
+          <strong> {{ retailer_fbo_name }} </strong> (hereinafter referred to as
           the “retailer”) situated at {{ retailer_address }}, Lic No- {{
-          retailer_fssai_license }}, where he found that said business was operated by
-          {{ retailer_person_name }}, who also disclosed that he was looking after the
+          retailer_fssai }}, where he found that said business was operated by
+          {{ retailer_name }}, who also disclosed that he was looking after the
           day to day affairs of the retailer including storage and selling of
           food articles.
         </li>
@@ -175,7 +175,7 @@
           That for the purpose of taking sample, and analyzing the said food
           article by the Food Analyst, FSO called a local witness namely
           Sandipan Sikder and in his presence the complainant served the notice
-          in form VA upon <strong> {{ retailer_person_name }} </strong> the above named
+          in form VA upon <strong> {{ retailer_name }} </strong> the above named
           which was duly filled up and signed by the complainant and the
           witnesses.
         </li>
@@ -184,10 +184,10 @@
           purchased about {{ sample_quantity }} of {{ product_name }} ({{
           packet_count }} packets, {{ batch_no }}, {{ mfg_date }}, {{ expiry_date }}
           ) (hereinafter referred to as the “sample”), manufactured by {{
-          manufacturer_trade_name }}, {{ manufacturer_address }}, manufacturer Lic
-          No - {{ manufacturer_fssai_license }}, (herein referred to as the
+          manufacturer_fbo_name }}, {{ manufacturer_address }}, manufacturer Lic
+          No - {{ manufacturer_fssai }}, (herein referred to as the
           “manufacturer”), from the food business premises of {{
-          retailer_trade_name }}, where it was kept and exhibited for sale for
+          retailer_fbo_name }}, where it was kept and exhibited for sale for
           human consumption and the retailer received a total amounting to Rs.
           {{ total_cost }} ({{ cost_in_words }}) from the complainant toward a
           sale proceed against which retailer issued a valid cash receipt.
@@ -196,10 +196,10 @@
           That the complainant sealed the samples and labeled in accordance with
           the norms of FSSAI rules and no Formalin was added in accordance with
           the method mentioned in Food Safety and Standards Act, 2006 and Rules
-          2011 & Regulations made there under on {{ sample_draw_date }}, Then
+          2011 & Regulations made there under on {{ inspection_date }}, Then
           each packet was labelled with sample label coupon form which bears the
           signature of the complainant, persons in charge of {{
-          retailer_trade_name }} the sample witnesses and code no. of sample i.e
+          retailer_fbo_name }} the sample witnesses and code no. of sample i.e
           {{ sample_code }}
         </li>
         <li>
@@ -227,7 +227,7 @@
           complainant Food Safety Officer was sent to the Food Analyst, Central
           Laboratory (Food), K.M.C. under due entry in the peon book, which was
           duly received by the Food Analyst, K.M.C. on
-          {{ sample_submission_date }} under Laboratory Registration No
+          {{ do_receipt_date }} under Laboratory Registration No
           {{ lab_registration_no }}.
         </li>
         <li>
@@ -254,7 +254,7 @@
           {{ directive_letter_date }} has been served upon {% if same_entity %} {{
           retailer_name }} on {{ retailer_report_receive_date }} {% else %} {{
           retailer_name }} on {{ retailer_report_receive_date }} and to {{
-          manufacturer_person_name }} on {{ manufacturer_report_receive_date }} {%
+          manufacturer_name }} on {{ manufacturer_report_receive_date }} {%
           endif %} by the complainant and the receipt of the same has been duly
           acknowledged. FSO also asked the manufacturer to prefer an appeal
           before Designated Officer against the finding of Food Analyst but the
@@ -291,8 +291,8 @@
       <ol class="justify">
         <li>
           That the sample of <strong>{{ product_name }}</strong> collected from
-          the premises of <strong>{{ retailer_trade_name }}</strong> on
-          {{ sample_draw_date }} vide code No. {{ sample_code }} was analysed by
+          the premises of <strong>{{ retailer_fbo_name }}</strong> on
+          {{ inspection_date }} vide code No. {{ sample_code }} was analysed by
           the Food Analyst, and the report bearing No. {{ analyst_report_no }}
           dated {{ analyst_report_date }} revealed that the sampled food article
           {% if analysis_result %}

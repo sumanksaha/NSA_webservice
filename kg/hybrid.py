@@ -307,14 +307,15 @@ def rrf_fuse_chunks(
     """
     if dedupe_kg:
         chunk_lists = _dedupe_kg_over_chunks(list(chunk_lists))
-    scores: dict[str, float] = {}
+    from app.rag.retrieval.rrf import reciprocal_rank_fuse
+
+    scores = reciprocal_rank_fuse(chunk_lists, rrf_k=rrf_k)
     best: dict[str, Any] = {}
     for ranked in chunk_lists:
-        for rank, chunk in enumerate(ranked):
+        for chunk in ranked:
             cid = str(getattr(chunk, "chunk_id", ""))
             if not cid:
                 continue
-            scores[cid] = scores.get(cid, 0.0) + 1.0 / (rank + 1 + rrf_k)
             if cid not in best:
                 best[cid] = chunk
     # Stable descending sort by RRF score: ties keep first-appearance order

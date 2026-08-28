@@ -80,6 +80,10 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         "query_type": result.get("query_type") or state.get("query_type", "general"),
         "retrieval_latency_ms": result.get("retrieval_latency_ms", 0),
         "log_id": result.get("log_id"),
+        # Evidence set is already computed by apply_stages inside
+        # run_retrieval_pipeline — forward it to avoid recompute in the
+        # evidence_node downstream.
+        "evidence_set": result.get("evidence_set"),
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -96,27 +100,16 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def evidence_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Optionally select a complementary evidence set (feature-flagged).
+    """Pass through the evidence set computed during retrieval.
 
-    Wraps ``select_evidence_set`` behind the ``ENABLE_EVIDENCE_SELECTOR``
-    flag — identical to the legacy pipeline's behaviour.  The evidence set
-    is attached to the state (``evidence_set``) and merged into the
-    response by ``finalize_node``; retrieval chunks themselves are
-    unchanged.
+    The evidence selector already ran inside ``run_retrieval_pipeline``
+    (via ``apply_stages``) and ``retrieve_node`` forwarded the result into
+    ``state["evidence_set"]``.  This node simply records the pass-through in
+    the audit trail — no recomputation, no redundant ``select_evidence_set``
+    call.
     """
     start = time.monotonic()
-    from app.rag.retrieval.evidence_selector import (
-        _evidence_selector_enabled,
-        select_evidence_set,
-    )
-
-    evidence_set: dict[str, Any] | None = None
-    if _evidence_selector_enabled() and state.get("chunks"):
-        try:
-            es = select_evidence_set(_query_for_retrieval(state), state["chunks"], max_size=5, min_size=2)
-            evidence_set = es.to_dict()
-        except Exception as exc:
-            logger.warning("evidence_node: evidence selection failed (%s)", exc)
+    evidence_set = state.get("evidence_set")
     return {
         "evidence_set": evidence_set,
         "audit_trail": [

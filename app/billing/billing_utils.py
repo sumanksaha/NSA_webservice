@@ -1,9 +1,10 @@
-import contextlib
 import io
 import re
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Font
+
+from app.billing.excel_styler import SheetStyler
 
 
 def format_price(price_str):
@@ -87,6 +88,8 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
     # === Sheet 1: Samples ===
     ws_samples = wb.create_sheet("Samples")
 
+    styler = SheetStyler()
+
     # Header row
     headers = [
         "Sample Code",
@@ -102,15 +105,7 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
 
     for col_num, header in enumerate(headers, 1):
         cell = ws_samples.cell(row=1, column=col_num, value=header)
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-        cell.border = Border(
-            top=Side(style="thin"),
-            bottom=Side(style="thin"),
-            left=Side(style="thin"),
-            right=Side(style="thin"),
-        )
-        cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+        styler.style_header(cell)
 
     # Data rows
     for row_num, sample in enumerate(samples, 2):
@@ -128,28 +123,14 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
 
         for col_num, value in enumerate(values, 1):
             cell = ws_samples.cell(row=row_num, column=col_num, value=str(value) if value else "")
-            cell.alignment = Alignment(horizontal="left")
-            cell.border = Border(
-                top=Side(style="thin"),
-                bottom=Side(style="thin"),
-                left=Side(style="thin"),
-                right=Side(style="thin"),
-            )
+            styler.style_data_cell(cell, align="left")
 
-    # Auto-adjust column widths for Samples sheet
-    for col in ws_samples.columns:
-        max_length = 0
-        for cell in col:
-            with contextlib.suppress(BaseException):
-                max_length = max(max_length, len(str(cell.value)))
-        adjusted_width = (max_length + 2) * 1.2
-        ws_samples.column_dimensions[col[0].column_letter].width = adjusted_width
+    styler.auto_adjust_widths(ws_samples)
 
     # === Sheet 2: Summary ===
     ws_summary = wb.create_sheet("Summary")
 
-    # Header
-    ws_summary.append([])  # Empty row
+    ws_summary.append([])  # Empty row (preserves original row layout)
     ws_summary.append(["Billing Summary"])
     ws_summary.cell(row=2, column=1, value="Billing Summary").font = Font(bold=True, size=16)
 
@@ -172,15 +153,7 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
     summary_headers = ["Sample Type", "Count", "Total Price"]
     for col_num, header in enumerate(summary_headers, 1):
         cell = ws_summary.cell(row=6, column=col_num, value=header)
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-        cell.border = Border(
-            top=Side(style="thin"),
-            bottom=Side(style="thin"),
-            left=Side(style="thin"),
-            right=Side(style="thin"),
-        )
-        cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+        styler.style_header(cell)
 
     # Summary data rows
     by_type = summary.get("by_type", {})
@@ -191,16 +164,11 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
         values = [sample_type, count, total_price]
         for col_num, value in enumerate(values, 1):
             cell = ws_summary.cell(row=row_num, column=col_num, value=value)
-            cell.alignment = Alignment(horizontal="left" if isinstance(value, str) else "right")
-            cell.border = Border(
-                top=Side(style="thin"),
-                bottom=Side(style="thin"),
-                left=Side(style="thin"),
-                right=Side(style="thin"),
+            styler.style_data_cell(
+                cell,
+                align="left" if isinstance(value, str) else "right",
+                number_format="#,##0.00" if col_num == 3 and isinstance(value, (int, float)) else None,
             )
-            # Format price with 2 decimal places
-            if col_num == 3 and isinstance(value, (int, float)):
-                cell.number_format = "#,##0.00"
 
     # Grand total row
     grand_total_row = len(by_type) + 7
@@ -208,31 +176,19 @@ def generate_excel_report(samples, summary, start_date=None, end_date=None):
     grand_total = summary.get("grand_total", 0.0)
     total_count = summary.get("total_count", 0)
 
-    ws_summary.cell(row=grand_total_row, column=1, value="GRAND TOTAL").font = Font(bold=True)
-    ws_summary.cell(row=grand_total_row, column=2, value=total_count).font = Font(bold=True)
-    ws_summary.cell(row=grand_total_row, column=3, value=grand_total).font = Font(bold=True)
+    ws_summary.cell(row=grand_total_row, column=1, value="GRAND TOTAL")
+    ws_summary.cell(row=grand_total_row, column=2, value=total_count)
+    ws_summary.cell(row=grand_total_row, column=3, value=grand_total)
 
-    # Format grand total
     for col_num in range(1, 4):
         cell = ws_summary.cell(row=grand_total_row, column=col_num)
-        cell.alignment = Alignment(horizontal="right" if col_num > 1 else "left")
-        cell.border = Border(
-            top=Side(style="thin"),
-            bottom=Side(style="double"),
-            left=Side(style="thin"),
-            right=Side(style="thin"),
+        styler.style_total_row(
+            cell,
+            is_total_label=(col_num == 1),
+            number_format="#,##0.00" if col_num == 3 else None,
         )
-        if col_num == 3:
-            cell.number_format = "#,##0.00"
 
-    # Auto-adjust column widths for Summary sheet
-    for col in ws_summary.columns:
-        max_length = 0
-        for cell in col:
-            with contextlib.suppress(BaseException):
-                max_length = max(max_length, len(str(cell.value)))
-        adjusted_width = (max_length + 2) * 1.2
-        ws_summary.column_dimensions[col[0].column_letter].width = adjusted_width
+    styler.auto_adjust_widths(ws_summary)
 
     # === Save to BytesIO ===
     output = io.BytesIO()

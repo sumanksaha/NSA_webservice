@@ -1,6 +1,7 @@
 """Core inspection CRUD routes: index, list, create, get, update, delete."""
 
 import json
+import re
 from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
@@ -14,6 +15,17 @@ from app.services.sync_orchestrator import sync_row
 from app.shared.context_derivers import CHECKLIST_FIELDS
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
+
+
+# Sample code format: SL/WB/XXXXXX/XXXX/XXXXX
+SAMPLE_CODE_PATTERN = re.compile(r"^SL/WB/\d{6}/\d{4}/\d{5}$")
+
+
+def validate_sample_code(code):
+    """Return True when ``code`` matches the SL/WB/XXXXXX/XXXX/XXXXX pattern or is empty."""
+    if not code:
+        return True
+    return bool(SAMPLE_CODE_PATTERN.match(code))
 
 
 def _apply_inspection_sorting(query, sort_by, sort_order):
@@ -196,6 +208,17 @@ def create_inspection():
         return jsonify({"error": 'visit_purpose must be "routine" or "complaint"'}), 400
     visit_purpose = visit_purpose or None
 
+    # Sample collection fields
+    sample_collected_raw = form_data.get("sample_collected", "").strip().lower()
+    sample_collected = sample_collected_raw in ("on", "true", "1", "yes")
+    sample_code = form_data.get("sample_code", "").strip() or None
+
+    if sample_collected and not sample_code:
+        return jsonify({"error": "sample_code is required when sample_collected is true"}), 400
+
+    if sample_collected and sample_code and not validate_sample_code(sample_code):
+        return jsonify({"error": "sample_code must match format SL/WB/XXXXXX/XXXX/XXXXX"}), 400
+
     inspection = Inspection(
         inspection_code=inspection_code,
         fso_name=food_safety_officer_name,
@@ -211,6 +234,8 @@ def create_inspection():
         compliance_deadline=compliance_deadline,
         is_dismissed=False,
         created_at=datetime.now(UTC),
+        sample_collected=sample_collected,
+        sample_code=sample_code,
     )
 
     try:
@@ -235,6 +260,8 @@ def create_inspection():
                 "adjudication_id": str(inspection.adjudication_id or ""),
                 "created_at": inspection.created_at.isoformat() if inspection.created_at else "",
                 "synced_at": "",
+                "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
+                "sample_code": inspection.sample_code or "",
             }
             result = sync_row("inspection_log", row_dict, entity_id=inspection.id)
             if result["sheets"]:
@@ -293,6 +320,8 @@ def get_inspection(inspection_id):
         "adjudication_id": inspection.adjudication_id,
         "created_at": inspection.created_at.isoformat() if inspection.created_at else None,
         "synced_at": inspection.synced_at.isoformat() if inspection.synced_at else None,
+        "sample_collected": inspection.sample_collected,
+        "sample_code": inspection.sample_code,
     })
 
 
@@ -349,6 +378,19 @@ def update_inspection(inspection_id):
         checklist = {field: form_data[field].strip() for field in CHECKLIST_FIELDS if form_data.get(field, "").strip()}
         inspection.checklist_json = json.dumps(checklist) if checklist else None
 
+    # Update sample collection fields
+    if "sample_collected" in form_data:
+        sample_collected_raw = form_data["sample_collected"].strip().lower()
+        inspection.sample_collected = sample_collected_raw in ("on", "true", "1", "yes")
+    if "sample_code" in form_data:
+        inspection.sample_code = form_data["sample_code"].strip() or None
+
+    if inspection.sample_collected and not inspection.sample_code:
+        return jsonify({"error": "sample_code is required when sample_collected is true"}), 400
+
+    if inspection.sample_collected and inspection.sample_code and not validate_sample_code(inspection.sample_code):
+        return jsonify({"error": "sample_code must match format SL/WB/XXXXXX/XXXX/XXXXX"}), 400
+
     try:
         db.session.commit()
 
@@ -370,6 +412,8 @@ def update_inspection(inspection_id):
                 "adjudication_id": str(inspection.adjudication_id or ""),
                 "created_at": inspection.created_at.isoformat() if inspection.created_at else "",
                 "synced_at": datetime.now(UTC).isoformat(),
+                "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
+                "sample_code": inspection.sample_code or "",
             }
             sync_row("inspection_log", row_dict, entity_id=inspection.id)
         except Exception as e:

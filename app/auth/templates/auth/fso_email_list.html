@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}FSO Email Settings — NSA WebService{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-envelope-gear"></i> FSO Email (SMTP) Configuration</h2>
+        <p>Configure per-FSO email accounts for sending Improvement Notices and other documents.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="info-box {% if category == 'error' %}info-box--error{% elif category == 'warning' %}info-box--warning{% else %}info-box--success{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="mb--md">
+        <a href="{{ url_for('auth.users') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back to User Management
+        </a>
+    </div>
+
+    {% if fsos %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>FSO Name</th>
+                    <th>Email</th>
+                    <th>SMTP Server</th>
+                    <th>TLS</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fso in fsos %}
+                <tr>
+                    <td>
+                        <i class="fa-solid fa-user-shield"></i>
+                        <strong>{{ fso.fso_name }}</strong>
+                    </td>
+                    <td>{{ fso.email or '—' }}</td>
+                    <td>{{ fso.smtp_host or '—' }}{% if fso.smtp_port %}:{{ fso.smtp_port }}{% endif %}</td>
+                    <td>
+                        {% if fso.smtp_use_tls %}
+                        <span class="status-badge status-badge--success">
+                            <i class="fa-solid fa-lock"></i> TLS
+                        </span>
+                        {% elif fso.smtp_use_tls is not none %}
+                        <span class="status-badge status-badge--warning">Off</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if fso.email and fso.smtp_host %}
+                        <span class="status-badge status-badge--success">
+                            <i class="fa-solid fa-circle-check"></i> Configured
+                        </span>
+                        {% else %}
+                        <span class="status-badge status-badge--warning">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Not Configured
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('auth.fso_email_edit', fso_name=fso.fso_name) }}"
+                           class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-pen"></i> Configure
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="info-box info-box--warning">
+        <i class="fa-solid fa-circle-info"></i>
+        No FSOs registered yet. Create FSO accounts first via
+        <a href="{{ url_for('auth.create_user') }}">Create User</a>.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

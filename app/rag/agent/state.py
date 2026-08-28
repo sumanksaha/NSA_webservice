@@ -41,6 +41,10 @@ class RAGState(TypedDict, total=False):
     chunks: list[dict[str, Any]]
     retrieval_latency_ms: int
     log_id: str | None
+    # Evidence set forwarded from retrieve_node (computed by apply_stages
+    # inside run_retrieval_pipeline).  Avoids a redundant select_evidence_set
+    # call in evidence_node.
+    evidence_set: dict[str, Any] | None
 
     # --- Generate / verify ---
     answer: str
@@ -83,6 +87,7 @@ def initial_state(
         "chunks": [],
         "retrieval_latency_ms": 0,
         "log_id": None,
+        "evidence_set": None,
         "answer": "",
         "groundedness": 0.0,
         "hallucination_detected": False,

@@ -280,9 +280,9 @@ class TestImprovementNoticeTemplate:
         app, _, _ = env
         with app.app_context():
             html = render_template("food_cell/improvement_notice.html", **self._ctx())
-        assert "Govt. of India" in html
-        assert "Ministry of Health &amp; Family Welfare" in html
-        assert "Food Safety and Standards Authority of India" in html
+        assert "Kolkata Municipal Corporation" in html
+        assert "Food Safety Department" in html
+        assert "Food Safety and Standards Act, 2006" in html
 
     def test_recipient_block(self, env):
         from flask import render_template

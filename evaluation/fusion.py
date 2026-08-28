@@ -53,7 +53,9 @@ FUSION_ARM_DEFS: dict[str, tuple[str, str, str | None, bool]] = {
     "H_dense_kg_rrf_dedup": ("A_dense", None, "D_kg_retrieval", True),
 }
 
-RRF_K = 60.0
+from app.rag.retrieval.rrf import DEFAULT_RRF_K
+
+RRF_K = DEFAULT_RRF_K
 FUSED_TOP_K = 20
 
 
@@ -79,12 +81,15 @@ def rrf_fuse_items(*item_lists, rrf_k: float = RRF_K, top_k: int = FUSED_TOP_K) 
     """
     from evaluation.metrics import RankedItem
 
-    scores: dict[tuple, float] = {}
+    from app.rag.retrieval.rrf import reciprocal_rank_fuse
+
+    scores = reciprocal_rank_fuse(
+        item_lists, rrf_k=rrf_k, key_fn=lambda item: (item.kind, item.key, item.family, item.section)
+    )
     first: dict[tuple, RankedItem] = {}
     for items in item_lists:
-        for rank, item in enumerate(items):
+        for item in items:
             key = (item.kind, item.key, item.family, item.section)
-            scores[key] = scores.get(key, 0.0) + 1.0 / (rank + 1 + rrf_k)
             first.setdefault(key, item)
     ordered = sorted(scores, key=scores.get, reverse=True)[:top_k]  # type: ignore[arg-type]
     return [first[k] for k in ordered]

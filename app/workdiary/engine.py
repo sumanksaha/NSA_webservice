@@ -135,9 +135,7 @@ class WorkDiaryEngine:
 
         # --- Column 4: Activity (enriched with food item + notice info) ---
         concerned_food = (insp.concerned_food or "").strip()
-        notice_date = (
-            insp.notice_issued_at.strftime("%d-%m-%Y") if insp.notice_issued_at else None
-        )
+        notice_date = insp.notice_issued_at.strftime("%d-%m-%Y") if insp.notice_issued_at else None
 
         if purpose == PURPOSE_COMPLAINT:
             problem_brief = (insp.problem or "").strip()
@@ -153,6 +151,10 @@ class WorkDiaryEngine:
         if notice_date:
             activity += f"<br>Notice issued: {notice_date}."
 
+        # --- Sample collection ---
+        sample_collected = bool(insp.sample_collected) if insp.sample_collected is not None else False
+        sample_code = insp.sample_code or ""
+
         return {
             "inspection_id": insp.id,
             "inspection_code": insp.inspection_code,
@@ -161,6 +163,8 @@ class WorkDiaryEngine:
             "place_of_visit": place_of_visit,
             "purpose": purpose,
             "activity": activity,
+            "sample_collected": sample_collected,
+            "sample_code": sample_code,
         }
 
     @staticmethod

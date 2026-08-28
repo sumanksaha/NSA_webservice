@@ -103,6 +103,26 @@
             {% endfor %}
         </div>
 
+        <!-- Sample Collection Section -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-flask"></i> Sample Collection</h3>
+            <p class="form-hint">Indicate if a sample was collected during this inspection and provide the sample code.</p>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sample_collected" class="form-label">Sample Collected</label>
+                <input type="checkbox" id="sample_collected" name="sample_collected" class="form-check-input"
+                    {% if inspection.sample_collected %}checked{% endif %}>
+                <small class="form-hint">Check if a sample was collected during this inspection</small>
+            </div>
+            <div class="form-group" id="sampleCodeGroup" style="display: {% if inspection.sample_collected %}block{% else %}none{% endif %};">
+                <label for="sample_code" class="form-label">Sample Code</label>
+                <input type="text" id="sample_code" name="sample_code" class="form-input" value="{{ inspection.sample_code or '' }}" placeholder="Enter sample code (e.g., SL/WB/XXXXXX/XXXX/XXXXX)">
+                <small class="form-hint">Required if sample was collected. Format: SL/WB/XXXXXX/XXXX/XXXXX</small>
+            </div>
+        </div>
+
         <!-- FBO Information -->
         <div class="section-header">
             <h3><i class="fa-solid fa-building"></i> FBO Information</h3>
@@ -173,6 +193,20 @@ function updateComplianceDeadline() {
     const deadline = date.toISOString().split('T')[0];
     complianceDeadlineInput.value = deadline;
 }
+
+// Toggle sample code field visibility
+function toggleSampleCodeField() {
+    var sampleCollectedCheckbox = document.getElementById('sample_collected');
+    var sampleCodeGroup = document.getElementById('sampleCodeGroup');
+    sampleCodeGroup.style.display = sampleCollectedCheckbox.checked ? 'block' : 'none';
+    if (!sampleCollectedCheckbox.checked) {
+        document.getElementById('sample_code').value = '';
+    }
+}
+
+// Initialize sample code toggle on page load
+document.getElementById('sample_collected').addEventListener('change', toggleSampleCodeField);
+window.addEventListener('load', toggleSampleCodeField);
 
 // Form submission handling
 document.getElementById('editInspectionForm').addEventListener('submit', async function(e) {

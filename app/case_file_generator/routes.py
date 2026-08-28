@@ -14,7 +14,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from flask_login import login_required
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -46,15 +46,15 @@ _REQUIRED_FIELDS: dict[str, str] = {
     "case_number": "Case Number",
     "food_safety_officer_name": "Food Safety Officer Name",
     "authorization_date": "Authorization Date",
-    "sample_draw_date": "Sample Draw Date",
-    "sample_draw_time": "Sample Draw Time",
-    "manufacturer_fssai_license": "Manufacturer FSSAI Number",
-    "manufacturer_person_name": "Manufacturer Name",
-    "manufacturer_trade_name": "Manufacturer FBO Name",
+    "inspection_date": "Sample Draw Date",
+    "inspection_time": "Sample Draw Time",
+    "manufacturer_fssai": "Manufacturer FSSAI Number",
+    "manufacturer_name": "Manufacturer Name",
+    "manufacturer_fbo_name": "Manufacturer FBO Name",
     "manufacturer_address": "Manufacturer Address",
-    "retailer_fssai_license": "Retailer FSSAI Number",
-    "retailer_person_name": "Retailer Name",
-    "retailer_trade_name": "Retailer FBO Name",
+    "retailer_fssai": "Retailer FSSAI Number",
+    "retailer_name": "Retailer Name",
+    "retailer_fbo_name": "Retailer FBO Name",
     "retailer_address": "Retailer Address",
     "product_name": "Product Name",
     "batch_no": "Batch Number",
@@ -63,7 +63,6 @@ _REQUIRED_FIELDS: dict[str, str] = {
     "mfg_date": "Date of Manufacturing",
     "expiry_date": "Date of Expiry",
     "sample_code": "Sample Code",
-    "sample_submission_date": "Sample Submission Date",
     "lab_registration_no": "Lab Registration Number",
     "do_receipt_date": "DO Receipt Date",
     "analyst_report_no": "Analyst Report Number",
@@ -79,7 +78,6 @@ _DATE_FIELDS: list[str] = [
     "inspection_date",
     "mfg_date",
     "expiry_date",
-    "sample_submission_date",
     "do_receipt_date",
     "analyst_report_date",
     "directive_letter_date",
@@ -88,12 +86,24 @@ _DATE_FIELDS: list[str] = [
 ]
 
 
+def _parse_date(value: str) -> datetime | None:
+    """Try to parse a YYYY-MM-DD date string; return None on failure."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return None
+
+
 def validate_case_file_form(form_data: dict) -> dict[str, str]:
     errors: dict[str, str] = {}
     for field, label in _REQUIRED_FIELDS.items():
         value = form_data.get(field, "")
         if value is None or (isinstance(value, str) and not value.strip()):
             errors[field] = f"{label} is required."
+
+    # --- Numeric validations ---
     packet_count = form_data.get("packet_count", "")
     if packet_count:
         try:
@@ -101,14 +111,42 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
                 errors["packet_count"] = "Packet Count must be a positive number."
         except (TypeError, ValueError):
             errors["packet_count"] = "Packet Count must be a valid integer."
+
+    total_cost = form_data.get("total_cost", "").strip()
+    if total_cost:
+        try:
+            float(total_cost)
+        except (TypeError, ValueError):
+            errors["total_cost"] = "Total Cost must be a valid number."
+
+    # --- Time format validation ---
+    inspection_time = form_data.get("inspection_time", "").strip()
+    if inspection_time:
+        try:
+            datetime.strptime(inspection_time, "%H:%M")
+        except (TypeError, ValueError):
+            errors["inspection_time"] = "Sample Draw Time must be in HH:MM format."
+
+    # --- Date format validation ---
+    parsed_dates: dict[str, datetime] = {}
     for field in _DATE_FIELDS:
         value = form_data.get(field, "")
         if not value:
             continue
-        try:
-            datetime.strptime(value, "%Y-%m-%d")
-        except (TypeError, ValueError):
-            errors[field] = f"{_REQUIRED_FIELDS[field]} must be a valid date."
+        dt = _parse_date(value)
+        if dt is None:
+            errors[field] = f"{_REQUIRED_FIELDS.get(field, field)} must be a valid date."
+        else:
+            parsed_dates[field] = dt
+
+    # --- Date ordering validation ---
+    if "mfg_date" in parsed_dates and "expiry_date" in parsed_dates:
+        if parsed_dates["mfg_date"] >= parsed_dates["expiry_date"]:
+            errors["expiry_date"] = "Date of Expiry must be after Date of Manufacturing."
+
+    if "do_receipt_date" in parsed_dates and "analyst_report_date" in parsed_dates:
+        if parsed_dates["do_receipt_date"] > parsed_dates["analyst_report_date"]:
+            errors["analyst_report_date"] = "Analyst Report Date must be on or after DO Receipt Date."
     return errors
 
 
@@ -163,8 +201,8 @@ def process_form_data(form_data):
     case_data[DERIVED_CASE_TRACK] = "sample"
     case_data[DERIVED_VIOLATIONS] = []
 
-    manufacturer_fssai = case_data.get("manufacturer_fssai_license", case_data.get("manufacturer_fssai", "")).strip()
-    retailer_fssai = case_data.get("retailer_fssai_license", case_data.get("retailer_fssai", "")).strip()
+    manufacturer_fssai = case_data.get("manufacturer_fssai", "").strip()
+    retailer_fssai = case_data.get("retailer_fssai", "").strip()
     same_entity = derive_same_entity(manufacturer_fssai, retailer_fssai)
     case_data["same_entity"] = same_entity
     case_data[DERIVED_SAME_ENTITY] = same_entity
@@ -186,22 +224,26 @@ def process_form_data(form_data):
 
 
 def case_file_to_dict(case_file):
-    """Convert a CaseFile model instance to a dictionary for JSON serialization."""
+    """Convert a CaseFile model instance to a dictionary for JSON serialization.
+
+    Keys match the model column names so templates can use them directly
+    without aliasing.
+    """
     return {
         "id": case_file.id,
         "case_number": case_file.case_number,
         "food_safety_officer_name": case_file.food_safety_officer_name,
         "authorization_date": case_file.authorization_date.isoformat() if case_file.authorization_date else None,
-        "sample_draw_date": (case_file.inspection_date.isoformat() if case_file.inspection_date else None),
-        "sample_draw_time": case_file.inspection_time,
+        "inspection_date": (case_file.inspection_date.isoformat() if case_file.inspection_date else None),
+        "inspection_time": case_file.inspection_time,
         "sample_id": case_file.sample_id,
-        "manufacturer_fssai_license": case_file.manufacturer_fssai,
-        "manufacturer_person_name": case_file.manufacturer_name,
-        "manufacturer_trade_name": case_file.manufacturer_fbo_name,
+        "manufacturer_fssai": case_file.manufacturer_fssai,
+        "manufacturer_name": case_file.manufacturer_name,
+        "manufacturer_fbo_name": case_file.manufacturer_fbo_name,
         "manufacturer_address": case_file.manufacturer_address,
-        "retailer_fssai_license": case_file.retailer_fssai,
-        "retailer_person_name": case_file.retailer_name,
-        "retailer_trade_name": case_file.retailer_fbo_name,
+        "retailer_fssai": case_file.retailer_fssai,
+        "retailer_name": case_file.retailer_name,
+        "retailer_fbo_name": case_file.retailer_fbo_name,
         "retailer_address": case_file.retailer_address,
         "product_name": case_file.product_name,
         "batch_no": case_file.batch_no,
@@ -213,9 +255,6 @@ def case_file_to_dict(case_file):
         "total_cost": case_file.total_cost,
         "cost_in_words": case_file.cost_in_words,
         "sample_code": case_file.sample_code,
-        "sample_submission_date": (
-            case_file.sample_submission_date.isoformat() if case_file.sample_submission_date else None
-        ),
         "lab_registration_no": case_file.Lab_Registration_No,
         "do_receipt_date": case_file.do_receipt_date.isoformat() if case_file.do_receipt_date else None,
         "is_misbranded": "misbranded" if case_file.is_misbranded else "",
@@ -236,7 +275,6 @@ def case_file_to_dict(case_file):
         ),
         "applicable_regulation": case_file.applicable_regulation,
         "applicable_clause": case_file.applicable_clause,
-        "sample_name": case_file.sample_name,
         "applicable_sections": case_file.applicable_sections,
         "created_at": case_file.created_at.isoformat() if case_file.created_at else None,
         "synced_at": case_file.synced_at.isoformat() if case_file.synced_at else None,
@@ -257,16 +295,16 @@ def _process_case_file_form(form_data):
         case_number=form_data.get("case_number", ""),
         food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
         authorization_date=parse_date(form_data.get("authorization_date", "")),
-        inspection_date=parse_date(form_data.get("sample_draw_date", "")),
-        inspection_time=form_data.get("sample_draw_time", ""),
+        inspection_date=parse_date(form_data.get("inspection_date", "")),
+        inspection_time=form_data.get("inspection_time", ""),
         sample_id=sample_id,
-        manufacturer_fssai=form_data.get("manufacturer_fssai_license", ""),
-        manufacturer_name=form_data.get("manufacturer_person_name", ""),
-        manufacturer_fbo_name=form_data.get("manufacturer_trade_name", ""),
+        manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
+        manufacturer_name=form_data.get("manufacturer_name", ""),
+        manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
         manufacturer_address=form_data.get("manufacturer_address", ""),
-        retailer_fssai=form_data.get("retailer_fssai_license", ""),
-        retailer_name=form_data.get("retailer_person_name", ""),
-        retailer_fbo_name=form_data.get("retailer_trade_name", ""),
+        retailer_fssai=form_data.get("retailer_fssai", ""),
+        retailer_name=form_data.get("retailer_name", ""),
+        retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
         retailer_address=form_data.get("retailer_address", ""),
         product_name=form_data.get("product_name", ""),
         batch_no=form_data.get("batch_no", ""),
@@ -278,8 +316,8 @@ def _process_case_file_form(form_data):
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
         sample_code=form_data.get("sample_code", ""),
-        sample_submission_date=parse_date(form_data.get("sample_submission_date", "")),
         Lab_Registration_No=form_data.get("lab_registration_no", ""),
+        sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
         is_misbranded=form_data.get("is_misbranded") == "misbranded",
         is_substandard=form_data.get("is_substandard") == "substandard",
@@ -291,7 +329,6 @@ def _process_case_file_form(form_data):
         manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
-        sample_name=form_data.get("sample_name", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
 
@@ -462,16 +499,16 @@ def generate_case_file_route():
         case_number=form_data.get("case_number", ""),
         food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
         authorization_date=parse_date(form_data.get("authorization_date", "")),
-        inspection_date=parse_date(form_data.get("sample_draw_date", "")),
-        inspection_time=form_data.get("sample_draw_time", ""),
+        inspection_date=parse_date(form_data.get("inspection_date", "")),
+        inspection_time=form_data.get("inspection_time", ""),
         sample_id=int(form_data["sample_id"]) if form_data.get("sample_id") else None,
-        manufacturer_fssai=form_data.get("manufacturer_fssai_license", ""),
-        manufacturer_name=form_data.get("manufacturer_person_name", ""),
-        manufacturer_fbo_name=form_data.get("manufacturer_trade_name", ""),
+        manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
+        manufacturer_name=form_data.get("manufacturer_name", ""),
+        manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
         manufacturer_address=form_data.get("manufacturer_address", ""),
-        retailer_fssai=form_data.get("retailer_fssai_license", ""),
-        retailer_name=form_data.get("retailer_person_name", ""),
-        retailer_fbo_name=form_data.get("retailer_trade_name", ""),
+        retailer_fssai=form_data.get("retailer_fssai", ""),
+        retailer_name=form_data.get("retailer_name", ""),
+        retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
         retailer_address=form_data.get("retailer_address", ""),
         product_name=form_data.get("product_name", ""),
         batch_no=form_data.get("batch_no", ""),
@@ -483,8 +520,8 @@ def generate_case_file_route():
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
         sample_code=form_data.get("sample_code", ""),
-        sample_submission_date=parse_date(form_data.get("sample_submission_date", "")),
         Lab_Registration_No=form_data.get("lab_registration_no", ""),
+        sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
         is_misbranded=form_data.get("is_misbranded") == "misbranded",
         is_substandard=form_data.get("is_substandard") == "substandard",
@@ -496,7 +533,6 @@ def generate_case_file_route():
         manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
-        sample_name=form_data.get("sample_name", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
 
@@ -512,7 +548,6 @@ def generate_case_file_route():
         "is_substandard",
         "applicable_regulation",
         "applicable_clause",
-        "sample_name",
         "applicable_sections",
     }
     try:
@@ -578,10 +613,9 @@ def lookup_sample():
     return jsonify({
         "id": sample.id,
         "sample_code": sample.sample_code,
-        "sample_name": sample.sample_name,
-        "retailer_fssai_license": sample.retailer_fssai or "",
-        "retailer_person_name": sample.retailer_name or "",
-        "sample_submission_date": (sample.submission_date.strftime("%Y-%m-%d") if sample.submission_date else ""),
+        "product_name": sample.sample_name or "",
+        "retailer_fssai": sample.retailer_fssai or "",
+        "retailer_name": sample.retailer_name or "",
         "total_cost": sample.price or "",
     })
 
@@ -685,3 +719,96 @@ def import_case_route():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"new_case_id": new_case_id}), 201
+
+
+# ---------------------------------------------------------------------------
+# Word (.docx) download routes
+# ---------------------------------------------------------------------------
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/petition")
+@login_required
+def download_petition_docx(case_id: int):
+    """Download the Petition as a Word (.docx) document."""
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    from app.case_file_generator.word_converter import CaseFileWordConverter
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+    converter = CaseFileWordConverter()
+    docx_bytes = converter.build_petition(case_data)
+
+    import io as _io
+
+    buf = _io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Petition_{case.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/permission")
+@login_required
+def download_permission_docx(case_id: int):
+    """Download the Permission Letter as a Word (.docx) document."""
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    from app.case_file_generator.word_converter import CaseFileWordConverter
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+    converter = CaseFileWordConverter()
+    docx_bytes = converter.build_permission_letter(case_data)
+
+    import io as _io
+
+    buf = _io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Permission_Letter_{case.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/zip")
+@login_required
+def download_both_docx(case_id: int):
+    """Download both Petition + Permission Letter as a single ZIP of .docx files."""
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    import io as _io
+    import zipfile
+
+    from app.case_file_generator.word_converter import CaseFileWordConverter
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+    converter = CaseFileWordConverter()
+
+    petition_docx = converter.build_petition(case_data)
+    permission_docx = converter.build_permission_letter(case_data)
+
+    label = case.case_number or str(case_id)
+    zip_buf = _io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"Petition_{label}.docx", petition_docx)
+        zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
+    zip_buf.seek(0)
+    return send_file(
+        zip_buf,
+        as_attachment=True,
+        download_name=f"Case_File_{label}_Word.zip",
+        mimetype="application/zip",
+    )

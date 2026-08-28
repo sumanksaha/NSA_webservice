@@ -742,3 +742,143 @@ def generate_all():
         download_name=f"{zip_prefix}_Final.zip",
         mimetype="application/zip",
     )
+
+
+# ---------------------------------------------------------------------------
+# Word (.docx) download routes
+# ---------------------------------------------------------------------------
+
+
+@adjudication_bp.route("/case/<int:case_id>/docx/petition")
+@login_required
+def download_petition_docx(case_id: int):
+    """Download the Adjudication Petition as a Word (.docx) document."""
+    adj = Adjudication.query.get_or_404(case_id)
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404
+
+    from app.adjudication.word_converter import AdjudicationWordConverter
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    # Include photos for the context
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    context["adjudication"] = {
+        "photos": verified_photos,
+        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
+    }
+
+    converter = AdjudicationWordConverter()
+    docx_bytes = converter.build_petition(context)
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Adjudication_Petition_{adj.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@adjudication_bp.route("/case/<int:case_id>/docx/permission")
+@login_required
+def download_permission_docx(case_id: int):
+    """Download the Adjudication Permission Letter as a Word (.docx) document."""
+    adj = Adjudication.query.get_or_404(case_id)
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404
+
+    from app.adjudication.word_converter import AdjudicationWordConverter
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    converter = AdjudicationWordConverter()
+    docx_bytes = converter.build_permission_letter(context)
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Permission_Letter_{adj.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@adjudication_bp.route("/case/<int:case_id>/docx/zip")
+@login_required
+def download_both_docx(case_id: int):
+    """Download both Petition + Permission Letter as a single ZIP of .docx files."""
+    adj = Adjudication.query.get_or_404(case_id)
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404
+
+    import zipfile
+
+    from app.adjudication.word_converter import AdjudicationWordConverter
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    # Include photos for the petition context
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    context["adjudication"] = {
+        "photos": verified_photos,
+        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
+    }
+
+    converter = AdjudicationWordConverter()
+    petition_docx = converter.build_petition(context)
+    permission_docx = converter.build_permission_letter(context)
+
+    label = adj.case_number or str(case_id)
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
+        zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
+    zip_buf.seek(0)
+    return send_file(
+        zip_buf,
+        as_attachment=True,
+        download_name=f"Adjudication_{label}_Word.zip",
+        mimetype="application/zip",
+    )

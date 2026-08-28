@@ -8,6 +8,8 @@ The stub-LLM env is pinned by the autouse ``_rag_stub_llm_env`` fixture in
 
 from __future__ import annotations
 
+from unittest import mock
+
 from app.rag.agent.nodes import (
     GROUNDEDNESS_THRESHOLD,
     classify_node,
@@ -75,6 +77,7 @@ def test_retrieve_node_calls_pipeline_and_records(monkeypatch):
             "query_type": "offence",
             "retrieval_latency_ms": 42,
             "log_id": "log-1",
+            "evidence_set": {"items": [{"evidence_type": "statute"}]},
         }
 
     monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
@@ -83,6 +86,7 @@ def test_retrieve_node_calls_pipeline_and_records(monkeypatch):
     assert out["query_type"] == "offence"
     assert out["retrieval_latency_ms"] == 42
     assert out["log_id"] == "log-1"
+    assert out["evidence_set"] == {"items": [{"evidence_type": "statute"}]}
     assert captured["query"] == "penalty for selling substandard food"
     assert out["audit_trail"][-1]["detail"]["chunk_count"] == 1
 
@@ -118,40 +122,37 @@ def test_retrieve_node_keeps_query_type_when_empty(monkeypatch):
 # ---------------------------------------------------------------------- #
 
 
-def test_evidence_node_skipped_when_flag_off(monkeypatch):
-    monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "false")
+def test_evidence_node_passes_through_none_when_absent():
+    """When no evidence_set is in state, None passes through."""
     out = evidence_node(_make_state(chunks=[{"chunk_id": "c1"}]))
     assert out["evidence_set"] is None
     assert out["audit_trail"][-1]["detail"]["evidence_set"] is False
 
 
-def test_evidence_node_runs_when_flag_on(monkeypatch):
-    monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "true")
-    import app.rag.retrieval.evidence_selector as es_mod
-
-    class FakeEvidenceSet:
-        def to_dict(self):
-            return {"items": [{"evidence_type": "statute"}]}
-
-    def fake_select(query, chunks, **kwargs):
-        return FakeEvidenceSet()
-
-    monkeypatch.setattr(es_mod, "select_evidence_set", fake_select)
-    out = evidence_node(_make_state(chunks=[{"chunk_id": "c1"}]))
+def test_evidence_node_passes_through_evidence_set():
+    """evidence_node forwards the evidence_set set by retrieve_node."""
+    out = evidence_node(
+        _make_state(
+            chunks=[{"chunk_id": "c1"}],
+            evidence_set={"items": [{"evidence_type": "statute"}]},
+        )
+    )
     assert out["evidence_set"] == {"items": [{"evidence_type": "statute"}]}
     assert out["audit_trail"][-1]["detail"]["evidence_set"] is True
 
 
-def test_evidence_node_degrades_on_error(monkeypatch):
-    monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "true")
+def test_evidence_node_does_not_recompute_select_evidence_set(monkeypatch):
+    """Consolidation check: evidence_node must NOT call select_evidence_set.
+
+    The evidence selector already ran inside run_retrieval_pipeline's
+    apply_stages — the node is a pure pass-through now.
+    """
     import app.rag.retrieval.evidence_selector as es_mod
 
-    def boom(*args, **kwargs):
-        raise RuntimeError("selector down")
-
-    monkeypatch.setattr(es_mod, "select_evidence_set", boom)
-    out = evidence_node(_make_state(chunks=[{"chunk_id": "c1"}]))
-    assert out["evidence_set"] is None
+    monkeypatch.setattr(es_mod, "select_evidence_set", mock.Mock(side_effect=AssertionError("should not be called")))
+    out = evidence_node(_make_state(evidence_set={"items": []}))
+    assert out["evidence_set"] == {"items": []}
+    assert not es_mod.select_evidence_set.called
 
 
 # ---------------------------------------------------------------------- #

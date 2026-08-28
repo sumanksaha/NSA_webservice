@@ -14,6 +14,14 @@ class FSO(db.Model):
     fso_name = db.Column(db.String(100), primary_key=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
+    # Per-FSO email / SMTP configuration (nullable — email not yet configured)
+    email = db.Column(db.String(200), nullable=True)  # sender email address
+    smtp_host = db.Column(db.String(200), nullable=True)
+    smtp_port = db.Column(db.Integer, nullable=True, default=587)
+    smtp_user = db.Column(db.String(200), nullable=True)  # login username (defaults to email)
+    smtp_password = db.Column(db.String(500), nullable=True)  # stored encrypted in production
+    smtp_use_tls = db.Column(db.Boolean, nullable=True, default=True)
+
     __table_args__ = (db.Index("idx_fso_name", "fso_name"),)
 
 
@@ -48,6 +56,9 @@ class Inspection(db.Model):
     adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
+    # New fields for sample collection
+    sample_collected = db.Column(db.Boolean, nullable=True)
+    sample_code = db.Column(db.String(100), nullable=True)
 
     __table_args__ = (
         db.Index("idx_inspection_code", "inspection_code"),

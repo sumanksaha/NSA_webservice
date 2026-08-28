@@ -270,34 +270,54 @@ def create_user():
                 )
             except ProvisioningError as exc:
                 flash(str(exc), "error")
-                return render_template("auth/create_user.html")
+                from app.utils.fso_data import get_all_fso_names
+                return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
             if password != confirm:
                 db.session.delete(user)
                 db.session.commit()
                 flash("Passwords do not match.", "error")
-                return render_template("auth/create_user.html")
+                from app.utils.fso_data import get_all_fso_names
+                return render_template("auth/create_user.html", fso_names=get_all_fso_names())
+
+            # Save FSO email + Gmail SMTP defaults
+            fso_email = (request.form.get("fso_email") or "").strip()
+            if fso_email:
+                from app.models.inspection import FSO as FSOModel
+                fso_record = db.session.get(FSOModel, fso_name)
+                if fso_record:
+                    fso_record.email = fso_email
+                    fso_record.smtp_host = "smtp.gmail.com"
+                    fso_record.smtp_port = 587
+                    fso_record.smtp_user = fso_email
+                    fso_record.smtp_use_tls = True
+                    db.session.commit()
+
             _log_user_audit("user_created", current_user.id, user.id)
             flash(f"FSO account '{username}' created for {fso_name}.", "success")
             return redirect(url_for("auth.users"))
 
         if not username or not password or not confirm:
             flash("All fields are required.", "error")
-            return render_template("auth/create_user.html")
+            from app.utils.fso_data import get_all_fso_names
+            return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         if len(username) > 80:
             flash("Username must be 80 characters or fewer.", "error")
-            return render_template("auth/create_user.html")
+            from app.utils.fso_data import get_all_fso_names
+            return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         existing = User.query.filter_by(username=username).first()
         if existing is not None:
             flash(f"Username '{username}' is already taken.", "error")
-            return render_template("auth/create_user.html")
+            from app.utils.fso_data import get_all_fso_names
+            return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         error = _password_rule_error(password, confirm, label="New password")
         if error:
             flash(error, "error")
-            return render_template("auth/create_user.html")
+            from app.utils.fso_data import get_all_fso_names
+            return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         user = User(
             username=username,
@@ -413,3 +433,45 @@ def delete_user(user_id):
     _log_user_audit("user_deleted", current_user.id, user_id)
     flash(f"User '{username}' deleted.", "success")
     return redirect(url_for("auth.users"))
+
+
+# ---------------------------------------------------------------------------
+# FSO Email (SMTP) Configuration
+# ---------------------------------------------------------------------------
+
+
+@auth_bp.route("/fso-email")
+@login_required
+@admin_required
+def fso_email_list():
+    """List all FSOs with their email configuration status."""
+    from app.models.inspection import FSO as FSOModel
+
+    fsos = FSOModel.query.order_by(FSOModel.fso_name.asc()).all()
+    return render_template("auth/fso_email_list.html", fsos=fsos)
+
+
+@auth_bp.route("/fso-email/<fso_name>", methods=["GET", "POST"])
+@login_required
+@admin_required
+def fso_email_edit(fso_name: str):
+    """Edit SMTP email configuration for a specific FSO."""
+    from app.models.inspection import FSO as FSOModel
+
+    fso = db.session.get(FSOModel, fso_name)
+    if fso is None:
+        abort(404)
+
+    if request.method == "POST":
+        fso.email = (request.form.get("email") or "").strip() or None
+        fso.smtp_host = (request.form.get("smtp_host") or "").strip() or None
+        port_raw = (request.form.get("smtp_port") or "").strip()
+        fso.smtp_port = int(port_raw) if port_raw.isdigit() else 587
+        fso.smtp_user = (request.form.get("smtp_user") or "").strip() or None
+        fso.smtp_password = (request.form.get("smtp_password") or "").strip() or None
+        fso.smtp_use_tls = request.form.get("smtp_use_tls") == "on"
+        db.session.commit()
+        flash(f"Email configuration saved for {fso.fso_name}.", "success")
+        return redirect(url_for("auth.fso_email_list"))
+
+    return render_template("auth/fso_email_edit.html", fso=fso)

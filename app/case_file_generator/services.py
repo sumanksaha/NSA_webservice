@@ -211,10 +211,9 @@ def _normalize_dates_for_form(data: dict, case_type: str) -> dict:
     if case_type == "case_file":
         date_fields = [
             "authorization_date",
-            "sample_draw_date",
+            "inspection_date",
             "mfg_date",
             "expiry_date",
-            "sample_submission_date",
             "do_receipt_date",
             "analyst_report_date",
             "directive_letter_date",

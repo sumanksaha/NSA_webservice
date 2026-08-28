@@ -134,6 +134,14 @@ class DODocumentRenderer:
         sample-keyed. Extra rendering parameters (violations, actions,
         deadline, enclosures) are passed through as-is.
         """
+        from app.food_cell.signature_resolver import (
+            get_signature_data_uri,
+            get_signature_path,
+        )
+
+        fso_name = getattr(inspection, "fso_name", None)
+        sig_path = get_signature_path(fso_name)
+
         return {
             "fbo_name": getattr(inspection, "fbo_name", None),
             "fbo_address": getattr(inspection, "fbo_address", None),
@@ -143,13 +151,15 @@ class DODocumentRenderer:
                 else None
             ),
             "fbo_fssai": getattr(inspection, "fssai_license", None),
-            "fso_name": getattr(inspection, "fso_name", None),
+            "fso_name": fso_name,
             "notice_date": datetime.now(UTC).strftime("%d/%m/%Y"),
             "improvement_notice_ref": getattr(inspection, "inspection_code", None),
             "violations": violations or [],
             "actions": actions or [],
             "compliance_deadline": compliance_deadline,
             "enclosures": enclosures or [],
+            "signature_path": str(sig_path) if sig_path else None,
+            "signature_data_uri": get_signature_data_uri(fso_name),
         }
 
     def render_improvement_notice_html(

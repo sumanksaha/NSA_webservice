@@ -1,0 +1,109 @@
+{# Shared preview modal for document generation (case file + adjudication).
+
+   Parameters:
+     modal_id         — unique DOM id (default: "previewModal")
+     petition_title   — tab label for petition (default: "Petition")
+     permission_title — tab label for permission letter (default: "Permission Letter")
+     modal_max_width  — CSS max-width (default: "960px")
+     modal_height     — CSS height (default: "88vh")
+     accent_var       — CSS variable for active tab color (default: "var(--accent)")
+#}
+{% set _modal_id = modal_id | default("previewModal") %}
+{% set _petition_title = petition_title | default("Petition") %}
+{% set _permission_title = permission_title | default("Permission Letter") %}
+{% set _max_width = modal_max_width | default("960px") %}
+{% set _height = modal_height | default("88vh") %}
+{% set _accent = accent_var | default("var(--accent)") %}
+
+<style>
+  /* Preview modal shared styles */
+  .pm-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; }
+  .pm-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+  .pm-content { position: relative; background: var(--bg-card, #fff); border-radius: 12px; width: 90vw; max-width: {{ _max_width }}; margin: 2vh auto; top: 0; display: flex; flex-direction: column; height: {{ _height }}; box-shadow: 0 4px 32px rgba(0,0,0,0.3); }
+  .pm-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border, #ddd); background: var(--bg-subtle, #f8f9fa); border-radius: 12px 12px 0 0; }
+  .pm-header h3 { margin: 0; font-size: 1.3rem; }
+  .pm-tabs { display: flex; margin: 0; padding: 0; border-bottom: 1px solid var(--border, #ddd); list-style: none; background: var(--bg-subtle, #f8f9fa); }
+  .pm-tabs li { flex: 1; text-align: center; }
+  .pm-tab-btn { width: 100%; padding: 12px 16px; border: none; background: none; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary, #6c757d); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .pm-tab-btn:hover { background: rgba(0,0,0,0.03); color: var(--text-primary, #212529); }
+  .pm-tab-btn.active { color: {{ _accent }}; border-bottom-color: {{ _accent }}; }
+  .pm-body { flex: 1; position: relative; overflow: hidden; }
+  .pm-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; }
+  .pm-frame:not(.active) { display: none; }
+  .pm-footer { display: flex; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border, #ddd); background: var(--bg-subtle, #f8f9fa); border-radius: 0 0 12px 12px; }
+  .pm-footer .btn { margin: 0 4px; }
+</style>
+
+<div id="{{ _modal_id }}" class="pm-overlay" style="display: none;">
+  <div class="pm-backdrop" onclick="PreviewModal.close()"></div>
+  <div class="pm-content">
+    <div class="pm-header">
+      <h3><i class="fa-solid fa-eye"></i> Document Preview</h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="PreviewModal.close()">
+        <i class="fa-solid fa-xmark"></i> Close
+      </button>
+    </div>
+    <ul class="pm-tabs">
+      <li><button class="pm-tab-btn active" onclick="PreviewModal.showTab('petition', this)">{{ _petition_title }}</button></li>
+      <li><button class="pm-tab-btn" onclick="PreviewModal.showTab('permission', this)">{{ _permission_title }}</button></li>
+    </ul>
+    <div class="pm-body">
+      <iframe id="{{ _modal_id }}_petition" class="pm-frame active" title="{{ _petition_title }} Preview"></iframe>
+      <iframe id="{{ _modal_id }}_permission" class="pm-frame" title="{{ _permission_title }} Preview"></iframe>
+    </div>
+    <div class="pm-footer">
+      <button type="button" class="btn btn-secondary" onclick="PreviewModal.close()">
+        <i class="fa-solid fa-arrow-left"></i> Back to Edit
+      </button>
+      <button type="button" class="btn btn-primary" id="{{ _modal_id }}_generateBtn" onclick="PreviewModal.closeAndGenerate()">
+        <i class="fa-solid fa-file-zipper"></i> Generate
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var modalId = '{{ _modal_id }}';
+  var ns = window.PreviewModal = {};
+
+  ns.showTab = function(tab, btn) {
+    var pf = document.getElementById(modalId + '_petition');
+    var pm = document.getElementById(modalId + '_permission');
+    var tabs = document.querySelectorAll('#' + modalId + ' .pm-tab-btn');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    pf.classList.toggle('active', tab === 'petition');
+    pm.classList.toggle('active', tab === 'permission');
+    if (btn) btn.classList.add('active');
+  };
+
+  ns.open = function(petitionHtml, permissionHtml) {
+    var pf = document.getElementById(modalId + '_petition');
+    var pm = document.getElementById(modalId + '_permission');
+    pf.contentDocument.open();
+    pf.contentDocument.write(petitionHtml);
+    pf.contentDocument.close();
+    pm.contentDocument.open();
+    pm.contentDocument.write(permissionHtml);
+    pm.contentDocument.close();
+    document.getElementById(modalId).style.display = 'block';
+  };
+
+  ns.close = function() {
+    document.getElementById(modalId).style.display = 'none';
+  };
+
+  ns.closeAndGenerate = function() {
+    ns.close();
+    if (typeof ns.onGenerate === 'function') ns.onGenerate();
+  };
+
+  ns.onGenerate = null; // override per-page
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById(modalId).style.display === 'block') {
+      ns.close();
+    }
+  });
+})();
+</script>

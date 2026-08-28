@@ -9,9 +9,12 @@
         <p>Admin-only. Create accounts, reset passwords, and grant or revoke admin rights.</p>
     </div>
 
-    <div class="mb--md">
+    <div class="mb--md" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <a href="{{ url_for('auth.create_user') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-user-plus"></i> Create user
+        </a>
+        <a href="{{ url_for('auth.fso_email_list') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-envelope-gear"></i> FSO Email Settings
         </a>
     </div>
 

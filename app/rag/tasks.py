@@ -19,9 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 import time
-from collections import OrderedDict
 from typing import Any
 
 # Lazy import so the module boots even when Celery isn't installed.
@@ -33,66 +31,41 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Single configuration seam (Pattern A: Flask config in-context → env out).
-from app.shared.config import cfg
-
 # ---------------------------------------------------------------------------
 # Retrieval cache (Legal_AI_implementation.md §12.1)
+#
 # Memoizes the deterministic, LLM-free retrieval step
 # (QueryClassifier -> HybridRetriever.retrieve) so repeated identical legal
 # questions skip the Qdrant round-trip within the TTL. Gated by
 # RAG_RETRIEVAL_CACHE (default off — test-safe; the hash-chained audit is
 # unaffected because RetrievalLogger.log still runs on every call, cache hit
-# or not). cachetools is an optional dep — if missing the cache is
-# silently disabled (graceful), mirroring the lazy-celery pattern above.
-# Stdlib TTL + LRU cache (no external dependency): an OrderedDict of
-# ``key -> (expires_at, SearchResult)``.  TTL and max-size are enforced on
-# write, expiry is checked on read (lazy reaping, no sweeper thread).
+# or not).
+#
+# The cache is an injectable RetrievalCache instance (LRU + TTL, stdlib only,
+# thread-safe).  A module-level singleton (_default_cache) backs the public
+# clear_retrieval_cache() shim for backward compatibility with tests and the
+# admin re-ingest flow.  run_retrieval_pipeline accepts an optional
+# ``cache`` parameter to inject a fresh instance (e.g. per-test isolation).
+from app.rag.retrieval.cache import RetrievalCache
+from app.shared.config import cfg
+
 _RETRIEVAL_CACHE_TTL = 600
 _RETRIEVAL_CACHE_MAX = 512
-_RETRIEVAL_CACHE: OrderedDict = OrderedDict()
-_CACHE_LOCK = threading.Lock()
+
+_default_cache: RetrievalCache = RetrievalCache(
+    max_size=_RETRIEVAL_CACHE_MAX,
+    ttl_seconds=_RETRIEVAL_CACHE_TTL,
+)
 
 
 def _retrieval_cache_enabled() -> bool:
-    """Whether identical retrieval results are memoized (RAG_RETRIEVAL_CACHE).
-
-    Flask config wins when an app context exists (so it can be toggled
-    per-deploy); otherwise the env var is read — resolved via ``cfg``.
-    """
-    return _RETRIEVAL_CACHE_MAX > 0 and cfg.retrieval_cache
-
-
-def _cache_get(key):
-    """Return the cached value for *key*, or ``None`` (miss / expired).
-
-    Fresh hits are promoted to most-recently-used (LRU).  Expiry is checked
-    on read so stale entries are lazily reaped without a sweeper.
-    """
-    now = time.monotonic()
-    with _CACHE_LOCK:
-        entry = _RETRIEVAL_CACHE.get(key)
-        if entry is None:
-            return None
-        expires_at, value = entry
-        if now >= expires_at:
-            _RETRIEVAL_CACHE.pop(key, None)
-            return None
-        _RETRIEVAL_CACHE.move_to_end(key)
-        return value
-
-
-def _cache_put(key, value) -> None:
-    """Store *value* under *key* with TTL, evicting the LRU entry if over cap."""
-    with _CACHE_LOCK:
-        _RETRIEVAL_CACHE[key] = (time.monotonic() + _RETRIEVAL_CACHE_TTL, value)
-        if len(_RETRIEVAL_CACHE) > _RETRIEVAL_CACHE_MAX:
-            _RETRIEVAL_CACHE.popitem(last=False)
+    """Backward-compat shim — delegates to the default cache."""
+    return _default_cache.max_size > 0 and cfg.retrieval_cache
 
 
 def clear_retrieval_cache() -> None:
     """Drop every cached retrieval result (admin re-ingest, tests)."""
-    with _CACHE_LOCK:
-        _RETRIEVAL_CACHE.clear()
+    _default_cache.clear()
 
 
 def _retrieval_cache_key(
@@ -125,6 +98,7 @@ def run_retrieval_pipeline(
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
     pipeline: str | None = None,
+    cache: RetrievalCache | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 1 retrieval pipeline for *query*.
 
@@ -143,6 +117,8 @@ def run_retrieval_pipeline(
     from app.rag.retrieval import QueryClassifier, QueryParser
     from app.rag.retrieval.factory import build_hybrid_retriever
     from app.rag.retrieval.logger import RetrievalLogger
+
+    cache = cache or _default_cache
 
     logger.info("run_retrieval_pipeline: starting for query=%r top_k=%s", query, top_k)
 
@@ -204,9 +180,7 @@ def run_retrieval_pipeline(
         if _retrieval_cache_enabled()
         else None
     )
-    cached = None
-    if cache_key is not None:
-        cached = _cache_get(cache_key)
+    cached = cache.get(cache_key) if cache_key is not None else None
     if cached is not None:
         from app.rag.retrieval.result import SearchResult
 
@@ -232,7 +206,7 @@ def run_retrieval_pipeline(
             query_type=legal_qt,
         )
         if cache_key is not None:
-            _cache_put(cache_key, result)
+            cache.put(cache_key, result)
 
     # 7. Log (runs on every call — cache hits included — so the hash-chained
     #    audit trail records each query invocation, not just misses).
@@ -257,43 +231,13 @@ def run_retrieval_pipeline(
     # evidence-set selection to the retrieval result.  All are opt-in and
     # degrade gracefully — the production baseline (CE reranker) is
     # unchanged when all flags are off.
-    legal_identities: list[dict[str, Any]] = []
-    evidence_set_data: dict[str, Any] | None = None
-    expanded_candidates: list[str] = []
+    # Delegated to the ordered RetrievalStage registry in
+    # app/rag/retrieval/stages.py (§12.4): each stage is independently
+    # feature-gated and error-isolated (isolate=True) or propagating
+    # (isolate=False), preserving the original inline behaviour.
+    from app.rag.retrieval.stages import apply_stages
 
-    from app.rag.retrieval.legal_identity import _legal_identity_enabled, parse_legal_identity
-    from app.rag.retrieval.reference_graph import _reference_expansion_enabled
-
-    if _legal_identity_enabled() and result.chunks:
-        legal_identities = [parse_legal_identity(c).to_dict() for c in result.chunks]
-
-    # Optional: cross-reference candidate expansion (graph-based)
-    if _reference_expansion_enabled() and result.chunks:
-        try:
-            from app.rag.retrieval.reference_graph import expand_candidates
-
-            expanded_candidates = expand_candidates(result.chunks, top_k=10, depth=1)
-            logger.info(
-                "run_retrieval_pipeline: reference expansion found %d candidates",
-                len(expanded_candidates),
-            )
-        except Exception as exc:
-            logger.warning("run_retrieval_pipeline: reference expansion failed: %s", exc)
-
-    # Optional: evidence-set selection
-    if cfg.evidence_selector and result.chunks:
-        try:
-            from app.rag.retrieval.evidence_selector import select_evidence_set
-
-            es = select_evidence_set(query, result.chunks, max_size=5, min_size=2)
-            evidence_set_data = es.to_dict()
-            logger.info(
-                "run_retrieval_pipeline: evidence set selected %d items (%s)",
-                len(es.items),
-                [it["evidence_type"] for it in evidence_set_data["items"]],
-            )
-        except Exception as exc:
-            logger.warning("run_retrieval_pipeline: evidence selector failed: %s", exc)
+    enrichment = apply_stages(query, result)
 
     return {
         "query": query,
@@ -306,9 +250,7 @@ def run_retrieval_pipeline(
         "retrieval_latency_ms": result.latency_ms,
         "error": result.error,
         "log_id": str(log_entry.id) if log_entry else None,
-        "legal_identities": legal_identities,
-        "expanded_candidates": expanded_candidates,
-        "evidence_set": evidence_set_data,
+        **enrichment,
     }
 
 

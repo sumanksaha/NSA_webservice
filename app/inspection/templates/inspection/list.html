@@ -97,6 +97,7 @@ block content %}
                     <th>Corrective Implemented</th>
                     <th>Notice</th>
                     <th>Photos</th>
+                    <th>Sample</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -141,6 +142,17 @@ block content %}
                         </span>
                     </td>
                     <td>
+                        {% if inspection.sample_collected %}
+                        <span class="status-badge status-badge--success" title="Sample collected: {{ inspection.sample_code }}">
+                            <i class="fa-solid fa-flask"></i>
+                        </span>
+                        {% else %}
+                        <span class="status-badge" style="opacity: 0.3;" title="No sample collected">
+                            <i class="fa-solid fa-flask"></i>
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
                         <div class="btn-group">
                             {% if inspection.adjudication_id %}
                             <a
@@ -178,7 +190,7 @@ block content %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9" class="text--center">
+                    <td colspan="10" class="text--center">
                         <div class="empty-state">
                             <i class="fa-solid fa-inbox"></i>
                             <p>No inspections found</p>

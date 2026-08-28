@@ -4,22 +4,6 @@
 
 {% block extra_css %}
 <style>
-    /* Preview modal (Phase 1 — adjudication document preview before generation) */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; }
-    .modal-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { position: relative; background: var(--bg-card); border-radius: 12px; width: 90vw; max-width: 1000px; margin: 2vh auto; top: 0; display: flex; flex-direction: column; height: 90vh; box-shadow: 0 4px 32px rgba(0,0,0,0.3); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); border-radius: 12px 12px 0 0; }
-    .modal-header h3 { margin: 0; font-size: 1.3rem; }
-    .modal-tabs { display: flex; margin: 0; padding: 0; border-bottom: 1px solid var(--border); list-style: none; background: var(--bg-subtle); }
-    .modal-tabs li { flex: 1; text-align: center; }
-    .tab-btn { width: 100%; padding: 12px 16px; border: none; background: none; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
-    .tab-btn:hover { background: var(--bg-subtle); }
-    .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); background: var(--bg); }
-    .modal-body { flex: 1; position: relative; overflow: hidden; }
-    .preview-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: #fff; }
-    .preview-frame:not(.active) { display: none; }
-    .modal-footer { display: flex; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border); }
-    .close-preview-x { position: absolute; top: 12px; right: 12px; font-size: 1.2rem; color: var(--text-secondary); cursor: pointer; }
     .status-indicator { font-size: 0.85rem; font-style: italic; }
 </style>
 {% endblock %}
@@ -78,7 +62,7 @@
                 <input type="text" id="ce_license_no" class="form-input"
                        value="{{ prefill.ce_license_no if prefill and prefill.ce_license_no else '' }}"
                        placeholder="Enter License Number">
-                <button type="button" id="ce_fetch_btn" class="btn btn-secondary">Fetch Details</button>
+                <button type="button" id="ce_fetch_btn" class="btn btn-secondary" aria-label="Fetch KMC trade license details">Fetch Details</button>
             </div>
             <div id="ce_lookup_status" class="status-indicator"></div>
 
@@ -117,7 +101,7 @@
         <div class="section-header">
             <h3>Case Information</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--3">
             <div class="form-group">
                 <label for="case_number" class="form-label">Case Number <span class="required"></span></label>
                 <input type="text" name="case_number" class="form-input" required placeholder="e.g., 2026/FSS/104">
@@ -136,7 +120,7 @@
             </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row form-row--3">
             <div class="form-group">
                 <label for="fbo_address" class="form-label">FBO Address <span class="required"></span></label>
                 <textarea name="fbo_address" id="fbo_address" class="form-textarea" required placeholder="Full FBO address details">{{ prefill.fbo_address if prefill and prefill.fbo_address else '' }}</textarea>
@@ -147,9 +131,9 @@
                     <input type="text" name="fssai_license" id="fssai_license" class="form-input"
                            value="{{ prefill.fssai_license if prefill and prefill.fssai_license else '' }}"
                            required placeholder="FSSAI License Number">
-                    <button type="button" id="fssai_fetch_btn" class="btn btn-secondary">Fetch</button>
+                    <button type="button" id="fssai_fetch_btn" class="btn btn-secondary" aria-label="Fetch FSSAI license details">Fetch</button>
                 </div>
-                <div id="fssai_lookup_status" class="status-indicator"></div>
+                <div id="fssai_lookup_status"></div>
             </div>
             <div class="form-group" id="concerned_food_field">
                 <label for="concerned_food" class="form-label">Concerned Food</label>
@@ -171,7 +155,7 @@
         <div class="section-header">
             <h3>Dates</h3>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row--5">
             <div class="form-group">
                 <label for="first_inspection_date" class="form-label">First Inspection Date <span class="required"></span></label>
                 <input type="date" name="first_inspection_date" id="first_inspection_date" class="form-input"
@@ -221,8 +205,7 @@
             <h3>Applicable FSS Act Sections</h3>
         </div>
 
-        <div class="flex-between--wrap">
-            <button type="button" class="btn btn-primary" id="suggest_sections_btn">
+        <div class="flex-between--wrap">                <button type="button" class="btn btn-primary" id="suggest_sections_btn" aria-label="AI-suggest applicable FSS Act sections">
                 <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Sections (AI)
             </button>
             <span id="suggest_status" class="status-indicator"></span>
@@ -263,44 +246,17 @@
         </div>
 
         <div class="actions-centered">
-            <button type="button" class="btn btn-secondary btn-lg" id="previewBtn">
+            <button type="button" class="btn btn-secondary btn-lg" id="previewBtn" aria-label="Preview adjudication documents before generation">
                 <i class="fa-solid fa-eye"></i> Preview Documents
             </button>
-            <button type="submit" class="btn btn-primary btn-lg">
+            <button type="submit" class="btn btn-primary btn-lg" aria-label="Generate full adjudication case pack">
                 <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
             </button>
         </div>
     </form>
 </div>
 
-<!-- Preview Modal (Phase 1 - adjudication document preview before generation) -->
-<div id="previewModal" class="modal-overlay" style="display: none;">
-    <div class="modal-backdrop" onclick="closePreview()"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-eye"></i> Document Preview</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="closePreview()">
-                <i class="fa-solid fa-x"></i> Close
-            </button>
-        </div>
-        <ul class="modal-tabs">
-            <li><button class="tab-btn active" onclick="showPreviewTab('petition', this)">Petition</button></li>
-            <li><button class="tab-btn" onclick="showPreviewTab('permission', this)">Permission Letter</button></li>
-        </ul>
-        <div class="modal-body">
-            <iframe id="previewPetition" class="preview-frame active" title="Petition Preview"></iframe>
-            <iframe id="previewPermission" class="preview-frame" title="Permission Letter Preview"></iframe>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closePreview()">
-                <i class="fa-solid fa-arrow-left"></i> Back to Edit
-            </button>
-            <button type="button" class="btn btn-primary" id="previewGenerateBtn" onclick="closePreviewAndGenerate()">
-                <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
-            </button>
-        </div>
-    </div>
-</div>
+{% include '_preview_modal.html' with context %}
 
 <!-- Case Timelines panel (Phase 13) -->
 <div class="card mt--lg">
@@ -333,6 +289,18 @@
                                 title="Run legal validation on this adjudication">
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
+                        <a href="{{ url_for('adjudication.download_petition_docx', case_id=c.id) }}"
+                           class="btn btn-secondary btn-sm" title="Download Petition as Word">
+                            <i class="fa-solid fa-file-word"></i> Petition
+                        </a>
+                        <a href="{{ url_for('adjudication.download_permission_docx', case_id=c.id) }}"
+                           class="btn btn-secondary btn-sm" title="Download Permission Letter as Word">
+                            <i class="fa-solid fa-file-word"></i> Permission
+                        </a>
+                        <a href="{{ url_for('adjudication.download_both_docx', case_id=c.id) }}"
+                           class="btn btn-primary btn-sm" title="Download both as Word ZIP">
+                            <i class="fa-solid fa-file-zipper"></i> Word ZIP
+                        </a>
                     </td>
                 </tr>
                 {% else %}
@@ -353,13 +321,12 @@
 
 {% block extra_js %}
 <script>
-    // Handles complaint fields toggling
+    // Handles complaint fields toggling (concerned_food is always visible)
     const complaintToggle = document.getElementById("complaint_toggle");
     const complaintCard = document.getElementById("complaint_toggle_card");
     const complaintBlocks = [
         document.getElementById("complaint_fields"),
-        document.getElementById("complaint_date_field"),
-        document.getElementById("concerned_food_field")
+        document.getElementById("complaint_date_field")
     ];
 
     function syncComplaintFields() {
@@ -489,19 +456,19 @@
 
     ceCopyToggle.addEventListener("change", copyKmcToFbo);
 
-    // Fetch FSSAI details
+    // Fetch FSSAI details — rich info-box display
     const fssaiFetchBtn = document.getElementById("fssai_fetch_btn");
     const fssaiStatus = document.getElementById("fssai_lookup_status");
 
     fssaiFetchBtn.addEventListener("click", async () => {
         const licNo = document.getElementById("fssai_license").value.trim();
         if (!licNo) {
-            fssaiStatus.textContent = "Please enter a FSSAI license number.";
-            fssaiStatus.className = "status-indicator status--error";
+            fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Please enter a FSSAI license number.';
+            fssaiStatus.className = "info-box info-box--error";
             return;
         }
-        fssaiStatus.textContent = "Querying FSSAI database...";
-        fssaiStatus.className = "status-indicator";
+        fssaiStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Querying FSSAI database...';
+        fssaiStatus.className = "info-box";
         fssaiFetchBtn.disabled = true;
 
         try {
@@ -511,14 +478,14 @@
                 body: JSON.stringify({ license_no: licNo })
             });
             if (resp.redirected) {
-                fssaiStatus.textContent = "Your session may have expired. Please log in again and retry.";
-                fssaiStatus.className = "status-indicator status--error";
+                fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
+                fssaiStatus.className = "info-box info-box--error";
                 return;
             }
             const data = await resp.json();
             if (!resp.ok || !data.identity) {
-                fssaiStatus.textContent = data.error || "License not found in FSSAI records.";
-                fssaiStatus.className = "status-indicator status--error";
+                fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || "License not found in FSSAI records.");
+                fssaiStatus.className = "info-box info-box--error";
                 return;
             }
             const id = data.identity;
@@ -526,11 +493,15 @@
             document.querySelector('[name="fbo_address"]').value = id.fullAddress || "";
             const src = id.source === "license_data" ? "License DB" : "Registration DB";
 
-            fssaiStatus.textContent = `Fetched from ${src} (Expiry: ${id.expiryDate || 'N/A'}).`;
-            fssaiStatus.className = "status-indicator status--success";
+            fssaiStatus.innerHTML =
+                '<i class="fa-solid fa-circle-check"></i> <strong>Found:</strong> ' + (id.companyName || 'N/A') + '<br>' +
+                '<strong>Address:</strong> ' + (id.fullAddress || 'N/A') + '<br>' +
+                '<strong>Expiry:</strong> ' + (id.expiryDate || 'N/A') + '<br>' +
+                '<strong>Source:</strong> ' + src;
+            fssaiStatus.className = "info-box info-box--success";
         } catch (err) {
-            fssaiStatus.textContent = "Lookup failed: " + err.message;
-            fssaiStatus.className = "status-indicator status--error";
+            fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Lookup failed: ' + err.message;
+            fssaiStatus.className = "info-box info-box--error";
         } finally {
             fssaiFetchBtn.disabled = false;
         }
@@ -597,21 +568,49 @@
         }
     });
 
-    // --- Preview Modal (Phase 1 — adjudication document preview before generation) ---
+    // --- Inline field error rendering (parity with case file generator) ---
+    function clearFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
+        document.querySelectorAll('.form-input--error').forEach(function(el) {
+            el.classList.remove('form-input--error');
+        });
+    }
+
+    function renderFieldErrors(errors) {
+        clearFieldErrors();
+        if (!errors) return;
+        var firstField = null;
+        Object.keys(errors).forEach(function(field) {
+            var input = document.querySelector('[name="' + field + '"]');
+            if (!input) return;
+            input.classList.add('form-input--error');
+            var group = input.closest('.form-group');
+            if (!group) return;
+            var errEl = document.createElement('div');
+            errEl.className = 'field-error';
+            errEl.textContent = errors[field];
+            group.appendChild(errEl);
+            if (!firstField) firstField = input;
+        });
+        if (firstField) firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // --- Preview via shared PreviewModal ---
     var previewBtn = document.getElementById('previewBtn');
-    var previewModal = document.getElementById('previewModal');
-    var previewPetitionHtml = null;
-    var previewPermissionHtml = null;
     var caseForm = document.querySelector("form[action*='generate_all']");
+
+    // Wire generate button to submit the form
+    PreviewModal.onGenerate = function() { caseForm.submit(); };
 
     function showPreview() {
         if (!previewBtn) return;
+        clearFieldErrors();
         previewBtn.disabled = true;
         previewBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering…';
 
         var formData = new FormData(caseForm);
         var statusBox = document.createElement('div');
-        statusBox.className = 'status-indicator';
+        statusBox.className = 'info-box';
         previewBtn.parentNode.insertBefore(statusBox, previewBtn.nextSibling);
         statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
 
@@ -622,48 +621,22 @@
         .then(resp => resp.json())
         .then(data => {
             if (data.error) {
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Preview failed') + (data.errors ? ': ' + Object.values(data.errors).join(', ') : '');
-                statusBox.className = 'status-indicator status--error';
+                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Preview failed');
+                statusBox.className = 'info-box info-box--error';
+                if (data.errors) renderFieldErrors(data.errors);
             } else {
-                previewPetitionHtml = data.petition_html;
-                previewPermissionHtml = data.permission_html;
-                var iframeP = document.getElementById('previewPetition');
-                var iframePerm = document.getElementById('previewPermission');
-                iframeP.contentDocument.write(previewPetitionHtml);
-                iframeP.contentDocument.close();
-                iframePerm.contentDocument.write(previewPermissionHtml);
-                iframePerm.contentDocument.close();
-                previewModal.style.display = 'block';
+                statusBox.remove();
+                PreviewModal.open(data.petition_html, data.permission_html);
             }
         })
         .catch(err => {
             statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + err.message;
-            statusBox.className = 'status-indicator status--error';
+            statusBox.className = 'info-box info-box--error';
         })
         .finally(() => {
             previewBtn.disabled = false;
             previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
-            if (statusBox && statusBox.parentNode) statusBox.parentNode.removeChild(statusBox);
         });
-    }
-
-    function closePreview() {
-        previewModal.style.display = 'none';
-    }
-
-    function showPreviewTab(tab, btn) {
-        var petitionFrame = document.getElementById('previewPetition');
-        var permissionFrame = document.getElementById('previewPermission');
-        var tabs = document.querySelectorAll('.modal-tabs .tab-btn');
-        tabs.forEach(function(t) { t.classList.remove('active'); });
-        petitionFrame.classList.toggle('active', tab === 'petition');
-        permissionFrame.classList.toggle('active', tab === 'permission');
-        if (btn) btn.classList.add('active');
-    }
-
-    function closePreviewAndGenerate() {
-        closePreview();
-        caseForm.submit();
     }
 
     // Wire up the Preview button
@@ -673,13 +646,6 @@
             showPreview();
         });
     }
-
-    // Close modal on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && previewModal && previewModal.style.display === 'block') {
-            closePreview();
-        }
-    });
 </script>
 <script>
     ValidationDrawer.initRowButtons({

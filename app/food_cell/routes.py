@@ -7,6 +7,7 @@ freezes the inspection record via ``Inspection.notice_issued_at``.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from flask_login import login_required
 from app.extensions import db
 from app.food_cell import food_cell_bp
 from app.food_cell.renderer import DODocumentRenderer
+from app.food_cell.word_converter import ImprovementNoticeWordConverter
 from app.food_cell.services import generate_and_forward_do_intimation
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
@@ -184,6 +186,40 @@ def download_improvement_notice_pdf(inspection_id: int):
     )
 
 
+@food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/docx")
+@login_required
+def download_improvement_notice_docx(inspection_id: int):
+    """Download the Improvement Notice as a Word (.docx) document."""
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+    violations = _inspection_violations(inspection)
+    if not violations:
+        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
+
+    actions = derive_actions(violations)
+    deadline = (
+        inspection.compliance_deadline.strftime("%d/%m/%Y")
+        if inspection.compliance_deadline
+        else None
+    )
+    context = _notice_renderer.build_improvement_notice_context(
+        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+    )
+    converter = ImprovementNoticeWordConverter()
+    docx_bytes = converter.build(context)
+    _freeze_inspection(inspection)
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Improvement_Notice_{inspection_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
 @food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/save", methods=["POST"])
 @login_required
 def save_edited_improvement_notice(inspection_id: int):
@@ -219,3 +255,92 @@ def save_edited_improvement_notice(inspection_id: int):
         "html_path": html_path,
         "pdf_path": pdf_path,
     }), 200
+
+
+@food_cell_bp.route("/improvement-notice/inspection/<int:inspection_id>/email", methods=["POST"])
+@login_required
+def send_improvement_notice_email_route(inspection_id: int):
+    """Send the Improvement Notice via email with .docx attachment."""
+    from flask import request as req
+
+    from app.food_cell.email_sender import send_improvement_notice_email
+    from app.food_cell.word_converter import ImprovementNoticeWordConverter
+
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+
+    violations = _inspection_violations(inspection)
+    if not violations:
+        return jsonify({"error": "No violations recorded for this inspection; no notice to issue."}), 400
+
+    # Parse form fields
+    recipient_email = (req.form.get("recipient_email") or "").strip()
+    subject = (req.form.get("subject") or "").strip()
+
+    if not recipient_email:
+        return jsonify({"error": "Recipient email is required."}), 400
+    if not subject:
+        subject = f"Improvement Notice — {inspection.fbo_name or 'FBO'} ({inspection.inspection_code})"
+
+    # Build context and generate .docx
+    actions = derive_actions(violations)
+    deadline = (
+        inspection.compliance_deadline.strftime("%d/%m/%Y")
+        if inspection.compliance_deadline
+        else None
+    )
+    context = _notice_renderer.build_improvement_notice_context(
+        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+    )
+    converter = ImprovementNoticeWordConverter()
+    docx_bytes = converter.build(context)
+    docx_filename = f"Improvement_Notice_{inspection_id}.docx"
+
+    # Build HTML email body from the template
+    html_body = _notice_renderer.render_improvement_notice_html(
+        inspection, violations=violations, actions=actions, compliance_deadline=deadline
+    )
+
+    # Embed signature as base64 data URI (file:/// doesn't work in emails)
+    from app.food_cell.signature_resolver import get_signature_data_uri
+
+    data_uri = get_signature_data_uri(inspection.fso_name)
+    if data_uri:
+        import re
+
+        html_body = re.sub(
+            r'src="file:///([^"]+)"',
+            f'src="{data_uri}"',
+            html_body,
+        )
+
+    # Build plain-text fallback
+    text_body = (
+        f"Improvement Notice — {inspection.fbo_name or 'FBO'}\n"
+        f"Inspection Code: {inspection.inspection_code}\n"
+        f"Date: {context.get('notice_date', '')}\n\n"
+        f"Please find the attached Improvement Notice document.\n"
+    )
+
+    # Determine FSO name for SMTP config
+    fso_name = inspection.fso_name
+    if not fso_name:
+        return jsonify({"error": "No FSO assigned to this inspection."}), 400
+
+    _freeze_inspection(inspection)
+
+    result = send_improvement_notice_email(
+        fso_name=fso_name,
+        recipient_email=recipient_email,
+        subject=subject,
+        html_body=html_body,
+        docx_bytes=docx_bytes,
+        docx_filename=docx_filename,
+        text_body=text_body,
+    )
+
+    if result.success:
+        return jsonify(result.details | {"message": result.message}), 200
+    else:
+        return jsonify({"error": result.error}), 400
