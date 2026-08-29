@@ -16,7 +16,6 @@ from app.shared.context_derivers import CHECKLIST_FIELDS
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
 
-
 # Sample code format: SL/WB/XXXXXX/XXXX/XXXXX
 SAMPLE_CODE_PATTERN = re.compile(r"^SL/WB/\d{6}/\d{4}/\d{5}$")
 
@@ -385,9 +384,6 @@ def update_inspection(inspection_id):
         inspection.sample_collected = sample_collected_raw in ("on", "true", "1", "yes")
     if "sample_code" in form_data:
         inspection.sample_code = form_data["sample_code"].strip() or None
-
-    if inspection.sample_collected and not inspection.sample_code:
-        return jsonify({"error": "sample_code is required when sample_collected is true"}), 400
 
     if inspection.sample_collected and inspection.sample_code and not validate_sample_code(inspection.sample_code):
         return jsonify({"error": "sample_code must match format SL/WB/XXXXXX/XXXX/XXXXX"}), 400

@@ -52,7 +52,7 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                     <i class="fa-solid fa-check"></i> Yes
                 </span>
                 {% else %}
-                <span class="status-badge" style="opacity: 0.4;">
+                <span class="status-badge" style="opacity: 0.4">
                     <i class="fa-solid fa-xmark"></i> No
                 </span>
                 {% endif %}
@@ -99,7 +99,10 @@ inspection.inspection_code }}{% endblock %} {% block content %}
 
     <!-- Checklist Section -->
     {% if checklist %}
-    <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+    <div
+        class="section-header"
+        style="display: flex; align-items: center; justify-content: space-between"
+    >
         <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Checklist</h3>
         {% if not inspection.notice_issued_at %}
         <button type="button" class="btn btn-secondary btn-sm" onclick="openChecklistModal()">
@@ -107,93 +110,188 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         </button>
         {% endif %}
     </div>
-    {% set checklist_labels = {
-        'clean_premise': 'Clean Premises',
-        'refrigerator_clean': 'Refrigerator Clean',
-        'proper_attire': 'Proper Attire',
-        'proper_covered_utensil': 'Covered Utensils',
-        'date_tag': 'Date Tagging',
-        'veg_nonveg_separation': 'Veg/Non-Veg Separation',
-        'food_segregation': 'Food Segregation',
-        'license_display': 'License Display',
-        'artificial_colour': 'Artificial Colours',
-        'Expired_item': 'Expired Items',
-        'Pest_report': 'Pest Control Report',
-        'Water_report': 'Water Test Report',
-    } %}
+    {% set checklist_labels = { 'clean_premise': 'Clean Premises', 'refrigerator_clean':
+    'Refrigerator Clean', 'proper_attire': 'Proper Attire', 'proper_covered_utensil': 'Covered
+    Utensils', 'date_tag': 'Date Tagging', 'veg_nonveg_separation': 'Veg/Non-Veg Separation',
+    'food_segregation': 'Food Segregation', 'license_display': 'License Display',
+    'artificial_colour': 'Artificial Colours', 'Expired_item': 'Expired Items', 'Pest_report': 'Pest
+    Control Report', 'Water_report': 'Water Test Report', } %}
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin: 0.5rem 0 1rem;">
-        {% for field, label in checklist_labels.items() %}
-        {% if field in checklist %}
-        <div class="detail-field" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius);">
-            <label style="font-weight: 500; font-size: 0.875rem;">{{ label }}</label>
+    <div
+        style="
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.75rem;
+            margin: 0.5rem 0 1rem;
+        "
+    >
+        {% for field, label in checklist_labels.items() %} {% if field in checklist %}
+        <div
+            class="detail-field"
+            style="padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius)"
+        >
+            <label style="font-weight: 500; font-size: 0.875rem">{{ label }}</label>
             <span class="detail-value">
                 {% if checklist[field] == 'yes' %}
-                <span class="status-badge status-badge--success" style="font-size: 0.75rem;"><i class="fa-solid fa-check"></i> Yes</span>
+                <span class="status-badge status-badge--success" style="font-size: 0.75rem"
+                    ><i class="fa-solid fa-check"></i> Yes</span
+                >
                 {% elif checklist[field] == 'no' %}
-                <span class="status-badge status-badge--error" style="font-size: 0.75rem;"><i class="fa-solid fa-xmark"></i> No</span>
+                <span class="status-badge status-badge--error" style="font-size: 0.75rem"
+                    ><i class="fa-solid fa-xmark"></i> No</span
+                >
                 {% else %}
-                <span class="status-badge" style="font-size: 0.75rem;">{{ checklist[field] }}</span>
+                <span class="status-badge" style="font-size: 0.75rem">{{ checklist[field] }}</span>
                 {% endif %}
             </span>
         </div>
-        {% endif %}
-        {% endfor %}
+        {% endif %} {% endfor %}
     </div>
 
     <!-- Summary of non-compliant items -->
-    {% set violations = [] %}
-    {% for field, value in checklist.items() %}
-        {% if value == 'no' and field in checklist_labels %}
-            {% set _ = violations.append(checklist_labels[field]) %}
-        {% endif %}
-    {% endfor %}
-    {% if violations %}
-    <div class="info-box info-box--warning" style="margin-bottom: 1rem;">
+    {% set violations = [] %} {% for field, value in checklist.items() %} {% if value == 'no' and
+    field in checklist_labels %} {% set _ = violations.append(checklist_labels[field]) %} {% endif
+    %} {% endfor %} {% if violations %}
+    <div class="info-box info-box--warning" style="margin-bottom: 1rem">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <strong>{{ violations|length }} non-compliant item(s):</strong> {{ violations|join(', ') }}
     </div>
-    {% endif %}
-    {% endif %}
+    {% endif %} {% endif %}
 
     <!-- Checklist Quick-Edit Modal -->
-    <div id="checklistModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); align-items: center; justify-content: center;">
-        <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 640px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0;"><i class="fa-solid fa-clipboard-check"></i> Edit Checklist</h3>
-                <button type="button" onclick="closeChecklistModal()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+    <div
+        id="checklistModal"
+        style="
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.4);
+            align-items: center;
+            justify-content: center;
+        "
+    >
+        <div
+            style="
+                background: var(--bg-card, #fff);
+                border-radius: var(--radius, 8px);
+                padding: 1.5rem;
+                max-width: 640px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            "
+        >
+            <div
+                style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                "
+            >
+                <h3 style="margin: 0">
+                    <i class="fa-solid fa-clipboard-check"></i> Edit Checklist
+                </h3>
+                <button
+                    type="button"
+                    onclick="closeChecklistModal()"
+                    style="
+                        border: none;
+                        background: none;
+                        font-size: 1.4rem;
+                        cursor: pointer;
+                        color: var(--text-muted, #888);
+                    "
+                >
+                    &times;
+                </button>
             </div>
 
             <form id="checklistEditForm">
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem;">
-                    {% set modal_items = [
-                        ('clean_premise', 'Clean Premises'),
-                        ('refrigerator_clean', 'Refrigerator Clean'),
-                        ('proper_attire', 'Proper Attire'),
-                        ('proper_covered_utensil', 'Covered Utensils'),
-                        ('date_tag', 'Date Tagging'),
-                        ('veg_nonveg_separation', 'Veg/Non-Veg Separation'),
-                        ('food_segregation', 'Food Segregation'),
-                        ('license_display', 'License Display'),
-                        ('artificial_colour', 'Artificial Colours'),
-                        ('Expired_item', 'Expired Items'),
-                        ('Pest_report', 'Pest Control Report'),
-                        ('Water_report', 'Water Test Report'),
-                    ] %}
-                    {% for field, label in modal_items %}
-                    <div style="padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: var(--radius, 6px);">
-                        <label style="font-weight: 600; font-size: 0.875rem; display: block; margin-bottom: 0.25rem;">{{ label }}</label>
-                        <select name="{{ field }}" style="width: 100%; padding: 0.4rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.875rem;">
+                <div
+                    style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                        gap: 0.75rem;
+                    "
+                >
+                    {% set modal_items = [ ('clean_premise', 'Clean Premises'),
+                    ('refrigerator_clean', 'Refrigerator Clean'), ('proper_attire', 'Proper
+                    Attire'), ('proper_covered_utensil', 'Covered Utensils'), ('date_tag', 'Date
+                    Tagging'), ('veg_nonveg_separation', 'Veg/Non-Veg Separation'),
+                    ('food_segregation', 'Food Segregation'), ('license_display', 'License
+                    Display'), ('artificial_colour', 'Artificial Colours'), ('Expired_item',
+                    'Expired Items'), ('Pest_report', 'Pest Control Report'), ('Water_report',
+                    'Water Test Report'), ] %} {% for field, label in modal_items %}
+                    <div
+                        style="
+                            padding: 0.5rem;
+                            border: 1px solid var(--border, #ddd);
+                            border-radius: var(--radius, 6px);
+                        "
+                    >
+                        <label
+                            style="
+                                font-weight: 600;
+                                font-size: 0.875rem;
+                                display: block;
+                                margin-bottom: 0.25rem;
+                            "
+                            >{{ label }}</label
+                        >
+                        <select
+                            name="{{ field }}"
+                            style="
+                                width: 100%;
+                                padding: 0.4rem;
+                                border: 1px solid var(--border, #ddd);
+                                border-radius: 4px;
+                                font-size: 0.875rem;
+                            "
+                        >
                             <option value="">-- Select --</option>
-                            <option value="yes" {% if checklist.get(field) == 'yes' %}selected{% endif %}>Yes</option>
-                            <option value="no" {% if checklist.get(field) == 'no' %}selected{% endif %}>No</option>
+                            <option
+                                value="yes"
+                                {%
+                                if
+                                checklist.get(field)=""
+                                ="yes"
+                                %}selected{%
+                                endif
+                                %}
+                            >
+                                Yes
+                            </option>
+                            <option
+                                value="no"
+                                {%
+                                if
+                                checklist.get(field)=""
+                                ="no"
+                                %}selected{%
+                                endif
+                                %}
+                            >
+                                No
+                            </option>
                         </select>
                     </div>
                     {% endfor %}
                 </div>
 
-                <div style="display: flex; gap: 0.5rem; margin-top: 1.25rem; justify-content: flex-end;">
-                    <button type="button" onclick="closeChecklistModal()" class="btn btn-secondary">Cancel</button>
+                <div
+                    style="
+                        display: flex;
+                        gap: 0.5rem;
+                        margin-top: 1.25rem;
+                        justify-content: flex-end;
+                    "
+                >
+                    <button type="button" onclick="closeChecklistModal()" class="btn btn-secondary">
+                        Cancel
+                    </button>
                     <button type="submit" class="btn btn-primary" id="checklistSaveBtn">
                         <i class="fa-solid fa-save"></i> Save Checklist
                     </button>
@@ -359,26 +457,34 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     </div>
 
     {% if inspection.notice_issued_at %}
-    <div class="info-box info-box--success" style="margin-bottom: 1rem;">
+    <div class="info-box info-box--success" style="margin-bottom: 1rem">
         <i class="fa-solid fa-info-circle"></i>
-        This inspection was frozen on {{ inspection.notice_issued_at.strftime('%d %B %Y at %H:%M') }} when the Improvement Notice was first issued. Inspection data can no longer be edited.
+        This inspection was frozen on {{ inspection.notice_issued_at.strftime('%d %B %Y at %H:%M')
+        }} when the Improvement Notice was first issued. Inspection data can no longer be edited.
     </div>
     {% endif %}
 
-    <div class="btn-group" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div class="btn-group" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem">
         <button type="button" class="btn btn-primary" onclick="openNoticeEditor()">
             <i class="fa-solid fa-pen-to-square"></i> Preview & Edit Notice
         </button>
-        <a href="{{ url_for('food_cell.view_improvement_notice_html', inspection_id=inspection.id) }}"
-           class="btn btn-secondary" target="_blank">
+        <a
+            href="{{ url_for('food_cell.view_improvement_notice_html', inspection_id=inspection.id) }}"
+            class="btn btn-secondary"
+            target="_blank"
+        >
             <i class="fa-solid fa-eye"></i> View Notice (HTML)
         </a>
-        <a href="{{ url_for('food_cell.download_improvement_notice_pdf', inspection_id=inspection.id) }}"
-           class="btn btn-secondary">
+        <a
+            href="{{ url_for('food_cell.download_improvement_notice_pdf', inspection_id=inspection.id) }}"
+            class="btn btn-secondary"
+        >
             <i class="fa-solid fa-file-pdf"></i> Download Notice (PDF)
         </a>
-        <a href="{{ url_for('food_cell.download_improvement_notice_docx', inspection_id=inspection.id) }}"
-           class="btn btn-secondary">
+        <a
+            href="{{ url_for('food_cell.download_improvement_notice_docx', inspection_id=inspection.id) }}"
+            class="btn btn-secondary"
+        >
             <i class="fa-solid fa-file-word"></i> Download Notice (Word)
         </a>
         <button type="button" class="btn btn-secondary" onclick="openEmailModal()">
@@ -388,30 +494,121 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     {% endif %}
 
     <!-- Improvement Notice Editor Modal -->
-    <div id="noticeEditorModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
-        <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 960px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-shrink: 0;">
-                <h3 style="margin: 0;"><i class="fa-solid fa-file-pen"></i> Improvement Notice — Edit & Preview</h3>
-                <button type="button" onclick="closeNoticeEditor()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+    <div
+        id="noticeEditorModal"
+        style="
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        "
+    >
+        <div
+            style="
+                background: var(--bg-card, #fff);
+                border-radius: var(--radius, 8px);
+                padding: 1.5rem;
+                max-width: 960px;
+                width: 95%;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            "
+        >
+            <div
+                style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                    flex-shrink: 0;
+                "
+            >
+                <h3 style="margin: 0">
+                    <i class="fa-solid fa-file-pen"></i> Improvement Notice — Edit & Preview
+                </h3>
+                <button
+                    type="button"
+                    onclick="closeNoticeEditor()"
+                    style="
+                        border: none;
+                        background: none;
+                        font-size: 1.4rem;
+                        cursor: pointer;
+                        color: var(--text-muted, #888);
+                    "
+                >
+                    &times;
+                </button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; flex: 1; min-height: 0; overflow: hidden;">
+            <div
+                style="
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1rem;
+                    flex: 1;
+                    min-height: 0;
+                    overflow: hidden;
+                "
+            >
                 <!-- Quill Editor -->
-                <div style="display: flex; flex-direction: column; min-height: 0;">
-                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-pen"></i> Edit Content</label>
-                    <div id="noticeQuillEditor" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px;"></div>
+                <div style="display: flex; flex-direction: column; min-height: 0">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem"
+                        ><i class="fa-solid fa-pen"></i> Edit Content</label
+                    >
+                    <div
+                        id="noticeQuillEditor"
+                        style="
+                            flex: 1;
+                            min-height: 300px;
+                            border: 1px solid var(--border, #ddd);
+                            border-radius: 4px;
+                        "
+                    ></div>
                 </div>
 
                 <!-- Live Preview -->
-                <div style="display: flex; flex-direction: column; min-height: 0;">
-                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-eye"></i> Live Preview</label>
-                    <iframe id="noticePreviewFrame" style="flex: 1; min-height: 300px; border: 1px solid var(--border, #ddd); border-radius: 4px; background: #fff;"></iframe>
+                <div style="display: flex; flex-direction: column; min-height: 0">
+                    <label style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem"
+                        ><i class="fa-solid fa-eye"></i> Live Preview</label
+                    >
+                    <iframe
+                        id="noticePreviewFrame"
+                        style="
+                            flex: 1;
+                            min-height: 300px;
+                            border: 1px solid var(--border, #ddd);
+                            border-radius: 4px;
+                            background: #fff;
+                        "
+                    ></iframe>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-shrink: 0; flex-wrap: wrap;">
-                <button type="button" onclick="closeNoticeEditor()" class="btn btn-secondary">Cancel</button>
-                <button type="button" onclick="revertNoticeToOriginal()" class="btn btn-secondary" id="revertNoticeBtn">
+            <div
+                style="
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-top: 1rem;
+                    justify-content: flex-end;
+                    flex-shrink: 0;
+                    flex-wrap: wrap;
+                "
+            >
+                <button type="button" onclick="closeNoticeEditor()" class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    onclick="revertNoticeToOriginal()"
+                    class="btn btn-secondary"
+                    id="revertNoticeBtn"
+                >
                     <i class="fa-solid fa-rotate-left"></i> Revert to Original
                 </button>
                 <button type="button" onclick="downloadOriginalNotice()" class="btn btn-secondary">
@@ -451,28 +648,117 @@ inspection.inspection_code }}{% endblock %} {% block content %}
 </div>
 
 <!-- Email Modal -->
-<div id="emailModal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
-    <div style="background: var(--bg-card, #fff); border-radius: var(--radius, 8px); padding: 1.5rem; max-width: 520px; width: 95%; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="margin: 0;"><i class="fa-solid fa-envelope"></i> Send Improvement Notice</h3>
-            <button type="button" onclick="closeEmailModal()" style="border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted, #888);">&times;</button>
+<div
+    id="emailModal"
+    style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.5);
+        align-items: center;
+        justify-content: center;
+    "
+>
+    <div
+        style="
+            background: var(--bg-card, #fff);
+            border-radius: var(--radius, 8px);
+            padding: 1.5rem;
+            max-width: 520px;
+            width: 95%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        "
+    >
+        <div
+            style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+            "
+        >
+            <h3 style="margin: 0"><i class="fa-solid fa-envelope"></i> Send Improvement Notice</h3>
+            <button
+                type="button"
+                onclick="closeEmailModal()"
+                style="
+                    border: none;
+                    background: none;
+                    font-size: 1.4rem;
+                    cursor: pointer;
+                    color: var(--text-muted, #888);
+                "
+            >
+                &times;
+            </button>
         </div>
-        <form id="emailForm" onsubmit="return sendNoticeEmail(event)">
-            <div style="margin-bottom: 1rem;">
-                <label for="recipientEmail" style="display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem;">Recipient Email</label>
-                <input type="email" id="recipientEmail" name="recipient_email" required
+        <form id="emailForm" onsubmit="return sendNoticeEmail(event);">
+            <div style="margin-bottom: 1rem">
+                <label
+                    for="recipientEmail"
+                    style="
+                        display: block;
+                        font-weight: 600;
+                        font-size: 0.875rem;
+                        margin-bottom: 0.35rem;
+                    "
+                    >Recipient Email</label
+                >
+                <input
+                    type="email"
+                    id="recipientEmail"
+                    name="recipient_email"
+                    required
                     placeholder="designated.officer@kmc.gov.in"
-                    style="width: 100%; padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.95rem;" />
+                    style="
+                        width: 100%;
+                        padding: 0.5rem;
+                        border: 1px solid var(--border, #ddd);
+                        border-radius: 4px;
+                        font-size: 0.95rem;
+                    "
+                />
             </div>
-            <div style="margin-bottom: 1rem;">
-                <label for="emailSubject" style="display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem;">Subject</label>
-                <input type="text" id="emailSubject" name="subject"
+            <div style="margin-bottom: 1rem">
+                <label
+                    for="emailSubject"
+                    style="
+                        display: block;
+                        font-weight: 600;
+                        font-size: 0.875rem;
+                        margin-bottom: 0.35rem;
+                    "
+                    >Subject</label
+                >
+                <input
+                    type="text"
+                    id="emailSubject"
+                    name="subject"
                     value="Improvement Notice — {{ inspection.fbo_name or 'FBO' }} ({{ inspection.inspection_code }})"
-                    style="width: 100%; padding: 0.5rem; border: 1px solid var(--border, #ddd); border-radius: 4px; font-size: 0.95rem;" />
+                    style="
+                        width: 100%;
+                        padding: 0.5rem;
+                        border: 1px solid var(--border, #ddd);
+                        border-radius: 4px;
+                        font-size: 0.95rem;
+                    "
+                />
             </div>
-            <div id="emailStatus" style="display: none; margin-bottom: 1rem; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem;"></div>
-            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                <button type="button" onclick="closeEmailModal()" class="btn btn-secondary">Cancel</button>
+            <div
+                id="emailStatus"
+                style="
+                    display: none;
+                    margin-bottom: 1rem;
+                    padding: 0.75rem;
+                    border-radius: 4px;
+                    font-size: 0.9rem;
+                "
+            ></div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
+                <button type="button" onclick="closeEmailModal()" class="btn btn-secondary">
+                    Cancel
+                </button>
                 <button type="submit" id="emailSendBtn" class="btn btn-primary">
                     <i class="fa-solid fa-paper-plane"></i> Send
                 </button>
@@ -481,645 +767,644 @@ inspection.inspection_code }}{% endblock %} {% block content %}
     </div>
 </div>
 
-{% endblock %}
-
-{% block extra_css %}
-{{ super() }}
+{% endblock %} {% block extra_css %} {{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" />
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
-    // ===================================================================
-    // Photo Upload Logic
-    // ===================================================================
-    let selectedFile = null;
-    let gpsPosition = null;
+        // ===================================================================
+        // Photo Upload Logic
+        // ===================================================================
+        let selectedFile = null;
+        let gpsPosition = null;
 
-    const dropzone = document.getElementById("photoDropzone");
-    const photoInput = document.getElementById("photoInput");
-    const dropzoneContent = document.getElementById("dropzoneContent");
-    const dropzonePreview = document.getElementById("dropzonePreview");
-    const photoPreview = document.getElementById("photoPreview");
-    const previewStatus = document.getElementById("previewStatus");
-    const photoMeta = document.getElementById("photoMeta");
-    const photoActions = document.getElementById("photoActions");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const uploadProgress = document.getElementById("uploadProgress");
-    const progressFill = document.getElementById("progressFill");
-    const progressText = document.getElementById("progressText");
-    const uploadError = document.getElementById("uploadError");
+        const dropzone = document.getElementById("photoDropzone");
+        const photoInput = document.getElementById("photoInput");
+        const dropzoneContent = document.getElementById("dropzoneContent");
+        const dropzonePreview = document.getElementById("dropzonePreview");
+        const photoPreview = document.getElementById("photoPreview");
+        const previewStatus = document.getElementById("previewStatus");
+        const photoMeta = document.getElementById("photoMeta");
+        const photoActions = document.getElementById("photoActions");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const uploadProgress = document.getElementById("uploadProgress");
+        const progressFill = document.getElementById("progressFill");
+        const progressText = document.getElementById("progressText");
+        const uploadError = document.getElementById("uploadError");
 
-    photoInput.addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        selectedFile = file;
-        showPreview(file);
-        getGPSPosition();
-    });
-
-    dropzone.addEventListener("dragover", function (e) {
-        e.preventDefault();
-        this.style.borderColor = "var(--accent-primary)";
-        this.style.backgroundColor = "rgba(22, 36, 74, 0.03)";
-    });
-
-    dropzone.addEventListener("dragleave", function (e) {
-        e.preventDefault();
-        this.style.borderColor = "var(--border)";
-        this.style.backgroundColor = "transparent";
-    });
-
-    dropzone.addEventListener("drop", function (e) {
-        e.preventDefault();
-        this.style.borderColor = "var(--border)";
-        this.style.backgroundColor = "transparent";
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith("image/")) {
+        photoInput.addEventListener("change", function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
             selectedFile = file;
             showPreview(file);
             getGPSPosition();
-        }
-    });
+        });
 
-    function showPreview(file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            photoPreview.src = e.target.result;
-            dropzoneContent.style.display = "none";
-            dropzonePreview.style.display = "block";
-            previewStatus.textContent = "Photo selected - ready to upload";
-            previewStatus.style.color = "var(--color-success)";
-        };
-        reader.readAsDataURL(file);
-    }
+        dropzone.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            this.style.borderColor = "var(--accent-primary)";
+            this.style.backgroundColor = "rgba(22, 36, 74, 0.03)";
+        });
 
-    function getGPSPosition() {
-        photoMeta.style.display = "block";
-        document.getElementById("metaLocation").textContent = "Getting GPS position...";
-        document.getElementById("metaAccuracy").textContent = "...";
-        document.getElementById("metaCapturedAt").textContent = new Date().toLocaleString();
+        dropzone.addEventListener("dragleave", function (e) {
+            e.preventDefault();
+            this.style.borderColor = "var(--border)";
+            this.style.backgroundColor = "transparent";
+        });
 
-        if (!navigator.geolocation) {
-            document.getElementById("metaLocation").textContent =
-                "GPS not available on this device";
-            showPhotoActions();
-            return;
-        }
+        dropzone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            this.style.borderColor = "var(--border)";
+            this.style.backgroundColor = "transparent";
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith("image/")) {
+                selectedFile = file;
+                showPreview(file);
+                getGPSPosition();
+            }
+        });
 
-        navigator.geolocation.getCurrentPosition(
-            function (position) {
-                gpsPosition = position;
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
-
-                document.getElementById("metaLocation").textContent =
-                    lat.toFixed(6) + "°N, " + lng.toFixed(6) + "°E";
-                document.getElementById("metaAccuracy").textContent =
-                    "±" + accuracy.toFixed(1) + "m";
-
-                document.getElementById("photo_lat").value = lat;
-                document.getElementById("photo_lng").value = lng;
-                document.getElementById("photo_accuracy").value = accuracy;
-                document.getElementById("photo_captured_at").value = new Date().toISOString();
-
-                showPhotoActions();
-            },
-            function (error) {
-                let msg = "GPS error: ";
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        msg += "Permission denied. Please enable location services.";
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        msg += "Position unavailable.";
-                        break;
-                    case error.TIMEOUT:
-                        msg += "GPS timed out. Try again.";
-                        break;
-                    default:
-                        msg += error.message;
-                }
-                document.getElementById("metaLocation").textContent = msg;
-                showPhotoActions();
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-    }
-
-    function showPhotoActions() {
-        photoActions.style.display = "flex";
-    }
-
-    function resetPhotoUpload() {
-        selectedFile = null;
-        gpsPosition = null;
-        photoInput.value = "";
-        dropzoneContent.style.display = "flex";
-        dropzonePreview.style.display = "none";
-        photoMeta.style.display = "none";
-        photoActions.style.display = "none";
-        uploadProgress.style.display = "none";
-        uploadError.style.display = "none";
-        document.getElementById("photo_lat").value = "";
-        document.getElementById("photo_lng").value = "";
-        document.getElementById("photo_accuracy").value = "";
-        document.getElementById("photo_captured_at").value = "";
-    }
-
-    function uploadPhoto() {
-        if (!selectedFile) {
-            showError("Please select a photo first.");
-            return;
-        }
-
-        const inspectionId = document.getElementById("photo_inspection_id").value;
-        const lat = document.getElementById("photo_lat").value;
-        const lng = document.getElementById("photo_lng").value;
-        const accuracy = document.getElementById("photo_accuracy").value;
-        const capturedAt = document.getElementById("photo_captured_at").value;
-
-        if (!lat || !lng || !accuracy || !capturedAt) {
-            showError("GPS data not available. Please wait for GPS or try again.");
-            return;
-        }
-
-        uploadBtn.disabled = true;
-        uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
-        uploadProgress.style.display = "block";
-        uploadError.style.display = "none";
-        progressFill.style.width = "30%";
-        progressText.textContent = "Uploading photo...";
-
-        const formData = new FormData();
-        formData.append("image", selectedFile);
-        formData.append("inspection_id", inspectionId);
-        formData.append("lat", lat);
-        formData.append("lng", lng);
-        formData.append("accuracy", accuracy);
-        formData.append("captured_at", capturedAt);
-
-        fetch("/inspection/photo-upload", {
-            method: "POST",
-            body: formData,
-        })
-            .then(function (response) {
-                progressFill.style.width = "70%";
-                progressText.textContent = "Processing...";
-                return response.json().then(function (data) {
-                    if (response.ok) {
-                        return data;
-                    } else {
-                        throw new Error(data.error || "Upload failed");
-                    }
-                });
-            })
-            .then(function (data) {
-                progressFill.style.width = "100%";
-                progressText.textContent = "Photo uploaded successfully!";
-                progressText.style.color = "var(--color-success)";
-
-                previewStatus.textContent = "✓ Uploaded successfully";
+        function showPreview(file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                photoPreview.src = e.target.result;
+                dropzoneContent.style.display = "none";
+                dropzonePreview.style.display = "block";
+                previewStatus.textContent = "Photo selected - ready to upload";
                 previewStatus.style.color = "var(--color-success)";
+            };
+            reader.readAsDataURL(file);
+        }
 
-                // If OCR was queued asynchronously (QStash), poll until it completes
-                // and show the extracted text; otherwise reload to refresh the gallery.
-                if (data.ocr_task_id) {
-                    var ocrWrapper = document.getElementById("ocrStatus");
-                    var ocrBox = document.getElementById("ocrStatusBox");
-                    ocrWrapper.style.display = "block";
-                    ocrBox.className = "info-box";
-                    ocrBox.innerHTML =
-                        '<i class="fa-solid fa-spinner fa-spin"></i> OCR in progress — extracting text from the photo…';
+        function getGPSPosition() {
+            photoMeta.style.display = "block";
+            document.getElementById("metaLocation").textContent = "Getting GPS position...";
+            document.getElementById("metaAccuracy").textContent = "...";
+            document.getElementById("metaCapturedAt").textContent = new Date().toLocaleString();
 
-                    TaskPoll.pollStatus(data.ocr_task_id, function (outcome) {
-                        if (outcome.status === "error") {
-                            ocrBox.className = "info-box info-box--error";
-                            ocrBox.innerHTML =
-                                '<i class="fa-solid fa-circle-exclamation"></i> OCR failed: ' +
-                                (outcome.error || "unknown error");
+            if (!navigator.geolocation) {
+                document.getElementById("metaLocation").textContent =
+                    "GPS not available on this device";
+                showPhotoActions();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    gpsPosition = position;
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+
+                    document.getElementById("metaLocation").textContent =
+                        lat.toFixed(6) + "°N, " + lng.toFixed(6) + "°E";
+                    document.getElementById("metaAccuracy").textContent =
+                        "±" + accuracy.toFixed(1) + "m";
+
+                    document.getElementById("photo_lat").value = lat;
+                    document.getElementById("photo_lng").value = lng;
+                    document.getElementById("photo_accuracy").value = accuracy;
+                    document.getElementById("photo_captured_at").value = new Date().toISOString();
+
+                    showPhotoActions();
+                },
+                function (error) {
+                    let msg = "GPS error: ";
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            msg += "Permission denied. Please enable location services.";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            msg += "Position unavailable.";
+                            break;
+                        case error.TIMEOUT:
+                            msg += "GPS timed out. Try again.";
+                            break;
+                        default:
+                            msg += error.message;
+                    }
+                    document.getElementById("metaLocation").textContent = msg;
+                    showPhotoActions();
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        function showPhotoActions() {
+            photoActions.style.display = "flex";
+        }
+
+        function resetPhotoUpload() {
+            selectedFile = null;
+            gpsPosition = null;
+            photoInput.value = "";
+            dropzoneContent.style.display = "flex";
+            dropzonePreview.style.display = "none";
+            photoMeta.style.display = "none";
+            photoActions.style.display = "none";
+            uploadProgress.style.display = "none";
+            uploadError.style.display = "none";
+            document.getElementById("photo_lat").value = "";
+            document.getElementById("photo_lng").value = "";
+            document.getElementById("photo_accuracy").value = "";
+            document.getElementById("photo_captured_at").value = "";
+        }
+
+        function uploadPhoto() {
+            if (!selectedFile) {
+                showError("Please select a photo first.");
+                return;
+            }
+
+            const inspectionId = document.getElementById("photo_inspection_id").value;
+            const lat = document.getElementById("photo_lat").value;
+            const lng = document.getElementById("photo_lng").value;
+            const accuracy = document.getElementById("photo_accuracy").value;
+            const capturedAt = document.getElementById("photo_captured_at").value;
+
+            if (!lat || !lng || !accuracy || !capturedAt) {
+                showError("GPS data not available. Please wait for GPS or try again.");
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+            uploadProgress.style.display = "block";
+            uploadError.style.display = "none";
+            progressFill.style.width = "30%";
+            progressText.textContent = "Uploading photo...";
+
+            const formData = new FormData();
+            formData.append("image", selectedFile);
+            formData.append("inspection_id", inspectionId);
+            formData.append("lat", lat);
+            formData.append("lng", lng);
+            formData.append("accuracy", accuracy);
+            formData.append("captured_at", capturedAt);
+
+            fetch("/inspection/photo-upload", {
+                method: "POST",
+                body: formData,
+            })
+                .then(function (response) {
+                    progressFill.style.width = "70%";
+                    progressText.textContent = "Processing...";
+                    return response.json().then(function (data) {
+                        if (response.ok) {
+                            return data;
                         } else {
-                            ocrBox.className = "info-box info-box--success";
-                            ocrBox.innerHTML =
-                                '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
-                                formatOcrResult(outcome.result || {});
+                            throw new Error(data.error || "Upload failed");
                         }
+                    });
+                })
+                .then(function (data) {
+                    progressFill.style.width = "100%";
+                    progressText.textContent = "Photo uploaded successfully!";
+                    progressText.style.color = "var(--color-success)";
+
+                    previewStatus.textContent = "✓ Uploaded successfully";
+                    previewStatus.style.color = "var(--color-success)";
+
+                    // If OCR was queued asynchronously (QStash), poll until it completes
+                    // and show the extracted text; otherwise reload to refresh the gallery.
+                    if (data.ocr_task_id) {
+                        var ocrWrapper = document.getElementById("ocrStatus");
+                        var ocrBox = document.getElementById("ocrStatusBox");
+                        ocrWrapper.style.display = "block";
+                        ocrBox.className = "info-box";
+                        ocrBox.innerHTML =
+                            '<i class="fa-solid fa-spinner fa-spin"></i> OCR in progress — extracting text from the photo…';
+
+                        TaskPoll.pollStatus(data.ocr_task_id, function (outcome) {
+                            if (outcome.status === "error") {
+                                ocrBox.className = "info-box info-box--error";
+                                ocrBox.innerHTML =
+                                    '<i class="fa-solid fa-circle-exclamation"></i> OCR failed: ' +
+                                    (outcome.error || "unknown error");
+                            } else {
+                                ocrBox.className = "info-box info-box--success";
+                                ocrBox.innerHTML =
+                                    '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                                    formatOcrResult(outcome.result || {});
+                            }
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 2500);
+                        });
+                    } else if (data.ocr_result) {
+                        var ocrBox2 = document.getElementById("ocrStatusBox");
+                        var ocrWrapper2 = document.getElementById("ocrStatus");
+                        ocrWrapper2.style.display = "block";
+                        ocrBox2.className = "info-box info-box--success";
+                        ocrBox2.innerHTML =
+                            '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
+                            formatOcrResult(data.ocr_result);
                         setTimeout(function () {
                             window.location.reload();
                         }, 2500);
+                    } else {
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                })
+                .catch(function (error) {
+                    uploadProgress.style.display = "none";
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo';
+                    showError(error.message || "Failed to upload photo. Please try again.");
+                });
+        }
+
+        function showError(message) {
+            uploadError.style.display = "block";
+            uploadError.className = "info-box info-box--error";
+            uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
+        }
+
+        // Format the OCR extraction result dict (e.g. {p1: "text", _pages_processed: 1})
+        // into a short readable summary. Ignores underscore-prefixed metadata keys.
+        function formatOcrResult(result) {
+            var keys = Object.keys(result || {}).filter(function (k) {
+                return k.charAt(0) !== "_";
+            });
+            if (keys.length === 0) {
+                return "No text extracted from this photo.";
+            }
+            var parts = keys.map(function (k) {
+                var text = String(result[k] || "").trim();
+                if (text.length > 120) {
+                    text = text.slice(0, 120) + "…";
+                }
+                return "<div><code>[" + k + "]</code> " + escapeHtml(text) + "</div>";
+            });
+            return '<div class="ocr-text">' + parts.join("") + "</div>";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ===================================================================
+        // Improvement Notice Preview / Edit
+        // ===================================================================
+        var noticeQuill = null;
+
+        // Print-optimized CSS matching the Improvement Notice PDF template exactly.
+        // Uses pt units for WeasyPrint parity, A4 page geometry, and proper margins.
+        function getNoticePreviewStyles() {
+            return '@page { size: A4; margin: 72pt 54pt; }' +
+                'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 0; color: #000; font-size: 11pt; line-height: 1.6; }' +
+                '.page { page-break-after: always; padding: 72pt 54pt; position: relative; max-width: 210mm; margin: 0 auto; background: #fff; box-shadow: 0 0 8px rgba(0,0,0,0.1); }' +
+                '.letterhead { border-bottom: 2pt solid #000; padding-bottom: 12pt; margin-bottom: 18pt; }' +
+                '.letterhead h1 { font-size: 16pt; font-weight: bold; margin: 0; }' +
+                '.letterhead .subtitle { font-size: 10pt; color: #555; margin-top: 4pt; }' +
+                '.header-line { font-size: 9pt; color: #555; margin-bottom: 6pt; }' +
+                '.body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12pt; }' +
+                '.body-text b { font-weight: bold; }' +
+                '.signature-block { margin-top: 48pt; }' +
+                '.signature-line { border-top: 1pt solid #000; width: 180pt; padding-top: 4pt; font-size: 11pt; }' +
+                '.no-print { display: none; }' +
+                'table { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt; }' +
+                'table th, table td { border: 1pt solid #000; padding: 4pt 8pt; text-align: left; vertical-align: top; }' +
+                'table th { background-color: #eee; font-weight: bold; }' +
+                'table tr { page-break-inside: avoid; break-inside: avoid; }' +
+                'table.violation-table { width: 100%; }' +
+                'table.violation-table th { background-color: #eee; }' +
+                'table.summary th { background-color: #eee; }' +
+                'ol.actions-list { margin: 12pt 0; padding-left: 24pt; line-height: 1.8; }' +
+                'ol.actions-list li { margin-bottom: 6pt; }' +
+                '.footer { font-size: 8pt; color: #777; border-top: 1pt solid #ccc; padding-top: 6pt; margin-top: 24pt; }' +
+                '@media print { body { margin: 0; } .page { box-shadow: none; margin: 0; } }';
+        }
+
+        function openNoticeEditor() {
+            try {
+                var modal = document.getElementById('noticeEditorModal');
+            modal.style.display = 'flex';
+
+            var editorDiv = document.getElementById('noticeQuillEditor');
+            var previewFrame = document.getElementById('noticePreviewFrame');
+
+            // Show loading state
+            editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading notice preview...</p>';
+
+            // Fetch the current notice HTML from the server
+            fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
+            .then(function(r) {
+                if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to load notice'); });
+                return r.text();
+            })
+            .then(function(html) {
+                // Initialize Quill if not already done
+                if (!noticeQuill) {
+                    noticeQuill = new Quill('#noticeQuillEditor', {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                [{ 'header': [1, 2, 3, false] }],
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                ['blockquote'],
+                                ['clean']
+                            ]
+                        }
                     });
-                } else if (data.ocr_result) {
-                    var ocrBox2 = document.getElementById("ocrStatusBox");
-                    var ocrWrapper2 = document.getElementById("ocrStatus");
-                    ocrWrapper2.style.display = "block";
-                    ocrBox2.className = "info-box info-box--success";
-                    ocrBox2.innerHTML =
-                        '<i class="fa-solid fa-font"></i> <strong>OCR complete.</strong> ' +
-                        formatOcrResult(data.ocr_result);
-                    setTimeout(function () {
-                        window.location.reload();
-                    }, 2500);
+                }
+
+                // Strip the <html>, <head>, <style>, <body> wrappers — keep just the inner content
+                var content = html;
+                var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch) {
+                    content = bodyMatch[1];
+                }
+                // Remove style tags
+                content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+                // Remove script tags
+                content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+                // Remove the .no-print actions div
+                content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
+
+                noticeQuill.root.innerHTML = content;
+
+                // Show initial preview in the iframe
+                function updateNoticePreview() {
+                    previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + getNoticePreviewStyles() + '</style></head><body>' + noticeQuill.root.innerHTML + '</body></html>';
+                }
+                updateNoticePreview();
+
+                // Sync editor changes to preview in real time (debounced)
+                var previewSyncTimer = null;
+                noticeQuill.on('text-change', function() {
+                    clearTimeout(previewSyncTimer);
+                    previewSyncTimer = setTimeout(updateNoticePreview, 300);
+                });
+            })
+            .catch(function(err) {
+                editorDiv.innerHTML = '<div class="info-box info-box--error"><i class="fa-solid fa-circle-exclamation"></i> ' + err.message + '</div>';
+                console.error('openNoticeEditor error:', err);
+                alert('Failed to open notice editor: ' + err.message);
+            });
+        }
+    }
+
+        function closeNoticeEditor() {
+            document.getElementById('noticeEditorModal').style.display = 'none';
+        }
+
+        function downloadEditedNotice() {
+            if (!noticeQuill) return;
+
+            var html = noticeQuill.root.innerHTML;
+            // Wrap in a full HTML document with the same CSS used for preview
+            var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+                getNoticePreviewStyles() +
+                '</style></head><body>' + html + '</body></html>';
+
+            // Send to server to save and generate PDF
+            var formData = new FormData();
+            formData.append('html', fullHtml);
+
+            fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/save', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(function(result) {
+                if (result.ok) {
+                    // Download the PDF
+                    window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
+                    closeNoticeEditor();
                 } else {
-                    setTimeout(function () {
-                        window.location.reload();
-                    }, 1500);
+                    alert('Error: ' + (result.data.error || 'Failed to save'));
                 }
             })
-            .catch(function (error) {
-                uploadProgress.style.display = "none";
-                uploadBtn.disabled = false;
-                uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo';
-                showError(error.message || "Failed to upload photo. Please try again.");
+            .catch(function(err) {
+                alert('Error: ' + err.message);
             });
-    }
-
-    function showError(message) {
-        uploadError.style.display = "block";
-        uploadError.className = "info-box info-box--error";
-        uploadError.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
-    }
-
-    // Format the OCR extraction result dict (e.g. {p1: "text", _pages_processed: 1})
-    // into a short readable summary. Ignores underscore-prefixed metadata keys.
-    function formatOcrResult(result) {
-        var keys = Object.keys(result || {}).filter(function (k) {
-            return k.charAt(0) !== "_";
-        });
-        if (keys.length === 0) {
-            return "No text extracted from this photo.";
         }
-        var parts = keys.map(function (k) {
-            var text = String(result[k] || "").trim();
-            if (text.length > 120) {
-                text = text.slice(0, 120) + "…";
-            }
-            return "<div><code>[" + k + "]</code> " + escapeHtml(text) + "</div>";
-        });
-        return '<div class="ocr-text">' + parts.join("") + "</div>";
-    }
 
-    function escapeHtml(str) {
-        var div = document.createElement("div");
-        div.textContent = str;
-        return div.innerHTML;
-    }
+        function downloadOriginalNotice() {
+            window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
+        }
 
-    // ===================================================================
-    // Improvement Notice Preview / Edit
-    // ===================================================================
-    var noticeQuill = null;
+        function revertNoticeToOriginal() {
+            if (!confirm('Revert to the original template? All your edits will be lost.')) return;
 
-    // Print-optimized CSS matching the Improvement Notice PDF template exactly.
-    // Uses pt units for WeasyPrint parity, A4 page geometry, and proper margins.
-    function getNoticePreviewStyles() {
-        return '@page { size: A4; margin: 72pt 54pt; }' +
-            'body { font-family: DejaVu Sans, sans-serif; margin: 0; padding: 0; color: #000; font-size: 11pt; line-height: 1.6; }' +
-            '.page { page-break-after: always; padding: 72pt 54pt; position: relative; max-width: 210mm; margin: 0 auto; background: #fff; box-shadow: 0 0 8px rgba(0,0,0,0.1); }' +
-            '.letterhead { border-bottom: 2pt solid #000; padding-bottom: 12pt; margin-bottom: 18pt; }' +
-            '.letterhead h1 { font-size: 16pt; font-weight: bold; margin: 0; }' +
-            '.letterhead .subtitle { font-size: 10pt; color: #555; margin-top: 4pt; }' +
-            '.header-line { font-size: 9pt; color: #555; margin-bottom: 6pt; }' +
-            '.body-text { font-size: 11pt; line-height: 1.6; margin-bottom: 12pt; }' +
-            '.body-text b { font-weight: bold; }' +
-            '.signature-block { margin-top: 48pt; }' +
-            '.signature-line { border-top: 1pt solid #000; width: 180pt; padding-top: 4pt; font-size: 11pt; }' +
-            '.no-print { display: none; }' +
-            'table { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt; }' +
-            'table th, table td { border: 1pt solid #000; padding: 4pt 8pt; text-align: left; vertical-align: top; }' +
-            'table th { background-color: #eee; font-weight: bold; }' +
-            'table tr { page-break-inside: avoid; break-inside: avoid; }' +
-            'table.violation-table { width: 100%; }' +
-            'table.violation-table th { background-color: #eee; }' +
-            'table.summary th { background-color: #eee; }' +
-            'ol.actions-list { margin: 12pt 0; padding-left: 24pt; line-height: 1.8; }' +
-            'ol.actions-list li { margin-bottom: 6pt; }' +
-            '.footer { font-size: 8pt; color: #777; border-top: 1pt solid #ccc; padding-top: 6pt; margin-top: 24pt; }' +
-            '@media print { body { margin: 0; } .page { box-shadow: none; margin: 0; } }';
-    }
+            var editorDiv = document.getElementById('noticeQuillEditor');
+            var previewFrame = document.getElementById('noticePreviewFrame');
 
-    function openNoticeEditor() {
-        var modal = document.getElementById('noticeEditorModal');
-        modal.style.display = 'flex';
+            editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Reverting...</p>';
 
-        var editorDiv = document.getElementById('noticeQuillEditor');
-        var previewFrame = document.getElementById('noticePreviewFrame');
+            fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load original notice');
+                return r.text();
+            })
+            .then(function(html) {
+                // Re-init Quill if needed
+                if (!noticeQuill) {
+                    noticeQuill = new Quill('#noticeQuillEditor', {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                [{ 'header': [1, 2, 3, false] }],
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                ['blockquote'],
+                                ['clean']
+                            ]
+                        }
+                    });
+                }
 
-        // Show loading state
-        editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading notice preview...</p>';
+                var content = html;
+                var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch) content = bodyMatch[1];
+                content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+                content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
+                content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
 
-        // Fetch the current notice HTML from the server
-        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
-        .then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to load notice'); });
-            return r.text();
-        })
-        .then(function(html) {
-            // Initialize Quill if not already done
-            if (!noticeQuill) {
-                noticeQuill = new Quill('#noticeQuillEditor', {
-                    theme: 'snow',
-                    modules: {
-                        toolbar: [
-                            [{ 'header': [1, 2, 3, false] }],
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            ['blockquote'],
-                            ['clean']
-                        ]
-                    }
-                });
-            }
+                noticeQuill.root.innerHTML = content;
 
-            // Strip the <html>, <head>, <style>, <body> wrappers — keep just the inner content
-            var content = html;
-            var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-            if (bodyMatch) {
-                content = bodyMatch[1];
-            }
-            // Remove style tags
-            content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
-            // Remove script tags
-            content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
-            // Remove the .no-print actions div
-            content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
-
-            noticeQuill.root.innerHTML = content;
-
-            // Show initial preview in the iframe
-            function updateNoticePreview() {
-                previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + getNoticePreviewStyles() + '</style></head><body>' + noticeQuill.root.innerHTML + '</body></html>';
-            }
-            updateNoticePreview();
-
-            // Sync editor changes to preview in real time (debounced)
-            var previewSyncTimer = null;
-            noticeQuill.on('text-change', function() {
-                clearTimeout(previewSyncTimer);
-                previewSyncTimer = setTimeout(updateNoticePreview, 300);
+                // Refresh preview
+                var previewStyles = getNoticePreviewStyles();
+                previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + previewStyles + '</style></head><body>' + content + '</body></html>';
+            })
+            .catch(function(err) {
+                alert('Error: ' + err.message);
             });
-        })
-        .catch(function(err) {
-            editorDiv.innerHTML = '<div class="info-box info-box--error"><i class="fa-solid fa-circle-exclamation"></i> ' + err.message + '</div>';
+        }
+
+        // Close notice editor on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                var modal = document.getElementById('noticeEditorModal');
+                if (modal && modal.style.display === 'flex') {
+                    closeNoticeEditor();
+                }
+            }
         });
-    }
 
-    function closeNoticeEditor() {
-        document.getElementById('noticeEditorModal').style.display = 'none';
-    }
+        // ===================================================================
+        // Lightbox Logic
+        // ===================================================================
+        function openLightbox(src, locality, status, capturedAt) {
+            document.getElementById("lightboxImage").src = src;
+            document.getElementById("lightboxLocation").textContent = locality;
 
-    function downloadEditedNotice() {
-        if (!noticeQuill) return;
-
-        var html = noticeQuill.root.innerHTML;
-        // Wrap in a full HTML document with the same CSS used for preview
-        var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-            getNoticePreviewStyles() +
-            '</style></head><body>' + html + '</body></html>';
-
-        // Send to server to save and generate PDF
-        var formData = new FormData();
-        formData.append('html', fullHtml);
-
-        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/save', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
-        .then(function(result) {
-            if (result.ok) {
-                // Download the PDF
-                window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
-                closeNoticeEditor();
+            let statusText = status;
+            let statusColor = "var(--text-body)";
+            if (status === "PASS") {
+                statusText = "Verified (PASS)";
+                statusColor = "var(--color-success)";
+            } else if (status === "FLAG") {
+                statusText = "Flagged (FLAG)";
+                statusColor = "var(--color-error)";
             } else {
-                alert('Error: ' + (result.data.error || 'Failed to save'));
+                statusText = "Pending";
+                statusColor = "var(--color-warning)";
             }
-        })
-        .catch(function(err) {
-            alert('Error: ' + err.message);
+            document.getElementById("lightboxStatus").innerHTML =
+                '<span style="color: ' + statusColor + '">' + statusText + "</span>";
+            document.getElementById("lightboxCapturedAt").textContent = capturedAt;
+
+            document.getElementById("lightboxModal").style.display = "flex";
+        }
+
+        function closeLightbox() {
+            document.getElementById("lightboxModal").style.display = "none";
+        }
+
+        document.getElementById("lightboxModal").addEventListener("click", function (e) {
+            if (e.target === this) {
+                closeLightbox();
+            }
         });
-    }
 
-    function downloadOriginalNotice() {
-        window.location.href = '/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/pdf';
-    }
-
-    function revertNoticeToOriginal() {
-        if (!confirm('Revert to the original template? All your edits will be lost.')) return;
-
-        var editorDiv = document.getElementById('noticeQuillEditor');
-        var previewFrame = document.getElementById('noticePreviewFrame');
-
-        editorDiv.innerHTML = '<p style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Reverting...</p>';
-
-        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/html')
-        .then(function(r) {
-            if (!r.ok) throw new Error('Failed to load original notice');
-            return r.text();
-        })
-        .then(function(html) {
-            // Re-init Quill if needed
-            if (!noticeQuill) {
-                noticeQuill = new Quill('#noticeQuillEditor', {
-                    theme: 'snow',
-                    modules: {
-                        toolbar: [
-                            [{ 'header': [1, 2, 3, false] }],
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            ['blockquote'],
-                            ['clean']
-                        ]
-                    }
-                });
-            }
-
-            var content = html;
-            var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-            if (bodyMatch) content = bodyMatch[1];
-            content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
-            content = content.replace(/<script[\s\S]*?<\/script>/gi, '');
-            content = content.replace(/<div class="actions">[\s\S]*?<\/div>/gi, '');
-
-            noticeQuill.root.innerHTML = content;
-
-            // Refresh preview
-            var previewStyles = getNoticePreviewStyles();
-            previewFrame.srcdoc = '<!DOCTYPE html><html><head><style>' + previewStyles + '</style></head><body>' + content + '</body></html>';
-        })
-        .catch(function(err) {
-            alert('Error: ' + err.message);
-        });
-    }
-
-    // Close notice editor on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var modal = document.getElementById('noticeEditorModal');
-            if (modal && modal.style.display === 'flex') {
-                closeNoticeEditor();
-            }
-        }
-    });
-
-    // ===================================================================
-    // Lightbox Logic
-    // ===================================================================
-    function openLightbox(src, locality, status, capturedAt) {
-        document.getElementById("lightboxImage").src = src;
-        document.getElementById("lightboxLocation").textContent = locality;
-
-        let statusText = status;
-        let statusColor = "var(--text-body)";
-        if (status === "PASS") {
-            statusText = "Verified (PASS)";
-            statusColor = "var(--color-success)";
-        } else if (status === "FLAG") {
-            statusText = "Flagged (FLAG)";
-            statusColor = "var(--color-error)";
-        } else {
-            statusText = "Pending";
-            statusColor = "var(--color-warning)";
-        }
-        document.getElementById("lightboxStatus").innerHTML =
-            '<span style="color: ' + statusColor + '">' + statusText + "</span>";
-        document.getElementById("lightboxCapturedAt").textContent = capturedAt;
-
-        document.getElementById("lightboxModal").style.display = "flex";
-    }
-
-    function closeLightbox() {
-        document.getElementById("lightboxModal").style.display = "none";
-    }
-
-    document.getElementById("lightboxModal").addEventListener("click", function (e) {
-        if (e.target === this) {
-            closeLightbox();
-        }
-    });
-
-    document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") {
-            closeLightbox();
-            closeChecklistModal();
-        }
-    });
-
-    // ===================================================================
-    // Checklist Quick-Edit Modal
-    // ===================================================================
-    var INSPECTION_ID = {{ inspection.id }};
-    var INSPECTION_CODE = '{{ inspection.inspection_code }}';
-    var FBO_NAME = '{{ inspection.fbo_name or "" }}';
-
-    function openChecklistModal() {
-        document.getElementById('checklistModal').style.display = 'flex';
-    }
-
-    function closeChecklistModal() {
-        document.getElementById('checklistModal').style.display = 'none';
-    }
-
-    // Close modal on backdrop click
-    document.getElementById('checklistModal').addEventListener('click', function(e) {
-        if (e.target === this) closeChecklistModal();
-    });
-
-    document.getElementById('checklistEditForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        if (!confirm('Save checklist changes? This may affect Improvement Notice violations.')) {
-            return;
-        }
-
-        var saveBtn = document.getElementById('checklistSaveBtn');
-        var originalHtml = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-        saveBtn.disabled = true;
-
-        var formData = new FormData(this);
-
-        fetch('/inspection/' + INSPECTION_ID, {
-            method: 'PUT',
-            body: formData
-        })
-        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
-        .then(function(result) {
-            if (result.ok) {
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                closeLightbox();
                 closeChecklistModal();
-                window.location.reload();
-            } else {
-                alert('Error: ' + (result.data.error || 'Failed to save checklist'));
             }
-        })
-        .catch(function(err) {
-            alert('Error: ' + err.message);
-        })
-        .finally(function() {
-            saveBtn.innerHTML = originalHtml;
-            saveBtn.disabled = false;
         });
-    });
 
-    // ===================================================================
-    // Email Modal
-    // ===================================================================
-    function openEmailModal() {
-        document.getElementById('emailModal').style.display = 'flex';
-        document.getElementById('emailStatus').style.display = 'none';
-        document.getElementById('emailSendBtn').disabled = false;
-        document.getElementById('recipientEmail').focus();
-    }
+        // ===================================================================
+        // Checklist Quick-Edit Modal
+        // ===================================================================
+        var INSPECTION_ID = {{ inspection.id }};
+        var INSPECTION_CODE = '{{ inspection.inspection_code }}';
+        var FBO_NAME = '{{ inspection.fbo_name or "" }}';
 
-    function closeEmailModal() {
-        document.getElementById('emailModal').style.display = 'none';
-        document.getElementById('emailForm').reset();
-        // Restore default subject
-        document.getElementById('emailSubject').value =
-            'Improvement Notice \u2014 ' + (FBO_NAME || 'FBO') + ' (' + INSPECTION_CODE + ')';
-    }
+        function openChecklistModal() {
+            document.getElementById('checklistModal').style.display = 'flex';
+        }
 
-    function sendNoticeEmail(e) {
-        e.preventDefault();
-        var btn = document.getElementById('emailSendBtn');
-        var status = document.getElementById('emailStatus');
-        var origHtml = btn.innerHTML;
+        function closeChecklistModal() {
+            document.getElementById('checklistModal').style.display = 'none';
+        }
 
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
-        btn.disabled = true;
-        status.style.display = 'none';
+        // Close modal on backdrop click
+        document.getElementById('checklistModal').addEventListener('click', function(e) {
+            if (e.target === this) closeChecklistModal();
+        });
 
-        var formData = new FormData(document.getElementById('emailForm'));
+        document.getElementById('checklistEditForm').addEventListener('submit', function(e) {
+            e.preventDefault();
 
-        fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/email', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
-        .then(function(result) {
-            status.style.display = 'block';
-            if (result.ok) {
-                status.style.background = '#d4edda';
-                status.style.color = '#155724';
-                status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + (result.data.message || 'Email sent successfully.');
-            } else {
+            if (!confirm('Save checklist changes? This may affect Improvement Notice violations.')) {
+                return;
+            }
+
+            var saveBtn = document.getElementById('checklistSaveBtn');
+            var originalHtml = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            saveBtn.disabled = true;
+
+            var formData = new FormData(this);
+
+            fetch('/inspection/' + INSPECTION_ID, {
+                method: 'PUT',
+                body: formData
+            })
+            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(function(result) {
+                if (result.ok) {
+                    closeChecklistModal();
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (result.data.error || 'Failed to save checklist'));
+                }
+            })
+            .catch(function(err) {
+                alert('Error: ' + err.message);
+            })
+            .finally(function() {
+                saveBtn.innerHTML = originalHtml;
+                saveBtn.disabled = false;
+            });
+        });
+
+        // ===================================================================
+        // Email Modal
+        // ===================================================================
+        function openEmailModal() {
+            document.getElementById('emailModal').style.display = 'flex';
+            document.getElementById('emailStatus').style.display = 'none';
+            document.getElementById('emailSendBtn').disabled = false;
+            document.getElementById('recipientEmail').focus();
+        }
+
+        function closeEmailModal() {
+            document.getElementById('emailModal').style.display = 'none';
+            document.getElementById('emailForm').reset();
+            // Restore default subject
+            document.getElementById('emailSubject').value =
+                'Improvement Notice \u2014 ' + (FBO_NAME || 'FBO') + ' (' + INSPECTION_CODE + ')';
+        }
+
+        function sendNoticeEmail(e) {
+            e.preventDefault();
+            var btn = document.getElementById('emailSendBtn');
+            var status = document.getElementById('emailStatus');
+            var origHtml = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            btn.disabled = true;
+            status.style.display = 'none';
+
+            var formData = new FormData(document.getElementById('emailForm'));
+
+            fetch('/food-cell/improvement-notice/inspection/' + INSPECTION_ID + '/email', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(function(result) {
+                status.style.display = 'block';
+                if (result.ok) {
+                    status.style.background = '#d4edda';
+                    status.style.color = '#155724';
+                    status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + (result.data.message || 'Email sent successfully.');
+                } else {
+                    status.style.background = '#f8d7da';
+                    status.style.color = '#721c24';
+                    status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (result.data.error || 'Failed to send email.');
+                }
+            })
+            .catch(function(err) {
+                status.style.display = 'block';
                 status.style.background = '#f8d7da';
                 status.style.color = '#721c24';
-                status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (result.data.error || 'Failed to send email.');
-            }
-        })
-        .catch(function(err) {
-            status.style.display = 'block';
-            status.style.background = '#f8d7da';
-            status.style.color = '#721c24';
-            status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Network error: ' + err.message;
-        })
-        .finally(function() {
-            btn.innerHTML = origHtml;
-            btn.disabled = false;
-        });
-    }
+                status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Network error: ' + err.message;
+            })
+            .finally(function() {
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+            });
+        }
 </script>
 {% endblock %}
