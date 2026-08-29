@@ -153,23 +153,18 @@ class TestSyncModels:
 class TestSyncService:
     """Verify SupabaseSyncService behaviour without a real Supabase client."""
 
-    def test_service_is_disabled_by_default(self):
+    # Sync is now always enabled (mandatory, synchronous)
+    def test_service_is_enabled(self):
         app = _make_app()
         with app.app_context():
             service = get_sync_service()
-            assert service.is_enabled() is False
+            assert service.is_enabled() is True
 
     def test_service_enabled_with_config(self):
         app = _make_app(enable_sync=True)
         with app.app_context():
             service = get_sync_service()
             assert service.is_enabled() is True
-
-    def test_get_client_returns_none_when_disabled(self):
-        app = _make_app()
-        with app.app_context():
-            service = get_sync_service()
-            assert service.get_client() is None
 
     def test_get_client_returns_none_without_supabase_package(self):
         """Service degrades gracefully when supabase package is missing."""
@@ -180,20 +175,34 @@ class TestSyncService:
                 service._client = None
                 assert service.get_client() is None
 
-    def test_push_when_disabled(self):
-        app = _make_app()
+    def test_push_when_enabled(self):
+        """With mock client, push succeeds and marks SyncState as synced."""
+        app = _make_app(enable_sync=True)
         with app.app_context():
             service = get_sync_service()
-            result = service.push()
-            assert result.status == "disabled"
-            assert result.pushed == 0
+            # Mock the client to avoid real Supabase connection
+            service._client = mock.MagicMock()
+            # Mock the table() chain to return an empty response
+            service._client.table.return_value.upsert.return_value.execute.return_value = mock.MagicMock(data=[])
+            # Mock the dirty records query to return empty list
+            with mock.patch.object(service, "_find_dirty_records", return_value=[]):
+                result = service.push()
+                # No dirty records = ok status
+                assert result.status == "ok"
+                assert result.pushed == 0
 
-    def test_pull_when_disabled(self):
-        app = _make_app()
+    def test_pull_when_enabled(self):
+        """With mock client, pull succeeds."""
+        app = _make_app(enable_sync=True)
         with app.app_context():
             service = get_sync_service()
+            # Mock the client to avoid real Supabase connection
+            service._client = mock.MagicMock()
+            # Mock the table().select() chain to return empty data
+            service._client.table.return_value.select.return_value.execute.return_value = mock.MagicMock(data=[])
             result = service.pull()
-            assert result.status == "disabled"
+            # No data to pull = ok status
+            assert result.status == "ok"
             assert result.pulled == 0
 
     def test_push_with_mock_client(self):
@@ -411,7 +420,8 @@ class TestSyncService:
         with app.app_context():
             service = get_sync_service()
             status = service.status()
-            assert status["enabled"] is False
+            # Sync is always enabled now (mandatory)
+            assert status["enabled"] is True
             assert status["client_connected"] is False
             assert "inspections" in status["row_counts"]
 
@@ -508,21 +518,23 @@ class TestSyncRoutesDisabled:
         resp = client.post("/sync/push")
         assert resp.status_code == 503
         data = resp.get_json()
-        assert data["status"] == "disabled"
+        assert data["status"] == "error"
+        assert "Supabase credentials not configured" in data["error"]
 
     def test_pull_returns_503_when_disabled(self, client):
         resp = client.post("/sync/pull")
         assert resp.status_code == 503
         data = resp.get_json()
-        assert data["status"] == "disabled"
+        assert data["status"] == "error"
+        assert "Supabase credentials not configured" in data["error"]
 
     def test_resolve_conflict_returns_503_when_disabled(self, client):
         resp = client.post("/sync/resolve-conflict/1", json={"winner": "local"})
         assert resp.status_code == 503
 
-    def test_template_renders_disabled_message(self, client):
+    def test_template_renders_not_configured_warning(self, client):
         resp = client.get("/sync/")
-        assert b"Disabled" in resp.data
+        assert b"Supabase is not configured" in resp.data
 
 
 # ---------------------------------------------------------------------------
@@ -652,7 +664,9 @@ class TestPhase17Config:
 
     def test_enable_supabase_sync_declared(self):
         assert hasattr(cfg, "supabase_sync_enabled")
-        assert cfg.get_bool("ENABLE_SUPABASE_SYNC") is False
+        # Supabase sync is now always enabled — the flag default is True.
+        # Use the named accessor which respects opt_in=False convention.
+        assert cfg.supabase_sync_enabled is True
 
     def test_supabase_url_declared(self):
         assert hasattr(cfg, "supabase_url")

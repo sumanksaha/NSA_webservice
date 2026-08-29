@@ -2,8 +2,7 @@
 
 The Supabase client is lazy-imported — the module loads fine without the
 ``supabase`` package installed (all public methods catch ``ImportError`` and
-degrade to an error result). This mirrors the ``langgraph`` lazy-import
-pattern in ``app/rag/agent/graph.py``.
+degrade to an error result).
 
 Conflict resolution strategy (optimistic concurrency via ``SyncState``):
     - Each synced record has a row in the ``sync_state`` table with a
@@ -54,7 +53,7 @@ _SYNC_SKIP_COLUMNS = frozenset({
 class SyncResult:
     """Outcome of a push / pull / resolve operation."""
 
-    status: str = "ok"  # ok | disabled | error | partial
+    status: str = "ok"  # ok | error | partial
     pushed: int = 0
     pulled: int = 0
     conflicts: int = 0
@@ -76,9 +75,8 @@ class SyncResult:
 class SupabaseSyncService:
     """Push/pull core records to/from Supabase with conflict detection.
 
-    The service is opt-in: when ``ENABLE_SUPABASE_SYNC=false`` (default)
-    every public method returns a ``SyncResult`` with ``status="disabled"``
-    and no network activity occurs.
+    The service is now **always enabled** (synchronous mandatory sync).
+    Credentials must be configured for it to work.
     """
 
     def __init__(self):
@@ -89,28 +87,26 @@ class SupabaseSyncService:
     # ------------------------------------------------------------------ #
 
     def is_enabled(self) -> bool:
-        """True only when sync is enabled AND credentials are present."""
-        return bool(cfg.supabase_sync_enabled and cfg.supabase_url and cfg.supabase_api_key)
+        """Always True — sync is mandatory. Credentials checked on first use."""
+        return True
 
     def get_client(self) -> Any:
-        """Return a cached Supabase client, or ``None`` when unavailable.
+        """Return a cached Supabase client, or None if unavailable.
 
-        Lazy-imports ``supabase`` so the app boots without it. The client
-        is cached on the instance for the request lifecycle.
+        Gracefully handles missing Supabase package or misconfiguration.
         """
-        if not self.is_enabled():
-            return None
-        if self._client is None:
-            try:
-                from supabase import create_client
+        if self._client is not None:
+            return self._client
 
-                self._client = create_client(cfg.supabase_url, cfg.supabase_api_key)
-            except ImportError:
-                logger.warning("supabase package not installed — sync disabled")
-                return None
-            except Exception as exc:
-                logger.error("Supabase client init failed: %s", exc)
-                return None
+        if not cfg.supabase_url or not cfg.supabase_api_key:
+            return None
+
+        try:
+            from supabase import create_client, Client
+        except ImportError:
+            return None
+
+        self._client = create_client(cfg.supabase_url, cfg.supabase_api_key)
         return self._client
 
     # ------------------------------------------------------------------ #
@@ -133,9 +129,6 @@ class SupabaseSyncService:
         """
         result = SyncResult()
         client = self.get_client()
-        if client is None:
-            result.status = "disabled"
-            return result
 
         for model, table_name in _SYNC_MODELS:
             try:
@@ -203,11 +196,16 @@ class SupabaseSyncService:
     # ------------------------------------------------------------------ #
 
     def pull(self) -> SyncResult:
-        """Pull records from Supabase that are newer than the local copy."""
+        """Pull records from Supabase that are newer than the local copy.
+
+        This is a **synchronous blocking call** — will not return until
+        all remote records have been pulled and applied.
+        """
         result = SyncResult()
         client = self.get_client()
         if client is None:
-            result.status = "disabled"
+            result.status = "error"
+            result.errors.append("Supabase client not available — check SUPABASE_URL and SUPABASE_API_KEY")
             return result
 
         for model, table_name in _SYNC_MODELS:

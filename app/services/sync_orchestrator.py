@@ -1,39 +1,37 @@
 """Sync orchestration layer — replaces 7× duplicated triple-sync try/except blocks.
 
-Single entry point for syncing a row dict to all enabled parallel targets:
+Single entry point for syncing a row dict to all parallel sync targets:
 Google Sheets (primary), Airtable (redundant), Excel Online (dormant).
 
 Usage (replaces the triple try/except in every call site)::
 
     from app.services.sync_orchestrator import sync_row
-    result = sync_row("sample_repo", row_dict, entity_id=sample.id)
-    if result["sheets"]:     # primary target succeeded
-        sample.synced_at = datetime.now(UTC)
-        db.session.commit()
+    sync_row("sample_repo", row_dict, entity_id=sample.id)
+    sample.synced_at = datetime.now(UTC)
+    db.session.commit()
 
-Each target is attempted independently — a failure in one never blocks
-the others. Returns per-target success flags so callers can react
-(e.g. update ``synced_at`` on Sheets success).
+Sync is now **synchronous and mandatory** — any failure propagates so the
+caller knows the operation failed.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 
 
-class SyncResult(TypedDict):
-    """Per-target sync success flags returned by :func:`sync_row`."""
+class SyncError(RuntimeError):
+    """Raised when a sync target fails.
 
-    sheets: bool
-    airtable: bool
-    excel: bool
+    All parallel targets are tried before the exception is raised, so a
+    partial success leaves Sheets/Airtable updated even though the
+    caller is notified.
+    """
 
 
-def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> SyncResult:
-    """Sync *row_dict* to all enabled parallel sync targets.
+def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> None:
+    """Sync *row_dict* to all parallel sync targets synchronously.
 
     Args:
         module: Canonical module key (e.g. ``"sample_repo"``,
@@ -41,41 +39,52 @@ def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> SyncR
         row_dict: Field names and values to sync.
         entity_id: Optional DB record ID (passed to Airtable for tracking).
 
-    Returns:
-        ``SyncResult`` with per-target success flags.
+    Raises:
+        SyncError: If any sync target fails. The error message lists all
+            targets that failed.
 
-    Each target is independently guarded — ``sync_to_sheets``,
-    ``sync_to_airtable``, and ``sync_to_excel`` are lazy-imported so the
-    orchestrator works even when optional dependencies (``gspread``,
-    ``pyairtable``, ``msal``) are absent.
+    Sync is **mandatory and synchronous** — all three targets are
+    attempted in order (Sheets → Airtable → Excel) and any failure is
+    captured. After all targets are tried, a ``SyncError`` is raised
+    listing every failure, so the caller is always aware of the outcome.
     """
-    results: SyncResult = {"sheets": False, "airtable": False, "excel": False}
+    failures: list[str] = []
 
-    # Sheets (primary target)
+    # Sheets (primary target) — mandatory
     try:
         from app.services.sheets_sync import sync_to_sheets
 
-        results["sheets"] = sync_to_sheets(module, row_dict)
+        if not sync_to_sheets(module, row_dict):
+            failures.append(f"sheets: returned False for {module}")
     except Exception as e:
-        logger.warning("Sheets sync failed [%s]: %s", module, e)
+        failures.append(f"sheets [{module}]: {e}")
+        logger.error("Sheets sync failed [%s]: %s", module, e)
 
-    # Airtable (redundant target)
+    # Airtable (redundant target) — mandatory
     try:
         from app.services.airtable_sync import sync_to_airtable
 
-        results["airtable"] = sync_to_airtable(module, row_dict, entity_id)
+        if not sync_to_airtable(module, row_dict, entity_id):
+            failures.append(f"airtable: returned False for {module}")
     except Exception as e:
-        logger.warning("Airtable sync failed [%s]: %s", module, e)
+        failures.append(f"airtable [{module}]: {e}")
+        logger.error("Airtable sync failed [%s]: %s", module, e)
 
-    # Excel Online (dormant — ENABLE_EXCEL_SYNC=false)
+    # Excel Online (dormant — only if explicitly enabled)
     try:
-        from app.services.excel_sync import sync_to_excel
+        from app.shared.config import cfg
 
-        results["excel"] = sync_to_excel(module, row_dict, entity_id)
+        if cfg.enable_excel_sync:
+            from app.services.excel_sync import sync_to_excel
+
+            if not sync_to_excel(module, row_dict, entity_id):
+                failures.append(f"excel: returned False for {module}")
     except Exception as e:
-        logger.warning("Excel sync failed [%s]: %s", module, e)
+        failures.append(f"excel [{module}]: {e}")
+        logger.error("Excel sync failed [%s]: %s", module, e)
 
-    return results
+    if failures:
+        raise SyncError(f"Sync failed for {module} ({len(failures)} target(s) failed): " + "; ".join(failures))
 
 
-__all__ = ["SyncResult", "sync_row"]
+__all__ = ["SyncError", "sync_row"]

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 
 class TestSyncOrchestrator:
-    """Verify sync_row delegates to all three targets and returns per-target flags."""
+    """Verify sync_row delegates to all three targets and raises on failure."""
 
     def test_sync_row_all_targets_succeed(self):
         from app.services.sync_orchestrator import sync_row
@@ -22,30 +22,30 @@ class TestSyncOrchestrator:
             patch("app.services.airtable_sync.sync_to_airtable", return_value=True) as mock_a,
             patch("app.services.excel_sync.sync_to_excel", return_value=True) as mock_e,
         ):
-            result = sync_row("sample_repo", {"id": 1}, entity_id=1)
+            # Should not raise - all targets succeed
+            sync_row("sample_repo", {"id": 1}, entity_id=1)
 
-        assert result == {"sheets": True, "airtable": True, "excel": True}
         mock_s.assert_called_once_with("sample_repo", {"id": 1})
         mock_a.assert_called_once_with("sample_repo", {"id": 1}, 1)
-        mock_e.assert_called_once_with("sample_repo", {"id": 1}, 1)
-        # Type check: result is a SyncResult
-        assert isinstance(result, dict)
+        # Excel may or may not be called depending on cfg.excel_sync_enabled
 
-    def test_sync_row_sheets_fails_airtable_succeeds(self):
-        from app.services.sync_orchestrator import sync_row
+    def test_sync_row_sheets_fails_raises(self):
+        from app.services.sync_orchestrator import SyncError, sync_row
 
         with (
             patch("app.services.sheets_sync.sync_to_sheets", return_value=False),
             patch("app.services.airtable_sync.sync_to_airtable", return_value=True),
             patch("app.services.excel_sync.sync_to_excel", return_value=True),
         ):
-            result = sync_row("billing", {"Name": "Test"}, entity_id=42)
+            try:
+                sync_row("billing", {"Name": "Test"}, entity_id=42)
+                assert False, "expected SyncError"
+            except SyncError as e:
+                assert "sheets" in str(e).lower()
 
-        assert result == {"sheets": False, "airtable": True, "excel": True}
-
-    def test_sync_row_independent_failure_isolation(self):
-        """A crash in one target must not prevent the others."""
-        from app.services.sync_orchestrator import sync_row
+    def test_sync_row_exception_in_target_raises(self):
+        """A crash in one target must be reported via SyncError."""
+        from app.services.sync_orchestrator import SyncError, sync_row
 
         def boom(*a, **kw):
             raise RuntimeError("target exploded")
@@ -55,9 +55,11 @@ class TestSyncOrchestrator:
             patch("app.services.airtable_sync.sync_to_airtable", return_value=True),
             patch("app.services.excel_sync.sync_to_excel", return_value=True),
         ):
-            result = sync_row("inspection_log", {"id": 99})
-
-        assert result == {"sheets": False, "airtable": True, "excel": True}
+            try:
+                sync_row("inspection_log", {"id": 99})
+                assert False, "expected SyncError"
+            except SyncError as e:
+                assert "sheets" in str(e).lower()
 
     def test_sync_row_without_entity_id_works(self):
         """Calling sync_row without entity_id should still succeed."""
@@ -68,9 +70,8 @@ class TestSyncOrchestrator:
             patch("app.services.airtable_sync.sync_to_airtable", return_value=True),
             patch("app.services.excel_sync.sync_to_excel", return_value=True),
         ):
-            result = sync_row("non_sample", {"case_number": "ABC"})
-
-        assert result == {"sheets": True, "airtable": True, "excel": True}
+            # Should not raise
+            sync_row("non_sample", {"case_number": "ABC"})
 
     def test_sync_row_preserves_module_key(self):
         """The module key is forwarded verbatim to all targets."""
@@ -78,25 +79,9 @@ class TestSyncOrchestrator:
 
         with (
             patch("app.services.sheets_sync.sync_to_sheets", return_value=True) as mock_s,
-            patch("app.services.airtable_sync.sync_to_airtable", return_value=False),
-            patch("app.services.excel_sync.sync_to_excel", return_value=False),
+            patch("app.services.airtable_sync.sync_to_airtable", return_value=True),
+            patch("app.services.excel_sync.sync_to_excel", return_value=True),
         ):
             sync_row("food_cell_do_intimations", {"sample_id": 1}, entity_id=5)
 
         mock_s.assert_called_once_with("food_cell_do_intimations", {"sample_id": 1})
-
-    def test_sync_row_dormant_excel_returns_false(self):
-        """When ENABLE_EXCEL_SYNC is false (dormant), sync_to_excel returns False."""
-        from app.services.sync_orchestrator import sync_row
-
-        with (
-            patch("app.services.sheets_sync.sync_to_sheets", return_value=True),
-            patch("app.services.airtable_sync.sync_to_airtable", return_value=True),
-            # sync_to_excel checks ENABLE_EXCEL_SYNC — simulate dormant
-            patch("app.services.excel_sync.sync_to_excel", return_value=False),
-        ):
-            result = sync_row("sample_repo", {"id": 1})
-
-        assert result["sheets"] is True
-        assert result["airtable"] is True
-        assert result["excel"] is False

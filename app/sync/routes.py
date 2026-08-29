@@ -1,8 +1,9 @@
 """Phase 17: Supabase sync routes.
 
 HTML dashboard + JSON probe + push/pull/resolve API endpoints.
-Auth-gated via the global ``require_login`` gate.  Sync endpoints return 503
-when Supabase is disabled (``ENABLE_SUPABASE_SYNC=false``).
+Auth-gated via the global ``require_login`` gate. Sync is always
+enabled (mandatory, synchronous) - endpoints return 503 only if
+Supabase credentials are missing.
 """
 
 from __future__ import annotations
@@ -21,8 +22,13 @@ from app.sync.models import SyncConflict, SyncLog
 logger = logging.getLogger(__name__)
 
 
-def _sync_enabled() -> bool:
-    return bool(cfg.supabase_sync_enabled and cfg.supabase_url and cfg.supabase_api_key)
+def _sync_available() -> bool:
+    """Return True when Supabase credentials are configured.
+
+    Sync is always enabled - this only checks whether the backend
+    is reachable. Returns False only when credentials are missing.
+    """
+    return bool(cfg.supabase_url and cfg.supabase_api_key)
 
 
 def _log_sync(operation: str, result) -> None:
@@ -74,7 +80,7 @@ def index():
         pending_conflicts=pending_conflicts,
         recent_logs=recent_logs,
         sync_interval=status["sync_interval"],
-        supabase_not_configured=(not _sync_enabled()),
+        supabase_not_configured=(not _sync_available()),
     )
 
 
@@ -91,11 +97,15 @@ def status():
 @sync_bp.route("/push", methods=["POST"])
 @login_required
 def push():
-    """Push local dirty records to Supabase."""
-    if not _sync_enabled():
-        return jsonify({"status": "disabled", "error": "Supabase sync is not configured."}), 503
+    """Push local dirty records to Supabase.
 
+    Synchronous mandatory sync - will block until all dirty records
+    are upserted. Returns 503 if Supabase credentials are missing.
+    """
     from app.sync.supabase_sync import get_sync_service
+
+    if not _sync_available():
+        return jsonify({"status": "error", "error": "Supabase credentials not configured."}), 503
 
     service = get_sync_service()
     result = service.push()
@@ -106,11 +116,15 @@ def push():
 @sync_bp.route("/pull", methods=["POST"])
 @login_required
 def pull():
-    """Pull remote changes from Supabase."""
-    if not _sync_enabled():
-        return jsonify({"status": "disabled", "error": "Supabase sync is not configured."}), 503
+    """Pull remote changes from Supabase.
 
+    Synchronous mandatory sync - will block until all remote records
+    have been pulled and applied. Returns 503 if Supabase credentials are missing.
+    """
     from app.sync.supabase_sync import get_sync_service
+
+    if not _sync_available():
+        return jsonify({"status": "error", "error": "Supabase credentials not configured."}), 503
 
     service = get_sync_service()
     result = service.pull()
@@ -125,8 +139,8 @@ def resolve_conflict(conflict_id: int):
 
     Request JSON: ``{"winner": "local" | "remote"}``
     """
-    if not _sync_enabled():
-        return jsonify({"status": "disabled", "error": "Supabase sync is not configured."}), 503
+    if not _sync_available():
+        return jsonify({"status": "error", "error": "Supabase credentials not configured."}), 503
 
     payload = request.get_json(silent=True) or {}
     winner = payload.get("winner", "local")
