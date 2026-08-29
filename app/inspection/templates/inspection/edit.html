@@ -131,8 +131,12 @@
         <div class="form-row">
             <div class="form-group">
                 <label for="fssai_license" class="form-label">FSSAI License/Registration Number</label>
-                <input type="text" id="fssai_license" name="fssai_license" class="form-input"
-                       value="{{ inspection.fssai_license or '' }}" placeholder="Enter FSSAI number">
+                <div class="lookup-wrapper">
+                    <input type="text" id="fssai_license" name="fssai_license" class="form-input"
+                           value="{{ inspection.fssai_license or '' }}" placeholder="Enter FSSAI number">
+                    <button type="button" class="btn btn-secondary" onclick="lookupFssaiInspection()">Lookup</button>
+                </div>
+                <div id="inspection_fssai_info" class="info-box" style="display: none;"></div>
             </div>
         </div>
 
@@ -207,6 +211,63 @@ function toggleSampleCodeField() {
 // Initialize sample code toggle on page load
 document.getElementById('sample_collected').addEventListener('change', toggleSampleCodeField);
 window.addEventListener('load', toggleSampleCodeField);
+
+// FSSAI lookup for inspection form (populates fbo_name + fbo_address)
+async function lookupFssaiInspection() {
+    const fssaiInput = document.getElementById('fssai_license');
+    const licenseNo = fssaiInput.value.trim();
+    const infoDiv = document.getElementById('inspection_fssai_info');
+
+    if (!licenseNo) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+
+    infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Searching FSSAI records...';
+    infoDiv.className = 'info-box';
+    infoDiv.style.display = 'block';
+
+    try {
+        const response = await fetch('/case_file_generator/lookup_fssai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ license_no: licenseNo })
+        });
+
+        if (response.redirected) {
+            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
+            infoDiv.className = 'info-box info-box--error';
+            return;
+        }
+
+        const result = await response.json();
+        if (!response.ok || result.error) {
+            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (result.error || 'Lookup failed.');
+            infoDiv.className = 'info-box info-box--error';
+            return;
+        }
+
+        const identity = result.identity;
+        if (!identity) {
+            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> No FBO data returned for this number.';
+            infoDiv.className = 'info-box info-box--error';
+            return;
+        }
+
+        if (identity.companyName) document.getElementById('fbo_name').value = identity.companyName;
+        if (identity.fullAddress) document.getElementById('fbo_address').value = identity.fullAddress;
+
+        infoDiv.innerHTML =
+            '<strong>Found:</strong> ' + identity.companyName + '<br>' +
+            '<strong>Address:</strong> ' + identity.fullAddress + '<br>' +
+            '<strong>Expiry:</strong> ' + (identity.expiryDate || 'N/A') + '<br>' +
+            '<strong>Source:</strong> ' + (identity.source === 'license_data' ? 'License DB' : 'Registration DB');
+        infoDiv.className = 'info-box info-box--success';
+    } catch (error) {
+        infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error: ' + error.message;
+        infoDiv.className = 'info-box info-box--error';
+    }
+}
 
 // Form submission handling
 document.getElementById('editInspectionForm').addEventListener('submit', async function(e) {

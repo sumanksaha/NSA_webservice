@@ -1,18 +1,17 @@
-{% extends "base.html" %}
-
-{% block title %}Sample -adjudication{% endblock %}
-
-{% block content %}
-{% set modal_accent = 'var(--color-info)' %}
-{% include '_preview_modal.html' with context %}
+{% extends "base.html" %} {% block title %}Sample -adjudication{% endblock %} {% block content %} {%
+set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with context %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-folder-open"></i> Sample -adjudication</h2>
     </div>
 
-    <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div id="case-task-status" class="info-box" style="display: none;"></div>
+    <form
+        id="caseFileForm"
+        action="{{ url_for('case_file_generator.generate_case_file_route') }}"
+        method="post"
+    >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div id="case-task-status" class="info-box" style="display: none"></div>
 
         <!-- Case Information -->
         <div class="section-header">
@@ -20,27 +19,69 @@
         </div>
         <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="case_number" class="form-label">Case Number <span class="required"></span></label>
-                <input type="text" id="case_number" name="case_number" class="form-input" required placeholder="e.g., 2026/FSS/104">
+                <label for="case_number" class="form-label"
+                    >Case Number <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    id="case_number"
+                    name="case_number"
+                    class="form-input"
+                    required
+                    placeholder="e.g., 2026/FSS/104"
+                />
             </div>
             <div class="form-group">
-                <label for="food_safety_officer_name" class="form-label">Food Safety Officer Name <span class="required"></span></label>
-                <input type="text" id="food_safety_officer_name" name="food_safety_officer_name" class="form-input" required placeholder="Enter FSO name">
+                <label for="food_safety_officer_name" class="form-label"
+                    >Food Safety Officer Name <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    id="food_safety_officer_name"
+                    name="food_safety_officer_name"
+                    class="form-input"
+                    required
+                    placeholder="Enter FSO name"
+                />
             </div>
         </div>
 
         <div class="form-row form-row--3">
             <div class="form-group">
-                <label for="authorization_date" class="form-label">Authorization Date <span class="required"></span></label>
-                <input type="date" id="authorization_date" name="authorization_date" class="form-input" required>
+                <label for="authorization_date" class="form-label"
+                    >Authorization Date <span class="required"></span
+                ></label>
+                <input
+                    type="date"
+                    id="authorization_date"
+                    name="authorization_date"
+                    class="form-input"
+                    required
+                />
             </div>
             <div class="form-group">
-                <label for="inspection_date" class="form-label">Sample Draw Date <span class="required"></span></label>
-                <input type="date" id="inspection_date" name="inspection_date" class="form-input" required>
+                <label for="inspection_date" class="form-label"
+                    >Sample Draw Date <span class="required"></span
+                ></label>
+                <input
+                    type="date"
+                    id="inspection_date"
+                    name="inspection_date"
+                    class="form-input"
+                    required
+                />
             </div>
             <div class="form-group">
-                <label for="inspection_time" class="form-label">Sample Draw Time <span class="required"></span></label>
-                <input type="time" id="inspection_time" name="inspection_time" class="form-input" required>
+                <label for="inspection_time" class="form-label"
+                    >Sample Draw Time <span class="required"></span
+                ></label>
+                <input
+                    type="time"
+                    id="inspection_time"
+                    name="inspection_time"
+                    class="form-input"
+                    required
+                />
             </div>
         </div>
 
@@ -48,29 +89,65 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-industry"></i> Manufacturer Information</h3>
         </div>
-        <div class="form-group">                <label for="manufacturer_fssai" class="form-label">Manufacturer FSSAI Number <span class="required"></span></label>
-                <div class="lookup-wrapper">
-                    <input type="text" id="manufacturer_fssai" name="manufacturer_fssai" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
-                <button type="button" class="btn btn-secondary" onclick="lookupFssai('manufacturer')">Lookup</button>
+        <div class="form-group">
+            <label for="manufacturer_fssai" class="form-label"
+                >Manufacturer FSSAI Number <span class="required"></span
+            ></label>
+            <div class="lookup-wrapper">
+                <input
+                    type="text"
+                    id="manufacturer_fssai"
+                    name="manufacturer_fssai"
+                    class="form-input"
+                    required
+                    placeholder="Enter FSSAI number (starts with 1 or 2)"
+                />
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="lookupFssai('manufacturer')"
+                >
+                    Lookup
+                </button>
             </div>
-            <div id="manufacturer_info" class="info-box" style="display: none;"></div>
+            <div id="manufacturer_info" class="info-box" style="display: none"></div>
         </div>
 
         <div class="form-row form-row--2">
             <div class="form-group">
                 <label for="manufacturer_name" class="form-label">Manufacturer Name</label>
-                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" required placeholder="FBO Owner Name">
+                <input
+                    type="text"
+                    id="manufacturer_name"
+                    name="manufacturer_name"
+                    class="form-input"
+                    required
+                    placeholder="FBO Owner Name"
+                />
             </div>
             <div class="form-group">
                 <label for="manufacturer_fbo_name" class="form-label">Manufacturer FBO Name</label>
-                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" required placeholder="FBO Trade Name">
+                <input
+                    type="text"
+                    id="manufacturer_fbo_name"
+                    name="manufacturer_fbo_name"
+                    class="form-input"
+                    required
+                    placeholder="FBO Trade Name"
+                />
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="manufacturer_address" class="form-label">Manufacturer Address</label>
-                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea" required placeholder="Full manufacturer premises address"></textarea>
+                <textarea
+                    id="manufacturer_address"
+                    name="manufacturer_address"
+                    class="form-textarea"
+                    required
+                    placeholder="Full manufacturer premises address"
+                ></textarea>
             </div>
         </div>
 
@@ -78,29 +155,61 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-shop"></i> Retailer Information</h3>
         </div>
-        <div class="form-group">                <label for="retailer_fssai" class="form-label">Retailer FSSAI Number <span class="required"></span></label>
-                <div class="lookup-wrapper">
-                    <input type="text" id="retailer_fssai" name="retailer_fssai" class="form-input" required placeholder="Enter FSSAI number (starts with 1 or 2)">
-                <button type="button" class="btn btn-secondary" onclick="lookupFssai('retailer')">Lookup</button>
+        <div class="form-group">
+            <label for="retailer_fssai" class="form-label"
+                >Retailer FSSAI Number <span class="required"></span
+            ></label>
+            <div class="lookup-wrapper">
+                <input
+                    type="text"
+                    id="retailer_fssai"
+                    name="retailer_fssai"
+                    class="form-input"
+                    required
+                    placeholder="Enter FSSAI number (starts with 1 or 2)"
+                />
+                <button type="button" class="btn btn-secondary" onclick="lookupFssai('retailer')">
+                    Lookup
+                </button>
             </div>
-            <div id="retailer_info" class="info-box" style="display: none;"></div>
+            <div id="retailer_info" class="info-box" style="display: none"></div>
         </div>
 
         <div class="form-row form-row--2">
             <div class="form-group">
                 <label for="retailer_name" class="form-label">Retailer Name</label>
-                <input type="text" id="retailer_name" name="retailer_name" class="form-input" required placeholder="Retailer Name">
+                <input
+                    type="text"
+                    id="retailer_name"
+                    name="retailer_name"
+                    class="form-input"
+                    required
+                    placeholder="Retailer Name"
+                />
             </div>
             <div class="form-group">
                 <label for="retailer_fbo_name" class="form-label">Retailer FBO Name</label>
-                <input type="text" id="retailer_fbo_name" name="retailer_fbo_name" class="form-input" required placeholder="Retailer Trade Name">
+                <input
+                    type="text"
+                    id="retailer_fbo_name"
+                    name="retailer_fbo_name"
+                    class="form-input"
+                    required
+                    placeholder="Retailer Trade Name"
+                />
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="retailer_address" class="form-label">Retailer Address</label>
-                <textarea id="retailer_address" name="retailer_address" class="form-textarea" required placeholder="Full retailer premises address"></textarea>
+                <textarea
+                    id="retailer_address"
+                    name="retailer_address"
+                    class="form-textarea"
+                    required
+                    placeholder="Full retailer premises address"
+                ></textarea>
             </div>
         </div>
 
@@ -112,14 +221,21 @@
             <div class="form-group full-width">
                 <label for="sample_code_search" class="form-label">Link Sample by Code</label>
                 <div class="lookup-wrapper">
-                    <input type="text" id="sample_code_search" class="form-input" placeholder="Search by sample code (e.g., SL/WB/110223/2025/13061)"
-                           onchange="lookupSampleByCode()"
-                           list="sample_codes">
+                    <input
+                        type="text"
+                        id="sample_code_search"
+                        class="form-input"
+                        placeholder="Search by sample code (e.g., SL/WB/110223/2025/13061)"
+                        onchange="lookupSampleByCode()"
+                        list="sample_codes"
+                    />
                     <datalist id="sample_codes"></datalist>
-                    <button type="button" class="btn btn-secondary" onclick="lookupSampleByCode()">Search Sample</button>
+                    <button type="button" class="btn btn-secondary" onclick="lookupSampleByCode()">
+                        Search Sample
+                    </button>
                 </div>
-                <input type="hidden" id="sample_id" name="sample_id">
-                <div id="sample_info" class="info-box" style="display: none;"></div>
+                <input type="hidden" id="sample_id" name="sample_id" />
+                <div id="sample_info" class="info-box" style="display: none"></div>
             </div>
         </div>
 
@@ -130,61 +246,136 @@
         <div class="form-row form-row--4">
             <div class="form-group">
                 <label for="product_name" class="form-label">Product Name</label>
-                <input type="text" id="product_name" name="product_name" class="form-input" required placeholder="e.g., Taaja Jalpan Nilgiri Chanachur">
+                <input
+                    type="text"
+                    id="product_name"
+                    name="product_name"
+                    class="form-input"
+                    required
+                    placeholder="e.g., Taaja Jalpan Nilgiri Chanachur"
+                />
             </div>
             <div class="form-group">
                 <label for="batch_no" class="form-label">Batch Number</label>
-                <input type="text" id="batch_no" name="batch_no" class="form-input" required placeholder="e.g., IFF">
+                <input
+                    type="text"
+                    id="batch_no"
+                    name="batch_no"
+                    class="form-input"
+                    required
+                    placeholder="e.g., IFF"
+                />
             </div>
             <div class="form-group">
                 <label for="sample_quantity" class="form-label">Sample Quantity</label>
-                <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" required placeholder="e.g., 1000g">
+                <input
+                    type="text"
+                    id="sample_quantity"
+                    name="sample_quantity"
+                    class="form-input"
+                    required
+                    placeholder="e.g., 1000g"
+                />
             </div>
             <div class="form-group">
                 <label for="packet_count" class="form-label">Packet Count</label>
-                <input type="number" id="packet_count" name="packet_count" class="form-input" required placeholder="e.g., 4">
+                <input
+                    type="number"
+                    id="packet_count"
+                    name="packet_count"
+                    class="form-input"
+                    required
+                    placeholder="e.g., 4"
+                />
             </div>
         </div>
 
         <div class="form-row form-row--4">
             <div class="form-group">
                 <label for="mfg_date" class="form-label">Date of Manufacturing</label>
-                <input type="date" id="mfg_date" name="mfg_date" class="form-input" required>
+                <input type="date" id="mfg_date" name="mfg_date" class="form-input" required />
             </div>
             <div class="form-group">
                 <label for="expiry_date" class="form-label">Date of Expiry</label>
-                <input type="date" id="expiry_date" name="expiry_date" class="form-input" required>
+                <input
+                    type="date"
+                    id="expiry_date"
+                    name="expiry_date"
+                    class="form-input"
+                    required
+                />
             </div>
             <div class="form-group">
                 <label for="total_cost" class="form-label">Total Cost (Rs.)</label>
-                <input type="text" id="total_cost" name="total_cost" class="form-input" required placeholder="e.g., 500">
+                <input
+                    type="text"
+                    id="total_cost"
+                    name="total_cost"
+                    class="form-input"
+                    required
+                    placeholder="e.g., 500"
+                />
             </div>
             <div class="form-group">
                 <label for="cost_in_words" class="form-label">Cost in Words</label>
-                <input type="text" id="cost_in_words" name="cost_in_words" class="form-input" placeholder="Auto-derived from Total Cost if left empty">
+                <input
+                    type="text"
+                    id="cost_in_words"
+                    name="cost_in_words"
+                    class="form-input"
+                    placeholder="Auto-derived from Total Cost if left empty"
+                />
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group full-width">
-                <label for="other_food_articles" class="form-label">Other Food Articles Found</label>
-                <input type="text" id="other_food_articles" name="other_food_articles" class="form-input" placeholder="e.g., Chanachur, Nimki, Roasted Chana">
+                <label for="other_food_articles" class="form-label"
+                    >Other Food Articles Found</label
+                >
+                <input
+                    type="text"
+                    id="other_food_articles"
+                    name="other_food_articles"
+                    class="form-input"
+                    placeholder="e.g., Chanachur, Nimki, Roasted Chana"
+                />
             </div>
         </div>
 
         <div class="form-row form-row--4">
             <div class="form-group">
                 <label for="sample_code" class="form-label">Sample Code</label>
-                <input type="text" id="sample_code" name="sample_code" class="form-input" required placeholder="e.g., SL/WB/110223/2025/13061">
+                <input
+                    type="text"
+                    id="sample_code"
+                    name="sample_code"
+                    class="form-input"
+                    required
+                    placeholder="e.g., SL/WB/110223/2025/13061"
+                />
             </div>
 
             <div class="form-group">
                 <label for="lab_registration_no" class="form-label">Lab Registration Number</label>
-                <input type="text" id="lab_registration_no" name="lab_registration_no" class="form-input" required placeholder="e.g., WB/FOOD/2025/001">
+                <input
+                    type="text"
+                    id="lab_registration_no"
+                    name="lab_registration_no"
+                    class="form-input"
+                    required
+                    placeholder="e.g., WB/FOOD/2025/001"
+                />
             </div>
             <div class="form-group">
                 <label for="do_receipt_date" class="form-label">DO Receipt Date</label>
-                <input type="date" id="do_receipt_date" name="do_receipt_date" class="form-input" required>
+                <input
+                    type="date"
+                    id="do_receipt_date"
+                    name="do_receipt_date"
+                    class="form-input"
+                    required
+                />
             </div>
         </div>
 
@@ -193,14 +384,27 @@
             <h3><i class="fa-solid fa-flask"></i> Analysis Result & Regulatory Action</h3>
         </div>
         <div class="form-group">
-            <label class="form-label">Analysis Result <span class="required"></span> <small class="text-muted">(select all that apply)</small></label>
+            <label class="form-label"
+                >Analysis Result <span class="required"></span>
+                <small class="text-muted">(select all that apply)</small></label
+            >
             <div class="analysis-result-group">
                 <label class="toggle-card">
-                    <input type="checkbox" id="is_misbranded" name="is_misbranded" value="misbranded">
+                    <input
+                        type="checkbox"
+                        id="is_misbranded"
+                        name="is_misbranded"
+                        value="misbranded"
+                    />
                     Misbranded
                 </label>
                 <label class="toggle-card">
-                    <input type="checkbox" id="is_substandard" name="is_substandard" value="substandard">
+                    <input
+                        type="checkbox"
+                        id="is_substandard"
+                        name="is_substandard"
+                        value="substandard"
+                    />
                     Substandard
                 </label>
             </div>
@@ -209,43 +413,96 @@
         <div class="form-row form-row--4">
             <div class="form-group">
                 <label for="analyst_report_no" class="form-label">Analyst Report Number</label>
-                <input type="text" id="analyst_report_no" name="analyst_report_no" class="form-input" required placeholder="e.g., PK/378/2025-26">
+                <input
+                    type="text"
+                    id="analyst_report_no"
+                    name="analyst_report_no"
+                    class="form-input"
+                    required
+                    placeholder="e.g., PK/378/2025-26"
+                />
             </div>
             <div class="form-group">
                 <label for="analyst_report_date" class="form-label">Analyst Report Date</label>
-                <input type="date" id="analyst_report_date" name="analyst_report_date" class="form-input" required>
+                <input
+                    type="date"
+                    id="analyst_report_date"
+                    name="analyst_report_date"
+                    class="form-input"
+                    required
+                />
             </div>
             <div class="form-group">
                 <label for="directive_letter_no" class="form-label">Directive Letter Number</label>
-                <input type="text" id="directive_letter_no" name="directive_letter_no" class="form-input" required placeholder="e.g., H/FSSA/FSO/3054/2025-26">
+                <input
+                    type="text"
+                    id="directive_letter_no"
+                    name="directive_letter_no"
+                    class="form-input"
+                    required
+                    placeholder="e.g., H/FSSA/FSO/3054/2025-26"
+                />
             </div>
             <div class="form-group">
                 <label for="directive_letter_date" class="form-label">Directive Letter Date</label>
-                <input type="date" id="directive_letter_date" name="directive_letter_date" class="form-input" required>
+                <input
+                    type="date"
+                    id="directive_letter_date"
+                    name="directive_letter_date"
+                    class="form-input"
+                    required
+                />
             </div>
         </div>
 
         <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="retailer_report_receive_date" class="form-label">Retailer Report Receive Date</label>
-                <input type="date" id="retailer_report_receive_date" name="retailer_report_receive_date" class="form-input" required>
+                <label for="retailer_report_receive_date" class="form-label"
+                    >Retailer Report Receive Date</label
+                >
+                <input
+                    type="date"
+                    id="retailer_report_receive_date"
+                    name="retailer_report_receive_date"
+                    class="form-input"
+                    required
+                />
             </div>
             <div class="form-group">
-                <label for="manufacturer_report_receive_date" class="form-label">Manufacturer Report Receive Date</label>
-                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" required>
+                <label for="manufacturer_report_receive_date" class="form-label"
+                    >Manufacturer Report Receive Date</label
+                >
+                <input
+                    type="date"
+                    id="manufacturer_report_receive_date"
+                    name="manufacturer_report_receive_date"
+                    class="form-input"
+                    required
+                />
             </div>
         </div>
 
         <div class="form-row form-row--3">
             <div class="form-group">
                 <label for="applicable_regulation" class="form-label">Applicable Regulation</label>
-                <input type="text" id="applicable_regulation" name="applicable_regulation" class="form-input" placeholder="e.g., Regulation No 5(9)">
+                <input
+                    type="text"
+                    id="applicable_regulation"
+                    name="applicable_regulation"
+                    class="form-input"
+                    placeholder="e.g., Regulation No 5(9)"
+                />
             </div>
             <div class="form-group">
                 <label for="applicable_clause" class="form-label">Applicable Clause</label>
-                <input type="text" id="applicable_clause" name="applicable_clause" class="form-input" placeholder="e.g., Clause (zf) of subsection 1 of section 3 of the FSSA,2006">
+                <input
+                    type="text"
+                    id="applicable_clause"
+                    name="applicable_clause"
+                    class="form-input"
+                    placeholder="e.g., Clause (zf) of subsection 1 of section 3 of the FSSA,2006"
+                />
             </div>
-
         </div>
 
         <div class="actions-centered">
@@ -258,7 +515,6 @@
         </div>
     </form>
 </div>
-
 
 <!-- Case Timelines panel (Phase 13) -->
 <div class="card mt--lg">
@@ -282,37 +538,58 @@
                     <td>{{ c.case_number }}</td>
                     <td>{{ c.manufacturer_name or c.product_name or '—' }}</td>
                     <td>
-                        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=c.id, kind='case_file') }}"
-                           class="btn btn-secondary btn-sm" title="Open case timeline">
+                        <a
+                            href="{{ url_for('timeline.view', case_id_or_adjudication_id=c.id, kind='case_file') }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Open case timeline"
+                        >
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
-                        <button type="button" class="btn btn-secondary btn-sm js-validate-case"
-                                data-case-id="{{ c.id }}" data-case-type="case_file"
-                                title="Run legal validation on this case file">
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-validate-case"
+                            data-case-id="{{ c.id }}"
+                            data-case-type="case_file"
+                            title="Run legal validation on this case file"
+                        >
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
-                        <a href="{{ url_for('case_file_generator.download_petition_docx', case_id=c.id) }}"
-                           class="btn btn-secondary btn-sm" title="Download Petition as Word">
+                        <a
+                            href="{{ url_for('case_file_generator.download_petition_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Petition as Word"
+                        >
                             <i class="fa-solid fa-file-word"></i> Petition
                         </a>
-                        <a href="{{ url_for('case_file_generator.download_permission_docx', case_id=c.id) }}"
-                           class="btn btn-secondary btn-sm" title="Download Permission Letter as Word">
+                        <a
+                            href="{{ url_for('case_file_generator.download_permission_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Permission Letter as Word"
+                        >
                             <i class="fa-solid fa-file-word"></i> Permission
                         </a>
-                        <a href="{{ url_for('case_file_generator.download_both_docx', case_id=c.id) }}"
-                           class="btn btn-primary btn-sm" title="Download both as Word ZIP">
+                        <a
+                            href="{{ url_for('case_file_generator.download_both_docx', case_id=c.id) }}"
+                            class="btn btn-primary btn-sm"
+                            title="Download both as Word ZIP"
+                        >
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
-                        <button type="button" class="btn btn-secondary btn-sm js-copy-letter"
-                                data-url="{{ url_for('case_file_generator.copy_letter', case_id=c.id, doc_type='petition') }}"
-                                title="Copy Petition letter body to clipboard for Gmail">
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-copy-letter"
+                            data-url="{{ url_for('case_file_generator.copy_letter', case_id=c.id, doc_type='petition') }}"
+                            title="Copy Petition letter body to clipboard for Gmail"
+                        >
                             <i class="fa-solid fa-copy"></i> Copy Letter
                         </button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="form-hint">No case files yet. Create one above to see its timeline.</td>
+                    <td colspan="4" class="form-hint">
+                        No case files yet. Create one above to see its timeline.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -322,38 +599,41 @@
     <div class="mt--md">
         <span id="case-file-val-status" class="form-hint"></span>
     </div>
-    <div id="case-file-val-drawer" class="mt--md" style="display: none;"></div>
+    <div id="case-file-val-drawer" class="mt--md" style="display: none"></div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
     // --- Preview via shared PreviewModal ---
     // Wire generate button to trigger form submission
-    PreviewModal.onGenerate = function() {
-        document.getElementById('caseFileForm').dispatchEvent(new Event('submit'));
+    PreviewModal.onGenerate = function () {
+        document.getElementById("caseFileForm").dispatchEvent(new Event("submit"));
     };
 
     async function showPreview() {
-        var previewBtn = document.getElementById('previewBtn');
-        var statusBox = document.getElementById('case-task-status');
+        var previewBtn = document.getElementById("previewBtn");
+        var statusBox = document.getElementById("case-task-status");
         previewBtn.disabled = true;
         previewBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering…';
-        statusBox.style.display = 'block';
-        statusBox.className = 'info-box';
-        statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
+        statusBox.style.display = "block";
+        statusBox.className = "info-box";
+        statusBox.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
 
         try {
-            var formData = new FormData(document.getElementById('caseFileForm'));
-            var response = await fetch('{{ url_for("case_file_generator.preview_case_file_route") }}', {
-                method: 'POST',
-                body: formData
-            });
+            var formData = new FormData(document.getElementById("caseFileForm"));
+            var response = await fetch(
+                '{{ url_for("case_file_generator.preview_case_file_route") }}',
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
 
             if (response.redirected) {
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again.';
-                statusBox.className = 'info-box info-box--error';
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again.';
+                statusBox.className = "info-box info-box--error";
                 previewBtn.disabled = false;
                 previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
                 return;
@@ -361,19 +641,22 @@
 
             var data = await response.json();
             if (!response.ok) {
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Preview failed.');
-                statusBox.className = 'info-box info-box--error';
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (data.error || "Preview failed.");
+                statusBox.className = "info-box info-box--error";
                 if (data.errors) renderFieldErrors(data.errors);
                 previewBtn.disabled = false;
                 previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
                 return;
             }
 
-            statusBox.style.display = 'none';
+            statusBox.style.display = "none";
             PreviewModal.open(data.petition_html, data.permission_html);
         } catch (error) {
-            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + error.message;
-            statusBox.className = 'info-box info-box--error';
+            statusBox.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + error.message;
+            statusBox.className = "info-box info-box--error";
         } finally {
             previewBtn.disabled = false;
             previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
@@ -381,7 +664,7 @@
     }
 
     // Wire up the Preview button
-    document.getElementById('previewBtn').addEventListener('click', function(e) {
+    document.getElementById("previewBtn").addEventListener("click", function (e) {
         e.preventDefault();
         clearFieldErrors();
         showPreview();
@@ -390,85 +673,88 @@
     // Load sample codes on page load
     async function loadSampleCodes() {
         try {
-            const response = await fetch("{{ url_for('case_file_generator.list_samples_for_datalist') }}");
+            const response = await fetch(
+                "{{ url_for('case_file_generator.list_samples_for_datalist') }}"
+            );
             const data = await response.json();
-            const datalist = document.getElementById('sample_codes');
+            const datalist = document.getElementById("sample_codes");
 
-            datalist.innerHTML = '';
+            datalist.innerHTML = "";
 
-            data.sample_codes.forEach(code => {
-                const option = document.createElement('option');
+            data.sample_codes.forEach((code) => {
+                const option = document.createElement("option");
                 option.value = code;
                 datalist.appendChild(option);
             });
-
         } catch (error) {
-            console.log('Could not load sample codes list:', error);
+            console.log("Could not load sample codes list:", error);
         }
     }
 
     // Lookup sample by code and prefill form fields
     async function lookupSampleByCode() {
-        const sampleCodeInput = document.getElementById('sample_code_search');
+        const sampleCodeInput = document.getElementById("sample_code_search");
         const sampleCode = sampleCodeInput.value.trim();
-        const infoDiv = document.getElementById('sample_info');
+        const infoDiv = document.getElementById("sample_info");
 
         if (!sampleCode) {
-            document.getElementById('sample_id').value = '';
-            infoDiv.style.display = 'none';
+            document.getElementById("sample_id").value = "";
+            infoDiv.style.display = "none";
             return;
         }
 
         infoDiv.innerHTML = "Searching sample records...";
-        infoDiv.style.display = 'block';
-        infoDiv.className = 'info-box';
+        infoDiv.style.display = "block";
+        infoDiv.className = "info-box";
 
         try {
-            const response = await fetch(`{{ url_for('case_file_generator.lookup_sample') }}?sample_code=${encodeURIComponent(sampleCode)}`);
+            const response = await fetch(
+                `{{ url_for('case_file_generator.lookup_sample') }}?sample_code=${encodeURIComponent(sampleCode)}`
+            );
             const result = await response.json();
 
             if (result.error) {
                 infoDiv.innerHTML = `<span class="text--error"><i class="fa-solid fa-circle-exclamation"></i> ${result.error}</span>`;
-                infoDiv.className = 'info-box info-box--error';
-                document.getElementById('sample_id').value = '';
+                infoDiv.className = "info-box info-box--error";
+                document.getElementById("sample_id").value = "";
                 return;
             }
 
-            document.getElementById('sample_id').value = result.id;
+            document.getElementById("sample_id").value = result.id;
 
-            const productName = result.product_name || '';
-            const retailerFssai = result.retailer_fssai || '';
-            const retailerName = result.retailer_name || '';
-            const price = result.price || '';
+            const productName = result.product_name || "";
+            const retailerFssai = result.retailer_fssai || "";
+            const retailerName = result.retailer_name || "";
+            const price = result.price || "";
 
             if (productName) {
-                document.getElementById('product_name').value = productName;
+                document.getElementById("product_name").value = productName;
             }
             if (retailerFssai) {
-                document.getElementById('retailer_fssai').value = retailerFssai;
+                document.getElementById("retailer_fssai").value = retailerFssai;
             }
             if (retailerName) {
-                document.getElementById('retailer_name').value = retailerName;
+                document.getElementById("retailer_name").value = retailerName;
             }
             if (price) {
-                document.getElementById('total_cost').value = price;
+                document.getElementById("total_cost").value = price;
             }
 
-            document.getElementById('sample_code').value = result.sample_code || '';
+            document.getElementById("sample_code").value = result.sample_code || "";
 
             infoDiv.innerHTML =
                 `<strong>Linked Sample:</strong> ${result.sample_code}<br>` +
                 `<strong>Sample Name:</strong> ${sampleName}<br>` +
                 `<strong>Retailer:</strong> ${retailerName} (${retailerFssai})<br>` +
-                `<strong>Submission Date:</strong> ${submissionDate || 'N/A'}<br>` +
-                `<strong>Price:</strong> Rs. ${price || '0'}`;
-            infoDiv.className = 'info-box info-box--success';
-
+                `<strong>Submission Date:</strong> ${submissionDate || "N/A"}<br>` +
+                `<strong>Price:</strong> Rs. ${price || "0"}`;
+            infoDiv.className = "info-box info-box--success";
         } catch (error) {
-            console.error('Sample lookup error:', error);
-            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error fetching sample data. Please try again.';
-            infoDiv.className = 'info-box info-box--error';
-            document.getElementById('sample_id').value = '';
+            console.error("Sample lookup error:", error);
+            infoDiv.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Error fetching sample data. Please try again.';
+            infoDiv.className = "info-box info-box--error";
+            document.getElementById("sample_id").value = "";
         }
     }
 
@@ -479,29 +765,34 @@
         const infoDiv = document.getElementById(`${type}_info`);
 
         if (!licenseNo) {
-            infoDiv.style.display = 'none';
+            infoDiv.style.display = "none";
             return;
         }
 
-        infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Searching FSSAI records...';
-        infoDiv.className = 'info-box';
-        infoDiv.style.display = 'block';
+        infoDiv.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Searching FSSAI records...';
+        infoDiv.className = "info-box";
+        infoDiv.style.display = "block";
 
         try {
-            const response = await fetch("{{ url_for('case_file_generator.lookup_fssai_route') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ license_no: licenseNo })
-            });
+            const response = await fetch(
+                "{{ url_for('case_file_generator.lookup_fssai_route') }}",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ license_no: licenseNo }),
+                }
+            );
 
             // A redirected response is a login page, never JSON — the most
             // common cause is an expired session. Surface it clearly instead
             // of failing on the JSON parse.
             if (response.redirected) {
-                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
-                infoDiv.className = 'info-box info-box--error';
+                infoDiv.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
+                infoDiv.className = "info-box info-box--error";
                 return;
             }
 
@@ -509,50 +800,57 @@
             try {
                 result = await response.json();
             } catch (parseError) {
-                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Unexpected response from server (HTTP ' + response.status + ')';
-                infoDiv.className = 'info-box info-box--error';
+                infoDiv.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> Unexpected response from server (HTTP ' +
+                    response.status +
+                    ")";
+                infoDiv.className = "info-box info-box--error";
                 return;
             }
 
             if (!response.ok || result.error) {
-                infoDiv.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${result.error || ('Lookup failed (HTTP ' + response.status + ')')}`;
-                infoDiv.className = 'info-box info-box--error';
+                infoDiv.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${result.error || "Lookup failed (HTTP " + response.status + ")"}`;
+                infoDiv.className = "info-box info-box--error";
                 return;
             }
 
             const identity = result.identity;
             if (!identity) {
-                infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> No FBO data returned for this number.';
-                infoDiv.className = 'info-box info-box--error';
+                infoDiv.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> No FBO data returned for this number.';
+                infoDiv.className = "info-box info-box--error";
                 return;
             }
 
-            document.getElementById(`${type}_name`).value = identity.companyName || '';
-            document.getElementById(`${type}_fbo_name`).value = identity.companyName || '';
-            document.getElementById(`${type}_address`).value = identity.fullAddress || '';
+            document.getElementById(`${type}_name`).value = identity.companyName || "";
+            document.getElementById(`${type}_fbo_name`).value = identity.companyName || "";
+            document.getElementById(`${type}_address`).value = identity.fullAddress || "";
 
             infoDiv.innerHTML =
                 `<strong>Found:</strong> ${identity.companyName}<br>` +
                 `<strong>Address:</strong> ${identity.fullAddress}<br>` +
-                `<strong>Expiry:</strong> ${identity.expiryDate || 'N/A'}<br>` +
-                `<strong>Source:</strong> ${identity.source === 'license_data' ? 'License DB' : 'Registration DB'}`;
-            infoDiv.className = 'info-box info-box--success';
-
+                `<strong>Expiry:</strong> ${identity.expiryDate || "N/A"}<br>` +
+                `<strong>Source:</strong> ${identity.source === "license_data" ? "License DB" : "Registration DB"}`;
+            infoDiv.className = "info-box info-box--success";
         } catch (error) {
-            console.error('Lookup error:', error);
-            infoDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Error fetching FSSAI data: ' + error.message;
-            infoDiv.className = 'info-box info-box--error';
+            console.error("Lookup error:", error);
+            infoDiv.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Error fetching FSSAI data: ' +
+                error.message;
+            infoDiv.className = "info-box info-box--error";
         }
     }
 
     // Load sample codes on page load
-    document.addEventListener('DOMContentLoaded', loadSampleCodes);
+    document.addEventListener("DOMContentLoaded", loadSampleCodes);
 
     // Clear any previously rendered inline field errors.
     function clearFieldErrors() {
-        document.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
-        document.querySelectorAll('.form-input--error').forEach(function(el) {
-            el.classList.remove('form-input--error');
+        document.querySelectorAll(".field-error").forEach(function (el) {
+            el.remove();
+        });
+        document.querySelectorAll(".form-input--error").forEach(function (el) {
+            el.classList.remove("form-input--error");
         });
     }
 
@@ -562,44 +860,47 @@
         if (!errors) return;
 
         var firstField = null;
-        Object.keys(errors).forEach(function(field) {
+        Object.keys(errors).forEach(function (field) {
             var input = document.querySelector('[name="' + field + '"]');
             if (!input) return;
-            input.classList.add('form-input--error');
-            var group = input.closest('.form-group');
+            input.classList.add("form-input--error");
+            var group = input.closest(".form-group");
             if (!group) return;
-            var errEl = document.createElement('div');
-            errEl.className = 'field-error';
+            var errEl = document.createElement("div");
+            errEl.className = "field-error";
             errEl.textContent = errors[field];
             group.appendChild(errEl);
             if (!firstField) firstField = input;
         });
-        if (firstField) firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (firstField) firstField.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     // Asynchronous case file generation: submit via fetch(), poll the QStash
     // task, then show a download link for the generated ZIP.
-    document.getElementById('caseFileForm').addEventListener('submit', function(e) {
+    document.getElementById("caseFileForm").addEventListener("submit", function (e) {
         e.preventDefault();
         clearFieldErrors();
         var form = this;
-        var statusBox = document.getElementById('case-task-status');
-        var submitBtn = document.getElementById('caseSubmitBtn');
+        var statusBox = document.getElementById("case-task-status");
+        var submitBtn = document.getElementById("caseSubmitBtn");
 
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating…';
-        statusBox.style.display = 'block';
-        statusBox.className = 'info-box';
-        statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating case file and generating PDFs…';
+        statusBox.style.display = "block";
+        statusBox.className = "info-box";
+        statusBox.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Creating case file and generating PDFs…';
 
-        TaskPoll.submitAndPoll(form, function(outcome) {
+        TaskPoll.submitAndPoll(form, function (outcome) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-file-zipper"></i> Generate Case Files';
 
-            if (outcome.status === 'error') {
-                statusBox.className = 'info-box info-box--error';
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
-                    (outcome.error || 'Case file generation failed.') + ' — the case file may still have been created.';
+            if (outcome.status === "error") {
+                statusBox.className = "info-box info-box--error";
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (outcome.error || "Case file generation failed.") +
+                    " — the case file may still have been created.";
                 if (outcome.errors) {
                     renderFieldErrors(outcome.errors);
                 }
@@ -607,17 +908,21 @@
             }
 
             var result = outcome.result || {};
-            if (result.pdf_result && result.pdf_result.status === 'error') {
-                statusBox.className = 'info-box info-box--error';
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' +
-                    (result.pdf_result.error || 'PDF generation failed.');
+            if (result.pdf_result && result.pdf_result.status === "error") {
+                statusBox.className = "info-box info-box--error";
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (result.pdf_result.error || "PDF generation failed.");
                 return;
             }
 
             var filePath = result.pdf_result ? result.pdf_result.file_path : result.file_path;
-            statusBox.className = 'info-box info-box--success';
-            statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Case file #' + result.case_file_id +
-                ' created. ' + TaskPoll.downloadLink({ file_path: filePath }, 'Download Case Files (ZIP)');
+            statusBox.className = "info-box info-box--success";
+            statusBox.innerHTML =
+                '<i class="fa-solid fa-circle-check"></i> Case file #' +
+                result.case_file_id +
+                " created. " +
+                TaskPoll.downloadLink({ file_path: filePath }, "Download Case Files (ZIP)");
         });
     });
 </script>
@@ -625,55 +930,55 @@
 <script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
 <script>
     ValidationDrawer.initRowButtons({
-        buttonsSelector: '.js-validate-case',
-        drawerId: 'case-file-val-drawer',
-        statusId: 'case-file-val-status',
-        endpoint: '{{ url_for("validation.validate") }}'
+        buttonsSelector: ".js-validate-case",
+        drawerId: "case-file-val-drawer",
+        statusId: "case-file-val-status",
+        endpoint: '{{ url_for("validation.validate") }}',
     });
 </script>
 
 <script>
-// Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
-document.querySelectorAll('.js-copy-letter').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-        var url = this.getAttribute('data-url');
-        var originalHTML = this.innerHTML;
-        this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
-        this.disabled = true;
+    // Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
+    document.querySelectorAll(".js-copy-letter").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+            var url = this.getAttribute("data-url");
+            var originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
+            this.disabled = true;
 
-        try {
-            var resp = await fetch(url);
-            if (!resp.ok) throw new Error('Failed to load letter');
-            var html = await resp.text();
+            try {
+                var resp = await fetch(url);
+                if (!resp.ok) throw new Error("Failed to load letter");
+                var html = await resp.text();
 
-            // Copy as rich HTML so Gmail paste retains formatting
-            var blob = new Blob([html], { type: 'text/html' });
-            var plainBlob = new Blob([html], { type: 'text/plain' });
-            var item = new ClipboardItem({
-                'text/html': blob,
-                'text/plain': plainBlob
-            });
-            await navigator.clipboard.write([item]);
+                // Copy as rich HTML so Gmail paste retains formatting
+                var blob = new Blob([html], { type: "text/html" });
+                var plainBlob = new Blob([html], { type: "text/plain" });
+                var item = new ClipboardItem({
+                    "text/html": blob,
+                    "text/plain": plainBlob,
+                });
+                await navigator.clipboard.write([item]);
 
-            this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-            this.classList.add('btn-success');
-            var self = this;
-            setTimeout(function() {
-                self.innerHTML = originalHTML;
-                self.classList.remove('btn-success');
-                self.disabled = false;
-            }, 2000);
-        } catch (err) {
-            this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
-            this.classList.add('btn-danger');
-            var self = this;
-            setTimeout(function() {
-                self.innerHTML = originalHTML;
-                self.classList.remove('btn-danger');
-                self.disabled = false;
-            }, 2000);
-        }
+                this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                this.classList.add("btn-success");
+                var self = this;
+                setTimeout(function () {
+                    self.innerHTML = originalHTML;
+                    self.classList.remove("btn-success");
+                    self.disabled = false;
+                }, 2000);
+            } catch (err) {
+                this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
+                this.classList.add("btn-danger");
+                var self = this;
+                setTimeout(function () {
+                    self.innerHTML = originalHTML;
+                    self.classList.remove("btn-danger");
+                    self.disabled = false;
+                }, 2000);
+            }
+        });
     });
-});
 </script>
 {% endblock %}
