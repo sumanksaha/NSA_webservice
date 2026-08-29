@@ -112,6 +112,8 @@
   observed:
 </div>
 
+[.page-break]
+
 <div class="table-title">
   Statement of Observed Non-Compliances During Inspection
 </div>
