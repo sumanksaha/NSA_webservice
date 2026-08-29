@@ -173,8 +173,12 @@
     </div>
 </div>
 
+{% endblock %}
+
 {% block extra_js %}
 <script>
+var CSRF_TOKEN = '{{ csrf_token() }}';
+
 // Sort table by clicking headers
 function sortTable(column) {
     let sortBy = column;
@@ -200,7 +204,8 @@ function editSample(sampleId) {
 function confirmDelete(sampleId) {
     if (confirm('Are you sure you want to delete sample ' + sampleId + '? This cannot be undone.')) {
         fetch('/sample/' + sampleId, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': CSRF_TOKEN }
         }).then(function(response) {
             if (response.ok) {
                 alert('Sample deleted successfully');
@@ -218,5 +223,4 @@ function confirmDelete(sampleId) {
     }
 }
 </script>
-{% endblock %}
 {% endblock %}

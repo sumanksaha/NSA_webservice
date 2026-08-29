@@ -129,7 +129,7 @@ def _base_near_capacity(client, base_id: str, module: str) -> bool:
         table = client.table(base_id, table_name)
         return any(
             count >= BASE_ROTATION_THRESHOLD
-            for count, _ in enumerate(table.iter_all(page_size=100), start=1)
+            for count, _ in enumerate(table.iterate(page_size=100), start=1)
         )
     except Exception as e:
         logger.debug("Capacity check failed for base %s: %s", base_id, e)
@@ -261,7 +261,7 @@ def sync_to_airtable(
 
     try:
         table = client.table(base_id, table_name)
-        result = table.insert(fields)
+        result = table.create(fields)
         airtable_record_id = (
             result.get("id") if isinstance(result, dict) else None
         )
@@ -307,7 +307,7 @@ def export_airtable_all_bases_to_r2() -> str | None:
     for module, table_name in AIRTABLE_TABLE_MAP.items():
         try:
             table = client.table(base_id, table_name)
-            for record in table.iter_all(page_size=100):
+            for record in table.iterate(page_size=100):
                 row = {"module": module, "base_id": base_id}
                 for k, v in record.get("fields", {}).items():
                     row[k] = v if v is not None else ""

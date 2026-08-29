@@ -1,4 +1,7 @@
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -14,12 +17,13 @@ class CaseResolver:
     """Seam: resolves a case ID to CaseFile or Adjudication."""
 
     def resolve(self, case_id, kind=None) -> ResolvedCase | None:
+        from app.extensions import db
         from app.models import Adjudication, CaseFile
 
         # Try case_file first (or honor kind)
         try:
             if kind is None or kind == "case_file":
-                case = CaseFile.query.get(case_id)
+                case = db.session.get(CaseFile, case_id)
                 if case:
                     return ResolvedCase(
                         case_id=case.id,
@@ -29,7 +33,7 @@ class CaseResolver:
                         record=case,
                     )
             if kind is None or kind == "adjudication":
-                case = Adjudication.query.get(case_id)
+                case = db.session.get(Adjudication, case_id)
                 if case:
                     return ResolvedCase(
                         case_id=case.id,
@@ -38,6 +42,6 @@ class CaseResolver:
                         adjudication_id=case.id,
                         record=case,
                     )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("CaseResolver failed for id=%s kind=%s: %s", case_id, kind, exc)
         return None

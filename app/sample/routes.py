@@ -3,6 +3,7 @@
 Provides endpoints for Sample CRUD operations and UI.
 """
 
+import re
 from datetime import UTC, datetime
 
 from flask import current_app, jsonify, render_template, request
@@ -13,7 +14,7 @@ from app.models import FSO, CaseFile, Sample
 
 # Import the blueprint from __init__.py
 from app.sample import sample_bp
-from app.sample.sample_utils import generate_sample_code, sample_to_sync_row
+from app.sample.sample_utils import sample_to_sync_row
 from app.services.sync_orchestrator import sync_row
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
@@ -21,6 +22,37 @@ from app.utils.lookup import lookup_fssai
 
 # Sample types: enforcement or surveillance only
 SAMPLE_TYPES = ["enforcement", "surveillance"]
+
+# Sample code validation patterns (FSO-entered, not auto-generated)
+# Enforcement: SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)
+#   SL=Sample Label, WB=West Bengal, 6-digit branch code, 4-digit year, 5-digit sequential
+ENFORCEMENT_CODE_PATTERN = re.compile(r"^SL/WB/\d{6}/\d{4}/\d{5}$")
+# Surveillance: FSO/Br-XX/ABC/INF/XX/YY-YY (e.g. FSO/Br-02/SS/INF/05/26-27)
+#   FSO=Food Safety Officer, Br-XX=branch number, ABC=FSO name abbreviation,
+#   INF=Informal, XX=sequential per-FSO, YY-YY=financial year
+SURVEILLANCE_CODE_PATTERN = re.compile(r"^FSO/Br-\d{2}/[A-Z]{2,4}/INF/\d{1,2}/\d{2}-\d{2}$")
+
+
+def validate_sample_code(code: str, sample_type: str) -> str | None:
+    """Validate sample code against the format for its sample_type.
+
+    Returns None on success, or an error message on failure.
+    """
+    if not code:
+        return "sample_code is required"
+    if sample_type == "enforcement":
+        if not ENFORCEMENT_CODE_PATTERN.match(code):
+            return (
+                "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL "
+                "(e.g. SL/WB/110223/2026/25275)"
+            )
+    elif sample_type == "surveillance":
+        if not SURVEILLANCE_CODE_PATTERN.match(code):
+            return (
+                "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY "
+                "(e.g. FSO/Br-02/SS/INF/05/26-27)"
+            )
+    return None
 
 
 @sample_bp.route("/")
@@ -162,8 +194,16 @@ def create_sample():
     if not fso:
         return jsonify({"error": f'FSO "{food_safety_officer_name}" not found in database'}), 400
 
-    # Generate sample code
-    sample_code = generate_sample_code()
+    # Sample code: FSO-entered, validated against format pattern
+    sample_code = form_data.get("sample_code", "").strip()
+    code_error = validate_sample_code(sample_code, sample_type_val)
+    if code_error:
+        return jsonify({"error": code_error}), 400
+
+    # Uniqueness check (DB also has UNIQUE constraint, but give a friendly error)
+    existing = Sample.query.filter_by(sample_code=sample_code).first()
+    if existing:
+        return jsonify({"error": f"Sample code '{sample_code}' already exists"}), 400
 
     # Handle retailer autofill - using canonical keys
     retailer_fssai_license = form_data.get("retailer_fssai_license", "").strip()
@@ -195,7 +235,7 @@ def create_sample():
         db.session.add(sample)
         db.session.commit()
 
-        # Sync to Google Sheets, Airtable, Excel (mandatory, synchronous)
+        # Sync to Google Sheets, Airtable, Excel (best-effort)
         try:
             row_dict = sample_to_sync_row(sample)
             sync_row("sample_repo", row_dict, entity_id=sample.id)
@@ -203,9 +243,7 @@ def create_sample():
             sample.synced_at = datetime.now(UTC)
             db.session.commit()
         except Exception as e:
-            current_app.logger.error(f"Sample sync failed: {e}")
-            db.session.rollback()
-            return jsonify({"error": f"Sample sync failed: {e}"}), 500
+            current_app.logger.warning(f"Sample sync failed (non-fatal): {e}")
 
         # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
         if not sample.food_cell_forwarded:
@@ -285,6 +323,20 @@ def update_sample(sample_id):
                 400,
             )
         sample.sample_type = sample_type_val
+
+    # Validate sample_code if provided (FSO-entered, format-checked)
+    if "sample_code" in form_data:
+        new_code = form_data["sample_code"].strip()
+        effective_type = sample.sample_type  # current type (may have been updated above)
+        code_error = validate_sample_code(new_code, effective_type)
+        if code_error:
+            return jsonify({"error": code_error}), 400
+        # Uniqueness check (skip if code unchanged)
+        if new_code != sample.sample_code:
+            existing = Sample.query.filter_by(sample_code=new_code).first()
+            if existing:
+                return jsonify({"error": f"Sample code '{new_code}' already exists"}), 400
+        sample.sample_code = new_code
 
     if "fso_name" in form_data:
         fso_name = form_data["fso_name"].strip()
