@@ -527,8 +527,8 @@
                 return;
             }
 
-            document.getElementById(`${type}_person_name`).value = identity.companyName || '';
-            document.getElementById(`${type}_trade_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_name`).value = identity.companyName || '';
+            document.getElementById(`${type}_fbo_name`).value = identity.companyName || '';
             document.getElementById(`${type}_address`).value = identity.fullAddress || '';
 
             infoDiv.innerHTML =

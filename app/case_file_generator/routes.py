@@ -12,6 +12,7 @@ retains only the case-file-specific helpers and routes:
 Backward-compatible imports preserved for callers (tests, renderers, etc.).
 """
 
+import io
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
@@ -721,9 +722,7 @@ def download_petition_docx(case_id: int):
     converter = CaseFileWordConverter()
     docx_bytes = converter.build_petition(case_data)
 
-    import io as _io
-
-    buf = _io.BytesIO(docx_bytes)
+    buf = io.BytesIO(docx_bytes)
     buf.seek(0)
     return send_file(
         buf,
@@ -748,9 +747,7 @@ def download_permission_docx(case_id: int):
     converter = CaseFileWordConverter()
     docx_bytes = converter.build_permission_letter(case_data)
 
-    import io as _io
-
-    buf = _io.BytesIO(docx_bytes)
+    buf = io.BytesIO(docx_bytes)
     buf.seek(0)
     return send_file(
         buf,
