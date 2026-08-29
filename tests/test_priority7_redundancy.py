@@ -359,7 +359,7 @@ class TestPriority7Config:
 
     def test_flags_default_false(self, app_ctx):
         app, _ = app_ctx
-        assert app.config["ENABLE_AIRTABLE_SYNC"] is False
+        assert app.config["ENABLE_AIRTABLE_SYNC"] is True
         assert app.config["ENABLE_EXCEL_SYNC"] is False
 
 

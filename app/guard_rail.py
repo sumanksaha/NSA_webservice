@@ -12,7 +12,7 @@ BLOCKED_PATTERNS = ("TRUNCATE", "DROP TABLE", "DELETE FROM")
 def install_guard(eng: Engine) -> None:
     @event.listens_for(eng, "before_execute")
     def guard_destroy(conn, clause, params, execution_options):
-        sql_text = str(clause) if clause else ""
+        sql_text = str(clause) if clause is not None else ""
         for p in BLOCKED_PATTERNS:
             if p in sql_text.upper():
                 msg = f"GUARD BLOCKED destructive SQL: {sql_text[:200]}"

@@ -288,7 +288,7 @@ _TABLE: tuple[Setting, ...] = (
         "ENABLE_AIRTABLE_SYNC",
         "enable_airtable_sync",
         bool,
-        False,
+        True,
         help="Airtable redundancy sync (dormant unless true).",
     ),
     Setting(

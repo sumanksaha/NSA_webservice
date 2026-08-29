@@ -182,7 +182,7 @@ def _csv_to_records(csv_content: str) -> list[dict]:
     return [dict(row) for row in reader]
 
 
-def _parse_csv_value(value: str, field_type: str = "str"):
+def _parse_csv_value(value: str | None, field_type: str = "str"):
     """Parse a CSV string value based on the target column's SQLAlchemy type.
 
     Handles empty strings (returns ``None``), integers, floats, booleans,
