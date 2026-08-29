@@ -266,9 +266,7 @@ def create_inspection():
             inspection.synced_at = datetime.now(UTC)
             db.session.commit()
         except Exception as e:
-            current_app.logger.error(f"Inspection sync failed: {e}")
-            db.session.rollback()
-            return jsonify({"error": f"Inspection sync failed: {e}"}), 500
+            current_app.logger.warning(f"Inspection sync failed (non-fatal): {e}")
 
         return (
             jsonify({

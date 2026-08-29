@@ -53,7 +53,8 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 </span>
                 {% else %}
                 <span class="status-badge" style="opacity: 0.4">
-                    <i class="fa-solid fa-xmark"></i> No
+                    <i class="fa-solid fa-xmark"></i                                >
+                                No
                 </span>
                 {% endif %}
             </span>
@@ -138,7 +139,8 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 >
                 {% elif checklist[field] == 'no' %}
                 <span class="status-badge status-badge--error" style="font-size: 0.75rem"
-                    ><i class="fa-solid fa-xmark"></i> No</span
+                    ><i class="fa-solid fa-xmark"></i                                >
+                                No</span
                 >
                 {% else %}
                 <span class="status-badge" style="font-size: 0.75rem">{{ checklist[field] }}</span>
@@ -254,25 +256,13 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                             <option value="">-- Select --</option>
                             <option
                                 value="yes"
-                                {%
-                                if
-                                checklist.get(field)=""
-                                ="yes"
-                                %}selected{%
-                                endif
-                                %}
+                                {% if checklist.get(field) == "yes" %}selected{% endif %}
                             >
                                 Yes
                             </option>
                             <option
                                 value="no"
-                                {%
-                                if
-                                checklist.get(field)=""
-                                ="no"
-                                %}selected{%
-                                endif
-                                %}
+                                {% if checklist.get(field) == "no" %}selected{% endif %}
                             >
                                 No
                             </option>
@@ -447,11 +437,13 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         <h3><i class="fa-solid fa-file-lines"></i> Improvement Notice (u/s 32 FSS Act)</h3>
         {% if inspection.notice_issued_at %}
         <span class="status-badge status-badge--success">
-            <i class="fa-solid fa-circle-check"></i> Notice Issued
+            <i class="fa-solid fa-circle-check"></i                                >
+                                Notice Issued
         </span>
         {% else %}
         <span class="status-badge status-badge--warning">
-            <i class="fa-solid fa-clock"></i> Not Yet Issued
+            <i class="fa-solid fa-clock"></i                                >
+                                Not Yet Issued
         </span>
         {% endif %}
     </div>
