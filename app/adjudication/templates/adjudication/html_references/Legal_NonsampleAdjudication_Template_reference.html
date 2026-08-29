@@ -1,0 +1,64 @@
+HTML Reference for AsciiDoc Template ========================================= Original File:
+Legal_NonsampleAdjudication_Template.html Converted: 2026-08-26 HTML Structure: ---------------
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+    </head>
+
+    <body>
+        <div class="memo"><strong>Date:</strong> {{ compilation_date }}</div>
+
+        <div class="recipient">
+            <strong>To</strong><br />
+            The Designated Officer,<br />
+            Food Cell,<br />
+            Kolkata Municipal Corporation.
+        </div>
+
+        <div class="subject">
+            Subject: Prayer for authorization for filing of adjudication proceedings against {{
+            fbo_name }}, situated at {{ fbo_address }} under Section{{ 's' if
+            applicable_sections|length > 1 else '' }} {{ sections_display }} of the Food Safety and
+            Standards Act, 2006.
+        </div>
+
+        <div class="paragraph">Sir/Madam,</div>
+
+        <div class="paragraph">
+            During inspection conducted on
+            <strong> {{ first_inspection_date }}</strong> at the food business establishment namely
+            <strong>{{ fbo_name }}</strong>, situated at <strong>{{ fbo_address }}</strong>, the
+            following non-compliances and contraventions of food hygiene and sanitary requirements
+            prescribed under the Food Safety and Standards Act, 2006 and allied Regulations were
+            observed:
+        </div>
+
+        <div class="table-title">Statement of Observed Non-Compliances During Inspection</div>
+        <table class="violation-table">
+            <tr>
+                <th style="width: 8%">Sl.</th>
+                <th style="width: 32%">Nature of Non-Compliance</th>
+                <th>Observation</th>
+            </tr>
+
+            {% for v in violations %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ v.title }}</td>
+                <td>{{ v.observation }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="paragraph">
+            The undersigned issued an instruction sheet to the FBO to address the non-compliance
+            issues on or before {{ compliance_deadline }}.
+        </div>
+        {% if complaint_lodged == 'yes' %}
+        <div class="paragraph">
+            Subsequently, on {{ complaint_date }}, the FSO received a complaint from the complainant
+            rega... Converted AsciiDoc available at: Legal_NonsampleAdjudication_Template.adoc
+        </div>
+    </body>
+</html>

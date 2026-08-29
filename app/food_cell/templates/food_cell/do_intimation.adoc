@@ -1,0 +1,24 @@
+# DO Intimation — {{ sample.sample_code or 'Sample' }}
+
+* **Original HTML Template:** See `app\food_cell\templates\food_cell\do_intimation.html`
+* **Generated:** 2026-08-26
+
+toc::
+
+
+*Table 1: Document Structure*
+|===
+| Parameter | Value |
+| --- | --- |
+| Sample Code | {{ sample.sample_code or '—' }} |
+| Sample Collection Date | {{ sample.collection_date or '—' }} |
+| Lab Registration No. | {{ sample.retailer_fssai or '—' }} |
+| FSS Act Section(s) Invoked | {{ sample.nature_of_food or '—' }} |
+| DO Reference No. | {{ sample.sample_code or '—' }} |
+|===
+
+*List 1: Document Components*
+1. Copy of the inspection report
+2. Sample collection memo
+3. Lab dispatch challan
+4. {{ sample.nature_of_food or '[Statutory Section(s)]' }} invoked

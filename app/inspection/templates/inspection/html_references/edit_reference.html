@@ -1,0 +1,52 @@
+HTML Reference for AsciiDoc Template
+=========================================
+
+Original File: edit.html
+Converted: 2026-08-26
+
+HTML Structure:
+---------------
+{% extends "inspection/base_inspection.html" %}
+
+{% block title %}Edit Inspection - {{ inspection.inspection_code }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header flex-between--wrap">
+        <h2><i class="fa-solid fa-pen-to-square"></i> Edit Inspection</h2>
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">
+            {{ inspection.inspection_code }}
+        </span>
+    </div>
+
+    <form id="editInspectionForm" action="{{ url_for('inspection.update_inspection', inspection_id=inspection.id) }}" method="post" class="inspection-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Inspection Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Inspection Information</h3>
+        </div>
+
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="food_safety_officer_name" class="form-label">Food Safety Officer</label>
+                <select id="food_safety_officer_name" name="food_safety_officer_name" class="form-select">
+                    <option value="">-- Select FSO --</option>
+                    {% for fso in fso_names %}
+                    <option value="{{ fso }}" {% if inspection.fso_name == fso %}selected{% endif %}>{{ fso }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="inspection_date" class="form-label">Inspection Date</label>
+                <input type="date" id="inspection_date" name="inspection_date" class="form-input"
+                       value="{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else '' }}"
+                       onchange="updateComplianceDeadline()">
+            </div>
+        </div>
+
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <lab...
+
+Converted AsciiDoc available at: edit.adoc

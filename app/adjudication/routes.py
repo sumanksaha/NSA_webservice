@@ -605,7 +605,7 @@ def generate_all():
             current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
             db.session.rollback()
 
-    # Sheets sync
+    # Sheets + Airtable + Excel sync (mandatory, synchronous)
     allowed_sheets_columns = {
         "case_number",
         "food_safety_officer",
@@ -649,11 +649,11 @@ def generate_all():
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
         row_dict["created_at"] = adj.created_at.isoformat() if adj.created_at else ""
-        result = sync_row("non_sample", row_dict, entity_id=adj.id)
-        if not result["sheets"]:
-            current_app.logger.warning("Adjudication: Sheets sync failed - not blocking")
+        sync_row("non_sample", row_dict, entity_id=adj.id)
     except Exception as e:
-        current_app.logger.warning(f"Adjudication sync failed: {e}")
+        current_app.logger.error(f"Adjudication sync failed: {e}")
+        db.session.rollback()
+        return jsonify({"error": f"Adjudication sync failed: {e}"}), 500
 
     # Prepare context
     context = _prepare_adjudication_context(form_data)

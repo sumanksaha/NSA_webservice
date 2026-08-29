@@ -1,0 +1,60 @@
+HTML Reference for AsciiDoc Template ========================================= Original File:
+improvement_notice.html Converted: 2026-08-26 HTML Structure: ---------------
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Improvement Notice — {{ fbo_name or 'FBO' }}</title>
+    </head>
+    <body>
+        <div class="page">
+            <!-- Letterhead -->
+            <div class="letterhead">
+                <div class="govt-label">Kolkata Municipal Corporation</div>
+                <h1>Food Safety Department</h1>
+                <div class="subtitle">Under Food Safety and Standards Act, 2006</div>
+            </div>
+
+            <!-- Document type — conditional badge -->
+            <div style="text-align: center">
+                {% if is_inspection_report %}
+                <span class="doc-class" style="background: #2e7d32"
+                    >Inspection Report — Food Safety Department, KMC</span
+                >
+                {% else %}
+                <span class="doc-class">Improvement Notice — Section 32, FSS Act, 2006</span>
+                {% endif %}
+            </div>
+
+            <!-- Notice date -->
+            <div class="header-line">{{ notice_date or '—' }}</div>
+
+            <!-- Recipient -->
+            <div class="recipient-block">
+                <div class="label">To</div>
+                The Designated Officer,<br />
+                Food Cell,<br />
+                Kolkata Municipal Corporation.
+            </div>
+
+            <div class="body-text">
+                <!-- Reference number (optional) -->
+                {% if improvement_notice_ref %}
+                <div class="ref-badge">Ref: {{ improvement_notice_ref }}</div>
+                {% endif %}
+
+                <!-- Subject -->
+                <div class="subject-block">
+                    <p>
+                        <b
+                            >Subject: Inspection report regarding an inspection of {{ fbo_name or
+                            '[FBO Name]' }} situated at {{ fbo_address or '[FBO Address]' }} on {{
+                            ... Converted AsciiDoc available at: improvement_notice.adoc
+                        </b>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

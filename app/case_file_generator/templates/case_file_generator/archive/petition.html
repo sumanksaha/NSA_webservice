@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.4;
+        margin: 40px;
+      }
+      .header {
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 30px;
+      }
+      .sub-header {
+        margin-bottom: 20px;
+        font-weight: bold;
+      }
+      .justify {
+        text-align: justify;
+      }
+      .bold {
+        font-weight: bold;
+      }
+      .center {
+        text-align: center;
+      }
+      .footer-table {
+        width: 100%;
+        margin-top: 20px;
+        border: none;
+      }
+      .footer-table td {
+        width: 50%;
+        border: none;
+      }
+      .container {
+        display: flex;
+        border-top: 2px solid black;
+        border-bottom: 2px solid black;
+        min-height: auto;
+      }
+
+      .legal-notice-box {
+        border: 2px solid #2c3e50;
+        padding: 15px;
+        margin: 20px 0;
+        background-color: #f8f9fa;
+        font-weight: bold;
+        line-height: 1.6;
+        border-radius: 4px;
+      }
+      .section-title {
+        text-transform: uppercase;
+        text-decoration: underline;
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      .column {
+        width: 50%;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .left-col {
+        border-right: 1px solid black;
+      }
+
+      .entry {
+        margin-bottom: 40px;
+      }
+      .entry-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .page-break {
+        break-after: always;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bold">Before the Ld. Adjudicating Officer, KMC</div>
+    <div>F.S. & S Case No. {{ case_number }}</div>
+
+    <div class="sub-header">
+      Complainant/Food Business Operator with Address<br />
+      Company/Firm/Proprietor
+    </div>
+
+    <div class="container">
+      <div class="column left-col">
+        <div class="entry">
+          <div class="entry-title">1. {{ food_safety_officer_name }}</div>
+          <div>Food Safety Officer</div>
+          <div>Kolkata Municipal Corporation</div>
+        </div>
+        <div class="entry">
+          <div class="entry-title">2. License Officer</div>
+          <div>5, S.N. Banerjee Road, Kolkata - 700013</div>
+        </div>
+      </div>
+
+      <div class="column">
+        {% if same_entity %}
+        <div class="entry">
+          <div><strong>{{ retailer_name }}</strong></div>
+          <div><strong>Retailer-cum-Manufacturer</strong></div>
+          <div>{{ retailer_fbo_name }}</div>
+          <div>{{ retailer_address }}</div>
+          <div>{{ retailer_fssai }}</div>
+        </div>
+        {% else %}
+        <div class="entry">
+          <div><strong>{{ manufacturer_name }}</strong></div>
+          <div><strong>Manufacturer</strong></div>
+          <div>{{ manufacturer_fbo_name }}</div>
+          <div>{{ manufacturer_address }}</div>
+          <div>{{ manufacturer_fssai }}</div>
+        </div>
+        <div class="entry">
+          <div><strong>{{ retailer_name }}</strong></div>
+          <div><strong>Retailer</strong></div>
+          <div>{{ retailer_fbo_name }}</div>
+          <div>{{ retailer_address }}</div>
+          <div>{{ retailer_fssai }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+        <div class="page-break"></div>
+
+    <div data-toc></div>
+
+    <p class="bold">Most Respectfully Sheweth: -</p>
+
+    <p class="justify">
+      The humble petition on behalf of the complainant above named
+    </p>
+    <section>
+      <h3 class="center">STATEMENT OF FACTS</h3>
+      <ol class="justify">
+        <li>
+          That the complainant above named is the Food Safety Officer
+          (hereinafter referred to as the “FSO”) appointed u/s 37 of the Food
+          Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata
+          Municipal Corporation and he has been authorised by the Designated
+          Officer, Kolkata Municipal Corporation dated {{ authorization_date }}
+          to launch the present complaint for adjudication before the Ld.
+          Adjudicating Officer, Kolkata Municipal Corporation.
+        </li>
+        <li>
+          That on
+          <strong> {{ inspection_date }} at {{ inspection_time }}</strong>, FSO
+          inspected the premises of
+          <strong> {{ retailer_fbo_name }} </strong> (hereinafter referred to as
+          the “retailer”) situated at {{ retailer_address }}, Lic No- {{
+          retailer_fssai }}, where he found that said business was operated by
+          {{ retailer_name }}, who also disclosed that he was looking after the
+          day to day affairs of the retailer including storage and selling of
+          food articles.
+        </li>
+        <li>
+          That on inspection, it was found that different kinds of packaged food
+          articles such as {{ other_food_articles }} along with
+          <strong> {{ product_name }} </strong> stored there-in and exhibited
+          for sale for human consumption. Among the Food articles, one packet of
+          <strong> {{ product_name }} </strong> which appeared to FSO to be
+          inferior in quality and thus he intended to take sample for the
+          purpose of analysis by the Food Analyst.
+        </li>
+        <li>
+          That for the purpose of taking sample, and analyzing the said food
+          article by the Food Analyst, FSO called a local witness namely
+          Sandipan Sikder and in his presence the complainant served the notice
+          in form VA upon <strong> {{ retailer_name }} </strong> the above named
+          which was duly filled up and signed by the complainant and the
+          witnesses.
+        </li>
+        <li>
+          That in presence of the Sample witnesses, the FSO / Complainant
+          purchased about {{ sample_quantity }} of {{ product_name }} ({{
+          packet_count }} packets, {{ batch_no }}, {{ mfg_date }}, {{ expiry_date }}
+          ) (hereinafter referred to as the “sample”), manufactured by {{
+          manufacturer_fbo_name }}, {{ manufacturer_address }}, manufacturer Lic
+          No - {{ manufacturer_fssai }}, (herein referred to as the
+          “manufacturer”), from the food business premises of {{
+          retailer_fbo_name }}, where it was kept and exhibited for sale for
+          human consumption and the retailer received a total amounting to Rs.
+          {{ total_cost }} ({{ cost_in_words }}) from the complainant toward a
+          sale proceed against which retailer issued a valid cash receipt.
+        </li>
+        <li>
+          That the complainant sealed the samples and labeled in accordance with
+          the norms of FSSAI rules and no Formalin was added in accordance with
+          the method mentioned in Food Safety and Standards Act, 2006 and Rules
+          2011 & Regulations made there under on {{ inspection_date }}, Then
+          each packet was labelled with sample label coupon form which bears the
+          signature of the complainant, persons in charge of {{
+          retailer_fbo_name }} the sample witnesses and code no. of sample i.e
+          {{ sample_code }}
+        </li>
+        <li>
+          That each sample-packet with same and identical label was completely
+          wrapped with thick brown paper and the ends of the paper were neatly
+          folded in and were fixed by means of gum. A paper slip bearing
+          signature of Designated Officer with date and sample code no.
+          {{ sample_code }} which was issued by the Designated Officer, Kolkata
+          Municipal Corporation was pasted on the wrapper from bottom to top on
+          each sample-Packet. Then the signature of the person in charge was
+          taken on each part of the sample in such a manner that the paper slip
+          and the wrapper both carried a part of the signature of the person in
+          charge. Each packed sample-packet was further secured by strong red
+          tape with knot both above and across the sample-packet covered with
+          brown paper. Then each knot was covered by means of sealing wax on
+          which distinct and clear impression of the seal of Food Safety Officer
+          was put on. One at the top, one at the bottom and other two on the
+          body of the packet following the Rule 2.4.1 of the Food Safety &
+          Standards Rules, 2011 in presence of sample witness.
+        </li>
+        <li>
+          That one sealed packet containing one sample packet (Part I) of along
+          with a copy of memorandum duly filled in Form VI bearing code no.
+          {{ sample_code }} and specimen impression of the seal used by the
+          complainant Food Safety Officer was sent to the Food Analyst, Central
+          Laboratory (Food), K.M.C. under due entry in the peon book, which was
+          duly received by the Food Analyst, K.M.C. on
+          {{ do_receipt_date }} under Laboratory Registration No
+          {{ lab_registration_no }}.
+        </li>
+        <li>
+          Two sealed packets — one containing two sample packets (Part II and
+          Part III) along with two copies of the memorandum duly filled in form
+          VI bearing code no. {{ sample_code }} and another containing one sample
+          packet (Part IV) along with one copy of the memorandum duly filled in
+          Form VI bearing code no. {{ sample_code }} were deposited at the Food
+          Cell under due entry in the peon book.
+        </li>
+        <li>
+          That in due course of time the complaint received the report of Food
+          Analyst bearing No: {{ analyst_report_no }} Dated
+          {{ analyst_report_date }} through the Designated Officer along with a
+          directive letter Vide No: {{ directive_letter_no }} Dated
+          {{ directive_letter_date }} which reveals that sampled food article is
+          {% if analysis_result %}
+          The sample was found to be {{ analysis_result }}.
+          {% endif %}
+        </li>
+        <li>
+          That one copy of aforesaid Food Analyst report along with a forwarding
+          letter of Designated Officer vide No {{ directive_letter_no }} Dated
+          {{ directive_letter_date }} has been served upon {% if same_entity %} {{
+          retailer_name }} on {{ retailer_report_receive_date }} {% else %} {{
+          retailer_name }} on {{ retailer_report_receive_date }} and to {{
+          manufacturer_name }} on {{ manufacturer_report_receive_date }} {%
+          endif %} by the complainant and the receipt of the same has been duly
+          acknowledged. FSO also asked the manufacturer to prefer an appeal
+          before Designated Officer against the finding of Food Analyst but the
+          manufacturer did not prefer an appeal against the report of Food
+          Analyst.
+        </li>
+        <li>
+          That the sample of {{ product_name }} is found to be in contravention
+          of Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and
+          thus the Food Business Operator(s) should be penalized
+          <span class="bold">
+            {% if applicable_sections %}
+              u/s {{ sections_display }}
+            {% else %}
+              under the relevant section
+            {% endif %}
+          </span>
+          of the Food Safety and Standards Act, 2006.
+        </li>
+        <li>
+          That Food Safety Officer submitted all the relevant documents in
+          connection with above sample and placed before the Designated Officer
+          for his perusal and further proceedings.
+        </li>
+        <li>
+          That the Designated officer authorized Food Safety Officer to file
+          with the Adjudicating Officer an application for Adjudication.
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h3 class="center">GROUNDS</h3>
+      <ol class="justify">
+        <li>
+          That the sample of <strong>{{ product_name }}</strong> collected from
+          the premises of <strong>{{ retailer_fbo_name }}</strong> on
+          {{ inspection_date }} vide code No. {{ sample_code }} was analysed by
+          the Food Analyst, and the report bearing No. {{ analyst_report_no }}
+          dated {{ analyst_report_date }} revealed that the sampled food article
+          {% if analysis_result %}
+            was found to be <strong>{{ analysis_result }}</strong>.
+          {% else %}
+            was not conforming to the standards prescribed under the Food
+            Safety and Standards Act, 2006.
+          {% endif %}
+        </li>
+        <li>
+          That the said food article is in contravention of the provisions of
+          Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and the
+          Food Business Operator(s) are liable to be penalised
+          <span class="bold">
+            {% if applicable_sections %}
+              u/s {{ sections_display }}
+            {% else %}
+              under the relevant section
+            {% endif %}
+          </span>
+          of the Food Safety and Standards Act, 2006.
+        </li>
+        <li>
+          That the Food Business Operator(s) did not prefer any appeal against
+          the report of the Food Analyst within the stipulated time as provided
+          under Section 46(4) of the Food Safety and Standards Act, 2006.
+        </li>
+        <li>
+          That the complainant has submitted all the relevant documents in
+          connection with the above sample before the Designated Officer, who
+          after perusal of the same has authorised the complainant to file the
+          present petition for adjudication.
+        </li>
+      </ol>
+    </section>
+
+    <div class="legal-notice-box">
+    {% for sec in applicable_sections %}
+    <span class="section-title">Liability under Section {{ sec }}:</span>
+    <blockquote>
+        {% if sec == '51' %}
+        Any person who whether by himself or by any other person on his behalf
+        manufactures for sale or stores or sells or distributes or imports any
+        article of food for human consumption which is
+        <strong>sub-standard</strong> shall be liable to a penalty which may
+        extend to five lakh rupees.
+        {% elif sec == '52' %}
+        Any person who whether by himself or by any other person on his behalf
+        manufactures for sale or stores or sells or distributes or imports any
+        article of food for human consumption which is
+        <strong>misbranded</strong> shall be liable to a penalty which may
+        extend to three lakh rupees.
+        {% else %}
+        Liability provisions for Section {{ sec }} apply.
+        {% endif %}
+    </blockquote>
+    {% endfor %}
+    {% if not applicable_sections %}
+    <p><em>Error: no applicable sections specified.</em></p>
+    {% endif %}
+</div>
+
+    <section>
+      <h3 class="center">PRAYER</h3>
+      <p class="justify">
+        In view of the facts and circumstances stated above, it is most
+        respectfully prayed that this Hon'ble Adjudicating Officer may be
+        pleased to:
+      </p>
+      <ol class="justify">
+        <li>
+          take cognizance of the complaint and initiate adjudication
+          proceedings against the Food Business Operator(s) for the aforesaid
+          contravention;
+        </li>
+        <li>
+          impose penalty upon the Food Business Operator(s)
+          <span class="bold">
+            {% if applicable_sections %}
+              u/s {{ sections_display }}
+            {% else %}
+              under the relevant section
+            {% endif %}
+          </span>
+          of the Food Safety and Standards Act, 2006, as deemed fit and proper;
+        </li>
+        <li>
+          award costs of the proceedings; and
+        </li>
+        <li>
+          pass such other order or orders as may be deemed fit and proper in
+          the interest of justice.
+        </li>
+      </ol>
+      <p class="justify">
+        And for this act of kindness your petitioner as in duty bound shall
+        ever pray.
+      </p>
+    </section>
+
+    <table class="footer-table">
+      <tr>
+        <td>Designated Officer<br />Kolkata Municipal Corporation</td>
+        <td style="text-align: right">
+          Food Safety Officer<br />Kolkata Municipal Corporation
+        </td>
+      </tr>
+        </table>
+    <div class="enclosure-section">
+        <p><strong>List of Enclosures</strong></p>
+        <ol class="justify">
+            <li>Photocopies of Form V dated {{ inspection_date }}</li>
+            <li>Photocopies of Form VI dated {{ inspection_date }}</li>
+            <li>Lab submission receipt dated {{ do_receipt_date }}</li>
+            <li>Analyst Report {{ analyst_report_no }} dated {{ analyst_report_date }}</li>
+            <li>Directive {{ directive_letter_no }} dated {{ directive_letter_date }}</li>
+            <li>Authorization of Designated Officer dated __________________</li>
+        </ol>
+    </div>
+  </body>
+</html>

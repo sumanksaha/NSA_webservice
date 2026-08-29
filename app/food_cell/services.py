@@ -94,27 +94,26 @@ def generate_and_forward_do_intimation(
     # --- Update Sample forward timestamp ---
     sample.food_cell_forwarded = datetime.now(UTC)
 
-    # --- Sync to parallel targets (best-effort, via the shared sync seam) ---
+    # --- Sync to parallel targets (synchronous, mandatory) ---
     # sync_row fans out to Sheets (primary), Airtable, and Excel Online
-    # independently — a failure in one never blocks the others. The module key
-    # "food_cell_do_intimations" resolves the worksheet/table for every target
-    # (including Excel, which maps it to "FoodCellDOIntimations" via WORKSHEET_MAP).
-    sync_results = sync_row(
+    # synchronously — any failure raises and is caught by the caller. The
+    # module key "food_cell_do_intimations" resolves the worksheet/table
+    # for every target.
+    sync_row(
         "food_cell_do_intimations",
         renderer.build_sync_row(sample, intimation),
         entity_id=intimation.id,
     )
 
-    intimation.sync_status = json.dumps(sync_results)
+    intimation.sync_status = json.dumps({"status": "synced"})
     intimation.status = "forwarded"
     db.session.add(intimation)
     db.session.commit()
     db.session.refresh(intimation)
 
     logger.info(
-        "DO intimation generated for sample %s (ref=%s), sync=%s",
+        "DO intimation generated for sample %s (ref=%s), sync=ok",
         sample.id,
         do_ref,
-        sync_results,
     )
     return intimation

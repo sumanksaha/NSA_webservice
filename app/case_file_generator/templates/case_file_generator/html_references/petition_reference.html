@@ -1,0 +1,69 @@
+HTML Reference for AsciiDoc Template ========================================= Original File:
+petition.html Converted: 2026-08-26 HTML Structure: ---------------
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+    </head>
+    <body>
+        <div class="bold">Before the Ld. Adjudicating Officer, KMC</div>
+        <div>F.S. & S Case No. {{ case_number }}</div>
+
+        <div class="sub-header">
+            Complainant/Food Business Operator with Address<br />
+            Company/Firm/Proprietor
+        </div>
+
+        <div class="container">
+            <div class="column left-col">
+                <div class="entry">
+                    <div class="entry-title">1. {{ food_safety_officer_name }}</div>
+                    <div>Food Safety Officer</div>
+                    <div>Kolkata Municipal Corporation</div>
+                </div>
+                <div class="entry">
+                    <div class="entry-title">2. License Officer</div>
+                    <div>5, S.N. Banerjee Road, Kolkata - 700013</div>
+                </div>
+            </div>
+
+            <div class="column">
+                {% if same_entity %}
+                <div class="entry">
+                    <div><strong>{{ retailer_name }}</strong></div>
+                    <div><strong>Retailer-cum-Manufacturer</strong></div>
+                    <div>{{ retailer_fbo_name }}</div>
+                    <div>{{ retailer_address }}</div>
+                    <div>{{ retailer_fssai }}</div>
+                </div>
+                {% else %}
+                <div class="entry">
+                    <div><strong>{{ manufacturer_name }}</strong></div>
+                    <div><strong>Manufacturer</strong></div>
+                    <div>{{ manufacturer_fbo_name }}</div>
+                    <div>{{ manufacturer_address }}</div>
+                    <div>{{ manufacturer_fssai }}</div>
+                </div>
+                <div class="entry">
+                    <div><strong>{{ retailer_name }}</strong></div>
+                    <div><strong>Retailer</strong></div>
+                    <div>{{ retailer_fbo_name }}</div>
+                    <div>{{ retailer_address }}</div>
+                    <div>{{ retailer_fssai }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="page-break"></div>
+
+        <div data-toc></div>
+
+        <p class="bold">Most Respectfully Sheweth: -</p>
+
+        <p class="justify">
+            The humble petition on behalf of the complainant above na... Converted AsciiDoc
+            available at: petition.adoc
+        </p>
+    </body>
+</html>

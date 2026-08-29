@@ -195,16 +195,17 @@ def create_sample():
         db.session.add(sample)
         db.session.commit()
 
-        # Sync to Google Sheets (Step 5)
+        # Sync to Google Sheets, Airtable, Excel (mandatory, synchronous)
         try:
             row_dict = sample_to_sync_row(sample)
-            result = sync_row("sample_repo", row_dict, entity_id=sample.id)
-            if result["sheets"]:
-                # Update synced_at timestamp
-                sample.synced_at = datetime.now(UTC)
-                db.session.commit()
+            sync_row("sample_repo", row_dict, entity_id=sample.id)
+            # Update synced_at timestamp
+            sample.synced_at = datetime.now(UTC)
+            db.session.commit()
         except Exception as e:
-            current_app.logger.warning(f"Sample sync failed: {e}")
+            current_app.logger.error(f"Sample sync failed: {e}")
+            db.session.rollback()
+            return jsonify({"error": f"Sample sync failed: {e}"}), 500
 
         # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
         if not sample.food_cell_forwarded:

@@ -18,7 +18,7 @@ content %}
                     <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
-                        <option value="{{ fso }}" {% if filter_fso="" ="fso" %}selected{% endif %}>
+                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>
                             {{ fso }}
                         </option>
                         {% endfor %}

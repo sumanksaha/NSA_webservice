@@ -387,13 +387,16 @@ _TABLE: tuple[Setting, ...] = (
     Setting("AI_PROVIDER", "ai_provider", str, "openrouter", help="Active AI plugin."),
     Setting("RULES_PROVIDER", "rules_provider", str, "fssai_default", help="Active rules plugin."),
     Setting("PDF_PROVIDER", "pdf_provider", str, "weasyprint", help="Active PDF plugin."),
+    # Supabase sync is now ALWAYS enabled. The flag is retained for
+    # backward compatibility (always reads True) but is no longer used
+    # to gate the service.
     Setting(
         "ENABLE_SUPABASE_SYNC",
         "supabase_sync_enabled",
         bool,
-        False,
-        help="Enable Supabase cloud-sync bridge (Phase 17).",
-        opt_in=True,
+        True,
+        help="[DEPRECATED] Supabase sync is always enabled and synchronous.",
+        opt_in=False,
     ),
     Setting(
         "SUPABASE_URL",

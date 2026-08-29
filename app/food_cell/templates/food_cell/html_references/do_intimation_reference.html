@@ -1,0 +1,58 @@
+HTML Reference for AsciiDoc Template
+=========================================
+
+Original File: do_intimation.html
+Converted: 2026-08-26
+
+HTML Structure:
+---------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DO Intimation — {{ sample.sample_code or 'Sample' }}</title>
+    
+</head>
+<body>
+<div class="page">
+    <div class="letterhead">
+        <h1>Kolkata Municipal Corporation • Food Safety Department</h1>
+        <div class="subtitle">Under Food Safety and Standards Act, 2006</div>
+    </div>
+
+        <div class="header-line">{{ sample.collection_date | default('—') }}</div>
+    <div class="header-line">To,<br>
+        The Designated Officer,<br>
+        Food Safety and Standards Authority of India,<br>
+        {{ sample.retailer_name or '[FBO Name]' }}.
+    </div>
+
+    <div class="body-text">
+        <p><b>Subject: Intimation under Section 45/46 of the Food Safety and Standards Act, 2006 — for {{ sample.retailer_name or 'the establishment' }}.</p>
+
+        <p>Sir/Madam,</p>
+
+        <p>
+            This is to intimate that a food safety inspection was conducted at
+            <b>{{ sample.retailer_name or '[FBO Name]' }}</b>,
+            located at <b>{{ sample.manufacturer_details or '[FBO Address]' }}</b>,
+            on <b>{{ sample.collection_date or '[Inspection Date]' }}</b>,
+            by <b>{{ sample.fso_name or 'Food Safety Officer' }}</b>.
+        </p>
+
+        <p>
+            During the inspection, a sample of <b>{{ sample.sample_name or '[Food Item]' }}</b>
+            (batch/lot: <b>{{ sample.batch_no or 'N/A' }}</b>)
+            was collected for laboratory analysis. The sample has been
+            dispatched to the Public Health Laboratory on
+            <b>{{ sample.submission_date or '[Dispatch Date]' }}</b>
+            with the following identifiers:
+        </p>
+
+        <table class="summary">
+            <tr><th>Parameter</th><th>Value</th></tr>
+            <tr><td>Sample Code</td><td>{{ sample.sample_code or '—' }}</td></tr>
+            <tr><td>Sample Collection Date</td><td>{{ sample.collection_...
+
+Converted AsciiDoc available at: do_intimation.adoc

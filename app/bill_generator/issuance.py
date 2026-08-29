@@ -72,7 +72,6 @@ class IssuanceResult:
     detail: str | None = None
     task_id: str | None = None
     pdf_result: dict | None = None
-    sync: dict | None = None
 
 
 def validate_range(start_date: str | None, end_date: str | None) -> str | None:
@@ -141,18 +140,22 @@ def issue(start_date: str | None, end_date: str | None, form_data: dict) -> Issu
             detail="This bill was modified by another user. Please reload and try again.",
         )
 
-    # ---- Best-effort parallel sync (never blocks, never rolls back) ----
-    sync_result = None
-    try:
-        from app.services.sync_orchestrator import sync_row
+    # ---- Synchronous mandatory parallel sync (Sheets + Airtable + Excel) ----
+    # Any failure here propagates so the caller knows the bill is not in
+    # sync. The bill record has already been committed.
+    from app.services.sync_orchestrator import sync_row
 
-        row_dict = {k: v for k, v in form_data.items() if k in bill_record.__dict__}
-        row_dict["created_at"] = bill_record.created_at.isoformat() if bill_record.created_at else ""
-        sync_result = sync_row("billing", row_dict, entity_id=bill_record.id)
-        if not sync_result["sheets"]:
-            logger.warning("Bill Generator: Sheets sync failed - not blocking")
+    row_dict = {k: v for k, v in form_data.items() if k in bill_record.__dict__}
+    row_dict["created_at"] = bill_record.created_at.isoformat() if bill_record.created_at else ""
+    try:
+        sync_row("billing", row_dict, entity_id=bill_record.id)
     except Exception as e:
-        logger.warning("Bill Generator sync failed: %s", e)
+        logger.error("Bill Generator sync failed: %s", e)
+        return IssuanceResult(
+            status="error",
+            bill_id=bill_record.id,
+            detail=f"Bill sync failed: {e}",
+        )
 
     # ---- Dispatch PDF generation ----
     template_vars = {k: form_data.get(k, "") for k in TEMPLATE_VARS_ALLOWLIST}
@@ -171,7 +174,6 @@ def issue(start_date: str | None, end_date: str | None, form_data: dict) -> Issu
             status="error",
             bill_id=bill_record.id,
             detail=f"Bill PDF generation failed: {exc}",
-            sync=sync_result,
         )
 
     if dispatched["mode"] == "async":
@@ -179,7 +181,6 @@ def issue(start_date: str | None, end_date: str | None, form_data: dict) -> Issu
             status="queued",
             bill_id=bill_record.id,
             task_id=dispatched["message_id"],
-            sync=sync_result,
         )
 
     result = dispatched["result"]
@@ -191,7 +192,6 @@ def issue(start_date: str | None, end_date: str | None, form_data: dict) -> Issu
             status="error",
             bill_id=bill_record.id,
             detail=f"Bill PDF generation failed: {result}",
-            sync=sync_result,
         )
 
     if isinstance(result, dict) and result.get("status") == "error":
@@ -202,14 +202,12 @@ def issue(start_date: str | None, end_date: str | None, form_data: dict) -> Issu
             bill_id=bill_record.id,
             detail=error_msg,
             pdf_result=result,
-            sync=sync_result,
         )
 
     return IssuanceResult(
         status="generated",
         bill_id=bill_record.id,
         pdf_result=result,
-        sync=sync_result,
     )
 
 

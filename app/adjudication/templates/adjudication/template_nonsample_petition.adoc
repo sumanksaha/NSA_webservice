@@ -1,0 +1,232 @@
+++++
+<head>
+<meta charset="UTF-8">
+<style>
+    body { font-family: 'Times New Roman', serif; line-height: 2; margin: 50px; }
+    .header { text-align: center; font-weight: bold; margin-bottom: 30px; }
+    .sub-header { margin-bottom: 20px; font-weight: bold; }
+    .justify { text-align: justify; text-indent: 35px; margin-bottom: 12px; }
+    p, li { margin-bottom: 10px; }
+    .bold { font-weight: bold; }
+    .center { text-align: center; }
+    .footer-table { width: 100%; margin-top: 20px; border: none; }
+    .footer-table td { width: 50%; border: none; }
+    .container {
+        margin-top:20px;
+        margin-bottom:25px;
+        display: flex;
+        border-top: 2px solid black;
+        border-bottom: 2px solid black;
+        min-height: 500px;
+    }
+
+    .violation-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        margin-bottom: 20px;
+    }
+
+    .violation-table th,
+    .violation-table td {
+        border: 1px solid #000;
+        padding: 8px;
+        vertical-align: top;
+    }
+
+    .violation-table th {
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .violation-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .legal-notice-box {
+        border: 2px solid #2c3e50;
+        padding: 15px;
+        margin: 20px 0;
+        background-color: #f8f9fa;
+        font-weight: bold;
+        line-height: 1.6;
+        border-radius: 4px;
+    }
+    .section-title {
+        text-transform: uppercase;
+        text-decoration: underline;
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    .column { width: 50%; padding: 20px; box-sizing: border-box; }
+    .left-col { border-right: 1px solid black; }
+
+    .entry { margin-bottom: 40px; }
+    .entry-title { font-weight: bold; margin-bottom: 5px; }
+
+    /* Page Break Logic */
+    .page-break { page-break-after: always; }
+</style>
+</head>
+++++
+
+[.bold]#Before the Ld. Adjudicating Officer, KMC#
+ +
+F.S. & S Case No.
+
+[.sub-header]
+Complainant/Food Business Operator with Address +
+Company/Firm/Proprietor
+
+[.container]
+--
+[.column.left-col]
+--
+[.entry]
+[.entry-title]#1. {{ food_safety_officer_name }}#
++
+Food Safety Officer
++
+Kolkata Municipal Corporation
+
+[.entry]
+[.entry-title]#2. License Officer#
++
+5, S.N. Banerjee Road, Kolkata - 700013
+--
+[.column]
+--
+[.entry]
+#
+<strong> {{ fbo_owner }} </strong>#
++
+{{ fbo_name }}
++
+{{ fbo_address }}
++
+{% if '63' in applicable_sections or non_license == 'yes' %}
+    Trade License No: {{ ce_license_no }}
+{% else %}
+    {{ fssai_license }}
+{% endif %}
+--
+--
+
+<<<
+
+'''
+
+[.bold]#Most Respectfully Sheweth: -#
+
+[.justify]#The humble petition on behalf of the complainant above named#
+
+[#statement-of-facts]
+-- STATEMENT OF FACTS --
+
+[.justify]
+. That the complainant above named is the Food Safety Officer (hereinafter referred to as the "FSO") appointed u/s 37 of the Food Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata Municipal Corporation and he has been authorised by the Designated Officer, Kolkata Municipal Corporation dated {{ authorization_date }} to launch the present complaint for adjudication before the Ld. Adjudicating Officer, Kolkata Municipal Corporation.
+. That on *{{ first_inspection_date }}*, FSO inspected the premises of *{{ fbo_name }}* (hereinafter referred to as the "FBO") situated at {{ fbo_address }}, {% if '63' in applicable_sections or non_license == 'yes' %}Trade License No- {{ ce_license_no }}{% else %}License/Registration No- {{ fssai_license }}{% endif %}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.
+. That on inspection, FSO observed several discrepancies at the premises.
+
+*Statement of Observed Non-Compliances During Inspection*
+
+[.violation-table]
+|===
+|Sl. |Nature of Non-Compliance |Observation
+
+{% for v in violations %}
+|{{ loop.index }} | {{ v.title }} | {{ v.observation }}
+{% endfor %}
+|===
+
+{% if adjudication.photos and adjudication.photos|length > 0 %}
+[#photo-evidence]
+-- Photographic Evidence --
+
+{% set embeds = adjudication.photo_embeds or [] %}
+{% for photo in adjudication.photos %}
+{% set embed = embeds[loop.index0] if embeds and loop.index0 < embeds|length else None %}
+image::{{ embed.data_uri if embed and embed.data_uri else '' }}[Photo evidence, align=center]
+[%hardbreaks]
+*Image ID:* {{ photo.id }} +
+*Location:* {{ photo.locality or "Unresolved" }} +
+*Captured:* {{ photo.captured_at }} +
+*Verification:* {% if photo.verification_status == 'FLAG' %}**⚠ UNVERIFIED — Manual Review Required**{% else %}**✓ Verified**{% endif %}
+{% endfor %}
+{% endif %}
+
+. The undersigned issued an instruction sheet to the FBO to address the non-compliance issues on or before {{ compliance_deadline }}.
+{% if complaint_lodged == 'yes' %}
+. Subsequently, on {{ complaint_date }}, the FSO received a complaint regarding the sale of {{ concerned_food }} that {{ problem }}, further corroborating the FBO's continued non-compliance.
+{% endif %}
+. That on {{ followup_inspection_date }}, the FSO conducted a follow-up inspection and observed continued non-compliance with food safety standards and with directives issued by the FSO.
+. That Food Safety Officer submitted all the relevant documents in connection with above FBO and placed before the Designated Officer for his perusal and further proceedings.
+. That the Designated Officer authorized Food Safety Officer on {{ authorization_date }} to file an application for Adjudication with the Adjudicating Officer.
+--
+
+[.legal-notice-box]
+{% for sec in applicable_sections %}
+[#section-{{ sec }}]
+*Liability under Section {{ sec }}:*
++
+{% if sec == '55' %}
+If a food business operator or an importer without reasonable ground, **fails to comply with the requirements of this Act or the rules or regulations or orders issued thereunder**, as directed by the Food Safety Officer, he shall be liable to a penalty which may extend to two lakh rupees.
+{% elif sec == '56' %}
+Any person who, whether by himself or by any other person on his behalf, **manufactures or processes any article of food for human consumption under unhygienic or unsanitary conditions**, shall be liable to a penalty which may extend to one lakh rupees.
+{% elif sec == '58' %}
+Any person who whether by himself or by any other person on his behalf manufactures for sale or stores or sells or distributes or imports any article of food for human consumption which is unsafe shall be liable to a penalty which may extend to one lakh rupees.
+{% elif sec == '63' %}
+Any person who whether by himself or by any other person on his behalf manufactures or processes any article of food for human consumption without a license shall be liable to a penalty which may extend to five lakh rupees.
+{% elif sec == '64' %}
+Any person who publishes or is a party to the publication of any advertisement which is false or misleading shall be liable to a penalty which may extend to ten lakh rupees.
+{% else %}
+Liability provisions for Section {{ sec }} apply.
+{% endif %}
+{% endfor %}
+{% if not applicable_sections %}
+Error: no applicable sections specified.
+{% endif %}
+
+[.justify]
+Under the circumstances, it is prayed that Your Honour may kindly be pleased to issue notice upon the FBO to make representation and fix a date of hearing and after hearing pass necessary order/ orders contravening *Section{{ 's' if applicable_sections|length > 1 else '' }} {{ sections_display }}* of the Food Safety and Standards Act, 2006, and pass such order or orders as deemed fit and proper in the interest of justice.
+
+[.justify]
+And for this act of kindness your petitioner as in duty bound shall ever pray.
+
+[.footer-table]
+|===
+|Designated Officer +
+Kolkata Municipal Corporation |Food Safety Officer +
+Kolkata Municipal Corporation
+|===
+
+*List of Enclosures*
+
+[.justify]
+. Photocopies of Form V dated __________________
+. Photocopies of Form VI dated __________________
+. Lab submission receipt dated __________________
+. Analyst Report __________________ dated __________________
+. Directive __________________ dated __________________
+. Authorization of Designated Officer dated __________________
+
+<<<
+
+[.recipient]
+*To* +
+The Designated Officer, +
+Food Cell, +
+Kolkata Municipal Corporation.
+
+[.paragraph]
+*Re:* Filing of Complaint before the Ld. Adjudicating Officer
+
+[.justify]
+In view of your approval for initiation of adjudication proceedings dated *{{ authorization_date }}*, the prepared draft copy of the petition of complaint is hereby placed before you for your kind perusal and necessary approval, please.
+
+[.justify]
+Food Safety Officer +
+Food Cell +
+Kolkata Municipal Corporation

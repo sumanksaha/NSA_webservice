@@ -1,0 +1,53 @@
+HTML Reference for AsciiDoc Template ========================================= Original File:
+permission_letter.html Converted: 2026-08-26 HTML Structure: ---------------
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+    </head>
+    <body>
+        <div class="content">
+            <p>
+                To,<br />
+                The Designated Officer<br />
+                Food Cell, Kolkata Municipal Corporation
+            </p>
+
+            <p>
+                <strong>Sub :</strong> Service of letter no. {{ directive_letter_no }} dated {{
+                directive_letter_date }} along with Food Analyst's report No. {{ analyst_report_no
+                }} dated {{ analyst_report_date }} in connection with the sample of - {{
+                product_name }} (batch No - {{ batch_no }}, Date of Manufacturing - {{ mfg_date }},
+                Date of expiry - {{ expiry_date }}) sold by {{ retailer_fbo_name }} ({{
+                retailer_address }}, Lic No - {{ retailer_fssai }}) collected on {{ inspection_date
+                }} vide code No. {{ sample_code }}{% if applicable_sections %} which was found to be
+                {{ analysis_result }} and contravenes Section 26(2)(ii) punishable under Section{{
+                's' if applicable_sections|length > 1 else '' }} {{ sections_display }} of the FSS
+                Act, 2006{% endif %}.
+            </p>
+
+            <p>
+                In compliance to your order, an intimation letter vide no. {{ directive_letter_no }}
+                dated {{ directive_letter_date }} along with Food Analyst's report No. {{
+                analyst_report_no }} dated {{ analyst_report_date }} declaring the sample of {{
+                product_name }} (batch No - {{ batch_no }}, Date of Manufacturing - {{ mfg_date }},
+                Date of expiry - {{ expiry_date }}) manufactured by {{ manufacturer_fbo_name }} ({{
+                manufacturer_address }}, Lic No - {{ manufacturer_fssai }}) and sold by {{
+                retailer_fbo_name }} ({{ retailer_address }}, Lic No - {{ retailer_fssai }})
+                collected on {{ inspection_date }} vide code No. {{ sample_code }} as {{
+                analysis_result }}, has been served upon to {{ retailer_name }} on {{
+                retailer_report_receive_date }} and {{ manufacturer_name }} on {{
+                manufacturer_report_receive_date }}.
+            </p>
+            <p>
+                The Food Business Operator didn't appeal U/S 46(4) of Food Safety & Standard Act
+                2006 within the stipulated time as per FSSAI rules.
+            </p>
+
+            <p>
+                Now, copies of all the relevant doc... Converted AsciiDoc available at:
+                permission_letter.adoc
+            </p>
+        </div>
+    </body>
+</html>

@@ -264,11 +264,12 @@ def create_inspection():
                 "sample_code": inspection.sample_code or "",
             }
             result = sync_row("inspection_log", row_dict, entity_id=inspection.id)
-            if result["sheets"]:
-                inspection.synced_at = datetime.now(UTC)
-                db.session.commit()
+            inspection.synced_at = datetime.now(UTC)
+            db.session.commit()
         except Exception as e:
-            current_app.logger.warning(f"Inspection sync failed: {e}")
+            current_app.logger.error(f"Inspection sync failed: {e}")
+            db.session.rollback()
+            return jsonify({"error": f"Inspection sync failed: {e}"}), 500
 
         return (
             jsonify({

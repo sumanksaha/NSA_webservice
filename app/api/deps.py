@@ -76,17 +76,20 @@ def get_flask_app() -> Any:
 
 
 # --------------------------------------------------------------------------- #
-# Config flags — delegate to the shared configuration seam (app/shared/config.py)
+# Config flags — runtime env-var resolution for ASGI routes.
 # --------------------------------------------------------------------------- #
 def get_flag(key: str) -> bool:
-    """Read a boolean flag through the shared seam (Pattern A resolution).
+    """Read a boolean flag from the runtime environment.
 
-    Works inside or outside a Flask app context; env vars are consulted
-    outside an app context directly and seeded into Flask config at startup.
+    ASGI routes (``/api/v2/*``) execute as native FastAPI handlers, outside
+    any Flask app context in production, so ``cfg.get_bool`` (Pattern A —
+    config wins in-context) would read stale values from the config snapshot
+    taken at ``create_app()`` time.  Feature flags toggled via
+    ``monkeypatch.setenv`` in tests (or dynamically at runtime) must be
+    visible immediately, so we read ``os.environ`` directly — matching the
+    pre-config-seam behaviour for this function.
     """
-    from app.shared.config import cfg
-
-    return cfg.get_bool(key)
+    return os.environ.get(key, "false").lower() == "true"
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,51 @@
+HTML Reference for AsciiDoc Template ========================================= Original File:
+detail.html Converted: 2026-08-26 HTML Structure: --------------- {% extends
+"inspection/base_inspection.html" %} {% block title %}Inspection Detail - {{
+inspection.inspection_code }}{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header flex-between--wrap">
+        <h2><i class="fa-solid fa-file-lines"></i> Inspection Detail</h2>
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">
+            {{ inspection.inspection_code }}
+        </span>
+    </div>
+
+    <!-- Inspection Details Section -->
+    <div class="section-header">
+        <h3><i class="fa-solid fa-circle-info"></i> Inspection Information</h3>
+    </div>
+
+    <div class="grid--2">
+        <div class="detail-field">
+            <label>Food Safety Officer</label>
+            <span class="detail-value">{{ inspection.fso_name }}</span>
+        </div>
+        <div class="detail-field">
+            <label>Inspection Date</label>
+            <span class="detail-value">{{ inspection.inspection_date }}</span>
+        </div>
+        <div class="detail-field">
+            <label>Compliance Deadline</label>
+            <span class="detail-value">{{ inspection.compliance_deadline }}</span>
+        </div>
+        <div class="detail-field">
+            <label>Status</label>
+            <span class="detail-value">
+                {% if inspection.is_dismissed %}
+                <span class="status-badge status-badge--error">
+                    <i class="fa-solid fa-check-double"></i> Corrective Implemented
+                </span>
+                {% elif inspection.adjudication_id %}
+                <span class="status-badge status-badge--success">
+                    <i class="fa-solid fa-scale-balanced"></i> Adjudicated
+                </span>
+                {% else %}
+                <span class="status-badge status-badge--warning">
+                    <i class="fa-solid fa-clock"></i> Active
+                </span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-field"><... Converted AsciiDoc available at: detail.adoc</div>
+    </div>
+</div>

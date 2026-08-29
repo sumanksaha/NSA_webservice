@@ -1,0 +1,32 @@
+# Improvement Notice — {{ fbo_name or 'FBO' }}
+
+* **Original HTML Template:** See `app\food_cell\templates\food_cell\improvement_notice.html`
+* **Generated:** 2026-08-26
+
+toc::
+
+
+*Table 1: Document Structure*
+|===
+| FBO Name | Address | FSSAI License No. | Inspection Date | Food Safety Officer |
+| --- | --- | --- | --- | --- |
+| {{ fbo_name }} |
+| {{ fbo_address }} |
+| {{ fbo_fssai }} |
+| {{ inspection_date }} |
+| {{ fso_name }} |
+|===
+
+*Table 2: Document Structure*
+|===
+| Sl. | Nature of Deviation | Observation |
+| --- | --- | --- |
+| {{ loop.index }} | {{ v.title or v.description or v.get('name', '') }} | {{ v.observation or v.section or v.detail or v.get('detail', '') }} |
+|===
+
+*List 1: Document Components*
+1. {{ action }}
+
+
+*List 2: Document Components*
+1. {{ enc }}

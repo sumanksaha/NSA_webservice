@@ -1,0 +1,49 @@
+HTML Reference for AsciiDoc Template
+=========================================
+
+Original File: index.html
+Converted: 2026-08-26
+
+HTML Structure:
+---------------
+{% extends "base.html" %}
+
+{% block title %}Sample -adjudication{% endblock %}
+
+{% block content %}
+{% set modal_accent = 'var(--color-info)' %}
+{% include '_preview_modal.html' with context %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-folder-open"></i> Sample -adjudication</h2>
+    </div>
+
+    <form id="caseFileForm" action="{{ url_for('case_file_generator.generate_case_file_route') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div id="case-task-status" class="info-box" style="display: none;"></div>
+
+        <!-- Case Information -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-circle-info"></i> Case Information</h3>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="case_number" class="form-label">Case Number <span class="required"></span></label>
+                <input type="text" id="case_number" name="case_number" class="form-input" required placeholder="e.g., 2026/FSS/104">
+            </div>
+            <div class="form-group">
+                <label for="food_safety_officer_name" class="form-label">Food Safety Officer Name <span class="required"></span></label>
+                <input type="text" id="food_safety_officer_name" name="food_safety_officer_name" class="form-input" required placeholder="Enter FSO name">
+            </div>
+        </div>
+
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="authorization_date" class="form-label">Authorization Date <span class="required"></span></label>
+                <input type="date" id="authorization_date" name="authorization_date" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label for="inspection_date" class="form-label">Sample Draw Date <span class="required"></span></label>
+                <input type="...
+
+Converted AsciiDoc available at: index.adoc

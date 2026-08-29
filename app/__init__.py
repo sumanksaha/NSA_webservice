@@ -640,7 +640,7 @@ def create_app(db_uri: str | None = None):
             app.logger.warning("User table not queryable yet — skipping admin seed.")
             _user_count = 1
 
-        if _user_count == 0:
+        if _user_count == 0 and not os.environ.get("SKIP_ADMIN_SEED"):
             from werkzeug.security import generate_password_hash
 
             default_admin = User(

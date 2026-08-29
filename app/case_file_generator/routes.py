@@ -112,7 +112,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
         except (TypeError, ValueError):
             errors["packet_count"] = "Packet Count must be a valid integer."
 
-    total_cost = form_data.get("total_cost", "").strip()
+    total_cost = (form_data.get("total_cost") or "").strip()
     if total_cost:
         try:
             float(total_cost)
@@ -120,7 +120,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
             errors["total_cost"] = "Total Cost must be a valid number."
 
     # --- Time format validation ---
-    inspection_time = form_data.get("inspection_time", "").strip()
+    inspection_time = (form_data.get("inspection_time") or "").strip()
     if inspection_time:
         try:
             datetime.strptime(inspection_time, "%H:%M")
@@ -553,11 +553,10 @@ def generate_case_file_route():
         row_dict["created_at"] = case_file_record.created_at.isoformat() if case_file_record.created_at else ""
         row_dict["applicable_sections"] = case_file_record.applicable_sections
         row_dict["sample_id"] = case_file_record.sample_id
-        result = sync_row("sample", row_dict, entity_id=case_file_record.id)
-        if not result["sheets"]:
-            current_app.logger.warning("Case File: Sheets sync failed - sync failed but not blocking")
+        sync_row("sample", row_dict, entity_id=case_file_record.id)
     except Exception as e:
-        current_app.logger.warning(f"Case File sync failed: {e}")
+        current_app.logger.error(f"Case File sync failed: {e}")
+        return jsonify({"error": f"Case file sync failed: {e}"}), 500
 
     case_data = process_form_data(form_data)
     payload = {"case_file_id": case_file_record.id, "case_data": case_data}
