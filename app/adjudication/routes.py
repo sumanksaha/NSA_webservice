@@ -525,7 +525,7 @@ def preview_adjudication_route():
     from app.shared.rbac import scoped_officer_name
 
     scope = scoped_officer_name(current_user)
-    if scope is not None:
+    if scope:
         form_data["food_safety_officer_name"] = scope
 
     validation_errors = validate_adjudication_form(form_data)
@@ -572,7 +572,7 @@ def generate_all():
     from app.shared.rbac import scoped_officer_name
 
     scope = scoped_officer_name(current_user)
-    if scope is not None:
+    if scope:
         form_data["food_safety_officer_name"] = scope
 
     adj = _process_adjudication_form(form_data)

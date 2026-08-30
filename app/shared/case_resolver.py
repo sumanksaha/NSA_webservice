@@ -29,14 +29,14 @@ class CaseResolver:
                         case_id=case.id,
                         case_type="case_file",
                         case_number=case.case_number,
-                        adjudication_id=case.adjudication_id,
+                        adjudication_id=None,
                         record=case,
                     )
             if kind is None or kind == "adjudication":
                 case = db.session.get(Adjudication, case_id)
                 if case:
                     return ResolvedCase(
-                        case_id=case.id,
+                        case_id=None,
                         case_type="adjudication",
                         case_number=case.case_number,
                         adjudication_id=case.id,

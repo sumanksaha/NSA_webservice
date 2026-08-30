@@ -107,6 +107,10 @@ class TestIssue:
             "app.utils.qstash_client.publish_task",
             lambda *a, **k: {"mode": "async", "message_id": "msg_123"},
         )
+        monkeypatch.setattr(
+            "app.services.sync_orchestrator.sync_row",
+            lambda *a, **k: None,
+        )
         result = issue("2026-01-15", "2026-01-16", FORM)
         assert result.status == "queued"
         assert result.task_id == "msg_123"
@@ -124,6 +128,10 @@ class TestIssue:
             "app.utils.qstash_client.publish_task",
             lambda *a, **k: {"mode": "sync", "result": {"status": "ok", "file_path": "pdfs/bills/bill_1.pdf"}},
         )
+        monkeypatch.setattr(
+            "app.services.sync_orchestrator.sync_row",
+            lambda *a, **k: None,
+        )
         result = issue("2026-01-15", "2026-01-16", FORM)
         assert result.status == "generated"
         assert result.bill_id is not None
@@ -131,6 +139,10 @@ class TestIssue:
 
     def test_dispatch_failure_keeps_bill_with_id(self, app, monkeypatch):
         _seed_samples()
+        monkeypatch.setattr(
+            "app.services.sync_orchestrator.sync_row",
+            lambda *a, **k: None,
+        )
 
         def boom(*a, **k):
             raise RuntimeError("qstash down")
@@ -149,6 +161,10 @@ class TestIssue:
         monkeypatch.setattr(
             "app.utils.qstash_client.publish_task",
             lambda *a, **k: {"mode": "sync", "result": {"status": "error", "error": "WeasyPrint exploded"}},
+        )
+        monkeypatch.setattr(
+            "app.services.sync_orchestrator.sync_row",
+            lambda *a, **k: None,
         )
         result = issue("2026-01-15", "2026-01-16", FORM)
         assert result.status == "error"
@@ -184,7 +200,9 @@ class TestIssue:
 
         monkeypatch.setattr("app.services.sync_orchestrator.sync_row", sync_boom)
         result = issue("2026-01-15", "2026-01-16", FORM)
-        assert result.status == "queued"
+        # Sync failure propagates as error — bill is persisted but status is error
+        assert result.status == "error"
+        assert result.bill_id is not None
         assert Bill.query.count() == 1
 
     def test_conflict_rolls_back_atomically(self, app, monkeypatch):
@@ -212,4 +230,4 @@ class TestIssue:
 class TestIssuanceResult:
     def test_defaults(self):
         r = IssuanceResult(status="invalid")
-        assert r.bill_id is None and r.task_id is None and r.pdf_result is None and r.sync is None
+        assert r.bill_id is None and r.task_id is None and r.pdf_result is None

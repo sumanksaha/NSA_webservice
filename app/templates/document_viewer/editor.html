@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ case_number }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" />
+<style>
+    .editor-container { display: flex; gap: 1rem; height: calc(100vh - 120px); }
+    .editor-panel { flex: 1; display: flex; flex-direction: column; }
+    .editor-panel iframe { flex: 1; border: 1px solid #ccc; width: 100%; }
+    #editor { min-height: 300px; }
+    .doc-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .doc-tabs button { padding: 0.4rem 1rem; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer; border-radius: 4px; }
+    .doc-tabs button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 1rem;">
+    <h2>Editing: {{ case_number }} <small style="color:#888;">({{ doc_type }})</small></h2>
+
+    <div id="docTypeSelector" class="doc-tabs">
+        <button class="active" data-doc="permission" onclick="switchDoc('permission')">Permission Letter</button>
+        <button data-doc="petition" onclick="switchDoc('petition')">Petition</button>
+    </div>
+
+    <div class="editor-container">
+        <div class="editor-panel">
+            <div id="editor"></div>
+        </div>
+        <div class="editor-panel">
+            <iframe id="preview" title="Document Preview"></iframe>
+        </div>
+    </div>
+
+    <!-- Hidden data stores for the two document types -->
+    <div id="petition-data" style="display:none;">{{ petition_html | e }}</div>
+    <div id="permission-data" style="display:none;">{{ permission_html | e }}</div>
+
+    <input type="hidden" id="case-id" value="{{ case_id }}">
+    <input type="hidden" id="active-doc-type" value="{{ active_doc | default('permission') }}">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
+<script src="{{ url_for('static', filename='js/document_viewer/editor.js') }}"></script>
+<script>
+    // Initialize with the active doc content
+    (function() {
+        var activeDoc = document.getElementById('active-doc-type').value;
+        var dataEl = document.getElementById(activeDoc + '-data');
+        if (dataEl && dataEl.textContent.trim()) {
+            var iframe = document.getElementById('preview');
+            iframe.srcdoc = dataEl.textContent.trim();
+        }
+    })();
+
+    function switchDoc(docType) {
+        document.getElementById('active-doc-type').value = docType;
+        document.querySelectorAll('.doc-tabs button').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-doc') === docType);
+        });
+        var dataEl = document.getElementById(docType + '-data');
+        if (dataEl) {
+            var iframe = document.getElementById('preview');
+            iframe.srcdoc = dataEl.textContent.trim();
+        }
+    }
+</script>
+{% endblock %}

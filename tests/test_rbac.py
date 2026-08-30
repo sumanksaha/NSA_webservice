@@ -289,16 +289,17 @@ def two_officers(env):
 
 _CASE_DEFAULTS = dict(
     case_number="CF/2026/001",
+    food_safety_officer_name="Test Officer",
     authorization_date="2026-01-05",
-    sample_draw_date="2026-01-10",
-    sample_draw_time="10:00",
-    manufacturer_fssai_license="12345678901234",
-    manufacturer_person_name="Mfg Person",
-    manufacturer_trade_name="Mfg Trade",
+    inspection_date="2026-01-10",
+    inspection_time="10:00",
+    manufacturer_fssai="12345678901234",
+    manufacturer_name="Mfg Person",
+    manufacturer_fbo_name="Mfg Trade",
     manufacturer_address="Mfg Address",
-    retailer_fssai_license="22345678901234",
-    retailer_person_name="Ret Person",
-    retailer_trade_name="Ret Trade",
+    retailer_fssai="22345678901234",
+    retailer_name="Ret Person",
+    retailer_fbo_name="Ret Trade",
     retailer_address="Ret Address",
     product_name="Atta",
     batch_no="B1",
@@ -389,10 +390,10 @@ class TestCaseFileScoping:
     def test_create_force_stamps_bound_officer(self, two_officers, monkeypatch):
         from app.case_file_generator import routes as cfr
 
+        monkeypatch.setattr(cfr, "sync_row", lambda *a, **k: None)
         monkeypatch.setattr(
-            cfr,
-            "publish_task",
-            lambda *a, **k: {"mode": "async", "message_id": "test-msg"},
+            "app.case_file_generator.tasks.generate_case_file_pdf",
+            lambda **k: {"status": "ok", "file_path": "/tmp/test.zip"},
         )
         payload = dict(_CASE_DEFAULTS)
         payload["food_safety_officer_name"] = "Someone Else"  # spoof attempt

@@ -171,7 +171,7 @@ def create_inspection():
     from app.shared.rbac import scoped_officer_name
 
     scope = scoped_officer_name(current_user)
-    if scope is not None:
+    if scope:
         form_data["food_safety_officer_name"] = scope
 
     food_safety_officer_name = form_data.get("food_safety_officer_name", "").strip()

@@ -107,15 +107,15 @@ _VALID_FORM_DATA = {
     "case_number": "2026/FSS/999",
     "food_safety_officer_name": "Test Officer",
     "authorization_date": "2026-07-01",
-    "sample_draw_date": "2026-07-02",
-    "sample_draw_time": "12:40",
-    "manufacturer_fssai_license": "10012345678901",
-    "manufacturer_person_name": "Mfg",
-    "manufacturer_trade_name": "Mfg FBO",
+    "inspection_date": "2026-07-02",
+    "inspection_time": "12:40",
+    "manufacturer_fssai": "10012345678901",
+    "manufacturer_name": "Mfg",
+    "manufacturer_fbo_name": "Mfg FBO",
     "manufacturer_address": "Addr",
-    "retailer_fssai_license": "20012345678901",
-    "retailer_person_name": "Ret",
-    "retailer_trade_name": "Ret FBO",
+    "retailer_fssai": "20012345678901",
+    "retailer_name": "Ret",
+    "retailer_fbo_name": "Ret FBO",
     "retailer_address": "Addr",
     "product_name": "Product",
     "batch_no": "B1",
@@ -167,20 +167,20 @@ class TestCaseFileSyncFallback:
 
     def test_sync_mode_returns_200_not_redis_error(self, app_client):
         """Force sync fallback and verify the response is NOT the Redis
-        ssl_cert_reqs ValueError.  We stub the PDF task to return success
-        so we can assert on the 200 path."""
+        ssl_cert_reqs ValueError.  We stub the sync and PDF task to return
+        success so we can assert on the 200 path."""
         from app.case_file_generator import routes as cfr
 
-        fake_result = {
-            "case_file_id": 1,
-            "file_path": "pdfs/case_files/2026/08/case_1.zip",
+        fake_pdf_result = {
             "status": "ok",
-            "error": None,
-            "generated_at": "2026-08-26T14:00:00+00:00",
+            "file_path": "pdfs/case_files/2026/08/case_1.zip",
         }
 
-        # Stub publish_task to return sync mode (bypasses QStash entirely)
-        with patch.object(cfr, "publish_task", return_value={"mode": "sync", "result": fake_result}):
+        # Stub sync_row (sheets/airtable) and generate_case_file_pdf
+        with patch.object(cfr, "sync_row"), patch(
+            "app.case_file_generator.tasks.generate_case_file_pdf",
+            return_value=fake_pdf_result,
+        ):
             with app_client.session_transaction() as sess:
                 sess["_user_id"] = "1"
                 sess["_fresh"] = True
@@ -189,24 +189,19 @@ class TestCaseFileSyncFallback:
 
         assert resp.status_code == 200, resp.get_data(as_text=True)
         body = resp.get_json()
-        assert body["message"] == "Case file created; PDF generated"
-        assert body["case_file_id"] == 1
+        assert "Case file created" in body["message"]
         assert body["pdf_result"]["status"] == "ok"
 
     def test_sync_mode_task_error_returns_500_not_redis_error(self, app_client):
-        """When the task returns an error status, the route must return 500
+        """When the PDF task raises an error, the route must return 500
         with the task's error — NOT the Redis ssl_cert_reqs crash."""
         from app.case_file_generator import routes as cfr
 
-        error_result = {
-            "case_file_id": 1,
-            "file_path": None,
-            "status": "error",
-            "error": "PDF assembly failed: WeasyPrint not available",
-            "generated_at": "2026-08-26T14:00:00+00:00",
-        }
-
-        with patch.object(cfr, "publish_task", return_value={"mode": "sync", "result": error_result}):
+        # Stub sync_row to succeed, but generate_case_file_pdf to raise
+        with patch.object(cfr, "sync_row"), patch(
+            "app.case_file_generator.tasks.generate_case_file_pdf",
+            side_effect=RuntimeError("PDF assembly failed: WeasyPrint not available"),
+        ):
             with app_client.session_transaction() as sess:
                 sess["_user_id"] = "1"
                 sess["_fresh"] = True

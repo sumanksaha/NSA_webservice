@@ -438,7 +438,7 @@ def preview_case_file_route():
     from app.shared.rbac import scoped_officer_name
 
     scope = scoped_officer_name(current_user)
-    if scope is not None:
+    if scope:
         form_data["food_safety_officer_name"] = scope
 
     validation_errors = validate_case_file_form(form_data)
@@ -481,7 +481,7 @@ def generate_case_file_route():
     from app.shared.rbac import scoped_officer_name
 
     scope = scoped_officer_name(current_user)
-    if scope is not None:
+    if scope:
         form_data["food_safety_officer_name"] = scope
 
     validation_errors = validate_case_file_form(form_data)

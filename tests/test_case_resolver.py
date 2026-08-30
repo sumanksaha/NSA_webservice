@@ -43,6 +43,7 @@ def sample_entities(test_app):
     db.session.commit()
 
     case_file = CaseFile(
+        id=1,
         case_number="CF-001",
         food_safety_officer_name="Test FSO",
         authorization_date=datetime(2026, 1, 1),
@@ -74,6 +75,7 @@ def sample_entities(test_app):
         manufacturer_report_receive_date=datetime(2026, 7, 8),
     )
     adjudication_1 = Adjudication(
+        id=1,
         case_number="ADJ-001",
         food_safety_officer="Test FSO",
         non_license="no",
@@ -90,6 +92,7 @@ def sample_entities(test_app):
         inspection_date=datetime(2026, 1, 15),
     )
     adjudication_2 = Adjudication(
+        id=2,
         case_number="ADJ-002",
         food_safety_officer="Test FSO",
         non_license="no",

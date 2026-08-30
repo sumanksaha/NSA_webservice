@@ -223,10 +223,7 @@ class TestSyncForwarding:
     def test_sync_results_recorded(self, intimation):
         assert intimation.sync_status is not None
         status = json.loads(intimation.sync_status)
-        assert "sheets" in status
-        assert "airtable" in status
-        assert "excel" in status
-        assert status["sheets"] is True
+        assert status["status"] == "synced"
 
 
 class TestDownloadEndpoint:

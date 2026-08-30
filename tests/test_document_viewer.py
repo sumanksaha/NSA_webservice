@@ -41,8 +41,8 @@ def test_client():
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
-            # Create a test user
-            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy")
+            # Create a test admin user (admin bypasses RBAC scope checks)
+            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy", is_admin=True)
             db.session.add(user)
             db.session.commit()
 
@@ -55,6 +55,7 @@ def test_client():
 
             # Create a test CaseFile
             case_file = CaseFile(
+                id=100,
                 case_number="TESTCASE001",
                 food_safety_officer_name="Test Officer",
                 authorization_date=datetime(2026, 7, 3),
@@ -101,13 +102,13 @@ class TestEditorRouteAuth:
 
     def test_editor_requires_auth_case_file(self, test_client):
         """GET /case_file_generator/<id>/editor without login redirects to auth."""
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["Location"]
 
     def test_editor_requires_auth_adjudication(self, test_client):
         """GET /adjudication/<id>/editor without login redirects to auth."""
-        resp = test_client.get("/adjudication/1/editor", follow_redirects=False)
+        resp = test_client.get("/adjudication/100/editor", follow_redirects=False)
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["Location"]
 
@@ -122,7 +123,7 @@ class TestEditorRouteCaseFile:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         assert resp.status_code == 200
         html = resp.data.decode("utf-8")
         # Verify rendered HTML contains expected content (not Jinja2 syntax)
@@ -160,6 +161,7 @@ class TestEditorRouteAdjudication:
                 user = User(
                     username="testuser",
                     password_hash="pbkdf2:sha256$test$dummy",
+                    is_admin=True,
                 )
                 db.session.add(user)
 
@@ -204,6 +206,7 @@ class TestEditorRouteAdjudication:
                 db.session.add(case_file)
 
                 adj = Adjudication(
+                    id=100,
                     case_number="ADJ001",
                     food_safety_officer="Test Officer",
                     fbo_owner="Test Owner",
@@ -229,7 +232,7 @@ class TestEditorRouteAdjudication:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = adj_app.get("/adjudication/1/editor", follow_redirects=False)
+        resp = adj_app.get("/adjudication/100/editor", follow_redirects=False)
         assert resp.status_code == 200
         html = resp.data.decode("utf-8")
         assert "ADJ001" in html
@@ -263,7 +266,7 @@ class TestEditorRouteAdjudication:
             return_value=(b"%PDF-fake", None),
         ) as mock_pdf:
             resp = adj_app.post(
-                "/document_viewer/save/1",
+                "/document_viewer/save/100",
                 json={"html": "<h2>GROUNDS</h2>", "doc_type": "petition"},
                 follow_redirects=False,
             )
@@ -308,7 +311,7 @@ class TestEditorTemplatePhase2:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         html = resp.data.decode("utf-8")
 
         assert 'id="editor"' in html
@@ -326,7 +329,7 @@ class TestEditorTemplatePhase2:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         html = resp.data.decode("utf-8")
 
         assert "TESTCASE001" in html
@@ -343,7 +346,7 @@ class TestSaveDocument:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={
                 "html": "<p>Hello <strong>World</strong></p>",
                 "doc_type": "permission",
@@ -365,7 +368,7 @@ class TestSaveDocument:
     def test_save_requires_auth(self, test_client):
         """POST /save/<case_id> without login redirects to auth."""
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "<p>test</p>", "doc_type": "permission"},
             follow_redirects=False,
         )
@@ -394,7 +397,7 @@ class TestSaveDocument:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "", "doc_type": "permission"},
             follow_redirects=False,
         )
@@ -407,7 +410,7 @@ class TestSaveDocument:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "<p>test</p>", "doc_type": "invalid"},
             follow_redirects=False,
         )
@@ -420,7 +423,7 @@ class TestSaveDocument:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             data="not json",
             content_type="text/plain",
             follow_redirects=False,
@@ -431,13 +434,19 @@ class TestSaveDocument:
         """POST save writes the edited HTML to instance/saved/ folder."""
         from pathlib import Path
 
+        # Clean stale files to avoid picking up data from previous test runs
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        if saved_dir.is_dir():
+            for f in saved_dir.glob("100_petition_*.html"):
+                f.unlink()
+
         with test_client.session_transaction() as sess:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
         edited_html = "<p>Edited content for save test</p>"
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": edited_html, "doc_type": "petition"},
             follow_redirects=False,
         )
@@ -446,8 +455,7 @@ class TestSaveDocument:
             # WeasyPrint missing — still verify HTML was saved before PDF step
             pass
 
-        saved_dir = Path(test_client.application.instance_path) / "saved"
-        html_files = list(saved_dir.glob("1_petition_*.html"))
+        html_files = list(saved_dir.glob("100_petition_*.html"))
         assert len(html_files) >= 1
         content = html_files[-1].read_text(encoding="utf-8")
         assert "Edited content for save test" in content
@@ -470,7 +478,7 @@ class TestSaveDocument:
             return_value=(b"%PDF-fake", None),
         ) as mock_pdf:
             resp = test_client.post(
-                "/document_viewer/save/1",
+                "/document_viewer/save/100",
                 json={"html": "<h1>IN THE MATTER OF</h1>", "doc_type": "permission"},
                 follow_redirects=False,
             )
@@ -505,7 +513,7 @@ class TestSaveDocumentCsrf:
                     sess["csrf_token"] = generate_csrf()
 
             resp = test_client.post(
-                "/document_viewer/save/1",
+                "/document_viewer/save/100",
                 json={"html": "<p>test</p>", "doc_type": "permission"},
                 follow_redirects=False,
             )
@@ -528,12 +536,12 @@ class TestSessionRestore:
 
         edited_html = "<p>Session restore test</p>"
         test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": edited_html, "doc_type": "petition"},
             follow_redirects=False,
         )
 
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
@@ -548,14 +556,14 @@ class TestSessionRestore:
 
         saved_dir = Path(test_client.application.instance_path) / "saved"
         if saved_dir.is_dir():
-            for f in saved_dir.glob("1_petition_*.html"):
+            for f in saved_dir.glob("100_petition_*.html"):
                 f.unlink()
 
         with test_client.session_transaction() as sess:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 404
 
     def test_get_saved_html_invalid_doc_type(self, test_client):
@@ -564,7 +572,7 @@ class TestSessionRestore:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
-        resp = test_client.get("/document_viewer/saved/1/invalid", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/invalid", follow_redirects=False)
         assert resp.status_code == 400
 
     def test_get_saved_returns_latest(self, test_client):
@@ -577,13 +585,13 @@ class TestSessionRestore:
         second_html = "<p>Second save</p>"
 
         test_client.post(
-            "/document_viewer/save/1", json={"html": first_html, "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/save/100", json={"html": first_html, "doc_type": "permission"}, follow_redirects=False
         )
         test_client.post(
-            "/document_viewer/save/1", json={"html": second_html, "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/save/100", json={"html": second_html, "doc_type": "permission"}, follow_redirects=False
         )
 
-        resp = test_client.get("/document_viewer/saved/1/permission", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/permission", follow_redirects=False)
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
@@ -591,7 +599,7 @@ class TestSessionRestore:
 
     def test_get_saved_requires_auth(self, test_client):
         """GET /saved without login redirects to auth."""
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["Location"]
 
@@ -606,7 +614,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>Autosave test</p>", "delta": {"ops": [{"insert": "test"}]}, "doc_type": "petition"},
             follow_redirects=False,
         )
@@ -625,13 +633,13 @@ class TestAutosave:
             sess["_fresh"] = True
 
         test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>Autosave content</p>", "doc_type": "petition"},
             follow_redirects=False,
         )
 
         saved_dir = Path(test_client.application.instance_path) / "saved"
-        html_files = list(saved_dir.glob("1_petition_*.html"))
+        html_files = list(saved_dir.glob("100_petition_*.html"))
         assert len(html_files) >= 1
         content = html_files[-1].read_text(encoding="utf-8")
         assert "Autosave content" in content
@@ -641,19 +649,24 @@ class TestAutosave:
         import json
         from pathlib import Path
 
+        # Clean stale delta files to avoid picking up data from previous test runs
+        saved_dir = Path(test_client.application.instance_path) / "saved"
+        if saved_dir.is_dir():
+            for f in saved_dir.glob("100_petition_*.delta"):
+                f.unlink()
+
         with test_client.session_transaction() as sess:
             sess["_user_id"] = "1"
             sess["_fresh"] = True
 
         delta = {"ops": [{"insert": "Hello"}, {"insert": "World"}]}
         test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>Test</p>", "delta": delta, "doc_type": "petition"},
             follow_redirects=False,
         )
 
-        saved_dir = Path(test_client.application.instance_path) / "saved"
-        delta_files = list(saved_dir.glob("1_petition_*.delta"))
+        delta_files = list(saved_dir.glob("100_petition_*.delta"))
         assert len(delta_files) >= 1
         delta_content = delta_files[-1].read_text(encoding="utf-8")
         parsed = json.loads(delta_content)
@@ -666,7 +679,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>No delta</p>", "doc_type": "permission"},
             follow_redirects=False,
         )
@@ -678,7 +691,7 @@ class TestAutosave:
     def test_autosave_requires_auth(self, test_client):
         """POST /autosave without login redirects to auth."""
         resp = test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>test</p>", "doc_type": "permission"},
             follow_redirects=False,
         )
@@ -707,7 +720,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/1", json={"html": "", "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/autosave/100", json={"html": "", "doc_type": "permission"}, follow_redirects=False
         )
         assert resp.status_code == 400
 
@@ -718,7 +731,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/1", json={"html": "<p>test</p>", "doc_type": "invalid"}, follow_redirects=False
+            "/document_viewer/autosave/100", json={"html": "<p>test</p>", "doc_type": "invalid"}, follow_redirects=False
         )
         assert resp.status_code == 400
 
@@ -729,7 +742,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/1", data="not json", content_type="text/plain", follow_redirects=False
+            "/document_viewer/autosave/100", data="not json", content_type="text/plain", follow_redirects=False
         )
         assert resp.status_code == 400
 
@@ -747,7 +760,7 @@ class TestDeltaStorage:
 
         delta = {"ops": [{"insert": "Hello"}, {"insert": "World", "bold": True}]}
         resp = test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "<p>Test delta</p>", "delta": delta, "doc_type": "petition"},
             follow_redirects=False,
         )
@@ -756,7 +769,7 @@ class TestDeltaStorage:
             pass  # WeasyPrint missing in test env
 
         saved_dir = Path(test_client.application.instance_path) / "saved"
-        delta_files = list(saved_dir.glob("1_petition_*.delta"))
+        delta_files = list(saved_dir.glob("100_petition_*.delta"))
         assert len(delta_files) >= 1
 
     def test_saved_returns_delta_after_save_with_delta(self, test_client):
@@ -767,12 +780,12 @@ class TestDeltaStorage:
 
         delta = {"ops": [{"insert": "Round-trip test"}]}
         test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "<p>Delta round-trip</p>", "delta": delta, "doc_type": "petition"},
             follow_redirects=False,
         )
 
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
@@ -790,16 +803,16 @@ class TestDeltaStorage:
 
         saved_dir = Path(test_client.application.instance_path) / "saved"
         if saved_dir.is_dir():
-            for f in saved_dir.glob("1_petition_*.delta"):
+            for f in saved_dir.glob("100_petition_*.delta"):
                 f.unlink()
 
         test_client.post(
-            "/document_viewer/save/1",
+            "/document_viewer/save/100",
             json={"html": "<p>No delta here</p>", "doc_type": "petition"},
             follow_redirects=False,
         )
 
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
@@ -815,12 +828,12 @@ class TestDeltaStorage:
         delta = {"ops": [{"insert": "Autosave round-trip"}]}
 
         test_client.post(
-            "/document_viewer/autosave/1",
+            "/document_viewer/autosave/100",
             json={"html": "<p>Autosave delta</p>", "delta": delta, "doc_type": "petition"},
             follow_redirects=False,
         )
 
-        resp = test_client.get("/document_viewer/saved/1/petition", follow_redirects=False)
+        resp = test_client.get("/document_viewer/saved/100/petition", follow_redirects=False)
         assert resp.status_code == 200
         assert resp.is_json
         data = resp.get_json()
