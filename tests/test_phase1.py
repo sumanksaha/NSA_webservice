@@ -26,11 +26,16 @@ def test_client():
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
-            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy")
+            user = User(username="testuser", password_hash="pbkdf2:sha256$test$dummy", is_admin=True)
             db.session.add(user)
             db.session.commit()
 
+            from app.models import FSO
+            db.session.add(FSO(fso_name="Test Officer"))
+            db.session.commit()
+
             case_file = CaseFile(
+                id=100,
                 case_number="TESTCASE001",
                 food_safety_officer_name="Test Officer",
                 authorization_date=datetime(2026, 7, 3),
@@ -229,7 +234,7 @@ class TestPetitionStructure:
     def test_petition_renders_structured_sections(self, test_client):
         """Rendered petition contains STATEMENT OF FACTS, GROUNDS, and PRAYER."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         assert resp.status_code == 200
         html = resp.data.decode("utf-8")
         assert "STATEMENT OF FACTS" in html
@@ -241,7 +246,7 @@ class TestPetitionStructure:
     def test_petition_grounds_reference_case_data(self, test_client):
         """GROUNDS section includes the analysis result and product name."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         html = resp.data.decode("utf-8")
         # Product name appears in the grounds narrative
         assert "Test Product" in html
@@ -251,7 +256,7 @@ class TestPetitionStructure:
     def test_petition_prayer_section_has_prayer_clauses(self, test_client):
         """PRAYER section contains numbered prayer clauses."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/1/editor", follow_redirects=False)
+        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
         html = resp.data.decode("utf-8")
         # Traditional closing line of a prayer preserved
         assert "ever pray" in html

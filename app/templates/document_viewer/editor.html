@@ -17,7 +17,11 @@
 
 {% block content %}
 <div class="container" style="padding: 1rem;">
-    <h2>Editing: {{ case_number }} <small style="color:#888;">({{ doc_type }})</small></h2>
+    <h2>Editing: {{ case_number }} <small style="color:#888;">({{ doc_type }})</small>
+        <a href="/timeline/case/{{ case_id }}?kind={{ case_type }}" class="btn btn-secondary btn-sm" style="font-size:0.85rem; margin-left:0.5rem;">
+            <i class="fa-solid fa-timeline"></i> Timeline
+        </a>
+    </h2>
 
     <div id="docTypeSelector" class="doc-tabs">
         <button class="active" data-doc="permission" onclick="switchDoc('permission')">Permission Letter</button>

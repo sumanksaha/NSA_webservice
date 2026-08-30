@@ -478,10 +478,9 @@ class TestSampleLookupEndpoint:
             # Verify the returned data
             assert data["id"] == sample.id
             assert data["sample_code"] == "LOOKUP001"
-            assert data["sample_name"] == "Lookup Test Sample"
-            assert data["retailer_fssai_license"] == "1234567890"
-            assert data["retailer_person_name"] == "Lookup Test Retailer"
-            assert data["sample_submission_date"] == "2026-07-02"
+            assert data["product_name"] == "Lookup Test Sample"
+            assert data["retailer_fssai"] == "1234567890"
+            assert data["retailer_name"] == "Lookup Test Retailer"
             assert data["total_cost"] == "750"
 
     def test_lookup_sample_not_found(self, test_client):

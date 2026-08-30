@@ -205,6 +205,15 @@ class TestDecisionEngine:
 # ============================================================================
 
 
+try:
+    import cv2 as _cv2
+
+    _cv2_available = True
+except ImportError:
+    _cv2_available = False
+
+
+@pytest.mark.skipif(not _cv2_available, reason="OpenCV not installed")
 class TestImagePreprocessor:
     """Tests for image preprocessing pipeline."""
 
@@ -298,6 +307,7 @@ class TestOCRPipeline:
 # ============================================================================
 
 
+@pytest.mark.skipif(not _cv2_available, reason="OpenCV not installed")
 class TestOCRBatchProcessor:
     """Tests for the batch OCR processor."""
 
@@ -344,6 +354,7 @@ class TestOCRBatchProcessor:
 # ============================================================================
 
 
+@pytest.mark.skipif(not _cv2_available, reason="OpenCV not installed")
 class TestDetectors:
     """Tests for page object detectors."""
 
