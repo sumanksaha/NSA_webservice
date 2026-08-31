@@ -44,4 +44,4 @@ py-spy>=0.4.2
 # ---------------------------------------------------------------------------
 # Rust Extension Build (Part 1+ of rust/ port)
 # ---------------------------------------------------------------------------
-maturin>=1.0,<2.0   # builds nsa_rust PyO3 extension (cargo/rustc required)
+maturin>=1.15.0,<2.0   # builds nsa_rust PyO3 extension (cargo/rustc required)
