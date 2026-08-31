@@ -74,7 +74,7 @@
 
 [.bold]#Before the Ld. Adjudicating Officer, KMC#
  +
-F.S. & S Case No.
+F.S. & S Case No. {{ case_number }}
 
 [.sub-header]
 Complainant/Food Business Operator with Address +
@@ -85,7 +85,9 @@ Company/Firm/Proprietor
 [.column.left-col]
 --
 [.entry]
-[.entry-title]#1. {{ food_safety_officer_name }}#
+[.entry-title]#1. Food Safety Officer#
++
+<strong>{{ food_safety_officer_name }}</strong>
 +
 Food Safety Officer
 +

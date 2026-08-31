@@ -409,14 +409,9 @@ def suggest_sections_route():
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
 def regenerate_adjudication_documents(case_id):
     """Regenerate documents from an existing adjudication case."""
-    adj = Adjudication.query.get_or_404(case_id)
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    scope = scoped_officer_name(current_user)
-    if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404
+    result, error_resp, adj = _rbac_scope_for_case(case_id)
+    if error_resp:
+        return error_resp
     form_data = adjudication_to_dict(adj)
 
     context = _prepare_adjudication_context(form_data)
@@ -745,30 +740,56 @@ def generate_all():
 
 
 # ---------------------------------------------------------------------------
-# Word (.docx) download routes
+# DOCX download (deepened: one interface, adapter for format)
 # ---------------------------------------------------------------------------
 
 
-@adjudication_bp.route("/case/<int:case_id>/docx/petition")
-@login_required
-def download_petition_docx(case_id: int):
-    """Download the Adjudication Petition as a Word (.docx) document."""
-    adj = Adjudication.query.get_or_404(case_id)
+def _rbac_docx_gate(case_id: int):
+    """Adapter: permission gate reused by all docx routes."""
     from flask_login import current_user
-
     from app.shared.rbac import scoped_officer_name
-
+    adj = Adjudication.query.get_or_404(case_id)
     scope = scoped_officer_name(current_user)
     if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Case not found"}), 404, adj
+    return None, None, adj
 
-    from app.adjudication.word_converter import AdjudicationWordConverter
+
+def _rbac_scope_for_form(form_data: dict) -> None:
+    """Adapter: FSO account binding — stamps the officer name into form_data."""
+    from flask_login import current_user
+    from app.shared.rbac import scoped_officer_name
+    scope = scoped_officer_name(current_user)
+    if scope:
+        form_data["food_safety_officer_name"] = scope
+
+
+def _rbac_scope_for_case(case_id: int):
+    """Adapter: permission gate for existing case routes."""
+    from flask_login import current_user
+    from app.shared.rbac import scoped_officer_name
+    adj = Adjudication.query.get_or_404(case_id)
+    scope = scoped_officer_name(current_user)
+    if scope is not None and adj.food_safety_officer != scope:
+        return jsonify({"error": "Case not found"}), 404, adj
+    return None, None, adj
+
+
+@adjudication_bp.route("/case/<int:case_id>/docx/<doc_type>")
+@login_required
+def download_docx(case_id: int, doc_type: str):
+    """Download Adjudication DOCX — adapter picks format."""
+    from app.adjudication.adoc_renderer import render_adoc_to_docx
+
+    gate, error_resp, adj = _rbac_docx_gate(case_id)
+    if gate is not None:
+        return error_resp
 
     form_data = adjudication_to_dict(adj)
     context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
-    # Include photos for the context
+    # Photos for petition context
     all_photos = (
         Evidence.query
         .filter(
@@ -784,104 +805,41 @@ def download_petition_docx(case_id: int):
         "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
     }
 
-    converter = AdjudicationWordConverter()
-    docx_bytes = converter.build_petition(context)
-
-    buf = io.BytesIO(docx_bytes)
-    buf.seek(0)
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name=f"Adjudication_Petition_{adj.case_number or case_id}.docx",
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
-
-
-@adjudication_bp.route("/case/<int:case_id>/docx/permission")
-@login_required
-def download_permission_docx(case_id: int):
-    """Download the Adjudication Permission Letter as a Word (.docx) document."""
-    adj = Adjudication.query.get_or_404(case_id)
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    scope = scoped_officer_name(current_user)
-    if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404
-
-    from app.adjudication.word_converter import AdjudicationWordConverter
-
-    form_data = adjudication_to_dict(adj)
-    context = _prepare_adjudication_context(form_data)
-    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
-
-    converter = AdjudicationWordConverter()
-    docx_bytes = converter.build_permission_letter(context)
-
-    buf = io.BytesIO(docx_bytes)
-    buf.seek(0)
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name=f"Permission_Letter_{adj.case_number or case_id}.docx",
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
-
-
-@adjudication_bp.route("/case/<int:case_id>/docx/zip")
-@login_required
-def download_both_docx(case_id: int):
-    """Download both Petition + Permission Letter as a single ZIP of .docx files."""
-    adj = Adjudication.query.get_or_404(case_id)
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    scope = scoped_officer_name(current_user)
-    if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404
-
-    import zipfile
-
-    from app.adjudication.word_converter import AdjudicationWordConverter
-
-    form_data = adjudication_to_dict(adj)
-    context = _prepare_adjudication_context(form_data)
-    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
-
-    # Include photos for the petition context
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+    if doc_type == "petition":
+        docx_bytes = render_adoc_to_docx("template_nonsample_petition.adoc", context)
+        download_name = f"Adjudication_Petition_{adj.case_number or case_id}.docx"
+        return send_file(
+            io.BytesIO(docx_bytes),
+            as_attachment=True,
+            download_name=download_name,
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    context["adjudication"] = {
-        "photos": verified_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
-    }
-
-    converter = AdjudicationWordConverter()
-    petition_docx = converter.build_petition(context)
-    permission_docx = converter.build_permission_letter(context)
-
-    label = adj.case_number or str(case_id)
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
-        zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
-    zip_buf.seek(0)
-    return send_file(
-        zip_buf,
-        as_attachment=True,
-        download_name=f"Adjudication_{label}_Word.zip",
-        mimetype="application/zip",
-    )
+    elif doc_type == "permission":
+        docx_bytes = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
+        download_name = f"Permission_Letter_{adj.case_number or case_id}.docx"
+        return send_file(
+            io.BytesIO(docx_bytes),
+            as_attachment=True,
+            download_name=download_name,
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    elif doc_type == "zip":
+        petition_docx = render_adoc_to_docx("template_nonsample_petition.adoc", context)
+        permission_docx = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
+        label = adj.case_number or str(case_id)
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
+            zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
+        zip_buf.seek(0)
+        return send_file(
+            zip_buf,
+            as_attachment=True,
+            download_name=f"Adjudication_{label}_Word.zip",
+            mimetype="application/zip",
+        )
+    else:
+        return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
 
 
 # ---------------------------------------------------------------------------

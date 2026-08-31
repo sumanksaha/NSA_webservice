@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.auth import auth_bp
-from app.extensions import db
+from app.extensions import csrf, db
 from app.models import RecordAudit, Role, User
 
 
@@ -101,6 +101,7 @@ def _password_rule_error(password, confirm, label="Password"):
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@csrf.exempt
 def login():
     # If already logged in, redirect to the main app
     if current_user.is_authenticated:

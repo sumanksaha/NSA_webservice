@@ -80,7 +80,7 @@ class ImprovementNoticeWordConverter:
     # Internal helpers
     # ------------------------------------------------------------------ #
 
-    def _create_document(self) -> Document:
+    def _create_document(self) -> Any:
         doc = Document()
         # Narrow margins for an official letter
         for section in doc.sections:
