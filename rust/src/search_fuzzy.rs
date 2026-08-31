@@ -89,7 +89,7 @@ pub fn partial_ratio(s1: &str, s2: &str) -> f64 {
     if n_short == n_long {
         return ratio(s1, s2);
     }
-    let mut best = 0.0;
+    let mut best: f64 = 0.0;
     let shorter_str: String = shorter.iter().collect();
     for start in 0..=(n_long - n_short) {
         let window: String = longer[start..start + n_short].iter().collect();
@@ -232,7 +232,7 @@ pub fn token_set_ratio(s1: &str, s2: &str) -> f64 {
     let combined_1b = combined_1b.trim().to_string();
     let combined_all = combined_all.trim().to_string();
 
-    let mut best = 0.0;
+    let mut best: f64 = 0.0;
     best = best.max(ratio(&combined_1a, &combined_1b));
     best = best.max(ratio(&combined_1a, &combined_all));
     best = best.max(ratio(&combined_1b, &combined_all));
@@ -246,9 +246,9 @@ pub fn token_set_ratio(s1: &str, s2: &str) -> f64 {
 /// Regex for "words" (Unicode word chars, excluding underscore) — mirrors
 /// Python `re.finditer(r"[^\W_]+", text)`.
 fn word_regex() -> &'static Regex {
-    use once_cell::sync::OnceLock;
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"[^\W_]+").unwrap())
+    use once_cell::sync::Lazy;
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[^\W_]+").unwrap());
+    &RE
 }
 
 /// `expand_to_word(text, start, end)` — grow span to cover full words.
@@ -300,15 +300,11 @@ pub fn expand_to_word(text: &str, start: usize, end: usize) -> (usize, usize) {
 /// 3. Spans are expanded to word boundaries, merged, returned sorted.
 pub fn find_match_spans(query: &str, text: &str, fuzzy_word_threshold: f64) -> String {
     if query.is_empty() || text.is_empty() {
-        return "[]";
+        return "[]".to_string();
     }
 
     let text_lower = text.to_lowercase();
-    let terms: Vec<&str> = query
-        .trim()
-        .split_whitespace()
-        .filter(|t| !t.is_empty())
-        .collect();
+    let terms: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
 
     let mut spans: Vec<(usize, usize)> = Vec::new();
 
@@ -348,7 +344,7 @@ pub fn find_match_spans(query: &str, text: &str, fuzzy_word_threshold: f64) -> S
     }
 
     if spans.is_empty() {
-        return "[]";
+        return "[]".to_string();
     }
 
     // Sort by start position.
@@ -529,7 +525,7 @@ pub fn snippet_around_matches(
     if win_end < normalized.len() {
         // Find the next space in the text after win_end.
         match normalized[win_end..].find(' ') {
-            Some(ws) => win_end = win_end + ws,
+            Some(ws) => win_end += ws,
             None => win_end = normalized.len(),
         }
     }
@@ -541,7 +537,7 @@ pub fn snippet_around_matches(
             continue;
         }
         let cs = s.saturating_sub(win_start);
-        let ce = e.min(win_end).saturating_sub(win_start);
+        let ce = e.min(&win_end).saturating_sub(win_start);
         if ce > cs {
             clamped.push((cs, ce));
         }

@@ -27,10 +27,8 @@ static TAB_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\t+").unwrap());
 static EXCESS_NEWLINES: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n{3,}").unwrap());
 static HYPHEN_BREAK: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\w{2,})-\s*\n\s*(\w{2,})").unwrap());
 static ENCODING_ARTIFACTS: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r"[\u{0080}-\u{009f}\u{00ad}\u{200b}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{2063}]",
-    )
-    .unwrap()
+    Regex::new(r"[\u{0080}-\u{009f}\u{00ad}\u{200b}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{2063}]")
+        .unwrap()
 });
 static NBSP: Lazy<Regex> = Lazy::new(|| Regex::new("\u{00a0}").unwrap());
 static TRAILING_WS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)[ \t]+$").unwrap());

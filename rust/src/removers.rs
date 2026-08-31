@@ -14,7 +14,7 @@
 //! - The OCR allowed-character set is encoded as contiguous code-point ranges
 //!   (verified against `removers._ALLOWED_OCR`, 1187 code points).
 
-use once_cell::sync::OnceLock;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -33,43 +33,36 @@ pub struct RemovedItem {
 // ---------------------------------------------------------------------------
 
 fn page_num_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
+    static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"(?i)^\s*(?:Page\s+\d+|-\s*\d+\s*-|\d+\s*of\s*\d+|\d+\s*/\s*\d+)\s*$").unwrap()
-    })
+    });
+    &RE
 }
 
 fn watermark_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
+    static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(
-            r"(?i)^\s*(\s*CONFIDENTIAL|DRAFT|DO\s+NOT\s+COPY|PRIVILEGED\s+AND\s+CONFIDENTIAL"
-            r"|PROTECTED|ATTORNEY\s+WORK\s+PRODUCT|PREPARED\s+BY"
-            r"|UNAUTHORIZED\s+(?:USE|REPRODUCTION|DISTRIBUTION)"
-            r"|DOCUMENT\s+CLASSIFIED|LEGAL\s+DISCLAIMER"
-            r"|THIS\s+IS\s+A\s+SYSTEM\-?GENERATED\s+DOCUMENT"
-            r"|INTERNAL\s+USE\s+ONLY|PRINTED\s+ON\s+\d+|GENERATED\s+ON\s+\d+"
-            r")\s*$",
+            r"(?i)^\s*(CONFIDENTIAL|DRAFT|DO\s+NOT\s+COPY|PRIVILEGED\s+AND\s+CONFIDENTIAL|PROTECTED|ATTORNEY\s+WORK\s+PRODUCT|PREPARED\s+BY|UNAUTHORIZED\s+(?:USE|REPRODUCTION|DISTRIBUTION)|DOCUMENT\s+CLASSIFIED|LEGAL\s+DISCLAIMER|THIS\s+IS\s+A\s+SYSTEM\-?GENERATED\s+DOCUMENT|INTERNAL\s+USE\s+ONLY|PRINTED\s+ON\s+\d+|GENERATED\s+ON\s+\d+)\s*$",
         )
         .unwrap()
-    })
+    });
+    &RE
 }
 
 fn header_footer_short_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^.{3,80}$").unwrap())
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^.{3,80}$").unwrap());
+    &RE
 }
 
 fn running_title_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^[A-Z][A-Z\s&,.]{3,60}$").unwrap())
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Z][A-Z\s&,.]{3,60}$").unwrap());
+    &RE
 }
 
 /// Preservation patterns — any match on the stripped line keeps it (mirrors
 /// `removers._PRESERVE_PATTERNS`).
 fn preserve_regexes() -> &'static [Regex] {
-    static PRESERVE: OnceLock<Vec<Regex>> = OnceLock::new();
-    PRESERVE.get_or_init(|| {
+    static PRESERVE: Lazy<Vec<Regex>> = Lazy::new(|| {
         vec![
             Regex::new(r"(?i)Section\s+\d+[A-Za-z]?").unwrap(),
             Regex::new(r"^\d+\.\s").unwrap(),
@@ -87,7 +80,8 @@ fn preserve_regexes() -> &'static [Regex] {
             Regex::new(r"(?i)(?:See|Refer|Vide|Cf\.|Supra|Infra|Ibid|Ante|Post)\b").unwrap(),
             Regex::new(r"(?i)(?:as\s+referred\s+to|hereinafter|thereinabove|aforesaid)").unwrap(),
         ]
-    })
+    });
+    &PRESERVE
 }
 
 // ---------------------------------------------------------------------------
@@ -258,7 +252,7 @@ pub fn remove_headers_footers(
         *position_counts.entry(key).or_insert(0) += 1;
     }
 
-    let repeat_threshold = (lines.len() / (bucket_size * 4)).max(3);
+    let repeat_threshold = std::cmp::max(3, lines.len() / (bucket_size * 4));
     let mut to_remove: std::collections::HashSet<String> = std::collections::HashSet::new();
     for (key, count) in position_counts.iter() {
         if *count >= repeat_threshold && *count >= min_repeat {
@@ -365,6 +359,30 @@ pub struct RemoverConfig {
 
 fn default_true() -> bool {
     true
+}
+
+pub fn remove_ocr_artifacts(text: &str) -> (String, Vec<RemovedItem>) {
+    let original_len = text.len();
+    let mut cleaned = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if is_allowed_ocr(ch as u32) {
+            cleaned.push(ch);
+        }
+    }
+    let chars_removed = original_len - cleaned.len();
+    if chars_removed > 0 {
+        (
+            cleaned,
+            vec![RemovedItem {
+                category: "ocr_artifact",
+                snippet: "<non-printable/garbage chars>".to_string(),
+                count: chars_removed,
+                chars_saved: chars_removed,
+            }],
+        )
+    } else {
+        (cleaned, Vec::new())
+    }
 }
 
 /// Run the full remover sequence in the same order as the Python pipeline.
