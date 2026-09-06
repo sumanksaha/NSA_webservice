@@ -19,7 +19,7 @@
     "@eslint/js": "9.39.5",
     "@types/quill": "^2.0.14",
     "eslint": "9.39.5",
-    "eslint-config-prettier": "9.1.2",
+    "eslint-config-prettier": "10.1.8",
     "globals": "15.15.0",
     "prettier": "3.9.6",
     "typescript": "^6.0.3",
