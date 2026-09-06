@@ -16,7 +16,7 @@
     "test:js": "node tests/js/test_search_snippet.js"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.5",
+    "@eslint/js": "10.0.1",
     "@types/quill": "^2.0.14",
     "eslint": "9.39.5",
     "eslint-config-prettier": "9.1.2",
