@@ -3,7 +3,8 @@
 Behavior under test:
 - GET html renders violation titles + FBO details, freezes the record on first access
 - Frozen records reject updates (verified through the inspection update route)
-- Inspections without violations are refused (no junk legal paper)
+- Inspections without violations render an *inspection report* (200) and do NOT
+  freeze the record (b216b44 — report mode for violation-free inspections)
 - PDF download serves a PDF document
 """
 
@@ -86,16 +87,19 @@ class TestInspectionImprovementNotice:
         finally:
             _teardown_test_env(ctx)
 
-    def test_notice_refused_without_violations(self):
+    def test_violation_free_inspection_renders_inspection_report(self):
+        """No violations → plain Inspection Report (200), record stays editable."""
         _app, client, ctx = _setup_test_env()
         try:
             insp_id = _create_inspection(client)  # no checklist → no violations
 
             page = client.get(f"/food-cell/improvement-notice/inspection/{insp_id}/html")
-            assert page.status_code == 400
-            assert b"violation" in page.data.lower()
+            assert page.status_code == 200
+            html = page.data.decode("utf-8")
+            assert "Inspection Report" in html
+            assert "Improvement Notice — Section 32" not in html
 
-            # Refusal must not freeze the record
+            # Report mode must not freeze the record
             editable = client.put(f"/inspection/{insp_id}", data={"fbo_name": "Renamed"})
             assert editable.status_code != 409
         finally:

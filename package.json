@@ -2,18 +2,27 @@
   "name": "nsa-webservice",
   "version": "1.0.0",
   "private": true,
-  "description": "Frontend JS tooling (ESLint + Prettier) for the Flask app's vanilla-JS files",
+  "description": "Frontend tooling (ESLint + Prettier + TypeScript) for the Flask app's vanilla-JS files",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "lint:js": "eslint app/static/js/ --max-warnings=0",
+    "lint:ts": "eslint app/static/ts/ --max-warnings=0 --no-error-on-unmatched-pattern",
+    "lint": "npm run lint:js && npm run lint:ts",
     "format:js": "prettier --check app/static/js/",
     "format:js:write": "prettier --write app/static/js/",
+    "format:ts": "prettier --check app/static/ts/",
+    "format:ts:write": "prettier --write app/static/ts/",
+    "format": "npm run format:js && npm run format:ts",
     "test:js": "node tests/js/test_search_snippet.js"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@types/quill": "^2.0.14",
     "eslint": "9.39.5",
     "eslint-config-prettier": "9.1.2",
     "globals": "15.15.0",
-    "prettier": "3.9.6"
+    "prettier": "3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.69.0"
   }
 }

@@ -308,13 +308,18 @@ class TestWordRoute:
         finally:
             self._teardown(ctx)
 
-    def test_docx_400_without_violations(self):
+    def test_docx_without_violations_renders_inspection_report(self):
+        """No violations → Word inspection report rendered (b216b44 report
+        mode). Note: the /docx route currently freezes the record
+        unconditionally, unlike /html and /pdf — see the freeze-semantics
+        follow-up."""
         app, client, ctx = self._setup()
         try:
             insp_id = _make_inspection(client)
             resp = client.get(
                 f"/food-cell/improvement-notice/inspection/{insp_id}/docx"
             )
-            assert resp.status_code == 400
+            assert resp.status_code == 200
+            assert resp.data[:4] == b"PK\x03\x04"  # ZIP header (docx = zip)
         finally:
             self._teardown(ctx)
