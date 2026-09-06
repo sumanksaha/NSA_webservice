@@ -29,6 +29,7 @@ from app.rag.evaluation.metrics import (
     EvalScore,
     FaithfulnessMetric,
     GroundednessMetric,
+    SelfConsistencyMetric,
 )
 from app.rag.evaluation.storage import EvalStorage
 from app.rag.retrieval.result import RetrievedChunk
@@ -68,9 +69,10 @@ class _DefaultMetrics:
         self.context_recall = ContextRecallMetric()
         self.citation_recall = CitationRecallMetric()
         self.groundedness = GroundednessMetric()
+        self.self_consistency: SelfConsistencyMetric | None = None
 
     def all(self) -> list:
-        return [
+        metrics = [
             self.faithfulness,
             self.answer_relevance,
             self.context_precision,
@@ -78,6 +80,9 @@ class _DefaultMetrics:
             self.citation_recall,
             self.groundedness,
         ]
+        if self.self_consistency is not None:
+            metrics.append(self.self_consistency)
+        return metrics
 
 
 class EvalRunner:
@@ -97,10 +102,17 @@ class EvalRunner:
         pipeline_fn: PipelineFn,
         storage: EvalStorage | None = None,
         metrics: _DefaultMetrics | None = None,
+        n_consistency_samples: int = 0,
     ) -> None:
         self.pipeline_fn = pipeline_fn
         self.storage = storage or EvalStorage()
         self.metrics = metrics or _DefaultMetrics()
+        # Initialize self-consistency metric if samples requested
+        if n_consistency_samples > 0 and self.metrics.self_consistency is None:
+            self.metrics.self_consistency = SelfConsistencyMetric(
+                pipeline_fn=pipeline_fn,
+                n_samples=n_consistency_samples,
+            )
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -137,16 +149,10 @@ class EvalRunner:
         # Compute all six metrics.
         m = self.metrics
         bundle = MetricBundle()
-        bundle.scores.append(
-            m.faithfulness.compute(answer, chunks, query=query)
-        )
-        bundle.scores.append(
-            m.answer_relevance.compute(answer, query, expected_answer)
-        )
+        bundle.scores.append(m.faithfulness.compute(answer, chunks, query=query))
+        bundle.scores.append(m.answer_relevance.compute(answer, query, expected_answer))
         bundle.scores.append(m.context_precision.compute(query, chunks))
-        bundle.scores.append(
-            m.context_recall.compute(expected_citations, chunks)
-        )
+        bundle.scores.append(m.context_recall.compute(expected_citations, chunks))
         bundle.scores.append(m.citation_recall.compute(cited_ids, chunks))
         bundle.scores.append(m.groundedness.compute(answer, chunks))
 
@@ -171,6 +177,9 @@ class EvalRunner:
         dataset_entries: list,
         eval_run_id: str | None = None,
         persist: bool = True,
+        metric_weights: dict[str, float] | None = None,
+        parallel: bool = False,
+        max_workers: int | None = None,
     ) -> dict[str, Any]:
         """Run :meth:`evaluate_one` over a list of dataset entries.
 
@@ -237,16 +246,14 @@ class EvalRunner:
                     "metrics": {},
                 })
 
-        return self._summarize(eval_run_id, results)
+        return self._summarize(eval_run_id, results, metric_weights=metric_weights)
 
     # ------------------------------------------------------------------ #
     # Internal
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _compute_mrr(
-        relevant_ids: list[str], chunks: list[RetrievedChunk]
-    ) -> float:
+    def _compute_mrr(relevant_ids: list[str], chunks: list[RetrievedChunk]) -> float:
         """Mean Reciprocal Rank — rank of first relevant chunk (1-based)."""
         if not relevant_ids:
             return 0.0
@@ -257,12 +264,19 @@ class EvalRunner:
         return 0.0
 
     def _summarize(
-        self, eval_run_id: str, results: list[dict[str, Any]]
+        self,
+        eval_run_id: str,
+        results: list[dict[str, Any]],
+        metric_weights: dict[str, float] | None = None,
     ) -> dict[str, Any]:
         """Aggregate per-query results into summary statistics."""
         metric_names = [
-            "faithfulness", "answer_relevance", "context_precision",
-            "context_recall", "citation_recall", "groundedness",
+            "faithfulness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+            "groundedness",
         ]
         summary: dict[str, Any] = {
             "eval_run_id": eval_run_id,
@@ -270,18 +284,29 @@ class EvalRunner:
             "errors": sum(1 for r in results if "error" in r),
         }
         for name in metric_names:
-            vals = [
-                r["metrics"].get(name)
-                for r in results
-                if "metrics" in r and r["metrics"].get(name) is not None
-            ]
-            summary[f"{name}_avg"] = (
-                round(sum(vals) / len(vals), 4) if vals else None
-            )
+            vals = [r["metrics"].get(name) for r in results if "metrics" in r and r["metrics"].get(name) is not None]
+            summary[f"{name}_avg"] = round(sum(vals) / len(vals), 4) if vals else None
         mrrs = [r.get("retrieval_mrr", 0.0) for r in results if "metrics" in r]
         summary["mrr_avg"] = round(sum(mrrs) / len(mrrs), 4) if mrrs else 0.0
         summary["latency_avg_ms"] = (
-            round(sum(r.get("latency_ms", 0) for r in results) / len(results), 2)
-            if results else 0
+            round(sum(r.get("latency_ms", 0) for r in results) / len(results), 2) if results else 0
         )
+        # Weighted composite quality score (Priority 4)
+        if metric_weights:
+            total_weight = sum(metric_weights.values())
+            if total_weight > 0:
+                normalized = {k: v / total_weight for k, v in metric_weights.items()}
+                composite_scores: list[float] = []
+                for r in results:
+                    if "metrics" not in r:
+                        continue
+                    weighted_sum = 0.0
+                    for name in metric_names:
+                        val = r["metrics"].get(name)
+                        if val is not None and name in metric_weights:
+                            weighted_sum += val * normalized.get(name, 0.0)
+                    if weighted_sum > 0:
+                        composite_scores.append(round(weighted_sum, 4))
+                if composite_scores:
+                    summary["composite_quality_avg"] = round(sum(composite_scores) / len(composite_scores), 4)
         return {"eval_run_id": eval_run_id, "results": results, "summary": summary}

@@ -1,153 +1,51 @@
-{% extends "base.html" %}
-{% block title %}Legal RAG — Query{% endblock %}
+{% extends "base.html" %} {% block title %}Legal RAG{% endblock %} {% block content %}
+<div class="rag-query-container">
+    <h1>Legal RAG Query</h1>
 
-{% block extra_css %}
-<style>
-  .rag-page { max-width: 920px; margin: 0 auto; padding: 1.5rem; }
-  .rag-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.5rem; padding-bottom: .75rem; border-bottom: 2px solid var(--border); }
-  .rag-header h1 { margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 1.75rem; color: var(--text-heading, #0b3d91); }
-  .rag-header .rag-badge { display: inline-flex; align-items: center; gap: .375rem; font-size: .75rem; font-weight: 600; padding: .25rem .625rem; border-radius: 999px; background: var(--color-success-bg, #dcfce7); color: var(--color-success-fg, #15803d); }
-  .rag-inputs { display: grid; gap: 1rem; margin-bottom: 1.25rem; }
-  .rag-query-box { display: flex; flex-direction: column; gap: .5rem; }
-  .rag-query-box textarea { min-height: 110px; padding: .75rem; font-family: 'Merriweather', Georgia, serif; font-size: .95rem; border-radius: var(--radius, 8px); border: 1px solid var(--border, #d1d5db); background: var(--bg-form, #fff); color: var(--text-body, #374151); resize: vertical; }
-  .rag-query-box label { font-size: .8125rem; font-weight: 600; color: var(--text-body, #374151); }
-  .rag-query-box textarea:focus { outline: none; border-color: var(--accent-primary, #3b82f6); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
-  .rag-query-box textarea::placeholder { color: var(--text-muted, #9ca3af); opacity: 1; }
-  .rag-controls { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; }
-  .rag-row { display: flex; flex-direction: column; gap: .25rem; }
-  .rag-row label { font-size: .8125rem; font-weight: 600; color: var(--text-body, #374151); }
-  .rag-row .form-control, .rag-row .form-select { min-height: 38px; }
-  .rag-toggle-group { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--text-body, #374151); }
-  .rag-toggle-group input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-  .rag-submit-btn { padding: .625rem 1.5rem; font-size: .9rem; font-weight: 600; border-radius: var(--radius, 8px); border: none; cursor: pointer; transition: all .15s ease; background: linear-gradient(135deg, #0b3d91 0%, #1550a8 100%); color: #fff; }
-  .rag-submit-btn:enabled:hover { opacity: .92; }
-  .rag-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
-  .rag-status { padding: .75rem 1rem; border-radius: var(--radius, 8px); margin-bottom: 1rem; display: none; font-size: .9rem; }
-  .rag-status:visible { display: block !important; }
-  .rag-status--info { background: var(--color-info-bg, #eff6ff); color: var(--color-info-fg, #1d4ed8); border: 1px solid var(--color-info-border, #bfdbfe); }
-  .rag-status--error { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); }
-  .rag-status--success { background: var(--color-success-bg, #dcfce7); color: var(--color-success-fg, #15803d); border: 1px solid var(--color-success-border, #86efac); }
-  .rag-spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: rag-spin .6s linear infinite; }
-  @keyframes rag-spin { to { transform: rotate(360deg); } }
-  /* Results section */
-  .rag-results { margin-top: .5rem; }
-  .rag-empty-state { color: var(--text-muted, #6b7280); font-size: .875rem; text-align: center; padding: 2rem 1rem; }
-  .rag-answer-card { border: 1px solid var(--border, #d1d5db); border-radius: var(--radius, 8px); padding: 1.25rem; background: var(--bg-card, #fff); }
-  .rag-answer-meta { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: .75rem; }
-  .rag-gauge { font-size: .75rem; font-weight: 600; padding: .2rem .5rem; border-radius: 999px; background: var(--color-info-bg, #eff6ff); color: var(--color-info-fg, #1d4ed8); }
-  .rag-answer-text { font-size: .95rem; line-height: 1.65; color: var(--text-body, #374151); margin-bottom: .75rem; white-space: pre-wrap; }
-  .rag-hallucination { padding: .5rem .75rem; border-radius: var(--radius, 8px); background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border: 1px solid var(--color-error-border, #fecaca); font-size: .85rem; margin-bottom: .75rem; }
-  .rag-citations { display: grid; gap: .5rem; margin-top: .75rem; }
-  .rag-citation { display: flex; flex-direction: column; gap: .15rem; padding: .5rem .75rem; border-radius: var(--radius, 8px); background: var(--color-success-bg, #f0fdf4); border: 1px solid var(--color-success-border, #bbf7d0); font-size: .825rem; }
-  .rag-citation-label { font-weight: 600; color: var(--text-heading, #0b3d91); }
-  .rag-citation-snippet { color: var(--text-body, #374151); line-height: 1.5; }
-  .rag-citation-confidence { font-size: .7rem; color: var(--text-muted, #6b7280); }
-  .rag-chunks { display: grid; gap: .5rem; margin-top: .375rem; }
-  .rag-chunk { padding: .5rem .75rem; border-radius: var(--radius, 8px); border: 1px solid var(--border, #e5e7eb); font-size: .8rem; }
-  .rag-chunk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .25rem; }
-  .rag-chunk-title { font-weight: 600; color: var(--text-heading, #0b3d91); font-size: .75rem; }
-  .rag-chunk-score { font-size: .7rem; color: var(--text-muted, #6b7280); }
-  .rag-chunk-text { color: var(--text-body, #374151); line-height: 1.5; }
-  .rag-agent-block { font-size: .75rem; color: var(--text-muted, #6b7280); padding: .375rem .5rem; background: #f9fafb; border-radius: var(--radius, 8px); margin-top: .5rem; }
-  .rag-verification { font-size: .75rem; font-weight: 600; padding: .375rem .5rem; border-radius: var(--radius, 8px); background: var(--color-success-bg, #f0fdf4); color: var(--color-success-fg, #15803d); border: 1px solid var(--color-success-border, #bbf7d0); margin-bottom: .5rem; }
-  .rag-verification.rag-verification-warning { background: var(--color-error-bg, #fef2f2); color: var(--color-error-fg, #b91c1c); border-color: var(--color-error-border, #fecaca); }
-  /* Stub-mode warning (gap #2) */
-  .rag-stub-warning { padding: .5rem .75rem; border-radius: var(--radius, 8px); background: #fffbeb; color: #92400e; border: 1px solid #fde68a; font-size: .8rem; margin-bottom: .75rem; }
-  /* Session history (gap #6) */
-  .rag-history-panel { margin-top: 1.5rem; border-top: 1px solid var(--border, #e5e7eb); padding-top: .75rem; display: none; }
-  .rag-history-header { display: flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--text-body, #374151); margin-bottom: .5rem; }
-  .rag-history-clear { margin-left: auto; font-size: .75rem; padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--border, #d1d5db); background: var(--bg-card, #fff); color: var(--text-muted, #6b7280); cursor: pointer; }
-  .rag-history-clear:hover { color: var(--color-error-fg, #b91c1c); border-color: var(--color-error-border, #fecaca); }
-  .rag-history-item { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; padding: .4rem .5rem; border-radius: var(--radius, 8px); font-size: .8rem; cursor: pointer; }
-  .rag-history-item:hover { background: var(--color-info-bg, #eff6ff); }
-  .rag-history-q { color: var(--text-body, #374151); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rag-history-meta { color: var(--text-muted, #6b7280); white-space: nowrap; font-size: .7rem; }
-  /* HITL review section */
-  .rag-review { display: none; padding: 1rem; border-radius: var(--radius, 8px); background: var(--color-info-bg, #eff6ff); border: 1px solid var(--color-info-border, #bfdbfe); margin-bottom: 1rem; font-size: .9rem; }
-  .rag-review-actions { display: flex; gap: .5rem; margin-top: .5rem; }
-</style>
-{% endblock %}
+    {% if RAG_ENABLED %}
+    <form id="ragQueryForm" novalidate>
+        <div class="form-group">
+            <label for="ragQuery">Enter your legal question:</label>
+            <textarea
+                id="ragQuery"
+                name="query"
+                rows="4"
+                placeholder="e.g., What are the FSS Act penalties for selling substandard food?"
+                required
+            ></textarea>
+        </div>
+        <div class="form-group">
+            <label for="ragCollection">Collection:</label>
+            <select id="ragCollection" name="collection">
+                <option value="fssai_legal_768">FSSAI Legal</option>
+                <option value="criminal_legal_768">Criminal Legal</option>
+            </select>
+        </div>
+        <button type="submit" id="ragSubmitBtn">Submit Query</button>
+    </form>
 
-{% block content %}
-<div class="rag-page">
-  <div class="rag-header">
-    <h1><i class="fa-solid fa-robot"></i> Legal RAG</h1>
-    <span class="rag-badge">
-      <i class="fa-solid fa-circle-check"></i> Ready
-    </span>
-  </div>
-
-  <div class="rag-inputs">
-    <div class="rag-query-box">
-      <label for="ragQuery">Legal question</label>
-      <textarea
-        id="ragQuery"
-        name="query"
-        class="form-control"
-        placeholder="Ask a legal question about food safety law…"
-        maxlength="2000"
-      ></textarea>
+    <div id="ragLoading" class="rag-loading" style="display: none">
+        <p>Processing your query...</p>
     </div>
 
-    <div class="rag-controls">
-      <div class="rag-row">
-        <label for="ragDomain">Domain</label>
-        <select id="ragDomain" name="domain" class="form-select" style="min-width: 160px;">
-          <option value="">All domains (FSSAI)</option>
-          {% for d in domains %}
-          <option value="{{ d }}">{{ d }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <div id="ragResults" class="rag-results" style="display: none">
+        <h2>Answer</h2>
+        <div id="ragAnswer"></div>
+        <div id="ragCitations"></div>
+        <div id="ragVerification"></div>
+        <div id="ragAuditTrail"></div>
 
-      <div class="rag-row">
-        <label for="ragTopK">Results (top-K)</label>
-        <input type="number" id="ragTopK" name="top_k" class="form-control" min="1" max="50" value="10" style="width: 80px;">
-      </div>
-
-      <div class="rag-toggle-group">
-        <input type="checkbox" id="ragUseAgent" name="use_agent">
-        <label for="ragUseAgent">Use agent pipeline</label>
-      </div>
-
-      <button id="ragSubmitBtn" type="button" class="rag-submit-btn">
-        <i class="fa-solid fa-paper-plane"></i> Ask
-      </button>
+        <div id="ragAwaitingReview" class="rag-review" style="display: none">
+            <h3>Awaiting Human Review</h3>
+            <p>Your response is being reviewed. Please wait.</p>
+            <button id="ragResumeApproved">Approve</button>
+            <button id="ragResumeRejected">Reject</button>
+        </div>
     </div>
-  </div>
 
-  <div id="ragStatus" class="rag-status"></div>
-
-  <div id="ragReview" class="rag-review">
-    <strong><i class="fa-solid fa-user-check"></i> Human Review Required</strong>
-    <p style="margin: .25rem 0 .5rem; font-size: .85rem;">
-      The agent pipeline has paused for your review. Approve or reject the proposed answer.
-    </p>
-    <div id="ragReviewContent" style="font-size: .85rem; color: #374151; margin-bottom: .5rem;"></div>
-    <div class="rag-review-actions">
-      <button id="ragApproveBtn" type="button" class="btn btn-success btn-sm">
-        <i class="fa-solid fa-check"></i> Approve
-      </button>
-      <button id="ragRejectBtn" type="button" class="btn btn-danger btn-sm">
-        <i class="fa-solid fa-x"></i> Reject
-      </button>
-    </div>
-  </div>
-
-  <div id="ragResults" class="rag-results">
-    <p class="rag-empty-state">Enter a legal question and click <strong>Ask</strong> to begin.</p>
-  </div>
-
-  <div id="ragHistoryPanel" class="rag-history-panel" aria-label="Session history"></div>
+    <div id="ragError" class="rag-error" style="display: none"></div>
+    {% endif %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='js/rag_query.js') }}"></script>
-<script>
-(function () {
-  "use strict";
-  window.RagQueryUI.init();
-})();
-</script>
 {% endblock %}

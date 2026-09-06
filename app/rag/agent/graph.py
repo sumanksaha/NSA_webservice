@@ -30,7 +30,12 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypedDict
+
+# ponytail: type annotations for graph nodes are approximate (nodes return
+# dict[str, Any] not full RAGState) — precise TypedDict per-node is overkill
+# for this single-implementation pipeline (no interfaces, one graph).
+
 
 from app.rag.agent.nodes import GROUNDEDNESS_THRESHOLD
 from app.rag.agent.state import RAGState
@@ -42,13 +47,61 @@ logger = logging.getLogger(__name__)
 def route_after_verify(state: RAGState) -> str:
     """Conditional edge: retry (expand → retrieve) or finalize.
 
-    Retries while the response is not grounded enough AND the retry budget
-    is not exhausted (``retry_count < max_retries``, default 2).
+    Multi-signal quality gate with enhancements:
+      * Progressive deepening: increase groundedness threshold with each retry
+      * Per-query-type tuning: different base thresholds for different query types
+      * (Future: hysteresis and circuit breaker require external state)
+
+    Signals:
+    1. Groundedness score below effective threshold (base + progressive increase).
+    2. Hallucination was explicitly detected (``hallucination_detected``).
+    3. Citation quality gate: ``citation_quality_ok`` is False OR
+       ``missing_citations`` is non-empty (the answer cites a chunk
+       that was never retrieved — a hallucinated citation).
+
+    Retries only while the retry budget is not exhausted
+    (``retry_count < max_retries``, default 2).
     """
-    groundedness = float(state.get("groundedness", 0.0))
-    retry_count = int(state.get("retry_count", 0))
-    max_retries = int(state.get("max_retries", 2))
-    if groundedness < GROUNDEDNESS_THRESHOLD and retry_count < max_retries:
+    # --- Enhanced threshold logic ---
+    query_type = state.get("query_type", "general_qa")
+    # Base thresholds by query type (can be moved to config later)
+    BASE_THRESHOLDS = {
+        "general_qa": 0.80,
+        "legal": 0.85,  # legal queries need higher confidence
+        "medical": 0.85,
+        "procedure": 0.80,
+        "penalty": 0.80,
+        "definition": 0.80,
+    }
+    base_threshold = BASE_THRESHOLDS.get(query_type, 0.80)
+    try:
+        retry_count = int(state.get("retry_count", 0))
+    except (ValueError, TypeError):
+        retry_count = 0
+    # Progressive deepening: increase threshold with each retry (capped at 0.95)
+    progressive_add = retry_count * 0.025
+    effective_threshold = min(base_threshold + progressive_add, 0.95)
+    # --- End enhanced threshold logic ---
+
+    try:
+        groundedness = float(state.get("groundedness", 0.0))
+    except (ValueError, TypeError):
+        groundedness = 0.0
+    try:
+        max_retries = int(state.get("max_retries", 2))
+    except (ValueError, TypeError):
+        max_retries = 2
+    try:
+        hallucinated = bool(state.get("hallucination_detected", False))
+    except (ValueError, TypeError):
+        hallucinated = False
+    citation_ok = bool(state.get("citation_quality_ok", True))
+    missing_citations = list(state.get("missing_citations", []) or [])
+    # ponytail: multi-signal gate — retry if ANY quality signal is bad.
+    # This prevents finalizing answers that have good groundedness but
+    # contain hallucinated citations or detected hallucinations.
+    quality_failed = groundedness < effective_threshold or hallucinated or not citation_ok or len(missing_citations) > 0
+    if quality_failed and retry_count < max_retries:
         return "expand_query"
     return "finalize"
 
@@ -134,7 +187,7 @@ def _build_checkpointer(kind: str | None = None) -> Any | None:
                 return None
             # Normalise for psycopg (accepts postgres:// and postgresql://).
             conn = psycopg.connect(dsn)
-            saver = PostgresSaver(conn)
+            saver = PostgresSaver(conn)  # type: ignore[arg-type]
             saver.setup()  # idempotent CREATE TABLE IF NOT EXISTS
             return saver
         except Exception as exc:
@@ -184,6 +237,9 @@ def build_graph(
     builder.add_node("retrieve", nodes.retrieve_node)
     builder.add_node("generate", nodes.generate_node)
     builder.add_node("verify", nodes.verify_node)
+    # Citation quality gate (2026-08-26): checks if cited chunks are
+    # actually in the retrieved set before finalizing.
+    builder.add_node("citation_quality", nodes.citation_quality_node)
     builder.add_node("expand_query", nodes.expand_query_node)
     builder.add_node("finalize", nodes.finalize_node)
 
@@ -199,20 +255,22 @@ def build_graph(
         builder.add_edge("retrieve", "generate")
 
     builder.add_edge("generate", "verify")
+    builder.add_edge("verify", "citation_quality")
 
     if hitl:
         # M5: human-in-the-loop gate.  review interrupts; approved → finalize,
         # rejected → expand_query (re-generate with a rewritten query).
         builder.add_node("review", review_node)
-        builder.add_edge("verify", "review")
+        builder.add_edge("citation_quality", "review")
         builder.add_conditional_edges(
             "review",
             route_after_review,
             {"expand_query": "expand_query", "finalize": "finalize"},
         )
     else:
+        # Multi-signal threshold: verify → citation_quality → retry/finalize
         builder.add_conditional_edges(
-            "verify",
+            "citation_quality",
             route_after_verify,
             {"expand_query": "expand_query", "finalize": "finalize"},
         )

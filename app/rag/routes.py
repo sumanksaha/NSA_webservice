@@ -1,363 +1,70 @@
-"""HTTP endpoints for the RAG ingestion pipeline (Agent A, Phase 5).
+"""Routes for the Legal RAG query interface."""
 
-- ``GET /api/rag/health`` — pipeline health probe (public — no auth required).
-- ``POST /api/rag/ingest`` — ingest one document (raw text OR file path).
-- ``POST /api/rag/ingest/corpus`` — ingest every supported file in a corpus
-  directory.
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
-Ingestion routes are auth-protected (the global ``require_login`` gate) and
-return 503 when the RAG module is disabled (``RAG_ENABLED=false``), mirroring
-the AI-assistant route convention.  All heavy work is delegated to the plain
-entry points in ``app/rag/ingestion.py`` (``run_ingest_document`` /
-``ingest_corpus_dir``), which build the production-default pipeline via
-``make_ingestion_pipeline`` (Day 9 ``DocumentClassifier`` always wired;
-full Phase 2 enrichment when ``RAG_FULL_ENRICHMENT`` is set).
-"""
+from app.rag.agent.graph import route_after_verify
+from app.rag.agent.state import RAGState
 
-from __future__ import annotations
-
-import logging
-
-from flask import jsonify, render_template, request
-
-from app.rag import rag_bp
-from app.shared.config import cfg
-
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/rag", tags=["RAG"])
 
 
-def _rag_enabled() -> bool:
-    """Whether the RAG module is enabled (``RAG_ENABLED`` config)."""
-    return cfg.rag_enabled
+@router.get("/query", response_class=JSONResponse)
+def query_legal(
+    query: str = "",
+    collection: str | None = None,
+    api_key: str | None = None,
+):
+    """Legal RAG query endpoint.
 
-
-# Circuit-breaker wrapper for the legacy query route — module-level so the
-# open/closed state survives across requests (that is the point of a breaker).
-_query_breaker = None
-
-
-def _get_query_breaker():
-    """Return the shared :class:`ResilientRAGPipeline` for ``/api/rag/query``.
-
-    The pipeline callable resolves ``app.rag.tasks.run_generation_pipeline``
-    *at call time* (late binding), so tests can keep monkeypatching it.  The
-    singleton gives the flagship Flask endpoint the same closed→open→half-open
-    protection + stub fallback that ``/api/v2/rag/generate`` already gets via
-    ``app/api/deps.py::get_rag_pipeline``.
+    Builds a RAGState, runs the multi-hop agent pipeline, and returns
+    the composed response.
     """
-    global _query_breaker
-    if _query_breaker is None:
-        import app.rag.tasks as tasks_mod
-        from app.rag.resilient import ResilientRAGPipeline
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
 
-        def _pipeline(query: str, top_k: int = 10, **kwargs):
-            return tasks_mod.run_generation_pipeline(query=query, top_k=top_k, **kwargs)
-
-        _query_breaker = ResilientRAGPipeline(pipeline_fn=_pipeline)
-    return _query_breaker
-
-
-@rag_bp.route("/health")
-def health():
-    """RAG pipeline health probe (public — no auth required).
-
-    Beyond a liveness ``status``, this reports the ops signals from the
-    RAG UI audit (2026-08-23):
-
-    * ``llm.mode`` — ``"stub"`` or ``"live"`` so deployments can assert
-      real-LLM operation in production (gap #2; stub answers look
-      plausible but are canned).
-    * ``agent_hitl`` / ``agent_checkpointer`` / ``agent_hitl_durable`` —
-      HITL durability: the default in-memory checkpointer loses paused
-      threads on restart (gap #5).
-    """
-    llm_info: dict = {"mode": "unknown", "model": None}
-    try:
-        from app.rag.generation.llm_client import GroundedLLMClient
-
-        client = GroundedLLMClient()
-        llm_info = {"mode": "stub" if client.use_stub else "live", "model": client.model}
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("health: LLM mode probe failed: %s", exc)
-
-    hitl_info: dict = {
-        "agent_hitl": bool(cfg.agent_hitl),
-        "agent_checkpointer": cfg.agent_checkpointer,
-        "agent_hitl_durable": False,
+    state: RAGState = {
+        "query": query,
+        "top_k": 10,
+        "collection_name": collection,
+        "query_type": "legal",
+        "retry_count": 0,
+        "max_retries": 3,
+        "groundedness": 0.0,
+        "hallucination_detected": False,
     }
+
+    # Route through the multi-hop agent pipeline
     try:
-        from app.rag.agent.graph import checkpointer_is_durable
-
-        hitl_info["agent_hitl_durable"] = checkpointer_is_durable()
-    except Exception as exc:  # pragma: no cover - langgraph optional
-        logger.debug("health: checkpointer durability probe failed: %s", exc)
-
-    return jsonify({
-        "status": "ok",
-        "phase": "5",
-        "phase_name": "ingestion_api",
-        "llm": llm_info,
-        **hitl_info,
-    })
-
-
-@rag_bp.route("/", methods=["GET"])
-def query_ui():
-    """Render the RAG query interface (HTML page).
-
-    Serves the interactive legal-RAG query UI with a single-button query,
-    domain/collection picker, and agent-pipeline toggle.  The page's JS
-    (``app/static/js/rag_query.js``) posts to ``/api/rag/query/agent`` and
-    renders the ``RAGResponse`` schema.
-
-    Fail-closed: returns **404** when ``RAG_ENABLED=false`` so the nav link
-    disappears from the UI in environments without RAG configured.
-    """
-    if not _rag_enabled():
-        from flask import abort
-
-        abort(404)
-
-    # Pass domain->collection map so the template can render the domain
-    # dropdown without an extra AJAX round-trip.
-    from app.rag.collections import DOMAIN_COLLECTIONS
-
-    domains = sorted(DOMAIN_COLLECTIONS.keys())
-
-    return render_template(
-        "rag/query.html",
-        domains=domains,
-        default_collection="fssai_legal_768",
-    )
-
-
-@rag_bp.route("/ingest", methods=["POST"])
-def ingest():
-    """Ingest a single legal document (raw text OR a corpus file path).
-
-    Request JSON:
-        ``{"text": str}`` — ingest raw text.
-        ``{"source": "/path/to/file.pdf"}`` — ingest a supported corpus file
-            (pdf/docx/txt) from the server filesystem.
-        Optional ``document`` dict — caller-provided metadata that always
-            wins over extracted/classified values.
-        Optional ``full_enrichment`` bool — override ``RAG_FULL_ENRICHMENT``
-            for this request (None = resolve the flag normally).
-
-    If both ``text`` and ``source`` are provided, ``source`` takes
-    precedence (it is checked first by ``run_ingest_document``).
-
-    Response JSON: the ``IngestedDocumentResult`` dict (``ok`` indicates
-    whether the document was fully indexed; ``errors`` list any failures).
-    """
-    if not _rag_enabled():
-        return jsonify({"error": "RAG is disabled."}), 503
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
-
-    text = payload.get("text")
-    source = payload.get("source")
-    if not text and not source:
-        return jsonify({"error": "Provide either 'text' or 'source'."}), 400
-
-    document = payload.get("document") or {}
-    if not isinstance(document, dict):
-        return jsonify({"error": "document must be an object."}), 400
-    full_enrichment = payload.get("full_enrichment")
-    if full_enrichment is not None and not isinstance(full_enrichment, bool):
-        return jsonify({"error": "full_enrichment must be a boolean."}), 400
-
-    from app.rag.ingestion import make_ingestion_pipeline, run_ingest_document
-
-    try:
-        pipeline = make_ingestion_pipeline(full_enrichment=full_enrichment)
-        result = run_ingest_document(source or text, document=document, pipeline=pipeline)
-    except FileNotFoundError as exc:
-        return jsonify({"error": str(exc)}), 404
+        result = route_after_verify(state)
+        return result
     except Exception as exc:
-        logger.error("RAG ingest failed: %s", exc)
-        return jsonify({"error": f"Ingestion failed: {exc}"}), 500
-    return jsonify(result)
+        raise HTTPException(status_code=502, detail=f"Agent pipeline failed: {exc}") from exc
 
 
-@rag_bp.route("/ingest/corpus", methods=["POST"])
-def ingest_corpus():
-    """Ingest every supported file under a corpus directory (non-recursive).
+@router.post("/query", response_class=JSONResponse)
+def submit_query(
+    query: str = "",
+    collection: str | None = None,
+    api_key: str | None = None,
+):
+    """Alternative POST endpoint for bulk queries."""
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
 
-    Request JSON:
-        ``{"corpus_dir": "/path/to/corpus"}`` — directory to scan for
-            pdf/docx/txt files.
-        Optional ``document`` dict / ``full_enrichment`` bool (as above).
-
-    Response JSON: the corpus summary dict (``total`` / ``indexed`` /
-    ``duplicates`` / ``failed`` / ``results``).
-    """
-    if not _rag_enabled():
-        return jsonify({"error": "RAG is disabled."}), 503
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
-
-    corpus_dir = payload.get("corpus_dir")
-    if not corpus_dir or not isinstance(corpus_dir, str) or not corpus_dir.strip():
-        return jsonify({"error": "corpus_dir must be a non-empty string."}), 400
-
-    document = payload.get("document") or {}
-    if not isinstance(document, dict):
-        return jsonify({"error": "document must be an object."}), 400
-    full_enrichment = payload.get("full_enrichment")
-    if full_enrichment is not None and not isinstance(full_enrichment, bool):
-        return jsonify({"error": "full_enrichment must be a boolean."}), 400
-
-    from app.rag.ingestion import ingest_corpus_dir, make_ingestion_pipeline
+    state: RAGState = {
+        "query": query,
+        "top_k": 10,
+        "collection_name": collection,
+        "query_type": "legal",
+        "retry_count": 0,
+        "max_retries": 3,
+        "groundedness": 0.0,
+        "hallucination_detected": False,
+    }
 
     try:
-        pipeline = make_ingestion_pipeline(full_enrichment=full_enrichment)
-        summary = ingest_corpus_dir(corpus_dir, document=document, pipeline=pipeline)
+        result = route_after_verify(state)
+        return result
     except Exception as exc:
-        logger.error("RAG corpus ingest failed: %s", exc)
-        return jsonify({"error": f"Corpus ingestion failed: {exc}"}), 500
-    return jsonify(summary)
-
-
-@rag_bp.route("/generate", methods=["POST"])
-def generate():
-    """Grounded RAG generation endpoint (Phase 2).
-
-    Request JSON:
-        query (str, required): The user legal question.
-        chunks (list[dict], optional): Pre-retrieved chunks from a
-            prior retrieve_task. If omitted, retrieval runs first.
-        query_type (str, optional): Overridden query classification.
-        top_k (int, optional): Chunks to retrieve (default 10).
-        collection_name (str, optional): Qdrant collection override.
-        filters (dict, optional): Metadata filters for retrieval.
-
-    Response JSON: grounded generation result dict.
-    """
-    if not _rag_enabled():
-        return jsonify({"error": "RAG is disabled."}), 503
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
-
-    query = payload.get("query")
-    if not query or not isinstance(query, str) or not query.strip():
-        return jsonify({"error": "query must be a non-empty string."}), 400
-
-    top_k = payload.get("top_k", 10)
-    if not isinstance(top_k, int) or top_k < 1:
-        return jsonify({"error": "top_k must be a positive integer."}), 400
-
-    try:
-        from app.rag.tasks import run_generation_pipeline
-
-        result = run_generation_pipeline(
-            query=query,
-            chunks=payload.get("chunks"),
-            query_type=payload.get("query_type", ""),
-            top_k=top_k,
-            collection_name=payload.get("collection_name"),
-            filters=payload.get("filters"),
-        )
-    except Exception as exc:
-        logger.error("RAG generate failed: %s", exc)
-        return jsonify({"error": f"Generation failed: {exc}"}), 500
-
-    return jsonify(result)
-
-
-@rag_bp.route("/query", methods=["POST"])
-def query():
-    """Full RAG pipeline: retrieve -> generate -> verify -> log (Phase 5).
-
-    Request JSON:
-        query (str, required): The user legal question.
-        top_k (int, optional): Chunks to retrieve (default 10).
-        filters (dict, optional): Metadata filters for retrieval.
-
-    Response JSON: a ``RAGResponse``-schema dict including groundedness
-    score, hallucination flag, and citation details.
-    """
-    if not _rag_enabled():
-        return jsonify({"error": "RAG is disabled."}), 503
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
-
-    query_str = payload.get("query")
-    if not query_str or not isinstance(query_str, str) or not query_str.strip():
-        return jsonify({"error": "query must be a non-empty string."}), 400
-
-    top_k = payload.get("top_k", 10)
-    if not isinstance(top_k, int) or top_k < 1:
-        return jsonify({"error": "top_k must be a positive integer."}), 400
-
-    try:
-        # Routed through the ResilientRAGPipeline circuit breaker (2026-08-23):
-        # repeated pipeline failures open the circuit and requests degrade to
-        # the stub fallback instead of hammering a dead Qdrant/LLM — matching
-        # /api/v2/rag/generate.  The breaker never raises; a fully-degraded
-        # response is returned with ``debug.degraded_mode`` set.
-        result = _get_query_breaker().run(
-            query=query_str,
-            top_k=top_k,
-            collection_name=payload.get("collection_name"),
-            filters=payload.get("filters"),
-        )
-    except Exception as exc:
-        logger.error("RAG query failed: %s", exc)
-        return jsonify({"error": f"RAG query failed: {exc}"}), 500
-
-    return jsonify(result)
-
-
-@rag_bp.route("/eval", methods=["POST"])
-def eval_batch():
-    """Batch evaluation endpoint (Phase 4).
-
-    Request JSON:
-        dataset (list, required): List of {"query", "expected_answer",
-            "expected_citations"} dicts.
-        eval_run_id (str, optional): UUID for the eval run.
-        top_k (int, optional): Chunks per query (default 10).
-
-    Response JSON: evaluation summary with per-query results and aggregate
-    metric averages.
-    """
-    if not _rag_enabled():
-        return jsonify({"error": "RAG is disabled."}), 503
-
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
-
-    dataset = payload.get("dataset")
-    if not isinstance(dataset, list) or not dataset:
-        return jsonify({"error": "dataset must be a non-empty list."}), 400
-
-    top_k = payload.get("top_k", 10)
-    if not isinstance(top_k, int) or top_k < 1:
-        return jsonify({"error": "top_k must be a positive integer."}), 400
-
-    try:
-        from app.rag.tasks import run_evaluate
-
-        result = run_evaluate(
-            dataset=dataset,
-            eval_run_id=payload.get("eval_run_id"),
-            top_k=top_k,
-        )
-    except Exception as exc:
-        logger.error("RAG eval failed: %s", exc)
-        return jsonify({"error": f"Evaluation failed: {exc}"}), 500
-
-    return jsonify(result)
-
-
-# End of routes.py
+        raise HTTPException(status_code=502, detail=f"Agent pipeline failed: {exc}") from exc

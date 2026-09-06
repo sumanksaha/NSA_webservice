@@ -13,6 +13,7 @@ from unittest import mock
 from app.rag.agent.nodes import (
     GROUNDEDNESS_THRESHOLD,
     classify_node,
+    citation_quality_node,
     evidence_node,
     expand_query_node,
     finalize_node,
@@ -26,7 +27,7 @@ from app.rag.agent.state import initial_state
 def _make_state(**overrides):
     state = initial_state("penalty for selling substandard food")
     state.update(overrides)
-    return state
+    return state  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------- #
@@ -287,3 +288,66 @@ def test_finalize_node_fills_defaults_from_state():
 
 def test_groundedness_threshold_is_0_7():
     assert GROUNDEDNESS_THRESHOLD == 0.7
+
+
+# ---------------------------------------------------------------------- #
+# citation_quality_node
+# ---------------------------------------------------------------------- #
+
+
+def test_citation_quality_all_citations_retrieved():
+    """All cited chunks are in the retrieved set → quality OK."""
+    state = _make_state(
+        chunks=[{"chunk_id": "c1"}, {"chunk_id": "c2"}, {"chunk_id": "c3"}],
+        response={
+            "citations": [
+                {"chunk_id": "c1", "section": "50", "confidence": 0.9},
+                {"chunk_id": "c2", "section": "55", "confidence": 0.8},
+            ],
+        },
+    )
+    out = citation_quality_node(state)
+    assert out["citation_quality_ok"] is True
+    assert out["missing_citations"] == []
+    # audit trail records the node
+    assert any(e["node"] == "citation_quality" for e in out["audit_trail"])
+
+
+def test_citation_quality_missing_citations():
+    """Answer cites a chunk that was never retrieved → quality FAILS."""
+    state = _make_state(
+        chunks=[{"chunk_id": "c1"}, {"chunk_id": "c2"}],
+        response={
+            "citations": [
+                {"chunk_id": "c1", "section": "50", "confidence": 0.9},
+                {"chunk_id": "c99", "section": "99", "confidence": 0.9},
+            ],
+        },
+    )
+    out = citation_quality_node(state)
+    assert out["citation_quality_ok"] is False
+    assert out["missing_citations"] == ["c99"]
+
+
+def test_citation_quality_no_citations():
+    """No citations in the response → quality OK (nothing to check)."""
+    state = _make_state(
+        chunks=[{"chunk_id": "c1"}],
+        response={"answer": "No citations mentioned"},
+    )
+    out = citation_quality_node(state)
+    assert out["citation_quality_ok"] is True
+    assert out["missing_citations"] == []
+
+
+def test_citation_quality_empty_chunks():
+    """No retrieved chunks but answer cites something → all citations missing."""
+    state = _make_state(
+        chunks=[],
+        response={
+            "citations": [{"chunk_id": "c1", "section": "50"}],
+        },
+    )
+    out = citation_quality_node(state)
+    assert out["citation_quality_ok"] is False
+    assert out["missing_citations"] == ["c1"]

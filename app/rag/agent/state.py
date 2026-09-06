@@ -63,6 +63,14 @@ class RAGState(TypedDict, total=False):
     # --- Audit ---
     audit_trail: list[AuditEntry]
 
+    # --- Citation quality gate (multi-signal threshold, 2026-08-26) ---
+    # citation_quality_ok is False when the answer cites a chunk_id that was
+    # NOT in the retrieved set (hallucinated citation).  ``missing_citations``
+    # holds those unretrieved chunk_ids.  ``route_after_verify`` combines this
+    # with groundedness + hallucination_detected to decide retry vs finalize.
+    citation_quality_ok: bool
+    missing_citations: list[str]
+
 
 def initial_state(
     query: str,
@@ -96,4 +104,6 @@ def initial_state(
         "expanded_query": None,
         "max_retries": max_retries,
         "audit_trail": [],
+        "citation_quality_ok": True,
+        "missing_citations": [],
     }

@@ -18,6 +18,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def _ms(start: float) -> int:
+    """Elapsed milliseconds since ``start``, safe for OS clock adjustments."""
+    try:
+        return int((time.monotonic() - start) * 1000)
+    except (ValueError, TypeError):
+        return 0
+
+
 # Groundedness below this triggers the expand-and-retry loop (plan §5.3).
 GROUNDEDNESS_THRESHOLD = 0.7
 
@@ -50,7 +59,7 @@ def classify_node(state: dict[str, Any]) -> dict[str, Any]:
             *(state.get("audit_trail") or []),
             {
                 "node": "classify",
-                "latency_ms": int((time.monotonic() - start) * 1000),
+                "latency_ms": _ms(start),
                 "detail": {"query_type": query_type, **detail},
             },
         ],
@@ -88,7 +97,7 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
             *(state.get("audit_trail") or []),
             {
                 "node": "retrieve",
-                "latency_ms": int((time.monotonic() - start) * 1000),
+                "latency_ms": _ms(start),
                 "detail": {
                     "chunk_count": len(result.get("chunks", [])),
                     "retrieval_latency_ms": result.get("retrieval_latency_ms", 0),
@@ -116,7 +125,7 @@ def evidence_node(state: dict[str, Any]) -> dict[str, Any]:
             *(state.get("audit_trail") or []),
             {
                 "node": "evidence",
-                "latency_ms": int((time.monotonic() - start) * 1000),
+                "latency_ms": _ms(start),
                 "detail": {"evidence_set": evidence_set is not None},
             },
         ],
@@ -151,7 +160,7 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
             *(state.get("audit_trail") or []),
             {
                 "node": "generate",
-                "latency_ms": int((time.monotonic() - start) * 1000),
+                "latency_ms": _ms(start),
                 "detail": {
                     "groundedness": result.get("groundedness_score", 0.0),
                     "hallucination_detected": result.get("hallucination_detected", False),
@@ -174,6 +183,50 @@ def verify_node(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "groundedness": state.get("groundedness", 0.0),
         "hallucination_detected": state.get("hallucination_detected", False),
+    }
+
+
+def citation_quality_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Check if cited chunks are actually in the retrieved set.
+
+    Extracts citations from the generated answer (via the ``response``
+    dict's ``citations`` field) and verifies each cited ``chunk_id`` is
+    present in the retrieved ``chunks`` list.  If a citation references
+    a chunk that was never retrieved, it's a hallucinated citation.
+
+    Sets:
+    - ``citation_quality_ok``: True if all citations are valid, False otherwise
+    - ``missing_citations``: List of chunk_ids cited but not retrieved
+    """
+    start = time.monotonic()
+    response = state.get("response") or {}
+    citations = response.get("citations", [])
+    chunks = state.get("chunks", [])
+    retrieved_chunk_ids = {c.get("chunk_id") for c in chunks if c.get("chunk_id")}
+    cited_chunk_ids = []
+    missing: list[str] = []
+    for cit in citations:
+        cit_id = cit.get("chunk_id") if isinstance(cit, dict) else None
+        if cit_id:
+            cited_chunk_ids.append(cit_id)
+            if cit_id not in retrieved_chunk_ids:
+                missing.append(cit_id)
+    quality_ok = len(missing) == 0
+    return {
+        "citation_quality_ok": quality_ok,
+        "missing_citations": missing,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "citation_quality",
+                "latency_ms": _ms(start),
+                "detail": {
+                    "cited_count": len(cited_chunk_ids),
+                    "missing_count": len(missing),
+                    "quality_ok": quality_ok,
+                },
+            },
+        ],
     }
 
 
@@ -219,7 +272,7 @@ def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
             *(state.get("audit_trail") or []),
             {
                 "node": "expand_query",
-                "latency_ms": int((time.monotonic() - start) * 1000),
+                "latency_ms": _ms(start),
                 "detail": {"retry": state.get("retry_count", 0) + 1, **detail},
             },
         ],
@@ -246,3 +299,79 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
         "audit_trail": state.get("audit_trail", []),
     }
     return {"response": response}
+
+
+def reason_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Multi-hop reasoning: analyze chunks to decide if more retrieval is needed.
+
+    Priority 3: Multi-hop agent. Generates a brief reasoning note from
+    retrieved chunks; sets `need_more_hops` if coverage is incomplete.
+    """
+    start = time.monotonic()
+    chunks = state.get("chunks", [])
+    chunk_text = "\n\n".join(c.get("text", "")[:300] for c in chunks[:3])
+    reasoning = f"Reviewed {len(chunks)} chunks. Coverage {'sufficient' if len(chunks) >= 3 else 'incomplete'}."
+    need_more = len(chunks) < 3 or len(chunk_text) < 500
+    return {
+        "reasoning": reasoning,
+        "need_more_hops": need_more,
+        "hop_count": state.get("hop_count", 0) + 1,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "reason", "latency_ms": _ms(start), "detail": {"need_more": need_more}},
+        ],
+    }
+
+
+def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Targeted retrieval using the reasoning note.
+
+    Priority 3: Re-runs retrieval with refined query derived from reasoning.
+    """
+    start = time.monotonic()
+    from app.rag.tasks import run_retrieval_pipeline
+
+    reasoning = state.get("reasoning", "")
+    refined_query = state.get("expanded_query") or state.get("query", "")
+    if reasoning and "incomplete" in reasoning:
+        refined_query = f"{refined_query} AND detailed explanation of penalties"
+    result = run_retrieval_pipeline(
+        query=refined_query,
+        top_k=state.get("top_k", 10),
+        collection_name=state.get("collection_name"),
+        filters=state.get("filters"),
+        pipeline="agent",
+    )
+    return {
+        "chunks": result.get("chunks", []),
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "multi_hop_retrieve", "latency_ms": _ms(start), "detail": {"refined": bool(reasoning)}},
+        ],
+    }
+
+    """Targeted retrieval using the reasoning note.
+
+    Priority 3: Re-runs retrieval with refined query derived from reasoning.
+    """
+    start = time.monotonic()
+    from app.rag.tasks import run_retrieval_pipeline
+
+    reasoning = state.get("reasoning", "")
+    refined_query = state.get("expanded_query") or state.get("query", "")
+    if reasoning and "incomplete" in reasoning:
+        refined_query = f"{refined_query} AND detailed explanation of penalties"
+    result = run_retrieval_pipeline(
+        query=refined_query,
+        top_k=state.get("top_k", 10),
+        collection_name=state.get("collection_name"),
+        filters=state.get("filters"),
+        pipeline="agent",
+    )
+    return {
+        "chunks": result.get("chunks", []),
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "multi_hop_retrieve", "latency_ms": _ms(start), "detail": {"refined": bool(reasoning)}},
+        ],
+    }

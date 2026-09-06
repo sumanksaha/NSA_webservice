@@ -55,12 +55,12 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Document Generation**           | PDF generation for permission letters, petitions, and legal notices                                                                                              |
 | **Timeline & Case Visualization** | Auto-generated milestone timelines + Gantt charts per case, with chronological-validity warnings; reachable from a global case picker and every case-linked page |
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                       |
-| **Legal RAG (Vector Search)**     | ✅ Phases 1-5 complete                                                                                                                                           | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (437 tests + 28 Agent A)                                                                                                                          |
-| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                             | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests)                                  |
-| **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                                                           |
-| **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                                                  |
-| **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                                                        |
-| **FastAPI Gateway (ASGI)**        | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2. |
+| **Legal RAG (Vector Search)**     | ✅ Phases 1–5 + P1–6 ✅                                                                                                                                          | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (694 tests + 28 Agent A) + multi-hop agent (reason/retrieve nodes) + RAG Query UI + weighted composite scoring + 6 priority improvements (2026-09-06) |
+| **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                             | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests)                                      |
+| **Evaluation Framework**          | ✅ Complete                                                                                                                                                      | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                                                               |
+| **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                        | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                                                      |
+| **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                                                            |
+| **FastAPI Gateway (ASGI)**        | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2.     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
 
 ---
@@ -196,7 +196,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
   `legacy`/`agent`; `scripts/ab_agent_vs_legacy.py` runs the frozen
   benchmark through both paths against the live stack.
 - 56 tests across `tests/test_rag_agent_{state,nodes,graph,routes,m5}.py`
-  - pipeline-field tests, all stub-LLM / no network.
+    - pipeline-field tests, all stub-LLM / no network.
 
 ---
 
@@ -284,7 +284,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                                                                                                                                                                            |
 | CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+Safety+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
-| PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase) |                                                                                                                                                                                                                                                   |
+| PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase)                                                                                                                                                |     |
 | Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
 | Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
 
@@ -640,30 +640,30 @@ positives. SARIF results upload to GitHub Code Scanning but remain
 
 ### Blueprint Prefixes
 
-| Blueprint           | Prefix                 | Description                                                                |
-| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| Blueprint           | Prefix                 | Description                                                                                                                                |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Auth                | `/auth`                | Login/logout, first-setup admin bootstrap, admin user management (create/toggle-admin/reset-password/delete), self-service password change |
-| Inspection          | `/inspection`          | Inspection CRUD + photo evidence                                           |
-| Sample              | `/sample`              | Sample management                                                          |
-| Case File           | `/case_file_generator` | Case file generation                                                       |
-| Adjudication        | `/adjudication`        | Adjudication management                                                    |
-| Billing             | `/billing`             | Billing summary + export                                                   |
-| Bill Generator      | `/bill_generator`      | Bill PDF (async via QStash)                                                |
-| FBO Issue           | `/fbo-issue`           | FBO issue state machine                                                    |
-| Annexure            | `/annexure`            | Annexure upload + metadata                                                 |
-| Evidence            | `/evidence`            | Evidence library (photos, reports, etc.)                                   |
-| Document Viewer     | `/document_viewer`     | Quill editor, save/restore, PDF                                            |
-| Legal Analysis      | `/legal`               | Legal paragraph detection workbench                                        |
-| Search              | `/search`              | FTS5 + fuzzy search API                                                    |
-| Version Control     | `/api/version-control` | Version history UI + API                                                   |
-| Timeline            | `/timeline`            | Case milestone timeline + Gantt                                            |
-| Food Cell           | `/food-cell`           | DO Intimation workflow (Phase 21)                                          |
-| **RAG**             | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete) |
-| **Knowledge Graph** | `/knowledge-graph`     | Entity/relationship graph + Neo4j sync (Phase 14 complete)                 |
-| Audit               | `/admin`               | Audit log viewer                                                           |
-| Settings            | `/settings`            | Admin settings                                                             |
-| Health              | `/health`              | Health probe (public)                                                      |
-| Sync (Phase 17)     | `/sync`                | Supabase PostgreSQL sync dashboard (pooler-safe engine, keepalive)         |
+| Inspection          | `/inspection`          | Inspection CRUD + photo evidence                                                                                                           |
+| Sample              | `/sample`              | Sample management                                                                                                                          |
+| Case File           | `/case_file_generator` | Case file generation                                                                                                                       |
+| Adjudication        | `/adjudication`        | Adjudication management                                                                                                                    |
+| Billing             | `/billing`             | Billing summary + export                                                                                                                   |
+| Bill Generator      | `/bill_generator`      | Bill PDF (async via QStash)                                                                                                                |
+| FBO Issue           | `/fbo-issue`           | FBO issue state machine                                                                                                                    |
+| Annexure            | `/annexure`            | Annexure upload + metadata                                                                                                                 |
+| Evidence            | `/evidence`            | Evidence library (photos, reports, etc.)                                                                                                   |
+| Document Viewer     | `/document_viewer`     | Quill editor, save/restore, PDF                                                                                                            |
+| Legal Analysis      | `/legal`               | Legal paragraph detection workbench                                                                                                        |
+| Search              | `/search`              | FTS5 + fuzzy search API                                                                                                                    |
+| Version Control     | `/api/version-control` | Version history UI + API                                                                                                                   |
+| Timeline            | `/timeline`            | Case milestone timeline + Gantt                                                                                                            |
+| Food Cell           | `/food-cell`           | DO Intimation workflow (Phase 21)                                                                                                          |
+| **RAG**             | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete)                                                                 |
+| **Knowledge Graph** | `/knowledge-graph`     | Entity/relationship graph + Neo4j sync (Phase 14 complete)                                                                                 |
+| Audit               | `/admin`               | Audit log viewer                                                                                                                           |
+| Settings            | `/settings`            | Admin settings                                                                                                                             |
+| Health              | `/health`              | Health probe (public)                                                                                                                      |
+| Sync (Phase 17)     | `/sync`                | Supabase PostgreSQL sync dashboard (pooler-safe engine, keepalive)                                                                         |
 
 ### Response Format
 

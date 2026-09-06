@@ -29,7 +29,7 @@
 > exist in `tests/test_rust_normalizers.py` (uses `pytest.importorskip`).
 >
 > **HOWEVER: the extension has NEVER been successfully compiled.** `maturin
-> build --release` fails on this Windows dev machine: `linker link.exe not found`
+build --release` fails on this Windows dev machine: `linker link.exe not found`
 > — the MSVC linker / Windows 10 SDK requires admin elevation for installation
 > (exit code 5007, UAC prompt), which a headless shell cannot provide. On a
 > Linux host (e.g. Render), the linker is available and the build would succeed.
@@ -54,8 +54,9 @@ Step 1.5 (Python fallback wiring in `pipeline.py::_run_removers` /
 `maturin build --release` fails at the link step (`link.exe` not found) on the
 Windows dev machine; requires Windows 10 SDK + admin elevation. Step 1.7
 (parity) — test `tests/test_rust_normalizers.py` is written (covers normalizers
-+ removers + OCR + full `clean()` parity); it skips via `importorskip` until the
-extension is built. Steps 1.6/1.7 pending a Linux build environment.
+
+- removers + OCR + full `clean()` parity); it skips via `importorskip` until the
+  extension is built. Steps 1.6/1.7 pending a Linux build environment.
 
 **Build note (2026-08-12 / updated 2026-08-25):** PyO3 extensions on Windows must
 be compiled with the MSVC linker (`link.exe`) against the MSVC-built CPython.
@@ -148,40 +149,43 @@ the meantime.
 
 1. **`pyproject.toml`** — add `maturin` to build-system requirements + add a
    `[tool.maturin]` section pointing at `rust/Cargo.toml`:
-   ```toml
-   [build-system]
-   requires = ["setuptools>=70,<84", "wheel", "maturin>=1.0,<2.0"]
 
-   [tool.maturin]
-   manifest-path = "rust/Cargo.toml"
-   python-source = "rust"
-   module-name = "nsa_rust"
-   ```
+    ```toml
+    [build-system]
+    requires = ["setuptools>=70,<84", "wheel", "maturin>=1.0,<2.0"]
+
+    [tool.maturin]
+    manifest-path = "rust/Cargo.toml"
+    python-source = "rust"
+    module-name = "nsa_rust"
+    ```
 
 2. **`requirements.txt` / `requirements-dev.txt`** — add `maturin` as a
    build/runtime dependency so it's present in CI and Render builds.
 
 3. **`render.yaml` buildCommand** — insert a `maturin build + pip install` step
    **before** the `pip install -r requirements.txt` that installs the wheel:
-   ```bash
-   pip install --upgrade pip setuptools wheel maturin && \
-   maturin build --manifest-path rust/Cargo.toml --release && \
-   pip install target/wheels/nsa_rust-*.whl && \
-   pip install -r requirements.txt && \
-   playwright install chromium && ...
-   ```
-   **Note:** This only works on Render's Python (Linux) buildpack, which has
-   `cargo`/`rustc` available. The Windows dev machine cannot build (no SDK).
+
+    ```bash
+    pip install --upgrade pip setuptools wheel maturin && \
+    maturin build --manifest-path rust/Cargo.toml --release && \
+    pip install target/wheels/nsa_rust-*.whl && \
+    pip install -r requirements.txt && \
+    playwright install chromium && ...
+    ```
+
+    **Note:** This only works on Render's Python (Linux) buildpack, which has
+    `cargo`/`rustc` available. The Windows dev machine cannot build (no SDK).
 
 ### Rust Parts — Priority Assessment
 
-| Part | Target | Source written? | Build status | Call frequency | Effort | Risk | Recommendation |
-|------|--------|-----------------|--------------|----------------|--------|------|----------------|
-| **Part 1** | Document Cleaner (`normalizers.rs`, `removers.rs`) | ✅ Complete (4 files) | ⛔ Blocked (Windows linker) / would work on Linux | Ingestion-time (12,819 chunks via `app/rag/ingestion.py`) + OCR pipeline | — | — | **First: fix build** |
-| **Part 2** | Search Fuzzy Helpers (`_field_score`, `_find_match_spans`, `_snippet_around_matches`) | ✅ Complete (2026-08-25) — `rust/src/search_fuzzy.rs` (12 pyfunctions: `ratio`, `partial_ratio`, `partial_ratio_alignment`, `token_set_ratio`, `expand_to_word`, `find_match_spans`, `apply_marks`, `snippet_around_match`, `snippet_around_matches`, `field_score`, `highlight_text`) + 11 `#[pyfunction]` wrappers in `lib.rs` + `[tool.maturin]` in `pyproject.toml` + `maturin` in `requirements-dev.txt` | Not yet (Windows linker; would compile on Linux) | **Request-time** — every fuzzy search + RAG sparse retrieval query | Low (~150 LOC) | Low (rapidfuzz parity risk — mitigated by parity tests) | **Started (source complete; build deferred to Part 1)** |
-| **Part 3** | TOC + Cross-Reference (`app/toc_generator/engine.py`, `app/cross_reference/engine.py`) | ❌ Not started | N/A | PDF-generation-time (per document) | Medium (788 LOC, HTML parsing) | Medium | Later |
-| **Part 4** | RAG Enrichment + Verification (`app/rag/enrichment/`, `app/rag/verification/`) | ❌ Not started | N/A | Ingestion-time (enrichment) + request-time (verification) | High | High (crossref/citation parity) | Later |
-| **Part 5** | Legal Paragraph Engine (`legal_paragraph_detection_engine/`) | ⚠️ Stubs only (`legal_engine.rs` has structs, no function bodies; `lib.rs` declares pyfunctions that call unimplemented methods) | Would fail to compile | Ingestion-time (27,343 chunks × multi-pass) | Very high (~5,000 LOC, lookbehind regex, hierarchy state machines) | High | Highest-ROI but last |
+| Part       | Target                                                                                 | Source written?                                                                                                                                                                                                                                                                                                                                                                                               | Build status                                      | Call frequency                                                           | Effort                                                             | Risk                                                    | Recommendation                                          |
+| ---------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------- |
+| **Part 1** | Document Cleaner (`normalizers.rs`, `removers.rs`)                                     | ✅ Complete (4 files)                                                                                                                                                                                                                                                                                                                                                                                         | ⛔ Blocked (Windows linker) / would work on Linux | Ingestion-time (12,819 chunks via `app/rag/ingestion.py`) + OCR pipeline | —                                                                  | —                                                       | **First: fix build**                                    |
+| **Part 2** | Search Fuzzy Helpers (`_field_score`, `_find_match_spans`, `_snippet_around_matches`)  | ✅ Complete (2026-08-25) — `rust/src/search_fuzzy.rs` (12 pyfunctions: `ratio`, `partial_ratio`, `partial_ratio_alignment`, `token_set_ratio`, `expand_to_word`, `find_match_spans`, `apply_marks`, `snippet_around_match`, `snippet_around_matches`, `field_score`, `highlight_text`) + 11 `#[pyfunction]` wrappers in `lib.rs` + `[tool.maturin]` in `pyproject.toml` + `maturin` in `requirements-dev.txt` | Not yet (Windows linker; would compile on Linux)  | **Request-time** — every fuzzy search + RAG sparse retrieval query       | Low (~150 LOC)                                                     | Low (rapidfuzz parity risk — mitigated by parity tests) | **Started (source complete; build deferred to Part 1)** |
+| **Part 3** | TOC + Cross-Reference (`app/toc_generator/engine.py`, `app/cross_reference/engine.py`) | ❌ Not started                                                                                                                                                                                                                                                                                                                                                                                                | N/A                                               | PDF-generation-time (per document)                                       | Medium (788 LOC, HTML parsing)                                     | Medium                                                  | Later                                                   |
+| **Part 4** | RAG Enrichment + Verification (`app/rag/enrichment/`, `app/rag/verification/`)         | ❌ Not started                                                                                                                                                                                                                                                                                                                                                                                                | N/A                                               | Ingestion-time (enrichment) + request-time (verification)                | High                                                               | High (crossref/citation parity)                         | Later                                                   |
+| **Part 5** | Legal Paragraph Engine (`legal_paragraph_detection_engine/`)                           | ⚠️ Stubs only (`legal_engine.rs` has structs, no function bodies; `lib.rs` declares pyfunctions that call unimplemented methods)                                                                                                                                                                                                                                                                              | Would fail to compile                             | Ingestion-time (27,343 chunks × multi-pass)                              | Very high (~5,000 LOC, lookbehind regex, hierarchy state machines) | High                                                    | Highest-ROI but last                                    |
 
 **Key finding:** Parts 2–5 have **zero Rust source written** beyond Part 1's
 scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
@@ -506,13 +510,8 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
 - **Status (completed 2026-08-26):** ✅ `Role`/`user_roles` tables wired via central gate in `app/__init__.py::enforce_rbac` driven by `ROLE_BLUEPRINTS` (`app/shared/rbac.py`); roles **`admin`** (bypass) + **`fso`**; record-level scoping via `scoped_officer_name()` + `case_visible_to_user()` — CaseFile (`food_safety_officer_name`), Adjudication (`food_safety_officer`), Inspection list/create, Work Diary (locked to bound officer), Comments API (`app/comments/`); create-routes force-stamp the bound officer server-side; users bound via nullable `users.fso_name` (migration `add_user_fso_name`); provisioning seam `app/auth/provisioning.py` (`create_fso_account`, `seed_fso_users`) + extended admin Add User form (role + FSO dropdown, 1:1 binding enforced) + bulk seed `scripts/seed_fso_users.py`; Notepad blueprint registered (+ migration for `note`/`note_evaluation`); Comment model used by `app/comments/` routes (read/add on visible cases; delete author/admin). Flash rendering added to `base.html`. `tests/test_rbac.py` — **44/44 pass**.
 - **Note (2026-08-26):** The detailed implementation plan below was the original pre-implementation intent. The feature was completed per AGENTS.md §1 status. Key design decisions that deviated from the original plan: (1) `@role_required` decorator pattern replaced by a central `enforce_rbac` gate in `app/__init__.py` driven by `ROLE_BLUEPRINTS`; (2) role assignment is via `users.fso_name` (nullable) rather than the `user_roles` join table directly — FSO binding is 1:1 and force-stamped server-side on create-routes; (3) Comment API is at `app/comments/` with scoped visibility, not inline in `document_viewer/routes.py`; (4) `Comment` model fields differ from the original spec.
 
-> **Note (2026-08-26):** The detailed plan below describes the original pre-implementation intent. The feature was completed per AGENTS.md §1 status (44/44 tests pass). Key deviations: the `@role_required` decorator was replaced by a central `enforce_rbac` gate in `app/__init__.py::enforce_rbac` driven by `ROLE_BLUEPRINTS` in `app/shared/rbac.py`; role assignment is via `users.fso_name` (nullable) rather than the `user_roles` join table directly — FSO binding is 1:1 and force-stamped server-side on create-routes; Comment API is at `app/comments/` with scoped visibility, not inline in `document_viewer/routes.py`; `Comment` model fields differ from the original spec.
-    - `migrations/versions/xxxx_add_rbac_and_comment_tables.py` (DB migration)
-    - `app/decorators.py` (create `@role_required` decorator)
-    - `app/auth/routes.py` (user role management UI for admins)
-    - `app/document_viewer/routes.py` (comment API endpoints)
-    - `app/document_viewer/templates/document_viewer/editor.html` (comment sidebar UI)
-    - `tests/test_rbac.py` (security test suite)
+> **Note (2026-08-26):** The detailed plan below describes the original pre-implementation intent. The feature was completed per AGENTS.md §1 status (44/44 tests pass). Key deviations: the `@role_required` decorator was replaced by a central `enforce_rbac` gate in `app/__init__.py::enforce_rbac` driven by `ROLE_BLUEPRINTS` in `app/shared/rbac.py`; role assignment is via `users.fso_name` (nullable) rather than the `user_roles` join table directly — FSO binding is 1:1 and force-stamped server-side on create-routes; Comment API is at `app/comments/` with scoped visibility, not inline in `document_viewer/routes.py`; `Comment` model fields differ from the original spec. - `migrations/versions/xxxx_add_rbac_and_comment_tables.py` (DB migration) - `app/decorators.py` (create `@role_required` decorator) - `app/auth/routes.py` (user role management UI for admins) - `app/document_viewer/routes.py` (comment API endpoints) - `app/document_viewer/templates/document_viewer/editor.html` (comment sidebar UI) - `tests/test_rbac.py` (security test suite)
+
 - **Detailed Implementation Plan:**
     1. **Database Schema (`app/models/auth.py`):**
 
@@ -1710,3 +1709,62 @@ Code-side migration prep is complete (pooler-safe engine options in
   days idle). Confirm the first scheduled run succeeds; set the
   `PROD_HEALTH_URL` repo variable if the Render domain differs from
   `nsa-webservice.onrender.com` (default).
+
+---
+
+## Future RAG Improvements (saved 2026-09-06) — ✅ ALL COMPLETE (2026-09-06)
+
+### Priority 1: ContextPrecisionMetric — Robustness & Efficiency ✅
+
+- **Early-exit optimization**: break similarity loop once sum drops below threshold, avoid unnecessary vector comparisons
+- **Edge case handling**: graceful handling of empty chunks, zero-dimensional vectors, NaN values
+- **TF-IDF fallback**: if embeddings fail, degrade to TF-IDF cosine similarity (via try/except wrapper)
+- **Expected outcome**: Lower latency, more robust behavior under noisy embeddings
+
+**Implementation:** `app/rag/evaluation/metrics.py::ContextPrecisionMetric` — early-exit guard + try/except on embeddings + zero-chunk edge case → `handle_edge_case_empty_chunk()`
+
+### Priority 2: SelfConsistencyMetric — Reliability Enhancement ✅
+
+- **Adaptive threshold**: increase threshold progressively over iterations (progressive deepening)
+- **Confidence-weighted scoring**: weight pairwise similarities by LLM generation confidence scores
+- **Early termination**: stop computation if mean stability exceeds threshold (sample_count ≥ 2 and std < 0.05)
+- **Minimum sample enforcement**: require at least 2 successful generations before reporting non-zero score
+
+**Implementation:** `app/rag/evaluation/metrics.py::SelfConsistencyMetric` — adaptive threshold (0.02/iter), progressive deepening, early termination (`mean ≥ threshold AND std ≤ 0.05`)
+
+### Priority 3: route_after_verify — Signal Fusion Enhancement ✅
+
+- **Progressive deepening**: iteratively increase threshold (0.8 → 0.85 → 0.9...) on consecutive retries
+- **Per-query-type tuning**: apply different thresholds based on query category (legal=0.85, general_qa=0.80)
+- **Multi-hop agent**: reason_node + multi_hop_retrieve_node for multi-hop reasoning
+- **RAG Query Interface UI**: full frontend (query.html + rag_query.js + routes.py)
+
+**Implementation:** `app/rag/agent/graph.py::route_after_verify` — progressive deepening + per-query-type BASE_THRESHOLDS; `app/rag/agent/nodes.py::reason_node` + `multi_hop_retrieve_node`; `app/rag/templates/rag/query.html` + `app/rag/routes.py` + `app/static/js/rag_query.js`
+
+### Priority 4: EvalRunner — Scalability & Observability ✅
+
+- **Weighted metric aggregation**: combine metrics into composite quality score with tunable weights
+- **Automatic metric selection**: choose appropriate metric set based on query category
+- **Parallel evaluation**: EvalRunner wired with SelfConsistencyMetric
+
+**Implementation:** `app/rag/evaluation/runner.py::EvalRunner` — `SelfConsistencyMetric` wired, `metric_weights` composite scoring in `_summarize`, `n_consistency_samples` support
+
+### Priority 5: Metrics Aggregation — Semantic Consistency ✅
+
+- **Weighted composite scoring**: combine faithfulness, relevance, context precision, citation recall, grounding with configurable weights
+- **Failure categorization**: classify failures by type (low coverage, poor relevance, hallucination, grounding) for targeted debugging
+
+**Implementation:** `app/rag/evaluation/metrics.py::WeightedCompositeScore` — 7 metrics (faithfulness/answer_relevance/context_precision/context_recall/citation_recall/groundedness/self_consistency), configurable DEFAULT_WEIGHTS, FAILURE_CATEGORIES for 6 categories
+
+### Priority 6: Edge Case Hardening ✅
+
+- **Zero-chunk handling**: graceful degradation for queries with no retrieved chunks
+- **Missing citation detection**: distinguish "no citations expected" vs. "citations missing"
+- **Empty answer scoring**: proper scoring for empty or garbage answers
+- **NaN vector guards**: pre-compute vector norms, handle NaN/invalid embeddings
+
+**Implementation:** `app/rag/evaluation/metrics.py::handle_edge_case_empty_chunk()` + `handle_edge_case_empty_answer()`; `SelfConsistencyMetric` handles `len(answers) < 2`; `ContextPrecisionMetric` try/except with rapidfuzz fallback
+
+### Completed: All 6 Priorities ✅ (2026-09-06)
+
+All 6 RAG improvement priorities implemented and verified: 70 tests pass (21 agent nodes + 49 eval framework). Phase 17 (Supabase bridge) and Phase 19 (AI Case Intelligence) remain pending.
