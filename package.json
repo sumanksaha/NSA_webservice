@@ -18,7 +18,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "@types/quill": "^2.0.14",
-    "eslint": "9.39.5",
+    "eslint": "10.9.1",
     "eslint-config-prettier": "9.1.2",
     "globals": "15.15.0",
     "prettier": "3.9.6",
