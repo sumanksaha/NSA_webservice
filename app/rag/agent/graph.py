@@ -64,6 +64,14 @@ def route_after_review(state: RAGState) -> str:
     return "expand_query"
 
 
+def _route_after_classify(state: RAGState) -> str:
+    """Route after classify: multi-hop for cross-reference / case-law, standard otherwise."""
+    query_type = str(state.get("query_type", "general")).lower()
+    if query_type in ("cross_reference", "case_law"):
+        return "multi_hop_retrieve"
+    return "retrieve"
+
+
 def review_node(state: RAGState) -> dict[str, Any]:
     """M5 human-in-the-loop gate (only present when ``hitl=True``).
 
@@ -182,6 +190,8 @@ def build_graph(
 
     builder.add_node("classify", nodes.classify_node)
     builder.add_node("retrieve", nodes.retrieve_node)
+    # Multi-hop retrieval node for cross-reference / case-law queries (1.2).
+    builder.add_node("multi_hop_retrieve", nodes.multi_hop_retrieve_node)
     builder.add_node("generate", nodes.generate_node)
     builder.add_node("verify", nodes.verify_node)
     # Citation quality gate (2026-08-26): checks if cited chunks are
@@ -191,7 +201,17 @@ def build_graph(
     builder.add_node("finalize", nodes.finalize_node)
 
     builder.add_edge(START, "classify")
-    builder.add_edge("classify", "retrieve")
+    # Multi-hop routing (1.2): cross_reference / case_law queries go through
+    # multi_hop_retrieve_node which inspects cross-references and builds
+    # follow-up queries before falling through to retrieve.
+    builder.add_conditional_edges(
+        "classify",
+        _route_after_classify,
+        {"retrieve": "retrieve", "multi_hop_retrieve": "multi_hop_retrieve"},
+    )
+    # multi_hop_retrieve re-runs retrieval with refined query, then
+    # merges results into the state before generating.
+    builder.add_edge("multi_hop_retrieve", "retrieve")
 
     # Optional evidence node between retrieve and generate (feature-flagged).
     if cfg.evidence_selector:

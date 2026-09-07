@@ -324,28 +324,72 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Targeted retrieval using the reasoning note.
+    """Targeted retrieval using reasoning note — multi-hop for cross-reference / case-law.
 
-    Priority 3: Re-runs retrieval with refined query derived from reasoning.
+    Priority 3: Inspects retrieved chunks for cross-references (via
+    ReferenceExtractor), builds follow-up queries, and merges results.
+    Activated for query_type ``cross_reference`` or ``case_law``.
     """
     start = time.monotonic()
     from app.rag.tasks import run_retrieval_pipeline
 
     reasoning = state.get("reasoning", "")
-    refined_query = state.get("expanded_query") or state.get("query", "")
-    # ponytail: no speculative refinement clause; keep query intact for simplicity.
-    # Add back only if multi-hop retrieval specifically requires penalties detail.
+    query = state.get("expanded_query") or state.get("query", "")
+    query_type = state.get("query_type", "general")
+
+    # First pass — standard retrieval (re-uses existing chunks if present).
     result = run_retrieval_pipeline(
-        query=refined_query,
+        query=query,
         top_k=state.get("top_k", 10),
         collection_name=state.get("collection_name"),
         filters=state.get("filters"),
         pipeline="agent",
     )
+    chunks = result.get("chunks", [])
+
+    # Multi-hop: only for complex cross-reference / case-law queries.
+    # Extract cross-references from retrieved chunks and build a follow-up.
+    if query_type in ("cross_reference", "case_law") and chunks:
+        try:
+            from app.rag.retrieval.reference_extractor import ReferenceExtractor
+
+            refs = ReferenceExtractor().extract_references(chunks)
+            # Build refined query from first cross-reference found.
+            if refs:
+                first_ref = refs[0]
+                refined = f"{query} AND {first_ref.get('text', '')}"
+                # Second retrieval pass — merge results.
+                result2 = run_retrieval_pipeline(
+                    query=refined,
+                    top_k=state.get("top_k", 10),
+                    collection_name=state.get("collection_name"),
+                    filters=state.get("filters"),
+                    pipeline="agent",
+                )
+                chunks2 = result2.get("chunks", [])
+                # Merge — prefer second-pass chunks that don't duplicate
+                # first-pass chunk_ids, preserving RRF score order.
+                seen = {c.get("chunk_id") for c in chunks}
+                for c in chunks2:
+                    if c.get("chunk_id") not in seen:
+                        chunks.append(c)
+                        seen.add(c.get("chunk_id"))
+                result = {**result, "chunks": chunks, "total": len(chunks)}
+        except Exception as exc:
+            logger.warning("multi_hop_retrieve_node: cross-ref extraction failed (%s)", exc)
+
     return {
-        "chunks": result.get("chunks", []),
+        "chunks": chunks,
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {"node": "multi_hop_retrieve", "latency_ms": _ms(start), "detail": {"refined": bool(reasoning)}},
+            {
+                "node": "multi_hop_retrieve",
+                "latency_ms": _ms(start),
+                "detail": {
+                    "refined": bool(reasoning),
+                    "query_type": query_type,
+                    "multi_hop": query_type in ("cross_reference", "case_law"),
+                },
+            },
         ],
     }

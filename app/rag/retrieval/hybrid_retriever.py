@@ -189,6 +189,16 @@ class HybridRetriever:
         elif dense_result.error and sparse_result.error:
             error = f"{dense_result.error}; {sparse_result.error}"
 
+        # Optional MMR diversity re-ranking (1.4): when the client-side RRF
+        # path is active (identifier arm requested), apply Maximal Marginal
+        # Relevance to reduce context contamination from semantically similar
+        # chunks.  Skipped on the server-side fusion path (fast path).
+        if identifier_query is not None and fused_chunks:
+            try:
+                fused_chunks = mmr_rerank(fused_chunks, top_k=top_k, lambda_=0.5)
+            except Exception as exc:
+                logger.warning("MMR rerank failed, returning RRF result: %s", exc)
+
         # Optional reranking
         if self.reranker is not None and fused_chunks:
             try:
@@ -205,3 +215,84 @@ class HybridRetriever:
             source="hybrid",
             error=error,
         )
+
+
+def _chunk_word_set(chunk: RetrievedChunk) -> set[str]:
+    """Return the set of normalized words in a chunk's text for similarity."""
+    import re
+
+    return set(re.findall(r"\b\w+\b", chunk.text.lower()))
+
+
+def _jaccard_similarity(set_a: set[str], set_b: set[str]) -> float:
+    """Jaccard similarity between two word sets."""
+    if not set_a or not set_b:
+        return 0.0
+    inter = len(set_a & set_b)
+    union = len(set_a | set_b)
+    return inter / union if union else 0.0
+
+
+def mmr_rerank(fused_chunks: list[RetrievedChunk], top_k: int = 10, lambda_: float = 0.5) -> list[RetrievedChunk]:
+    """Maximal Marginal Relevance re-ranking for diversity.
+
+    Selects *top_k* chunks from *fused_chunks* that maximize:
+        score = λ * relevance - (1-λ) * max_similarity_to_already_selected
+
+    Where:
+    - relevance = chunk.score (RRF fused score)
+    - similarity = Jaccard word-overlap between chunk texts (avoids a second
+      embedding pass; the chunk text is already available from retrieval)
+
+    Args:
+        fused_chunks: Chunks from RRF fusion (already scored).
+        top_k: Maximum number of chunks to return.
+        lambda_: Trade-off parameter λ ∈ [0,1].  λ=1 is pure relevance,
+            λ=0 is pure diversity.  λ≈0.5 is a balanced default.
+
+    Returns:
+        A list of at most *top_k* chunks re-ranked for diversity,
+        preserving the original chunk objects and their scores.
+    """
+    if not fused_chunks:
+        return []
+
+    selected: list[RetrievedChunk] = []
+    remaining = list(fused_chunks)
+
+    # Initial selection: highest relevance (RRF score)
+    remaining.sort(key=lambda c: c.score, reverse=True)
+    selected.append(remaining.pop(0))
+
+    while len(selected) < top_k and remaining:
+        best_chunk: RetrievedChunk | None = None
+        best_score = -float("inf")
+
+        for chunk in remaining:
+            # Relevance part
+            relevance = chunk.score if (chunk := selected[0]) else 0  # fallback
+
+            # Actually, compute relevance from each remaining chunk's own score
+            rel = chunk.score
+
+            # Diversity part: max similarity to any already-selected chunk
+            max_sim = 0.0
+            for sel in selected:
+                sim = _jaccard_similarity(_chunk_word_set(chunk), _chunk_word_set(sel))
+                if sim > max_sim:
+                    max_sim = sim
+
+            # MMR score: λ * relevance - (1-λ) * max_similarity
+            mmr = lambda_ * rel - (1.0 - lambda_) * max_sim
+
+            if mmr > best_score:
+                best_score = mmr
+                best_chunk = chunk
+
+        if best_chunk is not None:
+            selected.append(best_chunk)
+            remaining.remove(best_chunk)
+        else:
+            break
+
+    return selected
