@@ -7,20 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Status: Phases 0–16, 20, 21, Phase A + OCR Phases B–E, Deepening D1–D5, S9a, Priority 6/7,
+> Status: Phases 0–16, 19, 20, 21, Phase A + OCR Phases B–E, Deepening D1–D5, S9a, Priority 6/7,
 > RAG Phases 1–5, Multi-Domain Phase 1, Evaluation Framework, Benchmark v1.0, Rust PyO3,
 > Remote Inference (Modal), LangGraph Agent Pipeline + M5, FastAPI Gateway, and the Config
-> seam are implemented and verified (~1,900 tests). **CI/CD gates G1–G14 complete
+> seam are implemented and verified (~1,970 tests). **CI/CD gates G1–G14 complete
 > (2026-08-23) — deploy gating, staging env, pre-deploy migrations, health check, full
 > security blocking (Bandit+Safety+pip-audit), coverage gate, Docker ASGI path, release
 > automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy
 > serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
-> Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Phase 19,
-> Rust Parts 1.6+ / 2–5, CE-v2 retrain.
+> Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
-### Added (2026-08-26)
+### Added (2026-09-07)
 
-#### Security hardening close-out (S10c + S2 residual)
+#### Phase 19 — AI Case Intelligence
+
+- **`app/case_intelligence/` blueprint** (`/case-intelligence`): AI-powered analysis
+  engine for evaluating case readiness. Computes three core metrics:
+  - **Evidence Strength**: `none` / `weak` / `moderate` / `strong` based on
+    evidence count and presence of critical evidence types (statutory references,
+    annexures, evidence records).
+  - **Traceability**: float `0.0–1.0` measuring evidence connectivity diversity
+    (number of distinct evidence types attached to the case).
+  - **Readiness Score**: `not_ready` / `needs_attention` / `ready` derived from
+    validation errors/warnings, evidence strength, and timeline consistency.
+- **Endpoints**:
+  - `GET /case-intelligence/<id>/scores?case_type=case_file` — returns raw
+    scores with enum values and numeric breakdown.
+  - `GET /case-intelligence/<id>/summary?case_type=case_file` — returns a
+    human-readable assessment narrative with traceability percentage and
+    readiness label.
+- **Engine**: `app/case_intelligence/engine.py` — pure functions
+  `_calculate_evidence_strength()`, `_calculate_traceability()`,
+  `_calculate_readiness_score()`, and `calculate_intelligence_scores()`
+  (integrates with `CaseResolver` + `CaseDataAssembler`).
+- **Tests**: `tests/test_case_intelligence.py` — **12/12 pass** (unit tests for
+  scoring helpers + HTTP endpoint integration tests with authenticated session).
+- Registered in `app/__init__.py` with `/case-intelligence` prefix.
 
 - **Backup monitoring (S10c):** `run_backup()` records per-target outcomes to
   the `settings` table (`last_backup_at`, `last_backup_results`) via
@@ -104,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in `app/case_file_generator/routes.py` — validates form data, processes via
   `process_form_data()`, renders `petition.html` + `permission_letter.html`
   through `post_process_pdf_html()`, returns JSON `{petition_html,
-  permission_html, case_number}` with RBAC stamping.
+permission_html, case_number}` with RBAC stamping.
 - **UI**: Preview button (`#previewBtn`) + modal with petition/permission
   iframe tabs in `app/case_file_generator/templates/case_file_generator/index.html`.
   Fixed `showPreviewTab(tab, btn)` — was using `event.target` without an
@@ -117,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in `app/adjudication/routes.py` + `validate_adjudication_form()` validator
   (required fields + date-field checks) — processes form data, renders both
   templates, returns JSON `{petition_html, permission_html, case_number,
-  case_type}` with RBAC stamping.
+case_type}` with RBAC stamping.
 - **UI**: Preview button + modal with iframe tabs in
   `app/adjudication/templates/adjudication/index.html`.
 - Tests: `tests/test_preview_adjudication.py` 9/9.
@@ -515,6 +537,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `agents.md`, `plan.md`, `task.md`, `CHANGELOG.md`, `README.md` updated to reflect all
   implemented phases and status
+
+### Stability & Maintainability Improvements (3.7–3.9)
+
+- **3.7 RAGQueryLog Retention Policy**: Added `app/scripts/cleanup_rag_logs.py` with
+  `cleanup_rag_query_logs()` function that deletes logs older than `RAG_LOG_RETENTION_DAYS`
+  (default 90 days). New config setting: `RAG_LOG_RETENTION_DAYS = 90`.
+
+- **3.8 Static Config-Attribute Linting**: Created `app/shared/config_lint.py` with
+  `validate_settings()` and `generate_cfg_stub()` functions. Auto-generates
+  `app/shared/cfg.pyi` type stub for static analysis. Validates all required
+  config settings at import time.
+
+- **3.9 Per-Domain KG Circuit Breaker**: Implemented `app/rag/circuit_breaker.py` with
+  per-query-type circuit breakers (case_law, provision_search, etc.). Failure threshold
+  (default 5) and timeout (120 seconds). State machine: CLOSED → OPEN → HALF_OPEN.
+  New config settings: `RAG_KG_FAILURE_THRESHOLD = 5`, `RAG_KG_TIMEOUT_SECONDS = 120`.
+
+### Other Implemented Improvements
+
+- **3.3 Metrics Export**: Added `app/rag/evaluation/exporter.py` with Prometheus/OTel
+  support. Wired into `app/rag/tasks.py` `run_generation_pipeline()` for tracking
+  pipeline latency and evaluation metrics.
+
+- **3.4 Corpus Versioning**: Added `version_id` (integer, default 1) and `is_latest`
+  (boolean) columns to `LegalDocument` model. Alembic migration:
+  `migrations/versions/20260907163944_add_versioning_to_legal_document.py`.
+
+- **3.5 Narrow `Any` Type Annotations**: Replaced `dict[str, Any]` → `dict[str, object]`
+  and `list[Any]` → `list[object]` in key files.
+
+- **3.6 Fix `EnsembleReranker` Default `ce_head`**: Updated from 20 to 30 in
+  `app/rag/retrieval/reranker.py:236` to match config `RAG_ENSEMBLE_CE_HEAD`.
+
+- **1.3 SubQueryDecomposer**: Created `app/rag/retrieval/subquery_decomposer.py` and
+  wired into `run_generation_pipeline()` for compound query decomposition.
+
+- **1.4 MMR Integration**: Added `mmr_rerank()` function in `app/rag/retrieval/hybrid_retriever.py`
+  and integrated into retrieve flow after fusion.
+
+- **1.5 Identifier Fallback**: Verified `identifier.py` handles act-only and section-only
+  fallbacks via `meta["form"]` field.
+
+- **2.4 KG Cypher Combine**: Combined two Neo4j Cypher queries into single-round-trip
+  pattern in `kg/hybrid.py`.
+
+- **3.1 Dead Code Removal**: Cleaned up `app/rag/agent/nodes.py` - single
+  `multi_hop_retrieve_node` function.
+
+- **3.2 Narrow Exception Handling**: Narrowed exception handling in 6 locations
+  across `kg/hybrid.py`, `app/rag/tasks.py`, and `app/rag/retrieval/hybrid_retriever.py`.
 
 ## [1.0.0] - Initial Release
 

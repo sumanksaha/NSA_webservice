@@ -500,6 +500,8 @@ def create_app(db_uri: str | None = None):
     app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
     app.register_blueprint(notepad_bp, url_prefix="/notepad")
     app.register_blueprint(sync_bp, url_prefix="/sync")
+    from app.case_intelligence import intelligence_bp
+    app.register_blueprint(intelligence_bp, url_prefix="/case-intelligence")
     from app.ai_assistant import ai_bp
 
     app.register_blueprint(ai_bp, url_prefix="/ai-assistant")
