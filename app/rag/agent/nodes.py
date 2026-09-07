@@ -349,29 +349,3 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
             {"node": "multi_hop_retrieve", "latency_ms": _ms(start), "detail": {"refined": bool(reasoning)}},
         ],
     }
-
-    """Targeted retrieval using the reasoning note.
-
-    Priority 3: Re-runs retrieval with refined query derived from reasoning.
-    """
-    start = time.monotonic()
-    from app.rag.tasks import run_retrieval_pipeline
-
-    reasoning = state.get("reasoning", "")
-    refined_query = state.get("expanded_query") or state.get("query", "")
-    if reasoning and "incomplete" in reasoning:
-        refined_query = f"{refined_query} AND detailed explanation of penalties"
-    result = run_retrieval_pipeline(
-        query=refined_query,
-        top_k=state.get("top_k", 10),
-        collection_name=state.get("collection_name"),
-        filters=state.get("filters"),
-        pipeline="agent",
-    )
-    return {
-        "chunks": result.get("chunks", []),
-        "audit_trail": [
-            *(state.get("audit_trail") or []),
-            {"node": "multi_hop_retrieve", "latency_ms": _ms(start), "detail": {"refined": bool(reasoning)}},
-        ],
-    }
