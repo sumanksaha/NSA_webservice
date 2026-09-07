@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -132,16 +133,15 @@ def apply_stages(
     query: str,
     result: Any,
     stages: list[RetrievalStage] | None = None,
+    parallel: bool = True,
 ) -> dict[str, Any]:
     """Apply all enabled post-retrieval enrichment stages to *result*.
 
-    Returns a dict mapping ``output_key -> value`` for every stage, with
-    defaults filling in disabled or skipped stages.  When *result* has no
-    chunks, all stages are skipped and only defaults are returned.
-
-    Stages whose ``isolate`` flag is True log-and-continue on error; stages
-    with ``isolate=False`` propagate exceptions (matching the original inline
-    behaviour).
+    When *parallel* is True (default), independent stages run concurrently
+    via ThreadPoolExecutor — this covers the 2.5 efficiency improvement
+    (parallelize independent post-retrieval stages).  Sequential mode is
+    used when stages depend on each other's outputs (e.g. evidence_selector
+    after reference_expansion, though in practice they are independent).
     """
     if stages is None:
         stages = POST_RETRIEVAL_STAGES
@@ -151,15 +151,38 @@ def apply_stages(
     if not getattr(result, "chunks", None):
         return out
 
-    for stage in stages:
-        if not stage.is_enabled():
-            continue
-        try:
-            logger.debug("apply_stages: running stage %s for query=%r", stage.name, query)
-            out[stage.output_key] = stage.enrich(query, result)
-        except Exception as exc:
-            logger.warning("apply_stages: stage %s failed: %s", stage.name, exc)
-            if not stage.isolate:
-                raise
+    enabled = [s for s in stages if s.is_enabled()]
+
+    if parallel and len(enabled) > 1:
+        # 2.5: Parallelize independent post-retrieval stages.
+        # Stage isolation ensures one failure doesn't abort the pipeline.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(4, len(enabled))) as executor:
+            futures = {
+                executor.submit(_run_stage, s, query, result): s
+                for s in enabled
+            }
+            for future in futures:
+                stage = futures[future]
+                try:
+                    out[stage.output_key] = future.result()
+                    logger.debug("apply_stages: completed stage %s (parallel)", stage.name)
+                except Exception as exc:
+                    logger.warning("apply_stages: stage %s failed: %s", stage.name, exc)
+                    if not stage.isolate:
+                        raise
+    else:
+        for stage in enabled:
+            try:
+                logger.debug("apply_stages: running stage %s for query=%r", stage.name, query)
+                out[stage.output_key] = stage.enrich(query, result)
+            except Exception as exc:
+                logger.warning("apply_stages: stage %s failed: %s", stage.name, exc)
+                if not stage.isolate:
+                    raise
 
     return out
+
+
+def _run_stage(stage: RetrievalStage, query: str, result: Any) -> Any:
+    return stage.enrich(query, result)

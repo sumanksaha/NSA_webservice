@@ -41,13 +41,31 @@ class ContextBuilder:
         max_chunks: Maximum number of chunks to include.
     """
 
+    # 2.6: Per-query-type context budgets.  case_law needs longer excerpts
+    # (precedent chains); prohibition queries need fewer but more focused
+    # chunks; cross_reference queries need more chunks to cover referenced
+    # sections.
+    _QUERY_TYPE_BUDGETS: dict[str, dict[str, int]] = {
+        "case_law":        {"max_context_chars": 16_000, "max_chunks": 12},
+        "cross_reference": {"max_context_chars": 14_000, "max_chunks": 12},
+        "prohibition":     {"max_context_chars": 10_000, "max_chunks": 8},
+        "definition":      {"max_context_chars": 10_000, "max_chunks": 8},
+        "penalty":         {"max_context_chars": 12_000, "max_chunks": 10},
+        "general":         {"max_context_chars": 12_000, "max_chunks": 10},
+        "procedure":       {"max_context_chars": 12_000, "max_chunks": 10},
+    }
+
     def __init__(
         self,
         max_context_chars: int = 12_000,
         max_chunks: int = 10,
+        query_type: str = "",
     ) -> None:
-        self.max_context_chunks = max_chunks
-        self.max_context_chars = max_context_chars
+        # 2.6: Adjust budget per query type when caller doesn't override.
+        budget = self._QUERY_TYPE_BUDGETS.get(query_type.lower(), {})
+        self.max_context_chunks = budget.get("max_chunks", max_chunks)
+        self.max_context_chars = budget.get("max_context_chars", max_context_chars)
+        self._query_type = query_type
 
     def build(
         self,

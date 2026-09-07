@@ -21,6 +21,7 @@ need a single arm. All flags resolve through the config seam (``cfg``).
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -98,12 +99,17 @@ def build_reranker():
     return Reranker(model_name=model_name)
 
 
+@lru_cache(maxsize=8)
 def build_hybrid_retriever(collection_name: str | None = None):
     """Assemble the full stack: dense + sparse (+ BM25) + reranker → hybrid.
 
     RAG_QDRANT_BM25: Qdrant computes the BM25 vector in-cluster
     (``Qdrant/bm25``) — no local fastembed at query time. Verified live
     2026-08-16 against the provisioned cluster; free on the free tier.
+
+    Cached per collection_name via ``lru_cache`` — avoids rebuilding
+    DenseRetriever, SparseRetriever and the ensemble reranker on every
+    request (the expensive part is the local CE encoder loading).
     """
     from app.rag.retrieval import HybridRetriever
 
@@ -112,6 +118,11 @@ def build_hybrid_retriever(collection_name: str | None = None):
         sparse=build_sparse_retriever(collection_name),
         reranker=build_reranker(),
     )
+
+
+def clear_retriever_cache() -> None:
+    """Clear the per-collection retriever cache (e.g. after re-ingestion)."""
+    build_hybrid_retriever.cache_clear()
 
 
 __all__ = [
