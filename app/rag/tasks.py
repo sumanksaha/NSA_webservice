@@ -542,6 +542,42 @@ def run_generation_pipeline(
             logger.warning("run_generation_pipeline: hallucination detection failed: %s", exc)
             verification = {"enabled": True, "error": str(exc)}
 
+    # Phase 3 citation-level validation (2026-08-26): when the
+    # HallucinationDetector ran (or even when it didn't), validate that every
+    # citation in the generated answer maps to a real retrieved chunk and
+    # that section numbers are consistent.  Best-effort by design — never
+    # raises, so a validator failure cannot break a query.  Merged into the
+    # same ``verification`` dict so the audit report carries both layers.
+    if rag_response.citations and chunk_objects:
+        try:
+            from app.rag.verification.citation_validator import CitationValidator
+
+            citation_report = CitationValidator().validate(
+                rag_response.citations,
+                chunk_objects,
+            )
+            verification = verification or {}
+            verification["citation_validation"] = {
+                "enabled": True,
+                "score": citation_report.score,
+                "valid": len(citation_report.valid),
+                "invalid": len(citation_report.invalid),
+                "section_mismatches": len(citation_report.section_mismatches),
+                "detail": citation_report.detail,
+            }
+            # Escalate invalid citations — never de-escalate a sanitizer flag.
+            invalid_ids = {d["chunk_id"] for d in citation_report.detail if d["status"] == "invalid"}
+            if invalid_ids:
+                rag_response.hallucinated_claims = [
+                    *rag_response.hallucinated_claims,
+                    *[f"citation {cid} does not map to any retrieved chunk" for cid in invalid_ids],
+                ]
+                rag_response.hallucination_detected = True
+        except Exception as exc:
+            logger.warning("run_generation_pipeline: citation validation failed: %s", exc)
+            verification = verification or {}
+            verification["citation_validation"] = {"enabled": True, "error": str(exc)}
+
     total_latency_ms = int((time.monotonic() - start) * 1000)
     logger.info(
         "run_generation_pipeline: query=%r chunks=%d groundedness=%s lat=%dms",

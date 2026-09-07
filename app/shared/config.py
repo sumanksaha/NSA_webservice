@@ -101,7 +101,7 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_RETRIEVAL_CACHE",
         "retrieval_cache",
         bool,
-        False,
+        True,
         help="Memoize deterministic retrieval results (TTL+LRU, §12.1).",
     ),
     Setting(
@@ -354,14 +354,14 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_KG_EXPANSION",
         "kg_expansion",
         bool,
-        False,
+        True,
         help="Expand retrieved chunk IDs through the Neo4j KG (mutually exclusive with fusion).",
     ),
     Setting(
         "RAG_KG_FUSION",
         "kg_fusion",
         bool,
-        False,
+        True,
         help="RRF-fuse KG provisions into retrieved context (mutually exclusive with expansion).",
     ),
     Setting(

@@ -333,8 +333,8 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
 
     reasoning = state.get("reasoning", "")
     refined_query = state.get("expanded_query") or state.get("query", "")
-    if reasoning and "incomplete" in reasoning:
-        refined_query = f"{refined_query} AND detailed explanation of penalties"
+    # ponytail: no speculative refinement clause; keep query intact for simplicity.
+    # Add back only if multi-hop retrieval specifically requires penalties detail.
     result = run_retrieval_pipeline(
         query=refined_query,
         top_k=state.get("top_k", 10),

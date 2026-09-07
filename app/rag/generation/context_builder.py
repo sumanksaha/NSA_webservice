@@ -16,7 +16,9 @@ from app.rag.retrieval.result import RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
-_TOKENS_PER_CHAR = 0.25
+from app.rag.constants import TOKENS_PER_CHAR
+
+_TOKENS_PER_CHAR = TOKENS_PER_CHAR
 _CHUNK_OVERHEAD_CHARS = 120
 
 
