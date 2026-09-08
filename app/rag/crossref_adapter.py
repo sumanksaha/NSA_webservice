@@ -28,7 +28,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from app.rag.legal_sections import FSS_ACT_SECTIONS, is_known_section_for_act
 
@@ -47,7 +46,7 @@ class AdaptedReference:
     #: (§1–104). ``None`` for annexure/paragraph refs (not applicable).
     known: bool | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "kind": self.kind,
             "target": self.target,
@@ -117,7 +116,7 @@ class CrossRefAdapter:
         """§5.1 ``references`` payload — plain raw strings."""
         return [r.raw for r in self.extract(text, act_name=act_name)]
 
-    def structured_references(self, text: str) -> list[dict[str, Any]]:
+    def structured_references(self, text: str) -> list[dict[str, object]]:
         """§5.2 ``LegalChunk.references`` JSON shape ``[{"target", "kind"}]``."""
         return [
             {"target": r.raw, "kind": r.kind}

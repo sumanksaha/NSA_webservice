@@ -41,7 +41,6 @@ import json
 import logging
 import time
 from datetime import UTC, datetime
-from typing import Any
 
 from app.rag.qdrant_client import Point, QdrantStore
 
@@ -72,7 +71,7 @@ def _normalize_vector(vector: Any) -> Any:
     return vector
 
 
-def _archive_sha(points: list[dict[str, Any]]) -> str:
+def _archive_sha(points: list[dict[str, object]]) -> str:
     """SHA-256 of the canonical JSON serialization of the points array."""
     payload = json.dumps(points, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
@@ -82,7 +81,7 @@ def backup_collection(
     store: QdrantStore,
     output_path: str,
     batch_size: int = EXPORT_BATCH_SIZE,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Export a Qdrant collection (payloads + vectors) to a JSON archive.
 
     Args:
@@ -115,7 +114,7 @@ def backup_collection(
             "empty archive (check RAG_QDRANT_COLLECTION)."
         )
 
-    archive: dict[str, Any] = {
+    archive: dict[str, object] = {
         "collection": store.collection_name,
         "exported_at": datetime.now(UTC).isoformat(),
         "vector_size": store.vector_size,
@@ -138,7 +137,7 @@ def backup_collection(
     }
 
 
-def load_archive(archive_path: str) -> dict[str, Any]:
+def load_archive(archive_path: str) -> dict[str, object]:
     """Read and validate a backup archive (structure + SHA-256 integrity)."""
     with open(archive_path, encoding="utf-8") as fh:
         archive = json.load(fh)
@@ -163,7 +162,7 @@ def restore_collection(
     drop_existing: bool = False,
     batch_size: int = RESTORE_BATCH_SIZE,
     create_payload_indexes: bool = True,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Restore a backup archive into a Qdrant collection.
 
     Args:

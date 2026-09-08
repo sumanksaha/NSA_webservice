@@ -19,7 +19,6 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
 
 from app.rag.entity_extractor import _plain_entity_names
 
@@ -99,7 +98,7 @@ class Chunk:
     #: ``_l4_section_headers`` and the backfill's L4 layer).
     sections_covered: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """JSON-safe Qdrant payload dict (§5.1 schema)."""
         return {
             "chunk_id": self.chunk_id,
@@ -137,8 +136,8 @@ class Chunk:
     @classmethod
     def from_paragraph(
         cls,
-        paragraph: dict[str, Any],
-        document: dict[str, Any] | None = None,
+        paragraph: dict[str, object],
+        document: dict[str, object] | None = None,
         chunk_index: int = 0,
         parent_chunk_id: str | None = None,
         embedding_model: str = "",
@@ -268,7 +267,7 @@ class Chunker:
             self._engine = get_legal_engine()()
         return self._engine
 
-    def chunk_text(self, text: str, document: dict[str, Any] | None = None) -> list[Chunk]:
+    def chunk_text(self, text: str, document: dict[str, object] | None = None) -> list[Chunk]:
         """Chunk legal *text* into :class:`Chunk` objects.
 
         Args:

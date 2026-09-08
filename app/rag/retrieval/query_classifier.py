@@ -29,13 +29,57 @@ logger = logging.getLogger(__name__)
 
 
 class QueryType(StrEnum):
-    """Classification categories for user queries."""
+    """Classification categories — expanded for intelligence-layer reasoning (2.2)."""
 
-    SECTION_LOOKUP = "section_lookup"
+    IDENTIFICATION = "identification"
+    LOOKUP = "lookup"
+    DEFINITION = "definition"
+    PROHIBITION = "prohibition"
+    DUTY = "duty"
+    RIGHT = "right"
+    POWER = "power"
+    PENALTY = "penalty"
+    EXCEPTION = "exception"
+    PROCEDURE = "procedure"
+    APPLICABILITY = "applicability"
+    COMPARISON = "comparison"
+    TEMPORAL = "temporal"
+    JURISDICTION = "jurisdiction"
+    CROSS_REFERENCE = "cross_reference"
     CASE_LAW = "case_law"
+    MULTI_HOP = "multi_hop"
+    FACT_PATTERN = "fact_pattern"
+    COMPLIANCE_ASSESSMENT = "compliance_assessment"
+    # Legacy compatibility
+    SECTION_LOOKUP = "section_lookup"
     PROVISION_SEARCH = "provision_search"
     GENERAL_QA = "general_qa"
     AMENDMENT_QUERY = "amendment_query"
+
+
+# Triage map: keyword → QueryType for the 18+ intelligence-layer types.
+# Used by classify_intent() to route queries to the correct retrieval strategy.
+CLASSIFIER_TRIAGE: dict[str, QueryType] = {
+    "identification": QueryType.IDENTIFICATION,
+    "lookup": QueryType.LOOKUP,
+    "definition": QueryType.DEFINITION,
+    "prohibition": QueryType.PROHIBITION,
+    "duty": QueryType.DUTY,
+    "right": QueryType.RIGHT,
+    "power": QueryType.POWER,
+    "penalty": QueryType.PENALTY,
+    "exception": QueryType.EXCEPTION,
+    "procedure": QueryType.PROCEDURE,
+    "applicability": QueryType.APPLICABILITY,
+    "comparison": QueryType.COMPARISON,
+    "temporal": QueryType.TEMPORAL,
+    "jurisdiction": QueryType.JURISDICTION,
+    "cross_reference": QueryType.CROSS_REFERENCE,
+    "case_law": QueryType.CASE_LAW,
+    "multi_hop": QueryType.MULTI_HOP,
+    "fact_pattern": QueryType.FACT_PATTERN,
+    "compliance_assessment": QueryType.COMPLIANCE_ASSESSMENT,
+}
 
 
 # Full FSS Act, 2006 section coverage (expanded from the codebase's KNOWN_SECTIONS).
@@ -49,15 +93,23 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # Amendment queries — must be checked before section lookup
     ("amendment", re.compile(r"\bamend|amendment|substitute|inserted|added|repeal|repealed", re.IGNORECASE)),
     ("section", re.compile(r"\bsection\s*\d{1,3}\b|\bu/s\b|\bsec\.\s*\d{1,3}\b|s\s*\d{1,3}", re.IGNORECASE)),
-    ("case_law", re.compile(
-        r"\b\d{4}\s*(?:SCC|SCR|SC|AIR|ILR|SCALE|All\s*ER|Cr|SLR|MLT|Comp\s*Cas)\b"
-        r"|\bAIR\s+\d+\b"
-        r"|\bSupreme\s*Court\b"
-        r"|\bHigh\s*Court\b"
-        r"|\b(?:v\.|vs\.|versus)\s",
-        re.IGNORECASE,
-    )),
-    ("provision", re.compile(r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE)),
+    (
+        "case_law",
+        re.compile(
+            r"\b\d{4}\s*(?:SCC|SCR|SC|AIR|ILR|SCALE|All\s*ER|Cr|SLR|MLT|Comp\s*Cas)\b"
+            r"|\bAIR\s+\d+\b"
+            r"|\bSupreme\s*Court\b"
+            r"|\bHigh\s*Court\b"
+            r"|\b(?:v\.|vs\.|versus)\s",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "provision",
+        re.compile(
+            r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE
+        ),
+    ),
 ]
 
 
@@ -83,6 +135,7 @@ class QueryClassifier:
                     return QueryType.PROVISION_SEARCH
         return QueryType.GENERAL_QA
 
+
 # ---------------------------------------------------------------------------
 # Query parsers — extract structured filters from a classified query
 # ---------------------------------------------------------------------------
@@ -107,12 +160,20 @@ _SUBSECTION_RE = re.compile(
 
 # Known Indian legal authorities / ministries that issue notifications
 _KNOWN_AUTHORITIES = frozenset({
-    "FSSAI", "Food Safety and Standards Authority of India",
-    "Ministry of Health", "Ministry of Health and Family Welfare",
-    "MoHFW", "Ministry of Environment", "Ministry of Commerce",
-    "Central Government", "State Government",
-    "National Green Tribunal", "Supreme Court", "High Court",
-    "Food Safety and Standards Appellate Tribunal", "FSSAT",
+    "FSSAI",
+    "Food Safety and Standards Authority of India",
+    "Ministry of Health",
+    "Ministry of Health and Family Welfare",
+    "MoHFW",
+    "Ministry of Environment",
+    "Ministry of Commerce",
+    "Central Government",
+    "State Government",
+    "National Green Tribunal",
+    "Supreme Court",
+    "High Court",
+    "Food Safety and Standards Appellate Tribunal",
+    "FSSAT",
 })
 
 
@@ -218,14 +279,41 @@ class JurisdictionQueryParser:
     """
 
     _INDIAN_STATES = frozenset({
-        "andhra pradesh", "telangana", "karnataka", "kerala", "tamil nadu",
-        "maharashtra", "gujarat", "rajasthan", "uttar pradesh", "bihar",
-        "west bengal", "punjab", "haryana", "delhi", "uttarakhand",
-        "himachal pradesh", "jammu and kashmir", "ladakh", "chhattisgarh",
-        "odisha", "jharkhand", "madhya pradesh", "assam", "meghalaya",
-        "manipur", "mizoram", "nagaland", "tripura", "goa",
-        "chandigarh", "dadra and nagar haveli", "daman and diu",
-        "andaman and nicobar", "puducherry", "lakshadweep",
+        "andhra pradesh",
+        "telangana",
+        "karnataka",
+        "kerala",
+        "tamil nadu",
+        "maharashtra",
+        "gujarat",
+        "rajasthan",
+        "uttar pradesh",
+        "bihar",
+        "west bengal",
+        "punjab",
+        "haryana",
+        "delhi",
+        "uttarakhand",
+        "himachal pradesh",
+        "jammu and kashmir",
+        "ladakh",
+        "chhattisgarh",
+        "odisha",
+        "jharkhand",
+        "madhya pradesh",
+        "assam",
+        "meghalaya",
+        "manipur",
+        "mizoram",
+        "nagaland",
+        "tripura",
+        "goa",
+        "chandigarh",
+        "dadra and nagar haveli",
+        "daman and diu",
+        "andaman and nicobar",
+        "puducherry",
+        "lakshadweep",
     })
 
     @staticmethod

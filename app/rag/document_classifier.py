@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 from app.rag.metadata_adapter import MetadataAdapter
 
@@ -59,7 +58,7 @@ class DocumentClassification:
     fields: dict[str, str] = field(default_factory=dict)
     scores: dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "document_type": self.document_type,
             "document_type_label": self.document_type_label,
@@ -72,7 +71,7 @@ class DocumentClassification:
             "scores": dict(self.scores),
         }
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """§5.1 payload fields (filterable ``document_type`` + ``authority``)."""
         return {
             "document_type": self.document_type,
@@ -153,11 +152,11 @@ class DocumentClassifier:
             scores={"document_type": type_conf, "authority": auth_conf},
         )
 
-    def payload(self, text: str) -> dict[str, Any]:
+    def payload(self, text: str) -> dict[str, object]:
         """§5.1 payload dict for ``text`` (smoke-test shape, §6.3)."""
         return self.classify(text).to_payload()
 
-    def enrich_document(self, document: dict[str, Any], text: str | None = None) -> dict[str, Any]:
+    def enrich_document(self, document: dict[str, object], text: str | None = None) -> dict[str, object]:
         """Merge classification into ``document``, filling ONLY missing keys.
 
         Caller-provided values always win.  Sets the chunker-facing ``type``

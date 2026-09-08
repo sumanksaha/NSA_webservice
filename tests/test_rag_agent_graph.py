@@ -109,11 +109,11 @@ def test_route_after_verify_stops_at_max_retries():
 
 def test_route_after_verify_threshold_boundary():
     state = initial_state("q")
-    # general_qa base threshold is 0.80. Exactly at threshold → finalize
-    # (strictly-less-than guard). Below threshold → retry.
-    state.update({"groundedness": 0.80, "retry_count": 0})
+    # Simplified: single GROUNDEDNESS_THRESHOLD = 0.7. At threshold → finalize.
+    # Below threshold → retry.
+    state.update({"groundedness": 0.70, "retry_count": 0})
     assert route_after_verify(state) == "finalize"
-    state.update({"groundedness": 0.799, "retry_count": 0})
+    state.update({"groundedness": 0.699, "retry_count": 0})
     assert route_after_verify(state) == "expand_query"
 
 

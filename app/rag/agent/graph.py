@@ -188,24 +188,30 @@ def build_graph(
 
     builder: StateGraph = StateGraph(RAGState)
 
-    builder.add_node("classify", nodes.classify_node)
-    builder.add_node("retrieve", nodes.retrieve_node)
+    builder.add_node("classify", lambda state, cfg=None: nodes.classify_node(state))
+    # Phase 2.1: Query Planning Layer — inserts plan_node between classify
+    # and retrieve. Produces subquestions + evidence requirements for
+    # downstream nodes (retrieve, multi_hop_retrieve).
+    builder.add_node("plan", lambda state, cfg=None: nodes.plan_node(state))
+    builder.add_node("retrieve", lambda state, cfg=None: nodes.retrieve_node(state))
     # Multi-hop retrieval node for cross-reference / case-law queries (1.2).
-    builder.add_node("multi_hop_retrieve", nodes.multi_hop_retrieve_node)
-    builder.add_node("generate", nodes.generate_node)
-    builder.add_node("verify", nodes.verify_node)
+    builder.add_node("multi_hop_retrieve", lambda state, cfg=None: nodes.multi_hop_retrieve_node(state))
+    builder.add_node("generate", lambda state, cfg=None: nodes.generate_node(state))
+    builder.add_node("verify", lambda state, cfg=None: nodes.verify_node(state))
     # Citation quality gate (2026-08-26): checks if cited chunks are
     # actually in the retrieved set before finalizing.
-    builder.add_node("citation_quality", nodes.citation_quality_node)
-    builder.add_node("expand_query", nodes.expand_query_node)
-    builder.add_node("finalize", nodes.finalize_node)
+    builder.add_node("citation_quality", lambda state, cfg=None: nodes.citation_quality_node(state))
+    # Phase 2.6: Targeted retry — replaces generic expand_query with
+    # failure-aware retrieval targeting.
+    builder.add_node("targeted_retry", lambda state, cfg=None: nodes.targeted_retry_node(state))
+    builder.add_node("expand_query", lambda state, cfg=None: nodes.expand_query_node(state))
+    builder.add_node("finalize", lambda state, cfg=None: nodes.finalize_node(state))
 
     builder.add_edge(START, "classify")
-    # Multi-hop routing (1.2): cross_reference / case_law queries go through
-    # multi_hop_retrieve_node which inspects cross-references and builds
-    # follow-up queries before falling through to retrieve.
+    builder.add_edge("classify", "plan")
+    # Plan produces subquestions + evidence requirements. Route to multi-hop or standard retrieve.
     builder.add_conditional_edges(
-        "classify",
+        "plan",
         _route_after_classify,
         {"retrieve": "retrieve", "multi_hop_retrieve": "multi_hop_retrieve"},
     )
@@ -239,9 +245,10 @@ def build_graph(
         builder.add_conditional_edges(
             "citation_quality",
             route_after_verify,
-            {"expand_query": "expand_query", "finalize": "finalize"},
+            {"targeted_retry": "targeted_retry", "expand_query": "expand_query", "finalize": "finalize"},
         )
 
+    builder.add_edge("targeted_retry", "retrieve")
     builder.add_edge("expand_query", "retrieve")
     builder.add_edge("finalize", END)
 

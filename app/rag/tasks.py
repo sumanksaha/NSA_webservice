@@ -378,22 +378,63 @@ def run_generation_pipeline(
     *pipeline* is forwarded to the internal retrieval run (stamping the
     ``RAGQueryLog`` row) and echoed back in the result dict under
     ``"pipeline"`` (rollout §8 A/B).
+
+    1.3: If the query contains multiple section references with
+    conjunctions (e.g., "Section 33 and Section 38"), decompose into
+    sub-queries and merge results for more complete coverage.
     """
     from dataclasses import asdict
 
     from app.rag.generation import GroundedGenerationService
     from app.rag.retrieval.result import RetrievedChunk
+    from app.rag.retrieval.subquery_decomposer import SubQueryDecomposer
 
     start = time.monotonic()
 
+    # 1.3: Decompose compound queries into sub-queries
+    sub_queries = SubQueryDecomposer().decompose(query)
+    is_compound = len(sub_queries) > 1
+
     if chunks is None:
-        retrieval_data = run_retrieval_pipeline(
-            query=query,
-            top_k=top_k,
-            collection_name=collection_name,
-            filters=filters,
-            pipeline=pipeline,
-        )
+        if is_compound:
+            # Run retrieval for each sub-query and merge results
+            all_chunks: list[RetrievedChunk] = []
+            merged_retrieval_data: dict[str, Any] = {}
+            for sq in sub_queries:
+                sq_data = run_retrieval_pipeline(
+                    query=sq,
+                    top_k=top_k,
+                    collection_name=collection_name,
+                    filters=filters,
+                    pipeline=pipeline,
+                )
+                for raw in sq_data.get("chunks", []):
+                    if isinstance(raw, RetrievedChunk):
+                        all_chunks.append(raw)
+                    elif isinstance(raw, dict):
+                        all_chunks.append(RetrievedChunk.from_dict(raw))
+                # Use the first sub-query retrieval data for metadata
+                if not merged_retrieval_data:
+                    merged_retrieval_data = sq_data
+            # Deduplicate by chunk_id
+            seen = set()
+            unique_chunks = []
+            for c in all_chunks:
+                if c.chunk_id not in seen:
+                    seen.add(c.chunk_id)
+                    unique_chunks.append(c)
+            chunk_objects = sorted(unique_chunks, key=lambda c: c.score, reverse=True)[:top_k]
+            retrieval_data = merged_retrieval_data
+            retrieval_data["chunks"] = chunk_objects
+            retrieval_data["sub_queries"] = sub_queries
+        else:
+            retrieval_data = run_retrieval_pipeline(
+                query=query,
+                top_k=top_k,
+                collection_name=collection_name,
+                filters=filters,
+                pipeline=pipeline,
+            )
         raw_chunks = retrieval_data.get("chunks", [])
         query_type = retrieval_data.get("query_type", query_type)
     else:

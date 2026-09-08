@@ -323,6 +323,38 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def plan_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Build a structured query plan with subquestions and evidence requirements.
+
+    Uses QueryPlanner to decompose compound queries and produce a DAG of
+    subquestions with evidence requirements.  Sets ``query_plan`` on state
+    so downstream nodes (retrieve, evidence, generate) can use it.
+    """
+    start = time.monotonic()
+    from app.rag.planning.query_planner import QueryPlanner
+
+    query = state.get("query") or ""
+    query_type = str(state.get("query_type", "general"))
+    plan = QueryPlanner().plan(query, query_type)
+    return {
+        "query_plan": plan,
+        "subquestions": [sq.id for sq in plan.subquestions],
+        "evidence_requirements": [er.requirement_id for er in plan.evidence_requirements],
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "plan",
+                "latency_ms": _ms(start),
+                "detail": {
+                    "intent": plan.intent.value,
+                    "subquestion_count": len(plan.subquestions),
+                    "evidence_req_count": len(plan.evidence_requirements),
+                },
+            },
+        ],
+    }
+
+
 def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     """Targeted retrieval using reasoning note — multi-hop for cross-reference / case-law.
 

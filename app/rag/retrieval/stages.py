@@ -157,11 +157,9 @@ def apply_stages(
         # 2.5: Parallelize independent post-retrieval stages.
         # Stage isolation ensures one failure doesn't abort the pipeline.
         from concurrent.futures import ThreadPoolExecutor
+
         with ThreadPoolExecutor(max_workers=min(4, len(enabled))) as executor:
-            futures = {
-                executor.submit(_run_stage, s, query, result): s
-                for s in enabled
-            }
+            futures = {executor.submit(_run_stage, s, query, result): s for s in enabled}
             for future in futures:
                 stage = futures[future]
                 try:

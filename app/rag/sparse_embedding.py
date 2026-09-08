@@ -21,7 +21,6 @@ callers (QdrantIndexer / SparseRetriever) degrade to dense-only / rapidfuzz.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from app.shared.config import cfg
 
@@ -133,7 +132,7 @@ class SparseEmbeddingService:
         embedder = self._require_embedder()
         return [self._to_json_safe(sparse) for sparse in embedder.embed(list(texts))]
 
-    def embed_chunks(self, chunks: list[Any]) -> list[dict[str, list]]:
+    def embed_chunks(self, chunks: list[object]) -> list[dict[str, list]]:
         """Embed a list of :class:`app.rag.chunker.Chunk` objects (or strings)."""
         if not chunks:
             return []

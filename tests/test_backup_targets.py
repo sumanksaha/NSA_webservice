@@ -13,15 +13,12 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 from app.services import backup_coordinator
+from app.services.backup_restorer import BACKUP_MODULE_TO_TABLE, BackupRestorer
 from app.utils.sync import (
-    _AIRTABLE_TABLE_MAP,
-    _RESTORE_MODULE_MAP,
-    _SHEETS_RESTORE_MAP,
-    _WORKSHEET_MAP,
+    restore_from,
     restore_from_airtable_csv,
     restore_from_excel_csv,
     restore_from_sheets_csv,
-    restore_from_target_csv,
 )
 
 
@@ -31,38 +28,41 @@ def _fake_gdrive_export():
 
 
 class TestCanonicalMap:
-    def test_old_map_names_are_aliases_of_one_table(self):
-        """The three historical maps were byte-identical copies; they are now
-        one canonical table plus aliases — adding a synced module edits once."""
-        assert _AIRTABLE_TABLE_MAP is _RESTORE_MODULE_MAP
-        assert _WORKSHEET_MAP is _RESTORE_MODULE_MAP
-        assert _SHEETS_RESTORE_MAP is _RESTORE_MODULE_MAP
+    def test_canonical_map_has_expected_modules(self):
+        """The canonical map maps module keys to table names — adding a
+        synced module edits once here."""
+        assert BACKUP_MODULE_TO_TABLE["non_sample"] == "adjudications"
+        assert BACKUP_MODULE_TO_TABLE["sample"] == "case_files"
+        assert BACKUP_MODULE_TO_TABLE["billing"] == "bills"
+        assert BACKUP_MODULE_TO_TABLE["sample_repo"] == "samples"
+        assert BACKUP_MODULE_TO_TABLE["inspection_log"] == "inspections"
+        assert BACKUP_MODULE_TO_TABLE["food_cell_do_intimations"] == "do_intimations"
 
 
 class TestRestoreEngine:
     def test_parameterized_engine_dispatches_by_prefix(self):
         with (
-            patch("app.utils.sync._list_r2_csv_backups", return_value=["r2:e.csv"]) as m_list,
-            patch("app.utils.sync._download_r2_csv", return_value="module,base_id\nsample_repo,1"),
-            patch("app.utils.sync._csv_to_records", return_value=[{"module": "sample_repo", "base_id": "1"}]),
-            patch("app.utils.sync._restore_from_records", return_value=4) as m_restore,
+            patch.object(BackupRestorer, "_list_r2_csv_backups", return_value=["r2:e.csv"]) as m_list,
+            patch.object(BackupRestorer, "_download_r2_csv", return_value="module,base_id\nsample_repo,1"),
+            patch.object(BackupRestorer, "_csv_to_records", return_value=[{"module": "sample_repo", "base_id": "1"}]),
+            patch.object(BackupRestorer, "_restore_from_records", return_value=4) as m_restore,
         ):
-            count = restore_from_target_csv("excel")
+            count = restore_from("excel")
         assert count == 4
         m_list.assert_called_once_with("excel")
         m_restore.assert_called_once_with([{"module": "sample_repo", "base_id": "1"}], "excel")
 
     def test_wrappers_delegate_to_engine(self):
         calls = []
-        with patch("app.utils.sync.restore_from_target_csv", side_effect=lambda t: calls.append(t) or 7):
+        with patch.object(BackupRestorer, "restore_from", side_effect=lambda t: calls.append(t) or 7):
             assert restore_from_airtable_csv() == 7
             assert restore_from_excel_csv() == 7
             assert restore_from_sheets_csv() == 7
         assert calls == ["airtable", "excel", "sheets"]
 
     def test_engine_returns_zero_when_no_backups(self):
-        with patch("app.utils.sync._list_r2_csv_backups", return_value=[]):
-            assert restore_from_target_csv("airtable") == 0
+        with patch.object(BackupRestorer, "_list_r2_csv_backups", return_value=[]):
+            assert restore_from("airtable") == 0
 
 
 class TestBackupTargets:

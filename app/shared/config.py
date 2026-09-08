@@ -367,6 +367,34 @@ _TABLE: tuple[Setting, ...] = (
     Setting(
         "RAG_KG_MAX_PROVISIONS", "kg_max_provisions", int, 5, help="Max KG provisions injected into the LLM context."
     ),
+    Setting(
+        "RAG_RETRIEVAL_CACHE_TTL_SECONDS",
+        "retrieval_cache_ttl_seconds",
+        int,
+        90,
+        help="Retention time in seconds for retrieval cache entries.",
+    ),
+    Setting(
+        "RAG_LOG_RETENTION_DAYS",
+        "rag_log_retention_days",
+        int,
+        90,
+        help="Retention time in days for RAGQueryLog entries.",
+    ),
+    Setting(
+        "RAG_KG_FAILURE_THRESHOLD",
+        "kg_failure_threshold",
+        int,
+        5,
+        help="Circuit breaker failure threshold for KG calls (per domain).",
+    ),
+    Setting(
+        "RAG_KG_TIMEOUT_SECONDS",
+        "kg_timeout_seconds",
+        int,
+        120,
+        help="Circuit breaker timeout (seconds) for KG calls (per domain).",
+    ),
     # --- Runtime / plugins ------------------------------------------------------
     Setting("RAG_TORCH_THREADS", "torch_threads", int, 4, help="Torch intra/inter-op thread cap for RAG inference."),
     Setting("OCR_PROVIDER", "ocr_provider", str, "easyocr", help="Active OCR plugin."),

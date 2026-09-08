@@ -35,6 +35,26 @@ Adding a flag = one table row + one `.env.example` entry (enforced by
 `tests/test_shared_config.py::test_env_example_keys_are_declared`). Never
 hand-roll a `try: current_app.config / except: os.environ` resolver again.
 
+### `BackupRestorer` — the CSV restore adapter (D6)
+
+**Module:** `app/services/backup_restorer.py`. The single deep module
+that replaces the triplicated restore pipelines in `app/utils/sync.py`.
+Owns:
+
+- **canonical map**: `BACKUP_MODULE_TO_TABLE` — one table mapping module
+  keys to worksheet/table names (previously triplicated as
+  `_AIRTABLE_TABLE_MAP` = `_WORKSHEET_MAP` = `_SHEETS_RESTORE_MAP` =
+  `_RESTORE_MODULE_MAP`);
+- **public interface**: `restore_from(target) -> int`,
+  `restore_if_empty() -> dict`, `auto_restore_if_empty() -> dict`;
+- **dead-code deletion**: removed `sync_to_sheets()` (zero production
+  importers, grep-confirmed) and `_build_column_map` no-op hook.
+
+Adding a synced module = one line in `BACKUP_MODULE_TO_TABLE`, not
+three copies of the restore pipeline. Tests cross the same seam as
+callers: patch `BackupRestorer.restore_from()` rather than 7 private
+internals.
+
 ### Declaration table
 
 The tuple of `Setting` rows inside `app/shared/config.py`. Single source of

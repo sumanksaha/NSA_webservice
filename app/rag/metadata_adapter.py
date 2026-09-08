@@ -21,7 +21,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class MetadataExtraction:
     fields: dict[str, str] = field(default_factory=dict)
     scores: dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "document_title": self.document_title,
             "document_type": self.document_type,
@@ -119,7 +118,7 @@ class MetadataAdapter:
         meta = self._get_engine().extract(text)
         return self._adapt(meta)
 
-    def enrich_document(self, document: dict[str, Any], text: str | None = None) -> dict[str, Any]:
+    def enrich_document(self, document: dict[str, object], text: str | None = None) -> dict[str, object]:
         """Merge extracted metadata into ``document``, filling ONLY missing keys.
 
         Caller-provided values always win.  Sets both the chunker-facing keys

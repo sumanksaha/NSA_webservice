@@ -27,11 +27,28 @@ def _app():
     app.config["TESTING"] = True
     ctx = app.app_context()
     ctx.push()
+    db.drop_all()
     db.create_all()
     db.session.remove()
     with contextlib.suppress(Exception):
         ctx.pop()
     return app
+
+
+@pytest.fixture
+def app_ctx(_app):
+    """Push a fresh app context per test."""
+    from app.extensions import db
+
+    ctx = _app.app_context()
+    ctx.push()
+    db.session.remove()
+    try:
+        yield _app
+    finally:
+        db.session.remove()
+        with contextlib.suppress(Exception):
+            ctx.pop()
 
 
 @pytest.fixture
@@ -288,80 +305,83 @@ class TestRestoreLatestArchive:
 
 
 class TestAutoRestoreIfEmpty:
-    def test_not_empty_skips(self, monkeypatch):
-        from app.utils.sync import auto_restore_if_empty
+    def test_not_empty_skips(self, app_ctx):
+        from app.services.backup_restorer import BackupRestorer
 
-        with patch("app.utils.sync._is_empty_sqlite_db", return_value=False):
-            r = auto_restore_if_empty()
+        with patch.object(BackupRestorer, "_is_empty_sqlite_db", return_value=False):
+            r = BackupRestorer().auto_restore_if_empty()
         assert r == {"restored": False, "reason": "not-empty"}
 
-    def test_empty_prefers_full_archive(self, monkeypatch):
-        from app.utils.sync import auto_restore_if_empty
+    def test_empty_prefers_full_archive(self, app_ctx):
+        from app.services.backup_restorer import BackupRestorer
 
         with (
-            patch("app.utils.sync._is_empty_sqlite_db", return_value=True),
+            patch.object(BackupRestorer, "_is_empty_sqlite_db", return_value=True),
             patch(
                 "app.services.backup_coordinator.restore_latest_full_archive_from_r2",
                 return_value={"key": "nsa_backups/full_archives/new.zip"},
             ),
         ):
-            r = auto_restore_if_empty()
+            r = BackupRestorer().auto_restore_if_empty()
         assert r["restored"] is True
         assert r["source"] == "full_archive"
         assert r["key"] == "nsa_backups/full_archives/new.zip"
 
-    def test_archive_failure_falls_back_to_csv_chain(self, monkeypatch):
-        from app.utils.sync import auto_restore_if_empty
+    def test_archive_failure_falls_back_to_csv_chain(self, app_ctx):
+        from app.services.backup_restorer import BackupRestorer
 
         with (
-            patch("app.utils.sync._is_empty_sqlite_db", return_value=True),
+            patch.object(BackupRestorer, "_is_empty_sqlite_db", return_value=True),
             patch(
                 "app.services.backup_coordinator.restore_latest_full_archive_from_r2",
                 side_effect=RuntimeError("r2 down"),
             ),
-            patch(
-                "app.utils.sync.restore_if_empty",
+            patch.object(
+                BackupRestorer,
+                "restore_if_empty",
                 return_value={"restored": True, "source": "airtable", "count": 5},
             ),
         ):
-            r = auto_restore_if_empty()
+            r = BackupRestorer().auto_restore_if_empty()
         assert r["restored"] is True
         assert r["source"] == "airtable"
         assert r["count"] == 5
 
-    def test_no_backups_anywhere(self, monkeypatch):
-        from app.utils.sync import auto_restore_if_empty
+    def test_no_backups_anywhere(self, app_ctx):
+        from app.services.backup_restorer import BackupRestorer
 
         with (
-            patch("app.utils.sync._is_empty_sqlite_db", return_value=True),
+            patch.object(BackupRestorer, "_is_empty_sqlite_db", return_value=True),
             patch(
                 "app.services.backup_coordinator.restore_latest_full_archive_from_r2",
                 return_value=None,
             ),
-            patch(
-                "app.utils.sync.restore_if_empty",
+            patch.object(
+                BackupRestorer,
+                "restore_if_empty",
                 return_value={"restored": False, "source": None, "count": 0},
             ),
         ):
-            r = auto_restore_if_empty()
+            r = BackupRestorer().auto_restore_if_empty()
         assert r["restored"] is False
         assert r["reason"] == "no-backups-found"
 
-    def test_archive_none_falls_to_csv(self, monkeypatch):
+    def test_archive_none_falls_to_csv(self, app_ctx):
         """A clean 'no archives' answer (not an error) also falls through."""
-        from app.utils.sync import auto_restore_if_empty
+        from app.services.backup_restorer import BackupRestorer
 
         with (
-            patch("app.utils.sync._is_empty_sqlite_db", return_value=True),
+            patch.object(BackupRestorer, "_is_empty_sqlite_db", return_value=True),
             patch(
                 "app.services.backup_coordinator.restore_latest_full_archive_from_r2",
                 return_value=None,
             ),
-            patch(
-                "app.utils.sync.restore_if_empty",
+            patch.object(
+                BackupRestorer,
+                "restore_if_empty",
                 return_value={"restored": True, "source": "sheets", "count": 9},
             ),
         ):
-            r = auto_restore_if_empty()
+            r = BackupRestorer().auto_restore_if_empty()
         assert r["source"] == "sheets"
         assert r["count"] == 9

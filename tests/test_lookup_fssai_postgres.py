@@ -18,7 +18,7 @@ from flask import Flask
 
 from app.extensions import db
 from app.models import FssaiLicense, FssaiRegistration
-from app.utils.lookup import lookup_fssai
+from app.utils.lookup import LookupResult, lookup_fssai
 
 
 @pytest.fixture
@@ -58,9 +58,10 @@ def seeded(app):
 
 class TestLookupFssaiPostgres:
     def test_prefix_1_hits_license_table(self, app, seeded):
-        result, error = lookup_fssai("11522000000482")
-        assert error is None
-        assert result == {
+        result = lookup_fssai("11522000000482")
+        assert result.error is None
+        assert result.found is True
+        assert result.data == {
             "companyName": "Test Confectionery",
             "fullAddress": "12 Park Street, Kolkata",
             "expiryDate": "31-03-2027",
@@ -68,9 +69,10 @@ class TestLookupFssaiPostgres:
         }
 
     def test_prefix_2_hits_registration_table(self, app, seeded):
-        result, error = lookup_fssai("25722000000482")
-        assert error is None
-        assert result == {
+        result = lookup_fssai("25722000000482")
+        assert result.error is None
+        assert result.found is True
+        assert result.data == {
             "companyName": "Roadside Snacks",
             "fullAddress": "45 MG Road, Kolkata",
             # DD-MM-YYYY string passes through verbatim — never parsed
@@ -79,19 +81,35 @@ class TestLookupFssaiPostgres:
         }
 
     def test_not_found(self, app, seeded):
-        result, error = lookup_fssai("19999999999999")
-        assert result is None
-        assert error == "License/Registration number not found."
+        result = lookup_fssai("19999999999999")
+        assert result.found is False
+        assert result.error == "License/Registration number not found."
 
     def test_invalid_prefix(self, app):
-        result, error = lookup_fssai("31522000000482")
-        assert result is None
-        assert error == ("Unrecognized License/Registration number prefix (expected to start with 1 or 2).")
+        result = lookup_fssai("31522000000482")
+        assert result.found is False
+        assert result.error == ("Unrecognized License/Registration number prefix (expected to start with 1 or 2).")
 
     def test_empty_input(self, app):
-        result, error = lookup_fssai("")
-        assert result is None
-        assert error == "License/Registration number is required."
+        result = lookup_fssai("")
+        assert result.found is False
+        assert result.error == "License/Registration number is required."
+
+    def test_lookupresult_contract(self, app):
+        """LookupResult is a dataclass with the expected fields."""
+        lr = LookupResult(found=True, data={"a": 1})
+        assert lr.found is True
+        assert lr.error is None
+        assert lr.data == {"a": 1}
+        assert bool(lr) is True
+        assert lr.as_tuple() == ({"a": 1}, None)
+
+        lr2 = LookupResult(found=False, error="nope")
+        assert lr2.found is False
+        assert lr2.error == "nope"
+        assert lr2.data == {}
+        assert bool(lr2) is False
+        assert lr2.as_tuple() == (None, "nope")
 
 
 if __name__ == "__main__":

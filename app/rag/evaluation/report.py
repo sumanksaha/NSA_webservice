@@ -8,7 +8,6 @@ into a structured, JSON-serializable summary.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -31,7 +30,7 @@ class EvalSummary:
     latency_avg_ms: float = 0.0
     passed: int = 0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "total": self.total,
             "errors": self.errors,
@@ -53,10 +52,10 @@ class EvalReport:
     """
 
     eval_run_id: str = ""
-    results: list[dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, object]] = field(default_factory=list)
     summary: EvalSummary = field(default_factory=EvalSummary)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "eval_run_id": self.eval_run_id,
             "results": self.results,

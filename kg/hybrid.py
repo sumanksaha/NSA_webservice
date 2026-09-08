@@ -214,8 +214,8 @@ class KGContextExpander:
                 })
             for entry in provisions.values():
                 entry["related"] = related.get(entry["provision_id"], [])
-        except Exception as exc:
-            logger.warning("KGContextExpander failed: %s", exc)
+        except (ConnectionError, RuntimeError) as exc:
+            logger.warning("KGContextExpander failed: %s (%s)", exc, type(exc).__name__)
             return self._empty(enabled=True, error=str(exc))
 
         return {
@@ -246,8 +246,8 @@ class KGContextExpander:
             contract["latency_ms"] = int((time.monotonic() - started) * 1000)
             contract["enabled"] = True
             return contract
-        except Exception as exc:
-            logger.warning("KGContextExpander.expand_query_context failed: %s", exc)
+        except (ConnectionError, RuntimeError) as exc:
+            logger.warning("KGContextExpander.expand_query_context failed: %s (%s)", exc, type(exc).__name__)
             return self._empty(enabled=True, error=str(exc))
 
     # ------------------------------------------------------------------ #
@@ -444,7 +444,7 @@ def _unwrap(value: Any) -> Any:
     if hasattr(value, "isoformat"):
         try:
             return value.isoformat()
-        except Exception:
+        except (ConnectionError, RuntimeError):
             pass
     return value
 

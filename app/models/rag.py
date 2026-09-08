@@ -141,6 +141,8 @@ class LegalDocument(db.Model):
     is_current = db.Column(db.Boolean, default=True)
     version = db.Column(db.String(32), nullable=True)
     file_hash = db.Column(db.String(64), nullable=False, unique=True)  # SHA-256 of raw file
+    version_id = db.Column(db.Integer, nullable=False, default=1)  # bumped on every re-ingest (3.4)
+    is_latest = db.Column(db.Boolean, default=True)  # only one version per doc is "latest"
     status = db.Column(db.String(32), default="pending")  # pending/processing/indexed/error
     qdrant_collection = db.Column(db.String(64), default="fssai_legal_768")
     chunk_count = db.Column(db.Integer, default=0)

@@ -233,7 +233,7 @@ class EnsembleReranker:
         self,
         model_name: str | None = None,
         encoder: Any | None = None,
-        ce_head: int = 20,
+        ce_head: int = 30,  # matches config RAG_ENSEMBLE_CE_HEAD (30)
         ce_weight: float = 0.5,
     ) -> None:
         self.model_name = model_name or "cross-encoder/ms-marco-MiniLM-L-6-v2"
