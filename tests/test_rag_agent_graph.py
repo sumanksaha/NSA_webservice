@@ -12,6 +12,7 @@ import pytest
 from app.rag.agent.graph import (
     GROUNDEDNESS_THRESHOLD,
     _route_after_plan,
+    _route_after_retry,
     build_graph,
     route_after_verify,
     run_agent,
@@ -131,6 +132,33 @@ def test_route_after_verify_retries_when_low_groundedness():
     assert route_after_verify(state) == "expand_query"
 
 
+def test_route_after_verify_claims_gate():
+    """Phase 2: mostly-unverified claims → targeted_retry before rewrites."""
+    state = initial_state("q")
+    state.update(
+        {
+            "groundedness": 0.95,
+            "retry_count": 0,
+            "claim_groundedness": 0.2,
+            "unverified_claims": ["invented assertion"],
+        }
+    )
+    assert route_after_verify(state) == "targeted_retry"
+
+
+def test_route_after_verify_verified_claims_finalize():
+    state = initial_state("q")
+    state.update(
+        {
+            "groundedness": 0.95,
+            "retry_count": 0,
+            "claim_groundedness": 1.0,
+            "unverified_claims": [],
+        }
+    )
+    assert route_after_verify(state) == "finalize"
+
+
 def test_route_after_verify_finalizes_when_grounded():
     state = initial_state("q")
     state.update({"groundedness": 0.95, "retry_count": 0})
@@ -214,7 +242,12 @@ def test_agent_flow_retries_then_succeeds(monkeypatch):
 
 
 def test_agent_flow_exhausts_retries(monkeypatch):
-    """Persistently low groundedness → stops after max_retries."""
+    """Persistently weak answers → stops after max_retries.
+
+    Phase 2: the 3-token answers carry factual claims, so the claim-level
+    gate routes to ``targeted_retry`` (retrieval targeting) before the
+    groundedness rewrite would fire — the answer still stops at max_retries.
+    """
     import app.rag.tasks as tasks
 
     calls = {"n": 0}
@@ -246,12 +279,21 @@ def test_agent_flow_exhausts_retries(monkeypatch):
     assert result["agent"]["retry_count"] == 2
     assert result["agent"]["groundedness"] == 0.2
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
-    assert nodes_run.count("expand_query") == 2
+    # Claims-first routing: unverified claims → targeted_retry (Phase 2).
+    assert nodes_run.count("targeted_retry") == 2
     assert nodes_run.count("generate") == 3
 
 
 def test_threshold_constant_shared():
     assert GROUNDEDNESS_THRESHOLD == NODE_THRESHOLD == 0.7
+
+
+def test_agent_finalize_carries_claim_telemetry(monkeypatch):
+    """Phase 2: claim-groundedness lands on the response payload."""
+    _patch_pipeline(monkeypatch, groundedness=0.9)
+    result = run_agent(initial_state("penalty for selling substandard food"))
+    assert result["agent"]["claim_groundedness"] == 1.0
+    assert result["agent"]["unverified_claims"] == []
 
 
 # ---------------------------------------------------------------------- #
@@ -333,3 +375,81 @@ def test_agent_dag_path_abstains_without_evidence(monkeypatch):
     assert result["abstained"] is True
     assert result["answer"].startswith("INSUFFICIENT EVIDENCE")
     assert result["pipeline"] == "agent"
+
+
+# ---------------------------------------------------------------------- #
+# Phase 1: wave-parallel DAG execution + retry-loop return path
+# ---------------------------------------------------------------------- #
+
+
+def test_route_after_retry_returns_to_dag_path():
+    """A DAG-path retry re-enters plan_tasks (not the linear retrieve)."""
+    assert _route_after_retry({"task_order": ["T1", "T2"]}) == "plan_tasks"
+    assert _route_after_retry({"task_order": []}) == "retrieve"
+    assert _route_after_retry({}) == "retrieve"
+
+
+def test_agent_dag_recovery_loop_returns_to_dag_path(monkeypatch):
+    """Wave-1 zero coverage → sufficiency gate → targeted_retry loops back
+    into the DAG path; wave 2 fills the gap and the DAG evidence is synthesized
+    (Phase 1: the retry no longer dead-ends into the linear path)."""
+    import app.rag.tasks as tasks
+
+    calls = {"n": 0}
+
+    def fake_retrieve(query, **kw):
+        calls["n"] += 1
+        evidence_tasks = kw.get("evidence_tasks") or []
+        task_id = evidence_tasks[0].task_id if evidence_tasks else "T0"
+        # Round 1 (first two task retrievals) finds nothing; the retry round
+        # recovers. (Coverage 0.5 would still pass the gate, so both must miss.)
+        if calls["n"] <= 2:
+            return {"chunks": [], "query_type": "offence"}
+        return {"chunks": [{"chunk_id": f"{task_id}-c1", "score": 0.9, "text": "evidence"}]}
+
+    def fake_generate(query, **kw):
+        return {
+            "answer": "synthesized answer",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+            "query_type": "offence",
+        }
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_retrieve)
+    monkeypatch.setattr(tasks, "run_generation_pipeline", fake_generate)
+
+    query = "penalty for selling substandard food and define misbranded food"
+    result = run_agent(initial_state(query))
+
+    exec_entries = [e for e in result["agent"]["audit_trail"] if e["node"] == "execute_task"]
+    assert len(exec_entries) == 2  # two execution rounds: wave 1 + targeted retry
+    assert exec_entries[1]["detail"]["tasks_completed"] >= 1  # recovered in round 2
+    # Phase 1 fix: DAG evidence is synthesized — the linear generate never runs.
+    nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
+    assert nodes_run.count("synthesize") == 1
+    assert nodes_run.count("generate") == 0
+    assert result["answer"] == "synthesized answer"
+    task_results = result["agent"]["task_results"]
+    assert task_results["T1"]["status"] == "completed"
+    assert task_results["T3"]["status"] == "completed"
+
+
+def test_agent_dag_tasks_execute_in_waves(monkeypatch):
+    """The audit trail records the wave structure; evidence lands per task.
+
+    The planner numbers tasks by requirement kind — for this query the
+    decomposition is T1 (definition) + T3 (penalty).
+    """
+    _patch_task_pipeline(monkeypatch, per_task_chunks=2)
+
+    query = "penalty for selling substandard food and define misbranded food"
+    result = run_agent(initial_state(query))
+
+    exec_entry = next(e for e in result["agent"]["audit_trail"] if e["node"] == "execute_task")
+    waves = exec_entry["detail"]["waves"]
+    assert waves, "executor must record its wave structure"
+    all_ready = [tid for w in waves for tid in w.get("ready", [])]
+    assert sorted(all_ready) == ["T1", "T3"]
+    assert exec_entry["detail"]["documents"] == 4
+    assert result["agent"]["task_results"]["T1"]["status"] == "completed"
+    assert result["agent"]["task_results"]["T3"]["confidence"] > 0

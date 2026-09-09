@@ -17,7 +17,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.rag.evidence_task import (
     EvidenceRequirement,
@@ -25,6 +25,8 @@ from app.rag.evidence_task import (
     RetrievalPlan,
     TaskDAG,
 )
+from app.rag.retrieval.identifier import detect_act, detect_section
+from app.rag.retrieval.reference_extractor import CONFIDENCE_MEDIUM, extract_references
 
 logger = logging.getLogger(__name__)
 
@@ -296,8 +298,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
 
     # Detect additional requirements from keywords
     # Check for penalty mentions
-    if "penalty" in q or "fine" in q or "punishment" in q:
-        if evidence_type != EvidenceRequirement.PENALTY:
+    if ("penalty" in q or "fine" in q or "punishment" in q) and evidence_type != EvidenceRequirement.PENALTY:
             req_id += 1
             requirements.append(
                 Requirement(
@@ -313,21 +314,22 @@ def _extract_requirements(query: str) -> list[Requirement]:
             )
 
     # Check for exception mentions
-    if any(kw in q for kw in ["exception", "unless", "except", "notwithstanding"]):
-        if not any(r.evidence_type == EvidenceRequirement.EXCEPTION for r in requirements):
-            req_id += 1
-            requirements.append(
-                Requirement(
-                    requirement_id=f"r{req_id}",
-                    evidence_type=EvidenceRequirement.EXCEPTION,
-                    subject=subject,
-                    conditions=conditions,
-                    negation=has_negation,
-                    jurisdiction=jurisdiction,
-                    temporal_scope=temporal_scope,
-                    entities=list(entities.values()),
-                )
+    if any(kw in q for kw in ["exception", "unless", "except", "notwithstanding"]) and not any(
+        r.evidence_type == EvidenceRequirement.EXCEPTION for r in requirements
+    ):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.EXCEPTION,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
             )
+        )
 
     # Check for cross-references
     if any(kw in q for kw in ["read with", "referred to", "cross-reference", "see also"]):
@@ -379,7 +381,14 @@ def _construct_tasks(
     Uses the complexity level to determine:
     - SIMPLE: 1 task
     - MULTI_PART: parallel tasks
-    - MULTI_HOP: DAG with dependencies
+    - MULTI_HOP: DAG with dependency-based edges (wave 1 → wave 2)
+
+    Phase 1: dependencies are real, not positional.  Requirements are
+    partitioned into two waves by semantic role — wave 1 gathers the
+    foundational evidence (provisions, definitions, cross-references);
+    wave 2 gathers what is *resolved through* wave 1 (penalties,
+    exceptions, fact application).  Tasks inside a wave stay independent
+    so the executor can retrieve them in parallel.
     """
     tasks: list[EvidenceTask] = []
 
@@ -396,29 +405,96 @@ def _construct_tasks(
         tasks.append(task)
         return tasks
 
-    # Build tasks from requirements with dependencies
-    for i, req in enumerate(requirements):
-        task_id = f"T{i + 1}"
-        objective = _objective_for_requirement(req)
-        question = _question_for_requirement(req, query)
+    # Partition requirements into foundation (wave 1) and dependent (wave 2)
+    # roles.  Wave-2 tasks depend on the wave-1 tasks of the SAME evidence
+    # domain; when no wave-1 task shares the domain, they stay independent.
+    wave1_reqs: list[Requirement] = []
+    wave2_reqs: list[Requirement] = []
+    for req in requirements:
+        if req.evidence_type in _WAVE_1_TYPES:
+            wave1_reqs.append(req)
+        else:
+            wave2_reqs.append(req)
 
-        # Dependencies: each task depends on the previous one
-        # EXCEPT for the first task which has no dependency
-        dependency = [f"T{j}" for j in range(1, i + 1)] if i > 0 else []
-
-        task = _build_task(
-            task_id=task_id,
-            objective=objective,
-            question=question,
-            requirement=req,
-            dependency=dependency,
+    # ``T{n}`` ids are allocated deterministically: wave 1 first, then wave 2.
+    wave1_tasks: list[EvidenceTask] = []
+    for i, req in enumerate(wave1_reqs):
+        wave1_tasks.append(
+            _build_task(
+                task_id=f"T{i + 1}",
+                objective=_objective_for_requirement(req),
+                question=_question_for_requirement(req, query),
+                requirement=req,
+                dependency=[],
+            )
         )
-        tasks.append(task)
+
+    wave2_tasks: list[EvidenceTask] = []
+    for j, req in enumerate(wave2_reqs):
+        # Domain-based dependency: a wave-2 task depends on wave-1 tasks in
+        # the same legal domain (e.g. penalty resolves through provision).
+        domain = _DOMAIN_OF.get(req.evidence_type)
+        deps = [
+            t.task_id
+            for t in wave1_tasks
+            if domain is not None and _DOMAIN_OF.get(t.evidence_requirement) == domain
+        ]
+        wave2_tasks.append(
+            _build_task(
+                task_id=f"T{len(wave1_tasks) + j + 1}",
+                objective=_objective_for_requirement(req),
+                question=_question_for_requirement(req, query),
+                requirement=req,
+                dependency=deps,
+            )
+        )
+
+    tasks = wave1_tasks + wave2_tasks
 
     # For multi-hop, ensure minimum sufficient decomposition
     tasks = _apply_minimum_sufficient(tasks, complexity)
 
     return tasks
+
+
+# ---------------------------------------------------------------------------
+# Dependency roles (Phase 1): which evidence types are foundational and how
+# domains map between waves.
+# ---------------------------------------------------------------------------
+
+#: Wave-1 (foundational) evidence types: provisions, definitions and explicit
+#: cross-references.  Everything else is *resolved through* these.
+_WAVE_1_TYPES: set[EvidenceRequirement] = {
+    EvidenceRequirement.PROVISION,
+    EvidenceRequirement.DEFINITION,
+    EvidenceRequirement.CROSS_REFERENCE,
+}
+
+#: Evidence domain: maps evidence types to the legal concept they belong to,
+#: so a wave-2 task depends only on wave-1 tasks in the same domain.
+_DOMAIN_OF: dict[EvidenceRequirement, str] = {
+    EvidenceRequirement.PENALTY: "provision",
+    EvidenceRequirement.OFFENCE: "provision",
+    EvidenceRequirement.EXCEPTION: "provision",
+    EvidenceRequirement.PROHIBITION: "provision",
+    EvidenceRequirement.CONDITION: "provision",
+    EvidenceRequirement.DUTY: "provision",
+    EvidenceRequirement.RIGHT: "provision",
+    EvidenceRequirement.TIME_LIMIT: "provision",
+    EvidenceRequirement.THRESHOLD: "provision",
+    EvidenceRequirement.STANDARD: "provision",
+    EvidenceRequirement.PROCEDURE: "provision",
+    EvidenceRequirement.AUTHORITY: "provision",
+    EvidenceRequirement.JURISDICTION: "provision",
+    EvidenceRequirement.AMENDMENT: "provision",
+    EvidenceRequirement.REPEAL: "provision",
+    EvidenceRequirement.CASE_LAW: "provision",
+    EvidenceRequirement.INTERPRETATION: "provision",
+    EvidenceRequirement.SCOPE: "provision",
+    EvidenceRequirement.FACT_APPLICATION: "provision",
+    EvidenceRequirement.PROVISION: "provision",
+    EvidenceRequirement.DEFINITION: "definition",
+}
 
 
 def _build_task(
@@ -428,14 +504,48 @@ def _build_task(
     requirement: Requirement,
     dependency: list[str],
 ) -> EvidenceTask:
-    """Build a single EvidenceTask from a Requirement."""
+    """Build a single EvidenceTask from a Requirement.
+
+    Phase 1: the retrieval plan now carries real identifier queries (from
+    ``identifier.detect_act``/``detect_section``) and, for cross-reference
+    tasks, the section targets parsed from the query — consumed by the
+    executor and the per-task ``evidence_plan`` stage.
+    """
     evidence_type = requirement.evidence_type
+
+    # Real identifier detection (V5-validated lexical route): an Act and/or
+    # section mention in the query text becomes an identifier query for the
+    # task, replacing the previous placeholder (the evidence-type name).
+    act = detect_act(question)
+    section, subsection = detect_section(question)
+    identifiers: list[str] = []
+    if act and section:
+        parts = [act, f"section {section}"]
+        if subsection:
+            parts.append(f"subsection {subsection}")
+        identifiers.append(" ".join(parts))
+    elif act:
+        identifiers.append(act)
+    elif section:
+        identifiers.append(f"section {section}")
+
+    # Cross-reference tasks: resolve the referenced sections deterministically
+    # from the query text so the executor can retrieve the targets directly.
+    cross_reference_targets: list[str] = []
+    if evidence_type == EvidenceRequirement.CROSS_REFERENCE:
+        act_hint = act or requirement.jurisdiction
+        for ref in extract_references(question, act_hint=act_hint, min_confidence=CONFIDENCE_MEDIUM):
+            target = ref.section or ref.rule or ref.schedule or ref.chapter
+            if target:
+                cross_reference_targets.append(f"{act_hint or ref.act or ''}::{target}".lstrip(':'))
+
     retrieval = RetrievalPlan(
-        identifiers=[evidence_type.value],
+        identifiers=identifiers,
         lexical_queries=[question],
         semantic_queries=[requirement.subject],
         metadata_filters={"evidence_type": evidence_type.value},
         required_source_types=_required_source_types(evidence_type),
+        cross_reference_targets=cross_reference_targets,
     )
     task = EvidenceTask(
         task_id=task_id,
@@ -466,22 +576,22 @@ def _build_task(
 
 def _required_source_types(requirement: EvidenceRequirement) -> list[str]:
     """Return source types required for a given evidence requirement."""
-    STATUTE = ["statute", "act", "regulation", "rule"]
-    CASE_LAW = ["case_law", "judicial", "precedent"]
-    ADMIN = ["administrative", "order", "directive"]
+    statute_types = ["statute", "act", "regulation", "rule"]
+    case_law_types = ["case_law", "judicial", "precedent"]
+    admin_types = ["administrative", "order", "directive"]
     mapping: dict[EvidenceRequirement, list[str]] = {
-        EvidenceRequirement.PROVISION: STATUTE,
-        EvidenceRequirement.DEFINITION: STATUTE,
-        EvidenceRequirement.PENALTY: STATUTE,
-        EvidenceRequirement.EXCEPTION: STATUTE,
-        EvidenceRequirement.CROSS_REFERENCE: STATUTE,
-        EvidenceRequirement.JURISDICTION: STATUTE + ADMIN,
-        EvidenceRequirement.SCOPE: STATUTE,
-        EvidenceRequirement.CASE_LAW: CASE_LAW,
-        EvidenceRequirement.FACT_APPLICATION: STATUTE + CASE_LAW,
-        EvidenceRequirement.AUTHORITY: ADMIN,
+        EvidenceRequirement.PROVISION: statute_types,
+        EvidenceRequirement.DEFINITION: statute_types,
+        EvidenceRequirement.PENALTY: statute_types,
+        EvidenceRequirement.EXCEPTION: statute_types,
+        EvidenceRequirement.CROSS_REFERENCE: statute_types,
+        EvidenceRequirement.JURISDICTION: statute_types + admin_types,
+        EvidenceRequirement.SCOPE: statute_types,
+        EvidenceRequirement.CASE_LAW: case_law_types,
+        EvidenceRequirement.FACT_APPLICATION: statute_types + case_law_types,
+        EvidenceRequirement.AUTHORITY: admin_types,
     }
-    return mapping.get(requirement, STATUTE)
+    return mapping.get(requirement, statute_types)
 
 
 def _objective_for_requirement(req: Requirement) -> str:

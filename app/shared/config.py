@@ -149,6 +149,13 @@ _TABLE: tuple[Setting, ...] = (
         help="Evidence Task planning for task-aware retrieval (default off).",
     ),
     Setting(
+        "RAG_AGENT_TASK_PARALLELISM",
+        "task_parallelism",
+        bool,
+        True,
+        help="Execute independent EvidenceTasks concurrently in the DAG executor (Phase 1).",
+    ),
+    Setting(
         "ENABLE_LEGAL_IDENTITY",
         "legal_identity",
         bool,

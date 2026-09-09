@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,13 +91,18 @@ def _enrich_evidence_set(query: str, result: Any) -> dict[str, Any]:
 def _enrich_evidence_plan(query: str, result: Any) -> dict[str, Any]:
     """Plan per-task retrieval from Evidence Tasks attached to result.
 
-    Expects result.evidence_tasks (list of EvidenceTask) or
-    result["evidence_tasks"] (from dict). Outputs a retrieval plan
-    dict mapping task_id -> retrieval_routes.
-    """
-    from app.rag.evidence_task import EvidenceTask
+    Expects ``result.evidence_tasks`` (list of EvidenceTask objects) or
+    ``result["evidence_tasks"]`` (their serialized dicts). Outputs a
+    retrieval plan dict mapping task_id -> retrieval routes.
 
-    evidence_tasks: list[EvidenceTask] | None = None
+    Phase 1 fix: the previous version called ``retrieval.get(...)`` on the
+    task's ``RetrievalPlan`` dataclass — an AttributeError that stage
+    isolation silently swallowed, so the plan was always empty. Routes are
+    now derived from the actual plan fields (Phase 1 §13 of the V2 plan).
+    """
+    from app.rag.evidence_task import RetrievalPlan
+
+    evidence_tasks: list[Any] | None = None
     if hasattr(result, "evidence_tasks"):
         evidence_tasks = result.evidence_tasks
     elif isinstance(result, dict):
@@ -109,19 +113,32 @@ def _enrich_evidence_plan(query: str, result: Any) -> dict[str, Any]:
 
     retrieval_plan: dict[str, list[str]] = {}
     for task in evidence_tasks:
-        routes = []
-        retrieval = task.retrieval
-        if retrieval.get("identifier"):
-            routes.append("identifier")
-        if retrieval.get("lexical"):
-            routes.append("lexical")
-        if retrieval.get("dense"):
-            routes.append("dense")
-        if retrieval.get("knowledge_graph"):
-            routes.append("knowledge_graph")
-        retrieval_plan[task.task_id] = routes
+        retrieval = getattr(task, "retrieval", None)
+        if isinstance(retrieval, RetrievalPlan):
+            routes = _routes_from_plan(retrieval)
+        elif isinstance(task, dict):
+            # Serialized task (to_dict shape) — derive from the same fields.
+            routes = _routes_from_plan(RetrievalPlan.from_dict(task.get("retrieval") or {}))
+        else:
+            routes = []
+        task_id = task.get("task_id") if isinstance(task, dict) else getattr(task, "task_id", None)
+        retrieval_plan[str(task_id or "?")] = routes
 
     return {"retrieval_plan": retrieval_plan}
+
+
+def _routes_from_plan(retrieval: Any) -> list[str]:
+    """Map a RetrievalPlan's populated fields to retrieval routes."""
+    routes: list[str] = []
+    if retrieval.identifiers:
+        routes.append("identifier")
+    if retrieval.lexical_queries:
+        routes.append("lexical")
+    if retrieval.semantic_queries:
+        routes.append("dense")
+    if retrieval.cross_reference_targets:
+        routes.append("knowledge_graph")
+    return routes
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +162,7 @@ def _evidence_plan_flag() -> bool:
     """Feature flag for evidence task planning stage."""
     from app.shared.config import cfg
 
-    return getattr(cfg, "evidence_plan_enabled", False)
+    return bool(cfg.evidence_plan)
 
 
 POST_RETRIEVAL_STAGES: list[RetrievalStage] = [

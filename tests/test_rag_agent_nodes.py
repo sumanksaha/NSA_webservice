@@ -458,6 +458,142 @@ def test_execute_task_node_runs_ready_tasks(monkeypatch):
     assert out["budget"]["consumed_documents"] == 2
 
 
+# ---------------------------------------------------------------------- #
+# Wave-based parallel DAG execution (Phase 1)
+# ---------------------------------------------------------------------- #
+
+
+def test_execute_task_node_runs_waves_in_dependency_order(monkeypatch):
+    """T2 depends on T1 → two waves, and T2's worker sees T1's evidence
+    (via cross-reference mining, the only worker-visible dependency input)."""
+    import app.rag.tasks as tasks
+
+    calls: list[tuple[str | None, str]] = []
+
+    def fake_run(query, **kw):
+        evidence_tasks = kw.get("evidence_tasks") or []
+        tid = evidence_tasks[0].task_id if evidence_tasks else None
+        calls.append((tid, query))
+        if tid == "T1":
+            return {"chunks": [{"chunk_id": "c1", "text": "as prescribed under section 18 of the Act"}]}
+        if query.endswith("section 18"):
+            return {"chunks": [{"chunk_id": "c3", "text": "section 18 content"}]}
+        return {"chunks": [{"chunk_id": "c2", "text": "penalty applies"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    state = _make_state(
+        tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2", dep=("T1",))},
+        task_order=["T1", "T2"],
+    )
+    out = execute_task_node(state)
+    assert out["tasks_completed"] == 2
+    waves = out["audit_trail"][-1]["detail"]["waves"]
+    assert [w["ready"] for w in waves] == [["T1"], ["T2"]]
+    # T2's first query is its question; a later one is the cross-reference
+    # expansion mined from T1's wave-1 evidence.
+    t2_queries = [q for tid, q in calls if tid == "T2"]
+    assert t2_queries[0] == "question for T2"
+    assert any(q.endswith("section 18") for q in t2_queries[1:])
+    assert out["task_results"]["T2"]["status"] == "completed"
+    assert out["task_results"]["T2"]["cross_references"]
+
+
+def test_execute_task_node_respects_parallelism_flag(monkeypatch):
+    """``cfg.task_parallelism`` disabled → sequential fallback, same results."""
+    import app.rag.tasks as tasks
+    from app.shared.config import cfg
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", lambda query, **kw: {"chunks": [{"chunk_id": "c"}]})
+    monkeypatch.setattr(cfg, "task_parallelism", False, raising=False)
+    state = _make_state(
+        tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2")},
+        task_order=["T1", "T2"],
+    )
+    out = execute_task_node(state)
+    assert out["tasks_completed"] == 2
+    assert out["audit_trail"][-1]["detail"]["parallel"] is False
+
+
+def test_execute_task_node_defers_beyond_task_budget(monkeypatch):
+    """Tasks beyond ``max_tasks`` are deferred for the retry round, not failed."""
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", lambda query, **kw: {"chunks": [{"chunk_id": "c"}]})
+    state = _make_state(
+        tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2"), "T3": _task_dict("T3")},
+        task_order=["T1", "T2", "T3"],
+        budget={"max_tasks": 2},
+    )
+    out = execute_task_node(state)
+    assert out["tasks_completed"] == 2
+    assert out["budget"]["consumed_tasks"] == 2
+    assert sorted(out["audit_trail"][-1]["detail"]["deferred"]) == ["T3"]
+    # Deferred ≠ failed: no task_results entry, ready to run on the retry round.
+    assert "T3" not in out["task_results"]
+
+
+def test_execute_task_node_marks_unreachable_tasks_failed(monkeypatch):
+    """A task whose dependency can never complete fails explicitly."""
+    state = _make_state(
+        tasks={"T2": _task_dict("T2", dep=("T9",))},
+        task_order=["T2"],
+    )
+    out = execute_task_node(state)
+    assert out["task_results"]["T2"]["status"] == "failed"
+    assert out["task_results"]["T2"]["failure_reason"] == "UNMET_DEPENDENCIES"
+    assert out["tasks_completed"] == 0
+
+
+def test_execute_task_node_does_not_reexecute_completed_tasks(monkeypatch):
+    """Retry-round semantics: completed tasks keep their evidence and are
+    not re-retrieved; only unfinished tasks run."""
+    import app.rag.tasks as tasks
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c2"}], "query_type": "offence"}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    state = _make_state(
+        tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2")},
+        task_order=["T1", "T2"],
+        task_results={"T1": {"status": "completed", "confidence": 1.0, "evidence_count": 1}},
+        evidence={"T1": [{"chunk_id": "old-t1"}]},
+    )
+    out = execute_task_node(state)
+    assert len(calls) == 1  # only T2 re-ran
+    assert out["evidence"]["T1"] == [{"chunk_id": "old-t1"}]  # preserved
+    assert out["tasks_completed"] == 2
+
+
+def test_cross_reference_queries_skip_sections_already_in_question():
+    from app.rag.agent.nodes import _cross_reference_queries
+
+    dep = [{"chunk_id": "c1", "text": "subject to section 12 and section 18 of the Act"}]
+    queries = _cross_reference_queries("penalty under section 12", dep)
+    assert queries == ["penalty under section 12, section 18"]
+
+
+def test_answer_contract_verification_helpers():
+    """Phase 1 §13: the canonical contract carries verification helpers."""
+    from app.rag.evidence_task import AnswerContract
+
+    contract = AnswerContract(required_fields=["penalty", "section"], optional_fields=["note"])
+    assert contract.is_satisfied({"penalty": "1 lakh", "section": "12"})
+    assert not contract.is_satisfied({"penalty": "", "section": "12"})
+    assert contract.missing_fields({"penalty": None, "section": "12"}) == ["penalty"]
+
+
+def test_evidence_contract_module_reexports_canonical_contract():
+    """The dedupe: evidence_contract is a re-export shim of evidence_task."""
+    from app.rag.evidence_contract import AnswerContract as Reexported
+    from app.rag.evidence_task import AnswerContract as Canonical
+
+    assert Reexported is Canonical
+
+
 def test_execute_task_node_skips_unmet_dependencies(monkeypatch):
     import app.rag.tasks as tasks
 
@@ -473,7 +609,9 @@ def test_execute_task_node_skips_unmet_dependencies(monkeypatch):
     out = execute_task_node(state)
     assert out["evidence"] == {}
     assert out["tasks_completed"] == 0
-    assert out["audit_trail"][-1]["detail"]["skipped"] == ["T2"]
+    # Phase 1: unmet dependencies are an explicit failure, not a silent skip.
+    assert out["task_results"]["T2"]["failure_reason"] == "UNMET_DEPENDENCIES"
+    assert out["audit_trail"][-1]["detail"]["failed"] == ["T2"]
 
 
 def test_budget_gate_node_reports_exhaustion():
@@ -492,7 +630,10 @@ def test_budget_gate_node_reports_exhaustion():
 def test_evidence_sufficiency_sufficient():
     state = _make_state(
         tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2")},
-        evidence={"T1": [{"chunk_id": "c1"}], "T2": [{"chunk_id": "c2"}]},
+        evidence={
+            "T1": [{"chunk_id": "c1", "score": 0.9, "text": "penalty is Rs. 500 and section 12 applies"}],
+            "T2": [{"chunk_id": "c2", "score": 0.9, "text": "section 12 defines the offence"}],
+        },
         citation_quality_ok=True,
         hallucination_detected=False,
     )
@@ -500,6 +641,10 @@ def test_evidence_sufficiency_sufficient():
     assert out["evidence_sufficient"] is True
     assert out["evidence_coverage"] == 1.0
     assert out["abstain_required"] is False
+    # Phase 2: rubric verdicts + live signals land on state.
+    assert len(out["task_sufficiency"]) == 2
+    assert out["has_conflicts"] is False
+    assert out["authority_score"] >= 0.5
 
 
 def test_evidence_sufficiency_insufficient_with_bad_signals():
@@ -531,6 +676,95 @@ def test_evidence_sufficiency_abstains_on_exhausted_budget():
     out = evidence_sufficiency_node(state)
     assert out["budget_exhausted"] is True
     assert out["abstain_required"] is True
+
+
+# ---------------------------------------------------------------------- #
+# Phase 2: claim verification + rubric-driven signals on state
+# ---------------------------------------------------------------------- #
+
+
+def test_generate_node_persists_claim_verdicts(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_generation_pipeline",
+        lambda query, **kw: {
+            "answer": "Section 50 prescribes the penalty.",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+            "query_type": "offence",
+        },
+    )
+    state = _make_state(
+        chunks=[{"chunk_id": "c1", "score": 0.9, "text": "Section 50 text"}],
+    )
+    out = generate_node(state)
+    assert out["claims"], "grounded answer must carry extractable claims"
+    assert out["claim_groundedness"] == 1.0
+    assert out["unverified_claims"] == []
+    assert out["audit_trail"][-1]["detail"]["claims"] >= 1
+
+
+def test_generate_node_without_claims_is_noop(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_generation_pipeline",
+        lambda query, **kw: {
+            "answer": "ok",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+            "query_type": "offence",
+        },
+    )
+    out = generate_node(_make_state(chunks=[{"chunk_id": "c1", "score": 0.9, "text": "t"}]))
+    assert "claims" not in out  # no verifiable claims → no claim keys
+
+
+def test_evidence_sufficiency_surfaces_conflict_signals():
+    """Two chunks asserting different amounts for section 12 → live conflict."""
+    state = _make_state(
+        tasks={"T1": _task_dict("T1")},
+        evidence={
+            "T1": [
+                {"chunk_id": "c1", "score": 0.9, "text": "fine of Rs. 500", "section_number": "12"},
+                {"chunk_id": "c2", "score": 0.9, "text": "fine of Rs. 1000", "section_number": "12"},
+            ]
+        },
+    )
+    out = evidence_sufficiency_node(state)
+    assert out["has_conflicts"] is True
+    assert "EVIDENCE_CONTRADICTION" in out["diagnosis_failures"]
+    assert out["evidence_sufficient"] is False
+    verdict = out["task_sufficiency"][0]
+    assert "contradiction" in verdict["failures"]
+
+
+def test_targeted_retry_consumes_rubric_failures():
+    """Rubric failure codes flow straight into the retry diagnosis."""
+    state = _make_state(
+        diagnosis_failures=["EVIDENCE_CONTRADICTION", "TEMPORAL_INVALIDITY"],
+        has_conflicts=True,
+    )
+    out = targeted_retry_node(state)
+    assert out["targeted_query"]
+    assert out["retry_count"] == 1
+    detail = out["audit_trail"][-1]["detail"]
+    assert "EVIDENCE_CONTRADICTION" in detail["failures"]
+    assert "TEMPORAL_INVALIDITY" in detail["failures"]
+
+
+def test_verify_claims_helper_is_deterministic():
+    from app.rag.agent.nodes import _verify_claims
+
+    chunks = [{"chunk_id": "c1", "score": 0.9, "text": "Section 50 text"}]
+    ok = _verify_claims("Section 50 prescribes the penalty.", chunks)
+    assert ok is not None and ok["claim_groundedness"] == 1.0
+    bad = _verify_claims("weak answer 1", chunks)
+    assert bad is not None and bad["claim_groundedness"] == 0.0
+    assert _verify_claims("ok", chunks) is None
 
 
 # ---------------------------------------------------------------------- #

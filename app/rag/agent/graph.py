@@ -38,6 +38,7 @@ from typing import Any  # ponytail: TypedDict unused — precise per-node types 
 
 from app.rag.agent.nodes import GROUNDEDNESS_THRESHOLD
 from app.rag.agent.state import RAGState
+from app.rag.agent.sufficiency import CLAIM_GROUNDEDNESS_THRESHOLD
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,16 @@ def route_after_verify(state: RAGState) -> str:
     max_retries = int(state.get("max_retries", 2))
     if retry_count >= max_retries:
         return "finalize"
+    # Phase 2 (item 15): a claim-verification gate — an answer whose factual
+    # claims mostly failed entailment against the evidence is retried with a
+    # targeted retrieval before a low-groundedness rewrite is attempted.
+    claim_groundedness = state.get("claim_groundedness")
+    if (
+        claim_groundedness is not None
+        and float(claim_groundedness) < CLAIM_GROUNDEDNESS_THRESHOLD
+        and state.get("unverified_claims")
+    ):
+        return "targeted_retry"
     if groundedness < GROUNDEDNESS_THRESHOLD:
         return "expand_query"
     if not state.get("citation_quality_ok", True) or state.get("hallucination_detected", False):
@@ -108,6 +119,22 @@ def _route_after_budget(state: RAGState) -> str:
     if state.get("budget_exhausted"):
         return "abstain"
     return "execute_task"
+
+
+def _route_after_retry(state: RAGState) -> str:
+    """Phase 1: return targeted retries to the path that needed them.
+
+    ``targeted_retry`` is shared by the linear and DAG paths.  On the DAG
+    path an insufficiency verdict must loop back to DAG execution —
+    ``plan_tasks`` is re-entered (it is a no-op re-read when the plan is
+    unchanged), and ``execute_task`` runs only tasks not already marked
+    ``completed`` in ``task_results`` — instead of dead-ending into the
+    linear ``retrieve → generate`` path where DAG evidence is never
+    synthesized.
+    """
+    if state.get("task_order"):
+        return "plan_tasks"
+    return "retrieve"
 
 
 def _route_after_plan(state: RAGState) -> str:
@@ -337,7 +364,15 @@ def build_graph(
     # P2: abstain terminal path
     builder.add_edge("abstain", "finalize")
 
-    builder.add_edge("targeted_retry", "retrieve")
+    # Phase 1: retries return to the path that raised them — the DAG path
+    # re-enters plan_tasks (no-op re-read) → budget_gate → execute_task,
+    # which executes only the not-yet-completed tasks; the linear path
+    # re-retrieves as before.
+    builder.add_conditional_edges(
+        "targeted_retry",
+        _route_after_retry,
+        {"plan_tasks": "plan_tasks", "retrieve": "retrieve"},
+    )
     builder.add_edge("expand_query", "retrieve")
     builder.add_edge("finalize", END)
 

@@ -50,6 +50,45 @@ def _safe_int(value: Any, default: int) -> int:
         return default
 
 
+def _verify_claims(answer: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Claim-level verification of a generated answer (V2 plan item 15).
+
+    Extracts factual claims via the rule-based :class:`ClaimExtractor` and
+    verifies each against the evidence chunks via the
+    :class:`EvidenceVerifier` (section-match + textual overlap, no LLM).
+    Returns ``None`` when the answer carries no verifiable claims.
+    """
+    if not answer or not answer.strip():
+        return None
+    from app.rag.agent.sufficiency import as_retrieved_chunks
+    from app.rag.verification.claim_extractor import ClaimExtractor
+    from app.rag.verification.evidence_verifier import EvidenceVerifier
+
+    claims = ClaimExtractor().extract(answer)
+    if not claims:
+        return None
+    evidence_chunks = as_retrieved_chunks([c for c in chunks if isinstance(c, dict)])
+    verifications = EvidenceVerifier().verify_claims(claims, evidence_chunks)
+    claim_dicts = [
+        {
+            **c.to_dict(),
+            "verified": v.verified,
+            "confidence": round(v.confidence, 3),
+            "method": v.method,
+            "supporting_chunks": v.supporting_chunks,
+        }
+        for c, v in zip(claims, verifications, strict=True)
+    ]
+    verified_count = sum(1 for v in verifications if v.verified)
+    return {
+        "claims": claim_dicts,
+        "claim_groundedness": verified_count / len(claims),
+        "unverified_claims": [
+            c.text for c, v in zip(claims, verifications, strict=True) if not v.verified
+        ],
+    }
+
+
 def classify_node(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the query into a legal query type.
 
@@ -165,7 +204,11 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         filters=state.get("filters"),
         pipeline="agent",
     )
-    return {
+    # Claim-level verification (item 15): extract + entail-check the answer's
+    # claims against the retrieved evidence.  Threshold enforcement happens
+    # in the verify/citation gate — this node only measures.
+    claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [])
+    update: dict[str, Any] = {
         "answer": result.get("answer", ""),
         "groundedness": result.get("groundedness_score", 0.0),
         "hallucination_detected": result.get("hallucination_detected", False),
@@ -179,10 +222,16 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
                     "groundedness": result.get("groundedness_score", 0.0),
                     "hallucination_detected": result.get("hallucination_detected", False),
                     "answer_length": len(result.get("answer", "")),
+                    "claims": len(claim_report["claims"]) if claim_report else 0,
                 },
             },
         ],
     }
+    if claim_report:
+        update["claims"] = claim_report["claims"]
+        update["claim_groundedness"] = claim_report["claim_groundedness"]
+        update["unverified_claims"] = claim_report["unverified_claims"]
+    return update
 
 
 def verify_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -281,7 +330,16 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
         "groundedness_score": state.get("groundedness", 0.0),
         "evidence_coverage": state.get("evidence_coverage", 1.0),
     }
-    failures = FailureClassifier().classify(verification_result)
+    # Phase 2 (item 16): the sufficiency gate's rubric failures arrive as
+    # ready-made taxonomy codes (EVIDENCE_CONTRADICTION, TEMPORAL_INVALIDITY,
+    # INSUFFICIENT_AUTHORITY_SCORE, …) — the live contradiction/temporal/
+    # authority signals feed diagnosis through them, so the classifier only
+    # needs the non-rubric signals (citations, groundedness, coverage).
+    failures: list[str] = list(state.get("diagnosis_failures") or [])
+    failures.extend(FailureClassifier().classify(verification_result))
+    # Dedupe while preserving order.
+    seen: set[str] = set()
+    failures = [f for f in failures if not (f in seen or seen.add(f))]
     if not failures:
         return {
             "targeted_query": None,
@@ -394,6 +452,17 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
         "hallucination_detected": state.get("hallucination_detected", False),
         "audit_trail": state.get("audit_trail", []),
     }
+    # Phase 1: surface per-task DAG outcomes (status / confidence /
+    # failure_reason) so callers and evaluation can see decomposition health.
+    if state.get("task_results"):
+        response["agent"]["task_results"] = state["task_results"]
+        response["agent"]["evidence_coverage"] = state.get("evidence_coverage", 0.0)
+    # Phase 2: claim-level verification + sufficiency signals on the payload.
+    if state.get("claims"):
+        response["agent"]["claim_groundedness"] = state.get("claim_groundedness", 0.0)
+        response["agent"]["unverified_claims"] = state.get("unverified_claims", [])
+    if state.get("task_sufficiency"):
+        response["agent"]["has_conflicts"] = bool(state.get("has_conflicts", False))
     return {"response": response}
 
 
@@ -526,85 +595,320 @@ def plan_tasks_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
-    """P1: execute the EvidenceTask DAG in topological order.
+def _dependency_chunks(state: dict[str, Any], task: Any) -> list[dict[str, Any]]:
+    """Evidence produced by this task's dependencies (the DAG-edge payload).
 
-    For each task whose dependencies are satisfied, run task-scoped
-    retrieval (the EvidenceTask is attached so the per-task retrieval-plan
-    stage can use it) and store the chunks under ``evidence[task_id]``.
-    Tasks with unmet dependencies are skipped and recorded in the audit
-    trail (Phase 1 will route them to failure diagnosis).  Budget counters
-    are consumed here so the downstream gates see real usage (Phase 0 fix:
-    the budget gate previously never consumed anything, so abstention on
-    budget exhaustion was unreachable).
+    The worker receives the *wave view* of the state: before each wave the
+    executor refreshes ``state["evidence"]`` with the live evidence mapping,
+    which by construction already contains every completed dependency's
+    results — exactly the inputs cross-reference expansion should mine.
+    """
+    evidence = state.get("evidence") or {}
+    chunks: list[dict[str, Any]] = []
+    for dep in getattr(task, "dependency", None) or []:
+        dep_evidence = evidence.get(dep)
+        if isinstance(dep_evidence, list):
+            chunks.extend(c for c in dep_evidence if isinstance(c, dict))
+    return chunks
+
+
+#: Max cross-reference expansion queries per task (budget containment).
+_CROSS_REF_LIMIT = 2
+
+
+def _cross_reference_queries(question: str, dep_chunks: list[dict[str, Any]]) -> list[str]:
+    """Deterministic cross-reference expansion queries for one task.
+
+    Mines "section N" references from the *dependency* tasks' evidence and
+    renders each as ``"<question>, section N"``.  The retrieval pipeline's
+    identifier route turns that into a ``"{Act} section {N}"`` lexical arm,
+    so cross-reference resolution stays a first-class deterministic
+    capability instead of hoping semantic search finds the referenced
+    provision (V2 proposal #9).  References already mentioned in the
+    question are skipped.
+    """
+    try:
+        from app.rag.retrieval.reference_extractor import extract_references
+    except ImportError:  # pragma: no cover - optional dependency
+        return []
+    q = question.lower()
+    queries: list[str] = []
+    seen_sections: set[str] = set()
+    base = question.rstrip(". ")
+    for chunk in dep_chunks:
+        text = str(chunk.get("text") or "")
+        if not text:
+            continue
+        try:
+            refs = extract_references(text)
+        except Exception as exc:  # best-effort expansion
+            logger.debug("_cross_reference_queries: extraction failed (%s)", exc)
+            continue
+        for ref in refs:
+            section = str(getattr(ref, "section", "") or "")
+            if not section or section in seen_sections or f"section {section}" in q:
+                continue
+            seen_sections.add(section)
+            queries.append(f"{base}, section {section}".strip())
+            if len(queries) >= _CROSS_REF_LIMIT:
+                return queries
+    return queries
+
+
+def _run_task_retrieval(
+    task_id: str,
+    task: Any,
+    state: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Run task-scoped retrieval for one EvidenceTask (the wave worker body).
+
+    The task object is attached (``evidence_tasks=[task]``) so the per-task
+    ``evidence_plan`` retrieval stage can shape the strategy; deterministic
+    cross-reference expansion queries mined from dependency evidence are run
+    as additional passes and merged into the task's chunk list (deduped by
+    ``chunk_id``).
+
+    Returns ``(chunks, summary)`` where *summary* is the per-task result
+    record: ``status`` / ``confidence`` / ``failure_reason`` / counts (plan
+    item 11 — per-task status, confidence and failure reason).
+    """
+    from app.rag.tasks import run_retrieval_pipeline
+
+    start = time.monotonic()
+    top_k = _safe_int(state.get("top_k"), 10)
+    question = (getattr(task, "question", None) or "").strip() or (state.get("query") or "")
+    dep_chunks = _dependency_chunks(state, task)
+    expansion_queries = _cross_reference_queries(question, dep_chunks)
+
+    result = run_retrieval_pipeline(
+        query=question,
+        top_k=top_k,
+        collection_name=state.get("collection_name"),
+        filters=state.get("filters"),
+        pipeline="agent",
+        evidence_tasks=[task],
+    )
+    chunks: list[dict[str, Any]] = [c for c in (result.get("chunks") or []) if isinstance(c, dict)]
+    cross_refs: list[dict[str, Any]] = []
+    if expansion_queries:
+        seen_ids = {str(c.get("chunk_id")) for c in chunks if c.get("chunk_id")}
+        for xq in expansion_queries[:_CROSS_REF_LIMIT]:
+            try:
+                xr = run_retrieval_pipeline(
+                    query=xq,
+                    top_k=top_k,
+                    collection_name=state.get("collection_name"),
+                    filters=state.get("filters"),
+                    pipeline="agent",
+                    evidence_tasks=[task],
+                )
+            except Exception as exc:  # best-effort: expansion never fails the task
+                logger.warning("execute_task_node: cross-ref expansion failed for %s (%s)", task_id, exc)
+                continue
+            for chunk in xr.get("chunks") or []:
+                if not isinstance(chunk, dict):
+                    continue
+                cid = str(chunk.get("chunk_id") or id(chunk))
+                if cid in seen_ids:
+                    continue
+                seen_ids.add(cid)
+                chunk.setdefault("via_cross_reference", xq)
+                chunks.append(chunk)
+                cross_refs.append({"query": xq, "chunk_id": chunk.get("chunk_id")})
+
+    status = "completed" if chunks else "no_results"
+    summary: dict[str, Any] = {
+        "status": status,
+        # Transparent placeholder heuristic (0→0, top_k hits→1.0); the
+        # Phase 2 per-task sufficiency rubric replaces this with real
+        # coverage/relevance/authority signals.
+        "confidence": min(1.0, len(chunks) / max(1, top_k)),
+        "failure_reason": None if chunks else "NO_RESULTS",
+        "evidence_count": len(chunks),
+        "latency_ms": _ms(start),
+        "queries": 1 + min(len(expansion_queries), _CROSS_REF_LIMIT) if expansion_queries else 1,
+        "cross_references": cross_refs,
+    }
+    return chunks, summary
+
+
+def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
+    """P1 (Phase 1): execute the EvidenceTask DAG in parallel waves.
+
+    A *wave* is the set of tasks whose dependencies are all completed;
+    wave members run concurrently on a ``ThreadPoolExecutor`` (consistent
+    with the retrieval ``apply_stages`` parallelism; ``RAG_AGENT_\
+    TASK_PARALLELISM`` / ``cfg.task_parallelism`` disables it).  The next
+    wave starts only when every dependency it waits on has finished, so
+    dependent tasks see their upstream evidence in ``state["evidence"]``
+    and cross-reference expansion can mine it.
+
+    Per-task outcomes land in ``task_results`` (status / confidence /
+    failure_reason / counts) and chunks in ``evidence[task_id]``.  Tasks
+    that can never run (missing or failed dependencies) are recorded as
+    ``failed`` with ``unmet_dependencies`` instead of being silently
+    skipped.  Budget counters are consumed here so the downstream gates
+    see real usage.
     """
     start = time.monotonic()
+    from concurrent.futures import ThreadPoolExecutor
+
     from app.rag.evidence_task import EvidenceTask
-    from app.rag.tasks import run_retrieval_pipeline
+    from app.shared.config import cfg
 
     tasks = state.get("tasks") or {}
     task_order = state.get("task_order") or []
     evidence: dict[str, list] = dict(state.get("evidence") or {})
+    task_results: dict[str, dict[str, Any]] = dict(state.get("task_results") or {})
     budget = dict(state.get("budget") or {})
-    completed: set[str] = set()
-    skipped: list[str] = []
-    documents_used = 0
+    parallel = bool(getattr(cfg, "task_parallelism", True))
 
-    for task_id in task_order:
-        raw = tasks.get(task_id)
+    parsed: dict[str, Any] = {}
+    for task_id, raw in tasks.items():
         if raw is None:
             continue
         try:
-            task = raw if isinstance(raw, EvidenceTask) else EvidenceTask.from_dict(raw)
+            parsed[task_id] = raw if isinstance(raw, EvidenceTask) else EvidenceTask.from_dict(raw)
         except (ValueError, TypeError) as exc:
             logger.warning("execute_task_node: unparsable task %s (%s)", task_id, exc)
-            skipped.append(task_id)
-            continue
-        if not all(dep in completed for dep in task.dependency):
-            skipped.append(task_id)
-            continue
-        result = run_retrieval_pipeline(
-            query=task.question or state.get("query", ""),
-            top_k=state.get("top_k", 10),
-            collection_name=state.get("collection_name"),
-            filters=state.get("filters"),
-            pipeline="agent",
-            evidence_tasks=[task],
-        )
-        chunks = result.get("chunks", [])
-        evidence[task_id] = chunks
-        documents_used += len(chunks)
-        completed.add(task_id)
+            task_results[task_id] = {
+                "status": "failed",
+                "failure_reason": "UNPARSABLE_TASK",
+                "confidence": 0.0,
+                "evidence_count": 0,
+            }
 
-    budget["consumed_tasks"] = _safe_int(budget.get("consumed_tasks"), 0) + len(completed)
+    # Tasks already completed in a previous round (state carries
+    # task_results across retries) are not re-executed.
+    completed = {
+        tid for tid, tr in task_results.items() if (tr or {}).get("status") == "completed"
+    }
+    pending = [tid for tid in task_order if tid in parsed and tid not in completed]
+
+    # Budget capacity: ready tasks that no longer fit the ``max_tasks`` cap
+    # are *deferred*, not failed — the next targeted-retry round re-enters
+    # this node (after the budget gate has re-evaluated) and picks them up.
+    max_tasks = _safe_int(budget.get("max_tasks"), 10)
+    consumed_tasks = _safe_int(budget.get("consumed_tasks"), 0)
+    tasks_this_node = 0  # includes earlier waves of this invocation
+    deferred: list[str] = []
+
+    documents_used = 0
+    executed: list[str] = []
+    waves: list[dict[str, Any]] = []
+    while pending:
+        ready: list[str] = []
+        deferred = []
+        for tid in pending:
+            if not all(d in completed for d in parsed[tid].dependency):
+                continue  # dependencies not finished yet — next wave
+            if consumed_tasks + tasks_this_node + len(ready) >= max_tasks:
+                deferred.append(tid)  # out of task budget — leave for the retry round
+                continue
+            ready.append(tid)
+        if not ready:
+            if deferred:
+                # Everything runnable was deferred by the budget cap — stop
+                # cleanly instead of overshooting it.
+                waves.append({"ready": [], "deferred": list(deferred)})
+                break
+            # Remaining tasks can never run (a dependency failed or was
+            # unparsable) — record the failure explicitly instead of a
+            # silent skip.
+            for tid in pending:
+                task_results[tid] = {
+                    "status": "failed",
+                    "failure_reason": "UNMET_DEPENDENCIES",
+                    "confidence": 0.0,
+                    "evidence_count": 0,
+                }
+            waves.append({"ready": [], "failed": list(pending)})
+            break
+
+        # Wave view: workers see the live evidence mapping so dependent
+        # tasks can mine wave-1 results for cross-references.
+        wave_state = {**state, "evidence": evidence}
+        if parallel and len(ready) > 1:
+            with ThreadPoolExecutor(max_workers=min(4, len(ready))) as pool:
+                outcomes = list(
+                    pool.map(
+                        lambda tid, ws=wave_state: (tid, *_run_task_retrieval(tid, parsed[tid], ws)),
+                        ready,
+                    )
+                )
+        else:
+            outcomes = [(tid, *_run_task_retrieval(tid, parsed[tid], wave_state)) for tid in ready]
+
+        for tid, chunks, summary in outcomes:
+            evidence[tid] = chunks
+            task_results[tid] = summary
+            documents_used += len(chunks)
+            executed.append(tid)
+            if summary.get("status") == "completed":
+                completed.add(tid)
+        waves.append({"ready": ready, "statuses": {tid: task_results[tid].get("status") for tid in ready}})
+        tasks_this_node += len(outcomes)
+        pending = [tid for tid in pending if tid not in ready]
+
+    completed_count = sum(1 for tr in task_results.values() if (tr or {}).get("status") == "completed")
+    failed = sorted(tid for tid, tr in task_results.items() if (tr or {}).get("status") == "failed")
+    # This round's deferrals: still pending, never executed, not failed —
+    # includes tasks transitively waiting on a deferred dependency.
+    deferred_ids = sorted(
+        tid
+        for tid in pending
+        if tid not in executed and (task_results.get(tid) or {}).get("status") != "failed"
+    )
+    budget["consumed_tasks"] = consumed_tasks + len(executed)
     budget["consumed_documents"] = _safe_int(budget.get("consumed_documents"), 0) + documents_used
     budget["consumed_retrieval_rounds"] = _safe_int(budget.get("consumed_retrieval_rounds"), 0) + (
-        1 if completed else 0
+        1 if executed else 0
     )
 
     return {
         "evidence": evidence,
-        "tasks_completed": len(completed),
+        "task_results": task_results,
+        "tasks_completed": completed_count,
         "budget": budget,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
                 "node": "execute_task",
                 "latency_ms": _ms(start),
-                "detail": {"tasks_completed": len(completed), "skipped": skipped, "documents": documents_used},
+                "detail": {
+                    "tasks_completed": completed_count,
+                    "executed": executed,
+                    "failed": failed,
+                    "deferred": deferred_ids,
+                    "documents": documents_used,
+                    "waves": waves,
+                    "parallel": parallel,
+                },
             },
         ],
     }
 
 
 def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
-    """P2: Evidence sufficiency gate. Checks per-task evidence coverage.
+    """P2 (Phase 2): per-task 7-signal evidence sufficiency gate.
 
-    Routes to ``synthesize`` when sufficient, ``targeted_retry`` when
-    recoverable, or ``abstain`` when evidence is critically insufficient
-    (budget exhausted and coverage < 0.3).
+    Every task's evidence is scored against the rubric in
+    :mod:`app.rag.agent.sufficiency` (coverage, relevance, authority,
+    specificity, completeness, contradiction, temporal validity).  The
+    aggregated verdicts drive routing:
+
+    - sufficient (all gating signals pass on enough tasks) → ``synthesize``
+    - otherwise → ``targeted_retry`` (rubric failures map 1:1 onto the
+      FailureClassifier taxonomy for diagnosis)
+    - budget exhausted at critically low coverage → ``abstain``
+
+    Conflict/temporal/authority aggregates are written to state so
+    ``targeted_retry_node`` can classify without re-scoring (item 16).
     """
     start = time.monotonic()
+    from app.rag.agent.sufficiency import SufficiencyAssessor, aggregate_verdicts
+    from app.rag.evidence_task import EvidenceTask
+
     evidence = state.get("evidence") or {}
     tasks = state.get("tasks") or {}
     total_tasks = len(tasks)
@@ -618,19 +922,55 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
     budget_exhausted = bool(state.get("budget_exhausted")) or retry_count >= max_retries
     citation_ok = bool(state.get("citation_quality_ok", True))
     hallucinated = bool(state.get("hallucination_detected", False))
-    # Sufficient only when there are tasks to cover, most are covered, and
-    # the verification signals are clean.  (Phase 0 fix: the old expression
-    # passed two positional args to ``any()`` — a TypeError at runtime.)
-    sufficient = total_tasks > 0 and coverage >= 0.5 and citation_ok and not hallucinated
-    # Abstain when the budget is exhausted with critically low coverage, or
-    # when there is nothing to synthesize from at all (no tasks, no
-    # evidence).  Written to state so ``_route_after_evidence`` can route.
-    abstain_required = (budget_exhausted and coverage < 0.3) or (total_tasks == 0 and not evidence)
+
+    # --- Phase 2: the 7-signal rubric, per task ------------------------
+    assessor = SufficiencyAssessor()
+    verdicts = []
+    for task_id, raw in tasks.items():
+        try:
+            task = raw if isinstance(raw, EvidenceTask) else EvidenceTask.from_dict(raw)
+        except (ValueError, TypeError) as exc:
+            logger.warning("evidence_sufficiency_node: unparsable task %s (%s)", task_id, exc)
+            continue
+        verdicts.append(assessor.assess_task(task, evidence.get(task_id) or []))
+    agg = aggregate_verdicts(verdicts)
+
+    # Sufficient only when the rubric passes on enough tasks AND the
+    # verification signals from any previous round are clean.
+    sufficient = bool(agg["sufficient"]) and coverage >= 0.5 and citation_ok and not hallucinated
+    # Abstain (the proposal's explicit path: "after the maximum retrieval
+    # budget → ABSTAIN") when the retry budget is exhausted, the gate still
+    # rejects the evidence, AND fewer than half the tasks found *any*
+    # evidence — synthesizing from critically uncovered evidence would be
+    # worse than abstaining, and retrying forever is not an option.  When
+    # most tasks do have evidence, degrade gracefully instead: synthesize
+    # from what is covered (the rubric failures stay on state for the
+    # caller).  Also abstain when there is nothing to synthesize from at
+    # all (no tasks, no evidence).
+    abstain_required = (
+        budget_exhausted and not sufficient and total_tasks > 0 and coverage < 0.5
+    ) or (total_tasks == 0 and not evidence)
+
+    # Aggregates for failure diagnosis (targeted_retry_node reads these).
+    authority_values = [
+        v["signals"]["authority"]["value"]
+        for v in agg["verdicts"]
+        if v.get("signals")
+    ]
+    authority_score = min(authority_values) if authority_values else 1.0
+    temporal_conflict = any(
+        not v["signals"]["temporal"]["passed"] for v in agg["verdicts"] if v.get("signals")
+    )
     return {
         "evidence_coverage": coverage,
         "evidence_sufficient": sufficient,
         "budget_exhausted": budget_exhausted,
         "abstain_required": abstain_required,
+        "task_sufficiency": agg["verdicts"],
+        "has_conflicts": bool(agg["has_conflicts"]),
+        "temporal_conflict": temporal_conflict,
+        "authority_score": authority_score,
+        "diagnosis_failures": agg["failure_codes"],
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -643,6 +983,11 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
                     "abstain_required": abstain_required,
                     "total_tasks": total_tasks,
                     "tasks_with_evidence": covered,
+                    "task_failures": {
+                        v["task_id"]: v["failures"] for v in agg["verdicts"] if v["failures"]
+                    },
+                    "has_conflicts": bool(agg["has_conflicts"]),
+                    "authority_score": authority_score,
                 },
             },
         ],
@@ -722,11 +1067,13 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         filters=state.get("filters"),
         pipeline="agent",
     )
+    # Claim-level verification (item 15) against the merged DAG evidence.
+    claim_report = _verify_claims(result.get("answer", ""), merged)
     # Consume the LLM-call budget counter (synthesis is one LLM call) so a
     # later budget gate sees real usage.
     budget = dict(state.get("budget") or {})
     budget["consumed_llm_calls"] = _safe_int(budget.get("consumed_llm_calls"), 0) + 1
-    return {
+    update: dict[str, Any] = {
         "budget": budget,
         "answer": result.get("answer", ""),
         "groundedness": result.get("groundedness_score", 0.0),
@@ -738,10 +1085,26 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
             {
                 "node": "synthesize",
                 "latency_ms": _ms(start),
-                "detail": {"merged_chunks": len(merged), "groundedness": result.get("groundedness_score", 0.0)},
+                "detail": {
+                    "merged_chunks": len(merged),
+                    "groundedness": result.get("groundedness_score", 0.0),
+                    "claims": len(claim_report["claims"]) if claim_report else 0,
+                },
             },
         ],
     }
+    if claim_report:
+        update["claims"] = claim_report["claims"]
+        update["claim_groundedness"] = claim_report["claim_groundedness"]
+        update["unverified_claims"] = claim_report["unverified_claims"]
+        # Persist the per-claim verdicts on the response payload too, so
+        # callers get claim-level traceability without reading graph state.
+        result.setdefault("claim_verification", {
+            "claim_groundedness": claim_report["claim_groundedness"],
+            "claims": claim_report["claims"],
+            "unverified_claims": claim_report["unverified_claims"],
+        })
+    return update
 
 
 def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:

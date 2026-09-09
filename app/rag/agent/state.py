@@ -69,6 +69,22 @@ class RAGState(TypedDict, total=False):
     tasks: dict[str, dict[str, Any]]
     task_order: list[str]
     tasks_completed: int
+    # Per-task execution records (Phase 1): task_id -> {status, confidence,
+    # citations, failure_reason, ...}.  The sufficiency gate and failure
+    # diagnosis read these instead of inferring from chunk presence.
+    task_results: dict[str, dict[str, Any]]
+    # Per-task 7-signal sufficiency verdicts (Phase 2, item 14):
+    # list of TaskSufficiency.to_dict() — signals/failures/conflicts per task.
+    task_sufficiency: list[dict[str, Any]]
+    # Live verification signals (Phase 2, item 16) aggregated by the gate:
+    # has_conflicts — pairwise evidence contradictions found;
+    # temporal_conflict — superseded/effective-date conflicts found;
+    # authority_score — min per-task authority weight (item 17);
+    # diagnosis_failures — rubric failures as FailureClassifier taxonomy codes.
+    has_conflicts: bool
+    temporal_conflict: bool
+    authority_score: float
+    diagnosis_failures: list[str]
     # Sufficiency / budget / routing signals shared between the DAG nodes
     # and the conditional edges (kept on state so routers stay pure reads).
     targeted_query: str | None  # failure-aware retry query (P2.6)
@@ -83,6 +99,11 @@ class RAGState(TypedDict, total=False):
     groundedness: float
     hallucination_detected: bool
     response: dict[str, Any]
+    # Claim-level verification (Phase 2, item 15): per-claim entailment
+    # verdicts for the generated answer + the share of verified claims.
+    claims: list[dict[str, Any]]
+    claim_groundedness: float
+    unverified_claims: list[str]
 
     # --- Retry loop ---
     retry_count: int
@@ -144,6 +165,12 @@ def initial_state(
         "tasks": {},
         "task_order": [],
         "tasks_completed": 0,
+        "task_results": {},
+        "task_sufficiency": [],
+        "has_conflicts": False,
+        "temporal_conflict": False,
+        "authority_score": 1.0,
+        "diagnosis_failures": [],
         "targeted_query": None,
         "budget_exhausted": False,
         "evidence_coverage": 0.0,
@@ -154,6 +181,8 @@ def initial_state(
         "groundedness": 0.0,
         "hallucination_detected": False,
         "response": {},
+        "claim_groundedness": 0.0,
+        "unverified_claims": [],
         "retry_count": 0,
         "expanded_query": None,
         "max_retries": max_retries,

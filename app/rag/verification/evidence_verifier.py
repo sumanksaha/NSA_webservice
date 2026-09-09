@@ -15,14 +15,31 @@ with a claim-level evidence check.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from rapidfuzz import fuzz
 
 from app.rag.retrieval.result import RetrievedChunk
-from app.rag.verification.claim_extractor import ExtractedClaim
+from app.rag.verification.claim_extractor import (
+    _AMOUNT_RE,
+    _PERCENT_RE,
+    ExtractedClaim,
+)
 
 logger = logging.getLogger(__name__)
+
+#: Prohibition language ("no person shall sell", "shall not be added").
+_PROHIBITION_RE = re.compile(
+    r"\b(?:no person shall|shall not(?:\s+\w+){0,3}\b(?:be\s+)?(?:added|sold|used|manufactured|imported)|prohibited)\b",
+    re.IGNORECASE,
+)
+#: Permission language ("may be sold/used/…", "permitted", "allowed").
+_PERMISSION_RE = re.compile(
+    r"\b(?:may\s+(?:be\s+)?(?:added|sold|used|manufactured|imported|permitted)|shall be permitted|is permitted|are permitted|allowed)\b",
+    re.IGNORECASE,
+)
 
 #: Minimum fuzzy similarity (0–100) for a chunk to count as "evidence"
 #: for a claim that has no section number to match on.
@@ -36,6 +53,31 @@ _TEXT_MATCH_CONFIDENCE = 0.70
 _GENERAL_SUPPORT_CONFIDENCE = 0.55
 #: Confidence when a claim cannot be verified at all.
 _UNVERIFIED_CONFIDENCE = 0.0
+
+
+@dataclass
+class Contradiction:
+    """One detected conflict between two retrieved chunks.
+
+    Attributes:
+        a, b: The conflicting chunks.
+        kind: ``"numeric"`` (different amounts for the same provision)
+            or ``"prohibition"`` (conflicting prohibition/permission).
+        values: The conflicting values (numeric kind).
+    """
+
+    a: RetrievedChunk
+    b: RetrievedChunk
+    kind: str
+    values: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chunk_a": self.a.chunk_id,
+            "chunk_b": self.b.chunk_id,
+            "kind": self.kind,
+            "values": list(self.values),
+        }
 
 
 @dataclass
@@ -97,7 +139,20 @@ class EvidenceVerifier:
                     method="section",
                     evidence_snippet=self._snippet(best.text),
                 )
-            # Sections cited but none match => unverified (hallucination signal).
+            # No chunk carries the cited section stamp — but the evidence may
+            # still *contain* the cited provision text.  Fall through to the
+            # textual-overlap check before declaring the claim unverified
+            # (a bare "sections cited but no stamp => hallucinated" verdict
+            # flagged claims whose evidence simply lacked metadata).
+            best_score, best_chunk = self._best_text_match(claim.text, chunks)
+            if best_chunk is not None and best_score >= self.similarity_threshold:
+                return EvidenceVerification(
+                    verified=True,
+                    confidence=_TEXT_MATCH_CONFIDENCE * (best_score / 100.0),
+                    supporting_chunks=[best_chunk.chunk_id],
+                    method="text",
+                    evidence_snippet=self._snippet(best_chunk.text),
+                )
             return EvidenceVerification(
                 verified=False,
                 confidence=_UNVERIFIED_CONFIDENCE,
@@ -178,6 +233,73 @@ class EvidenceVerifier:
             return False
         chunk_texts = " ".join(c.text for c in chunks).lower()
         return any(auth.lower() in chunk_texts for auth in authorities)
+
+    # ------------------------------------------------------------------ #
+    # Contradiction detection (V2 plan item 16)
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _numeric_values(text: str) -> list[str]:
+        """Extract monetary/percentage/amount values from *text*."""
+        return [
+            f"{m.group(1)}{m.group(2)}"
+            for m in _AMOUNT_RE.finditer(text)
+        ] + [m.group(1) for m in _PERCENT_RE.finditer(text)]
+
+    def find_contradictions(
+        self,
+        chunks: list[RetrievedChunk],
+    ) -> list[Contradiction]:
+        """Find conflicting evidence among *chunks* (live item-16 signal).
+
+        Deterministic heuristics, no LLM:
+
+        1. **numeric** — two chunks assert different monetary/percentage
+           amounts for the same provision (same section stamp, or same
+           query-relevant topic).  This is the "Penalty = Rs. X vs Rs. Y"
+           case the V2 proposal calls out.
+        2. **prohibition** — one chunk prohibits ("shall not"/"no person
+           shall") while another permits ("may"/"shall be permitted")
+           the same thing on the same section stamp.
+
+        Chunks on different sections/acts never conflict — differing
+        amounts across *different* provisions are expected, not
+        contradictions.
+        """
+        if len(chunks) < 2:
+            return []
+        conflicts: list[Contradiction] = []
+        seen_pairs: set[tuple[str, str]] = set()
+        for i in range(len(chunks)):
+            for j in range(i + 1, len(chunks)):
+                a, b = chunks[i], chunks[j]
+                pair = tuple(sorted((a.chunk_id, b.chunk_id)))
+                if pair in seen_pairs or a.chunk_id == b.chunk_id:
+                    continue
+                seen_pairs.add(pair)
+                # Numeric conflicts only count within the same provision.
+                same_provision = bool(
+                    a.section_number
+                    and b.section_number
+                    and a.section_number == b.section_number
+                )
+                a_vals = self._numeric_values(a.text)
+                b_vals = self._numeric_values(b.text)
+                if same_provision and a_vals and b_vals and set(a_vals).isdisjoint(b_vals):
+                    conflicts.append(
+                        Contradiction(
+                            a=a, b=b, kind="numeric", values=sorted(set(a_vals) | set(b_vals))[:4]
+                        )
+                    )
+                    continue
+                if not same_provision:
+                    # Prohibition conflicts also require the same provision.
+                    continue
+                a_prohibits = _PROHIBITION_RE.search(a.text)
+                b_permits = _PERMISSION_RE.search(b.text)
+                if a_prohibits and b_permits:
+                    conflicts.append(Contradiction(a=a, b=b, kind="prohibition", values=[]))
+        return conflicts
 
     @staticmethod
     def _snippet(text: str, limit: int = 120) -> str:

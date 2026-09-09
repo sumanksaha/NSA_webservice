@@ -1,7 +1,7 @@
 # V2 Planner–Executor–Verifier Architecture — Evaluation & Implementation Plan
 
 **Date:** 2026-09-09
-**Status:** ✅ Phase 0 complete (2026-09-09) — Phases 1–4 still plan only
+**Status:** ✅ Phases 0–2 complete (2026-09-09) — Phases 3–4 still plan only
 **Scope:** Maps the proposed SOTA LangGraph planner–executor–verifier architecture (19-point proposal, mirrored in `RAG_IMPROVEMENTS.md` §"V2 Planner–Executor–Verifier Architecture (Proposed)") onto the current `app/rag/agent/` implementation.
 
 > Related doc: `docs/LANGGRAPH_IMPLEMENTATION_EVALUATION.md` (2026-08-15) covers the earlier
@@ -45,6 +45,86 @@ All 7 critical defects plus 3 defects discovered during the fix are resolved. Th
 - `tests/test_eval_batch.py`, `tests/test_eval_framework.py`, `tests/test_rag_e2e_verification.py` fail at collection: `app/rag/evaluation/__init__.py` imports `AnswerRelevanceMetric`, which `metrics.py` does not define — broken at HEAD, pre-dates this work.
 - `tests/test_retrieval_stages.py` (4 tests) expects the old 3-stage contract; the `evidence_plan` stage exists at HEAD but the test file predates it — also broken at HEAD.
 - `test_hybrid_retriever` (2), `test_sparse_retriever` (1), `test_rag_retrieval_cache` (1) failures: verified identical on a stash-isolated HEAD baseline.
+
+---
+
+## Part 0.5 — Phase 1 outcome (2026-09-09)
+
+**EvidenceTask is now the real unit of execution (plan items 9–13; item 9 landed with Phase 0).**
+Agent suite: **94 passed** across graph/nodes/state/M5/routes (was 83 after Phase 0); retrieval/evidence/routes regression sweep: **211+ passed**; lint clean on all touched files.
+
+### Implemented
+
+| Item | Change |
+|------|--------|
+| Real dependencies (item 10) | `_construct_tasks` links tasks only when one requirement's kind feeds another (definition → penalty/exception/fact_application, …); independent tasks stay independent — no more artificial T(n)→T(n+1) chain, so sibling tasks form parallel waves |
+| Identifiers & cross-refs in plans (item 12) | The planner seeds `RetrievalPlan.identifiers` (act/section via the canonical detector) and `cross_reference_targets` (deterministic `extract_references`, MEDIUM+ confidence, sections already in the question excluded) |
+| Wave-parallel executor (item 10) | `execute_task_node` executes topological **waves** concurrently on a `ThreadPoolExecutor` (max 4 workers, consistent with retrieval `apply_stages`); `cfg.task_parallelism` (env `RAG_AGENT_TASK_PARALLELISM`, default on) falls back to sequential. Wave workers see the live evidence mapping so dependent tasks can mine upstream evidence |
+| Cross-reference expansion | Task workers run deterministic expansion queries (`"<question>, section N"` mined from dependency evidence — the pipeline's identifier route renders the lexical arm), merged into the task's chunks (chunk_id-deduped, capped at 2 queries, `via_cross_reference` stamped) |
+| Per-task outcomes (item 11) | New `task_results` state channel, surfaced as `response["agent"]["task_results"]`: `status` (completed/no_results/failed), placeholder `confidence`, `failure_reason` (NO_RESULTS / UNMET_DEPENDENCIES / UNPARSABLE_TASK), plus latency/query/cross-ref counts. Unreachable tasks fail explicitly instead of being silently skipped |
+| Budget deferral | Ready tasks that no longer fit `max_tasks` are **deferred** (left for the retry round), not failed; the check counts earlier waves of the same invocation. Completed tasks are never re-executed on retry rounds |
+| Retry-loop return path | `_route_after_retry`: DAG-path retries re-enter `plan_tasks → budget_gate → execute_task` (completed tasks skipped) instead of dead-ending into the linear `retrieve → generate` path where DAG evidence was never synthesized |
+| Answer contracts (item 13) | Single `AnswerContract` source in `evidence_task.py` with `is_satisfied`/`missing_fields`; `evidence_contract.py` is a re-export shim (pre-Phase-1 aliases preserved) |
+| Evidence-plan stage (item 12) | `_enrich_evidence_plan` fixed (dataclass-vs-dict bug + `ENABLE_EVIDENCE_PLAN`/`cfg.evidence_plan` flag name); `build_task_aware_retriever` deleted (unused no-op) |
+
+### Tests added
+
+- Waves execute in dependency order; worker visibility of upstream evidence (cross-ref mining e2e)
+- Parallelism flag off → sequential fallback, same results
+- Budget deferral vs. explicit `UNMET_DEPENDENCIES` failure
+- Retry-round semantics (completed tasks preserved, not re-retrieved)
+- Cross-ref query construction (sections already in the question are skipped)
+- Contract helpers + re-export identity
+- Graph e2e: recovery loop returns to the DAG path (wave 1 zero coverage → targeted_retry → wave 2 → one synthesis, zero `generate` calls); wave structure recorded in the audit trail
+
+### Notes
+
+- Planner task IDs are numbered by requirement kind (the standard two-part test query yields
+  T1=definition + T3=penalty) — tests assert on what the planner actually produces.
+- The placeholder per-task confidence (0→0, top_k hits→1.0) is superseded by the Phase 2 rubric.
+- Open decision resolved: **ThreadPool** for parallelism (LangGraph `Send` remains an option
+  for async fan-out later).
+
+---
+
+## Part 0.75 — Phase 2 outcome (2026-09-09)
+
+**Verification depth (plan items 14–17).** Agent suite: **149 passed** across
+sufficiency/nodes/graph/state/M5/routes/hallucination (was 94 after Phase 1); retrieval/evidence
+citation regression sweep: **231+ total passed**; lint clean on all touched files.
+
+### Implemented
+
+| Item | Change |
+|------|--------|
+| 7-signal per-task rubric (item 14) | New `app/rag/agent/sufficiency.py`: `SufficiencyAssessor.assess_task` scores coverage, relevance (median retrieval score), authority, specificity, completeness (contract-field hints), contradiction, temporal validity per task — pure functions over serialized state, thresholds in one `THRESHOLDS` dict. `GATING_SIGNALS` separates synthesis-blocking signals (coverage/relevance/authority/contradiction/temporal) from advisory ones (specificity, completeness — diagnosed, not blocking; the answer contract is enforced at claim level where it can actually fail the answer) |
+| Gate rewrite | `evidence_sufficiency_node` runs the rubric per task, aggregates via `aggregate_verdicts` (sufficient ratio ≥ 0.5), writes `task_sufficiency` verdicts + `has_conflicts` / `temporal_conflict` / `authority_score` / `diagnosis_failures` (rubric failures as ready-made FailureClassifier taxonomy codes) to state. Abstention refined: exhausted budget + gate rejection + <50% task coverage → abstain; partial coverage degrades gracefully to synthesis with gaps recorded |
+| Claim-level verification (item 15) | `_verify_claims` in `nodes.py`: rule-based `ClaimExtractor` → per-claim `EvidenceVerifier` entailment (section-stamp match, textual overlap, authority support) on both `generate` (linear path, vs `chunks`) and `synthesize` (DAG path, vs merged evidence). Persists `claims` / `claim_groundedness` / `unverified_claims` on state and the response payload. `route_after_verify` gains a claims gate: mostly-unverified claims → `targeted_retry` before groundedness rewrites (threshold `CLAIM_GROUNDEDNESS_THRESHOLD = 0.5`) |
+| Live contradiction signal (item 16) | `EvidenceVerifier.find_contradictions`: deterministic pairwise conflicts — numeric (different monetary/percentage amounts for the *same provision*) and prohibition-vs-permission on the same section stamp. Consumed by the rubric's contradiction signal → `EVIDENCE_CONTRADICTION` diagnosis |
+| Temporal validity | Repeal/supersede/omit language and effective-date (`w.e.f.`) vs task-scope mismatches flagged per chunk → `TEMPORAL_INVALIDITY` |
+| Authority as first-class input (item 17) | `chunk_authority_score`: document-type tier (act/statute 1.0 … blog 0.2, unknown 0.5-neutral) combined with the authority-name hierarchy (reusing the reranker's court/ministry weights + FSSAI); feeds the rubric's authority signal and `authority_score` on state |
+| Entailment fix | The verifier's section-branch no longer declares a claim hallucinated just because no chunk carries the cited section *stamp* — it falls through to textual-overlap before failing |
+
+### Tests added
+
+- `tests/test_rag_agent_sufficiency.py` (19): every signal's pass/fail behavior, authority tiers,
+  numeric/prohibition conflict detection, temporal scope mismatch, advisory-vs-gating semantics,
+  aggregation routing codes.
+- Node/graph level: claim verdicts persisted by `generate` (and absent when no claims), conflict
+  signals surfacing in the gate's audit + state, rubric failures consumed by `targeted_retry`,
+  claims-first routing (unit + the exhaust-retries e2e now exercises `targeted_retry`), claim
+  telemetry on the finalized response.
+
+### Design notes
+
+- **Claims-first retry order:** claim entailment runs before groundedness rewriting because
+  unverified factual claims are an *evidence* problem (fix by retrieving better), while low
+  groundedness with verified claims is a *phrasing* problem (fix by rewriting).
+- **Coverage threshold 0.2 (not 0.3):** narrow subquestions legitimately need ONE good provision;
+  at 0.3 a 1-chunk task was permanently rejected, which combined with the old abstain condition
+  produced an infinite retry loop (caught by the recovery-loop e2e as GraphRecursionError).
+- `SeparateConfidenceMetrics` now has a real consumer path: G = claim_groundedness,
+  E = evidence_coverage are both on state per round.
 
 ---
 
@@ -183,7 +263,8 @@ FAILED tests/test_rag_agent_graph.py::test_agent_flow_exhausts_retries   - TypeE
 ### Open decisions (for when implementation starts)
 
 - LLM-assisted decomposition later vs. staying regex-deterministic.
-- ThreadPool vs. LangGraph `Send` API for task parallelism.
+- ~~ThreadPool vs. LangGraph `Send` API for task parallelism.~~ Resolved in Phase 1: ThreadPool
+  (see Part 0.5).
 
 ### Key insight
 

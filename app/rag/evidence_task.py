@@ -121,6 +121,14 @@ class AnswerContract:
             type_hint=data.get("type_hint"),
         )
 
+    def is_satisfied(self, answer: dict[str, Any]) -> bool:
+        """True when every required field is present and non-empty."""
+        return all(answer.get(f) is not None and answer.get(f) != "" for f in self.required_fields)
+
+    def missing_fields(self, answer: dict[str, Any]) -> list[str]:
+        """Return the required fields missing from *answer*."""
+        return [f for f in self.required_fields if answer.get(f) is None or answer.get(f) == ""]
+
 
 @dataclass
 class EvidenceTask:
@@ -475,8 +483,10 @@ class CoverageMatrix:
 # Pre-constructed answer contracts for common evidence types
 # ---------------------------------------------------------------------------
 
-# Maps EvidenceRequirement → default AnswerContract
-_DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
+#: Maps EvidenceRequirement → default AnswerContract.
+#: Canonical, complete table — ``app.rag.evidence_contract`` re-exports this
+#: (the two tables previously drifted; keep ONE source of truth).
+DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
     EvidenceRequirement.PROVISION: AnswerContract(
         required_fields=["provision", "section", "act", "citation"],
         type_hint="provision",
@@ -485,15 +495,13 @@ _DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
         required_fields=["term", "definition", "source_provision", "citation"],
         type_hint="definition",
     ),
-    EvidenceRequirement.PENALTY: AnswerContract(
-        required_fields=[
-            "offence",
-            "penalty",
-            "maximum_or_fixed",
-            "legal_provision",
-            "citation",
-        ],
-        type_hint="penalty",
+    EvidenceRequirement.SCOPE: AnswerContract(
+        required_fields=["scope", "applies_to", "limitations", "citation"],
+        type_hint="scope",
+    ),
+    EvidenceRequirement.ELEMENT: AnswerContract(
+        required_fields=["elements", "required_conditions", "citation"],
+        type_hint="element",
     ),
     EvidenceRequirement.EXCEPTION: AnswerContract(
         required_fields=[
@@ -505,17 +513,79 @@ _DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
         ],
         type_hint="exception",
     ),
+    EvidenceRequirement.CONDITION: AnswerContract(
+        required_fields=["condition", "trigger", "citation"],
+        type_hint="condition",
+    ),
+    EvidenceRequirement.PROHIBITION: AnswerContract(
+        required_fields=["prohibited_action", "scope", "citation"],
+        type_hint="prohibition",
+    ),
+    EvidenceRequirement.DUTY: AnswerContract(
+        required_fields=["duty", "obligated_party", "citation"],
+        type_hint="duty",
+    ),
+    EvidenceRequirement.RIGHT: AnswerContract(
+        required_fields=["right", "beneficiary", "citation"],
+        type_hint="right",
+    ),
+    EvidenceRequirement.PENALTY: AnswerContract(
+        required_fields=[
+            "offence",
+            "penalty",
+            "maximum_or_fixed",
+            "legal_provision",
+            "citation",
+        ],
+        type_hint="penalty",
+    ),
+    EvidenceRequirement.OFFENCE: AnswerContract(
+        required_fields=["offence", "elements", "citation"],
+        type_hint="offence",
+    ),
+    EvidenceRequirement.PROCEDURE: AnswerContract(
+        required_fields=["procedure", "steps", "authority", "citation"],
+        type_hint="procedure",
+    ),
+    EvidenceRequirement.AUTHORITY: AnswerContract(
+        required_fields=["authority", "power", "legal_provision", "citation"],
+        type_hint="authority",
+    ),
     EvidenceRequirement.JURISDICTION: AnswerContract(
         required_fields=["jurisdiction", "authority", "act", "citation"],
         type_hint="jurisdiction",
     ),
-    EvidenceRequirement.SCOPE: AnswerContract(
-        required_fields=["scope", "applies_to", "limitations", "citation"],
-        type_hint="scope",
+    EvidenceRequirement.TIME_LIMIT: AnswerContract(
+        required_fields=["time_limit", "period", "citation"],
+        type_hint="time_limit",
+    ),
+    EvidenceRequirement.THRESHOLD: AnswerContract(
+        required_fields=["threshold", "value", "citation"],
+        type_hint="threshold",
+    ),
+    EvidenceRequirement.STANDARD: AnswerContract(
+        required_fields=["standard", "criteria", "citation"],
+        type_hint="standard",
     ),
     EvidenceRequirement.CROSS_REFERENCE: AnswerContract(
         required_fields=["source_section", "target_section", "relationship", "citation"],
         type_hint="cross_reference",
+    ),
+    EvidenceRequirement.AMENDMENT: AnswerContract(
+        required_fields=["amendment", "effective_date", "citation"],
+        type_hint="amendment",
+    ),
+    EvidenceRequirement.REPEAL: AnswerContract(
+        required_fields=["repealed_provision", "repeal_date", "citation"],
+        type_hint="repeal",
+    ),
+    EvidenceRequirement.CASE_LAW: AnswerContract(
+        required_fields=["case_name", "holding", "court", "citation"],
+        type_hint="case_law",
+    ),
+    EvidenceRequirement.INTERPRETATION: AnswerContract(
+        required_fields=["interpretation", "authority", "citation"],
+        type_hint="interpretation",
     ),
     EvidenceRequirement.FACT_APPLICATION: AnswerContract(
         required_fields=["scenario", "conditions_met", "legal_conclusion", "citation"],
@@ -523,7 +593,10 @@ _DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
     ),
 }
 
+#: Backward-compatible alias for the pre-Phase-1 private name.
+_DEFAULT_ANSWER_CONTRACTS = DEFAULT_ANSWER_CONTRACTS
+
 
 def get_answer_contract(requirement: EvidenceRequirement) -> AnswerContract:
     """Get the default answer contract for an evidence requirement."""
-    return _DEFAULT_ANSWER_CONTRACTS.get(requirement, AnswerContract(required_fields=["detail", "citation"]))
+    return DEFAULT_ANSWER_CONTRACTS.get(requirement, AnswerContract(required_fields=["detail", "citation"]))
