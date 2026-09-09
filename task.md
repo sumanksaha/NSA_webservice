@@ -969,7 +969,9 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-### D6: Unify `app/utils/sync.py` Restore Chain — OPEN (Module Depth: 1 to 4)
+### D6: Unify `app/utils/sync.py` Restore Chain — ✅ DONE (Module Depth: 1 to 4)
+
+> **✅ RESOLVED — verified complete:** `BackupRestorer` (`app/services/backup_restorer.py`) with single canonical `BACKUP_MODULE_TO_TABLE`; dead `sync_to_sheets()` deleted; 46 tests green (`test_priority7_redundancy.py` 21 + `test_backup_targets.py` 7 + `test_full_archive_backup.py` 18). See `ARCHITECTURE_SHALLOW_MODULE_FINDINGS.md` § Completed deepening.
 
 > Discovered during deepen-architecture exploration. `app/utils/sync.py` is a 14 KB grab-bag combining dead-duplicate code, triple-identical configuration maps, and a restore pipeline copy-pasted 3x. Deletion test confirms it earns no depth: removing it eliminates all three duplications with zero production impact.
 
@@ -1026,9 +1028,11 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-### D7: Unify Audit Caller Boilerplate (`_log_audit` wrappers) — OPEN (Module Depth: 1 to 3)
+### D7: Unify Audit Caller Boilerplate (`_log_audit` wrappers) — ✅ DONE (2026-09-09) (Module Depth: 1 to 3)
 
 > `log_audit(entity_type, entity_id, action, actor, details)` is _deep_ (hash-chaining, advisory locks, transaction safety). But its callers are shallow: every blueprint that audits a single entity type re-implements a 9-line `_log_audit` wrapper that hardcodes the `entity_type` string and converts `**details` kwargs to a dict. Two of those wrappers (annexure, evidence) are byte-identical except the entity-type string.
+
+> **✅ RESOLVED (2026-09-09):** `app/services/audit_context.py` implements the `audit_logger(entity_type)` factory — `AuditLogger.log(entity_id, action, *, actor=None, **details)`: binds `entity_type`, normalizes `actor` from `current_user` (authenticated username, `"anonymous"` when unauthenticated/inactive/outside a request context, explicit override wins), and swallows core-writer failures at WARNING (best-effort). The three wrappers are deleted: annexure + evidence routes hold module-level bindings (`_audit = audit_logger("annexure" | "evidence")`); `document_lifecycle._log_audit` delegates to `AuditLogger(case_type)` (dynamic per-save binding). Tests cross the caller seam by patching `app.services.audit_context._default_writer` (resolved at call time — one mock point for every instance): `tests/test_audit_context.py` (13 tests) + migrated audit tests in `tests/test_document_lifecycle.py` = **23/23 pass**. Remaining (optional): the direct `log_audit(...)` calls listed in step 4 still call the deep core directly — valid; migrate opportunistically.
 
 **Files:**
 
@@ -1084,11 +1088,13 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ---
 
-### D8: Tighten `app/utils/lookup.py` — PARTIALLY DONE (Module Depth: 1 to 4)
+### D8: Tighten `app/utils/lookup.py` — MODULE DEEPENED, CALLERS NOT MIGRATED ⚠️ (Module Depth: 1 to 4)
 
-> **FSSAI half RESOLVED (2026-08-25):** `lookup_fssai()` migrated from SQLite to Postgres via `db.session.get()` (see `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` §6) — `_resolve_db_path`, `LICENSE_DB_PATH`, `REGISTRATION_DB_PATH` deleted; return contract unchanged; verified live against Supabase. Remaining scope below is the **`lookup_ce` god-function + unified error contract**.
+> **FSSAI half RESOLVED (2026-08-25):** `lookup_fssai()` migrated from SQLite to Postgres via `db.session.get()` (see `docs/FSSAI_LOOKUP_POSTGRES_RESEARCH.md` §6) — `_resolve_db_path`, `LICENSE_DB_PATH`, `REGISTRATION_DB_PATH` deleted; return contract unchanged; verified live against Supabase. Module half RESOLVED (2026-09-08, commit `0bfc8d3`): `lookup.py` was deepened per the plan below — `LookupResult` dataclass (`found`/`error`/`data`, legacy `as_tuple()` shim), pure `repair_kmc_json()`, injectable `RateLimiter` (fcntl file-lock + timestamp) and `DefaultKmcHttpClient` (TLS `SECLEVEL=1`, cookie-warming). `lookup_ce` no longer raises; both lookups return `LookupResult`. The INTERFACE-DESIGN exploration was skipped (Agent-3 shape adopted directly: public `lookup_fssai`/`lookup_ce` names kept).
 >
-> Two license lookups with _inconsistent contracts_ in one module. `lookup_fssai` returns `(dict|None, str|None)` (tuple: data, error); `lookup_ce` returns `dict|None` and can _raise_ (httpx/file I/O). Six call sites across 5 blueprints handle the two shapes differently. `lookup_ce` is a 50-line god-function mixing rate-limiting (fcntl file lock + timestamp), SSL context config, cookie-warming HTTP client, JSON repair (regex), and response data-shaping.
+> **⚠️ NOT DONE — caller migration (callers BROKEN at runtime):** the 6 production call sites still use the old contracts — `result, error = lookup_fssai(...)` raises `TypeError` (LookupResult is not iterable); CE routes still `try/except` + `jsonify(result)` (LookupResult is not JSON-serializable). Affected: `app/case_file_generator/routes.py:410`, `app/adjudication/routes.py:300,313`, `app/inspection/routes/lookup_routes.py:22,53`, `app/sample/routes.py:152,214`, `app/fbo_issue/routes.py:128,133`. CI stayed green because `tests/test_lookup_fssai_postgres.py` exercises the module directly — no test crosses the caller seam. **Next: migrate all 6 sites to `if result.error / elif result.found` + add `tests/test_lookup.py` caller-contract tests (acceptance items 2–3 below).**
+>
+> Historical scope note: two license lookups with _inconsistent contracts_ in one module. `lookup_fssai` returns `(dict|None, str|None)` (tuple: data, error); `lookup_ce` returns `dict|None` and can _raise_ (httpx/file I/O). Six call sites across 5 blueprints handle the two shapes differently. `lookup_ce` is a 50-line god-function mixing rate-limiting (fcntl file lock + timestamp), SSL context config, cookie-warming HTTP client, JSON repair (regex), and response data-shaping.
 
 **Files:**
 
@@ -1146,8 +1152,8 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 | Rank | Candidate | File                            | Depth       | Risk          | Effort   | Why first?                                                                                                       |
 | ---- | --------- | ------------------------------- | ----------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
 | 1    | D6        | `app/utils/sync.py`             | 1 to 4      | Low           | 2-3 days | Dead code + 3x duplication + test surface = internals. Deletion test passes cleanly. Highest leverage.           |
-| 2    | D7        | `app/services/audit.py` callers | 1 to 3      | Low           | 1-2 days | 3 identical wrappers, typo-prone entity_type strings. Low-risk, high locality payoff.                            |
-| 3    | D8        | `app/utils/lookup.py`           | 1 to 4      | Medium        | 2-3 days | Inconsistent contracts across 6 call sites. Requires API contract change. Needs INTERFACE-DESIGN.md exploration. |
+| 2    | D7        | `app/services/audit.py` callers | 1 to 3      | —             | —        | ✅ **DONE (2026-09-09)** — `audit_logger` factory shipped in `app/services/audit_context.py`; wrappers deleted; 23/23 tests pass.                                                  |
+| 3    | D8        | `app/utils/lookup.py`           | 1 to 4      | Medium        | 1-2 days | ⚠️ Module deepened (2026-09-08); caller migration outstanding — 6 call sites broken at runtime; contract tests missing.                                                          |
 | 4    | D9        | `verification_service.py`       | N/A (smell) | Trivially low | <1 hour  | Optional `_degrade` helper. Not a deepening move.                                                                |
 
 ---
@@ -1155,8 +1161,8 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 ### Deepening Strategy Notes
 
 - **D6 (sync.py)** is the strongest candidate: deletion test passes (no production impact), structural duplication is provable (3 identical maps + 3 identical restore pipelines), and the test migration path is clear (patch adapters, not internals).
-- **D7 (audit)** is deferred to D6 -- it is a consequence of `log_audit`'s stringly-typed `entity_type`, not an independent shallow module. The `AuditLogger` factory is a thin wrapper; the deepening belongs to `log_audit`'s interface, which is already deep. Worth doing as a 1-day follow-up.
-- **D8 (lookup)** requires a contract change (`LookupResult`) across 6 call sites -- higher blast radius. Should be designed via INTERFACE-DESIGN.md (3+ alternative interfaces) before implementation.
+- **D7 (audit)** — ✅ DONE (2026-09-09). The factory turned out to be the right seam after all: `app/services/audit_context.py` binds `entity_type`, normalizes `actor`, and swallows writer failures; the call-time-resolved `_default_writer` gives tests one patch point for all instances. `log_audit`'s deep core is untouched.
+- **D8 (lookup)** — module deepened 2026-09-08 (`LookupResult`, `RateLimiter`, HTTP adapter, `repair_kmc_json()`); INTERFACE-DESIGN exploration skipped, Agent-3 shape adopted. **The contract change across the 6 call sites was not propagated — callers still unpack tuples and now raise at runtime.** Caller migration + `tests/test_lookup.py` are the remaining (urgent) work.
 - **D9 (verification)** is NOT a deepening candidate per the deletion + seam tests. Only flag for a future `_degrade` micro-fix.
 
 ---
