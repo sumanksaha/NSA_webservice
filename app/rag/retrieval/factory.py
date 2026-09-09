@@ -22,8 +22,12 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from app.rag.evidence_task import EvidenceTask
 
 
 def build_dense_retriever(collection_name: str | None = None):
@@ -120,6 +124,22 @@ def build_hybrid_retriever(collection_name: str | None = None):
     )
 
 
+def build_task_aware_retriever(collection_name: str | None = None):
+    """Build a retriever configured for Evidence Task retrieval.
+
+    Returns a callable that accepts a list of EvidenceTasks and returns
+    a per-task retrieval plan with the appropriate retrieval arms enabled.
+    """
+    from app.rag.retrieval import HybridRetriever
+
+    hybrid = HybridRetriever(
+        dense=build_dense_retriever(collection_name),
+        sparse=build_sparse_retriever(collection_name),
+        reranker=build_reranker(),
+    )
+    return hybrid
+
+
 def clear_retriever_cache() -> None:
     """Clear the per-collection retriever cache (e.g. after re-ingestion)."""
     build_hybrid_retriever.cache_clear()
@@ -130,4 +150,5 @@ __all__ = [
     "build_hybrid_retriever",
     "build_reranker",
     "build_sparse_retriever",
+    "build_task_aware_retriever",
 ]

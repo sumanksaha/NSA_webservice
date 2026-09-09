@@ -99,6 +99,7 @@ def run_retrieval_pipeline(
     filters: dict[str, Any] | None = None,
     pipeline: str | None = None,
     cache: RetrievalCache | None = None,
+    evidence_tasks: Any | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 1 retrieval pipeline for *query*.
 
@@ -237,7 +238,7 @@ def run_retrieval_pipeline(
     # (isolate=False), preserving the original inline behaviour.
     from app.rag.retrieval.stages import apply_stages
 
-    enrichment = apply_stages(query, result)
+    enrichment = apply_stages(query, result, evidence_tasks=evidence_tasks)
 
     return {
         "query": query,

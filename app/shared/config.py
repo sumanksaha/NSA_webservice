@@ -142,6 +142,13 @@ _TABLE: tuple[Setting, ...] = (
         help="Reference-graph candidate expansion (default off per spec).",
     ),
     Setting(
+        "ENABLE_EVIDENCE_PLAN",
+        "evidence_plan",
+        bool,
+        False,
+        help="Evidence Task planning for task-aware retrieval (default off).",
+    ),
+    Setting(
         "ENABLE_LEGAL_IDENTITY",
         "legal_identity",
         bool,

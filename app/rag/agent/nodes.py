@@ -1,6 +1,6 @@
 """Graph nodes — thin adapters over the existing RAG services (M3).
 
-Each node is a plain function ``(state: RAGState) -> partial RAGState``.
+Each node is a plain function ``(state: dict[str, Any]) -> partial RAGState``.
 They reuse the production pipeline entry points (``run_retrieval_pipeline``
 / ``run_generation_pipeline``) so the agent path and the legacy path share
 exactly the same retrieval, reranking, KG-fusion, generation and
@@ -38,7 +38,7 @@ def _query_for_retrieval(state: dict[str, Any]) -> str:
     return state.get("expanded_query") or state.get("query") or ""
 
 
-def classify_node(state: RAGState) -> dict[str, Any]:
+def classify_node(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the query into a legal query type.
 
     Wraps :class:`QueryClassifier`; a failure degrades to ``"general"``
@@ -68,7 +68,7 @@ def classify_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def retrieve_node(state: RAGState) -> dict[str, Any]:
+def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     """Retrieve candidate chunks via the Phase 1 pipeline.
 
     Calls ``run_retrieval_pipeline`` — which already runs hybrid retrieval
@@ -110,7 +110,7 @@ def retrieve_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def evidence_node(state: RAGState) -> dict[str, Any]:
+def evidence_node(state: dict[str, Any]) -> dict[str, Any]:
     """Pass through the evidence set computed during retrieval.
 
     The evidence selector already ran inside ``run_retrieval_pipeline``
@@ -134,7 +134,7 @@ def evidence_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def generate_node(state: RAGState) -> dict[str, Any]:
+def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     """Generate a grounded answer from the retrieved chunks.
 
     Calls ``run_generation_pipeline`` with the chunks already in state
@@ -173,7 +173,7 @@ def generate_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def verify_node(state: RAGState) -> dict[str, Any]:
+def verify_node(state: dict[str, Any]) -> dict[str, Any]:
     """Assess the generated response's groundedness.
 
     The actual verification (claim extraction, evidence comparison,
@@ -188,7 +188,7 @@ def verify_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def citation_quality_node(state: RAGState) -> dict[str, Any]:
+def citation_quality_node(state: dict[str, Any]) -> dict[str, Any]:
     """Check if cited chunks are actually in the retrieved set.
 
     Extracts citations from the generated answer (via the ``response``
@@ -232,7 +232,7 @@ def citation_quality_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def targeted_retry_node(state: RAGState) -> dict[str, Any]:
+def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
     """Phase 2.6: Targeted retry node using failure-aware retrieval.
 
     Diagnoses verification failures and triggers targeted retrieval queries
@@ -279,7 +279,7 @@ def targeted_retry_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def expand_query_node(state: RAGState) -> dict[str, Any]:
+def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
     """Rephrase / expand the query for a grounded retry.
 
     Reuses :class:`GroundedLLMClient` with a fixed expansion prompt
@@ -328,7 +328,7 @@ def expand_query_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def finalize_node(state: RAGState) -> dict[str, Any]:
+def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     """Assemble the final ``RAGResponse``-schema result dict.
 
     Merges the generation result (``state["response"]``) with agent
@@ -350,7 +350,7 @@ def finalize_node(state: RAGState) -> dict[str, Any]:
     return {"response": response}
 
 
-def reason_node(state: RAGState) -> dict[str, Any]:
+def reason_node(state: dict[str, Any]) -> dict[str, Any]:
     """Multi-hop reasoning: analyze chunks to decide if more retrieval is needed.
 
     Priority 3: Multi-hop agent. Generates a brief reasoning note from
@@ -372,7 +372,7 @@ def reason_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def plan_node(state: RAGState) -> dict[str, Any]:
+def plan_node(state: dict[str, Any]) -> dict[str, Any]:
     """Build a structured query plan with subquestions and evidence requirements.
 
     Uses QueryPlanner to decompose compound queries and produce a DAG of
@@ -404,7 +404,7 @@ def plan_node(state: RAGState) -> dict[str, Any]:
     }
 
 
-def multi_hop_retrieve_node(state: RAGState) -> dict[str, Any]:
+def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     """Targeted retrieval using reasoning note — multi-hop for cross-reference / case-law.
 
     Priority 3: Inspects retrieved chunks for cross-references (via

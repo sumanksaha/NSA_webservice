@@ -22,7 +22,7 @@
 
 **Key capabilities:**
 
-| Capability           | Description |
+| Capability | Description |
 |---------------------|-------------|n|__has_permission|Should the specified entity have permission X? |
 |__conflict_reasoning|Resolve conflicts between multiple authorities/sections |
 |__trace_lineage|Follow chains of dependency / amendment |
@@ -33,7 +33,7 @@
 **Implementation approach:**
 
 1. **KG Query to Cypher Generator:** LLM → deterministic pattern matching → generate Cypher with validate-query pattern:
-   - `MATCH (s:Section)-[:HAS_AUTHORITY]->(a:Authority)-[:HAS_POWER]->(p:Provision)`
+    - `MATCH (s:Section)-[:HAS_AUTHORITY]->(a:Authority)-[:HAS_POWER]->(p:Provision)`
 2. **Evidence Filtering:** Use query intent to filter KG paths (e.g., "Did the authority have X power?")
 3. **Path scoring:** Score paths by authority weight (primary vs secondary), trust heuristics (recency, hierarchy), and support in supporting evidence.
 
@@ -113,3 +113,535 @@ All 12 items (2.1–2.11) implemented:
 **Deployment Impact:** All changes are **backward compatible** with the legacy `run_generation_pipeline`/`run_retrieval_pipeline` API. New features are gated by `cfg` flags (e.g., `evidence_selector`, `kg_fusion`) and can be toggled in production.
 
 **TL;DR:** The RAG intelligence layer is **fully implemented**. The system now features structured query decomposition, adaptive retrieval strategies, three‑stage reranking, evidence optimization, targeted retry with failure diagnosis, answerability gates, separate confidence metrics, and KG‑based reasoning. It's ready for production deployment.
+
+---
+
+## V2 Planner–Executor–Verifier Architecture (Proposed)
+
+> **Scope:** This section captures the architectural evaluation of upgrading the current linear RAG graph into a planner–executor–verifier architecture. No code changes are included here; this is a design plan only.
+
+### 1. The biggest architectural change
+
+```text
+                     USER QUERY
+                         │
+                         ▼
+                ┌────────────────┐
+                │ Query Analyzer │
+                └───────┬────────┘
+                        │
+                        ▼
+             ┌──────────────────────┐
+             │ Requirement Planner  │
+             └──────────┬───────────┘
+                        │
+                        ▼
+             ┌──────────────────────┐
+             │ EvidenceTask DAG     │
+             └──────────┬───────────┘
+                        │
+             ┌──────────┴──────────┐
+             │                     │
+             ▼                     ▼
+      Independent tasks       Dependent tasks
+             │                     │
+             └──────────┬──────────┘
+                        ▼
+             ┌──────────────────────┐
+             │ Retrieval Executor   │
+             └──────────┬───────────┘
+                        │
+                        ▼
+             ┌──────────────────────┐
+             │ Evidence Verifier    │
+             └──────────┬───────────┘
+                        │
+                ┌───────┴────────┐
+                │                │
+            sufficient        deficient
+                │                │
+                │                ▼
+                │       Failure Diagnosis
+                │                │
+                │                ▼
+                │       Targeted Retrieval
+                │                │
+                └───────┬────────┘
+                        ▼
+             ┌──────────────────────┐
+             │ Claim Builder        │
+             └──────────┬───────────┘
+                        ▼
+             ┌──────────────────────┐
+             │ Claim Verifier       │
+             └──────────┬───────────┘
+                        ▼
+                     ANSWER
+```
+
+The important part is that **the graph itself becomes adaptive**.
+
+### 2. Don't make the LLM control everything
+
+Use three kinds of nodes:
+
+**Deterministic nodes**
+
+```text
+parse
+validate
+route
+deduplicate
+merge
+score
+check coverage
+check dependencies
+```
+
+**LLM nodes**
+
+```text
+query understanding
+task decomposition
+failure diagnosis
+claim generation
+ambiguous interpretation
+```
+
+**Retrieval/tool nodes**
+
+```text
+BM25
+dense retrieval
+metadata filtering
+identifier lookup
+cross-reference resolution
+reranking
+document extraction
+```
+
+Your graph should look roughly like:
+
+```text
+             LLM
+              │
+              ▼
+      structured decision
+              │
+              ▼
+      deterministic router
+              │
+       ┌──────┼──────┐
+       ▼      ▼      ▼
+     BM25   Dense   KG
+```
+
+**Don't let an LLM decide everything through free-form text.** That makes the system harder to test and considerably harder to debug.
+
+### 3. Make `EvidenceTask` the unit of execution
+
+Redesign the LangGraph state around this object:
+
+```python
+class EvidenceTask(TypedDict):
+    id: str
+    objective: str
+    question: str
+    evidence_type: str
+    entities: list[str]
+    constraints: list[str]
+    depends_on: list[str]
+    retrieval_plan: dict
+    evidence: list[dict]
+    status: str
+    confidence: float
+    answer: str | None
+    citations: list[str]
+    failure_reason: str | None
+```
+
+Then your graph state becomes:
+
+```python
+class RAGState(TypedDict):
+    query: str
+    requirements: list[dict]
+    tasks: dict[str, EvidenceTask]
+    task_order: list[str]
+    evidence: dict[str, list]
+    claims: list[dict]
+    final_answer: str | None
+    quality: dict
+```
+
+This is much better than having dozens of loosely related state variables.
+
+### 4. Turn the task graph into an actual DAG
+
+For example, with tasks T1–T4:
+
+```text
+T1
+├── T2
+├── T3
+└── T4
+```
+
+LangGraph then executes T2/T3/T4 when their dependencies are satisfied. For independent tasks, parallel retrieval happens instead of sequentially asking an LLM to solve each question.
+
+### 5. Add a Query Complexity Router
+
+Before decomposition, add a complexity classifier:
+
+```text
+DIRECT | MULTI_PART | MULTI_HOP | COMPARATIVE | TEMPORAL | CALCULATION | AMBIGUOUS
+```
+
+Then:
+
+- **DIRECT** → retrieval → answer
+- **MULTI_PART** → parallel EvidenceTasks
+- **MULTI_HOP** → DAG planner → iterative retrieval
+- **AMBIGUOUS** → ambiguity resolver → clarification OR bounded assumptions
+
+This prevents your expensive agentic pipeline from being used for simple queries like "What is Section 12?"
+
+### 6. Add an Evidence Sufficiency Gate
+
+After retrieval:
+
+```text
+retrieval
+    ↓
+evidence sufficiency
+```
+
+Don't immediately generate an answer. The verifier should assess coverage, relevance, authority, specificity, completeness, contradiction, temporal validity.
+
+If sufficient → claim. If deficient → failure diagnosis.
+
+### 7. Make retrieval iterative rather than "retrieve once"
+
+```text
+Task → Retrieve → Rerank → Check evidence → Enough?
+  ├── YES → done
+  └── NO → diagnose failure → modify retrieval → retrieve again
+```
+
+Cap the loop (e.g., `MAX_RETRIEVAL_ROUNDS = 3`).
+
+### 8. Failure diagnosis should be a dedicated node
+
+Have the LLM classify why retrieval failed:
+
+```text
+NO_RESULTS | LOW_RELEVANCE | WRONG_ENTITY | WRONG_JURISDICTION | TEMPORAL_MISMATCH | MISSING_CROSS_REFERENCE | MISSING_DEFINITION | MISSING_EXCEPTION | CONFLICTING_EVIDENCE | INSUFFICIENT_SPECIFICITY
+```
+
+Then deterministic routing to entity resolution, temporal filter, reference resolver, or query expansion.
+
+### 9. Add a dedicated Cross-Reference Resolver
+
+Example:
+
+```text
+Section 23
+   ↓
+"subject to Section 18"
+   ↓
+resolve reference
+   ↓
+Section 18
+   ↓
+retrieve
+```
+
+Your retrieval graph becomes:
+
+```text
+Document
+  ├── section
+  ├── subsection
+  ├── definition
+  ├── schedule
+  ├── annexure
+  └── cross-reference
+```
+
+Don't leave cross-reference resolution to semantic search. Make it a first-class deterministic capability.
+
+### 10. Add claim-level verification
+
+After evidence gathering:
+
+```text
+Evidence → Claim Builder → Claims
+```
+
+For example:
+
+```json
+[
+  {"claim_id": "C1", "text": "...", "supporting_tasks": ["T1"], "citations": ["doc123#section23"]},
+  {"claim_id": "C2", "text": "...", "supporting_tasks": ["T2"], "citations": ["doc123#section23(2)"]}
+]
+```
+
+Then run claim → citation entailment → supported?
+
+This is much safer than verifying the entire final answer as one blob.
+
+### 11. Add a contradiction detector
+
+Your graph should explicitly search for conflicting evidence:
+
+```text
+Evidence → Contradiction detector
+   ├── no conflict → continue
+   └── conflict → conflict resolver
+```
+
+For example:
+
+```text
+Source A: Penalty = ₹X
+Source B: Penalty = ₹Y
+```
+
+The system should investigate authority, date, amendment, jurisdiction, scope, provision, then determine whether A supersedes B, A and B apply to different conditions, B is secondary commentary, or genuine unresolved conflict.
+
+### 12. Introduce "source authority" into the state
+
+Don't treat all retrieved chunks equally. Have:
+
+```json
+{"source": "FSSAI regulation", "authority": 1.0, "date": "...", "jurisdiction": "India", "document_type": "regulation"}
+```
+
+versus
+
+```json
+{"source": "blog", "authority": 0.35}
+```
+
+Then ranking becomes: semantic relevance + lexical relevance + authority + temporal validity + structural proximity + citation quality.
+
+### 13. Use structured retrieval plans
+
+Instead of `search(query)`, make retrieval task-aware:
+
+```python
+RetrievalPlan(
+    lexical_queries=[...],
+    semantic_queries=[...],
+    identifiers=[...],
+    metadata_filters={...},
+    required_source_types=[...],
+    cross_reference_targets=[...],
+    temporal_constraints={...}
+)
+```
+
+Different EvidenceTasks can use different retrieval strategies:
+
+| Task               | Best retrieval       |
+| ------------------ | -------------------- |
+| Definition         | exact/lexical        |
+| Section            | identifier + lexical |
+| Penalty            | lexical + structural |
+| Concept            | dense                |
+| Cross-reference    | graph                |
+| Exception          | lexical + dense      |
+| Current regulation | temporal + authority |
+| Application        | evidence synthesis   |
+
+### 14. Add a "budget controller"
+
+A genuinely production-grade graph should know how much computation this query is worth:
+
+```json
+{"budget": {"max_tasks": 8, "max_retrieval_rounds": 3, "max_documents": 50, "max_llm_calls": 12}}
+```
+
+Then your router can decide:
+
+- cheap query → direct RAG
+- moderate → decomposition + parallel retrieval
+- complex → DAG + iterative retrieval + verification
+
+This is one of the biggest differences between a research demo and a serious system.
+
+### 15. Use subgraphs strategically
+
+```text
+MAIN GRAPH
+│
+├── Query Understanding
+├── Planning Subgraph
+├── Retrieval Subgraph
+├── Evidence Verification Subgraph
+└── Answer Verification Subgraph
+```
+
+LangGraph currently supports different persistence modes for subgraphs; per-invocation persistence is generally appropriate for independent specialist calls, while per-thread persistence is useful when a subagent needs continuing memory.
+
+### 16. Make the graph observable
+
+Every node should emit structured telemetry:
+
+```json
+{"node": "retrieve_task", "task_id": "T3", "latency_ms": 421, "retrieval_round": 2, "queries": 3, "documents_retrieved": 25, "documents_after_rerank": 8, "evidence_sufficient": true, "token_cost": 1840}
+```
+
+Then you can discover things like:
+
+```text
+40% of failures occur in decomposition
+25% occur in entity resolution
+20% occur in retrieval
+10% occur in synthesis
+5% occur elsewhere
+```
+
+Without this, improving the graph becomes guesswork.
+
+### 17. Build an evaluation graph alongside the production graph
+
+You need a benchmark containing:
+
+```text
+Query
+Expected requirements
+Expected EvidenceTasks
+Expected dependencies
+Expected evidence
+Expected answer
+Expected citations
+```
+
+Then measure:
+
+**Decomposition**
+
+```text
+Task recall | Task precision | Atomicity | Dependency accuracy | Over-decomposition | Under-decomposition
+```
+
+**Retrieval**
+
+```text
+Recall@k | MRR | nDCG | Evidence recall | Citation recall
+```
+
+**Reasoning**
+
+```text
+Claim accuracy | Entailment | Contradiction rate
+```
+
+**End-to-end**
+
+```text
+Answer correctness | Completeness | Citation correctness | Abstention accuracy | Latency | Cost
+```
+
+This will allow you to improve individual graph nodes instead of blindly changing prompts.
+
+### 18. Add an explicit abstention path
+
+Your graph should be allowed to say `INSUFFICIENT EVIDENCE` instead of forcing `ANSWER`:
+
+```text
+                  Evidence
+                     │
+              ┌──────┴──────┐
+              ▼             ▼
+          sufficient    insufficient
+              │             │
+              ▼             ▼
+            answer       diagnose
+                            │
+                       ┌────┴─────┐
+                       ▼          ▼
+                   retrieve    abstain
+```
+
+And after the maximum retrieval budget: `ABSTAIN`. This is a major quality improvement.
+
+### 19. The final architecture I would target
+
+```text
+                           QUERY
+                             │
+                             ▼
+                  ┌────────────────────┐
+                  │ Query Understanding │
+                  └─────────┬──────────┘
+                            ▼
+                  ┌────────────────────┐
+                  │ Complexity Router  │
+                  └─────────┬──────────┘
+                            ▼
+                  ┌────────────────────┐
+                  │ Requirement        │
+                  │ Extractor          │
+                  └─────────┬──────────┘
+                            ▼
+                  ┌────────────────────┐
+                  │ EvidenceTask       │
+                  │ Planner            │
+                  └─────────┬──────────┘
+                            ▼
+                      ┌───────────┐
+                      │ Task DAG  │
+                      └─────┬─────┘
+                            │
+                ┌───────────┼───────────┐
+                ▼           ▼           ▼
+               T1          T2          T3
+                │           │           │
+                ▼           ▼           ▼
+             Retrieve    Retrieve    Retrieve
+                │           │           │
+                └───────────┼───────────┘
+                            ▼
+                    ┌──────────────┐
+                    │ Reranker     │
+                    └──────┬───────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Evidence         │
+                  │ Sufficiency      │
+                  └────────┬─────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             ▼                           ▼
+        SUFFICIENT                  INSUFFICIENT
+             │                           │
+             │                    Failure Diagnosis
+             │                           │
+             │                    Targeted Retrieval
+             │                           │
+             │                     max 2–3 rounds
+             │                           │
+             └─────────────┬─────────────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Evidence Graph   │
+                  └────────┬─────────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Claim Builder    │
+                  └────────┬─────────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Claim Verifier   │
+                  └────────┬─────────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Answer Composer  │
+                  └────────┬─────────┘
+                           ▼
+                  ┌──────────────────┐
+                  │ Final QA Gate    │
+                  └────────

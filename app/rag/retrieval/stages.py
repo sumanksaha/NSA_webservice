@@ -85,6 +85,46 @@ def _enrich_evidence_set(query: str, result: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Enrich functions — lazy imports keep boots lightweight.
+# ---------------------------------------------------------------------------
+
+# Add evidence task based stage
+def _enrich_evidence_plan(query: str, result: Any) -> dict[str, Any]:
+    """Plan per-task retrieval from Evidence Tasks attached to result.
+
+    Expects result.evidence_tasks (list of EvidenceTask) or
+    result["evidence_tasks"] (from dict). Outputs a retrieval plan
+    dict mapping task_id -> retrieval_routes.
+    """
+    from app.rag.evidence_task import EvidenceTask
+
+    evidence_tasks: list[EvidenceTask] | None = None
+    if hasattr(result, "evidence_tasks"):
+        evidence_tasks = result.evidence_tasks
+    elif isinstance(result, dict):
+        evidence_tasks = result.get("evidence_tasks")
+
+    if not evidence_tasks:
+        return {"retrieval_plan": {}}
+
+    retrieval_plan: dict[str, list[str]] = {}
+    for task in evidence_tasks:
+        routes = []
+        retrieval = task.retrieval
+        if retrieval.get("identifier"):
+            routes.append("identifier")
+        if retrieval.get("lexical"):
+            routes.append("lexical")
+        if retrieval.get("dense"):
+            routes.append("dense")
+        if retrieval.get("knowledge_graph"):
+            routes.append("knowledge_graph")
+        retrieval_plan[task.task_id] = routes
+
+    return {"retrieval_plan": retrieval_plan}
+
+
+# ---------------------------------------------------------------------------
 # Stage definitions (ordered: identity → expansion → evidence)
 # ---------------------------------------------------------------------------
 
@@ -99,6 +139,13 @@ def _reference_expansion_flag() -> bool:
     from app.rag.retrieval.reference_graph import _reference_expansion_enabled
 
     return _reference_expansion_enabled()
+
+
+def _evidence_plan_flag() -> bool:
+    """Feature flag for evidence task planning stage."""
+    from app.shared.config import cfg
+
+    return getattr(cfg, "evidence_plan_enabled", False)
 
 
 POST_RETRIEVAL_STAGES: list[RetrievalStage] = [
@@ -126,6 +173,14 @@ POST_RETRIEVAL_STAGES: list[RetrievalStage] = [
         default=None,
         isolate=True,  # matches original: try/except + warning
     ),
+    RetrievalStage(
+        name="evidence_plan",
+        is_enabled=_evidence_plan_flag,
+        enrich=_enrich_evidence_plan,
+        output_key="retrieval_plan",
+        default={},
+        isolate=True,
+    ),
 ]
 
 
@@ -134,6 +189,7 @@ def apply_stages(
     result: Any,
     stages: list[RetrievalStage] | None = None,
     parallel: bool = True,
+    evidence_tasks: Any | None = None,
 ) -> dict[str, Any]:
     """Apply all enabled post-retrieval enrichment stages to *result*.
 
@@ -142,6 +198,9 @@ def apply_stages(
     (parallelize independent post-retrieval stages).  Sequential mode is
     used when stages depend on each other's outputs (e.g. evidence_selector
     after reference_expansion, though in practice they are independent).
+
+    *evidence_tasks* (optional list of EvidenceTask) is attached to *result*
+    so that the evidence_plan stage can build a per-task retrieval plan.
     """
     if stages is None:
         stages = POST_RETRIEVAL_STAGES
@@ -150,6 +209,9 @@ def apply_stages(
 
     if not getattr(result, "chunks", None):
         return out
+
+    if evidence_tasks is not None:
+        result.evidence_tasks = evidence_tasks
 
     enabled = [s for s in stages if s.is_enabled()]
 

@@ -58,9 +58,9 @@ class Intent(StrEnum):
 class ComplexityLevel(StrEnum):
     """Complexity gate determines decomposition strategy."""
 
-    SIMPLE = "simple"       # One task
+    SIMPLE = "simple"  # One task
     MULTI_PART = "multi_part"  # Parallel tasks
-    MULTI_HOP = "multi_hop"     # DAG with dependencies
+    MULTI_HOP = "multi_hop"  # DAG with dependencies
 
 
 @dataclass
@@ -196,6 +196,7 @@ def _has_negation(query: str) -> bool:
 # Complexity Assessment
 # ---------------------------------------------------------------------------
 
+
 def _assess_complexity(query: str) -> ComplexityLevel:
     """Determine query complexity to guide decomposition strategy.
 
@@ -211,16 +212,19 @@ def _assess_complexity(query: str) -> ComplexityLevel:
 
     # Check for multi-hop indicators
     multi_hop_indicators = [
-        "if", "then", "when", "provided that", "subject to",
-        "in case", "where", "whenever",
+        "if",
+        "then",
+        "when",
+        "provided that",
+        "subject to",
+        "in case",
+        "where",
+        "whenever",
     ]
     multi_hop_hits = sum(1 for indicator in multi_hop_indicators if indicator in q)
 
     # Check for multiple evidence types
-    evidence_type_hits = sum(
-        1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values()
-        if any(kw in q for kw in keywords)
-    )
+    evidence_type_hits = sum(1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values() if any(kw in q for kw in keywords))
 
     if conjunction_count >= 2 or section_refs >= 2 or multi_hop_hits >= 2:
         return ComplexityLevel.MULTI_HOP
@@ -233,6 +237,7 @@ def _assess_complexity(query: str) -> ComplexityLevel:
 # ---------------------------------------------------------------------------
 # Requirement Extraction
 # ---------------------------------------------------------------------------
+
 
 def _extract_requirements(query: str) -> list[Requirement]:
     """Extract structured evidence requirements from the query.
@@ -274,75 +279,85 @@ def _extract_requirements(query: str) -> list[Requirement]:
     if has_negation:
         conditions.append("negation")
 
-    requirements.append(Requirement(
-        requirement_id=f"r{req_id}",
-        evidence_type=evidence_type,
-        subject=subject,
-        conditions=conditions,
-        negation=has_negation,
-        jurisdiction=jurisdiction,
-        temporal_scope=temporal_scope,
-        entities=list(entities.values()),
-    ))
+    requirements.append(
+        Requirement(
+            requirement_id=f"r{req_id}",
+            evidence_type=evidence_type,
+            subject=subject,
+            conditions=conditions,
+            negation=has_negation,
+            jurisdiction=jurisdiction,
+            temporal_scope=temporal_scope,
+            entities=list(entities.values()),
+        )
+    )
 
     # Detect additional requirements from keywords
     # Check for penalty mentions
     if "penalty" in q or "fine" in q or "punishment" in q:
         if evidence_type != EvidenceRequirement.PENALTY:
             req_id += 1
-            requirements.append(Requirement(
-                requirement_id=f"r{req_id}",
-                evidence_type=EvidenceRequirement.PENALTY,
-                subject=subject,
-                conditions=conditions,
-                negation=has_negation,
-                jurisdiction=jurisdiction,
-                temporal_scope=temporal_scope,
-                entities=list(entities.values()),
-            ))
+            requirements.append(
+                Requirement(
+                    requirement_id=f"r{req_id}",
+                    evidence_type=EvidenceRequirement.PENALTY,
+                    subject=subject,
+                    conditions=conditions,
+                    negation=has_negation,
+                    jurisdiction=jurisdiction,
+                    temporal_scope=temporal_scope,
+                    entities=list(entities.values()),
+                )
+            )
 
     # Check for exception mentions
     if any(kw in q for kw in ["exception", "unless", "except", "notwithstanding"]):
         if not any(r.evidence_type == EvidenceRequirement.EXCEPTION for r in requirements):
             req_id += 1
-            requirements.append(Requirement(
+            requirements.append(
+                Requirement(
+                    requirement_id=f"r{req_id}",
+                    evidence_type=EvidenceRequirement.EXCEPTION,
+                    subject=subject,
+                    conditions=conditions,
+                    negation=has_negation,
+                    jurisdiction=jurisdiction,
+                    temporal_scope=temporal_scope,
+                    entities=list(entities.values()),
+                )
+            )
+
+    # Check for cross-references
+    if any(kw in q for kw in ["read with", "referred to", "cross-reference", "see also"]):
+        req_id += 1
+        requirements.append(
+            Requirement(
                 requirement_id=f"r{req_id}",
-                evidence_type=EvidenceRequirement.EXCEPTION,
+                evidence_type=EvidenceRequirement.CROSS_REFERENCE,
                 subject=subject,
                 conditions=conditions,
                 negation=has_negation,
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            ))
-
-    # Check for cross-references
-    if any(kw in q for kw in ["read with", "referred to", "cross-reference", "see also"]):
-        req_id += 1
-        requirements.append(Requirement(
-            requirement_id=f"r{req_id}",
-            evidence_type=EvidenceRequirement.CROSS_REFERENCE,
-            subject=subject,
-            conditions=conditions,
-            negation=has_negation,
-            jurisdiction=jurisdiction,
-            temporal_scope=temporal_scope,
-            entities=list(entities.values()),
-        ))
+            )
+        )
 
     # Check for definitions
     if any(kw in q for kw in ["define", "definition", "means", "refers to", "includes"]):
         req_id += 1
-        requirements.append(Requirement(
-            requirement_id=f"r{req_id}",
-            evidence_type=EvidenceRequirement.DEFINITION,
-            subject=subject,
-            conditions=conditions,
-            negation=has_negation,
-            jurisdiction=jurisdiction,
-            temporal_scope=temporal_scope,
-            entities=list(entities.values()),
-        ))
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.DEFINITION,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
 
     return requirements
 
@@ -350,6 +365,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
 # ---------------------------------------------------------------------------
 # Task Construction (Stage 2)
 # ---------------------------------------------------------------------------
+
 
 def _construct_tasks(
     requirements: list[Requirement],
@@ -426,6 +442,7 @@ def _build_task(
 
     # Add answer contract
     from app.rag.evidence_task import get_answer_contract
+
     contract = get_answer_contract(requirement.evidence_type)
     task = task.with_answer_contract(contract.required_fields)
 
@@ -553,6 +570,7 @@ def _apply_minimum_sufficient(
 # Main Planner Class
 # ---------------------------------------------------------------------------
 
+
 class QueryPlanner:
     """Produces Evidence Tasks from user queries with DAG support.
 
@@ -646,9 +664,7 @@ class QueryPlanner:
             evidence_requirements=evidence_reqs,
         )
 
-    def _build_coverage_matrix(
-        self, tasks: list[EvidenceTask], query: str
-    ) -> dict[str, list[str]] {
+    def _build_coverage_matrix(self, tasks: list[EvidenceTask], query: str) -> dict[str, list[str]]:
         """Build mapping from user requirements to task IDs."""
         matrix: dict[str, list[str]] = {}
         for task in tasks:
@@ -656,11 +672,11 @@ class QueryPlanner:
             matrix[key] = [task.task_id]
         return matrix
 
-    def get_complexity(self, query: str) -> ComplexityLevel {
+    def get_complexity(self, query: str) -> ComplexityLevel:
         """Return the complexity assessment for a query."""
         return _assess_complexity(query)
 
-    def get_retrieval_strategy(self, tasks: list[EvidenceTask]) -> dict[str, list[str]] {
+    def get_retrieval_strategy(self, tasks: list[EvidenceTask]) -> dict[str, list[str]]:
         """Map evidence tasks to retrieval strategies.
 
         Returns a dict mapping task_id → list of retrieval routes.
@@ -685,6 +701,7 @@ class QueryPlanner:
 # Backward compatibility: keep existing plan_node interface working
 # ---------------------------------------------------------------------------
 
+
 def _legacy_plan(query: str, query_type: str = "general") -> dict[str, Any]:
     """Compatibility wrapper for existing plan_node integration."""
     planner = QueryPlanner()
@@ -700,9 +717,7 @@ def _legacy_plan(query: str, query_type: str = "general") -> dict[str, Any]:
                 "evidence_requirement": t.evidence_requirement.value,
                 "dependency": t.dependency,
                 "answer_type": t.answer_type,
-                "answer_contract": (
-                    t.answer_contract.required_fields if t.answer_contract else []
-                ),
+                "answer_contract": (t.answer_contract.required_fields if t.answer_contract else []),
             }
             for t in result.tasks
         ],
