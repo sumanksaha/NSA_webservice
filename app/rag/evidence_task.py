@@ -64,6 +64,32 @@ class RetrievalPlan:
     cross_reference_targets: list[str] = field(default_factory=list)
     temporal_constraints: dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict (LangGraph state / checkpointing)."""
+        return {
+            "lexical_queries": list(self.lexical_queries),
+            "semantic_queries": list(self.semantic_queries),
+            "identifiers": list(self.identifiers),
+            "metadata_filters": dict(self.metadata_filters),
+            "required_source_types": list(self.required_source_types),
+            "cross_reference_targets": list(self.cross_reference_targets),
+            "temporal_constraints": dict(self.temporal_constraints),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> RetrievalPlan:
+        """Rebuild from :meth:`to_dict` output (lenient to missing keys)."""
+        data = data or {}
+        return cls(
+            lexical_queries=[str(q) for q in (data.get("lexical_queries") or [])],
+            semantic_queries=[str(q) for q in (data.get("semantic_queries") or [])],
+            identifiers=[str(i) for i in (data.get("identifiers") or [])],
+            metadata_filters=dict(data.get("metadata_filters") or {}),
+            required_source_types=[str(s) for s in (data.get("required_source_types") or [])],
+            cross_reference_targets=[str(t) for t in (data.get("cross_reference_targets") or [])],
+            temporal_constraints=dict(data.get("temporal_constraints") or {}),
+        )
+
 
 @dataclass
 class AnswerContract:
@@ -76,6 +102,24 @@ class AnswerContract:
     required_fields: list[str]
     optional_fields: list[str] = field(default_factory=list)
     type_hint: str | None = None  # e.g. "penalty", "provision", "citation"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict."""
+        return {
+            "required_fields": list(self.required_fields),
+            "optional_fields": list(self.optional_fields),
+            "type_hint": self.type_hint,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> AnswerContract:
+        """Rebuild from :meth:`to_dict` output (lenient to missing keys)."""
+        data = data or {}
+        return cls(
+            required_fields=[str(f) for f in (data.get("required_fields") or [])],
+            optional_fields=[str(f) for f in (data.get("optional_fields") or [])],
+            type_hint=data.get("type_hint"),
+        )
 
 
 @dataclass
@@ -109,6 +153,61 @@ class EvidenceTask:
     must_be_explicit: bool = True
     answer_contract: AnswerContract | None = None
     retrieval: RetrievalPlan = field(default_factory=RetrievalPlan)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict (LangGraph state / checkpointing).
+
+        The graph state carries tasks as plain dicts so they survive the
+        JSON round-trip required by checkpointer-based resume (M5).
+        """
+        return {
+            "task_id": self.task_id,
+            "objective": self.objective,
+            "question": self.question,
+            "evidence_requirement": self.evidence_requirement.value,
+            "entities": list(self.entities),
+            "jurisdiction": self.jurisdiction,
+            "temporal_scope": self.temporal_scope,
+            "dependency": list(self.dependency),
+            "answer_type": self.answer_type,
+            "must_be_explicit": self.must_be_explicit,
+            "answer_contract": self.answer_contract.to_dict() if self.answer_contract else None,
+            "retrieval": self.retrieval.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> EvidenceTask:
+        """Rebuild from :meth:`to_dict` output.
+
+        Lenient by design: missing optional keys take defaults, and an
+        unknown ``evidence_requirement`` value falls back to PROVISION so a
+        stale serialized plan cannot crash the graph.
+
+        Raises:
+            ValueError: when *data* is not a dict or carries no ``task_id``.
+        """
+        if not isinstance(data, dict) or not data.get("task_id"):
+            raise ValueError("EvidenceTask dict requires a 'task_id'")
+        try:
+            requirement = EvidenceRequirement(str(data.get("evidence_requirement", "provision")))
+        except ValueError:
+            requirement = EvidenceRequirement.PROVISION
+        contract_data = data.get("answer_contract")
+        contract = AnswerContract.from_dict(contract_data) if isinstance(contract_data, dict) else None
+        return cls(
+            task_id=str(data["task_id"]),
+            objective=str(data.get("objective", "")),
+            question=str(data.get("question", "")),
+            evidence_requirement=requirement,
+            entities=[str(e) for e in (data.get("entities") or [])],
+            jurisdiction=data.get("jurisdiction"),
+            temporal_scope=data.get("temporal_scope"),
+            dependency=[str(d) for d in (data.get("dependency") or [])],
+            answer_type=str(data.get("answer_type", "citation")),
+            must_be_explicit=bool(data.get("must_be_explicit", True)),
+            answer_contract=contract,
+            retrieval=RetrievalPlan.from_dict(data.get("retrieval") or {}),
+        )
 
     def with_dependency(self, dep_id: str) -> EvidenceTask:
         """Return a new task with an added dependency."""

@@ -35,6 +35,14 @@ class RAGState(TypedDict, total=False):
     # --- Classify ---
     query_type: str
 
+    # --- Plan (Phase 2.1 / Phase 0) ---
+    # Serialized plan from plan_node: intent, complexity, and EvidenceTask
+    # dicts.  ``complexity`` drives the post-plan router (linear vs DAG).
+    query_plan: dict[str, Any] | None
+    subquestions: list[str]
+    evidence_requirements: list[str]
+    dag_valid: bool
+
     # --- Retrieve ---
     # List of chunk dicts (``RetrievedChunk.to_dict()`` shape) — kept as
     # plain dicts so the state stays JSON-serializable (M5 checkpointing).
@@ -54,6 +62,21 @@ class RAGState(TypedDict, total=False):
     # Evidence Tasks from the QueryPlanner (Phase 2+).  When present,
     # the retrieval pipeline builds a per-task retrieval plan.
     evidence_tasks: Any | None
+    # DAG execution state (Phase 0).  ``tasks`` carries serialized
+    # EvidenceTask dicts (JSON-safe for checkpointing); ``task_order`` is
+    # the topological execution order; ``tasks_completed`` is an audit
+    # mirror of how many tasks produced evidence.
+    tasks: dict[str, dict[str, Any]]
+    task_order: list[str]
+    tasks_completed: int
+    # Sufficiency / budget / routing signals shared between the DAG nodes
+    # and the conditional edges (kept on state so routers stay pure reads).
+    targeted_query: str | None  # failure-aware retry query (P2.6)
+    budget_exhausted: bool
+    evidence_coverage: float
+    evidence_sufficient: bool
+    abstain_required: bool
+    abstained: bool
 
     # --- Generate / verify ---
     answer: str
@@ -104,6 +127,10 @@ def initial_state(
         "collection_name": collection_name,
         "filters": filters,
         "query_type": "",
+        "query_plan": None,
+        "subquestions": [],
+        "evidence_requirements": [],
+        "dag_valid": True,
         "chunks": [],
         "retrieval_latency_ms": 0,
         "log_id": None,
@@ -114,6 +141,15 @@ def initial_state(
         "final_answer": None,
         "quality": {},
         "plan": None,
+        "tasks": {},
+        "task_order": [],
+        "tasks_completed": 0,
+        "targeted_query": None,
+        "budget_exhausted": False,
+        "evidence_coverage": 0.0,
+        "evidence_sufficient": False,
+        "abstain_required": False,
+        "abstained": False,
         "answer": "",
         "groundedness": 0.0,
         "hallucination_detected": False,

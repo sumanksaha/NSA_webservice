@@ -1,11 +1,15 @@
 """LangGraph agent graph (M3 + M4 + M5).
 
 The graph orchestrates the existing RAG services into a self-correcting
-pipeline::
+pipeline (Phase 0: exactly one path per query — the plan router picks)::
 
-    classify ──► retrieve ──► generate ──► verify ──► finalize ──► END
-                  ▲                            │
-                  └──── expand_query ◄─────────┘   (groundedness < 0.7, retries < max_retries)
+    classify ──► plan ──┬─ SIMPLE ─────────► retrieve ──► generate ──► verify ──► citation_quality
+                        │                    ▲                            │                │   ──► finalize
+                        │                    └──── expand_query / targeted_retry ◄────────────┘
+                        ├─ cross_ref/case ─► multi_hop_retrieve ──► retrieve ──► …
+                        └─ MULTI_PART/HOP ─► plan_tasks ──► budget_gate ──► execute_task
+                                              ──► evidence_sufficiency ──► synthesize ──► verify
+                                                   │                (abstain / targeted_retry)
 
 M5 (checkpointing + human-in-the-loop):
 
@@ -40,16 +44,30 @@ logger = logging.getLogger(__name__)
 
 
 def route_after_verify(state: RAGState) -> str:
-    """Conditional edge: retry (expand → retrieve) or finalize.
+    """Conditional edge: retry (expand / targeted) or finalize.
 
-    Retries while the response is not grounded enough AND the retry
-    budget is not exhausted (``retry_count < max_retries``, default 2).
+    Multi-signal threshold (matches the ``citation_quality`` gate's design
+    note in state.py):
+
+    - retry budget exhausted → finalize (no infinite loops)
+    - low groundedness → expand_query (query-rewriting retry)
+    - grounded but citing unretrieved chunks / hallucination flagged →
+      targeted_retry (failure-aware retrieval targeting)
+    - otherwise → finalize
+
+    Phase 0 fix: the citation-quality signal was computed but never
+    consulted — a grounded answer with hallucinated citations finalized
+    silently.
     """
     groundedness = float(state.get("groundedness", 0.0))
     retry_count = int(state.get("retry_count", 0))
     max_retries = int(state.get("max_retries", 2))
-    if groundedness < GROUNDEDNESS_THRESHOLD and retry_count < max_retries:
+    if retry_count >= max_retries:
+        return "finalize"
+    if groundedness < GROUNDEDNESS_THRESHOLD:
         return "expand_query"
+    if not state.get("citation_quality_ok", True) or state.get("hallucination_detected", False):
+        return "targeted_retry"
     return "finalize"
 
 
@@ -65,16 +83,19 @@ def route_after_review(state: RAGState) -> str:
 
 
 def _route_after_evidence(state: RAGState) -> str:
-    """P2: Route after evidence_sufficiency gate.
+    """P2: Route after the evidence_sufficiency gate.
 
-    - sufficient → verify (proceed to groundedness check)
-    - budget_exhausted && coverage < 0.3 → abstain (give up)
+    Phase 0: the gate runs **before** synthesis (per the V2 proposal —
+    don't generate from unchecked evidence), so:
+
+    - sufficient → synthesize (build the answer from DAG evidence)
+    - budget exhausted / critically low coverage → abstain (give up)
     - otherwise → targeted_retry (attempt recovery)
     """
     if state.get("abstain_required"):
         return "abstain"
     if state.get("evidence_sufficient"):
-        return "verify"
+        return "synthesize"
     return "targeted_retry"
 
 
@@ -89,8 +110,22 @@ def _route_after_budget(state: RAGState) -> str:
     return "execute_task"
 
 
-def _route_after_classify(state: RAGState) -> str:
-    """Route after classify: multi-hop for cross-reference / case-law, standard otherwise."""
+def _route_after_plan(state: RAGState) -> str:
+    """Phase 0: exactly one path per query, chosen from the plan.
+
+    - MULTI_PART / MULTI_HOP plans → the EvidenceTask DAG path.
+    - cross_reference / case_law queries → multi-hop retrieval.
+    - everything else (SIMPLE) → the plain linear path.
+
+    Phase 0 fix: the previous graph sent *every* query down both branches
+    (a conditional edge to retrieve/multi_hop plus an unconditional edge
+    to plan_tasks), so generation ran twice per query (``generate`` +
+    ``synthesize``) and both results converged on ``verify``.
+    """
+    plan = state.get("query_plan") or {}
+    complexity = str(plan.get("complexity", "")).lower() if isinstance(plan, dict) else ""
+    if complexity in ("multi_part", "multi_hop"):
+        return "plan_tasks"
     query_type = str(state.get("query_type", "general")).lower()
     if query_type in ("cross_reference", "case_law"):
         return "multi_hop_retrieve"
@@ -211,15 +246,6 @@ def build_graph(
 
     from app.rag.agent import nodes
 
-    # Phase 2.5: Named profiles — load profile config
-    try:
-        from app.rag.planning.profiles import ProfileManager
-
-        profiles = ProfileManager()
-        default_profile = profiles.get_query_profile("standard")
-    except Exception:
-        default_profile = None
-
     builder: StateGraph = StateGraph(RAGState)
 
     builder.add_node("classify", lambda state, cfg=None: nodes.classify_node(state))
@@ -252,33 +278,32 @@ def build_graph(
 
     builder.add_edge(START, "classify")
     builder.add_edge("classify", "plan")
-    # Plan produces subquestions + evidence requirements. Route to multi-hop or standard retrieve.
-    # Also routes to plan_tasks to build the EvidenceTask DAG.
+    # Phase 0: exactly one path per query, chosen by the plan's complexity.
     builder.add_conditional_edges(
         "plan",
-        _route_after_classify,
-        {"retrieve": "retrieve", "multi_hop_retrieve": "multi_hop_retrieve"},
+        _route_after_plan,
+        {"retrieve": "retrieve", "multi_hop_retrieve": "multi_hop_retrieve", "plan_tasks": "plan_tasks"},
     )
     # multi_hop_retrieve re-runs retrieval with refined query, then
     # merges results into the state before generating.
     builder.add_edge("multi_hop_retrieve", "retrieve")
 
-    # P1 DAG execution: plan_tasks → budget_gate → execute_task → synthesize
-    builder.add_edge("plan", "plan_tasks")
+    # P1 DAG execution: plan_tasks → budget_gate → execute_task →
+    # evidence_sufficiency → synthesize.  P2: sufficiency gates synthesis
+    # (don't generate from unchecked evidence).
     builder.add_edge("plan_tasks", "budget_gate")
     builder.add_conditional_edges(
         "budget_gate",
         _route_after_budget,
         {"execute_task": "execute_task", "abstain": "abstain"},
     )
-    builder.add_edge("execute_task", "synthesize")
-    # P2: evidence sufficiency gate after synthesize
-    builder.add_edge("synthesize", "evidence_sufficiency")
+    builder.add_edge("execute_task", "evidence_sufficiency")
     builder.add_conditional_edges(
         "evidence_sufficiency",
         _route_after_evidence,
-        {"verify": "verify", "targeted_retry": "targeted_retry", "abstain": "abstain"},
+        {"synthesize": "synthesize", "targeted_retry": "targeted_retry", "abstain": "abstain"},
     )
+    builder.add_edge("synthesize", "verify")
 
     # Optional evidence node between retrieve and generate (feature-flagged).
     if cfg.evidence_selector:

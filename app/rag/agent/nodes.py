@@ -32,8 +32,22 @@ GROUNDEDNESS_THRESHOLD = 0.7
 
 
 def _query_for_retrieval(state: dict[str, Any]) -> str:
-    """The query to retrieve with — the expanded query when one exists."""
-    return state.get("expanded_query") or state.get("query") or ""
+    """The query to retrieve with.
+
+    Priority: failure-aware targeted query (Phase 2.6 retry) > expanded
+    query (groundedness retry) > original query.  Without the targeted
+    branch, retries re-retrieved with the *same* query — the Phase 0
+    defect where ``targeted_retry`` was decorative.
+    """
+    return state.get("targeted_query") or state.get("expanded_query") or state.get("query") or ""
+
+
+def _safe_int(value: Any, default: int) -> int:
+    """Coerce to int with a fallback (state values may be None/str)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def classify_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -183,6 +197,17 @@ def verify_node(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "groundedness": state.get("groundedness", 0.0),
         "hallucination_detected": state.get("hallucination_detected", False),
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "verify",
+                "latency_ms": 0,
+                "detail": {
+                    "groundedness": state.get("groundedness", 0.0),
+                    "hallucination_detected": state.get("hallucination_detected", False),
+                },
+            },
+        ],
     }
 
 
@@ -201,8 +226,13 @@ def citation_quality_node(state: dict[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
     response = state.get("response") or {}
     citations = response.get("citations", [])
-    chunks = state.get("chunks", [])
-    retrieved_chunk_ids = {c.get("chunk_id") for c in chunks if c.get("chunk_id")}
+    # Retrieved set = linear-path chunks + all DAG-path evidence chunks, so
+    # citations synthesized from per-task evidence are not flagged missing
+    # (on the DAG path ``state["chunks"]`` is empty — Phase 0 fix).
+    chunks = list(state.get("chunks") or [])
+    for ev_chunks in (state.get("evidence") or {}).values():
+        chunks.extend(ev_chunks or [])
+    retrieved_chunk_ids = {c.get("chunk_id") for c in chunks if isinstance(c, dict) and c.get("chunk_id")}
     cited_chunk_ids = []
     missing: list[str] = []
     for cit in citations:
@@ -231,16 +261,27 @@ def citation_quality_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Phase 2.6: Targeted retry node using failure-aware retrieval.
+    """Phase 2.6: failure-aware targeted retry.
 
-    Diagnoses verification failures and triggers targeted retrieval queries
-    based on the failure classification (missing provision, wrong act, etc.).
+    Classifies the verification failures with the deterministic taxonomy
+    (:class:`FailureClassifier` — no LLM) and builds a targeted retrieval
+    query via :class:`TargetedRetryPlanner`.  The targeted query is stored
+    on state and picked up by ``_query_for_retrieval`` on the retry round.
+
+    Phase 0 fix: the previous version imported a nonexistent
+    ``classify_failure`` helper (ImportError at runtime) and classified raw
+    citation ids instead of the verification result.
     """
     start = time.monotonic()
-    from app.rag.planning.failure_classifier import classify_failure
+    from app.rag.planning.failure_classifier import FailureClassifier
     from app.rag.planning.targeted_retry import TargetedRetryPlanner
 
-    failures = state.get("missing_citations", [])
+    verification_result = {
+        "missing_citations": state.get("missing_citations") or [],
+        "groundedness_score": state.get("groundedness", 0.0),
+        "evidence_coverage": state.get("evidence_coverage", 1.0),
+    }
+    failures = FailureClassifier().classify(verification_result)
     if not failures:
         return {
             "targeted_query": None,
@@ -258,7 +299,7 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
     query_type = state.get("query_type", "general")
     target = planner.target_query(
         query=state.get("query", ""),
-        failures=[classify_failure(f) for f in failures],
+        failures=failures,
         query_type=query_type,
         context={"collection_name": state.get("collection_name")},
     )
@@ -271,7 +312,7 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
             {
                 "node": "targeted_retry",
                 "latency_ms": _ms(start),
-                "detail": {"target": target, "failures": failures},
+                "detail": {"target": target, "failures": [str(f) for f in failures]},
             },
         ],
     }
@@ -334,9 +375,17 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     audit trail.
     """
     response = dict(state.get("response") or {})
+    # Phase 0 fix: the abstain path writes ``answer`` without a full
+    # response dict — surface it instead of returning an empty response.
+    state_answer = state.get("answer") or ""
+    if state_answer and not response.get("answer"):
+        response["answer"] = state_answer
     response.setdefault("query", state.get("query", ""))
     response.setdefault("query_type", state.get("query_type", "general"))
+    response.setdefault("groundedness", state.get("groundedness", 0.0))
     response.setdefault("retrieved_chunks", state.get("chunks", []))
+    if state.get("abstained"):
+        response.setdefault("abstained", True)
     response["pipeline"] = "agent"
     response["agent"] = {
         "retry_count": state.get("retry_count", 0),
@@ -371,22 +420,35 @@ def reason_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def plan_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Build a structured query plan with subquestions and evidence requirements.
+    """Build a structured query plan of EvidenceTasks with a complexity label.
 
-    Uses QueryPlanner to decompose compound queries and produce a DAG of
-    subquestions with evidence requirements.  Sets ``query_plan`` on state
-    so downstream nodes (retrieve, evidence, generate) can use it.
+    Uses QueryPlanner to decompose the query into EvidenceTasks with a DAG.
+    The plan is stored **serialized** (JSON-safe dicts) so downstream nodes
+    and the checkpointer can read it: ``query_plan["tasks"]`` feeds
+    ``plan_tasks_node`` and ``query_plan["complexity"]`` drives the
+    post-plan router (linear vs DAG path).
+
+    Phase 0 fixes: the previous version called ``QueryPlanner.plan(query,
+    query_type)`` (TypeError — ``plan`` takes only the query) and read
+    ``plan.subquestions``, which does not exist on ``DecompositionResult``.
     """
     start = time.monotonic()
     from app.rag.planning.query_planner import QueryPlanner
 
     query = state.get("query") or ""
-    query_type = str(state.get("query_type", "general"))
-    plan = QueryPlanner().plan(query, query_type)
+    plan = QueryPlanner().plan(query)
+    task_dicts = [t.to_dict() for t in plan.tasks]
+    dag_valid = not plan.dag.has_cycle()
     return {
-        "query_plan": plan,
-        "subquestions": [sq.id for sq in plan.subquestions],
-        "evidence_requirements": [er.requirement_id for er in plan.evidence_requirements],
+        "query_plan": {
+            "intent": plan.intent.value,
+            "complexity": plan.complexity.value,
+            "total_tasks": plan.total_tasks,
+            "dag_valid": dag_valid,
+            "tasks": task_dicts,
+        },
+        "subquestions": [t.task_id for t in plan.tasks],
+        "evidence_requirements": [t.evidence_requirement.value for t in plan.tasks],
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -394,8 +456,9 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
                 "latency_ms": _ms(start),
                 "detail": {
                     "intent": plan.intent.value,
-                    "subquestion_count": len(plan.subquestions),
-                    "evidence_req_count": len(plan.evidence_requirements),
+                    "complexity": plan.complexity.value,
+                    "task_count": len(task_dicts),
+                    "dag_valid": dag_valid,
                 },
             },
         ],
@@ -403,40 +466,102 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def plan_tasks_node(state: dict[str, Any]) -> dict[str, Any]:
-    start = time.monotonic()
-    from app.rag.evidence_task import TaskDAG
+    """P1: build the EvidenceTask DAG from the query plan.
 
-    evidence_tasks = state.get("evidence_tasks") or []
-    dag = TaskDAG()
-    for task in evidence_tasks:
-        dag.add_task(task)
-    valid = not dag.has_cycle()
+    Phase 0 fix: the previous version read ``state["evidence_tasks"]``,
+    which nothing ever populated, so the DAG path was a no-op.  Tasks now
+    come from the serialized plan written by ``plan_node``
+    (``query_plan["tasks"]``); an externally injected ``evidence_tasks``
+    list (EvidenceTask objects or dicts) is still honoured as a fallback.
+    """
+    start = time.monotonic()
+    from app.rag.evidence_task import EvidenceTask, TaskDAG
+
+    plan = state.get("query_plan")
+    raw_tasks: list[Any] = []
+    source = "none"
+    if isinstance(plan, dict) and plan.get("tasks"):
+        raw_tasks = list(plan["tasks"])
+        source = "query_plan"
+    else:
+        external = state.get("evidence_tasks") or []
+        if external:
+            raw_tasks = list(external)
+            source = "external"
+
+    parsed: list[EvidenceTask] = []
+    for raw in raw_tasks:
+        try:
+            if isinstance(raw, EvidenceTask):
+                parsed.append(raw)
+            else:
+                parsed.append(EvidenceTask.from_dict(raw))
+        except (ValueError, TypeError) as exc:
+            logger.warning("plan_tasks_node: skipping unparsable task (%s)", exc)
+
+    tasks: dict[str, dict[str, Any]] = {}
+    task_order: list[str] = []
+    valid = True
+    if parsed:
+        dag = TaskDAG()
+        for task in parsed:
+            dag.add_task(task)
+        valid = not dag.has_cycle()
+        task_order = [t.task_id for t in dag.topological_order()]
+        tasks = {t.task_id: t.to_dict() for t in parsed}
+
     return {
-        "tasks": {t.task_id: t for t in evidence_tasks},
-        "task_order": [t.task_id for t in dag.topological_order()],
+        "tasks": tasks,
+        "task_order": task_order,
         "dag_valid": valid,
+        "tasks_completed": 0,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
                 "node": "plan_tasks",
                 "latency_ms": _ms(start),
-                "detail": {"task_count": len(evidence_tasks), "dag_valid": valid},
+                "detail": {"task_count": len(parsed), "dag_valid": valid, "source": source},
             },
         ],
     }
 
 
 def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
+    """P1: execute the EvidenceTask DAG in topological order.
+
+    For each task whose dependencies are satisfied, run task-scoped
+    retrieval (the EvidenceTask is attached so the per-task retrieval-plan
+    stage can use it) and store the chunks under ``evidence[task_id]``.
+    Tasks with unmet dependencies are skipped and recorded in the audit
+    trail (Phase 1 will route them to failure diagnosis).  Budget counters
+    are consumed here so the downstream gates see real usage (Phase 0 fix:
+    the budget gate previously never consumed anything, so abstention on
+    budget exhaustion was unreachable).
+    """
     start = time.monotonic()
+    from app.rag.evidence_task import EvidenceTask
     from app.rag.tasks import run_retrieval_pipeline
 
     tasks = state.get("tasks") or {}
     task_order = state.get("task_order") or []
     evidence: dict[str, list] = dict(state.get("evidence") or {})
+    budget = dict(state.get("budget") or {})
     completed: set[str] = set()
+    skipped: list[str] = []
+    documents_used = 0
+
     for task_id in task_order:
-        task = tasks.get(task_id)
-        if task is None or not all(dep in completed for dep in task.dependency):
+        raw = tasks.get(task_id)
+        if raw is None:
+            continue
+        try:
+            task = raw if isinstance(raw, EvidenceTask) else EvidenceTask.from_dict(raw)
+        except (ValueError, TypeError) as exc:
+            logger.warning("execute_task_node: unparsable task %s (%s)", task_id, exc)
+            skipped.append(task_id)
+            continue
+        if not all(dep in completed for dep in task.dependency):
+            skipped.append(task_id)
             continue
         result = run_retrieval_pipeline(
             query=task.question or state.get("query", ""),
@@ -446,13 +571,28 @@ def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
             pipeline="agent",
             evidence_tasks=[task],
         )
-        evidence[task_id] = result.get("chunks", [])
+        chunks = result.get("chunks", [])
+        evidence[task_id] = chunks
+        documents_used += len(chunks)
         completed.add(task_id)
+
+    budget["consumed_tasks"] = _safe_int(budget.get("consumed_tasks"), 0) + len(completed)
+    budget["consumed_documents"] = _safe_int(budget.get("consumed_documents"), 0) + documents_used
+    budget["consumed_retrieval_rounds"] = _safe_int(budget.get("consumed_retrieval_rounds"), 0) + (
+        1 if completed else 0
+    )
+
     return {
         "evidence": evidence,
+        "tasks_completed": len(completed),
+        "budget": budget,
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {"node": "execute_task", "latency_ms": _ms(start), "detail": {"tasks_completed": len(completed)}},
+            {
+                "node": "execute_task",
+                "latency_ms": _ms(start),
+                "detail": {"tasks_completed": len(completed), "skipped": skipped, "documents": documents_used},
+            },
         ],
     }
 
@@ -467,29 +607,30 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
     evidence = state.get("evidence") or {}
     tasks = state.get("tasks") or {}
-    completed_tasks = len(evidence)
     total_tasks = len(tasks)
-    coverage = completed_tasks / max(total_tasks, 1)
-    # Check budget exhaustion
-    try:
-        retry_count = int(state.get("retry_count", 0))
-    except (TypeError, ValueError):
-        retry_count = 0
-    try:
-        max_retries = int(state.get("max_retries", 2))
-    except (TypeError, ValueError):
-        max_retries = 2
-    budget_exhausted = retry_count >= max_retries
-    sufficient = coverage >= 0.5 and not any(
-        not state.get("citation_quality_ok", True),
-        state.get("hallucination_detected", False),
-    )
-    # Abstain if budget exhausted and coverage is critically low
-    abstain_required = budget_exhausted and coverage < 0.3
+    # Coverage counts tasks with NON-EMPTY evidence — execute_task stores an
+    # empty list per task even when retrieval found nothing, and counting
+    # bare keys made empty evidence read as fully covered (Phase 0 fix).
+    covered = sum(1 for chunks in evidence.values() if chunks)
+    coverage = covered / total_tasks if total_tasks else 0.0
+    retry_count = _safe_int(state.get("retry_count"), 0)
+    max_retries = _safe_int(state.get("max_retries"), 2)
+    budget_exhausted = bool(state.get("budget_exhausted")) or retry_count >= max_retries
+    citation_ok = bool(state.get("citation_quality_ok", True))
+    hallucinated = bool(state.get("hallucination_detected", False))
+    # Sufficient only when there are tasks to cover, most are covered, and
+    # the verification signals are clean.  (Phase 0 fix: the old expression
+    # passed two positional args to ``any()`` — a TypeError at runtime.)
+    sufficient = total_tasks > 0 and coverage >= 0.5 and citation_ok and not hallucinated
+    # Abstain when the budget is exhausted with critically low coverage, or
+    # when there is nothing to synthesize from at all (no tasks, no
+    # evidence).  Written to state so ``_route_after_evidence`` can route.
+    abstain_required = (budget_exhausted and coverage < 0.3) or (total_tasks == 0 and not evidence)
     return {
         "evidence_coverage": coverage,
         "evidence_sufficient": sufficient,
         "budget_exhausted": budget_exhausted,
+        "abstain_required": abstain_required,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -500,6 +641,8 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
                     "sufficient": sufficient,
                     "budget_exhausted": budget_exhausted,
                     "abstain_required": abstain_required,
+                    "total_tasks": total_tasks,
+                    "tasks_with_evidence": covered,
                 },
             },
         ],
@@ -507,37 +650,36 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def budget_gate_node(state: dict[str, Any]) -> dict[str, Any]:
-    """P3: Budget gate. Checks budget consumption against limits.
+    """P3: budget gate before DAG execution.
 
-    Updates consumed counters and returns whether budget is exhausted.
+    Pure read of the consumed counters vs the configured maxima — the
+    counters themselves are consumed by the executor nodes (execute_task,
+    targeted_retry).  When the budget is exhausted the graph abstains
+    instead of executing more tasks.  Phase 0 fix: this node previously
+    rewrote the counters without ever incrementing them, so exhaustion was
+    unreachable.
     """
-    budget = state.get("budget") or {}
-    max_tasks = budget.get("max_tasks", 10)
-    max_retrieval_rounds = budget.get("max_retrieval_rounds", 5)
-    max_documents = budget.get("max_documents", 50)
-    max_llm_calls = budget.get("max_llm_calls", 20)
-    consumed_tasks = budget.get("consumed_tasks", 0)
-    consumed_rounds = budget.get("consumed_retrieval_rounds", 0)
-    consumed_docs = budget.get("consumed_documents", 0)
-    consumed_llm = budget.get("consumed_llm_calls", 0)
+    budget = dict(state.get("budget") or {})
     exhausted = (
-        consumed_tasks >= max_tasks
-        or consumed_rounds >= max_retrieval_rounds
-        or consumed_docs >= max_documents
-        or consumed_llm >= max_llm_calls
+        _safe_int(budget.get("consumed_tasks"), 0) >= _safe_int(budget.get("max_tasks"), 10)
+        or _safe_int(budget.get("consumed_retrieval_rounds"), 0) >= _safe_int(budget.get("max_retrieval_rounds"), 5)
+        or _safe_int(budget.get("consumed_documents"), 0) >= _safe_int(budget.get("max_documents"), 50)
+        or _safe_int(budget.get("consumed_llm_calls"), 0) >= _safe_int(budget.get("max_llm_calls"), 20)
     )
     return {
-        "budget": {
-            **budget,
-            "consumed_tasks": consumed_tasks,
-            "consumed_retrieval_rounds": consumed_rounds,
-            "consumed_documents": consumed_docs,
-            "consumed_llm_calls": consumed_llm,
-        },
+        "budget": budget,
         "budget_exhausted": exhausted,
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {"node": "budget_gate", "latency_ms": 0, "detail": {"exhausted": exhausted}},
+            {
+                "node": "budget_gate",
+                "latency_ms": 0,
+                "detail": {
+                    "exhausted": exhausted,
+                    "consumed_tasks": _safe_int(budget.get("consumed_tasks"), 0),
+                    "max_tasks": _safe_int(budget.get("max_tasks"), 10),
+                },
+            },
         ],
     }
 
@@ -580,7 +722,12 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         filters=state.get("filters"),
         pipeline="agent",
     )
+    # Consume the LLM-call budget counter (synthesis is one LLM call) so a
+    # later budget gate sees real usage.
+    budget = dict(state.get("budget") or {})
+    budget["consumed_llm_calls"] = _safe_int(budget.get("consumed_llm_calls"), 0) + 1
     return {
+        "budget": budget,
         "answer": result.get("answer", ""),
         "groundedness": result.get("groundedness_score", 0.0),
         "hallucination_detected": result.get("hallucination_detected", False),
