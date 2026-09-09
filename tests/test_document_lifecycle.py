@@ -2,6 +2,10 @@
 
 Verifies that the coordinator correctly orchestrates content persistence,
 version snapshotting (force vs dedup), and audit logging.
+
+Audit tests cross the D7 caller seam: the shared best-effort writer is
+mocked at ``app.services.audit_context._default_writer`` — one mock point
+for every ``AuditLogger`` consumer.
 """
 
 from datetime import datetime
@@ -221,7 +225,7 @@ class TestDocumentSaveCoordinator:
         assert result.version_number is None
         assert result.content_hash is None
 
-    @patch("app.services.document_lifecycle.log_audit")
+    @patch("app.services.audit_context._default_writer")
     def test_audit_log_called_on_save(self, mock_log_audit, test_app, case_file):
         """Audit log is called with the correct action on explicit save."""
         coordinator = DocumentSaveCoordinator()
@@ -240,7 +244,7 @@ class TestDocumentSaveCoordinator:
         assert call_kwargs["entity_id"] == str(case_file.id)
         assert "DOCUMENT_EDITED" in call_kwargs["action"]
 
-    @patch("app.services.document_lifecycle.log_audit")
+    @patch("app.services.audit_context._default_writer")
     def test_audit_log_called_on_autosave(self, mock_log_audit, test_app, case_file):
         """Audit log is called with the correct action on autosave."""
         coordinator = DocumentSaveCoordinator()
@@ -256,7 +260,7 @@ class TestDocumentSaveCoordinator:
         call_kwargs = mock_log_audit.call_args.kwargs
         assert "DOCUMENT_AUTOSAVED" in call_kwargs["action"]
 
-    @patch("app.services.document_lifecycle.log_audit")
+    @patch("app.services.audit_context._default_writer")
     def test_audit_failure_swallowed(self, mock_log_audit, test_app, case_file):
         """Audit log failure does not block save."""
         mock_log_audit.side_effect = RuntimeError("Audit exploded")

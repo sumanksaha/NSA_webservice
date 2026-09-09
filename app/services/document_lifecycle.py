@@ -20,7 +20,7 @@ from flask import current_app
 from flask_login import current_user
 
 from app.models import Version
-from app.services.audit import log_audit
+from app.services.audit_context import AuditLogger
 from app.services.version_control import VersionService
 from app.shared.case_resolver import CaseResolver
 from app.utils.document_storage import save_saved_document
@@ -187,24 +187,22 @@ class DocumentSaveCoordinator:
         delta_content: dict | None,
         timestamp_str: str,
     ) -> None:
-        """Best-effort audit logging — never fails a save operation."""
+        """Best-effort audit logging — never fails a save operation.
+
+        Delegates to :class:`~app.services.audit_context.AuditLogger` (D7):
+        entity-type binding, actor normalization, and error swallowing are
+        owned by the shared caller seam.
+        """
         action = f"DOCUMENT_EDITED_{doc_type.upper()}" if force_snapshot else f"DOCUMENT_AUTOSAVED_{doc_type.upper()}"
-        try:
-            log_audit(
-                entity_type=case_type,
-                entity_id=str(case_id),
-                action=action,
-                actor=self._actor(),
-                details={
-                    "doc_type": doc_type,
-                    "has_delta": delta_content is not None,
-                    "timestamp": timestamp_str,
-                },
-            )
-        except Exception:
-            current_app.logger.warning("Audit log write failed for case %s; continuing.", case_id)
+        self._audit_logger(case_type).log(
+            case_id,
+            action,
+            doc_type=doc_type,
+            has_delta=delta_content is not None,
+            timestamp=timestamp_str,
+        )
 
     @staticmethod
-    def _actor() -> str:
-        """Return the current user's username or 'anonymous'."""
-        return current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
+    def _audit_logger(case_type: str) -> AuditLogger:
+        """Return an :class:`AuditLogger` bound to this save's case type."""
+        return AuditLogger(case_type)

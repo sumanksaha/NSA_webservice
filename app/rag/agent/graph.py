@@ -186,6 +186,15 @@ def build_graph(
 
     from app.rag.agent import nodes
 
+    # Phase 2.5: Named profiles — load profile config
+    try:
+        from app.rag.planning.profiles import ProfileManager
+
+        profiles = ProfileManager()
+        default_profile = profiles.get_query_profile("standard")
+    except Exception:
+        default_profile = None
+
     builder: StateGraph = StateGraph(RAGState)
 
     builder.add_node("classify", lambda state, cfg=None: nodes.classify_node(state))

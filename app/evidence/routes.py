@@ -21,8 +21,6 @@ from flask import (
     request,
     send_file,
 )
-from flask_login import current_user
-
 from app.annexure.metadata import (
     compute_sha256,
     extract_image_text,
@@ -37,7 +35,7 @@ from app.evidence.media import (
     is_image_path,
 )
 from app.extensions import db
-from app.services.audit import log_audit
+from app.services.audit_context import audit_logger
 
 logger = logging.getLogger(__name__)
 
@@ -97,23 +95,9 @@ def _thumb_dir() -> Path:
     return Path(current_app.instance_path) / THUMB_DIR_NAME
 
 
-def _actor() -> str:
-    """Return the current user's username or 'anonymous'."""
-    return current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
-
-
-def _log_audit(evidence_id: str, action: str, **details) -> None:
-    """Best-effort audit logging — never fails an evidence operation."""
-    try:
-        log_audit(
-            entity_type="evidence",
-            entity_id=evidence_id,
-            action=action,
-            actor=_actor(),
-            details=details,
-        )
-    except Exception:
-        logger.warning("Audit log write failed for evidence %s (%s); continuing.", evidence_id, action)
+# D7: bound best-effort audit logger — entity_type binding, actor
+# normalization, and error swallowing live in app/services/audit_context.py.
+_audit = audit_logger("evidence")
 
 
 def _allowed_extension(filename: str) -> bool:
@@ -331,7 +315,7 @@ def _upload_one(upload_file, *, case_id, adjudication_id, inspection_id, explici
         if evidence_type == "photo" and is_image_path(stored_path):
             generate_thumbnail(stored_path, _thumb_dir(), evidence_id)
 
-        _log_audit(evidence_id, "EVIDENCE_UPLOADED", filename=filename, evidence_type=evidence_type)
+        _audit.log(evidence_id, "EVIDENCE_UPLOADED", filename=filename, evidence_type=evidence_type)
 
         return {
             "filename": filename,
@@ -424,7 +408,7 @@ def update(evidence_id: str):
         evidence.evidence_type = evidence_type
 
     db.session.commit()
-    _log_audit(evidence_id, "EVIDENCE_UPDATED", caption=evidence.caption, tags=evidence.tags)
+    _audit.log(evidence_id, "EVIDENCE_UPDATED", caption=evidence.caption, tags=evidence.tags)
     return jsonify({"status": "ok", "evidence_id": evidence.id})
 
 
@@ -446,5 +430,5 @@ def delete(evidence_id: str):
 
     db.session.delete(evidence)
     db.session.commit()
-    _log_audit(evidence_id, "EVIDENCE_DELETED", filename=evidence.filename)
+    _audit.log(evidence_id, "EVIDENCE_DELETED", filename=evidence.filename)
     return jsonify({"status": "ok"})

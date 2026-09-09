@@ -15,8 +15,6 @@ from flask import (
     request,
     send_file,
 )
-from flask_login import current_user
-
 from app.annexure import annexure_bp
 from app.annexure.metadata import (
     ALLOWED_EXTENSIONS,
@@ -29,7 +27,7 @@ from app.annexure.metadata import (
     mime_type,
 )
 from app.extensions import db
-from app.services.audit import log_audit
+from app.services.audit_context import audit_logger
 
 logger = logging.getLogger(__name__)
 
@@ -45,23 +43,9 @@ def _annexure_dir() -> Path:
     return path
 
 
-def _actor() -> str:
-    """Return the current user's username or 'anonymous'."""
-    return current_user.username if current_user.is_authenticated and current_user.is_active else "anonymous"
-
-
-def _log_audit(annexure_id: str, action: str, **details) -> None:
-    """Best-effort audit logging — never fails an annexure operation."""
-    try:
-        log_audit(
-            entity_type="annexure",
-            entity_id=annexure_id,
-            action=action,
-            actor=_actor(),
-            details=details,
-        )
-    except Exception:
-        logger.warning("Audit log write failed for annexure %s (%s); continuing.", annexure_id, action)
+# D7: bound best-effort audit logger — entity_type binding, actor
+# normalization, and error swallowing live in app/services/audit_context.py.
+_audit = audit_logger("annexure")
 
 
 def _next_annexure_letter(case_id, adjudication_id) -> str | None:
@@ -207,7 +191,7 @@ def upload():
         db.session.add(annexure)
         db.session.commit()
 
-        _log_audit(
+        _audit.log(
             annexure.id,
             "ANNEXURE_UPLOADED",
             filename=annexure.filename,
@@ -333,7 +317,7 @@ def replace(annexure_id: str):
         except OSError as exc:
             logger.warning("Could not delete replaced annexure file %s: %s", old_filepath, exc)
 
-        _log_audit(
+        _audit.log(
             annexure.id,
             "ANNEXURE_REPLACED",
             filename=annexure.filename,
@@ -380,7 +364,7 @@ def rename(annexure_id: str):
     annexure.caption = caption
     db.session.commit()
 
-    _log_audit(annexure.id, "ANNEXURE_RENAMED", caption=caption)
+    _audit.log(annexure.id, "ANNEXURE_RENAMED", caption=caption)
     return jsonify({"status": "ok", "caption": caption})
 
 
@@ -420,7 +404,7 @@ def reorder(annexure_id: str):
     annexure.annexure_letter = letter
     db.session.commit()
 
-    _log_audit(annexure.id, "ANNEXURE_REORDERED", annexure_letter=letter)
+    _audit.log(annexure.id, "ANNEXURE_REORDERED", annexure_letter=letter)
     return jsonify({"status": "ok", "annexure_letter": letter})
 
 
@@ -441,7 +425,7 @@ def delete(annexure_id: str):
 
     db.session.delete(annexure)
     db.session.commit()
-    _log_audit(annexure.id, "ANNEXURE_DELETED", filename=annexure.filename)
+    _audit.log(annexure.id, "ANNEXURE_DELETED", filename=annexure.filename)
     return jsonify({"status": "ok"})
 
 

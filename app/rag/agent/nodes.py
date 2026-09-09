@@ -230,6 +230,53 @@ def citation_quality_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Phase 2.6: Targeted retry node using failure-aware retrieval.
+
+    Diagnoses verification failures and triggers targeted retrieval queries
+    based on the failure classification (missing provision, wrong act, etc.).
+    """
+    start = time.monotonic()
+    from app.rag.planning.targeted_retry import TargetedRetryPlanner
+    from app.rag.planning.failure_classifier import classify_failure
+
+    failures = state.get("missing_citations", [])
+    if not failures:
+        return {
+            "targeted_query": None,
+            "audit_trail": [
+                *(state.get("audit_trail") or []),
+                {
+                    "node": "targeted_retry",
+                    "latency_ms": _ms(start),
+                    "detail": {"skipped": "no_failures"},
+                },
+            ],
+        }
+
+    planner = TargetedRetryPlanner()
+    query_type = state.get("query_type", "general")
+    target = planner.target_query(
+        query=state.get("query", ""),
+        failures=[classify_failure(f) for f in failures],
+        query_type=query_type,
+        context={"collection_name": state.get("collection_name")},
+    )
+
+    return {
+        "targeted_query": target,
+        "retry_count": state.get("retry_count", 0) + 1,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "targeted_retry",
+                "latency_ms": _ms(start),
+                "detail": {"target": target, "failures": failures},
+            },
+        ],
+    }
+
+
 def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
     """Rephrase / expand the query for a grounded retry.
 
