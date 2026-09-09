@@ -17,18 +17,19 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from app.rag.evidence_task import (
     EvidenceRequirement,
     EvidenceTask,
+    RetrievalPlan,
     TaskDAG,
 )
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 
 class Intent(StrEnum):
@@ -44,6 +45,7 @@ class Intent(StrEnum):
     PENALTY = "penalty"
     EXCEPTION = "exception"
     PROCEDURE = "procedure"
+    SCOPE = "scope"
     APPLICABILITY = "applicability"
     COMPARISON = "comparison"
     TEMPORAL = "temporal"
@@ -427,23 +429,32 @@ def _build_task(
     dependency: list[str],
 ) -> EvidenceTask:
     """Build a single EvidenceTask from a Requirement."""
+    evidence_type = requirement.evidence_type
+    retrieval = RetrievalPlan(
+        identifiers=[evidence_type.value],
+        lexical_queries=[question],
+        semantic_queries=[requirement.subject],
+        metadata_filters={"evidence_type": evidence_type.value},
+        required_source_types=_required_source_types(evidence_type),
+    )
     task = EvidenceTask(
         task_id=task_id,
         objective=objective,
         question=question,
-        evidence_requirement=requirement.evidence_type,
+        evidence_requirement=evidence_type,
         entities=requirement.entities,
         jurisdiction=requirement.jurisdiction,
         temporal_scope=requirement.temporal_scope,
         dependency=dependency,
-        answer_type=_answer_type_for_requirement(requirement.evidence_type),
+        answer_type=_answer_type_for_requirement(evidence_type),
         must_be_explicit=True,
+        retrieval=retrieval,
     )
 
     # Add answer contract
     from app.rag.evidence_task import get_answer_contract
 
-    contract = get_answer_contract(requirement.evidence_type)
+    contract = get_answer_contract(evidence_type)
     task = task.with_answer_contract(contract.required_fields)
 
     # Handle negation
@@ -451,6 +462,26 @@ def _build_task(
         task = task.add_entity("negation_condition")
 
     return task
+
+
+def _required_source_types(requirement: EvidenceRequirement) -> list[str]:
+    """Return source types required for a given evidence requirement."""
+    STATUTE = ["statute", "act", "regulation", "rule"]
+    CASE_LAW = ["case_law", "judicial", "precedent"]
+    ADMIN = ["administrative", "order", "directive"]
+    mapping: dict[EvidenceRequirement, list[str]] = {
+        EvidenceRequirement.PROVISION: STATUTE,
+        EvidenceRequirement.DEFINITION: STATUTE,
+        EvidenceRequirement.PENALTY: STATUTE,
+        EvidenceRequirement.EXCEPTION: STATUTE,
+        EvidenceRequirement.CROSS_REFERENCE: STATUTE,
+        EvidenceRequirement.JURISDICTION: STATUTE + ADMIN,
+        EvidenceRequirement.SCOPE: STATUTE,
+        EvidenceRequirement.CASE_LAW: CASE_LAW,
+        EvidenceRequirement.FACT_APPLICATION: STATUTE + CASE_LAW,
+        EvidenceRequirement.AUTHORITY: ADMIN,
+    }
+    return mapping.get(requirement, STATUTE)
 
 
 def _objective_for_requirement(req: Requirement) -> str:
@@ -683,15 +714,15 @@ class QueryPlanner:
         """
         strategy_map: dict[str, list[str]] = {}
         for task in tasks:
-            routes = []
+            routes: list[str] = []
             retrieval = task.retrieval
-            if retrieval.get("identifier"):
+            if retrieval.identifiers:
                 routes.append("identifier")
-            if retrieval.get("lexical"):
+            if retrieval.lexical_queries:
                 routes.append("lexical")
-            if retrieval.get("dense"):
+            if retrieval.semantic_queries:
                 routes.append("dense")
-            if retrieval.get("knowledge_graph"):
+            if retrieval.cross_reference_targets:
                 routes.append("knowledge_graph")
             strategy_map[task.task_id] = routes
         return strategy_map

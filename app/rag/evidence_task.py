@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 
 
 class EvidenceRequirement(StrEnum):
@@ -20,6 +20,7 @@ class EvidenceRequirement(StrEnum):
 
     Every decomposition unit should map to one of these types.
     """
+
     PROVISION = "provision"
     DEFINITION = "definition"
     SCOPE = "scope"
@@ -46,6 +47,25 @@ class EvidenceRequirement(StrEnum):
 
 
 @dataclass
+class RetrievalPlan:
+    """Structured retrieval plan for an EvidenceTask (P3).
+
+    Replaces loose ``retrieval: dict[str, bool]`` with explicit retrieval
+    routes: lexical queries, semantic queries, identifier targets,
+    metadata filters, required source types, cross-reference targets,
+    and temporal constraints.
+    """
+
+    lexical_queries: list[str] = field(default_factory=list)
+    semantic_queries: list[str] = field(default_factory=list)
+    identifiers: list[str] = field(default_factory=list)
+    metadata_filters: dict[str, Any] = field(default_factory=dict)
+    required_source_types: list[str] = field(default_factory=list)
+    cross_reference_targets: list[str] = field(default_factory=list)
+    temporal_constraints: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class AnswerContract:
     """What constitutes a successful answer for this EvidenceTask.
 
@@ -55,7 +75,7 @@ class AnswerContract:
 
     required_fields: list[str]
     optional_fields: list[str] = field(default_factory=list)
-    type_hint: Optional[str] = None  # e.g. "penalty", "provision", "citation"
+    type_hint: str | None = None  # e.g. "penalty", "provision", "citation"
 
 
 @dataclass
@@ -88,14 +108,7 @@ class EvidenceTask:
     answer_type: str = "citation"
     must_be_explicit: bool = True
     answer_contract: AnswerContract | None = None
-    retrieval: dict[str, bool] = field(
-        default_factory=lambda: {
-            "identifier": True,
-            "lexical": True,
-            "dense": True,
-            "knowledge_graph": False,
-        }
-    )
+    retrieval: RetrievalPlan = field(default_factory=RetrievalPlan)
 
     def with_dependency(self, dep_id: str) -> EvidenceTask:
         """Return a new task with an added dependency."""
@@ -107,7 +120,7 @@ class EvidenceTask:
             entities=list(self.entities),
             jurisdiction=self.jurisdiction,
             temporal_scope=self.temporal_scope,
-            dependency=list(self.dependency) + [dep_id],
+            dependency=[*list(self.dependency), dep_id],
             answer_type=self.answer_type,
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
@@ -122,7 +135,7 @@ class EvidenceTask:
             objective=self.objective,
             question=self.question,
             evidence_requirement=self.evidence_requirement,
-            entities=list(self.entities) + [entity],
+            entities=[*list(self.entities), entity],
             jurisdiction=self.jurisdiction,
             temporal_scope=self.temporal_scope,
             dependency=list(self.dependency),
@@ -292,12 +305,7 @@ class TaskDAG:
             rec_stack.remove(node)
             return False
 
-        for task_id in self.tasks:
-            if task_id not in visited:
-                if dfs(task_id):
-                    return True
-
-        return False
+        return any(task_id not in visited and dfs(task_id) for task_id in self.tasks)
 
 
 @dataclass
@@ -337,9 +345,7 @@ class CoverageMatrix:
         # Simplified: just track evidence found
         new_answer[user_req] = evidence_found
 
-        new_missing = [
-            req for req, found in new_evidence.items() if not found
-        ]
+        new_missing = [req for req, found in new_evidence.items() if not found]
 
         total = len(self.user_requirements) if self.user_requirements else 1
         found = sum(1 for v in new_evidence.values() if v)
@@ -421,6 +427,4 @@ _DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
 
 def get_answer_contract(requirement: EvidenceRequirement) -> AnswerContract:
     """Get the default answer contract for an evidence requirement."""
-    return _DEFAULT_ANSWER_CONTRACTS.get(
-        requirement, AnswerContract(required_fields=["detail", "citation"])
-    )
+    return _DEFAULT_ANSWER_CONTRACTS.get(requirement, AnswerContract(required_fields=["detail", "citation"]))

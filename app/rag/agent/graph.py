@@ -64,6 +64,31 @@ def route_after_review(state: RAGState) -> str:
     return "expand_query"
 
 
+def _route_after_evidence(state: RAGState) -> str:
+    """P2: Route after evidence_sufficiency gate.
+
+    - sufficient → verify (proceed to groundedness check)
+    - budget_exhausted && coverage < 0.3 → abstain (give up)
+    - otherwise → targeted_retry (attempt recovery)
+    """
+    if state.get("abstain_required"):
+        return "abstain"
+    if state.get("evidence_sufficient"):
+        return "verify"
+    return "targeted_retry"
+
+
+def _route_after_budget(state: RAGState) -> str:
+    """P3: Route after budget gate.
+
+    - budget exhausted → abstain
+    - budget OK → execute_task
+    """
+    if state.get("budget_exhausted"):
+        return "abstain"
+    return "execute_task"
+
+
 def _route_after_classify(state: RAGState) -> str:
     """Route after classify: multi-hop for cross-reference / case-law, standard otherwise."""
     query_type = str(state.get("query_type", "general")).lower()
@@ -215,10 +240,20 @@ def build_graph(
     builder.add_node("targeted_retry", lambda state, cfg=None: nodes.targeted_retry_node(state))
     builder.add_node("expand_query", lambda state, cfg=None: nodes.expand_query_node(state))
     builder.add_node("finalize", lambda state, cfg=None: nodes.finalize_node(state))
+    # P1: EvidenceTask DAG nodes.
+    builder.add_node("plan_tasks", lambda state, cfg=None: nodes.plan_tasks_node(state))
+    # P3: Budget gate before DAG execution
+    builder.add_node("budget_gate", lambda state, cfg=None: nodes.budget_gate_node(state))
+    builder.add_node("execute_task", lambda state, cfg=None: nodes.execute_task_node(state))
+    builder.add_node("synthesize", lambda state, cfg=None: nodes.synthesize_node(state))
+    # P2: Evidence sufficiency gate + abstention
+    builder.add_node("evidence_sufficiency", lambda state, cfg=None: nodes.evidence_sufficiency_node(state))
+    builder.add_node("abstain", lambda state, cfg=None: nodes.abstain_node(state))
 
     builder.add_edge(START, "classify")
     builder.add_edge("classify", "plan")
     # Plan produces subquestions + evidence requirements. Route to multi-hop or standard retrieve.
+    # Also routes to plan_tasks to build the EvidenceTask DAG.
     builder.add_conditional_edges(
         "plan",
         _route_after_classify,
@@ -227,6 +262,23 @@ def build_graph(
     # multi_hop_retrieve re-runs retrieval with refined query, then
     # merges results into the state before generating.
     builder.add_edge("multi_hop_retrieve", "retrieve")
+
+    # P1 DAG execution: plan_tasks → budget_gate → execute_task → synthesize
+    builder.add_edge("plan", "plan_tasks")
+    builder.add_edge("plan_tasks", "budget_gate")
+    builder.add_conditional_edges(
+        "budget_gate",
+        _route_after_budget,
+        {"execute_task": "execute_task", "abstain": "abstain"},
+    )
+    builder.add_edge("execute_task", "synthesize")
+    # P2: evidence sufficiency gate after synthesize
+    builder.add_edge("synthesize", "evidence_sufficiency")
+    builder.add_conditional_edges(
+        "evidence_sufficiency",
+        _route_after_evidence,
+        {"verify": "verify", "targeted_retry": "targeted_retry", "abstain": "abstain"},
+    )
 
     # Optional evidence node between retrieve and generate (feature-flagged).
     if cfg.evidence_selector:
@@ -256,6 +308,9 @@ def build_graph(
             route_after_verify,
             {"targeted_retry": "targeted_retry", "expand_query": "expand_query", "finalize": "finalize"},
         )
+
+    # P2: abstain terminal path
+    builder.add_edge("abstain", "finalize")
 
     builder.add_edge("targeted_retry", "retrieve")
     builder.add_edge("expand_query", "retrieve")

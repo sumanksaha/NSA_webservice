@@ -45,6 +45,15 @@ class RAGState(TypedDict, total=False):
     # inside run_retrieval_pipeline).  Avoids a redundant select_evidence_set
     # call in evidence_node.
     evidence_set: dict[str, Any] | None
+    # --- P1 EvidenceTask DAG ---
+    evidence: dict[str, list]  # task_id -> list of evidence chunks
+    claims: list[dict]  # list of claim dicts
+    final_answer: str | None  # final synthesized answer
+    quality: dict  # quality metrics
+    plan: Any | None  # structured plan (from QueryPlanner)
+    # Evidence Tasks from the QueryPlanner (Phase 2+).  When present,
+    # the retrieval pipeline builds a per-task retrieval plan.
+    evidence_tasks: Any | None
 
     # --- Generate / verify ---
     answer: str
@@ -59,6 +68,9 @@ class RAGState(TypedDict, total=False):
 
     # --- M5 human-in-the-loop (review node) ---
     approved: bool
+
+    # --- Budget controller (P3) ---
+    budget: dict[str, Any]  # max_tasks, max_retrieval_rounds, max_documents, max_llm_calls, consumed counters
 
     # --- Audit ---
     audit_trail: list[AuditEntry]
@@ -95,7 +107,13 @@ def initial_state(
         "chunks": [],
         "retrieval_latency_ms": 0,
         "log_id": None,
+        "evidence_tasks": None,
         "evidence_set": None,
+        "evidence": {},
+        "claims": [],
+        "final_answer": None,
+        "quality": {},
+        "plan": None,
         "answer": "",
         "groundedness": 0.0,
         "hallucination_detected": False,
@@ -103,6 +121,16 @@ def initial_state(
         "retry_count": 0,
         "expanded_query": None,
         "max_retries": max_retries,
+        "budget": {
+            "max_tasks": 10,
+            "max_retrieval_rounds": 5,
+            "max_documents": 50,
+            "max_llm_calls": 20,
+            "consumed_tasks": 0,
+            "consumed_retrieval_rounds": 0,
+            "consumed_documents": 0,
+            "consumed_llm_calls": 0,
+        },
         "audit_trail": [],
         "citation_quality_ok": True,
         "missing_citations": [],

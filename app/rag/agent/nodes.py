@@ -16,8 +16,6 @@ import logging
 import time
 from typing import Any
 
-from app.rag.agent.state import RAGState
-
 logger = logging.getLogger(__name__)
 
 
@@ -399,6 +397,201 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
                     "subquestion_count": len(plan.subquestions),
                     "evidence_req_count": len(plan.evidence_requirements),
                 },
+            },
+        ],
+    }
+
+
+def plan_tasks_node(state: dict[str, Any]) -> dict[str, Any]:
+    start = time.monotonic()
+    from app.rag.evidence_task import TaskDAG
+
+    evidence_tasks = state.get("evidence_tasks") or []
+    dag = TaskDAG()
+    for task in evidence_tasks:
+        dag.add_task(task)
+    valid = not dag.has_cycle()
+    return {
+        "tasks": {t.task_id: t for t in evidence_tasks},
+        "task_order": [t.task_id for t in dag.topological_order()],
+        "dag_valid": valid,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "plan_tasks",
+                "latency_ms": _ms(start),
+                "detail": {"task_count": len(evidence_tasks), "dag_valid": valid},
+            },
+        ],
+    }
+
+
+def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
+    start = time.monotonic()
+    from app.rag.tasks import run_retrieval_pipeline
+
+    tasks = state.get("tasks") or {}
+    task_order = state.get("task_order") or []
+    evidence: dict[str, list] = dict(state.get("evidence") or {})
+    completed: set[str] = set()
+    for task_id in task_order:
+        task = tasks.get(task_id)
+        if task is None or not all(dep in completed for dep in task.dependency):
+            continue
+        result = run_retrieval_pipeline(
+            query=task.question or state.get("query", ""),
+            top_k=state.get("top_k", 10),
+            collection_name=state.get("collection_name"),
+            filters=state.get("filters"),
+            pipeline="agent",
+            evidence_tasks=[task],
+        )
+        evidence[task_id] = result.get("chunks", [])
+        completed.add(task_id)
+    return {
+        "evidence": evidence,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "execute_task", "latency_ms": _ms(start), "detail": {"tasks_completed": len(completed)}},
+        ],
+    }
+
+
+def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
+    """P2: Evidence sufficiency gate. Checks per-task evidence coverage.
+
+    Routes to ``synthesize`` when sufficient, ``targeted_retry`` when
+    recoverable, or ``abstain`` when evidence is critically insufficient
+    (budget exhausted and coverage < 0.3).
+    """
+    start = time.monotonic()
+    evidence = state.get("evidence") or {}
+    tasks = state.get("tasks") or {}
+    completed_tasks = len(evidence)
+    total_tasks = len(tasks)
+    coverage = completed_tasks / max(total_tasks, 1)
+    # Check budget exhaustion
+    try:
+        retry_count = int(state.get("retry_count", 0))
+    except (TypeError, ValueError):
+        retry_count = 0
+    try:
+        max_retries = int(state.get("max_retries", 2))
+    except (TypeError, ValueError):
+        max_retries = 2
+    budget_exhausted = retry_count >= max_retries
+    sufficient = coverage >= 0.5 and not any(
+        not state.get("citation_quality_ok", True),
+        state.get("hallucination_detected", False),
+    )
+    # Abstain if budget exhausted and coverage is critically low
+    abstain_required = budget_exhausted and coverage < 0.3
+    return {
+        "evidence_coverage": coverage,
+        "evidence_sufficient": sufficient,
+        "budget_exhausted": budget_exhausted,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "evidence_sufficiency",
+                "latency_ms": _ms(start),
+                "detail": {
+                    "coverage": coverage,
+                    "sufficient": sufficient,
+                    "budget_exhausted": budget_exhausted,
+                    "abstain_required": abstain_required,
+                },
+            },
+        ],
+    }
+
+
+def budget_gate_node(state: dict[str, Any]) -> dict[str, Any]:
+    """P3: Budget gate. Checks budget consumption against limits.
+
+    Updates consumed counters and returns whether budget is exhausted.
+    """
+    budget = state.get("budget") or {}
+    max_tasks = budget.get("max_tasks", 10)
+    max_retrieval_rounds = budget.get("max_retrieval_rounds", 5)
+    max_documents = budget.get("max_documents", 50)
+    max_llm_calls = budget.get("max_llm_calls", 20)
+    consumed_tasks = budget.get("consumed_tasks", 0)
+    consumed_rounds = budget.get("consumed_retrieval_rounds", 0)
+    consumed_docs = budget.get("consumed_documents", 0)
+    consumed_llm = budget.get("consumed_llm_calls", 0)
+    exhausted = (
+        consumed_tasks >= max_tasks
+        or consumed_rounds >= max_retrieval_rounds
+        or consumed_docs >= max_documents
+        or consumed_llm >= max_llm_calls
+    )
+    return {
+        "budget": {
+            **budget,
+            "consumed_tasks": consumed_tasks,
+            "consumed_retrieval_rounds": consumed_rounds,
+            "consumed_documents": consumed_docs,
+            "consumed_llm_calls": consumed_llm,
+        },
+        "budget_exhausted": exhausted,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "budget_gate", "latency_ms": 0, "detail": {"exhausted": exhausted}},
+        ],
+    }
+
+
+def abstain_node(state: dict[str, Any]) -> dict[str, Any]:
+    """P2: Abstain when evidence is insufficient. Returns an abstention answer."""
+    return {
+        "answer": "INSUFFICIENT EVIDENCE: The evidence gathered does not support a defensible answer. Additional retrieval (e.g., targeted retry or expanded query) or expert review may be required.",
+        "groundedness": 0.0,
+        "hallucination_detected": False,
+        "abstained": True,
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {"node": "abstain", "latency_ms": 0, "detail": {"reason": "insufficient_evidence"}},
+        ],
+    }
+
+
+def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
+    start = time.monotonic()
+    from app.rag.tasks import run_generation_pipeline
+
+    evidence = state.get("evidence") or {}
+    merged = []
+    seen: set[str] = set()
+    for chunks in evidence.values():
+        for c in chunks:
+            cid = c.get("chunk_id")
+            if cid and cid not in seen:
+                merged.append(c)
+                seen.add(cid)
+    if not merged:
+        merged = state.get("chunks", [])
+    result = run_generation_pipeline(
+        query=state.get("query", ""),
+        chunks=merged,
+        query_type=state.get("query_type", ""),
+        top_k=state.get("top_k", 10),
+        collection_name=state.get("collection_name"),
+        filters=state.get("filters"),
+        pipeline="agent",
+    )
+    return {
+        "answer": result.get("answer", ""),
+        "groundedness": result.get("groundedness_score", 0.0),
+        "hallucination_detected": result.get("hallucination_detected", False),
+        "response": result,
+        "final_answer": result.get("answer", ""),
+        "audit_trail": [
+            *(state.get("audit_trail") or []),
+            {
+                "node": "synthesize",
+                "latency_ms": _ms(start),
+                "detail": {"merged_chunks": len(merged), "groundedness": result.get("groundedness_score", 0.0)},
             },
         ],
     }
