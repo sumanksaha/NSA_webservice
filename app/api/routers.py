@@ -95,15 +95,15 @@ async def v2_search_reindex(request: Request) -> Any:
         with get_flask_app().app_context():
             from app.search.indexer import dialect_name
             from app.search.indexer import index_all as search_index_all
-            from app.services.audit import log_audit
+            from app.services.audit_context import audit_logger
 
             count = search_index_all()
-            log_audit(
-                entity_type="search",
-                entity_id="all",
-                action="index_rebuilt",
+            audit_logger("search").log(
+                "all",
+                "index_rebuilt",
                 actor="system",
-                details={"records_indexed": count, "dialect": dialect_name()},
+                records_indexed=count,
+                dialect=dialect_name(),
             )
         return {"status": "ok", "records_indexed": count}
     except Exception as exc:

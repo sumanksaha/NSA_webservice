@@ -26,7 +26,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.extensions import csrf, db
 from app.models import Adjudication, Evidence, FboIssue
 from app.plugins.registry import PluginRegistry
-from app.services.audit import log_audit
+from app.services.audit_context import audit_logger
 from app.services.sync_orchestrator import sync_row
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
@@ -439,12 +439,11 @@ def regenerate_adjudication_documents(case_id):
         final_photos = verified_photos + flagged_photos
         flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
-            log_audit(
-                "photo",
+            audit_logger("photo").log(
                 ",".join(flagged_image_ids),
                 "FLAGGED_PHOTO_INCLUDED",
                 actor=form_data.get("food_safety_officer_name", "unknown"),
-                details={"reason": flag_override_reason},
+                reason=flag_override_reason,
             )
     else:
         final_photos = verified_photos
@@ -456,12 +455,12 @@ def regenerate_adjudication_documents(case_id):
 
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
-    log_audit(
-        "adjudication_order",
+    audit_logger("adjudication_order").log(
         str(case_id),
         "ADJUDICATION_ORDER_REGENERATED",
         actor=form_data.get("food_safety_officer_name", "unknown"),
-        details={"image_ids": image_ids, "statuses": statuses},
+        image_ids=image_ids,
+        statuses=statuses,
     )
 
     outputs = []
@@ -676,12 +675,11 @@ def generate_all():
         final_photos = verified_photos + flagged_photos
         flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
-            log_audit(
-                "photo",
+            audit_logger("photo").log(
                 ",".join(flagged_image_ids),
                 "FLAGGED_PHOTO_INCLUDED",
                 actor=form_data.get("food_safety_officer_name", "unknown"),
-                details={"reason": flag_override_reason},
+                reason=flag_override_reason,
             )
     else:
         final_photos = verified_photos
@@ -693,12 +691,12 @@ def generate_all():
 
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
-    log_audit(
-        "adjudication_order",
+    audit_logger("adjudication_order").log(
         str(adj.id),
         "ADJUDICATION_ORDER_GENERATED",
         actor=form_data.get("food_safety_officer_name", "unknown"),
-        details={"image_ids": image_ids, "statuses": statuses},
+        image_ids=image_ids,
+        statuses=statuses,
     )
 
     outputs = []

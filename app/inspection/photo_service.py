@@ -30,7 +30,7 @@ from flask import current_app
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
-from app.inspection.audit import log_audit
+from app.services.audit_context import audit_logger
 from app.inspection.image_processing import process_and_stamp_image
 from app.inspection.verification_service import verify_photo_location
 from app.utils.storage import delete_photo, upload_photo
@@ -188,19 +188,20 @@ class InspectionPhotoService:
             raise RuntimeError(f"Failed to save photo evidence: {exc!s}") from exc
 
         actor = request.remote_addr
-        log_audit(
-            "photo",
+        audit_logger("photo").log(
             image_id,
             "UPLOAD_RECEIVED",
-            actor,
-            {"raw_lat": resolved_lat, "raw_lng": resolved_lng, "accuracy": resolved_acc},
+            actor=actor,
+            raw_lat=resolved_lat,
+            raw_lng=resolved_lng,
+            accuracy=resolved_acc,
         )
 
         # --- Geo-verification ---
         result = verify_photo_location(
             resolved_lat, resolved_lng, resolved_acc, actor, inspection
         )
-        log_audit("photo", image_id, "VERIFICATION_RUN", actor, result)
+        audit_logger("photo").log(image_id, "VERIFICATION_RUN", actor=actor, **result)
 
         # --- Image stamping ---
         try:
@@ -231,7 +232,7 @@ class InspectionPhotoService:
             db.session.rollback()
             raise RuntimeError(f"Failed to update photo evidence: {exc!s}") from exc
 
-        log_audit("photo", image_id, "PHOTO_SAVED", actor, {"filepath": filepath})
+        audit_logger("photo").log(image_id, "PHOTO_SAVED", actor=actor, filepath=filepath)
 
         # --- OCR dispatch (best-effort) ---
         ocr_task_id = None

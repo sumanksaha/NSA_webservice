@@ -50,7 +50,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.models import Evidence
-from app.services.audit import log_audit
+from app.services.audit_context import audit_logger
 from app.services.sync_orchestrator import sync_row
 from app.shared.case_query_service import CaseQueryService
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
@@ -439,12 +439,11 @@ class DocumentCaseManager:
             final_photos = verified_photos + flagged_photos
             flagged_image_ids = [p.id for p in flagged_photos]
             if flagged_image_ids:
-                log_audit(
-                    "photo",
+                audit_logger("photo").log(
                     ",".join(flagged_image_ids),
                     "FLAGGED_PHOTO_INCLUDED",
                     actor=context.get("food_safety_officer_name", "unknown"),
-                    details={"reason": flag_override_reason},
+                    reason=flag_override_reason,
                 )
         else:
             final_photos = verified_photos
@@ -500,12 +499,14 @@ class DocumentCaseManager:
         image_ids = form_data.get("_photo_image_ids", [])
         statuses = form_data.get("_photo_statuses", [])
         if image_ids:
-            log_audit(
-                "adjudication_order" if self.case_type == "adjudication" else "case_file",
+            audit_logger(
+                "adjudication_order" if self.case_type == "adjudication" else "case_file"
+            ).log(
                 str(case_id),
                 "ADJUDICATION_ORDER_REGENERATED" if self.case_type == "adjudication" else "CASE_FILE_REGENERATED",
                 actor=form_data.get("food_safety_officer_name", "unknown"),
-                details={"image_ids": image_ids, "statuses": statuses},
+                image_ids=image_ids,
+                statuses=statuses,
             )
 
     # ------------------------------------------------------------------ #

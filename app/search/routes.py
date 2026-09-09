@@ -67,16 +67,16 @@ def reindex():
     Audit-logged for traceability.
     """
     try:
-        from app.services.audit import log_audit
+        from app.services.audit_context import audit_logger
 
         count = search_index_all()
         actor = current_user.username if current_user.is_authenticated else "system"
-        log_audit(
-            entity_type="search",
-            entity_id="all",
-            action="index_rebuilt",
+        audit_logger("search").log(
+            "all",
+            "index_rebuilt",
             actor=actor,
-            details={"records_indexed": count, "dialect": dialect_name()},
+            records_indexed=count,
+            dialect=dialect_name(),
         )
         return jsonify({"status": "ok", "records_indexed": count})
     except Exception as exc:
