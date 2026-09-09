@@ -1,3 +1,13 @@
+class EvalScore:
+    """One evaluation metric's score and explanation."""
+
+    def __init__(self, name: str, score: float, explanation: str, detail: dict | None = None) -> None:
+        self.name = name
+        self.score = score
+        self.explanation = explanation
+        self.detail = detail or {}
+
+
 class SeparateConfidenceMetrics:
     """Tracks separate confidence metrics: R (retrieval), E (evidence coverage), C (citation correctness),
     G (claim groundedness), and A (answer completeness)."""
@@ -42,3 +52,94 @@ class SeparateConfidenceMetrics:
                 "A": self.A,
             },
         )
+
+
+class CoverageMetrics:
+    """Tracks requirement coverage across Evidence Tasks.
+
+    Measures:
+    - task_coverage: |tasks with evidence| / |total tasks|
+    - requirement_coverage: |requirements covered| / |total requirements|
+    - evidence_coverage: |evidence found| / |total evidence requirements|
+    """
+
+    def __init__(self) -> None:
+        self.total_tasks = 0
+        self.tasks_with_evidence = 0
+        self.total_requirements = 0
+        self.requirements_covered = 0
+        self.missing: list[str] = []
+
+    def update(
+        self,
+        evidence_tasks: list | None = None,
+        retrieval_plan: dict[str, list[str]] | None = None,
+        chunks: list | None = None,
+    ) -> "CoverageMetrics":
+        """Update coverage metrics based on Evidence Tasks and retrieved chunks.
+
+        Args:
+            evidence_tasks: List of EvidenceTask objects.
+            retrieval_plan: Dict mapping task_id -> retrieval routes.
+            chunks: List of retrieved chunk dicts.
+
+        Returns:
+            Self for chaining.
+        """
+        from app.rag.evidence_task import EvidenceTask
+
+        tasks = evidence_tasks or []
+        self.total_tasks = len(tasks)
+
+        if not tasks:
+            return self
+
+        # Track which tasks have evidence (chunks retrieved for them)
+        for task in tasks:
+            if not isinstance(task, EvidenceTask):
+                continue
+            # Task has evidence if any chunk references its entities
+            task_entities = {e.lower() for e in task.entities}
+            has_evidence = any(
+                task_entities & {e.lower() for e in (c.get("entities") or []) if isinstance(c, dict)}
+                for c in (chunks or [])
+                if isinstance(c, dict)
+            )
+            if has_evidence:
+                self.tasks_with_evidence += 1
+            else:
+                self.missing.append(task.task_id)
+
+        # Requirement coverage from retrieval_plan
+        if retrieval_plan:
+            self.total_requirements = len(retrieval_plan)
+            self.requirements_covered = sum(
+                1 for routes in retrieval_plan.values() if routes
+            )
+
+        return self
+
+    @property
+    def task_coverage(self) -> float:
+        """Fraction of tasks with evidence."""
+        return round(self.tasks_with_evidence / self.total_tasks, 4) if self.total_tasks else 0.0
+
+    @property
+    def requirement_coverage(self) -> float:
+        """Fraction of retrieval requirements with routes."""
+        return (
+            round(self.requirements_covered / self.total_requirements, 4)
+            if self.total_requirements
+            else 0.0
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "total_tasks": self.total_tasks,
+            "tasks_with_evidence": self.tasks_with_evidence,
+            "task_coverage": self.task_coverage,
+            "total_requirements": self.total_requirements,
+            "requirements_covered": self.requirements_covered,
+            "requirement_coverage": self.requirement_coverage,
+            "missing": self.missing,
+        }

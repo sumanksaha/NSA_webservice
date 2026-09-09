@@ -20,6 +20,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from app.rag.evaluation.metrics import CoverageMetrics
 from app.rag.evaluation.storage import EvalStorage
 from app.rag.retrieval.result import RetrievedChunk
 
@@ -106,6 +107,14 @@ class EvalRunner:
             elif isinstance(raw, dict):
                 chunks.append(RetrievedChunk.from_dict(raw))
 
+        # Evidence Task coverage metrics (Phase 2+)
+        coverage = CoverageMetrics()
+        coverage.update(
+            evidence_tasks=pipeline_result.get("evidence_tasks"),
+            retrieval_plan=pipeline_result.get("retrieval_plan"),
+            chunks=[c.to_dict() for c in chunks],
+        )
+
         mrr = self._compute_mrr(expected_citations or [], chunks)
 
         result: dict[str, object] = {
@@ -114,7 +123,10 @@ class EvalRunner:
             "answer": answer,
             "retrieved_chunks": [c.to_dict() for c in chunks],
             "cited_chunk_ids": cited_ids or [],
-            "metrics": {"latency_ms": pipeline_latency_ms},
+            "metrics": {
+                "latency_ms": pipeline_latency_ms,
+                "coverage": coverage.to_dict(),
+            },
             "retrieval_mrr": mrr,
             "latency_ms": pipeline_latency_ms,
         }

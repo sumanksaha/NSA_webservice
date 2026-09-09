@@ -112,13 +112,15 @@ All 12 items (2.1–2.11) implemented:
 
 **Deployment Impact:** All changes are **backward compatible** with the legacy `run_generation_pipeline`/`run_retrieval_pipeline` API. New features are gated by `cfg` flags (e.g., `evidence_selector`, `kg_fusion`) and can be toggled in production.
 
-**TL;DR:** The RAG intelligence layer is **fully implemented**. The system now features structured query decomposition, adaptive retrieval strategies, three‑stage reranking, evidence optimization, targeted retry with failure diagnosis, answerability gates, separate confidence metrics, and KG‑based reasoning. It's ready for production deployment.
+**TL;DR:** The RAG intelligence-layer **modules are implemented** (structured query decomposition, adaptive retrieval strategies, three‑stage reranking, evidence optimization, targeted retry with failure diagnosis, answerability gates, separate confidence metrics, KG‑based reasoning). **Phase 0 of the V2 plan is complete (2026‑09‑09):** the agent graph's wiring defects are fixed and the agent test suite is green (83 passed). The EvidenceTask DAG path now executes end‑to‑end (plan → DAG → per‑task retrieval → sufficiency gate → synthesis, with abstention), and simple queries route to the linear path only — one path per query. Phase 1–4 of the plan (parallel task execution, claim-level verification, contradiction detection, complexity/budget routing economics, evaluation) remain to be implemented. See [`docs/V2_PLANNER_EXECUTOR_VERIFIER_PLAN.md`](V2_PLANNER_EXECUTOR_VERIFIER_PLAN.md).
 
 ---
 
 ## V2 Planner–Executor–Verifier Architecture (Proposed)
 
 > **Scope:** This section captures the architectural evaluation of upgrading the current linear RAG graph into a planner–executor–verifier architecture. No code changes are included here; this is a design plan only.
+>
+> **Status (2026‑09‑09):** A code-verified evaluation of this proposal against the current implementation — including the 7 wiring defects (now fixed in Phase 0), a phase-by-phase implementation plan, and open design decisions — lives in [`docs/V2_PLANNER_EXECUTOR_VERIFIER_PLAN.md`](V2_PLANNER_EXECUTOR_VERIFIER_PLAN.md). Read that document first; it supersedes the abstract sketch below where the two conflict.
 
 ### 1. The biggest architectural change
 
@@ -382,8 +384,18 @@ For example:
 
 ```json
 [
-  {"claim_id": "C1", "text": "...", "supporting_tasks": ["T1"], "citations": ["doc123#section23"]},
-  {"claim_id": "C2", "text": "...", "supporting_tasks": ["T2"], "citations": ["doc123#section23(2)"]}
+    {
+        "claim_id": "C1",
+        "text": "...",
+        "supporting_tasks": ["T1"],
+        "citations": ["doc123#section23"]
+    },
+    {
+        "claim_id": "C2",
+        "text": "...",
+        "supporting_tasks": ["T2"],
+        "citations": ["doc123#section23(2)"]
+    }
 ]
 ```
 
@@ -415,13 +427,19 @@ The system should investigate authority, date, amendment, jurisdiction, scope, p
 Don't treat all retrieved chunks equally. Have:
 
 ```json
-{"source": "FSSAI regulation", "authority": 1.0, "date": "...", "jurisdiction": "India", "document_type": "regulation"}
+{
+    "source": "FSSAI regulation",
+    "authority": 1.0,
+    "date": "...",
+    "jurisdiction": "India",
+    "document_type": "regulation"
+}
 ```
 
 versus
 
 ```json
-{"source": "blog", "authority": 0.35}
+{ "source": "blog", "authority": 0.35 }
 ```
 
 Then ranking becomes: semantic relevance + lexical relevance + authority + temporal validity + structural proximity + citation quality.
@@ -460,7 +478,14 @@ Different EvidenceTasks can use different retrieval strategies:
 A genuinely production-grade graph should know how much computation this query is worth:
 
 ```json
-{"budget": {"max_tasks": 8, "max_retrieval_rounds": 3, "max_documents": 50, "max_llm_calls": 12}}
+{
+    "budget": {
+        "max_tasks": 8,
+        "max_retrieval_rounds": 3,
+        "max_documents": 50,
+        "max_llm_calls": 12
+    }
+}
 ```
 
 Then your router can decide:
@@ -490,7 +515,17 @@ LangGraph currently supports different persistence modes for subgraphs; per-invo
 Every node should emit structured telemetry:
 
 ```json
-{"node": "retrieve_task", "task_id": "T3", "latency_ms": 421, "retrieval_round": 2, "queries": 3, "documents_retrieved": 25, "documents_after_rerank": 8, "evidence_sufficient": true, "token_cost": 1840}
+{
+    "node": "retrieve_task",
+    "task_id": "T3",
+    "latency_ms": 421,
+    "retrieval_round": 2,
+    "queries": 3,
+    "documents_retrieved": 25,
+    "documents_after_rerank": 8,
+    "evidence_sufficient": true,
+    "token_cost": 1840
+}
 ```
 
 Then you can discover things like:
@@ -645,3 +680,4 @@ And after the maximum retrieval budget: `ABSTAIN`. This is a major quality impro
                   ┌──────────────────┐
                   │ Final QA Gate    │
                   └────────
+```

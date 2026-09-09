@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from app.rag.evidence_task import EvidenceTask
+    pass
 
 
 def build_dense_retriever(collection_name: str | None = None):
