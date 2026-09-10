@@ -119,6 +119,48 @@ def classify_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Historical budget defaults, used when a state carries no budget dict
+# (unit-test fixtures) so consumption never raises.
+_BUDGET_DEFAULTS = {
+    "max_tasks": 10,
+    "max_retrieval_rounds": 5,
+    "max_documents": 50,
+    "max_llm_calls": 20,
+}
+
+
+def _consume_budget(
+    state: dict[str, Any],
+    *,
+    retrieval_rounds: int = 0,
+    documents: int = 0,
+    llm_calls: int = 0,
+) -> dict[str, Any]:
+    """Increment the budget's consumed counters (Phase 3).
+
+    Counters are clamped at their caps so an oversized batch (e.g. a
+    retrieval returning more chunks than ``max_documents``) cannot push a
+    counter past its tier ceiling.  Missing caps/counters default to the
+    historical values, so nodes can consume budget on any state shape.
+    """
+    budget = dict(state.get("budget") or {})
+    for key, default in _BUDGET_DEFAULTS.items():
+        budget.setdefault(key, default)
+    for key in ("consumed_tasks", "consumed_retrieval_rounds", "consumed_documents", "consumed_llm_calls"):
+        budget.setdefault(key, 0)
+
+    def _bump(counter: str, amount: int, cap_key: str) -> None:
+        if amount <= 0:
+            return
+        cap = _safe_int(budget.get(cap_key), _BUDGET_DEFAULTS[cap_key])
+        budget[counter] = min(_safe_int(budget.get(counter), 0) + amount, cap)
+
+    _bump("consumed_retrieval_rounds", retrieval_rounds, "max_retrieval_rounds")
+    _bump("consumed_documents", documents, "max_documents")
+    _bump("consumed_llm_calls", llm_calls, "max_llm_calls")
+    return budget
+
+
 def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     """Retrieve candidate chunks via the Phase 1 pipeline.
 
@@ -126,6 +168,9 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     (dense + Qdrant-side BM25 + identifier arm) and the ensemble reranker
     (sec_act features + remote CE when configured).  The returned chunks
     are plain dicts (``RetrievedChunk.to_dict()``), kept JSON-serializable.
+
+    Phase 3: consumes the retrieval budget (rounds + documents) so the
+    linear path enforces the same caps as the DAG path.
     """
     start = time.monotonic()
     from app.rag.tasks import run_retrieval_pipeline
@@ -146,6 +191,7 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         # run_retrieval_pipeline — forward it to avoid recompute in the
         # evidence_node downstream.
         "evidence_set": result.get("evidence_set"),
+        "budget": _consume_budget(state, retrieval_rounds=1, documents=len(result.get("chunks", []))),
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -213,6 +259,9 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         "groundedness": result.get("groundedness_score", 0.0),
         "hallucination_detected": result.get("hallucination_detected", False),
         "response": result,
+        # Phase 3: generation is an LLM call — consume the budget so the
+        # linear path's LLM usage counts toward the tier cap.
+        "budget": _consume_budget(state, llm_calls=1),
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -414,6 +463,9 @@ def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "expanded_query": expanded,
         "retry_count": state.get("retry_count", 0) + 1,
+        # Phase 3: query rewriting is an LLM call — consume the budget
+        # even when the call fails (the spend already happened).
+        "budget": _consume_budget(state, llm_calls=1),
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -457,6 +509,13 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     if state.get("task_results"):
         response["agent"]["task_results"] = state["task_results"]
         response["agent"]["evidence_coverage"] = state.get("evidence_coverage", 0.0)
+    # Phase 3: routing economics telemetry — which strategy ran, at which
+    # budget tier, and what it actually consumed.
+    if state.get("routing_decision"):
+        response["agent"]["routing"] = {
+            "decision": state["routing_decision"],
+            "budget": state.get("budget"),
+        }
     # Phase 2: claim-level verification + sufficiency signals on the payload.
     if state.get("claims"):
         response["agent"]["claim_groundedness"] = state.get("claim_groundedness", 0.0)
@@ -497,17 +556,30 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
     ``plan_tasks_node`` and ``query_plan["complexity"]`` drives the
     post-plan router (linear vs DAG path).
 
+    Phase 3 (item 18): the plan node also makes the *routing economics*
+    decision — DIRECT vs decomposition vs DAG, with a DIRECT override for
+    single-identifier lookups — and shrinks the state budget to the
+    strategy's tier (shrink-only: explicit caller caps are never raised).
+
     Phase 0 fixes: the previous version called ``QueryPlanner.plan(query,
     query_type)`` (TypeError — ``plan`` takes only the query) and read
     ``plan.subquestions``, which does not exist on ``DecompositionResult``.
     """
     start = time.monotonic()
+    from app.rag.agent.routing_economics import apply_budget_tier, route_strategy
     from app.rag.planning.query_planner import QueryPlanner
 
     query = state.get("query") or ""
     plan = QueryPlanner().plan(query)
     task_dicts = [t.to_dict() for t in plan.tasks]
     dag_valid = not plan.dag.has_cycle()
+    decision = route_strategy(
+        {"complexity": plan.complexity.value},
+        str(state.get("query_type", "")),
+        query,
+        retry_count=_safe_int(state.get("retry_count"), 0),
+        prior_decision=state.get("routing_decision"),
+    )
     return {
         "query_plan": {
             "intent": plan.intent.value,
@@ -518,6 +590,8 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
         },
         "subquestions": [t.task_id for t in plan.tasks],
         "evidence_requirements": [t.evidence_requirement.value for t in plan.tasks],
+        "routing_decision": decision,
+        "budget": apply_budget_tier(state.get("budget"), decision["tier"]),
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -528,6 +602,9 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
                     "complexity": plan.complexity.value,
                     "task_count": len(task_dicts),
                     "dag_valid": dag_valid,
+                    "strategy": decision["strategy"],
+                    "tier": decision["tier"],
+                    "pinned": decision["pinned"],
                 },
             },
         ],
@@ -1004,13 +1081,12 @@ def budget_gate_node(state: dict[str, Any]) -> dict[str, Any]:
     rewrote the counters without ever incrementing them, so exhaustion was
     unreachable.
     """
+    from app.rag.agent.routing_economics import is_exhausted
+
     budget = dict(state.get("budget") or {})
-    exhausted = (
-        _safe_int(budget.get("consumed_tasks"), 0) >= _safe_int(budget.get("max_tasks"), 10)
-        or _safe_int(budget.get("consumed_retrieval_rounds"), 0) >= _safe_int(budget.get("max_retrieval_rounds"), 5)
-        or _safe_int(budget.get("consumed_documents"), 0) >= _safe_int(budget.get("max_documents"), 50)
-        or _safe_int(budget.get("consumed_llm_calls"), 0) >= _safe_int(budget.get("max_llm_calls"), 20)
-    )
+    # Phase 3: the exhaustion predicate is shared with the linear retry
+    # router so both paths enforce identical economics.
+    exhausted = is_exhausted(budget)
     return {
         "budget": budget,
         "budget_exhausted": exhausted,

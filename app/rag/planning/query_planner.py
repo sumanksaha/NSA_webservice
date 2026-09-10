@@ -132,13 +132,33 @@ _EVIDENCE_TYPE_KEYWORDS: dict[EvidenceRequirement, list[str]] = {
 }
 
 
+# ``_EVIDENCE_TYPE_KEYWORDS`` is keyed by *EvidenceRequirement*, but
+# ``_extract_intent`` must return an *Intent*.  The two vocabularies only
+# partially overlap (e.g. there is no ``Intent.PROVISION``), so the
+# mapping is explicit — constructing ``Intent(er.value)`` directly raised
+# ValueError for any query matching PROVISION or FACT_APPLICATION
+# keywords ("section", "act", "can", "whether", ...).
+_REQUIREMENT_TO_INTENT: dict[EvidenceRequirement, Intent] = {
+    EvidenceRequirement.PROVISION: Intent.LOOKUP,
+    EvidenceRequirement.DEFINITION: Intent.DEFINITION,
+    EvidenceRequirement.PENALTY: Intent.PENALTY,
+    EvidenceRequirement.EXCEPTION: Intent.EXCEPTION,
+    EvidenceRequirement.JURISDICTION: Intent.JURISDICTION,
+    EvidenceRequirement.SCOPE: Intent.SCOPE,
+    EvidenceRequirement.CROSS_REFERENCE: Intent.CROSS_REFERENCE,
+    EvidenceRequirement.FACT_APPLICATION: Intent.FACT_PATTERN,
+}
+
+
 def _extract_intent(query: str) -> Intent:
     """Determine the primary intent from the query text."""
     q = query.lower()
 
-    for intent_name, keywords in _EVIDENCE_TYPE_KEYWORDS.items():
+    for requirement, keywords in _EVIDENCE_TYPE_KEYWORDS.items():
         if any(kw in q for kw in keywords):
-            return Intent(intent_name.value)
+            mapped = _REQUIREMENT_TO_INTENT.get(requirement)
+            if mapped is not None:
+                return mapped
 
     # Section-specific detection
     if re.search(r"\bsection\s+\d", q):

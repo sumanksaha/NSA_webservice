@@ -794,3 +794,80 @@ def test_finalize_node_surfaces_abstain_answer():
     assert resp["answer"].startswith("INSUFFICIENT EVIDENCE")
     assert resp["abstained"] is True
     assert resp["pipeline"] == "agent"
+
+
+# ---------------------------------------------------------------------- #
+# Phase 3: budget-aware routing economics wiring
+# ---------------------------------------------------------------------- #
+
+
+def test_plan_node_records_routing_decision_and_tier_budget():
+    """DAG-worthy plans route to decomposition and get the moderate tier."""
+    import json
+
+    query = "penalty for selling substandard food and define misbranded food"
+    out = plan_node(_make_state(query=query))
+    decision = out["routing_decision"]
+    assert decision["strategy"] == "decomposition"
+    assert decision["tier"] == "moderate"
+    assert decision["pinned"] is False
+    json.dumps(decision)  # checkpoint-safe
+    assert out["budget"]["max_llm_calls"] == 8  # moderate tier applied
+    assert out["audit_trail"][-1]["detail"]["strategy"] == "decomposition"
+
+
+def test_plan_node_direct_override_keeps_identifier_lookups_cheap():
+    """A single-identifier lookup plans as MULTI_PART but routes DIRECT."""
+    out = plan_node(_make_state(query="What is the penalty under Section 12?"))
+    decision = out["routing_decision"]
+    assert decision["strategy"] == "direct"
+    assert decision["tier"] == "direct"
+    assert out["budget"]["max_tasks"] == 0  # no DAG work funded
+    assert out["budget"]["max_llm_calls"] == 4
+
+
+def test_plan_node_preserves_smaller_explicit_caps():
+    """Tier application is shrink-only: explicit caps are never raised."""
+    out = plan_node(_make_state(budget={"max_llm_calls": 2, "consumed_llm_calls": 1}))
+    assert out["budget"]["max_llm_calls"] == 2
+    assert out["budget"]["consumed_llm_calls"] == 1
+
+
+def test_retrieve_node_consumes_round_and_document_budget(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_retrieval_pipeline",
+        lambda query, **kw: {
+            "chunks": [{"chunk_id": f"c{i}"} for i in range(3)],
+            "query_type": "offence",
+            "retrieval_latency_ms": 5,
+            "log_id": "log-1",
+        },
+    )
+    out = retrieve_node(_make_state())
+    assert out["budget"]["consumed_retrieval_rounds"] == 1
+    assert out["budget"]["consumed_documents"] == 3
+
+
+def test_generate_node_consumes_llm_budget(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_generation_pipeline",
+        lambda query, **kw: {
+            "answer": "Section 50 prescribes the penalty.",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+        },
+    )
+    out = generate_node(_make_state())
+    assert out["budget"]["consumed_llm_calls"] == 1
+
+
+def test_expand_query_node_consumes_llm_budget():
+    out = expand_query_node(_make_state())
+    assert out["budget"]["consumed_llm_calls"] == 1
+    assert out["retry_count"] == 1

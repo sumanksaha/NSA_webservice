@@ -65,6 +65,16 @@ def route_after_verify(state: RAGState) -> str:
     max_retries = int(state.get("max_retries", 2))
     if retry_count >= max_retries:
         return "finalize"
+    # Phase 3 (item 18): the retrieval-round cap is enforced on the linear
+    # path too — each retrieve/generate cycle consumed a round, and once
+    # the tier's budget is spent we finalize with what we have instead of
+    # retrying past the cap.
+    from app.rag.agent.routing_economics import is_exhausted
+
+    # The linear path cannot spend task slots, so a zero task cap (direct
+    # tier) must not read as spent here.
+    if is_exhausted(state.get("budget"), include_tasks=False):
+        return "finalize"
     # Phase 2 (item 15): a claim-verification gate — an answer whose factual
     # claims mostly failed entailment against the evidence is retried with a
     # targeted retrieval before a low-groundedness rewrite is attempted.
@@ -140,15 +150,26 @@ def _route_after_retry(state: RAGState) -> str:
 def _route_after_plan(state: RAGState) -> str:
     """Phase 0: exactly one path per query, chosen from the plan.
 
-    - MULTI_PART / MULTI_HOP plans → the EvidenceTask DAG path.
-    - cross_reference / case_law queries → multi-hop retrieval.
-    - everything else (SIMPLE) → the plain linear path.
+    Phase 3 (item 18): the decision itself is made *before* routing, in
+    ``plan_node`` → :func:`routing_economics.route_strategy` — budget-aware
+    (DIRECT override for single-identifier lookups, retry-pinned) and
+    persisted on state as ``routing_decision`` for telemetry.  This edge
+    only translates the persisted decision into a node name, with the
+    Phase 0 rule as a fallback for states that never ran the planner.
 
-    Phase 0 fix: the previous graph sent *every* query down both branches
-    (a conditional edge to retrieve/multi_hop plus an unconditional edge
-    to plan_tasks), so generation ran twice per query (``generate`` +
-    ``synthesize``) and both results converged on ``verify``.
+    - ``decomposition`` → the EvidenceTask DAG path.
+    - ``multi_hop`` → multi-hop retrieval.
+    - ``direct`` → the plain linear path.
     """
+    decision = state.get("routing_decision")
+    if isinstance(decision, dict) and decision.get("strategy"):
+        strategy = str(decision["strategy"])
+        if strategy == "decomposition":
+            return "plan_tasks"
+        if strategy == "multi_hop":
+            return "multi_hop_retrieve"
+        return "retrieve"
+    # Fallback: legacy derivation for states without a routing decision.
     plan = state.get("query_plan") or {}
     complexity = str(plan.get("complexity", "")).lower() if isinstance(plan, dict) else ""
     if complexity in ("multi_part", "multi_hop"):

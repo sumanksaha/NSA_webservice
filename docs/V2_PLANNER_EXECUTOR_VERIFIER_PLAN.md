@@ -1,7 +1,7 @@
 # V2 Planner–Executor–Verifier Architecture — Evaluation & Implementation Plan
 
 **Date:** 2026-09-09
-**Status:** ✅ Phases 0–2 complete (2026-09-09) — Phases 3–4 still plan only
+**Status:** ✅ Phases 0–3 complete (Phase 3: 2026-09-10) — Phase 4 (measurement) still plan only
 **Scope:** Maps the proposed SOTA LangGraph planner–executor–verifier architecture (19-point proposal, mirrored in `RAG_IMPROVEMENTS.md` §"V2 Planner–Executor–Verifier Architecture (Proposed)") onto the current `app/rag/agent/` implementation.
 
 > Related doc: `docs/LANGGRAPH_IMPLEMENTATION_EVALUATION.md` (2026-08-15) covers the earlier
@@ -125,6 +125,49 @@ citation regression sweep: **231+ total passed**; lint clean on all touched file
   produced an infinite retry loop (caught by the recovery-loop e2e as GraphRecursionError).
 - `SeparateConfidenceMetrics` now has a real consumer path: G = claim_groundedness,
   E = evidence_coverage are both on state per round.
+
+---
+
+## Part 0.85 — Phase 3 outcome (2026-09-10)
+
+**Routing economics (plan item 18).** Agent suite: **192 passed** across
+sufficiency/routing-economics/nodes/graph/state/M5/routes/hallucination (was 149 after Phase 2);
+planner/retrieval/reference regression sweep: **193+ total passed**; lint clean on all touched files.
+
+### Implemented
+
+| Item | Change |
+|------|--------|
+| Routing economics module (item 18) | New `app/rag/agent/routing_economics.py`, pure + deterministic: `route_strategy` picks `direct` / `decomposition` / `multi_hop` from the plan complexity, classifier query type, and a **DIRECT override** for single-identifier, conjunction-free lookups ("What is Section 12?" plans MULTI_PART — one section ref — but routes straight to linear retrieval). Decisions are **retry-pinned**: once a flow retries, a re-plan cannot flip it between the linear and DAG paths |
+| Budget tiers | `BUDGET_TIERS`: `direct` (0 tasks, 3 rounds, 30 docs, 4 LLM calls) / `moderate` (4/4/60/8, MULTI_PART decomposition) / `deep` (8/5/90/16, MULTI_HOP + multi-hop retrieval). `apply_budget_tier` is **shrink-only** — explicit caller/operator caps are never raised — and `initial_state` seeds the deep tier as the ceiling for the planner to shrink |
+| Router consumes the decision | `plan_node` persists `routing_decision` (strategy/complexity/query_type/tier/pinned) + applies the tier budget; `_route_after_plan` only translates the persisted decision into a node name (Phase 0 rule kept as fallback for states that never ran the planner) |
+| Real budget consumption on the linear path | `_consume_budget` helper: `retrieve_node` consumes rounds + documents (previously only the DAG path counted anything), `generate_node` and `expand_query_node` consume LLM calls. Counters are clamped at their caps |
+| Capped retrieval rounds (item 18) | `route_after_verify` enforces `is_exhausted(budget, include_tasks=False)` — the linear path finalizes with what it has instead of retrying past the tier's round cap. `budget_gate_node` (DAG path) shares the same `is_exhausted` predicate; `include_tasks=False` there would be wrong, so the flag is set per call site |
+| Telemetry | `finalize_node` surfaces `response["agent"]["routing"] = {decision, budget}` — which strategy ran, at which tier, and what it actually consumed |
+| Planner crash fix (pre-existing) | `_extract_intent` built `Intent(er.value)` from `EvidenceRequirement` keyword hits, but `Intent` has no PROVISION/FACT_APPLICATION members — any query containing "section"/"act"/"can"/"whether" raised ValueError in `plan_node`. Fixed with an explicit `_REQUIREMENT_TO_INTENT` map |
+
+### Tests added
+
+- `tests/test_rag_agent_routing_economics.py` (18): strategy selection (incl. DIRECT override,
+  conjunction guard, cross_reference/case_law → multi_hop, retry pinning), tier table shape,
+  shrink-only application, counter preservation, unknown-tier fallback, exhaustion predicate
+  (rounds/LLM caps, zero-task-cap semantics on both paths).
+- Node level (6): plan_node records the decision + tier budget (+ JSON-safety, explicit-cap
+  preservation); retrieve/generate/expand_query consume rounds/docs/LLM calls.
+- Graph level (4): `_route_after_plan` reads the persisted decision (+ legacy fallback);
+  `route_after_verify` stops at the round cap; e2e — a "Section 12" query routes DIRECT with
+  `max_tasks: 0` and exactly one round/LLM call consumed; the MULTI_PART e2e runs under the
+  moderate tier with `consumed_tasks` matching the decomposition.
+
+### Design notes
+
+- **Why shrink-only tiers:** operators can lower any cap via config/state without the planner
+  silently re-raising it on re-plan; a re-entered flow can only get *tighter*.
+- **Why round caps ≥ 3 on every tier:** `max_retries=2` legitimately needs 3 retrieval rounds
+  (initial + 2 retries); tiers must bound *spending*, not break the existing retry contract.
+- **Zero-cap exhaustion semantics:** the direct tier funds no DAG tasks (`max_tasks: 0`), so the
+  shared exhaustion predicate takes `include_tasks=` at each call site — the DAG gate counts task
+  capacity, the linear retry router must not read a zero task cap as "spent".
 
 ---
 

@@ -453,3 +453,57 @@ def test_agent_dag_tasks_execute_in_waves(monkeypatch):
     assert exec_entry["detail"]["documents"] == 4
     assert result["agent"]["task_results"]["T1"]["status"] == "completed"
     assert result["agent"]["task_results"]["T3"]["confidence"] > 0
+
+
+# ---------------------------------------------------------------------- #
+# Phase 3: budget-aware routing economics
+# ---------------------------------------------------------------------- #
+
+
+def test_route_after_plan_reads_persisted_decision():
+    """The edge translates the persisted routing decision into a node."""
+    assert _route_after_plan({"routing_decision": {"strategy": "decomposition"}}) == "plan_tasks"
+    assert _route_after_plan({"routing_decision": {"strategy": "multi_hop"}}) == "multi_hop_retrieve"
+    assert _route_after_plan({"routing_decision": {"strategy": "direct"}}) == "retrieve"
+    # Legacy fallback for states that never ran the planner.
+    assert _route_after_plan({"query_plan": {"complexity": "multi_part"}}) == "plan_tasks"
+    assert _route_after_plan({}) == "retrieve"
+
+
+def test_route_after_verify_enforces_round_cap():
+    """Once the retrieval budget is spent, finalize instead of retrying."""
+    from app.rag.agent.routing_economics import BUDGET_TIERS
+
+    direct = dict(BUDGET_TIERS["direct"], consumed_retrieval_rounds=3, consumed_llm_calls=0)
+    assert route_after_verify({"groundedness": 0.1, "retry_count": 0, "max_retries": 2, "budget": direct}) == "finalize"
+    fresh = dict(BUDGET_TIERS["direct"], consumed_retrieval_rounds=0, consumed_llm_calls=0)
+    assert route_after_verify({"groundedness": 0.1, "retry_count": 0, "max_retries": 2, "budget": fresh}) != "finalize"
+
+
+def test_agent_direct_flow_gets_tier_budget_and_uses_one_round(monkeypatch):
+    """'What is Section 12?' routes DIRECT: no DAG nodes, direct-tier budget."""
+    _patch_pipeline(monkeypatch, groundedness=0.9)
+    result = run_agent(initial_state("What is the penalty under Section 12?"))
+    routing = result["agent"]["routing"]
+    assert routing["decision"]["strategy"] == "direct"
+    assert routing["decision"]["tier"] == "direct"
+    assert routing["budget"]["max_tasks"] == 0
+    assert routing["budget"]["consumed_retrieval_rounds"] == 1
+    assert routing["budget"]["consumed_llm_calls"] == 1
+    nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
+    assert "plan_tasks" not in nodes_run
+    assert "execute_task" not in nodes_run
+
+
+def test_agent_dag_flow_gets_moderate_tier_budget(monkeypatch):
+    """The decomposition path runs under its tier's budget ceilings."""
+    _patch_task_pipeline(monkeypatch, per_task_chunks=2)
+    query = "penalty for selling substandard food and define misbranded food"
+    result = run_agent(initial_state(query))
+    routing = result["agent"]["routing"]
+    assert routing["decision"]["strategy"] == "decomposition"
+    assert routing["decision"]["tier"] == "moderate"
+    assert routing["budget"]["max_llm_calls"] == 8
+    assert routing["budget"]["consumed_tasks"] == 2
+    nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
+    assert "execute_task" in nodes_run

@@ -116,6 +116,12 @@ class RAGState(TypedDict, total=False):
     # --- Budget controller (P3) ---
     budget: dict[str, Any]  # max_tasks, max_retrieval_rounds, max_documents, max_llm_calls, consumed counters
 
+    # --- Phase 3: budget-aware routing economics ---
+    # Decision made in plan_node (route_strategy): strategy, complexity,
+    # query_type, budget tier, pinned. _route_after_plan only translates
+    # this into a node name; kept for telemetry on the response payload.
+    routing_decision: dict[str, Any] | None
+
     # --- Audit ---
     audit_trail: list[AuditEntry]
 
@@ -196,6 +202,7 @@ def initial_state(
             "consumed_documents": 0,
             "consumed_llm_calls": 0,
         },
+        "routing_decision": None,
         "audit_trail": [],
         "citation_quality_ok": True,
         "missing_citations": [],
