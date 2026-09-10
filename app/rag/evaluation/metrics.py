@@ -1,3 +1,11 @@
+"""Evaluation metrics — coverage, confidence, and RAGAS-style reference scores."""
+
+from __future__ import annotations
+
+from app.rag.evaluation.textmatch import chunk_text, content_tokens, token_coverage
+from app.rag.evidence_task import EvidenceTask
+
+
 class EvalScore:
     """One evaluation metric's score and explanation."""
 
@@ -54,6 +62,8 @@ class SeparateConfidenceMetrics:
         )
 
 
+
+
 class CoverageMetrics:
     """Tracks requirement coverage across Evidence Tasks.
 
@@ -62,6 +72,10 @@ class CoverageMetrics:
     - requirement_coverage: |requirements covered| / |total requirements|
     - evidence_coverage: |evidence found| / |total evidence requirements|
     """
+
+    #: A chunk counts as task evidence when at least this fraction of the
+    #: task question's content tokens appear (fuzzily) in its text.
+    EVIDENCE_MATCH_THRESHOLD = 0.5
 
     def __init__(self) -> None:
         self.total_tasks = 0
@@ -75,7 +89,7 @@ class CoverageMetrics:
         evidence_tasks: list | None = None,
         retrieval_plan: dict[str, list[str]] | None = None,
         chunks: list | None = None,
-    ) -> "CoverageMetrics":
+    ) -> CoverageMetrics:
         """Update coverage metrics based on Evidence Tasks and retrieved chunks.
 
         Args:
@@ -86,10 +100,16 @@ class CoverageMetrics:
         Returns:
             Self for chaining.
         """
-        from app.rag.evidence_task import EvidenceTask
-
         tasks = evidence_tasks or []
         self.total_tasks = len(tasks)
+
+        # Requirement coverage from retrieval_plan (independent of whether
+        # tasks are present — plan-only calls are still meaningful).
+        if retrieval_plan:
+            self.total_requirements = len(retrieval_plan)
+            self.requirements_covered = sum(
+                1 for routes in retrieval_plan.values() if routes
+            )
 
         if not tasks:
             return self
@@ -98,24 +118,19 @@ class CoverageMetrics:
         for task in tasks:
             if not isinstance(task, EvidenceTask):
                 continue
-            # Task has evidence if any chunk references its entities
-            task_entities = {e.lower() for e in task.entities}
+            # Task has evidence when some chunk's *text* addresses the task
+            # question (fuzzy token coverage).  The previous entity-metadata
+            # overlap broke on chunks with missing/normalized-differently
+            # metadata and ignored the actual question being asked.
+            needles = content_tokens(task.question) or content_tokens(task.objective)
             has_evidence = any(
-                task_entities & {e.lower() for e in (c.get("entities") or []) if isinstance(c, dict)}
+                token_coverage(needles, chunk_text(c)) >= self.EVIDENCE_MATCH_THRESHOLD
                 for c in (chunks or [])
-                if isinstance(c, dict)
             )
             if has_evidence:
                 self.tasks_with_evidence += 1
             else:
                 self.missing.append(task.task_id)
-
-        # Requirement coverage from retrieval_plan
-        if retrieval_plan:
-            self.total_requirements = len(retrieval_plan)
-            self.requirements_covered = sum(
-                1 for routes in retrieval_plan.values() if routes
-            )
 
         return self
 

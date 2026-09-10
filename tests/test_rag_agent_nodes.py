@@ -25,6 +25,7 @@ from app.rag.agent.nodes import (
     plan_node,
     plan_tasks_node,
     retrieve_node,
+    synthesize_node,
     targeted_retry_node,
     verify_node,
 )
@@ -871,3 +872,69 @@ def test_expand_query_node_consumes_llm_budget():
     out = expand_query_node(_make_state())
     assert out["budget"]["consumed_llm_calls"] == 1
     assert out["retry_count"] == 1
+
+
+# ---------------------------------------------------------------------- #
+# Phase 4 measurement: cost telemetry
+# ---------------------------------------------------------------------- #
+
+
+def test_generate_node_audit_entry_carries_token_cost(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_generation_pipeline",
+        lambda query, **kw: {
+            "answer": "Section 50 prescribes the penalty.",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+        },
+    )
+    state = _make_state(
+        query="What is the penalty under Section 50?",
+        chunks=[{"chunk_id": "c1", "score": 0.9, "text": "Section 50 prescribes a fine."}],
+    )
+    out = generate_node(state)
+    entry = out["audit_trail"][-1]
+    assert entry["node"] == "generate"
+    assert entry["detail"]["token_cost"] > 0
+
+
+def test_synthesize_node_audit_entry_carries_token_cost(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_generation_pipeline",
+        lambda query, **kw: {
+            "answer": "Section 50 prescribes the penalty.",
+            "groundedness_score": 0.9,
+            "hallucination_detected": False,
+        },
+    )
+    state = _make_state(
+        query="What is the penalty under Section 50?",
+        evidence={"T1": [{"chunk_id": "c1", "score": 0.9, "text": "Section 50 prescribes a fine."}]},
+        budget={"max_tasks": 4, "max_retrieval_rounds": 4, "max_documents": 50, "max_llm_calls": 8},
+    )
+    out = synthesize_node(state)
+    entry = out["audit_trail"][-1]
+    assert entry["node"] == "synthesize"
+    assert entry["detail"]["token_cost"] > 0
+
+
+def test_task_results_carry_token_cost(monkeypatch):
+    import app.rag.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "run_retrieval_pipeline",
+        lambda query, **kw: {"chunks": [{"chunk_id": "c1", "text": "penalty section"}], "query_type": "offence"},
+    )
+    state = _make_state(
+        tasks={"T1": _task_dict("T1")},
+        task_order=["T1"],
+    )
+    out = execute_task_node(state)
+    assert out["task_results"]["T1"]["token_cost"] > 0

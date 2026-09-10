@@ -50,6 +50,45 @@ def _safe_int(value: Any, default: int) -> int:
         return default
 
 
+def _est_tokens(*texts: Any) -> int:
+    """Estimated token count for the given texts (Phase 4 cost telemetry).
+
+    Uses the centralized :class:`TokenCounter` (tiktoken when available,
+    word-count fallback otherwise) — deterministic and cheap.
+    """
+    from app.rag.verification.token_counter import TokenCounter
+
+    counter = TokenCounter()
+    return sum(counter.estimate(str(t)) for t in texts if t)
+
+
+def _task_token_cost(task: Any, chunks: list[dict[str, Any]] | None) -> int:
+    """Estimated token cost of a task's retrieval round (Phase 4 telemetry).
+
+    Counts the task question plus the retrieved evidence text.
+    """
+    texts = [str(getattr(task, "question", "") or "")]
+    texts.extend(
+        str(c.get("text") or "") for c in chunks or [] if isinstance(c, dict)
+    )
+    return _est_tokens(*texts)
+
+
+def _enrich_audit_entry(entry: dict[str, Any], **telemetry: Any) -> dict[str, Any]:
+    """Attach cost telemetry to an audit entry's detail block (Phase 4).
+
+    Adds ``token_cost`` / ``prompt_tokens`` / ``completion_tokens`` keys to
+    ``entry["detail"]`` for every non-None value passed.  Entries already
+    carry ``latency_ms``; this completes the per-stage cost picture the
+    plan's observability item (§16) calls for.
+    """
+    detail = entry.setdefault("detail", {})
+    for key, value in telemetry.items():
+        if value is not None:
+            detail[key] = value
+    return entry
+
+
 def _verify_claims(answer: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Claim-level verification of a generated answer (V2 plan item 15).
 
@@ -254,6 +293,12 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     # claims against the retrieved evidence.  Threshold enforcement happens
     # in the verify/citation gate — this node only measures.
     claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [])
+    # Phase 4 cost telemetry: context + completion tokens for this LLM call.
+    token_cost = _est_tokens(
+        state.get("query"),
+        *(str(c.get("text") or "") for c in state.get("chunks") or [] if isinstance(c, dict)),
+        result.get("answer", ""),
+    )
     update: dict[str, Any] = {
         "answer": result.get("answer", ""),
         "groundedness": result.get("groundedness_score", 0.0),
@@ -264,16 +309,19 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         "budget": _consume_budget(state, llm_calls=1),
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {
-                "node": "generate",
-                "latency_ms": _ms(start),
-                "detail": {
-                    "groundedness": result.get("groundedness_score", 0.0),
-                    "hallucination_detected": result.get("hallucination_detected", False),
-                    "answer_length": len(result.get("answer", "")),
-                    "claims": len(claim_report["claims"]) if claim_report else 0,
+            _enrich_audit_entry(
+                {
+                    "node": "generate",
+                    "latency_ms": _ms(start),
+                    "detail": {
+                        "groundedness": result.get("groundedness_score", 0.0),
+                        "hallucination_detected": result.get("hallucination_detected", False),
+                        "answer_length": len(result.get("answer", "")),
+                        "claims": len(claim_report["claims"]) if claim_report else 0,
+                    },
                 },
-            },
+                token_cost=token_cost,
+            ),
         ],
     }
     if claim_report:
@@ -797,7 +845,7 @@ def _run_task_retrieval(
     summary: dict[str, Any] = {
         "status": status,
         # Transparent placeholder heuristic (0→0, top_k hits→1.0); the
-        # Phase 2 per-task sufficiency rubric replaces this with real
+        # Phase 2 per-task sufficiency rubric refines this with real
         # coverage/relevance/authority signals.
         "confidence": min(1.0, len(chunks) / max(1, top_k)),
         "failure_reason": None if chunks else "NO_RESULTS",
@@ -917,6 +965,9 @@ def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
             outcomes = [(tid, *_run_task_retrieval(tid, parsed[tid], wave_state)) for tid in ready]
 
         for tid, chunks, summary in outcomes:
+            # Phase 4 telemetry: per-task token cost on every result
+            # (latency_ms is stamped per-task inside _run_task_retrieval).
+            summary["token_cost"] = _task_token_cost(parsed[tid], chunks)
             evidence[tid] = chunks
             task_results[tid] = summary
             documents_used += len(chunks)
@@ -1158,15 +1209,22 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         "final_answer": result.get("answer", ""),
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {
-                "node": "synthesize",
-                "latency_ms": _ms(start),
-                "detail": {
-                    "merged_chunks": len(merged),
-                    "groundedness": result.get("groundedness_score", 0.0),
-                    "claims": len(claim_report["claims"]) if claim_report else 0,
+            _enrich_audit_entry(
+                {
+                    "node": "synthesize",
+                    "latency_ms": _ms(start),
+                    "detail": {
+                        "merged_chunks": len(merged),
+                        "groundedness": result.get("groundedness_score", 0.0),
+                        "claims": len(claim_report["claims"]) if claim_report else 0,
+                    },
                 },
-            },
+                token_cost=_est_tokens(
+                    state.get("query"),
+                    *(str(c.get("text") or "") for c in merged if isinstance(c, dict)),
+                    result.get("answer", ""),
+                ),
+            ),
         ],
     }
     if claim_report:

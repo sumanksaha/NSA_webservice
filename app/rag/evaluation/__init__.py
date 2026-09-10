@@ -11,14 +11,24 @@ Reuses:
 - ``ScoreField``-style method-based scoring from ``app/metadata_extractor/confidence.py``
 - ``RAGEvalResult`` / ``RAGEvalDataset`` models (``app/models/rag.py``)
 - ``log_audit`` hash-chained audit (R0)
+
+Phase 4 additionally provides the decomposition benchmark scored against the
+gold dataset (``gold_dataset`` + ``benchmark``) and shared deterministic
+text-matching helpers (``textmatch``).
 """
 
+from app.rag.evaluation.benchmark import DecompositionBenchmark, QueryBenchmark
+from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
 from app.rag.evaluation.metrics import (
+    CoverageMetrics,
+    EvalScore,
+    SeparateConfidenceMetrics,
+)
+from app.rag.evaluation.ragas_metrics import (
     AnswerRelevanceMetric,
     CitationRecallMetric,
     ContextPrecisionMetric,
     ContextRecallMetric,
-    EvalScore,
     FaithfulnessMetric,
     GroundednessMetric,
 )
@@ -27,10 +37,13 @@ from app.rag.evaluation.runner import EvalRunner
 from app.rag.evaluation.storage import EvalStorage
 
 __all__ = [
+    "GOLD_DECOMPOSITION",
     "AnswerRelevanceMetric",
     "CitationRecallMetric",
     "ContextPrecisionMetric",
     "ContextRecallMetric",
+    "CoverageMetrics",
+    "DecompositionBenchmark",
     "EvalReport",
     "EvalRunner",
     "EvalScore",
@@ -38,4 +51,6 @@ __all__ = [
     "EvalSummary",
     "FaithfulnessMetric",
     "GroundednessMetric",
+    "QueryBenchmark",
+    "SeparateConfidenceMetrics",
 ]

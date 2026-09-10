@@ -18,9 +18,16 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
 
-from app.rag.evaluation.metrics import CoverageMetrics
+from app.rag.evaluation.metrics import CoverageMetrics, EvalScore
+from app.rag.evaluation.ragas_metrics import (
+    AnswerRelevanceMetric,
+    CitationRecallMetric,
+    ContextPrecisionMetric,
+    ContextRecallMetric,
+    FaithfulnessMetric,
+    GroundednessMetric,
+)
 from app.rag.evaluation.storage import EvalStorage
 from app.rag.retrieval.result import RetrievedChunk
 
@@ -31,23 +38,6 @@ PipelineFn = Callable[
     [str],
     dict[str, object],
 ]
-
-
-@dataclass
-class MetricBundle:
-    """Container for evaluation results.
-
-    Currently stores only latency and MRR; detailed per-metric scores
-    are available on demand from the pipeline backend.
-    """
-
-    scores: list = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, float]:
-        return {}
-
-    def get(self, name: str) -> float | None:
-        return None
 
 
 class EvalRunner:
@@ -83,14 +73,16 @@ class EvalRunner:
     ) -> dict[str, object]:
         """Evaluate a single query through the full pipeline.
 
-        Returns a result dict with basic metadata (latency, MRR).
-        Does **not** compute detailed per-metric scores — use
-        :meth:`evaluate_batch` with a custom metric backend for that.
+        Runs the pipeline callable, then scores the response with the
+        deterministic RAGAS-style reference metrics (faithfulness, answer
+        relevance, context precision/recall, citation recall, groundedness),
+        EvidenceTask coverage, and retrieval MRR.
 
         Returns:
             A dict with keys: ``query``, ``answer``, ``retrieved_chunks``,
-            ``cited_chunk_ids``, ``metrics`` (lightweight), ``retrieval_mrr``,
-            ``latency_ms``.
+            ``cited_chunk_ids``, ``metrics`` (per-metric scores),
+            ``metric_details``, ``metric_explanations``, ``coverage``,
+            ``retrieval_mrr``, ``latency_ms``.
         """
         start = time.perf_counter()
         pipeline_result = self.pipeline_fn(query)
@@ -117,16 +109,34 @@ class EvalRunner:
 
         mrr = self._compute_mrr(expected_citations or [], chunks)
 
+        # RAGAS-style reference metrics (Phase 4) — deterministic, no LLM.
+        metric_scores: dict[str, EvalScore] = {
+            "faithfulness": FaithfulnessMetric().compute(answer, chunks, query=query),
+            "answer_relevance": AnswerRelevanceMetric().compute(
+                answer, query, expected_answer
+            ),
+            "context_precision": ContextPrecisionMetric().compute(query, chunks),
+            "context_recall": ContextRecallMetric().compute(
+                expected_citations or [], chunks
+            ),
+            "citation_recall": CitationRecallMetric().compute(cited_ids or [], chunks),
+            "groundedness": GroundednessMetric().compute(answer, chunks),
+        }
+
         result: dict[str, object] = {
             "query": query,
             "query_type": query_type,
             "answer": answer,
             "retrieved_chunks": [c.to_dict() for c in chunks],
             "cited_chunk_ids": cited_ids or [],
-            "metrics": {
-                "latency_ms": pipeline_latency_ms,
-                "coverage": coverage.to_dict(),
+            "metrics": {name: s.score for name, s in metric_scores.items()},
+            "metric_details": {
+                name: s.detail for name, s in metric_scores.items()
             },
+            "metric_explanations": {
+                name: s.explanation for name, s in metric_scores.items()
+            },
+            "coverage": coverage.to_dict(),
             "retrieval_mrr": mrr,
             "latency_ms": pipeline_latency_ms,
         }
@@ -155,18 +165,34 @@ class EvalRunner:
         results: list[dict[str, object]] = []
 
         for entry in dataset_entries:
-            query = getattr(entry, "query", entry.get("query")) if not isinstance(entry, dict) else entry["query"]
+            if isinstance(entry, dict):
+                query = entry.get("query")
+                expected_answer = entry.get("expected_answer")
+                expected_citations = entry.get("expected_citations")
+                query_type = entry.get("query_type", "general_qa")
+            else:
+                query = getattr(entry, "query", None)
+                expected_answer = getattr(entry, "expected_answer", None)
+                expected_citations = getattr(entry, "expected_citations", None)
+                query_type = getattr(entry, "query_type", "general_qa")
 
             try:
-                result = self.evaluate_one(query=query)
+                result = self.evaluate_one(
+                    query=query,
+                    expected_answer=expected_answer,
+                    expected_citations=expected_citations,
+                    query_type=query_type,
+                )
                 results.append(result)
 
                 if persist:
                     self.storage.save_result(
                         eval_run_id=eval_run_id,
                         query=query,
-                        expected_answer=result.get("answer", ""),
-                        actual_answer=result["answer"],
+                        expected_answer=expected_answer,
+                        expected_citations=expected_citations,
+                        actual_answer=result.get("answer", ""),
+                        actual_citations=result.get("cited_chunk_ids") or [],
                         metrics=result.get("metrics", {}),
                         retrieval_mrr=result.get("retrieval_mrr", 0.0),
                         latency_ms=result.get("latency_ms", 0),
@@ -204,15 +230,38 @@ class EvalRunner:
         results: list[dict[str, object]],
     ) -> dict[str, object]:
         """Aggregate per-query results into summary statistics."""
-        metric_names = ["latency_ms"]
         summary: dict[str, object] = {
             "eval_run_id": eval_run_id,
             "total": len(results),
             "errors": sum(1 for r in results if "error" in r),
         }
-        for name in metric_names:
-            vals = [r.get(name, 0) for r in results if isinstance(r.get(name), (int, float))]
-            summary[f"{name}_avg"] = round(sum(vals) / len(vals), 2) if vals else None
+        # Per-metric averages over successful results (Phase 4).
+        for name in (
+            "faithfulness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+            "groundedness",
+        ):
+            vals = [
+                r["metrics"][name]
+                for r in results
+                if isinstance(r.get("metrics"), dict)
+                and isinstance(r["metrics"].get(name), (int, float))
+            ]
+            summary[f"{name}_avg"] = round(sum(vals) / len(vals), 4) if vals else None
+        passed = sum(
+            1
+            for r in results
+            if isinstance(r.get("metrics"), dict)
+            and r["metrics"]
+            and all(
+                isinstance(v, (int, float)) and v >= 0.5
+                for v in r["metrics"].values()
+            )
+        )
+        summary["passed"] = passed
         mrrs = [r.get("retrieval_mrr", 0.0) for r in results if isinstance(r.get("retrieval_mrr"), (int, float))]
         summary["mrr_avg"] = round(sum(mrrs) / len(mrrs), 4) if mrrs else 0.0
         summary["latency_avg_ms"] = (
