@@ -78,11 +78,12 @@ def _requirement_id_matches(pred_req: AnswerRequirement, gold_req: GoldRequireme
 
     Both id and evidence type must align so that two requirements with the same
     type but different subjects (e.g. two distinct penalty questions) are not
-    collapsed into one match.
+    collapsed into one match.  Matching is case-insensitive on id (the planner
+    uses ``r{N}`` while gold may use ``R{N}``).
     """
     gold_id = str(gold_req.get("id", ""))
     gold_type = str(gold_req.get("type", ""))
-    return bool(gold_id) and pred_req.id == gold_id and pred_req.type.value == gold_type
+    return bool(gold_id) and pred_req.id.lower() == gold_id.lower() and pred_req.type.value == gold_type
 
 
 def _count_matched_requirements(
@@ -93,17 +94,16 @@ def _count_matched_requirements(
 
     Multiset-aware at the id+type level: each gold requirement is matched at
     most once, and a predicted requirement can satisfy at most one gold
-    requirement.  This avoids a single over-generated requirement counting for
-    multiple gold requirements with the same id.
+    requirement.  Matching is case-insensitive on id.
     """
-    pred_by_id = {r.id: r for r in pred_graph.requirements}
+    pred_by_id = {r.id.lower(): r for r in pred_graph.requirements}
     used_pred_ids: set[str] = set()
     matched = 0
     for gold_req in gold_reqs:
         gold_id = str(gold_req.get("id", ""))
         if not gold_id:
             continue
-        pred = pred_by_id.get(gold_id)
+        pred = pred_by_id.get(gold_id.lower())
         if pred is not None and pred.id not in used_pred_ids and pred_req_type_matches(pred, gold_req):
             matched += 1
             used_pred_ids.add(pred.id)

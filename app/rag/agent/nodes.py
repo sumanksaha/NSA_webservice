@@ -68,9 +68,7 @@ def _task_token_cost(task: Any, chunks: list[dict[str, Any]] | None) -> int:
     Counts the task question plus the retrieved evidence text.
     """
     texts = [str(getattr(task, "question", "") or "")]
-    texts.extend(
-        str(c.get("text") or "") for c in chunks or [] if isinstance(c, dict)
-    )
+    texts.extend(str(c.get("text") or "") for c in chunks or [] if isinstance(c, dict))
     return _est_tokens(*texts)
 
 
@@ -147,9 +145,7 @@ def _verify_claims(
     return {
         "claims": [cv.to_dict() for cv in claim_verifications],
         "claim_groundedness": verified_count / len(claims),
-        "unverified_claims": [
-            c.text for c, v in zip(claims, verifications, strict=True) if not v.verified
-        ],
+        "unverified_claims": [c.text for c, v in zip(claims, verifications, strict=True) if not v.verified],
         "claim_statuses": [cv.status.value for cv in claim_verifications],
     }
 
@@ -318,7 +314,11 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     # Claim-level verification (item 15): extract + entail-check the answer's
     # claims against the retrieved evidence.  Threshold enforcement happens
     # in the verify/citation gate — this node only measures.
-    claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [], temporal_conflict=bool(state.get("temporal_conflict", False)))
+    claim_report = _verify_claims(
+        result.get("answer", ""),
+        state.get("chunks") or [],
+        temporal_conflict=bool(state.get("temporal_conflict", False)),
+    )
     # Phase 4 cost telemetry: context + completion tokens for this LLM call.
     token_cost = _est_tokens(
         state.get("query"),
@@ -931,9 +931,7 @@ def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # Tasks already completed in a previous round (state carries
     # task_results across retries) are not re-executed.
-    completed = {
-        tid for tid, tr in task_results.items() if (tr or {}).get("status") == "completed"
-    }
+    completed = {tid for tid, tr in task_results.items() if (tr or {}).get("status") == "completed"}
     pending = [tid for tid in task_order if tid in parsed and tid not in completed]
 
     # Budget capacity: ready tasks that no longer fit the ``max_tasks`` cap
@@ -1009,15 +1007,11 @@ def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
     # This round's deferrals: still pending, never executed, not failed —
     # includes tasks transitively waiting on a deferred dependency.
     deferred_ids = sorted(
-        tid
-        for tid in pending
-        if tid not in executed and (task_results.get(tid) or {}).get("status") != "failed"
+        tid for tid in pending if tid not in executed and (task_results.get(tid) or {}).get("status") != "failed"
     )
     budget["consumed_tasks"] = consumed_tasks + len(executed)
     budget["consumed_documents"] = _safe_int(budget.get("consumed_documents"), 0) + documents_used
-    budget["consumed_retrieval_rounds"] = _safe_int(budget.get("consumed_retrieval_rounds"), 0) + (
-        1 if executed else 0
-    )
+    budget["consumed_retrieval_rounds"] = _safe_int(budget.get("consumed_retrieval_rounds"), 0) + (1 if executed else 0)
 
     return {
         "evidence": evidence,
@@ -1101,20 +1095,14 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
     # from what is covered (the rubric failures stay on state for the
     # caller).  Also abstain when there is nothing to synthesize from at
     # all (no tasks, no evidence).
-    abstain_required = (
-        budget_exhausted and not sufficient and total_tasks > 0 and coverage < 0.5
-    ) or (total_tasks == 0 and not evidence)
+    abstain_required = (budget_exhausted and not sufficient and total_tasks > 0 and coverage < 0.5) or (
+        total_tasks == 0 and not evidence
+    )
 
     # Aggregates for failure diagnosis (targeted_retry_node reads these).
-    authority_values = [
-        v["signals"]["authority"]["value"]
-        for v in agg["verdicts"]
-        if v.get("signals")
-    ]
+    authority_values = [v["signals"]["authority"]["value"] for v in agg["verdicts"] if v.get("signals")]
     authority_score = min(authority_values) if authority_values else 1.0
-    temporal_conflict = any(
-        not v["signals"]["temporal"]["passed"] for v in agg["verdicts"] if v.get("signals")
-    )
+    temporal_conflict = any(not v["signals"]["temporal"]["passed"] for v in agg["verdicts"] if v.get("signals"))
     return {
         "evidence_coverage": coverage,
         "evidence_sufficient": sufficient,
@@ -1137,9 +1125,7 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
                     "abstain_required": abstain_required,
                     "total_tasks": total_tasks,
                     "tasks_with_evidence": covered,
-                    "task_failures": {
-                        v["task_id"]: v["failures"] for v in agg["verdicts"] if v["failures"]
-                    },
+                    "task_failures": {v["task_id"]: v["failures"] for v in agg["verdicts"] if v["failures"]},
                     "has_conflicts": bool(agg["has_conflicts"]),
                     "authority_score": authority_score,
                 },
@@ -1279,11 +1265,14 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         update["unverified_claims"] = claim_report["unverified_claims"]
         # Persist the per-claim verdicts on the response payload too, so
         # callers get claim-level traceability without reading graph state.
-        result.setdefault("claim_verification", {
-            "claim_groundedness": claim_report["claim_groundedness"],
-            "claims": claim_report["claims"],
-            "unverified_claims": claim_report["unverified_claims"],
-        })
+        result.setdefault(
+            "claim_verification",
+            {
+                "claim_groundedness": claim_report["claim_groundedness"],
+                "claims": claim_report["claims"],
+                "unverified_claims": claim_report["unverified_claims"],
+            },
+        )
     return update
 
 

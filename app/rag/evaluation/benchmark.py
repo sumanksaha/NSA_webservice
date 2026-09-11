@@ -59,6 +59,15 @@ class QueryBenchmark:
     predicted_task_kinds: list[str] = field(default_factory=list)
     predicted_dependencies: set[tuple[str, str]] = field(default_factory=set)
 
+    # --- Phase 3: requirement-level prediction + gold --------------------- #
+    predicted_requirement_graph: Any | None = None
+    predicted_requirement_ids: set[str] = field(default_factory=set)
+    predicted_requirements: list[dict[str, Any]] = field(default_factory=list)
+    # Requirement-level gold (from GoldEntry):
+    gold_requirements: list[dict[str, Any]] = field(default_factory=list)
+    gold_answer_types: dict[str, str] = field(default_factory=dict)
+    gold_mandatory: set[str] = field(default_factory=set)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -75,6 +84,8 @@ class QueryBenchmark:
             "gold_dependencies": {k: list(v) for k, v in self.gold_dependencies.items()},
             "predicted_task_kinds": self.predicted_task_kinds,
             "predicted_dependencies": sorted(self.predicted_dependencies),
+            "predicted_requirement_ids": sorted(self.predicted_requirement_ids),
+            "predicted_requirements": list(self.predicted_requirements),
         }
 
 
@@ -109,7 +120,12 @@ class DecompositionBenchmark:
         )
 
     def add_gold_entry(self, entry: GoldEntry) -> QueryBenchmark:
-        """Add a gold-dataset entry (kind/dependency-level expectations)."""
+        """Add a gold-dataset entry (kind/dependency-level expectations).
+
+        Phase 3: also transfers requirement-level gold fields
+        (gold_requirements, gold_answer_types, gold_mandatory) so the
+        requirement-level metrics can score against them.
+        """
         self.queries.append(
             QueryBenchmark(
                 query=entry["query"],
@@ -118,13 +134,14 @@ class DecompositionBenchmark:
                 gold_task_kinds=list(entry.get("gold_task_kinds") or []),
                 gold_dependencies=dict(entry.get("gold_dependencies") or {}),
                 gold_entities=list(entry.get("gold_entities") or []),
+                gold_requirements=list(entry.get("gold_requirements") or []),
+                gold_answer_types=dict(entry.get("gold_answer_types") or {}),
+                gold_mandatory=set(entry.get("gold_mandatory") or []),
             )
         )
 
     @classmethod
-    def from_gold_dataset(
-        cls, entries: list[GoldEntry] | None = None
-    ) -> DecompositionBenchmark:
+    def from_gold_dataset(cls, entries: list[GoldEntry] | None = None) -> DecompositionBenchmark:
         """Build a benchmark pre-populated from the gold dataset.
 
         Args:
@@ -168,6 +185,17 @@ class DecompositionBenchmark:
         entry.predicted_dependencies = edges
         if query_class:
             entry.query_class = query_class
+
+        # Phase 3: record requirement-graph-level prediction for the richer
+        # metrics (requirement_coverage, atomicity, efficiency, evidence completeness).
+        try:
+            from app.rag.evaluation.decomposition_metrics import record_requirement_prediction
+
+            rg = getattr(decomposition, "requirement_graph", None)
+            if rg is not None:
+                record_requirement_prediction(entry, rg)
+        except Exception as exc:
+            logger.debug("record_prediction: requirement recording failed (%s)", exc)
         return entry
 
     # ------------------------------------------------------------------ #
@@ -186,6 +214,16 @@ class DecompositionBenchmark:
             report.update(self._evaluate_kind_entries(kind_scored))
         if legacy:
             report.update(self._evaluate_legacy_entries(legacy))
+        # Phase 3: requirement-level metrics (RC, AS, DE, EC) when gold
+        # requirements are present.
+        try:
+            from app.rag.evaluation.decomposition_metrics import requirement_level_report
+
+            req_report = requirement_level_report(self)
+            if "error" not in req_report:
+                report["requirement_level"] = req_report
+        except Exception as exc:  # best-effort: metrics should not crash evaluation
+            logger.debug("evaluate: requirement_level_report failed (%s)", exc)
         return report
 
     def _evaluate_kind_entries(self, entries: list[QueryBenchmark]) -> dict[str, Any]:
@@ -217,19 +255,13 @@ class DecompositionBenchmark:
             elif n_pred < n_gold:
                 under += 1
 
-            gold_edges = {
-                (d, kind)
-                for kind, deps in (q.gold_dependencies or {}).items()
-                for d in deps
-            }
+            gold_edges = {(d, kind) for kind, deps in (q.gold_dependencies or {}).items() for d in deps}
             pred_edges = set(q.predicted_dependencies or set())
             union = gold_edges | pred_edges
             if union:
                 dep.append(len(gold_edges & pred_edges) / len(union))
 
-            stats = per_class.setdefault(
-                q.query_class, {"recall": [], "f1": []}
-            )
+            stats = per_class.setdefault(q.query_class, {"recall": [], "f1": []})
             stats["recall"].append(recall)
             stats["f1"].append(f1[-1] if n_gold + n_pred else 0.0)
 
@@ -254,9 +286,7 @@ class DecompositionBenchmark:
 
     def _evaluate_legacy_entries(self, entries: list[QueryBenchmark]) -> dict[str, Any]:
         total = len(entries)
-        correct = sum(
-            1 for q in entries if q.decomposed_subquestions == q.gold_subquestions
-        )
+        correct = sum(1 for q in entries if q.decomposed_subquestions == q.gold_subquestions)
         total_subqs = sum(len(q.gold_subquestions) for q in entries)
         covered_subqs = sum(q.answered_subquestions for q in entries)
 
@@ -273,20 +303,14 @@ class DecompositionBenchmark:
         return {
             "legacy": {
                 "decomposition_accuracy": round(correct / total, 4) if total else 0.0,
-                "subquestion_coverage": (
-                    round(covered_subqs / total_subqs, 4) if total_subqs else 0.0
-                ),
+                "subquestion_coverage": (round(covered_subqs / total_subqs, 4) if total_subqs else 0.0),
                 "total_subquestions": total_subqs,
                 "covered_subquestions": covered_subqs,
                 "per_query_class": {
                     cls: {
-                        "recall": round(
-                            stats["correct"] / stats["total"] if stats["total"] else 0, 4
-                        ),
+                        "recall": round(stats["correct"] / stats["total"] if stats["total"] else 0, 4),
                         "count": stats["total"],
-                        "avg_coverage": round(
-                            stats["covered"] / stats["total"] if stats["total"] else 0, 4
-                        ),
+                        "avg_coverage": round(stats["covered"] / stats["total"] if stats["total"] else 0, 4),
                     }
                     for cls, stats in class_stats.items()
                 },

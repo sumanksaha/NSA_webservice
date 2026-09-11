@@ -111,5 +111,10 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
         "gold_task_kinds": ["provision"],
         "gold_dependencies": {"provision": []},
         "gold_entities": ["Section 12"],
+        "gold_requirements": [
+            {"id": "R1", "type": "provision", "subject": "Section 12", "question": "What is Section 12 of the FSS Act?", "answer_type": "citation", "evidence_required": ["provision", "section", "act", "definition"], "mandatory": True},
+        ],
+        "gold_answer_types": {"R1": "citation"},
+        "gold_mandatory": {"R1"},
     },
 ]
