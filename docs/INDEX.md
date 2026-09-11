@@ -17,3 +17,7 @@ This is the central index for the NSA Webservice project documentation. Living d
 ## Additional Resources
 
 See the [archive](./archive/) for historical research, plans, and investigation documents.
+
+### Improvement Plans
+
+- [INSPECTION_IMPROVEMENT_PLAN.md](INSPECTION_IMPROVEMENT_PLAN.md) — Deepening opportunities for the inspection module (3 candidates, prioritized backlog)
