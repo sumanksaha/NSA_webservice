@@ -62,6 +62,7 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Rust PyO3 Normalizers**         | ✅ Complete                                                                                                                                                      | Deterministic legal-text normalizers compiled via PyO3 for performance (4 modules)                                                                                                                                                                                                            |
 | **FastAPI Gateway (ASGI)**        | ✅ Phases 1–5 complete                                                                                                                                           | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2.     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                          |
+| **Inspection Module Deepening** | ✅ Phases D7 (2026-09-11) — 7 deep modules: InspectionCodeGenerator, 3 verification adapters (NominatimGeocoder, IpGeolocationAdapter, LicenseLookupAdapter), 3 photo services (PhotoProcessor, EvidenceStore, OCRDispatcher); CONTEXT.md updated; ADR-0003; 33/38 tests pass |
 
 ---
 
