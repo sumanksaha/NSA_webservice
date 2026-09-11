@@ -157,9 +157,15 @@ class TestGoldBenchmark:
     def test_end_to_end_over_real_planner(self):
         """Score the actual deterministic planner against the gold set.
 
-        This is the measurement the benchmark exists for: the aggregate must
-        be well-formed, and classes the planner is designed to handle exactly
-        (single provision lookups) must score perfectly.
+        This is the measurement the benchmark exists for — and, since the
+        plural-keyword and comparative fixes, it doubles as a **regression
+        gate**: every gold class must decompose exactly (recall/F1 1.0,
+        dependency edges exact, no over/under-decomposition).
+
+        Previously-measured gaps (now fixed in the planner):
+        - multi_requirement queries dropped the penalty task
+          ("penalties" never matched the substring keyword check);
+        - comparative queries collapsed to a single provision task.
         """
         from app.rag.planning.query_planner import QueryPlanner
 
@@ -171,16 +177,16 @@ class TestGoldBenchmark:
 
         report = bench.evaluate()
         assert report["total_queries"] == len(GOLD_DECOMPOSITION)
-        for key in (
-            "task_recall",
-            "task_precision",
-            "decomposition_f1",
-            "dependency_accuracy",
-            "exact_match_rate",
-        ):
-            assert report[key] is not None
-            assert 0.0 <= report[key] <= 1.0
-        assert report["per_query_class"]["direct_lookup"]["avg_recall"] == 1.0
+        assert report["task_recall"] == 1.0
+        assert report["task_precision"] == 1.0
+        assert report["decomposition_f1"] == 1.0
+        assert report["dependency_accuracy"] == 1.0
+        assert report["exact_match_rate"] == 1.0
+        assert report["under_decomposition_rate"] == 0.0
+        assert report["over_decomposition_rate"] == 0.0
+        for cls in ("direct_lookup", "multi_requirement", "comparative"):
+            assert report["per_query_class"][cls]["avg_recall"] == 1.0, cls
+            assert report["per_query_class"][cls]["avg_f1"] == 1.0, cls
 
     def test_legacy_subquestion_api_still_evaluates(self):
         bench = DecompositionBenchmark()

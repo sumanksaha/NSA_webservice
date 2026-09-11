@@ -431,14 +431,14 @@ def test_agent_dag_recovery_loop_returns_to_dag_path(monkeypatch):
     assert result["answer"] == "synthesized answer"
     task_results = result["agent"]["task_results"]
     assert task_results["T1"]["status"] == "completed"
-    assert task_results["T3"]["status"] == "completed"
+    assert task_results["T2"]["status"] == "completed"
 
 
 def test_agent_dag_tasks_execute_in_waves(monkeypatch):
     """The audit trail records the wave structure; evidence lands per task.
 
-    The planner numbers tasks by requirement kind — for this query the
-    decomposition is T1 (definition) + T3 (penalty).
+    For this query the decomposition is T1 (definition) + T2 (penalty,
+    depending on T1) — ids are allocated wave 1 first, then wave 2.
     """
     _patch_task_pipeline(monkeypatch, per_task_chunks=2)
 
@@ -449,10 +449,10 @@ def test_agent_dag_tasks_execute_in_waves(monkeypatch):
     waves = exec_entry["detail"]["waves"]
     assert waves, "executor must record its wave structure"
     all_ready = [tid for w in waves for tid in w.get("ready", [])]
-    assert sorted(all_ready) == ["T1", "T3"]
+    assert sorted(all_ready) == ["T1", "T2"]
     assert exec_entry["detail"]["documents"] == 4
     assert result["agent"]["task_results"]["T1"]["status"] == "completed"
-    assert result["agent"]["task_results"]["T3"]["confidence"] > 0
+    assert result["agent"]["task_results"]["T2"]["confidence"] > 0
 
 
 # ---------------------------------------------------------------------- #

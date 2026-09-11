@@ -200,6 +200,27 @@ lint clean on all touched files.
 - These gaps are now *numbers in a report*, not anecdotes — planner prompt/keyword
   changes can be gated on `task_recall` / `dependency_accuracy` regressions.
 
+### Post-baseline: decomposition gaps closed (2026-09-10, same day)
+
+The measured baseline surfaced two planner defects; both are fixed and the
+benchmark e2e now gates at **perfect scores** (recall/precision/F1/dependency
+accuracy 1.0, no over/under-decomposition):
+
+- **Plural keywords never matched** — substring checks (`"penalty" in q`) miss
+  "penalties"; matching is now word-bounded with simple plural variants, and a
+  same-type dedupe guard stops double-extraction of definitions (which had
+  also produced the odd T1+T3 task numbering the wave tests documented).
+- **Comparative queries collapsed** — comparison queries now extract one
+  condition requirement per compared side (independent, parallel-retrievable);
+  `_apply_minimum_sufficient` dedupes by `(evidence_type, subject question)`
+  so distinct sides survive.
+- Known residual: a penalty/exception query with no instrument keyword (no
+  "Act"/"section" mention) still produces no provision anchor — the dependency
+  edge is then empty. Not gated by the gold set (all its entries name an
+  instrument); revisit if such queries matter.
+- `scripts/eval_rag.py --benchmark [--min-recall N] [--json]` reports the
+  benchmark per entry and can gate CI on task recall (exit 1 on breach).
+
 ### Design notes
 
 - **Kind-multiset scoring, not exact strings:** decompositions are compared as

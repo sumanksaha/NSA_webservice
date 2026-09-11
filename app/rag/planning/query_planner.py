@@ -150,12 +150,93 @@ _REQUIREMENT_TO_INTENT: dict[EvidenceRequirement, Intent] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Keyword matching (plural-tolerant, word-boundary)
+# ---------------------------------------------------------------------------
+
+
+def _keyword_variants(keyword: str) -> list[str]:
+    """Simple plural/verb-form variants of a keyword.
+
+    "penalty" → ["penalty", "penalties", "penaltys"];  "fine" →
+    ["fine", "fines"].  Substring matching (``kw in q``) silently missed
+    every plural form — "What are the *penalties* …" produced no penalty
+    requirement at all.
+    """
+    variants = [keyword]
+    if keyword.endswith("y"):
+        variants.append(keyword[:-1] + "ies")
+    if not keyword.endswith("s"):
+        variants.append(keyword + "s")
+    return variants
+
+
+def _mentions(query_lower: str, keyword: str) -> bool:
+    """Word-boundary keyword match tolerant to simple plural forms."""
+    return any(
+        re.search(rf"\b{re.escape(v)}\b", query_lower) for v in _keyword_variants(keyword)
+    )
+
+
+def _mentions_any(query_lower: str, keywords: list[str]) -> bool:
+    return any(_mentions(query_lower, kw) for kw in keywords)
+
+
+#: Comparative-query detection and side extraction.
+_COMPARATIVE_RE = re.compile(
+    r"\b(?:compare|comparing|comparison|distinguish between|difference between)\b",
+    re.IGNORECASE,
+)
+
+#: Condition marker stamped on comparative-side requirements so task
+#: construction can tell them apart from ordinary condition lookups.
+_COMPARATIVE_MARKER = "compare: "
+
+
+def _extract_comparative_sides(query: str) -> list[str]:
+    """Extract the compared subjects from a comparative query.
+
+    "Compare the licensing requirements for small food businesses and
+    large food manufacturers." → ``["small food businesses",
+    "large food manufacturers"]``.  Returns ``[]`` unless the query is
+    actually comparative (matches :data:`_COMPARATIVE_RE`) or no sides
+    can be split out.
+    """
+    if not _COMPARATIVE_RE.search(query):
+        return []
+    text = query.strip().rstrip("?.").strip()
+    text = re.sub(
+        r"^(?:what\s+is\s+the\s+difference\s+between|compare|comparing|"
+        r"comparison\s+of|distinguish\s+between)\s+",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    parts = re.split(r"\s+and\s+", text, flags=re.IGNORECASE)
+    if len(parts) < 2:
+        return []
+
+    sides: list[str] = []
+    for i, part in enumerate(parts):
+        if i == 0:
+            # Drop the qualifier preposition: "licensing requirements for X" → X
+            for prep in (" between ", " for ", " of ", " in "):
+                idx = part.lower().rfind(prep)
+                if idx != -1:
+                    part = part[idx + len(prep):]
+                    break
+        side = part.strip(" \"'")
+        if side:
+            sides.append(side)
+    return sides if len(sides) >= 2 else []
+
+
 def _extract_intent(query: str) -> Intent:
     """Determine the primary intent from the query text."""
     q = query.lower()
 
     for requirement, keywords in _EVIDENCE_TYPE_KEYWORDS.items():
-        if any(kw in q for kw in keywords):
+        if _mentions_any(q, keywords):
             mapped = _REQUIREMENT_TO_INTENT.get(requirement)
             if mapped is not None:
                 return mapped
@@ -248,7 +329,9 @@ def _assess_complexity(query: str) -> ComplexityLevel:
     multi_hop_hits = sum(1 for indicator in multi_hop_indicators if indicator in q)
 
     # Check for multiple evidence types
-    evidence_type_hits = sum(1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values() if any(kw in q for kw in keywords))
+    evidence_type_hits = sum(
+        1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values() if _mentions_any(q, keywords)
+    )
 
     if conjunction_count >= 2 or section_refs >= 2 or multi_hop_hits >= 2:
         return ComplexityLevel.MULTI_HOP
@@ -278,6 +361,28 @@ def _extract_requirements(query: str) -> list[Requirement]:
     jurisdiction = _extract_jurisdiction(query)
     temporal_scope = _extract_temporal_scope(query)
     has_negation = _has_negation(query)
+
+    # Comparative queries: one requirement per compared side.  Sides are
+    # self-contained lookups (their retrieval resolves the governing
+    # provisions), so no provision anchor is added — each side is marked
+    # with the ``compare:`` condition so _construct_tasks can tell.
+    sides = _extract_comparative_sides(query)
+    if sides:
+        for side in sides:
+            req_id += 1
+            requirements.append(
+                Requirement(
+                    requirement_id=f"r{req_id}",
+                    evidence_type=EvidenceRequirement.CONDITION,
+                    subject=side,
+                    conditions=[f"{_COMPARATIVE_MARKER}{side}"],
+                    negation=False,
+                    jurisdiction=jurisdiction,
+                    temporal_scope=temporal_scope,
+                    entities=[side],
+                )
+            )
+        return requirements
 
     # Map intent to evidence requirements
     intent_to_requirement: dict[Intent, EvidenceRequirement] = {
@@ -316,9 +421,9 @@ def _extract_requirements(query: str) -> list[Requirement]:
         )
     )
 
-    # Detect additional requirements from keywords
-    # Check for penalty mentions
-    if ("penalty" in q or "fine" in q or "punishment" in q) and evidence_type != EvidenceRequirement.PENALTY:
+    # Detect additional requirements from keywords (plural-tolerant,
+    # word-bounded — substring checks silently missed "penalties")
+    if _mentions_any(q, ["penalty", "fine", "punishment"]) and evidence_type != EvidenceRequirement.PENALTY:
             req_id += 1
             requirements.append(
                 Requirement(
@@ -334,7 +439,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
             )
 
     # Check for exception mentions
-    if any(kw in q for kw in ["exception", "unless", "except", "notwithstanding"]) and not any(
+    if _mentions_any(q, ["exception", "unless", "except", "notwithstanding"]) and not any(
         r.evidence_type == EvidenceRequirement.EXCEPTION for r in requirements
     ):
         req_id += 1
@@ -368,7 +473,9 @@ def _extract_requirements(query: str) -> list[Requirement]:
         )
 
     # Check for definitions
-    if any(kw in q for kw in ["define", "definition", "means", "refers to", "includes"]):
+    if _mentions_any(q, ["define", "definition", "means", "refers to", "includes"]) and not any(
+        r.evidence_type == EvidenceRequirement.DEFINITION for r in requirements
+    ):
         req_id += 1
         requirements.append(
             Requirement(
@@ -711,20 +818,24 @@ def _apply_minimum_sufficient(
             merged = merged.with_dependency(task.task_id)
         return [merged]
 
-    # Remove redundant tasks: if a task's evidence is subsumed by another
-    # with the same evidence type, keep only the more specific one
-    unique_evidence_types: dict[EvidenceRequirement, EvidenceTask] = {}
+    # Remove redundant tasks: a task is subsumed by another with the same
+    # evidence type AND the same subject question (duplicate requirement
+    # extraction).  Tasks with distinct subjects are distinct information
+    # needs — comparative sides, differently-scoped conditions — and must
+    # survive dedupe (the old evidence-type-only key collapsed every
+    # comparative decomposition to a single task).
+    unique_tasks: dict[tuple[EvidenceRequirement, str], EvidenceTask] = {}
     for task in tasks:
-        req = task.evidence_requirement
-        if req not in unique_evidence_types:
-            unique_evidence_types[req] = task
+        key = (task.evidence_requirement, (task.question or task.objective).strip().lower())
+        if key not in unique_tasks:
+            unique_tasks[key] = task
         else:
             # Keep the more specific task (more entities = more specific)
-            existing = unique_evidence_types[req]
+            existing = unique_tasks[key]
             if len(task.entities) > len(existing.entities):
-                unique_evidence_types[req] = task
+                unique_tasks[key] = task
 
-    return list(unique_evidence_types.values())
+    return list(unique_tasks.values())
 
 
 # ---------------------------------------------------------------------------
