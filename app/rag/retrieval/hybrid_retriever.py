@@ -158,11 +158,9 @@ class HybridRetriever:
         # comparable regardless of scale.  The core scoring is delegated to
         # ``reciprocal_rank_fuse`` (app.rag.retrieval.rrf) to eliminate the
         # duplicated formula across the dense, sparse, and identifier arms.
-        ranked_lists = [
-            dense_result.chunks,
-            sparse_result.chunks,
-            *(ident_result.chunks if ident_result else []),
-        ]
+        ranked_lists = [dense_result.chunks, sparse_result.chunks]
+        if ident_result:
+            ranked_lists.append(ident_result.chunks)
         chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=self._rrf_k)
 
         # Build the chunk_map with keep-higher-score upsert.  For the first
@@ -221,7 +219,7 @@ class HybridRetriever:
 import re as _re
 
 
-def _chunk_word_set(chunk: "RetrievedChunk") -> set[str]:
+def _chunk_word_set(chunk: RetrievedChunk) -> set[str]:
     """Return the set of normalized words in a chunk's text."""
     return set(_re.findall(r"\b\w+\b", chunk.text.lower()))
 
@@ -236,37 +234,37 @@ def _jaccard_similarity(set_a: set[str], set_b: set[str]) -> float:
 
 
 def mmr_rerank(
-    fused_chunks: list["RetrievedChunk"],
+    fused_chunks: list[RetrievedChunk],
     top_k: int = 10,
     lambda_: float = 0.5,
-) -> list["RetrievedChunk"]:
+) -> list[RetrievedChunk]:
     """Maximal Marginal Relevance re-ranking for diversity (1.3).
-    
+
     Greedy selection: at each step, pick the chunk that maximizes
     ``lambda_ * relevance - (1 - lambda_) * max_jaccard_to_already_selected``.
-    
+
     Args:
         fused_chunks: Chunks from RRF fusion (already scored).
         top_k: Maximum number of chunks to return.
         lambda_: Trade-off λ ∈ [0,1].  λ=1 = pure relevance, λ=0 = pure diversity.
-    
+
     Returns:
         A list of at most ``top_k`` chunks re-ranked for diversity.
     """
     if not fused_chunks:
         return []
-    
+
     selected: list = []
     remaining = sorted(fused_chunks, key=lambda c: c.score, reverse=True)
-    
+
     # First pick: highest relevance
     if remaining:
         selected.append(remaining.pop(0))
-    
+
     while len(selected) < top_k and remaining:
         best_chunk = None
         best_mmr = -float("inf")
-        
+
         for chunk in remaining:
             rel = chunk.score
             # Max similarity to any already-selected chunk
@@ -275,16 +273,16 @@ def mmr_rerank(
                 sim = _jaccard_similarity(_chunk_word_set(chunk), _chunk_word_set(sel))
                 if sim > max_sim:
                     max_sim = sim
-            
+
             mmr = lambda_ * rel - (1.0 - lambda_) * max_sim
             if mmr > best_mmr:
                 best_mmr = mmr
                 best_chunk = chunk
-        
+
         if best_chunk is not None:
             selected.append(best_chunk)
             remaining.remove(best_chunk)
         else:
             break
-    
+
     return selected

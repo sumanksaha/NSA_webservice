@@ -5,6 +5,21 @@ import pytest
 from app.utils.lookup import LookupResult, lookup_fssai
 
 
+@pytest.fixture
+def app():
+    """Minimal app context with reference tables created."""
+    from app import create_app
+    from app.extensions import db
+
+    application = create_app()
+    ctx = application.app_context()
+    ctx.push()
+    db.create_all()
+    yield application
+    db.session.remove()
+    ctx.pop()
+
+
 class TestLookupFssaiExists:
     """Test that lookup_fssai function exists and is importable."""
 

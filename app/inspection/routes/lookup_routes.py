@@ -19,18 +19,18 @@ def lookup_fssai_route():
     if not fssai_number:
         return jsonify({"error": "FSSAI license number is required"}), 400
 
-    result, error = lookup_fssai(fssai_number)
+    result = lookup_fssai(fssai_number)
 
-    if error:
-        return jsonify({"error": error, "source": "fssai"}), 404
+    if result.error:
+        return jsonify({"error": result.error, "source": "fssai"}), 404
 
-    if result:
+    if result.found:
         return jsonify(
             {
-                "fbo_name": result.get("companyName"),
-                "fbo_address": result.get("fullAddress"),
-                "expiry_date": result.get("expiryDate"),
-                "source": result.get("source"),
+                "fbo_name": result.data.get("companyName"),
+                "fbo_address": result.data.get("fullAddress"),
+                "expiry_date": result.data.get("expiryDate"),
+                "source": result.data.get("source"),
             }
         )
 
@@ -54,7 +54,7 @@ def lookup_ce_route():
     except Exception as e:
         return jsonify({"error": f"KMC lookup failed: {e!s}"}), 502
 
-    if not result:
-        return jsonify({"error": "CE license not found"}), 404
+    if not result.found:
+        return jsonify({"error": result.error or "CE license not found"}), 404
 
-    return jsonify(result)
+    return jsonify(result.data)

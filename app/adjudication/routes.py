@@ -300,9 +300,9 @@ def lookup_ce_route():
         result = lookup_ce(license_no)
     except Exception:
         return jsonify({"error": "Could not reach KMC portal. Try again."}), 502
-    if not result:
-        return jsonify({"error": "License not found."}), 404
-    return jsonify(result)
+    if not result.found:
+        return jsonify({"error": result.error or "License not found."}), 404
+    return jsonify(result.data)
 
 
 @csrf.exempt
@@ -310,11 +310,11 @@ def lookup_ce_route():
 def lookup_fssai_route():
     payload = request.get_json() or {}
     license_no = payload.get("license_no", "").strip()
-    result, error = lookup_fssai(license_no)
-    if error:
-        status_code = 400 if "required" in error or "prefix" in error else 404
-        return jsonify({"error": error}), status_code
-    return jsonify({"identity": result})
+    result = lookup_fssai(license_no)
+    if result.error:
+        status_code = 400 if "required" in result.error or "prefix" in result.error else 404
+        return jsonify({"error": result.error}), status_code
+    return jsonify({"identity": result.data})
 
 
 @adjudication_bp.route("/lookup_fbo_issues", methods=["GET"])

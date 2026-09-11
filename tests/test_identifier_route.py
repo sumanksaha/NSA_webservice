@@ -221,6 +221,11 @@ class TestPipelineIdentifier:
         monkeypatch.setattr(retrieval_mod, "Reranker", FakeReranker)
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
         monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "true")
+        # build_hybrid_retriever is lru_cache-wrapped: a fake from a previous
+        # test would be returned here, recording into a dead dict.
+        from app.rag.retrieval.factory import clear_retriever_cache
+
+        clear_retriever_cache()
         return recorded
 
     def test_identifier_meta_and_query_reach_hybrid(self, monkeypatch):

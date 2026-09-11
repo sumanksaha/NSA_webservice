@@ -407,11 +407,11 @@ _manager.register_routes(case_file_generator_bp)
 def lookup_fssai_route():
     payload = request.get_json() or {}
     license_no = payload.get("license_no", "").strip()
-    result, error = lookup_fssai(license_no)
-    if error:
-        status_code = 400 if "required" in error or "prefix" in error else 404
-        return jsonify({"error": error}), status_code
-    return jsonify({"identity": result})
+    result = lookup_fssai(license_no)
+    if result.error:
+        status_code = 400 if "required" in result.error or "prefix" in result.error else 404
+        return jsonify({"error": result.error}), status_code
+    return jsonify({"identity": result.data})
 
 
 @case_file_generator_bp.route("/regenerate/<int:case_id>", methods=["GET"])

@@ -125,18 +125,18 @@ def create_issue():
 
     # Validate manufacturer_fbo_id: if provided for sample, it must be a valid FBO ID
     if source_type == "sample" and manufacturer_fbo_id:
-        _mfg_result, mfg_error = lookup_fssai(manufacturer_fbo_id)
-        if mfg_error:
-            return jsonify({"error": f"Invalid manufacturer_fbo_id: {mfg_error}"}), 400
+        _mfg_result = lookup_fssai(manufacturer_fbo_id)
+        if _mfg_result.error:
+            return jsonify({"error": f"Invalid manufacturer_fbo_id: {_mfg_result.error}"}), 400
 
     # Lookup the primary fbo_id
-    fbo_result, fbo_error = lookup_fssai(fbo_id)
-    if fbo_error:
-        return jsonify({"error": f"Invalid fbo_id: {fbo_error}"}), 400
+    fbo_result = lookup_fssai(fbo_id)
+    if fbo_result.error:
+        return jsonify({"error": f"Invalid fbo_id: {fbo_result.error}"}), 400
 
     # Use the resolved fbo_name if not provided
-    if not fbo_name and fbo_result:
-        fbo_name = fbo_result.get("companyName", fbo_id)
+    if not fbo_name and fbo_result.found:
+        fbo_name = fbo_result.data.get("companyName", fbo_id)
 
     # Validate detail_json matches source_type
     is_valid, error_msg = validate_detail_json(source_type, detail_json)

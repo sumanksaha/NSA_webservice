@@ -149,17 +149,17 @@ def lookup_retailer():
         return jsonify({"error": "FSSAI number is required"}), 400
 
     # Use existing lookup function
-    result, error = lookup_fssai(fssai_number)
+    result = lookup_fssai(fssai_number)
 
-    if error:
-        return jsonify({"error": error}), 404
+    if result.error:
+        return jsonify({"error": result.error}), 404
 
-    if result:
+    if result.found:
         return jsonify({
-            "companyName": result.get("companyName"),
-            "fullAddress": result.get("fullAddress"),
-            "expiryDate": result.get("expiryDate"),
-            "source": result.get("source"),
+            "companyName": result.data.get("companyName"),
+            "fullAddress": result.data.get("fullAddress"),
+            "expiryDate": result.data.get("expiryDate"),
+            "source": result.data.get("source"),
         })
 
     return jsonify({"error": "Retailer not found"}), 404
@@ -211,9 +211,9 @@ def create_sample():
 
     # If retailer_fssai_license is provided but retailer_person_name is empty, try to autofill
     if retailer_fssai_license and not retailer_person_name:
-        result, error = lookup_fssai(retailer_fssai_license)
-        if result and not error:
-            retailer_person_name = result.get("companyName", retailer_fssai_license)
+        result = lookup_fssai(retailer_fssai_license)
+        if result.found and not result.error:
+            retailer_person_name = result.data.get("companyName", retailer_fssai_license)
 
     # Create sample record - map canonical to DB columns
     sample = Sample(
