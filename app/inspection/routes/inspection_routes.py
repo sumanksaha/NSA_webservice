@@ -9,7 +9,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.inspection import inspection_bp
-from app.inspection.inspection_utils import calculate_compliance_deadline, generate_inspection_code
+from app.inspection.code_generation import calculate_compliance_deadline, generate_inspection_code
 from app.models import FSO, Inspection
 from app.services.sync_orchestrator import sync_row
 from app.shared.context_derivers import CHECKLIST_FIELDS
