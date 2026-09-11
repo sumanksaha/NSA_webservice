@@ -383,6 +383,11 @@ def update_inspection(inspection_id):
     if "sample_code" in form_data:
         inspection.sample_code = form_data["sample_code"].strip() or None
 
+    # Validate the merged post-update state (mirrors the create-path rule:
+    # a collected sample must carry its code).
+    if inspection.sample_collected and not inspection.sample_code:
+        return jsonify({"error": "sample_code is required when sample_collected is true"}), 400
+
     if inspection.sample_collected and inspection.sample_code and not validate_sample_code(inspection.sample_code):
         return jsonify({"error": "sample_code must match format SL/WB/XXXXXX/XXXX/XXXXX"}), 400
 
