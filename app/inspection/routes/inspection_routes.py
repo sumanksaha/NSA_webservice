@@ -262,7 +262,7 @@ def create_inspection():
                 "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
                 "sample_code": inspection.sample_code or "",
             }
-            result = sync_row("inspection_log", row_dict, entity_id=inspection.id)
+            sync_row("inspection_log", row_dict, entity_id=inspection.id)
             inspection.synced_at = datetime.now(UTC)
             db.session.commit()
         except Exception as e:
