@@ -24,7 +24,7 @@ All three deepening candidates from the architecture review have been implemente
 - `app/inspection/verification/ip_adapter.py` - IpGeolocationAdapter
 - `app/inspection/verification/lookup_adapter.py` - LicenseLookupAdapter
 - `app/inspection/verification_service.py` - Updated to use adapters
-**Benefits:**
+  **Benefits:**
 - Interface depth: 2 → 4 (single interfaces per adapter)
 - Locality: Rate limiting/error handling isolated
 - Leverage: Shared across inspection routes + photo service
@@ -37,9 +37,9 @@ All three deepening candidates from the architecture review have been implemente
 **Files:**
 
 - `app/inspection/services/photo_processor.py` - EXIF extraction + coordinate fallback
-- `app/inspection/services/evidence_store.py` - DB operations + audit logging  
+- `app/inspection/services/evidence_store.py` - DB operations + audit logging
 - `app/inspection/services/ocr_dispatcher.py` - OCR task management
-**Benefits:**
+  **Benefits:**
 - Interface depth: 2 → 4 (each service has single responsibility)
 - Locality: Changes to EXIF, storage, or OCR isolated to one service
 - Leverage: Reusable components across routes (inspection + adjudication photos)
@@ -48,13 +48,13 @@ All three deepening candidates from the architecture review have been implemente
 
 ## 🏗️ Module Depth Scorecard — Final State
 
-| # | Module | Files | LOC | Depth | Status |
-| --- | -------- | ------- | ----- | ------- | -------- |
-| 1 | **Inspection Code Generation** | `code_generation.py` | ~120 | **4** | ✅ Done |
-| 2 | **Verification Adapters** | `verification/` (3 files) | ~150 | **4** | ✅ Done |
-| 3 | **Photo Processing Services** | `services/` (3 files) | ~200 | **4** | ✅ Done |
-| 4 | **Derived Views** | `derived_views.py` | ~260 | **2** | — |
-| 5 | **Inspection Routes** | `inspection_routes.py` | ~451 | **3** | — |
+| #   | Module                         | Files                     | LOC  | Depth | Status  |
+| --- | ------------------------------ | ------------------------- | ---- | ----- | ------- |
+| 1   | **Inspection Code Generation** | `code_generation.py`      | ~120 | **4** | ✅ Done |
+| 2   | **Verification Adapters**      | `verification/` (3 files) | ~150 | **4** | ✅ Done |
+| 3   | **Photo Processing Services**  | `services/` (3 files)     | ~200 | **4** | ✅ Done |
+| 4   | **Derived Views**              | `derived_views.py`        | ~260 | **2** | —       |
+| 5   | **Inspection Routes**          | `inspection_routes.py`    | ~451 | **3** | —       |
 
 ## 🎯 Implementation Summary
 
@@ -79,4 +79,5 @@ All three deepening candidates from the architecture review have been implemente
 4. **Monitor adoption** - update remaining callers to use new services
 
 ---
-*Consolidation complete. Inspection module now consists of deep, focused services with clear interfaces and improved testability.*
+
+_Consolidation complete. Inspection module now consists of deep, focused services with clear interfaces and improved testability._

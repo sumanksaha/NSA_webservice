@@ -37,6 +37,12 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
         "gold_task_kinds": ["provision", "penalty"],
         "gold_dependencies": {"penalty": ["provision"], "provision": []},
         "gold_entities": ["annual return", "FSS Act", "penalty"],
+        "gold_requirements": [
+            {"id": "R1", "type": "provision", "subject": "late filing of annual return", "question": "Which provision governs late filing of an annual return under the FSS Act?", "answer_type": "citation", "evidence_required": ["provision", "section", "act"], "mandatory": True},
+            {"id": "R2", "type": "penalty", "subject": "late filing of annual return", "question": "What penalty applies to late filing of an annual return?", "answer_type": "numeric_or_rule", "evidence_required": ["penalty", "fine", "imprisonment"], "mandatory": True},
+        ],
+        "gold_answer_types": {"R1": "citation", "R2": "numeric_or_rule"},
+        "gold_mandatory": {"R1", "R2"},
     },
     {
         "query": (
@@ -55,6 +61,13 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
             "exception": ["provision"],
         },
         "gold_entities": ["annual return", "FSS Act", "penalty", "exception"],
+        "gold_requirements": [
+            {"id": "R1", "type": "provision", "subject": "late filing of annual return", "question": "Which provision governs late filing of an annual return under the FSS Act?", "answer_type": "citation", "evidence_required": ["provision", "section", "act"], "mandatory": True},
+            {"id": "R2", "type": "penalty", "subject": "late filing of annual return", "question": "What penalty applies to late filing of an annual return?", "answer_type": "numeric_or_rule", "evidence_required": ["penalty", "fine", "imprisonment"], "mandatory": True},
+            {"id": "R3", "type": "exception", "subject": "late filing of annual return", "question": "Are there exceptions to penalties for late filing of an annual return?", "answer_type": "text", "evidence_required": ["exception", "condition", "modified_penalty"], "mandatory": True},
+        ],
+        "gold_answer_types": {"R1": "citation", "R2": "numeric_or_rule", "R3": "text"},
+        "gold_mandatory": {"R1", "R2", "R3"},
     },
     {
         "query": (
@@ -69,6 +82,12 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
         "gold_task_kinds": ["condition", "condition"],
         "gold_dependencies": {"condition": []},
         "gold_entities": ["licensing", "small food business", "food manufacturer"],
+        "gold_requirements": [
+            {"id": "R1", "type": "condition", "subject": "small food businesses", "question": "What licensing conditions apply to small food businesses?", "answer_type": "text", "evidence_required": ["condition", "licensing", "requirement"], "mandatory": True},
+            {"id": "R2", "type": "condition", "subject": "large food manufacturers", "question": "What licensing conditions apply to large food manufacturers?", "answer_type": "text", "evidence_required": ["condition", "licensing", "requirement"], "mandatory": True},
+        ],
+        "gold_answer_types": {"R1": "text", "R2": "text"},
+        "gold_mandatory": {"R1", "R2"},
     },
     {
         "query": "Was Section 12 of the FSS Act amended after 2020?",
@@ -78,6 +97,12 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
         "gold_dependencies": {"provision": []},
         "gold_entities": ["Section 12", "FSS Act"],
         "gold_temporal_scope": "after 2020",
+        "gold_requirements": [
+            {"id": "R1", "type": "provision", "subject": "Section 12 of the FSS Act", "question": "Which provision governs Section 12 of the FSS Act?", "answer_type": "citation", "evidence_required": ["provision", "section", "act"], "mandatory": True},
+            {"id": "R2", "type": "amendment", "subject": "Section 12 of the FSS Act after 2020", "question": "Was Section 12 of the FSS Act amended after 2020?", "answer_type": "yes_no_or_rule", "evidence_required": ["amendment", "effective_date"], "mandatory": True},
+        ],
+        "gold_answer_types": {"R1": "citation", "R2": "yes_no_or_rule"},
+        "gold_mandatory": {"R1", "R2"},
     },
     {
         "query": "What is Section 12?",

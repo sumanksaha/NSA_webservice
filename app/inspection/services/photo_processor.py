@@ -47,9 +47,7 @@ class PhotoProcessor:
         # Coordinate fallback: form > EXIF > 0.0
         resolved_lat = self._pick_coord(form_data.get("lat"), exif_lat)
         resolved_lng = self._pick_coord(form_data.get("lng"), exif_lng)
-        resolved_acc = self._pick_coord(
-            form_data.get("accuracy"), exif_accuracy if exif_accuracy is not None else 0.0
-        )
+        resolved_acc = self._pick_coord(form_data.get("accuracy"), exif_accuracy if exif_accuracy is not None else 0.0)
 
         # Parse captured_at
         captured_at_str = form_data.get("captured_at")
@@ -135,9 +133,7 @@ class PhotoProcessor:
                     return None
 
             lat = _convert_to_degrees(gps_info.get("GPSLatitudeRef"), gps_info.get("GPSLatitude"))
-            lng = _convert_to_degrees(
-                gps_info.get("GPSLongitudeRef"), gps_info.get("GPSLongitude")
-            )
+            lng = _convert_to_degrees(gps_info.get("GPSLongitudeRef"), gps_info.get("GPSLongitude"))
 
             accuracy: float | None = None
             if "GPSAltitude" in gps_info:

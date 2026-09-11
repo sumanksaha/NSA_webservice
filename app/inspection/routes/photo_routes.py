@@ -1,9 +1,7 @@
-"""Photo evidence routes — thin HTTP adapters for :class:`InspectionPhotoService`.
+"""Photo evidence routes — thin HTTP adapters for the inspection service layer.
 
-All business logic (EXIF extraction, coordinate fallback, validation,
-storage, verification, stamping, OCR dispatch, audit logging) lives in
-``app/inspection/photo_service.py``.  These handlers parse the request,
-delegate to the service, and return JSON.
+All business logic lives in the deep services:
+``PhotoProcessor`` (EXIF + coordinates), ``EvidenceStore`` (DB + audit), ``OCRDispatcher`` (OCR task dispatch).  These handlers parse the request, delegate to the services, and return JSON.
 """
 
 from flask import jsonify, request
@@ -11,8 +9,14 @@ from flask import jsonify, request
 from app.extensions import db
 from app.inspection import inspection_bp
 from app.inspection.photo_service import InspectionPhotoService
+from app.inspection.services.evidence_store import EvidenceStore
+from app.inspection.services.ocr_dispatcher import OCRDispatcher
+from app.inspection.services.photo_processor import PhotoProcessor
 
 _photo_service = InspectionPhotoService()
+_processor = PhotoProcessor()
+_store = EvidenceStore()
+_ocr = OCRDispatcher()
 
 
 @inspection_bp.route("/<int:inspection_id>/photo-evidence", methods=["GET"])
@@ -23,19 +27,17 @@ def get_inspection_photo_evidence(inspection_id):
     except FileNotFoundError:
         return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
 
-    return jsonify(
-        [
-            {
-                "image_id": p.id,
-                "filepath": p.file_url,
-                "raw_lat": p.raw_lat,
-                "raw_lng": p.raw_lng,
-                "verification_status": p.verification_status,
-                "uploaded_at": p.uploaded_at,
-            }
-            for p in photos
-        ]
-    )
+    return jsonify([
+        {
+            "image_id": p.id,
+            "filepath": p.file_url,
+            "raw_lat": p.raw_lat,
+            "raw_lng": p.raw_lng,
+            "verification_status": p.verification_status,
+            "uploaded_at": p.uploaded_at,
+        }
+        for p in photos
+    ])
 
 
 @inspection_bp.route("/photo-upload", methods=["POST"])
@@ -87,14 +89,12 @@ def upload_photo_evidence():
         return jsonify({"error": str(exc)}), 500
 
     return (
-        jsonify(
-            {
-                "image_id": result.photo_id,
-                "verification_status": result.verification.get("verification_status"),
-                "ocr_task_id": result.ocr_task_id,
-                "ocr_result": result.ocr_result,
-            }
-        ),
+        jsonify({
+            "image_id": result.photo_id,
+            "verification_status": result.verification.get("verification_status"),
+            "ocr_task_id": result.ocr_task_id,
+            "ocr_result": result.ocr_result,
+        }),
         201,
     )
 
@@ -125,13 +125,11 @@ def upload_adjudication_photo(adjudication_id):
         return jsonify({"error": "Database error."}), 500
 
     return (
-        jsonify(
-            {
-                "id": result.photo_id,
-                "file_url": result.filepath,
-                "uploaded_at": None,
-            }
-        ),
+        jsonify({
+            "id": result.photo_id,
+            "file_url": result.filepath,
+            "uploaded_at": None,
+        }),
         201,
     )
 
@@ -156,9 +154,7 @@ def list_adjudication_photos(adjudication_id):
     per_page = request.args.get("per_page", 50, type=int)
 
     try:
-        paginated = _photo_service.list_adjudication(
-            adjudication_id, page=page, per_page=per_page
-        )
+        paginated = _photo_service.list_adjudication(adjudication_id, page=page, per_page=per_page)
     except FileNotFoundError:
         return jsonify({"error": f"Adjudication with id {adjudication_id} not found"}), 404
 

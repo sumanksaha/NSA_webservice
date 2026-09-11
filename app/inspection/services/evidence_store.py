@@ -59,8 +59,9 @@ class EvidenceStore:
 
         return photo_evidence
 
-    def update_stamped_evidence(self, evidence_id: str, locality: str | None,
-                                 verification_result: dict, stamped_filepath: str):
+    def update_stamped_evidence(
+        self, evidence_id: str, locality: str | None, verification_result: dict, stamped_filepath: str
+    ):
         """Update evidence record after stamping and verification."""
         from app.models import Evidence
 
@@ -108,9 +109,12 @@ class EvidenceStore:
         if not inspection:
             raise FileNotFoundError(f"Inspection with id {inspection_id} not found")
 
-        return Evidence.query.filter_by(
-            inspection_id=inspection_id, evidence_type="photo"
-        ).order_by(Evidence.uploaded_at.desc()).all()
+        return (
+            Evidence.query
+            .filter_by(inspection_id=inspection_id, evidence_type="photo")
+            .order_by(Evidence.uploaded_at.desc())
+            .all()
+        )
 
     def list_adjudication(self, adjudication_id: int, page: int = 1, per_page: int = 50):
         """List all photos for an adjudication, with pagination."""
@@ -118,15 +122,14 @@ class EvidenceStore:
 
         adjudication = db.session.get(Adjudication, adjudication_id)
         if not adjudication:
-            raise FileNotFoundError(
-                f"Adjudication with id {adjudication_id} not found"
-            )
+            raise FileNotFoundError(f"Adjudication with id {adjudication_id} not found")
 
         per_page = min(per_page, 200)
-        return Evidence.query.filter_by(
-            adjudication_id=adjudication_id, evidence_type="photo"
-        ).order_by(Evidence.uploaded_at.asc()).paginate(
-            page=page, per_page=per_page, error_out=False
+        return (
+            Evidence.query
+            .filter_by(adjudication_id=adjudication_id, evidence_type="photo")
+            .order_by(Evidence.uploaded_at.asc())
+            .paginate(page=page, per_page=per_page, error_out=False)
         )
 
     def log_audit(self, photo_id: str, action: str, actor: str, **metadata):
@@ -137,5 +140,6 @@ class EvidenceStore:
         """Remove a file if it exists (cleanup on error)."""
         with contextlib.suppress(OSError, FileNotFoundError):
             import os
+
             if filepath and os.path.exists(filepath):
                 os.remove(filepath)

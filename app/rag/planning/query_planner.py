@@ -20,10 +20,13 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from app.rag.evidence_task import (
+    AnswerRequirement,
+    AnswerRequirementGraph,
     EvidenceRequirement,
     EvidenceTask,
     RetrievalPlan,
     TaskDAG,
+    get_answer_contract,
 )
 from app.rag.retrieval.identifier import detect_act, detect_section
 from app.rag.retrieval.reference_extractor import CONFIDENCE_MEDIUM, extract_references
@@ -83,7 +86,13 @@ class Requirement:
 
 @dataclass
 class DecompositionResult:
-    """Output of the query decomposition process."""
+    """Output of the query decomposition process.
+
+    The primary output is now the AnswerRequirementGraph. The old
+    ``tasks``/``dag``/``evidence_requirements`` fields are still produced
+    so downstream nodes and the benchmark keep working; they are derived
+    from the requirement graph by :func:`requirement_graph_from_tasks`.
+    """
 
     complexity: ComplexityLevel
     intent: Intent
@@ -95,6 +104,7 @@ class DecompositionResult:
     coverage_matrix: dict[str, list[str]]  # user_requirement -> task_ids
     total_tasks: int
     evidence_requirements: list[EvidenceRequirement]
+    requirement_graph: Any | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +360,8 @@ def _extract_requirements(query: str) -> list[Requirement]:
     """Extract structured evidence requirements from the query.
 
     Maps user intent → evidence requirements. Each requirement becomes
-    a potential task in the decomposition.
+    a potential task in the decomposition and an :class:`AnswerRequirement`
+    in the requirement graph.
     """
     requirements: list[Requirement] = []
     req_id = 0
@@ -516,6 +527,9 @@ def _construct_tasks(
     wave 2 gathers what is *resolved through* wave 1 (penalties,
     exceptions, fact application).  Tasks inside a wave stay independent
     so the executor can retrieve them in parallel.
+
+    Each task is stamped with the requirement id it was derived from so
+    downstream retrieval/sufficiency code can trace task → requirement.
     """
     tasks: list[EvidenceTask] = []
 
@@ -546,15 +560,15 @@ def _construct_tasks(
     # ``T{n}`` ids are allocated deterministically: wave 1 first, then wave 2.
     wave1_tasks: list[EvidenceTask] = []
     for i, req in enumerate(wave1_reqs):
-        wave1_tasks.append(
-            _build_task(
-                task_id=f"T{i + 1}",
-                objective=_objective_for_requirement(req),
-                question=_question_for_requirement(req, query),
-                requirement=req,
-                dependency=[],
-            )
+        task = _build_task(
+            task_id=f"T{i + 1}",
+            objective=_objective_for_requirement(req),
+            question=_question_for_requirement(req, query),
+            requirement=req,
+            dependency=[],
         )
+        task = task.add_entity(f"requirement_id:{req.requirement_id}")
+        wave1_tasks.append(task)
 
     wave2_tasks: list[EvidenceTask] = []
     for j, req in enumerate(wave2_reqs):
@@ -566,15 +580,15 @@ def _construct_tasks(
             for t in wave1_tasks
             if domain is not None and _DOMAIN_OF.get(t.evidence_requirement) == domain
         ]
-        wave2_tasks.append(
-            _build_task(
-                task_id=f"T{len(wave1_tasks) + j + 1}",
-                objective=_objective_for_requirement(req),
-                question=_question_for_requirement(req, query),
-                requirement=req,
-                dependency=deps,
-            )
+        task = _build_task(
+            task_id=f"T{len(wave1_tasks) + j + 1}",
+            objective=_objective_for_requirement(req),
+            question=_question_for_requirement(req, query),
+            requirement=req,
+            dependency=deps,
         )
+        task = task.add_entity(f"requirement_id:{req.requirement_id}")
+        wave2_tasks.append(task)
 
     tasks = wave1_tasks + wave2_tasks
 
@@ -689,8 +703,6 @@ def _build_task(
     )
 
     # Add answer contract
-    from app.rag.evidence_task import get_answer_contract
-
     contract = get_answer_contract(evidence_type)
     task = task.with_answer_contract(contract.required_fields)
 
@@ -749,7 +761,12 @@ def _objective_for_requirement(req: Requirement) -> str:
 
 
 def _question_for_requirement(req: Requirement, query: str) -> str:
-    """Generate a question for a requirement based on the query."""
+    """Generate a question for a requirement based on the query.
+
+    This is the retrieval question for the requirement - the subquery the
+    reviewer's architecture wants to derive *from* the requirement, not the
+    other way around.
+    """
     evidence_type = req.evidence_type
     subject = req.subject
 
@@ -934,6 +951,7 @@ class QueryPlanner:
             coverage_matrix=coverage_matrix,
             total_tasks=len(tasks),
             evidence_requirements=evidence_reqs,
+            requirement_graph=_build_requirement_graph(requirements, tasks, query),
         )
 
     def _build_coverage_matrix(self, tasks: list[EvidenceTask], query: str) -> dict[str, list[str]]:
@@ -972,6 +990,62 @@ class QueryPlanner:
 # ---------------------------------------------------------------------------
 # Backward compatibility: keep existing plan_node interface working
 # ---------------------------------------------------------------------------
+
+
+def _build_requirement_graph(requirements: list[Requirement], tasks: list[EvidenceTask], query: str) -> AnswerRequirementGraph:
+    """Build an AnswerRequirementGraph from extracted requirements + derived tasks.
+
+    This bridges the internal Requirement model (private extraction helper) to
+    the public AnswerRequirementGraph the reviewer's architecture wants as the
+    primary decomposition output. Each requirement becomes one
+    AnswerRequirement whose ``question`` is the retrieval question derived for
+    it, and each task dependency becomes a requirement dependency.
+
+    Requirement ids use the planner's internal ``r{N}`` scheme so they stay
+    stable across the Requirement → AnswerRequirement round-trip.
+    """
+    by_task_id = {t.task_id: t for t in tasks}
+
+    answer_reqs: list[AnswerRequirement] = []
+    for req in requirements:
+        # Find the task(s) derived from this requirement
+        req_tasks = [t for t in tasks if f"requirement_id:{req.requirement_id}" in (t.entities or [])]
+        primary_task = req_tasks[0] if req_tasks else None
+
+        answer_reqs.append(
+            AnswerRequirement(
+                id=req.requirement_id,
+                type=req.evidence_type,
+                subject=req.subject,
+                question=primary_task.question if primary_task else _question_for_requirement(req, query),
+                answer_type=primary_task.answer_type if primary_task else _answer_type_for_requirement(req.evidence_type),
+                evidence_required=[req.evidence_type.value],
+                mandatory=True,
+                conditions=list(req.conditions),
+                jurisdiction=req.jurisdiction,
+                temporal_scope=req.temporal_scope,
+            )
+        )
+
+    # Requirement dependencies mirror task dependencies: if task T2 depends on
+    # T1 and T1 was derived from R1 and T2 from R2, then R2 depends on R1.
+    dependencies: list[tuple[str, str]] = []
+    for task in tasks:
+        task_req_ids = [e.split(":", 1)[1] for e in (task.entities or []) if e.startswith("requirement_id:")]
+        for task_req_id in task_req_ids:
+            for dep_id in task.dependency or []:
+                dep_task = by_task_id.get(dep_id)
+                if dep_task is None:
+                    continue
+                dep_req_ids = [e.split(":", 1)[1] for e in (dep_task.entities or []) if e.startswith("requirement_id:")]
+                for dep_req_id in dep_req_ids:
+                    dependencies.append((dep_req_id, task_req_id))
+
+    return AnswerRequirementGraph(
+        query=query,
+        requirements=answer_reqs,
+        dependencies=list(dict.fromkeys(dependencies)),  # stable unique
+    )
 
 
 def _legacy_plan(query: str, query_type: str = "general") -> dict[str, Any]:

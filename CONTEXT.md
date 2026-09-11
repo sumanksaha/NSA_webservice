@@ -55,6 +55,101 @@ three copies of the restore pipeline. Tests cross the same seam as
 callers: patch `BackupRestorer.restore_from()` rather than 7 private
 internals.
 
+### `InspectionCodeGenerator` — the inspection code seam (D7)
+
+**Module:** `app/inspection/code_generation.py`. The single deep module
+that replaces the triplicated code-generation logic in the old
+`browser_use` utility. Owns:
+
+- the **canonical generation rule**: `INSP-YYYY-####` with a zero-padded
+  sequence persisted in the `inspections` table;
+- the **public interface**: `generate_code() -> str`,
+  `calculate_compliance_deadline() -> datetime | None`;
+- **locality**: all sequence allocation, concurrency handling, and deadline
+  arithmetic live in one place; callers only know the two method names.
+
+Adding a new identifier format = one method on the module, not a new branch
+in every inspector that needs the code.
+
+### `NominatimGeocoder` — the location seam (D7)
+
+**Module:** `app/inspection/verification/geocoding_adapter.py`. The deep
+module that replaces the ad-hoc `requests.get()` calls scattered across
+`browser_use` and `browser_use.py`. Owns:
+
+- the **canonical location rule**: geocoding is done through one adapter with
+  a single `reverse(lat, lng) -> dict` interface;
+- **leverage**: every caller that needs a location gets the same semantics
+  (timeout handling, error normalization, and future caching) without
+  re-implementing HTTP logic;
+- **locality**: all Nominatim-specific behaviour (endpoint, query shape,
+  error mapping) is isolated from callers.
+
+Adding a new location provider = a new adapter at the seam; callers never
+change.
+
+### `IpGeolocationAdapter` — the identity seam (D7)
+
+**Module:** `app/inspection/verification/ip_adapter.py`. The deep module
+that replaces the ad-hoc `requests.get()` calls in `browser_use.py`. Owns:
+
+- the **canonical identity rule**: IP-to-location mapping through one adapter
+  with a single `geolocate(ip) -> dict` interface;
+- **leverage**: callers get normalized results (`region`, `city`, `error`)
+  without knowing about the upstream service;
+- **locality**: all ip-api.com-specific behaviour (endpoint, query shape,
+  timeout handling) is isolated from callers.
+
+### `LicenseLookupAdapter` — the licence seam (D7)
+
+**Module:** `app/inspection/verification/lookup_adapter.py`. The deep module
+that replaces the ad-hoc `requests.get()` calls in `browser_use.py`. Owns:
+
+- the **canonical licence rule**: FSSAI and CE licence checks through one
+  adapter with a single `lookup(source, id) -> dict` interface;
+- **leverage**: callers get normalized results (`found`, `error`, `data`)
+  without knowing about FSSAI vs CE differences;
+- **locality**: all licence-provider-specific behaviour (endpoint, query
+  shape, error mapping) is isolated from callers.
+
+### `PhotoProcessor` — the image processing seam (D7)
+
+**Module:** `app/inspection/services/photo_processor.py`. The deep module
+that replaces the ad-hoc image handling in `browser_use.py`. Owns:
+
+- the **canonical image rule**: validation, EXIF extraction, coordinate
+  fallback, and temp-file creation through one interface
+  `process(file, form_data) -> ProcessedPhoto`;
+- **leverage**: callers get a structured `ProcessedPhoto` result without
+  knowing about Pillow, UUIDs, or temp directories;
+- **locality**: all image-specific behaviour (validation rules, EXIF parsing,
+  coordinate fallback) is isolated from callers.
+
+### `EvidenceStore` — the persistence seam (D7)
+
+**Module:** `app/inspection/services/evidence_store.py`. The deep module
+that replaces the ad-hoc Evidence row creation in `browser_use.py`. Owns:
+
+- the **canonical persistence rule**: Evidence record creation, stamping
+  updates, deletion, and listing through one interface
+  `save(processed_photo) -> Evidence`;
+- **leverage**: callers get a single persistence seam without knowing about
+  SQLAlchemy session details;
+- **locality**: all Evidence-specific behaviour (fields, lifecycle, audit
+  logging) is isolated from callers.
+
+### `OCRDispatcher` — the OCR seam (D7)
+
+**Module:** `app/inspection/services/ocr_dispatcher.py`. The deep module
+that replaces the ad-hoc OCR dispatch in `browser_use.py`. Owns:
+
+- the **canonical OCR rule**: task dispatch with deduplication through one
+  interface `dispatch(filepath) -> dict`;
+- **leverage**: callers get a structured result (`task_id`, `result`, `mode`)
+  without knowing about the background task queue;
+- **locality**: all OCR-specific behaviour (queue naming, dedup key,
+  timeout handling) is isolated from callers.
+
 ### Declaration table
 
 The tuple of `Setting` rows inside `app/shared/config.py`. Single source of

@@ -89,17 +89,36 @@ def _enrich_audit_entry(entry: dict[str, Any], **telemetry: Any) -> dict[str, An
     return entry
 
 
-def _verify_claims(answer: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _verify_claims(
+    answer: str,
+    chunks: list[dict[str, Any]],
+    *,
+    authority_values: list[float] | None = None,
+    contradictions: list[dict[str, Any]] | None = None,
+    temporal_conflict: bool = False,
+) -> dict[str, Any] | None:
     """Claim-level verification of a generated answer (V2 plan item 15).
 
     Extracts factual claims via the rule-based :class:`ClaimExtractor` and
     verifies each against the evidence chunks via the
     :class:`EvidenceVerifier` (section-match + textual overlap, no LLM).
+
+    Phase 3 upgrade: instead of returning only ``verified`` + ``confidence``,
+    the claim report now carries per-claim :class:`ClaimVerification` status
+    (``SUPPORTED`` / ``PARTIALLY_SUPPORTED`` / ``UNSUPPORTED`` /
+    ``CONTRADICTED``) with evidence, authority and contradiction signals.
+
+    When *authority_values*, *contradictions* or *temporal_conflict* are
+    passed (from the sufficiency rubric on the DAG path), they enrich the
+    status assignment; on the linear path those signals are absent and the
+    status falls back to the binary verified/confidence heuristic.
+
     Returns ``None`` when the answer carries no verifiable claims.
     """
     if not answer or not answer.strip():
         return None
     from app.rag.agent.sufficiency import as_retrieved_chunks
+    from app.rag.evidence_task import build_claim_verification
     from app.rag.verification.claim_extractor import ClaimExtractor
     from app.rag.verification.evidence_verifier import EvidenceVerifier
 
@@ -108,23 +127,30 @@ def _verify_claims(answer: str, chunks: list[dict[str, Any]]) -> dict[str, Any] 
         return None
     evidence_chunks = as_retrieved_chunks([c for c in chunks if isinstance(c, dict)])
     verifications = EvidenceVerifier().verify_claims(claims, evidence_chunks)
-    claim_dicts = [
+    verifications_dict = [
         {
-            **c.to_dict(),
             "verified": v.verified,
             "confidence": round(v.confidence, 3),
             "method": v.method,
             "supporting_chunks": v.supporting_chunks,
         }
-        for c, v in zip(claims, verifications, strict=True)
+        for v in verifications
     ]
+    claim_verifications = build_claim_verification(
+        [c.to_dict() for c in claims],
+        verifications_dict,
+        authority_values=list(authority_values or []),
+        contradictions=list(contradictions or []),
+        temporal_conflict=temporal_conflict,
+    )
     verified_count = sum(1 for v in verifications if v.verified)
     return {
-        "claims": claim_dicts,
+        "claims": [cv.to_dict() for cv in claim_verifications],
         "claim_groundedness": verified_count / len(claims),
         "unverified_claims": [
             c.text for c, v in zip(claims, verifications, strict=True) if not v.verified
         ],
+        "claim_statuses": [cv.status.value for cv in claim_verifications],
     }
 
 
@@ -292,7 +318,7 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     # Claim-level verification (item 15): extract + entail-check the answer's
     # claims against the retrieved evidence.  Threshold enforcement happens
     # in the verify/citation gate — this node only measures.
-    claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [])
+    claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [], temporal_conflict=bool(state.get("temporal_conflict", False)))
     # Phase 4 cost telemetry: context + completion tokens for this LLM call.
     token_cost = _est_tokens(
         state.get("query"),
@@ -1195,7 +1221,27 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         pipeline="agent",
     )
     # Claim-level verification (item 15) against the merged DAG evidence.
-    claim_report = _verify_claims(result.get("answer", ""), merged)
+    # Enrich with authority/contradiction/temporal signals from the
+    # sufficiency rubric so the claim statuses carry more than binary verified.
+    task_sufficiency = state.get("task_sufficiency") or []
+    authority_values: list[float] = []
+    contradictions: list[dict[str, Any]] = []
+    temporal_conflict = bool(state.get("temporal_conflict", False))
+    if task_sufficiency:
+        for verdict in task_sufficiency:
+            sigs = verdict.get("signals") or {}
+            auth = sigs.get("authority", {}).get("value", 0.0)
+            if auth:
+                authority_values.append(auth)
+            cont = sigs.get("contradiction", {}).get("detail", {}).get("conflicts", [])
+            contradictions.extend(list(cont or []))
+    claim_report = _verify_claims(
+        result.get("answer", ""),
+        merged,
+        authority_values=authority_values or None,
+        contradictions=contradictions or None,
+        temporal_conflict=temporal_conflict,
+    )
     # Consume the LLM-call budget counter (synthesis is one LLM call) so a
     # later budget gate sees real usage.
     budget = dict(state.get("budget") or {})
