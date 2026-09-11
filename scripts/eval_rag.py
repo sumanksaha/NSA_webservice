@@ -134,21 +134,33 @@ def run_benchmark(min_recall: float | None = None, as_json: bool = False) -> int
 
 def run_query_batch(queries: list[str], as_json: bool = False) -> int:
     """Run the live agent pipeline over queries and score the responses."""
+    # The app factory loads the .env file, but the CLI never goes through it.
+    # Load it here so live evaluation picks up the same configuration.
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    from app import create_app
     from app.rag.agent.graph import run_agent
     from app.rag.agent.state import initial_state
     from app.rag.evaluation.runner import EvalRunner
 
+    # The agent pipeline touches the DB (checkpointer, audit trail) — run
+    # inside an app context like every other entry point.
+    app = create_app()
+
     def pipeline(query: str) -> dict:
-        result = run_agent(initial_state(query))
-        return {
-            "answer": result.get("answer", ""),
-            "retrieved_chunks": result.get("chunks") or [],
-            "cited_chunk_ids": [
-                c.get("chunk_id")
-                for c in (result.get("chunks") or [])
-                if isinstance(c, dict) and c.get("chunk_id")
-            ],
-        }
+        with app.app_context():
+            result = run_agent(initial_state(query))
+            return {
+                "answer": result.get("answer", ""),
+                "retrieved_chunks": result.get("chunks") or [],
+                "cited_chunk_ids": [
+                    c.get("chunk_id")
+                    for c in (result.get("chunks") or [])
+                    if isinstance(c, dict) and c.get("chunk_id")
+                ],
+            }
 
     runner = EvalRunner(pipeline_fn=pipeline)
     entries = [{"query": q, "expected_citations": []} for q in queries]
