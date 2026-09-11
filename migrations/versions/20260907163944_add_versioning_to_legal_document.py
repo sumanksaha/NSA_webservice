@@ -1,7 +1,7 @@
 """add_versioning_to_legal_document
 
-Revision ID: abc123def456
-Revises: previous_revision_id
+Revision ID: add_versioning_to_legal_document
+Revises: add_rag_query_log_pipeline
 Create Date: 2026-09-07
 
 Adds versioning columns to LegalDocument for corpus rollback capability.
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "abc123def456"
-down_revision = "previous_revision_id"
+revision = "add_versioning_to_legal_document"
+down_revision = "add_rag_query_log_pipeline"
 branch_labels = None
 depends_on = None
 

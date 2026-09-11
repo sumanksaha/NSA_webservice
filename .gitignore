@@ -339,9 +339,9 @@ instance/instance/
 # Scratch / debug / AI agent working artifacts (do not commit)
 # ---------------------------------------------------------------------------
 # Root-level audit scripts and output
-audit_*.py
-audit_*.json
-audit_*.txt
+/audit_*.py
+/audit_*.json
+/audit_*.txt
 
 # Root-level temp scripts and output
 tmp_*.py
