@@ -47,7 +47,7 @@ class InspectionCodeGenerator:
 
             except Exception:
                 db.session.rollback()
-                time.sleep(2 ** attempt * 0.01)
+                time.sleep(2**attempt * 0.01)
 
         raise RuntimeError(f"Failed to generate unique inspection code after {max_retries} retries")
 

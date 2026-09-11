@@ -23,10 +23,12 @@ class NominatimGeocoder:
             response = requests.get(url, params=params, headers=headers, timeout=5)
             response.raise_for_status()
             data = response.json()
-            locality = data.get("address", {}).get("suburb") or \
-                       data.get("address", {}).get("city_district") or \
-                       data.get("address", {}).get("city") or \
-                       data.get("display_name")
+            locality = (
+                data.get("address", {}).get("suburb")
+                or data.get("address", {}).get("city_district")
+                or data.get("address", {}).get("city")
+                or data.get("display_name")
+            )
             return {"locality": locality, "error": None}
         except requests.exceptions.Timeout:
             return {"locality": None, "error": "timeout"}
