@@ -23,12 +23,13 @@
 **Key capabilities:**
 
 | Capability | Description |
-|---------------------|-------------|n|__has_permission|Should the specified entity have permission X? |
-|__conflict_reasoning|Resolve conflicts between multiple authorities/sections |
-|__trace_lineage|Follow chains of dependency / amendment |
-|__compare_provisions|Evaluate differences across versions/temporal states |
-|__relationship_explanation|Explain relationships between concepts |
-|__actionable_answer|Generate answer using KG traversal |
+|---------------------|-------------|
+| __has_permission | Should the specified entity have permission X? |
+| __conflict_reasoning | Resolve conflicts between multiple authorities/sections |
+| __trace_lineage | Follow chains of dependency / amendment |
+| __compare_provisions | Evaluate differences across versions/temporal states |
+| __relationship_explanation | Explain relationships between concepts |
+| __actionable_answer | Generate answer using KG traversal |
 
 **Implementation approach:**
 
@@ -679,5 +680,146 @@ And after the maximum retrieval budget: `ABSTAIN`. This is a major quality impro
                            ▼
                   ┌──────────────────┐
                   │ Final QA Gate    │
-                  └────────
+                  └──────────────────┘
 ```
+
+---
+
+## Phase 3 Upgrade Plan — From Query Decomposition to Answer Requirement Graph (2026-09-11)
+
+**Status:** Planned — implementation starting now.
+
+**Goal:** raise the existing decomposition/verification/evaluation stack from "subquery-oriented decomposition" to "answer requirements first", without adding new retrievers, new LangGraph nodes, or a wholesale rewrite.
+
+**Design principle:** decompose into *independently verifiable answer requirements* and derive retrieval questions/subqueries from those, rather than treating decomposition output as a list of subquestions.
+
+**Boundary decision:** keep LangGraph as orchestration only (`route → acquire evidence → verify/recover → synthesize`). All new model/determinism work stays in plain Python services, same as today.
+
+### 1. Make decomposition output an explicit Answer Requirement Graph
+
+Today `QueryPlanner.plan()` returns `DecompositionResult(tasks, dag, evidence_requirements)`. The next step is to make *requirements* first-class, with explicit `requirement_id`, `mandatory` flag, `answer_type`, `evidence_required`, and explicit dependency edges between requirements, not just between tasks.
+
+Concrete changes:
+
+- Introduce an `AnswerRequirement` model (separate from `Requirement`/`EvidenceTask`) in `app/rag/evidence_task.py` or a new `app/rag/planning/answer_requirements.py`.
+  - Fields: `id`, `type` (maps to `EvidenceRequirement`), `question` (the derived retrieval question), `answer_type`, `evidence_required` (list of evidence types / source signals needed), `mandatory` bool, `subject`, conditions, temporal_scope, jurisdiction.
+  - Keep `Requirement` as the internal extraction helper if needed, but make the public decomposition contract requirement-centric.
+
+- Add `AnswerRequirementGraph` as the primary decomposition output (or a new field on `DecompositionResult`): `requirements: list[AnswerRequirement]`, `dependencies: list[tuple[str, str]]`, plus a helper to derive `tasks`/`dag` from it, so downstream code can still consume `EvidenceTask`s without a rewrite.
+
+- Re-point `_extract_requirements` / `_construct_tasks` so each `EvidenceTask` is derived *from* a requirement, with `task.question` explicitly stamped as "the retrieval question for requirement Rᵢ". This keeps the existing deterministic behavior but makes the requirement→task derivation explicit and auditable.
+
+- Preserve compatibility: `plan_node`, `plan_tasks_node`, and the benchmark should keep working; ideally the new structure *improves* the existing kind-level benchmark rather than replacing it.
+
+### 2. Requirement-conditioned retrieval
+
+Today retrieval mostly runs one query-shaped prompt per task. The next step is for each retrieval call to be answerable as "which requirement am I retrieving evidence for?" and for scoring to be requirement-aware.
+
+Concretely:
+
+- Pass `task.evidence_requirement` and `task.answer_type` deeper into retrieval where useful (`run_retrieval_pipeline(..., evidence_tasks=[task])` already exists in `execute_task_node`; the upgrade is to actually *use* those signals for shaping queries/ranking, not only for metadata filters).
+
+- In `EnsembleReranker.rerank`, make `query_type` / requirement signals influence ranking more explicitly than today's feature-weight overrides. This could be a lightweight first step: per-requirement reranking profiles in `profiles.py` and/or per-requirement feature weights, rather than one global grid. The review's `S = w₁R + w₂A + w₃T + w₄C + w₅I + w₆K` is a design target; for an incremental step, start by making requirement coverage `C` an explicit signal in the sufficiency/retrieval loop rather than inventing a new monolithic scorer immediately.
+
+- Identifier routing already works well; keep it as a deterministic channel and prefer it when an explicit identifier exists. No new retriever needed.
+
+### 3. Upgrade verification toward claim-level entailment with contradiction detection
+
+Today `generate_node`/`synthesize_node` already run `_verify_claims` using `ClaimExtractor` + `EvidenceVerifier`, and the graph routes on `claim_groundedness`. The next step is to move beyond RapidFuzz-style lexical overlap and model per-claim status as `SUPPORTED / PARTIALLY_SUPPORTED / UNSUPPORTED / CONTRADICTED`, with contradiction/temporal/authority resolution, not just one overall score.
+
+Concrete changes:
+
+- Keep claim extraction; upgrade the verifier so each verified claim carries richer status and a citation back to the supporting chunk id(s). Today `verifications` already expose `verified`, `confidence`, `method`, `supporting_chunks`; the upgrade is to enrich status semantics and make contradiction an explicit signal.
+
+- Add contradiction awareness: when evidence contains conflicting provisions or a later amendment/repeal, surface that as a verifier signal (`has_conflicts`, `temporal_conflict`, `authority_score` already exist in `evidence_sufficiency_node`; the next step is to feed them into claim status and into the response so the answer can qualify itself).
+
+- Keep the graph simple: verification stays a service; the graph only routes on its signals.
+
+### 4. Make evaluation measure requirements + evidence completeness, not only exact decomposition match
+
+The benchmark already has `task_recall/precision/F1`, `dependency_accuracy`, `over/under_decomposition_rate`, `exact_match_rate`, and `per_query_class`. That's a strong base. The next step is to add requirement coverage, atomicity, decomposition efficiency, and especially evidence completeness.
+
+Concrete changes:
+
+- Extend `GoldEntry` / benchmark to record `gold_requirements` (with `id`, type, mandatory), `gold_dependencies`, `gold_answer`, `gold_authority`, `gold_temporal_state`, and `expected_citations`/`known_traps` where available.
+
+- Add requirement-level metrics:
+  - `requirement_coverage`: fraction of gold *mandatory* requirements represented.
+  - `atomicity_score`: penalize multi-claim tasks where the gold expects independent propositions.
+  - `decomposition_efficiency`: useful requirements / total generated requirements.
+  - `evidence_completeness`: fraction of mandatory requirements with sufficient evidence in the run (this needs a small harness that runs retrieval + sufficiency against gold requirements).
+
+- Add a small benchmark expansion toward failure modes: multi-part, nested, multi-hop, temporal, adversarial, contradiction-prone queries, with the richer gold fields above. Start small and deterministic; grow the dataset as the system matures.
+
+- Add end-to-end answer-utility signals where feasible: citation completeness/correctness, authority accuracy, temporal correctness, abstention precision. Some of these can be computed deterministically from gold + run artifacts; others may require light judging.
+
+### What is explicitly out of scope for now
+
+- No new retriever.
+- No proliferation of LangGraph nodes; keep orchestration thin.
+- No blind top-k increases.
+- No optimizing only MRR / exact decomposition match.
+- No wholesale rewrite; the existing planner/DAG/sufficiency/claim-verification/routing/economics/benchmark is the foundation.
+
+### Implementation order
+
+1. Requirement model + `AnswerRequirementGraph`, with existing `DecompositionResult` still derivable.
+2. Make requirement→task derivation explicit and pass requirement identity into retrieval/rerank/sufficiency paths where it helps.
+3. Enrich claim verification status + contradiction/temporal/authority signals in the response.
+4. Extend benchmark + gold dataset with requirement/atomicity/evidence-completeness metrics and a small failure-mode expansion.
+5. (Later, separate scope) richer per-requirement reranking profiles and a lightweight evidence-sufficiency/confidence controller; temporal/authority hierarchy as a firmer first-class subsystem once the requirement model is in place.
+
+---
+
+## V3 Target Architecture (Conceptual)
+
+The long-run direction is not "more components". It is a shift in the central workflow:
+
+```text
+                         QUERY
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Query Understanding│
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 Answer Requirement Graph
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+             R1           R2           R3
+              │            │            │
+              ▼            ▼            ▼
+          Retrieval    Retrieval    Retrieval
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                    Evidence Graph
+                           │
+                           ▼
+                    Evidence Sufficiency
+                       │          │
+                     YES          NO
+                       │          │
+                       │      Targeted Retrieval
+                       │          │
+                       └────┬─────┘
+                            ▼
+                       Synthesis
+                            │
+                            ▼
+                    Claim-level Verification
+                            │
+                    ┌───────┴────────┐
+                    ▼                ▼
+                 Supported       Unsupported
+                    │                │
+                    │          Targeted Repair
+                    │                │
+                    └───────┬────────┘
+                            ▼
+                         Answer
+```
+
+This is the strongest direction for this project: **do not decompose the question into subqueries. Decompose it into independently verifiable answer requirements**, then derive the subquery from the requirement. That avoids the common failure mode of producing plausible subquestions that do not collectively guarantee the original question has been answered.
