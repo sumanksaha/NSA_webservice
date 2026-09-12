@@ -1,21 +1,23 @@
 # NSA Webservice — Tech Stack & Architecture
 
+> **Reconciled 2026-09-12** against the installed environment and `pyproject.toml`: Flask version corrected, remote-inference RAG stack documented, optional lazy providers marked as such, and typing claims aligned with `CONTRIBUTING.md`.
+
 ## 1. Stack Overview
 
 | Layer             | Technology                          | Version | Notes                                                                             |
 | ----------------- | ----------------------------------- | ------- | --------------------------------------------------------------------------------- |
 | **Runtime**       | Python                              | 3.12+   | Strictly typed, modern syntax                                                     |
-| **Web Framework** | Flask 2.x                           | -       | Server-rendered (Jinja2), no React build pipeline                                 |
+| **Web Framework** | Flask 3.x                           | 3.1.3   | Server-rendered (Jinja2), no React build pipeline                                 |
 | **Database**      | PostgreSQL                          | -       | Primary; SQLite fallback (dev)                                                    |
 | **ORM**           | SQLAlchemy 2.x                      | -       | Declarative models, optimistic concurrency via `version_id`                       |
 | **Migrations**    | Alembic                             | >=1.13  | 27+ migration files                                                               |
 | **Task Queue**    | Celery 5.x + QStash                 | >=5.6.3 | QStash for webhook-based (no worker needed on free tier); Celery for heavier jobs |
 | **Cache**         | Redis                               | >=5.0.0 | Task result backend + Celery broker                                               |
 | **Search**        | SQLite FTS5 / Qdrant                | -       | FTS5 for local; Qdrant for RAG vector search                                      |
-| **RAG**           | Qdrant + sentence-transformers      | -       | Dense embeddings (all-mpnet-base-v2), BM25 via fastembed                          |
+| **RAG**           | Qdrant + Modal remote inference     | -       | Dense embeddings (all-mpnet-base-v2, 768-dim) + fine-tuned legal cross-encoder hosted on Modal; BM25 sparse computed in-cluster by Qdrant (`Qdrant/bm25`). Local `sentence-transformers`/`fastembed` are optional lazy fallbacks (not installed in production) |
 | **KG**            | Neo4j Aura                          | -       | Multi-domain legal knowledge graph                                                |
 | **PDF**           | WeasyPrint                          | -       | HTML→PDF via `app/utils/pdf_utils.py`                                             |
-| **Images**        | Pillow, OCR                         | >=9.0.0 | PaddleOCR + Tesseract for OCR pipeline                                            |
+| **Images**        | Pillow, OCR                         | >=9.0.0 | Tesseract (pytesseract) primary; PaddleOCR is an optional lazy provider (not installed in production) |
 | **Cloud Storage** | R2/B2 (S3-compatible) or Cloudinary | -       | Configured via env vars                                                           |
 | **Auth**          | Flask-Login + CSRF                  | -       | Session-based auth, RBAC (Phase 18)                                               |
 | **Security**      | Flask-Talisman                      | >=1.1.0 | CSP, HSTS, secure cookies                                                         |
@@ -112,11 +114,12 @@ Webhook → QStash calls task endpoint, returns result
 
 - **mypy** configured with `strict=false`, `warn_unused_ignores=true`
 - **Type stubs** available for Flask, SQLAlchemy via `types-*` packages
-- **TypedDict** used for complex response shapes
+- **Type hints are recommended** (per `CONTRIBUTING.md`); service-layer public functions are annotated in practice
+- **TypedDict** used in a few response-shape modules (limited adoption)
 
 ### Runtime Typing
 
-- **Pydantic** models for request validation (via `pydantic>=2.0.0`)
+- **Pydantic** is a runtime dependency (`pydantic>=2.0.0`) but is **not used for Flask request validation**; Flask routes validate via WTF/manual checks. Pydantic is available to the FastAPI `/api/v2` layer.
 - **SQLAlchemy 2.x** type annotations on models
 - **Return type hints** on all service methods
 

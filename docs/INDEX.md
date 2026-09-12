@@ -7,6 +7,7 @@ This is the central index for the NSA Webservice project documentation. Living d
 - [README.md](../README.md) - Project overview, architecture, technology stack, and getting started
 - [CONTEXT.md](../CONTEXT.md) - Domain & architecture glossary (the single source of truth for terms)
 - [AGENTS.md](../AGENTS.md) - Agent skills, triage labels, and domain documentation guidelines
+- [docs/agent-reference.md](./agent-reference.md) - Full agent/developer reference (architecture, phases, deletion history; formerly root `agents.md`)
 - [CLAUDE.md](../CLAUDE.md) - Additional context for AI agents
 
 ## Architectural Decisions

@@ -302,7 +302,7 @@ EOF
 1. `CORPUS_IDENTITY_REPORT.md` — replace §5 verdict's "remaining open remediation" with
    the completed rebuild; update §6.2 go/no-go to **GO for FSSAI dense retrieval**.
 2. `NEO4J_QDRANT_AUDIT_REPORT.md` §0 — flip the P1-4 row to ✅ Resolved.
-3. `agents.md` status line — note `fssai_legal_768` = 12,819 points, identity-stamped.
+3. `docs/agent-reference.md` (formerly `agents.md`) status line — note `fssai_legal_768` = 12,819 points, identity-stamped.
 4. Re-run `corpus_identity_reconcile.py` output JSON is the permanent evidence artifact
    (FOOD_SAFETY row: matched 12,819 / failed 0 / unexplained 0).
 

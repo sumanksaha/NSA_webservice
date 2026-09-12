@@ -1234,27 +1234,3 @@ def _build_requirement_graph(requirements: list[Requirement], tasks: list[Eviden
         requirements=answer_reqs,
         dependencies=list(dict.fromkeys(dependencies)),  # stable unique
     )
-
-
-def _legacy_plan(query: str, query_type: str = "general") -> dict[str, Any]:
-    """Compatibility wrapper for existing plan_node integration."""
-    planner = QueryPlanner()
-    result = planner.plan(query)
-    return {
-        "intent": result.intent.value,
-        "complexity": result.complexity.value,
-        "tasks": [
-            {
-                "task_id": t.task_id,
-                "objective": t.objective,
-                "question": t.question,
-                "evidence_requirement": t.evidence_requirement.value,
-                "dependency": t.dependency,
-                "answer_type": t.answer_type,
-                "answer_contract": (t.answer_contract.required_fields if t.answer_contract else []),
-            }
-            for t in result.tasks
-        ],
-        "total_tasks": result.total_tasks,
-        "dag_valid": not result.dag.has_cycle(),
-    }

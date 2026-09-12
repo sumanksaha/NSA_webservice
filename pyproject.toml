@@ -44,7 +44,6 @@ dependencies = [
   "weasyprint",
   "python-multipart",
   "num2words",
-  "httpx",
   "gunicorn",
   "openpyxl",
   "boto3",

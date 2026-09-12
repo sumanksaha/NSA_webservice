@@ -11,6 +11,9 @@ beyond `admin` / `fso`.
 
 from __future__ import annotations
 
+from flask import current_app, flash, redirect, request, url_for
+from flask_login import current_user
+
 ADMIN_ROLE = "admin"
 FSO_ROLE = "fso"
 
@@ -34,6 +37,45 @@ ROLE_BLUEPRINTS: dict[str, set[str]] = {
 ALWAYS_ALLOWED_BLUEPRINTS = {"auth", "static", "health", "tasks_webhook"}
 
 
+def register_auth_gates(app, public_endpoints: set[str]) -> None:
+    """Wire the global auth gates onto ``app`` (Flask ``before_request``).
+
+    Single home for access-policy wiring (moved from ``app/__init__.py`` by
+    the 2026-09-12 review so the factory stops carrying auth logic). The
+    ``public_endpoints`` set itself stays in the factory — a CI gate
+    (``tests/test_cicd_gates.py``) greps ``app/__init__.py`` for
+    ``health.health`` to keep the Render probe public.
+
+    Gates run in registration order: audit-user stamping (registered by the
+    factory before this), then the login gate, then the RBAC role gate.
+    """
+
+    @app.before_request
+    def require_login():
+        if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
+            return redirect(url_for("auth.login", next=request.url))
+
+    @app.before_request
+    def enforce_rbac():
+        """Phase 18 role gate — deny-by-default beyond ALWAYS_ALLOWED.
+
+        Redirects (with an explanatory flash) instead of a dead 403 page;
+        nav links for disallowed blueprints are hidden in base.html so this
+        mostly guards direct URLs and stale bookmarks.
+        """
+        if current_app.config.get("DISABLE_RBAC"):
+            return None
+        if not current_user.is_authenticated:
+            return None
+        endpoint = request.endpoint
+        if not endpoint or endpoint in public_endpoints:
+            return None
+        if blueprint_allowed(current_user, request.blueprint):
+            return None
+        flash("You do not have access to that section.", "error")
+        return redirect(landing_endpoint(current_user))
+
+
 def blueprint_allowed(user, blueprint_name: str | None) -> bool:
     """True when ``user`` may reach ``blueprint_name``.
 
@@ -51,8 +93,6 @@ def blueprint_allowed(user, blueprint_name: str | None) -> bool:
 
 def landing_endpoint(user) -> str:
     """URL a user is sent to after login / when a blocked route bounces them."""
-    from flask import url_for
-
     return url_for("case_file_generator.index")
 
 

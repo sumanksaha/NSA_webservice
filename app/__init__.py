@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, current_app, flash, redirect, request, url_for
-from flask_login import current_user
+from flask import Flask, redirect, url_for
+from flask_login import current_user  # noqa: F401 — used by set_audit_user / template exposure
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -382,32 +382,12 @@ def create_app(db_uri: str | None = None):
         except (RuntimeError, AttributeError):
             db.session.info["audit_user_id"] = None
 
-    @app.before_request
-    def require_login():
-        if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
-            return redirect(url_for("auth.login", next=request.url))
+    # Auth gates (global login + Phase 18 RBAC) live in app/shared/rbac.py —
+    # the single home for access policy (2026-09-12 review: the factory was
+    # carrying auth logic that belonged in the RBAC seam).
+    from app.shared.rbac import register_auth_gates
 
-    @app.before_request
-    def enforce_rbac():
-        """Phase 18 role gate — deny-by-default beyond ALWAYS_ALLOWED.
-
-        Redirects (with an explanatory flash) instead of a dead 403 page;
-        nav links for disallowed blueprints are hidden in base.html so this
-        mostly guards direct URLs and stale bookmarks.
-        """
-        from app.shared.rbac import blueprint_allowed, landing_endpoint
-
-        if current_app.config.get("DISABLE_RBAC"):
-            return None
-        if not current_user.is_authenticated:
-            return None
-        endpoint = request.endpoint
-        if not endpoint or endpoint in public_endpoints:
-            return None
-        if blueprint_allowed(current_user, request.blueprint):
-            return None
-        flash("You do not have access to that section.", "error")
-        return redirect(landing_endpoint(current_user))
+    register_auth_gates(app, public_endpoints)
 
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words
@@ -447,94 +427,10 @@ def create_app(db_uri: str | None = None):
     # ------------------------------------------------------------------
     from app.rag.qdrant_indexer import register_qdrant_hooks
 
-    register_qdrant_hooks()
+    register_qdrant_hooks()    # Register blueprints (auth first so login page is available)
+    from app.blueprints import register_blueprints
 
-    # Register blueprints (auth first so login page is available)
-    from app.adjudication.routes import adjudication_bp
-    from app.annexure import annexure_bp
-    from app.audit import audit_bp
-    from app.auth.routes import auth_bp
-    from app.bill_generator.routes import bill_generator_bp
-    from app.billing.routes import billing_bp
-    from app.case_file_generator.routes import case_file_generator_bp
-    from app.fbo_issue.routes import fbo_issue_bp
-    from app.food_cell import food_cell_bp
-    from app.health import health_bp
-    from app.inspection.routes import inspection_bp
-    from app.knowledge_graph import kg_bp
-    from app.legal_analysis import legal_analysis_bp
-    from app.notepad import notepad_bp
-    from app.sample.routes import sample_bp
-    from app.search import search_bp
-    from app.settings.routes import settings_bp
-    from app.sync import sync_bp
-    from app.tasks_webhook import tasks_webhook_bp
-    from app.timeline import timeline_bp
-    from app.validation import validation_bp
-    from app.version_control import version_control_bp
-
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
-    app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
-    from app.document_viewer import document_viewer_bp
-
-    app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
-    from app.evidence import evidence_bp
-
-    app.register_blueprint(evidence_bp, url_prefix="/evidence")
-    app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
-    app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
-    app.register_blueprint(sample_bp, url_prefix="/sample")
-    app.register_blueprint(billing_bp, url_prefix="/billing")
-    app.register_blueprint(settings_bp, url_prefix="/settings")
-    app.register_blueprint(inspection_bp, url_prefix="/inspection")
-    app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
-    app.register_blueprint(audit_bp, url_prefix="/admin")
-    app.register_blueprint(version_control_bp)
-    app.register_blueprint(tasks_webhook_bp)
-    app.register_blueprint(search_bp, url_prefix="/search")
-    app.register_blueprint(annexure_bp, url_prefix="/annexure")
-    app.register_blueprint(validation_bp, url_prefix="/validation")
-    app.register_blueprint(health_bp)
-    app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
-    app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
-    app.register_blueprint(notepad_bp, url_prefix="/notepad")
-    app.register_blueprint(sync_bp, url_prefix="/sync")
-    from app.case_intelligence import intelligence_bp
-    app.register_blueprint(intelligence_bp, url_prefix="/case-intelligence")
-    from app.ai_assistant import ai_bp
-
-    app.register_blueprint(ai_bp, url_prefix="/ai-assistant")
-    # timeline_bp carries its own url_prefix ("/timeline") in the Blueprint.
-    app.register_blueprint(timeline_bp)
-    # Analytics dashboard (Phase 15)
-    from app.analytics import analytics_bp
-
-    app.register_blueprint(analytics_bp, url_prefix="/analytics")
-    # Comments API (Phase 18) — visibility inherited from the parent case
-    from app.comments import comments_bp
-
-    app.register_blueprint(comments_bp)
-
-    # Work diary (accumulates Inspections per FSO; preview + PDF download)
-    from app.workdiary import workdiary_bp
-
-    app.register_blueprint(workdiary_bp)
-    # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
-    from app.rag import rag_bp
-
-    app.register_blueprint(rag_bp)
-
-    # OCR pipeline Phases B–E (review workflow, conflicts, autopopulation, feedback)
-    from app.autopopulation import autopopulation_bp
-    from app.conflict_resolution import conflict_resolution_bp
-    from app.feedback_dashboard import feedback_dashboard_bp
-    from app.ocr_extraction import ocr_extraction_bp
-
-    app.register_blueprint(ocr_extraction_bp, url_prefix="/ocr")
-    app.register_blueprint(conflict_resolution_bp, url_prefix="/conflict-resolution")
-    app.register_blueprint(autopopulation_bp, url_prefix="/autopopulation")
-    app.register_blueprint(feedback_dashboard_bp, url_prefix="/feedback-dashboard")
+    register_blueprints(app)
 
     # Phase 20: Register default plugin providers (OCR, AI, Rules, PDF)
     # Lazy-imported so the app boots without optional deps (torch, httpx, etc.)

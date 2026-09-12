@@ -2,7 +2,7 @@
 
 > **Date:** 2026-08-23 · **Method:** primary-source investigation only. Every claim below is
 > cited to the owning source file (+ function/line where useful). Documentation files
-> (`agents.md`, `task.md`, `plan.md`) are cited **only as context**, never as evidence.
+> (`docs/agent-reference.md` (formerly `agents.md`), `task.md`, `plan.md`) are cited **only as context**, never as evidence.
 >
 > **Headline finding:** a query typed into the interactive RAG UI (`GET /api/rag/`) always
 > POSTs to **`/api/rag/query/agent`** — but by default it never reaches LangGraph. The agent

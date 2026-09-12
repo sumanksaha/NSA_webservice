@@ -178,7 +178,7 @@ Ordered by dependency; each step ends with a measurable gate. v1 stays frozen as
 ### Step 6 — Deploy (0.5 day, only after gates pass)
 - `scripts/push_ce_models.py` (Hub) + re-deploy `modal_deploy/app.py` (Modal); set `RAG_RERANKER_MODEL` / endpoint env accordingly.
 - Live cross-check: `evaluation/verify_finetuned_ce.py` on the 12-question sample through the production pipeline.
-- Update `agents.md` / README with the new model version.
+- Update `docs/agent-reference.md` (formerly `agents.md`) / README with the new model version.
 
 ---
 
@@ -319,7 +319,7 @@ Steps 1–4 gate.
 **Step 7 — Re-freeze + deploy (0.5 day, after an accepted retrain)**
 - `ce_v2_eval` → `--freeze-baseline` (committed reference) → `ce_v2_gate` (hard gates + `--strict-targets`).
 - `scripts/push_ce_models.py` (Hub) + re-deploy `modal_deploy/app.py` (Modal); set `RAG_RERANKER_MODEL`/
-  endpoint env; live cross-check via `evaluation/verify_finetuned_ce.py`; update `agents.md`.
+  endpoint env; live cross-check via `evaluation/verify_finetuned_ce.py`; update `docs/agent-reference.md` (formerly `agents.md`).
 
 ### 2.5 Sequencing
 
