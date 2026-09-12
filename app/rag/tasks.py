@@ -114,18 +114,95 @@ def run_retrieval_pipeline(
 
     This is the plain (non-Celery) entry point so that tests and routes
     can call it without going through the task wrapper.
+
+    Orchestrates three stages (split from a single 161-line body,
+    2026-09-12 review): query understanding, cached evidence fetch, and
+    enrichment + response assembly.  Behaviour is unchanged.
     """
-    from app.rag.retrieval import QueryClassifier, QueryParser
-    from app.rag.retrieval.factory import build_hybrid_retriever
     from app.rag.retrieval.logger import RetrievalLogger
-
-    cache = cache or _default_cache
-
-    logger.info("run_retrieval_pipeline: starting for query=%r top_k=%s", query, top_k)
+    from app.rag.retrieval.stages import apply_stages
 
     start = time.monotonic()
 
-    # 1. Classify + parse
+    # Stage 1 — understand the query: classify, parse, legal typing,
+    # identifier route.
+    query_type, legal_qt, identifier, identifier_query, merged_filters = _retrieval_understand_query(
+        query, filters
+    )
+
+    # Stage 2 — fetch evidence through the hybrid retriever with the
+    # §12.1 cache in front of it.
+    cache = cache or _default_cache
+    result = _retrieval_fetch(
+        query,
+        top_k=top_k,
+        collection_name=collection_name,
+        merged_filters=merged_filters,
+        query_type=query_type,
+        legal_qt=legal_qt,
+        identifier=identifier,
+        identifier_query=identifier_query,
+        cache=cache,
+    )
+
+    # Stage 3 — audit log (runs on every call — cache hits included — so
+    # the hash-chained audit trail records each query invocation), then
+    # feature-flagged legal-structure enrichment via the ordered
+    # RetrievalStage registry in app/rag/retrieval/stages.py (§12.4):
+    # each stage is independently feature-gated and error-isolated
+    # (isolate=True) or propagating (isolate=False).
+    log = RetrievalLogger()
+    log_entry = log.log(
+        query=query,
+        query_type=query_type.value,
+        result=result,
+        pipeline=pipeline,
+    )
+
+    enrichment = apply_stages(query, result, evidence_tasks=evidence_tasks)
+
+    latency_ms = int((time.monotonic() - start) * 1000)
+    logger.info(
+        "run_retrieval_pipeline: completed in %dms, %d chunks (identifier=%s)",
+        latency_ms,
+        len(result.chunks),
+        (identifier or {}).get("form"),
+    )
+
+    return {
+        "query": query,
+        "query_type": query_type.value,
+        "parsed": merged_filters,
+        "identifier": identifier,
+        "chunks": [c.to_dict() for c in result.chunks],
+        "total": result.total,
+        "latency_ms": latency_ms,
+        "retrieval_latency_ms": result.latency_ms,
+        "error": result.error,
+        "log_id": str(log_entry.id) if log_entry else None,
+        **enrichment,
+    }
+
+
+def _retrieval_understand_query(
+    query: str,
+    filters: dict[str, Any] | None,
+) -> tuple[Any, Any | None, dict[str, Any] | None, str | None, dict[str, Any]]:
+    """Stage 1 — query understanding: classify, parse, legal typing, identifier route.
+
+    Returns ``(query_type, legal_qt, identifier, identifier_query, merged_filters)``.
+
+    - Legal query typing (CE_RERANK_REVIEW, STEP 7) selects query-type-aware
+      reranking weights behind ``RAG_LEGAL_QUERY_TYPING``.
+    - Identifier route (2026-08-13, validated by the V5/V5.5 evaluation arc):
+      builds a lexical "{Act} section {N}" query from identifiers detected in
+      the question text, handed to the hybrid retriever as a parallel additive
+      arm — the production form of the single decisive lever measured offline
+      (+13.3pp candidate-pool ceiling; 100% after the section-stamp backfill).
+      Best-effort: no identifiers -> no arm.
+    """
+    from app.rag.retrieval import QueryClassifier, QueryParser
+
     classifier = QueryClassifier()
     query_type = classifier.classify(query)
     parser = QueryParser()
@@ -133,25 +210,12 @@ def run_retrieval_pipeline(
     # Merge parsed filters with caller-provided filters
     merged_filters = {**(parsed or {}), **(filters or {})}
 
-    # 2. Classify the query into a legal query type for query-type-aware
-    # reranking (CE_RERANK_REVIEW, STEP 7).  Different query types benefit
-    # from different weight configurations: e.g., prohibition regresses with
-    # hierarchy boosting (0.0 hierarchy weight), authority needs more CE head
-    # coverage, cross-reference needs identifier/graph recovery.
     legal_qt = None
     if cfg.legal_query_typing:
         from app.rag.retrieval.legal_query_classifier import classify_legal_query
 
         legal_qt = classify_legal_query(query)
 
-    # 5. Identifier route (2026-08-13, validated by the V5/V5.5 evaluation
-    #    arc): build a lexical "{Act} section {N}" query from the identifiers
-    #    detected in the question text, and hand it to the hybrid retriever
-    #    as a parallel additive arm.  This is the production form of the
-    #    single decisive lever measured offline (+13.3pp candidate-pool
-    #    ceiling; after the section-stamp backfill it lifted the pool to
-    #    100%).  Best-effort: no identifiers -> no arm; retrieval failure
-    #    degrades to the plain hybrid result.
     identifier = None
     identifier_query = None
     if cfg.identifier_route:
@@ -159,14 +223,35 @@ def run_retrieval_pipeline(
 
         identifier_query, identifier = build_ident(query)
 
-    # 4. Retrieval stack — built by the composition root
-    #    (app/rag/retrieval/factory.py): collection-aware dense, Qdrant-BM25
-    #    sparse, ensemble/plain reranker, fused hybrid. One module owns the
-    #    wiring; the historical inline assembly (and the wrong-collection bug
-    #    class it bred) lives there now. Cached (§12.1): retrieval is
-    #    deterministic and LLM-free, so an identical query repeated within
-    #    the TTL skips the Qdrant round-trip; a fresh copy is returned on
-    #    hits so the cached object is never mutated.
+    return query_type, legal_qt, identifier, identifier_query, merged_filters
+
+
+def _retrieval_fetch(
+    query: str,
+    *,
+    top_k: int,
+    collection_name: str | None,
+    merged_filters: dict[str, Any],
+    query_type: Any,
+    legal_qt: Any | None,
+    identifier: dict[str, Any] | None,
+    identifier_query: str | None,
+    cache: RetrievalCache,
+) -> Any:
+    """Stage 2 — fetch evidence through the hybrid retriever, cache in front.
+
+    The retrieval stack is built by the composition root
+    (app/rag/retrieval/factory.py): collection-aware dense, Qdrant-BM25
+    sparse, ensemble/plain reranker, fused hybrid.  One module owns the
+    wiring; the historical inline assembly (and the wrong-collection bug
+    class it bred) lives there now.
+
+    Cached (§12.1): retrieval is deterministic and LLM-free, so an identical
+    query repeated within the TTL skips the Qdrant round-trip; a fresh copy
+    is returned on hits so the cached object is never mutated.
+    """
+    from app.rag.retrieval.factory import build_hybrid_retriever
+
     hybrid = build_hybrid_retriever(collection_name)
     cache_key = (
         _retrieval_cache_key(
@@ -208,51 +293,7 @@ def run_retrieval_pipeline(
         )
         if cache_key is not None:
             cache.put(cache_key, result)
-
-    # 7. Log (runs on every call — cache hits included — so the hash-chained
-    #    audit trail records each query invocation, not just misses).
-    log = RetrievalLogger()
-    log_entry = log.log(
-        query=query,
-        query_type=query_type.value,
-        result=result,
-        pipeline=pipeline,
-    )
-
-    latency_ms = int((time.monotonic() - start) * 1000)
-    logger.info(
-        "run_retrieval_pipeline: completed in %dms, %d chunks (identifier=%s)",
-        latency_ms,
-        len(result.chunks),
-        (identifier or {}).get("form"),
-    )
-
-    # --- Parallel legal-structure & evidence layer (feature-flagged) ---
-    # Applies legal identity parsing, cross-reference expansion, and
-    # evidence-set selection to the retrieval result.  All are opt-in and
-    # degrade gracefully — the production baseline (CE reranker) is
-    # unchanged when all flags are off.
-    # Delegated to the ordered RetrievalStage registry in
-    # app/rag/retrieval/stages.py (§12.4): each stage is independently
-    # feature-gated and error-isolated (isolate=True) or propagating
-    # (isolate=False), preserving the original inline behaviour.
-    from app.rag.retrieval.stages import apply_stages
-
-    enrichment = apply_stages(query, result, evidence_tasks=evidence_tasks)
-
-    return {
-        "query": query,
-        "query_type": query_type.value,
-        "parsed": merged_filters,
-        "identifier": identifier,
-        "chunks": [c.to_dict() for c in result.chunks],
-        "total": result.total,
-        "latency_ms": latency_ms,
-        "retrieval_latency_ms": result.latency_ms,
-        "error": result.error,
-        "log_id": str(log_entry.id) if log_entry else None,
-        **enrichment,
-    }
+    return result
 
 
 def retrieve_task(
@@ -449,6 +490,9 @@ def run_generation_pipeline(
         "kg_contract": kg_contract,
         "verification": verification,
         "pipeline": pipeline or "legacy",
+        # 1.3 compound queries: the sub-queries each sub-retrieval ran for
+        # (absent for simple queries — decomposition never ran).
+        **({"sub_queries": retrieval_data["sub_queries"]} if "sub_queries" in retrieval_data else {}),
     }
 
 

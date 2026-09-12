@@ -18,7 +18,7 @@ import json
 import zipfile
 from datetime import UTC, datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask import Blueprint, abort, current_app, jsonify, make_response, render_template, request, send_file
 from flask_login import login_required
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
@@ -557,10 +557,40 @@ def preview_adjudication_route():
 
 @adjudication_bp.route("/generate_all", methods=["POST"])
 def generate_all():
-    """Create a new adjudication case and generate PDFs in-memory."""
+    """Create a new adjudication case and generate PDFs in-memory.
+
+    Orchestrates three stages (split from a single 179-line body,
+    2026-09-12 review): case creation + RBAC scoping, evidence selection,
+    and document generation/assembly.  Behaviour is unchanged.
+    """
     form_data = request.form.to_dict()
 
-    # Phase 18 RBAC: an fso-role account always owns what it creates.
+    # Stage 1 — persist the case (RBAC force-stamp + inspection link + sync).
+    adj = _create_adjudication_with_sync(form_data)
+
+    # Stage 2 — select and audit the photo evidence.
+    include_flagged = request.form.get("include_flagged", "false").lower() == "true"
+    flag_override_reason = request.form.get("flag_override_reason", "").strip()
+    final_photos = _select_adjudication_photos(adj, include_flagged, flag_override_reason, form_data)
+
+    # Stage 3 — render + zip the documents.
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+    context["adjudication"] = {
+        "photos": final_photos,
+        "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
+    }
+    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
+    return _render_adjudication_zip(adj, context, is_pre_authorization, form_data)
+
+
+def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
+    """Persist the new Adjudication with RBAC scoping, inspection link, and sync.
+
+    Phase 18 RBAC: an fso-role account always owns what it creates.  The
+    Sheets/Airtable/Excel sync is mandatory and synchronous — a failure
+    aborts the request with 500 (after rolling back).
+    """
     from flask_login import current_user
 
     from app.shared.rbac import scoped_officer_name
@@ -575,7 +605,9 @@ def generate_all():
         db.session.commit()
     except StaleDataError:
         db.session.rollback()
-        return jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409
+        abort(
+            make_response(jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409)
+        )
 
     # Link back to inspection if this was created from one
     from_inspection = form_data.get("from_inspection")
@@ -599,7 +631,6 @@ def generate_all():
             current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {e}")
             db.session.rollback()
 
-    # Sheets + Airtable + Excel sync (mandatory, synchronous)
     allowed_sheets_columns = {
         "case_number",
         "food_safety_officer",
@@ -647,15 +678,18 @@ def generate_all():
     except Exception as e:
         current_app.logger.error(f"Adjudication sync failed: {e}")
         db.session.rollback()
-        return jsonify({"error": f"Adjudication sync failed: {e}"}), 500
+        abort(make_response(jsonify({"error": f"Adjudication sync failed: {e}"}), 500))
 
-    # Prepare context
-    context = _prepare_adjudication_context(form_data)
-    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+    return adj
 
-    include_flagged = request.form.get("include_flagged", "false").lower() == "true"
-    flag_override_reason = request.form.get("flag_override_reason", "").strip()
 
+def _select_adjudication_photos(adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict) -> list:
+    """Select photo evidence for the documents, auditing flagged inclusions.
+
+    Verified photos always go in; FLAG photos only with an explicit
+    ``include_flagged=true`` plus a ``flag_override_reason`` (400 when the
+    reason is missing).  The officer's scoping decision is audit-logged.
+    """
     all_photos = (
         Evidence.query
         .filter(
@@ -671,7 +705,7 @@ def generate_all():
 
     if include_flagged:
         if not flag_override_reason:
-            return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
+            abort(make_response(jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400))
         final_photos = verified_photos + flagged_photos
         flagged_image_ids = [p.id for p in flagged_photos]
         if flagged_image_ids:
@@ -684,11 +718,6 @@ def generate_all():
     else:
         final_photos = verified_photos
 
-    context["adjudication"] = {
-        "photos": final_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
-    }
-
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
     audit_logger("adjudication_order").log(
@@ -698,14 +727,17 @@ def generate_all():
         image_ids=image_ids,
         statuses=statuses,
     )
+    return final_photos
 
+
+def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorization: bool, form_data: dict):
+    """Render the adjudication template(s) to PDF and return the ZIP download."""
     outputs = []
-    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         if not form_data.get("authorization_date"):
-            return jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
+            abort(make_response(jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400))
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -716,11 +748,13 @@ def generate_all():
             outputs.append((f"{prefix}.pdf", pdf_bytes))
         else:
             current_app.logger.error(f"PDF generation failed for {tpl}: {error}")
-            return (
-                jsonify({
-                    "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
-                }),
-                500,
+            abort(
+                make_response(
+                    jsonify({
+                        "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
+                    }),
+                    500,
+                )
             )
 
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"

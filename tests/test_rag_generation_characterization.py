@@ -69,7 +69,7 @@ class TestCompoundQueryDecomposition:
         monkeypatch.setattr("app.rag.tasks.run_retrieval_pipeline", _fake_retrieval)
         result = run_generation_pipeline(query="Section 33 and Section 38 penalties", chunks=None)
         assert sorted(calls) == ["Section 33 provisions", "Section 38 provisions"]
-        assert "sub_queries" not in result  # dead write upstream — pinned
+        assert result["sub_queries"] == ["Section 33 provisions", "Section 38 provisions"]
         ids = [c["chunk_id"] for c in result["retrieved_chunks"]]
         assert "c_a" in ids and "c_b" in ids
 
@@ -111,8 +111,11 @@ class TestCompoundQueryDecomposition:
         monkeypatch.setattr("app.rag.tasks.run_retrieval_pipeline", _fake_retrieval)
         result = run_generation_pipeline(query="Section 55 penalties", chunks=None)
         assert calls == ["Section 55 penalties"]
+        assert "sub_queries" not in result  # simple query: decomposition never ran
+        # And with pre-provided chunks (no retrieval at all) the key is absent too.
         result2 = run_generation_pipeline(query="Section 55 penalties", chunks=[_CHUNK])
-        assert calls == ["Section 55 penalties"]  # no second retrieval for pre-provided chunks
+        assert calls == ["Section 55 penalties"]  # no second retrieval
+        assert "sub_queries" not in result2
 
 
 class TestHallucinationVerification:

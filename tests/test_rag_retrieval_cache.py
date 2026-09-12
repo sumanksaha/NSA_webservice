@@ -14,6 +14,7 @@ network-free; ``_build_reranker`` patched so no torch model loads).
 
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -39,6 +40,7 @@ def _setup_test_env():
 
 
 def _teardown(ctx):
+    os.environ.pop("RAG_RETRIEVAL_CACHE", None)  # test_cache_disabled_by_default sets it
     db.session.remove()
     db.drop_all()
     ctx.pop()
@@ -117,7 +119,14 @@ class TestRetrievalCache:
             _teardown(ctx)
 
     def test_cache_disabled_by_default(self):
-        """With RAG_RETRIEVAL_CACHE unset, identical queries are twice-run."""
+        """With RAG_RETRIEVAL_CACHE=false, identical queries are twice-run.
+
+        The shipped default flipped to True in commit 7f24fad (quality
+        improvements); this test now pins the disabled *behavior* via an
+        explicit opt-out rather than the historical default.
+        """
+        _, ctx = _setup_test_env()
+        os.environ["RAG_RETRIEVAL_CACHE"] = "false"
         _, ctx = _setup_test_env()
         try:
             retrieve_mock = mock.Mock(
