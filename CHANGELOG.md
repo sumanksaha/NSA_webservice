@@ -23,13 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **InspectionCodeGenerator** (`app/inspection/code_generation.py`): single deep module replacing triplicated code-generation logic; owns `generate_code() -> str` and `calculate_compliance_deadline() -> datetime | None` with canonical `INSP-YYYY-####` sequence allocation and deadline arithmetic.
 - **Verification adapters** (`app/inspection/verification/`):
-  - `NominatimGeocoder` — rate-limited reverse geocoding with `reverse(lat, lng) -> dict`
-  - `IpGeolocationAdapter` — IP-to-location with `geolocate(ip) -> dict` and private-IP rejection
-  - `LicenseLookupAdapter` — FSSAI/CE licence checks with `lookup(source, id) -> dict`
+    - `NominatimGeocoder` — rate-limited reverse geocoding with `reverse(lat, lng) -> dict`
+    - `IpGeolocationAdapter` — IP-to-location with `geolocate(ip) -> dict` and private-IP rejection
+    - `LicenseLookupAdapter` — FSSAI/CE licence checks with `lookup(source, id) -> dict`
 - **Photo service layer** (`app/inspection/services/`):
-  - `PhotoProcessor` — EXIF extraction, coordinate fallback, file validation (`process() -> ProcessedPhoto`)
-  - `EvidenceStore` — Evidence persistence, stamping, deletion, cleanup (`save()`, `update_stamped_evidence()`, `delete()`, `cleanup_file()`)
-  - `OCRDispatcher` — deduplicated OCR task dispatch (`dispatch(filepath) -> dict`)
+    - `PhotoProcessor` — EXIF extraction, coordinate fallback, file validation (`process() -> ProcessedPhoto`)
+    - `EvidenceStore` — Evidence persistence, stamping, deletion, cleanup (`save()`, `update_stamped_evidence()`, `delete()`, `cleanup_file()`)
+    - `OCRDispatcher` — deduplicated OCR task dispatch (`dispatch(filepath) -> dict`)
 - **`photo_routes.py` refactored**: thin HTTP adapters now delegate to the deep service layer (`PhotoProcessor`, `EvidenceStore`, `OCRDispatcher`); all business logic lives in the services.
 - **`CONTEXT.md` updated**: 7 new domain terms added (InspectionCodeGenerator, NominatimGeocoder, IpGeolocationAdapter, LicenseLookupAdapter, PhotoProcessor, EvidenceStore, OCRDispatcher).
 - **ADR-0003** (`docs/adr/0003-inspection-module-deepening.md`) recorded for the deepening decisions.
