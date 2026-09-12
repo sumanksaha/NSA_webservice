@@ -6,6 +6,13 @@
         <h2><i class="fa-solid fa-search"></i> Search Premises</h2>
     </div>
 
+    {% if error %}
+    <div class="info-box info-box--error">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
     <form method="get" class="inspection-form" style="margin-bottom: 1rem;">
         <div class="form-row">
             <div class="form-group">
@@ -47,6 +54,7 @@
     <h3>Generated Checklist</h3>
     <ul>
         <li><strong>Premises Selected:</strong> {{ checklist.premises|join(', ') }}</li>
+        <li><strong>Source Tables:</strong> {{ checklist.source_tables|join(', ') if checklist.source_tables else 'N/A' }}</li>
         <li><strong>Checklist Items:</strong></li>
         <ol>
             {% for item in checklist.items %}
