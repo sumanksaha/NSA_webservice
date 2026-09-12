@@ -38,7 +38,6 @@ document.addEventListener("DOMContentLoaded", function () {
     var permissionHtml = document.getElementById("permission-data")?.textContent || "";
     // Track whether an autosave is in-flight
     var autosaveInProgress = false;
-    var lastSavedHtml = "";
     var hasUnsavedChanges = false;
     var toastEl = null;
     // -----------------------------------------------------------------------
@@ -96,6 +95,13 @@ document.addEventListener("DOMContentLoaded", function () {
         autosaveStatus.classList.toggle("autosaving", !!isSaving);
         autosaveStatus.classList.toggle("unsaved", hasUnsavedChanges && !isSaving && !!text);
         autosaveStatus.classList.toggle("saved", !hasUnsavedChanges && !!text);
+        // Pulse animation when transitioning to unsaved state
+        if (hasUnsavedChanges && !isSaving && text) {
+            autosaveStatus.classList.add("pulse");
+            setTimeout(function () {
+                autosaveStatus.classList.remove("pulse");
+            }, 2000);
+        }
     }
     /**
      * Perform an auto-save: send current HTML + Delta to the server.
@@ -132,6 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return resp.json();
             })
             .then(function (data) {
+                markClean();
                 setAutosaveStatus("Saved " + (data.timestamp || ""), false);
                 setTimeout(function () {
                     setAutosaveStatus("", false);
@@ -140,6 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(function (err) {
                 console.error("Auto-save error:", err);
                 setAutosaveStatus("Save failed", false);
+                showToast("Auto-save failed. Changes are still in the editor.", "error");
             })
             .finally(function () {
                 autosaveInProgress = false;
@@ -386,10 +394,14 @@ document.addEventListener("DOMContentLoaded", function () {
         quill.getModule("toolbar").addHandler("image", handleImageToolbar);
         var content = getActiveHtml();
         quill.clipboard.dangerouslyPasteHTML(content);
-        // Set up live preview + debounced auto-save
-        quill.on("text-change", updatePreview);
-        quill.on("text-change", debouncedAutoSave);
-        quill.on("text-change", markDirty);
+        // Consolidated into single handler to avoid multiple listener overhead
+        quill.on("text-change", function (_, __, source) {
+            updatePreview();
+            if (source === "user") {
+                markDirty();
+                debouncedAutoSave();
+            }
+        });
     }
     // -----------------------------------------------------------------------
     // Image upload
@@ -446,7 +458,7 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .catch(function (err) {
                 console.error("Image upload error:", err);
-                alert(err.message || "Image upload failed");
+                showToast(err.message || "Image upload failed", "error");
             });
     }
     // -----------------------------------------------------------------------
@@ -493,7 +505,7 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .catch(function (err) {
                 console.error("Markdown export error:", err);
-                alert(err.message || "Markdown export failed");
+                showToast(err.message || "Markdown export failed", "error");
             });
     }
     // -----------------------------------------------------------------------
@@ -549,7 +561,7 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .catch(function (err) {
                 console.error("Save error:", err);
-                alert("Could not save document. See console for details.");
+                showToast("Could not save document. See console for details.", "error");
             });
     }
     // -----------------------------------------------------------------------
