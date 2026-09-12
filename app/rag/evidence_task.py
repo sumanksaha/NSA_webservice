@@ -226,6 +226,8 @@ class EvidenceTask:
         must_be_explicit: Whether the answer must be explicitly stated (not inferred).
         answer_contract: What fields must be present for success.
         retrieval: How this task should be retrieved.
+        source_requirement_id: Id of the AnswerRequirement this task was
+            derived from (planner bookkeeping; ``None`` for external tasks).
     """
 
     task_id: str
@@ -240,6 +242,11 @@ class EvidenceTask:
     must_be_explicit: bool = True
     answer_contract: AnswerContract | None = None
     retrieval: RetrievalPlan = field(default_factory=RetrievalPlan)
+    # Source requirement in the AnswerRequirementGraph this task was derived
+    # from (Phase 3).  First-class field instead of a ``requirement_id:{id}``
+    # entity marker: one honest name, no magic-string parsing, and retrieval
+    # scoping entities stay clean.
+    source_requirement_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-safe dict (LangGraph state / checkpointing).
@@ -260,6 +267,7 @@ class EvidenceTask:
             "must_be_explicit": self.must_be_explicit,
             "answer_contract": self.answer_contract.to_dict() if self.answer_contract else None,
             "retrieval": self.retrieval.to_dict(),
+            "source_requirement_id": self.source_requirement_id,
         }
 
     @classmethod
@@ -294,6 +302,7 @@ class EvidenceTask:
             must_be_explicit=bool(data.get("must_be_explicit", True)),
             answer_contract=contract,
             retrieval=RetrievalPlan.from_dict(data.get("retrieval") or {}),
+            source_requirement_id=data.get("source_requirement_id"),
         )
 
     def with_dependency(self, dep_id: str) -> EvidenceTask:
@@ -311,6 +320,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -329,6 +339,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -347,6 +358,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -365,6 +377,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -383,6 +396,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=AnswerContract(required_fields=required_fields),
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -739,31 +753,6 @@ def requirement_graph_from_tasks(
 #: Maps EvidenceRequirement → default AnswerContract.
 #: Canonical, complete table — ``app.rag.evidence_contract`` re-exports this
 #: (the two tables previously drifted; keep ONE source of truth).
-_ANSWER_REQUIREMENT_DOC_TYPE_HINTS: dict[EvidenceRequirement, list[str]] = {
-    EvidenceRequirement.PROVISION: ["section", "provision", "act"],
-    EvidenceRequirement.DEFINITION: ["means", "definition", "includes"],
-    EvidenceRequirement.SCOPE: ["scope", "applies", "applicability"],
-    EvidenceRequirement.PENALTY: ["penalty", "fine", "imprisonment"],
-    EvidenceRequirement.EXCEPTION: ["exception", "unless", "notwithstanding"],
-    EvidenceRequirement.AUTHORITY: ["authority", "power", "may"],
-    EvidenceRequirement.JURISDICTION: ["jurisdiction", "court", "authority"],
-    EvidenceRequirement.CROSS_REFERENCE: ["section", "read with", "referred to"],
-    EvidenceRequirement.FACT_APPLICATION: ["shall", "may", "contravention"],
-}
-
-
-def requirement_evidence_hints(requirement: EvidenceRequirement) -> list[str]:
-    """Evidence signals a requirement should look for in retrieved chunks.
-
-    Lightweight counterpart to the answer contract: informs retrieval
-    shaping and sufficiency reading without requiring a full contract.
-    """
-    return _ANSWER_REQUIREMENT_DOC_TYPE_HINTS.get(
-        requirement,
-        ["section", "provision"],
-    )
-
-
 DEFAULT_ANSWER_CONTRACTS: dict[EvidenceRequirement, AnswerContract] = {
     EvidenceRequirement.PROVISION: AnswerContract(
         required_fields=["provision", "section", "act", "citation"],
@@ -883,9 +872,9 @@ def get_answer_contract(requirement: EvidenceRequirement) -> AnswerContract:
 def build_claim_verification(
     claims: list[dict[str, Any]],
     verifications: list[dict[str, Any]],
-    authority_values: list[float] | None = None,
+    chunk_authority: dict[str, float] | None = None,
     contradictions: list[dict[str, Any]] | None = None,
-    temporal_conflict: bool = False,
+    temporally_invalid_ids: set[str] | None = None,
 ) -> list[ClaimVerification]:
     """Build per-claim :class:`ClaimVerification` records for the response.
 
@@ -894,41 +883,78 @@ def build_claim_verification(
     richer claim matrix with status, evidence, authority and contradiction
     signals.
 
-    Status mapping (backward-compatible with the existing binary path):
+    All signals are **per claim**, keyed by the claim's own supporting-chunk
+    ids — a claim is judged only by the evidence that supports it, never by
+    what other chunks elsewhere in the answer do (the old global
+    ``authority_values``/``temporal_conflict`` flattening).
 
-    - existing ``verified=True`` + authority strong + no contradiction → SUPPORTED
-    - existing ``verified=True`` but weak authority or partial evidence → PARTIALLY_SUPPORTED
-    - existing ``verified=False`` and contradicted → CONTRADICTED
-    - existing ``verified=False`` otherwise → UNSUPPORTED
+    Args:
+        claims: Extracted claim dicts (``claim_id``/``text``).
+        verifications: Per-claim verifier output (``verified``, ``confidence``,
+            ``supporting_chunks``), aligned with *claims* by index.
+        chunk_authority: chunk_id → 0–1 authority weight.  A claim's authority
+            score is the best weight among its own supporting chunks.
+        contradictions: Contradiction-pair dicts with ``chunk_a``/``chunk_b``.
+            A claim is CONTRADICTED only when one of *its own* supporting
+            chunks is on the losing side of a pair whose other side is also
+            evidence for this claim (both sides present → the claim asserts
+            something the evidence disagrees about); a chunk merely appearing
+            in some unrelated pair does not taint the claim.
+        temporally_invalid_ids: Chunk ids carrying repealed/superseded text.
+            Claims standing on such evidence are capped at
+            PARTIALLY_SUPPORTED.
+
+    Status mapping:
+
+    - ``verified=True`` + own-evidence contradiction → CONTRADICTED
+    - ``verified=True`` + strong own-authority + confidence → SUPPORTED
+    - ``verified=True`` otherwise → PARTIALLY_SUPPORTED
+    - ``verified=False`` + own-evidence contradiction → CONTRADICTED
+    - ``verified=False`` otherwise → UNSUPPORTED
     """
-    contradictions = list(contradictions or [])
-    contradiction_chunk_ids = {c.get("chunk_a") for c in contradictions} | {c.get("chunk_b") for c in contradictions}
-    authority_values = list(authority_values or [])
+    contradiction_pairs = [c for c in (contradictions or []) if isinstance(c, dict)]
+    chunk_authority = dict(chunk_authority or {})
+    invalid_ids = set(temporally_invalid_ids or set())
     out: list[ClaimVerification] = []
     for idx, claim in enumerate(claims):
         v = verifications[idx] if idx < len(verifications) else {}
         verified = bool(v.get("verified", False))
         confidence = float(v.get("confidence", 0.0))
-        evidence = list(v.get("supporting_chunks") or [])
+        evidence = [str(c) for c in (v.get("supporting_chunks") or [])]
+        evidence_set = set(evidence)
+
+        # Per-claim authority: best weight among THIS claim's supporting
+        # chunks (0.5 neutral floor mirrors chunk_authority_score's unknown-
+        # metadata treatment).
+        own_authorities = [chunk_authority[c] for c in evidence if c in chunk_authority]
+        authority_score = max(own_authorities) if own_authorities else 0.5
+
+        # Per-claim contradictions: pairs where BOTH sides are this claim's
+        # evidence — the claim sits on a conflict inside its own support.
+        claim_contradictions = [
+            dict(c)
+            for c in contradiction_pairs
+            if c.get("chunk_a") in evidence_set and c.get("chunk_b") in evidence_set
+        ]
+
         status = ClaimVerificationStatus.UNSUPPORTED
         if verified:
-            if contradiction_chunk_ids & set(evidence):
+            if claim_contradictions:
                 status = ClaimVerificationStatus.CONTRADICTED
-            elif temporal_conflict and not _temporal_consistent(evidence):
-                status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
-            elif authority_values:
-                best_authority = max(authority_values)
-                if best_authority >= 0.8 and confidence >= 0.7:
-                    status = ClaimVerificationStatus.SUPPORTED
-                else:
-                    status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
-            elif confidence >= 0.7:
+            elif confidence >= 0.7 and authority_score >= 0.8:
                 status = ClaimVerificationStatus.SUPPORTED
             else:
                 status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
         else:
-            if contradiction_chunk_ids & set(evidence):
+            if claim_contradictions:
                 status = ClaimVerificationStatus.CONTRADICTED
+
+        # Temporal cap: a claim standing on temporally invalid text (repealed/
+        # superseded) cannot be fully SUPPORTED, even when textually verified.
+        temporal_valid = not (evidence_set & invalid_ids)
+        if status is ClaimVerificationStatus.SUPPORTED and not temporal_valid:
+            status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
+
         out.append(
             ClaimVerification(
                 claim_id=str(claim.get("claim_id", f"C{idx + 1}")),
@@ -936,25 +962,12 @@ def build_claim_verification(
                 status=status,
                 confidence=confidence,
                 evidence=evidence,
-                authority_score=max(authority_values) if authority_values else 0.0,
-                temporal_valid=not temporal_conflict,
-                contradictions=[
-                    dict(c) for c in contradictions if c.get("chunk_a") in evidence or c.get("chunk_b") in evidence
-                ],
+                authority_score=authority_score,
+                temporal_valid=temporal_valid,
+                contradictions=claim_contradictions,
             )
         )
     return out
-
-
-def _temporal_consistent(chunk_ids: list[str]) -> bool:
-    """Stub temporal-consistency check for claim status.
-
-    A real implementation would inspect each chunk's temporal metadata
-    against the requirement's temporal scope. For now this preserves the
-    existing behavior (no temporal reject unless the sufficiency layer has
-    already flagged a temporal conflict on the task).
-    """
-    return True
 
 
 def requirement_to_answer_type(requirement: EvidenceRequirement) -> str:

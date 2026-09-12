@@ -201,8 +201,19 @@ class DecompositionBenchmark:
     # ------------------------------------------------------------------ #
     # Scoring
     # ------------------------------------------------------------------ #
-    def evaluate(self) -> dict[str, Any]:
-        """Run evaluation and return metrics."""
+    def evaluate(
+        self,
+        sufficiency_map: dict[str, dict[str, bool]] | None = None,
+    ) -> dict[str, Any]:
+        """Run evaluation and return metrics.
+
+        ``sufficiency_map`` (optional, Phase 3) maps query text →
+        {requirement_id: sufficient} from a real agent run (the
+        ``requirement_sufficiency`` state key produced by
+        ``evidence_sufficiency_node``).  When provided, the requirement-level
+        evidence_completeness (EC) metric reflects actual retrieval outcomes
+        instead of the conservative 0.0 default.
+        """
         if not self.queries:
             return {"error": "No queries in benchmark"}
 
@@ -219,7 +230,7 @@ class DecompositionBenchmark:
         try:
             from app.rag.evaluation.decomposition_metrics import requirement_level_report
 
-            req_report = requirement_level_report(self)
+            req_report = requirement_level_report(self, sufficiency_map=sufficiency_map)
             if "error" not in req_report:
                 report["requirement_level"] = req_report
         except Exception as exc:  # best-effort: metrics should not crash evaluation

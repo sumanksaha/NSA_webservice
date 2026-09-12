@@ -97,12 +97,23 @@ def chunk_authority_score(chunk: dict[str, Any]) -> float:
     return min(1.0, score)
 
 
+def chunk_temporally_invalid(chunk: dict[str, Any]) -> bool:
+    """True when a chunk's text marks it repealed/superseded/omitted.
+
+    Scope-free per-chunk check (no task temporal scope needed): repeal
+    language means the text describes a provision no longer in force.
+    Effective-date-vs-scope conflicts need the task's scope and stay in
+    :func:`_temporal_conflicts`.
+    """
+    return bool(REPEALED_RE.search(str(chunk.get("text") or "")))
+
+
 # --------------------------------------------------------------------------- #
 # Temporal validity
 # --------------------------------------------------------------------------- #
 
 #: Phrases that mark a chunk as temporally superseded/restricted.
-_REPEALED_RE = re.compile(r"\b(repealed|superseded|omitted|substituted by)\b", re.IGNORECASE)
+REPEALED_RE = re.compile(r"\b(repealed|superseded|omitted|substituted by)\b", re.IGNORECASE)
 _AMENDED_RE = re.compile(r"\bamended\b", re.IGNORECASE)
 #: Effectiveness phrases ("with effect from", "w.e.f.", "effective ... 2021").
 _EFFECTIVE_RE = re.compile(
@@ -131,7 +142,7 @@ def _temporal_conflicts(chunks: list[dict[str, Any]], task: Any) -> list[str]:
     for chunk in chunks:
         text = str(chunk.get("text") or "")
         cid = str(chunk.get("chunk_id") or "")
-        if _REPEALED_RE.search(text):
+        if REPEALED_RE.search(text):
             conflicts.append(cid)
             continue
         m = _EFFECTIVE_RE.search(text)
@@ -267,6 +278,11 @@ class TaskSufficiency:
     signals: dict[str, dict[str, Any]] = field(default_factory=dict)
     failures: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)
+    # Answer-requirement identity (Phase 3): which requirement in the
+    # AnswerRequirementGraph this task serves (``EvidenceTask.
+    # source_requirement_id``).  ``None`` for tasks planned before the
+    # requirement graph existed (backward compatible).
+    requirement_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -275,6 +291,7 @@ class TaskSufficiency:
             "signals": self.signals,
             "failures": self.failures,
             "conflicts": self.conflicts,
+            "requirement_id": self.requirement_id,
         }
 
 
@@ -375,6 +392,7 @@ class SufficiencyAssessor:
             signals=signals,
             failures=failures,
             conflicts=signals["contradiction"]["detail"]["conflicts"],
+            requirement_id=task_requirement_id(task),
         )
 
 
@@ -410,6 +428,25 @@ _SIGNAL_TO_FAILURE: dict[str, str] = {
 def signal_to_failure(signal: str) -> str:
     """Map a failed rubric signal to its FailureClassifier taxonomy name."""
     return _SIGNAL_TO_FAILURE.get(signal, "INSUFFICIENT_EVIDENCE_COVERAGE")
+
+
+def task_requirement_id(task: Any) -> str | None:
+    """Extract the answer-requirement id a task was derived from.
+
+    Reads the first-class ``source_requirement_id`` field (Phase 3).  Falls
+    back to the legacy ``requirement_id:{id}`` entity marker so tasks
+    serialized before the field existed (in-flight checkpoints, cached
+    plans) still resolve; returns ``None`` when neither is present.
+    """
+    req_id = getattr(task, "source_requirement_id", None)
+    if req_id:
+        return str(req_id)
+    for entity in getattr(task, "entities", None) or []:
+        if isinstance(entity, str) and entity.startswith("requirement_id:"):
+            legacy = entity.split(":", 1)[1].strip()
+            if legacy:
+                return legacy
+    return None
 
 
 def aggregate_verdicts(

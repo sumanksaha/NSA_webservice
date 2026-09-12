@@ -687,7 +687,7 @@ And after the maximum retrieval budget: `ABSTAIN`. This is a major quality impro
 
 ## Phase 3 Upgrade Plan — From Query Decomposition to Answer Requirement Graph (2026-09-11)
 
-**Status:** Planned — implementation starting now.
+**Status:** Steps 1–4 implemented (2026-09-12) — see [Implementation status](#implementation-status-2026-09-12) below.
 
 **Goal:** raise the existing decomposition/verification/evaluation stack from "subquery-oriented decomposition" to "answer requirements first", without adding new retrievers, new LangGraph nodes, or a wholesale rewrite.
 
@@ -768,6 +768,74 @@ Concrete changes:
 3. Enrich claim verification status + contradiction/temporal/authority signals in the response.
 4. Extend benchmark + gold dataset with requirement/atomicity/evidence-completeness metrics and a small failure-mode expansion.
 5. (Later, separate scope) richer per-requirement reranking profiles and a lightweight evidence-sufficiency/confidence controller; temporal/authority hierarchy as a firmer first-class subsystem once the requirement model is in place.
+
+### Implementation status (2026-09-12)
+
+Steps 1–4 of the implementation order are complete and verified with an end-to-end functional regression suite (8 files compile; planner, sufficiency, node wiring, and benchmark all exercised). Nothing below adds a retriever or a LangGraph node.
+
+**Step 1 — Requirement model + graph (`app/rag/evidence_task.py`)**
+
+- `AnswerRequirement`: `id`, `type` (EvidenceRequirement), `subject`, `question` (derived retrieval question), `answer_type`, `evidence_required`, `mandatory`, `conditions`, `jurisdiction`, `temporal_scope`; with `to_dict`/`from_dict`.
+- `AnswerRequirementGraph`: `requirements` + `dependencies` (`(depends_on, requirement_id)` pairs) + `derived_tasks`; helpers `requirement_ids()`, `mandatory_ids()`, `requirement_by_id()`; full dict round-trip.
+- `requirement_to_answer_type()` maps requirement → expected answer shape.
+- `requirement_graph_from_tasks()` derives a graph from bare task lists (bridge for external/task-only callers).
+- `CoverageMatrix.to_dict()` restored (was unreachable dead code after `requirement_graph_from_tasks`).
+- `QueryPlanner.plan()` now returns `DecompositionResult.requirement_graph` populated via `_build_requirement_graph()`; requirement→task derivation is explicit — every `EvidenceTask` carries a `requirement_id:{id}` entity marker pointing at its source requirement, and task dependencies are mirrored into requirement dependencies. Planner ids are `r{N}` (stable across the Requirement→AnswerRequirement round-trip).
+- Backward compatibility preserved: `tasks`, `dag`, `evidence_requirements`, `coverage_matrix`, `total_tasks`, `_legacy_plan()`, `get_complexity()`, `decompose()`, `get_retrieval_strategy()` all unchanged.
+
+**Step 2 — Requirement identity through the pipeline**
+
+- `EvidenceTask.source_requirement_id` (first-class field, serialized with the task): the answer requirement a task was derived from. Set in `_build_task`; no `requirement_id:{id}` magic-string entity marker (reviewed and replaced — the marker previously leaked into retrieval-scoping entities and was parsed in three places).
+- `app/rag/agent/sufficiency.py`: `TaskSufficiency.requirement_id` (via `task_requirement_id()`, which reads the field with a legacy-marker fallback for in-flight serialized states); verdict `to_dict()` includes it, so per-task sufficiency verdicts are traceable to answer requirements.
+- Retrieval/rerank are already requirement-conditioned in effect: `_run_task_retrieval` runs one retrieval per task with `task.question` (the requirement's derived retrieval question) and attaches the task for the `evidence_plan` stage — so each retrieval call answers "which requirement am I retrieving evidence for?". The reranker remains query-conditioned per requirement-derived query.
+- `app/rag/agent/state.py`: new `requirement_sufficiency: dict[str, bool]` state key.
+- `app/rag/agent/nodes.py`:
+  - `plan_node` serializes `requirement_graph` into `query_plan` (JSON-safe for the checkpointer).
+  - `evidence_sufficiency_node` folds per-task verdicts into `requirement_sufficiency` (conservative AND semantics across tasks serving the same requirement).
+  - `finalize_node` surfaces `requirement_sufficiency` + the serialized requirement graph on `response.agent` for observability.
+
+**Step 3 — Claim-level verification enrichment (`app/rag/evidence_task.py` + `app/rag/agent/nodes.py`)**
+
+- `ClaimVerificationStatus` (`SUPPORTED` / `PARTIALLY_SUPPORTED` / `UNSUPPORTED` / `CONTRADICTED`) + `ClaimVerification` (status, evidence, authority_score, temporal_valid, contradictions) with serialization.
+- `build_claim_verification(claims, verifications, chunk_authority, contradictions, temporally_invalid_ids)` upgrades the binary verified/confidence verdicts into the status matrix. **All signals are per claim**, keyed by the claim's own supporting-chunk ids (reviewed fix): a claim's authority is the best weight among *its own* chunks; a claim is CONTRADICTED only when both sides of a contradiction pair are its own evidence (no guilt by association from unrelated pairs); claims standing on repealed/superseded text are capped at PARTIALLY_SUPPORTED.
+- `_verify_claims` in `nodes.py` derives the chunk-keyed signal maps itself (from chunk metadata + the verifier's contradiction pairs), so the linear and DAG paths behave identically — no global-signal plumbing through `synthesize_node`.
+
+**Step 4 — Requirement-level evaluation (`app/rag/evaluation/`)**
+
+- New `app/rag/evaluation/decomposition_metrics.py`:
+  - `requirement_coverage` (RC) — matched gold requirements / total gold, matched case-insensitively on id + type, multiset-aware.
+  - `atomicity_score` (AS) — 1 − multi-claim tasks / total tasks (conjunctive-sentence heuristic).
+  - `decomposition_efficiency` (DE) — useful requirements / generated requirements.
+  - `evidence_completeness` (EC) — mandatory requirements with sufficient evidence / mandatory requirements; conservative 0.0 without sufficiency data.
+  - `compute_requirement_level_metrics()` per entry and `requirement_level_report()` aggregate with per-query breakdown.
+- `gold_dataset.py`: `gold_requirements`, `gold_answer_types`, `gold_mandatory` on all entries, **expanded to 10 entries** with a dedicated failure-mode torture tier (Phase 3 step 4): nested compound (provision + authority + penalty + exception through one section), multi-hop (Rule → authorizing section → penalty), temporal-before (penalty at a prior temporal state), adversarial permission (yes/no that decomposes into section + definition + exception), and fact-pattern application. The shared late-filing R1/R2/R3 literals are defined once as module constants and spread per entry with `dict(...)` (fresh dicts — no shared mutable gold state).
+- `benchmark.py`: `QueryBenchmark` carries requirement-level gold + prediction fields; `add_gold_entry` transfers them; `record_prediction` records the requirement graph; `evaluate(sufficiency_map=...)` emits a `requirement_level` section — pass the per-run `requirement_sufficiency` map to score EC from real retrieval outcomes.
+
+**Current baseline over the 10-entry gold set (planner dry-run, no sufficiency map):** RC=1.0, AS=1.0, DE=1.0, EC=0.0 (conservative — EC only scores when a real or simulated `requirement_sufficiency` map is passed to `evaluate()`; with a simulated map it is 1.0). Kind-level view: task recall/precision/F1, dependency accuracy and exact-match all 1.0 with zero over/under-decomposition. The torture tier originally exposed systematic secondary-requirement gaps (measured RC=0.658, DE=0.883); they were closed by planner fixes:
+
+| Gap found by the torture tier | Fix |
+|---|---|
+| Temporal queries produced provision only — no amendment requirement | AMENDMENT secondary detector (amend/repeal/re-enact mentions) |
+| "Who can enforce it" missed | AUTHORITY secondary detector (enforce/prosecute/initiate action) |
+| Multi-hop typed the first requirement `provision` instead of `cross_reference` | Rule-X + "authorizes" retype to CROSS_REFERENCE |
+| Permission questions had no definition/exception requirements | Deterministic definition-requirement heuristic for permission questions about a product substance |
+| Fact patterns had no fact-application requirement | FACT_APPLICATION detector (mid-text yes/no offence questions) |
+| SIMPLE-complexity queries collapsed to one task even with multiple requirements | Multi-requirement SIMPLE queries use wave construction; `_apply_minimum_sufficient` no longer collapses them |
+| Comparative sides anchored on the wrong foundation | Wave-2 fallback anchors on the first same-domain wave-2 task; CROSS_REFERENCE/DEFINITION added to `_DOMAIN_OF` |
+| Positional id-matching penalized valid decompositions (RC=0.25 with 3/4 types present) | Order-insensitive matching: id first, then type; subject required only to disambiguate repeated gold types (comparative sides), subset-based compatibility otherwise |
+
+Matching semantics note: requirement ids are planner-internal, so the evidence *type* is the real ontology. The matcher therefore matches on id when possible, falls back to type-only when a gold type occurs once (planner subject extraction is too weak to be authoritative), and requires subject compatibility only when a gold type repeats (so the two sides of a comparative query stay distinguishable).
+
+**Deferred (step 5, separate scope):** per-requirement reranking weight profiles, an explicit evidence-confidence controller (HIGH/MEDIUM/LOW), and deeper temporal reasoning (amendment/repeal chains as first-class fields).
+
+### Review pass (2026-09-12) — quality corrections applied
+
+A two-axis code review (standards + spec) of the Phase 3 changeset produced three fixes and one retraction:
+
+- **Per-claim verification signals (spec fix).** `build_claim_verification` previously flattened authority/contradiction/temporal into one global value per claim set: every claim got `max(authority_values)` and `temporal_valid=not temporal_conflict`, and a claim was CONTRADICTED if any of its chunks appeared in *any* contradiction pair (guilt by association). All signals are now keyed by the claim's own supporting chunks: per-claim authority (best of its own chunks), CONTRADICTED only when both sides of a pair are the claim's own evidence, temporal cap via a repeal-flagged chunk-id set. `_verify_claims` derives the chunk-keyed maps itself, so the linear and DAG paths behave identically (the `synthesize_node` plumbing was removed).
+- **First-class `source_requirement_id` (standards fix).** The `requirement_id:{id}` entity-marker string (parsed in three places, and leaking bookkeeping into retrieval-scoping entities) is replaced by an `EvidenceTask.source_requirement_id` field, serialized with the task; `task_requirement_id()` reads it with a legacy-marker fallback for in-flight checkpoints. Also corrected the `DecompositionResult` docstring, which claimed tasks are derived *from* the graph — they are derived from requirements by `_construct_tasks`, and the graph mirrors them.
+- **Dead code removed (standards fix).** Unused speculative helpers and imports (`requirement_evidence_hints`, `_temporal_consistent` stub, `REQUIREMENT_GOLD_KEYS`, `_gold_*` accessors superseded by `_count_matched_requirements`, `_requirement_id_matches`, `Counter`/`field` imports).
+- **Retraction:** the earlier review flagged `hybrid_retriever.py` changes as Phase 3 scope creep. They are in fact a standalone production fix from commit `bb4d88f` (the identifier arm was raising TypeError inside `reciprocal_rank_fuse` on any "Section N" query — the arm had been dead since the RRF extraction refactor). The review's baseline commit predated that fix; no revert was made or needed.
 
 ---
 

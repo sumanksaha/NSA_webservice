@@ -87,14 +87,7 @@ def _enrich_audit_entry(entry: dict[str, Any], **telemetry: Any) -> dict[str, An
     return entry
 
 
-def _verify_claims(
-    answer: str,
-    chunks: list[dict[str, Any]],
-    *,
-    authority_values: list[float] | None = None,
-    contradictions: list[dict[str, Any]] | None = None,
-    temporal_conflict: bool = False,
-) -> dict[str, Any] | None:
+def _verify_claims(answer: str, chunks: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Claim-level verification of a generated answer (V2 plan item 15).
 
     Extracts factual claims via the rule-based :class:`ClaimExtractor` and
@@ -104,18 +97,21 @@ def _verify_claims(
     Phase 3 upgrade: instead of returning only ``verified`` + ``confidence``,
     the claim report now carries per-claim :class:`ClaimVerification` status
     (``SUPPORTED`` / ``PARTIALLY_SUPPORTED`` / ``UNSUPPORTED`` /
-    ``CONTRADICTED``) with evidence, authority and contradiction signals.
-
-    When *authority_values*, *contradictions* or *temporal_conflict* are
-    passed (from the sufficiency rubric on the DAG path), they enrich the
-    status assignment; on the linear path those signals are absent and the
-    status falls back to the binary verified/confidence heuristic.
+    ``CONTRADICTED``) with per-claim evidence, authority and contradiction
+    signals.  All signals are derived from the evidence chunks themselves
+    (chunk-keyed authority weights, verifier contradiction pairs, repeal-
+    language temporal flags), so each claim is judged only by the evidence
+    that supports it — identical on the linear and DAG paths.
 
     Returns ``None`` when the answer carries no verifiable claims.
     """
     if not answer or not answer.strip():
         return None
-    from app.rag.agent.sufficiency import as_retrieved_chunks
+    from app.rag.agent.sufficiency import (
+        as_retrieved_chunks,
+        chunk_authority_score,
+        chunk_temporally_invalid,
+    )
     from app.rag.evidence_task import build_claim_verification
     from app.rag.verification.claim_extractor import ClaimExtractor
     from app.rag.verification.evidence_verifier import EvidenceVerifier
@@ -123,7 +119,8 @@ def _verify_claims(
     claims = ClaimExtractor().extract(answer)
     if not claims:
         return None
-    evidence_chunks = as_retrieved_chunks([c for c in chunks if isinstance(c, dict)])
+    evidence_dicts = [c for c in chunks if isinstance(c, dict)]
+    evidence_chunks = as_retrieved_chunks(evidence_dicts)
     verifications = EvidenceVerifier().verify_claims(claims, evidence_chunks)
     verifications_dict = [
         {
@@ -134,12 +131,29 @@ def _verify_claims(
         }
         for v in verifications
     ]
+    # Chunk-keyed signal maps — per-claim inputs, not flattened globals.
+    chunk_authority = {
+        str(c.get("chunk_id") or ""): chunk_authority_score(c)
+        for c in evidence_dicts
+        if c.get("chunk_id")
+    }
+    invalid_ids = {
+        str(c.get("chunk_id") or "") for c in evidence_dicts if chunk_temporally_invalid(c)
+    }
+    try:
+        all_pairs = EvidenceVerifier().find_contradictions(evidence_chunks)
+        contradictions = [
+            {"chunk_a": p.a.chunk_id, "chunk_b": p.b.chunk_id, "kind": p.kind, "values": list(p.values)}
+            for p in all_pairs
+        ]
+    except Exception:  # contradiction detection is best-effort enrichment
+        contradictions = []
     claim_verifications = build_claim_verification(
         [c.to_dict() for c in claims],
         verifications_dict,
-        authority_values=list(authority_values or []),
-        contradictions=list(contradictions or []),
-        temporal_conflict=temporal_conflict,
+        chunk_authority=chunk_authority,
+        contradictions=contradictions,
+        temporally_invalid_ids=invalid_ids,
     )
     verified_count = sum(1 for v in verifications if v.verified)
     return {
@@ -314,11 +328,7 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     # Claim-level verification (item 15): extract + entail-check the answer's
     # claims against the retrieved evidence.  Threshold enforcement happens
     # in the verify/citation gate — this node only measures.
-    claim_report = _verify_claims(
-        result.get("answer", ""),
-        state.get("chunks") or [],
-        temporal_conflict=bool(state.get("temporal_conflict", False)),
-    )
+    claim_report = _verify_claims(result.get("answer", ""), state.get("chunks") or [])
     # Phase 4 cost telemetry: context + completion tokens for this LLM call.
     token_cost = _est_tokens(
         state.get("query"),
@@ -596,6 +606,14 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
         response["agent"]["unverified_claims"] = state.get("unverified_claims", [])
     if state.get("task_sufficiency"):
         response["agent"]["has_conflicts"] = bool(state.get("has_conflicts", False))
+        # Phase 3: per-requirement sufficiency — which answer requirements in
+        # the AnswerRequirementGraph ended up with sufficient evidence.  Also
+        # mirrors the serialized requirement graph for observability.
+        if state.get("requirement_sufficiency"):
+            response["agent"]["requirement_sufficiency"] = state["requirement_sufficiency"]
+        qplan = state.get("query_plan") or {}
+        if isinstance(qplan, dict) and qplan.get("requirement_graph"):
+            response["agent"]["requirement_graph"] = qplan["requirement_graph"]
     return {"response": response}
 
 
@@ -661,6 +679,11 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
             "total_tasks": plan.total_tasks,
             "dag_valid": dag_valid,
             "tasks": task_dicts,
+            # Phase 3: serialized AnswerRequirementGraph — requirements with
+            # ids/types/answer contracts/dependencies, JSON-safe for the
+            # checkpointer.  Sufficiency verdicts and the benchmark carry the
+            # requirement_id forward from here.
+            "requirement_graph": plan.requirement_graph.to_dict() if plan.requirement_graph is not None else None,
         },
         "subquestions": [t.task_id for t in plan.tasks],
         "evidence_requirements": [t.evidence_requirement.value for t in plan.tasks],
@@ -1103,7 +1126,21 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
     authority_values = [v["signals"]["authority"]["value"] for v in agg["verdicts"] if v.get("signals")]
     authority_score = min(authority_values) if authority_values else 1.0
     temporal_conflict = any(not v["signals"]["temporal"]["passed"] for v in agg["verdicts"] if v.get("signals"))
+
+    # Phase 3: fold per-task verdicts into per-requirement sufficiency so the
+    # benchmark's evidence_completeness (EC) metric has real-run data keyed by
+    # AnswerRequirementGraph ids.  Conservative AND semantics: a requirement is
+    # sufficient only when every task serving it passed the rubric (multiple
+    # tasks per requirement is rare — the planner dedupes — so this mostly
+    # degenerates to the single task's verdict).
+    requirement_sufficiency: dict[str, bool] = {}
+    for v in agg["verdicts"]:
+        rid = v.get("requirement_id")
+        if not rid:
+            continue
+        requirement_sufficiency[rid] = requirement_sufficiency.get(rid, True) and bool(v["sufficient"])
     return {
+        "requirement_sufficiency": requirement_sufficiency,
         "evidence_coverage": coverage,
         "evidence_sufficient": sufficient,
         "budget_exhausted": budget_exhausted,
@@ -1207,27 +1244,9 @@ def synthesize_node(state: dict[str, Any]) -> dict[str, Any]:
         pipeline="agent",
     )
     # Claim-level verification (item 15) against the merged DAG evidence.
-    # Enrich with authority/contradiction/temporal signals from the
-    # sufficiency rubric so the claim statuses carry more than binary verified.
-    task_sufficiency = state.get("task_sufficiency") or []
-    authority_values: list[float] = []
-    contradictions: list[dict[str, Any]] = []
-    temporal_conflict = bool(state.get("temporal_conflict", False))
-    if task_sufficiency:
-        for verdict in task_sufficiency:
-            sigs = verdict.get("signals") or {}
-            auth = sigs.get("authority", {}).get("value", 0.0)
-            if auth:
-                authority_values.append(auth)
-            cont = sigs.get("contradiction", {}).get("detail", {}).get("conflicts", [])
-            contradictions.extend(list(cont or []))
-    claim_report = _verify_claims(
-        result.get("answer", ""),
-        merged,
-        authority_values=authority_values or None,
-        contradictions=contradictions or None,
-        temporal_conflict=temporal_conflict,
-    )
+    # Signals are derived per claim from the evidence chunks themselves
+    # (authority / contradiction pairs / repeal flags) inside _verify_claims.
+    claim_report = _verify_claims(result.get("answer", ""), merged)
     # Consume the LLM-call budget counter (synthesis is one LLM call) so a
     # later budget gate sees real usage.
     budget = dict(state.get("budget") or {})

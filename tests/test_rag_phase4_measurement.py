@@ -157,15 +157,22 @@ class TestGoldBenchmark:
     def test_end_to_end_over_real_planner(self):
         """Score the actual deterministic planner against the gold set.
 
-        This is the measurement the benchmark exists for — and, since the
-        plural-keyword and comparative fixes, it doubles as a **regression
-        gate**: every gold class must decompose exactly (recall/F1 1.0,
-        dependency edges exact, no over/under-decomposition).
+        This is the measurement the benchmark exists for — and it doubles as
+        a **regression gate**: every gold class must decompose exactly at the
+        kind level (recall/F1 1.0, dependency edges exact, no over/under-
+        decomposition).  The dataset now includes the Phase 3 failure-mode
+        torture tier (nested, multi-hop, temporal, adversarial, fact-pattern
+        queries), so this gate covers the harder shapes too.
 
         Previously-measured gaps (now fixed in the planner):
         - multi_requirement queries dropped the penalty task
           ("penalties" never matched the substring keyword check);
-        - comparative queries collapsed to a single provision task.
+        - comparative queries collapsed to a single provision task;
+        - temporal queries produced no amendment requirement;
+        - nested queries dropped the enforcement-authority requirement;
+        - multi-hop rule queries typed the primary as provision, not
+          cross_reference;
+        - fact patterns had no fact_application requirement.
         """
         from app.rag.planning.query_planner import QueryPlanner
 
@@ -184,7 +191,7 @@ class TestGoldBenchmark:
         assert report["exact_match_rate"] == 1.0
         assert report["under_decomposition_rate"] == 0.0
         assert report["over_decomposition_rate"] == 0.0
-        for cls in ("direct_lookup", "multi_requirement", "comparative"):
+        for cls in ("direct_lookup", "multi_requirement", "comparative", "nested_compound", "multi_hop", "fact_pattern"):
             assert report["per_query_class"][cls]["avg_recall"] == 1.0, cls
             assert report["per_query_class"][cls]["avg_f1"] == 1.0, cls
 

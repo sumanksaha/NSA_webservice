@@ -21,8 +21,9 @@ matches a gold list of subquestions.
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.rag.evidence_task import AnswerRequirementGraph
@@ -42,49 +43,15 @@ if TYPE_CHECKING:
 #: explicit answer types, evidence requirements, and mandatory flags.
 GoldRequirement = dict[str, Any]
 
-#: Keys a :class:`GoldEntry` may carry in addition to the existing
-#: ``gold_task_kinds``/``gold_dependencies``/``gold_entities`` set.
-REQUIREMENT_GOLD_KEYS = (
-    "gold_requirements",        # list[GoldRequirement]
-    "gold_answer_types",        # dict[req_id -> answer_type]
-    "gold_evidence_required",   # dict[req_id -> list[str]]
-    "gold_mandatory",           # set[str] — which requirement ids are mandatory
-)
-
 
 def _gold_requirements(entry: dict[str, Any]) -> list[GoldRequirement]:
     """Extract requirement-level gold from a GoldEntry (empty list if absent)."""
     return list(entry.get("gold_requirements") or [])
 
 
-def _gold_answer_types(entry: dict[str, Any]) -> dict[str, str]:
-    return {str(k): str(v) for k, v in (entry.get("gold_answer_types") or {})}
-
-
-def _gold_evidence_required(entry: dict[str, Any]) -> dict[str, list[str]]:
-    return {str(k): list(v) for k, v in (entry.get("gold_evidence_required") or {})}
-
-
-def _gold_mandatory(entry: dict[str, Any]) -> set[str]:
-    return set(entry.get("gold_mandatory") or [])
-
-
 # ---------------------------------------------------------------------------
 # Requirement matching
 # ---------------------------------------------------------------------------
-
-def _requirement_id_matches(pred_req: AnswerRequirement, gold_req: GoldRequirement) -> bool:
-    """True when a predicted requirement matches a gold requirement by id + type.
-
-    Both id and evidence type must align so that two requirements with the same
-    type but different subjects (e.g. two distinct penalty questions) are not
-    collapsed into one match.  Matching is case-insensitive on id (the planner
-    uses ``r{N}`` while gold may use ``R{N}``).
-    """
-    gold_id = str(gold_req.get("id", ""))
-    gold_type = str(gold_req.get("type", ""))
-    return bool(gold_id) and pred_req.id.lower() == gold_id.lower() and pred_req.type.value == gold_type
-
 
 def _count_matched_requirements(
     pred_graph: AnswerRequirementGraph,
@@ -92,28 +59,87 @@ def _count_matched_requirements(
 ) -> int:
     """Count gold requirements that have a matching predicted requirement.
 
-    Multiset-aware at the id+type level: each gold requirement is matched at
-    most once, and a predicted requirement can satisfy at most one gold
-    requirement.  Matching is case-insensitive on id.
+    Matching is **order-insensitive**: requirement ids are planner-internal
+    labels (``r1`` vs ``R1`` vs ``R4``) — the numbering order says nothing
+    about decomposition quality.  Matching is by evidence type, with the
+    subject check applied only where it can be honest:
+
+    - A gold type occurring **once** matches any unused prediction of that
+      type.  The planner's per-requirement subjects are still weak (often
+      just the Act name), so requiring subject alignment there would measure
+      subject phrasing, not decomposition.
+    - A gold type occurring **multiple times** (e.g. the two comparative
+      sides) requires the matched predictions' subjects to be compatible —
+      one same-type prediction cannot satisfy two distinct gold requirements.
+
+    Each gold requirement is matched at most once, and each predicted
+    requirement satisfies at most one gold requirement (multiset-aware).
     """
-    pred_by_id = {r.id.lower(): r for r in pred_graph.requirements}
-    used_pred_ids: set[str] = set()
+    type_counts: Counter = Counter(str(g.get("type", "")) for g in gold_reqs)
+    used: set[int] = set()
     matched = 0
+    # Pass 1: repeated gold types — subject compatibility required.
     for gold_req in gold_reqs:
-        gold_id = str(gold_req.get("id", ""))
-        if not gold_id:
+        gold_type = str(gold_req.get("type", ""))
+        if type_counts[gold_type] <= 1:
             continue
-        pred = pred_by_id.get(gold_id.lower())
-        if pred is not None and pred.id not in used_pred_ids and pred_req_type_matches(pred, gold_req):
+        gold_subject = str(gold_req.get("subject", "")).strip().lower()
+        match_idx = next(
+            (
+                i
+                for i, pred in enumerate(pred_graph.requirements)
+                if i not in used
+                and pred.type.value == gold_type
+                and (not gold_subject or _subjects_compatible(pred.subject, gold_subject))
+            ),
+            None,
+        )
+        if match_idx is not None:
+            used.add(match_idx)
             matched += 1
-            used_pred_ids.add(pred.id)
+    # Pass 2: single-occurrence gold types — type-only.
+    for gold_req in gold_reqs:
+        gold_type = str(gold_req.get("type", ""))
+        if type_counts[gold_type] > 1:
+            continue
+        match_idx = next(
+            (
+                i
+                for i, pred in enumerate(pred_graph.requirements)
+                if i not in used and pred.type.value == gold_type
+            ),
+            None,
+        )
+        if match_idx is not None:
+            used.add(match_idx)
+            matched += 1
     return matched
+
+
+def _subjects_compatible(pred_subject: str, gold_subject: str) -> bool:
+    """Lenient subject compatibility check.
+
+    True when one subject's content words are a **subset** of the other's —
+    the planner may phrase the same requirement more narrowly ('FSS Act') or
+    more broadly ('small food businesses under the FSS Act') than gold, but a
+    genuinely different requirement ('small food businesses' vs 'large food
+    manufacturers') is a subset in neither direction.  Mere word overlap is
+    NOT enough: {food} alone would match every food-law subject.
+    """
+    stop = {"the", "a", "an", "of", "for", "to", "in", "on", "and", "or"}
+
+    def words(s: str) -> set[str]:
+        return {w for w in re.findall(r"[a-z0-9]+", s.lower()) if w not in stop}
+
+    pw, gw = words(pred_subject or ""), words(gold_subject or "")
+    if not pw or not gw:
+        return True  # nothing to compare against — defer to the type check
+    return pw <= gw or gw <= pw
 
 
 def pred_req_type_matches(pred_req: AnswerRequirement, gold_req: GoldRequirement) -> bool:
     """Check that the predicted requirement's type matches the gold type."""
-    gold_type = str(gold_req.get("type", ""))
-    return pred_req.type.value == gold_type
+    return pred_req.type.value == str(gold_req.get("type", ""))
 
 
 # ---------------------------------------------------------------------------
