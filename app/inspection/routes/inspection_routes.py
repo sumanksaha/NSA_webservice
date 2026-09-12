@@ -449,3 +449,59 @@ def delete_inspection(inspection_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete inspection: {e!s}"}), 500
+
+
+@inspection_bp.route("/premises/search", methods=["GET", "POST"])
+def premises_search():
+    """Search Supabase license/registration tables and build an inspection checklist."""
+    from sqlalchemy import create_engine, text
+
+    # Supabase Postgres connection — separate from the local SQLite db.session.
+    supabase_url = (
+        current_app.config.get("SUPABASE_DB_URL")
+        or "postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
+    )
+    engine = create_engine(supabase_url, pool_pre_ping=True)
+
+    query = (request.args.get("q") or request.form.get("q") or "").strip()
+    selected = request.form.getlist("selected")
+    results = []
+    checklist = None
+
+    if query and request.method == "GET":
+        with engine.connect() as conn:
+            resp = conn.execute(
+                text(
+                    "SELECT license_no, company_name, full_address, expiry_date "
+                    "FROM fssai_licenses WHERE company_name ILIKE :name ORDER BY company_name"
+                ),
+                {"name": f"%{query}%"},
+            )
+            for row in resp.mappings():
+                d = dict(row)
+                d["_source_table"] = "fssai_licenses"
+                results.append(d)
+            resp = conn.execute(
+                text(
+                    "SELECT registration_no, company_name, full_address, expiry_date "
+                    "FROM fssai_registrations WHERE company_name ILIKE :name ORDER BY company_name"
+                ),
+                {"name": f"%{query}%"},
+            )
+            for row in resp.mappings():
+                d = dict(row)
+                d["_source_table"] = "fssai_registrations"
+                results.append(d)
+
+    if request.method == "POST" and selected:
+        checklist = {
+            "premises": selected,
+            "items": CHECKLIST_FIELDS,
+        }
+
+    return render_template(
+        "inspection/premises_search.html",
+        query=query,
+        results=results,
+        checklist=checklist,
+    )

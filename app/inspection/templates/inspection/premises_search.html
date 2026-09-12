@@ -1,0 +1,59 @@
+{% extends "inspection/base_inspection.html" %}
+{% block title %}Search Premises{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-search"></i> Search Premises</h2>
+    </div>
+
+    <form method="get" class="inspection-form" style="margin-bottom: 1rem;">
+        <div class="form-row">
+            <div class="form-group">
+                <input type="text" name="q" id="search_q" class="form-input" placeholder="Enter premises name (e.g., devyani)" value="{{ query }}" style="width: auto;">
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+        </div>
+    </form>
+
+    {% if results %}
+    <h3>Results ({{ results|length }} found)</h3>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem;">
+            {% for r in results %}
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; background: var(--bg-subtle);">
+                <label style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                    <input type="checkbox" name="selected" value="{{ r.get('license_no') or r.get('registration_no') }}" {% if r.get('selected') %}checked{% endif %}>
+                    <span>
+                        <strong>{{ r.company_name }}</strong>
+                        <br><small class="text--secondary">{{ r.full_address }}</small>
+                        <br><small class="text--secondary">License: {{ r.license_no or r.registration_no }}</small>
+                        <br><small class="text--secondary">Source: {{ r._source_table }}</small>
+                    </span>
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top: 1rem;">
+            <button type="submit" class="btn btn-success"><i class="fa-solid fa-check"></i> Generate Checklist</button>
+            <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+    {% elif query %}
+    <p>No results found for "{{ query }}".</p>
+    {% endif %}
+
+    {% if checklist %}
+    <h3>Generated Checklist</h3>
+    <ul>
+        <li><strong>Premises Selected:</strong> {{ checklist.premises|join(', ') }}</li>
+        <li><strong>Checklist Items:</strong></li>
+        <ol>
+            {% for item in checklist.items %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ol>
+    </ul>
+    {% endif %}
+</div>
+{% endblock %}
