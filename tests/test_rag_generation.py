@@ -27,11 +27,20 @@ from app.rag.tasks import run_generation_pipeline
 
 
 def _make_chunks(n=3):
+    # Text intentionally covers multiple evidence types (PROVISION,
+    # PENALTY_PROVISION, AUTHORITY_PROVISION) so the chunks pass the
+    # §2.8 answerability gate added to ContextBuilder in commit 0bfc8d3 —
+    # the original single-clause fixture was rejected as insufficient
+    # evidence and every ContextBuilder test regressed to empty contexts.
     return [
         RetrievedChunk(
             chunk_id=f"c{i}",
             score=0.9 - i * 0.1,
-            text=f"Section {i + 1} of the FSS Act, 2006.",
+            text=(
+                f"Section {i + 1} of the FSS Act, 2006. The licensing authority "
+                "may impose a penalty or fine; enforcement powers rest with "
+                "the authority."
+            ),
             section_number=str(i + 1),
             document_title="FSS Act 2006",
             document_type="act",
@@ -71,14 +80,26 @@ class TestContextBuilder:
 
     def test_sorts_by_score_descending(self):
         chunks = [
-            RetrievedChunk(chunk_id="low", score=0.1, text="low", section_number="1"),
-            RetrievedChunk(chunk_id="high", score=0.9, text="high", section_number="2"),
+            RetrievedChunk(
+                chunk_id="low",
+                score=0.1,
+                text="Section 9 licensing authority penalty enforcement",
+                section_number="1",
+            ),
+            RetrievedChunk(
+                chunk_id="high",
+                score=0.9,
+                text="Section 8 licensing authority penalty enforcement",
+                section_number="2",
+            ),
         ]
         built = ContextBuilder().build("q", chunks)
         assert built.citations[0]["chunk_id"] == "high"
 
     def test_token_estimate_positive(self):
-        built = ContextBuilder().build("q", _make_chunks(1))
+        # 2+ chunks: the §2.8 answerability gate requires >=2 chunks for
+        # non-definition queries (single-chunk fixtures are rejected).
+        built = ContextBuilder().build("q", _make_chunks(2))
         assert built.total_tokens_estimate > 0
 
 
@@ -251,9 +272,21 @@ class TestGroundedGenerationService:
         assert "Custom" in result.answer
 
     def test_citation_map_uses_context_order(self):
+        # Text covers PROVISION+PENALTY+AUTHORITY so the §2.8 answerability
+        # gate passes and the context actually builds.
         chunks = [
-            RetrievedChunk(chunk_id="low", score=0.1, text="low", section_number="1"),
-            RetrievedChunk(chunk_id="high", score=0.9, text="high", section_number="2"),
+            RetrievedChunk(
+                chunk_id="low",
+                score=0.1,
+                text="Section 9 licensing authority penalty enforcement",
+                section_number="1",
+            ),
+            RetrievedChunk(
+                chunk_id="high",
+                score=0.9,
+                text="Section 8 licensing authority penalty enforcement",
+                section_number="2",
+            ),
         ]
         result = GroundedGenerationService().generate("query", chunks)
         cited = [c.chunk_id for c in result.citations]

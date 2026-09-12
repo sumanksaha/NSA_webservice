@@ -383,20 +383,108 @@ def run_generation_pipeline(
     1.3: If the query contains multiple section references with
     conjunctions (e.g., "Section 33 and Section 38"), decompose into
     sub-queries and merge results for more complete coverage.
+
+    Orchestrates four stages (split from a single 291-line body,
+    2026-09-12 review): evidence resolution, KG context, claim-level
+    verification, and response assembly.  Behaviour is unchanged.
     """
     from dataclasses import asdict
 
     from app.rag.generation import GroundedGenerationService
-    from app.rag.retrieval.result import RetrievedChunk
-    from app.rag.retrieval.subquery_decomposer import SubQueryDecomposer
 
     start = time.monotonic()
 
-    # 1.3: Decompose compound queries into sub-queries
-    sub_queries = SubQueryDecomposer().decompose(query)
-    is_compound = len(sub_queries) > 1
+    # Stage 1 — evidence: optional sub-query decomposition + retrieval,
+    # normalization into RetrievedChunk objects.
+    retrieval_data, chunk_objects, query_type = _generate_resolve_evidence(
+        query,
+        chunks=chunks,
+        query_type=query_type,
+        top_k=top_k,
+        collection_name=collection_name,
+        filters=filters,
+        pipeline=pipeline,
+    )
+
+    # Stage 2 — KG context: contract fusion (RAG_KG_FUSION) or graph
+    # expansion (RAG_KG_EXPANSION); the two are alternatives, never both.
+    chunk_objects, kg_contract, kg_expansion = _generate_apply_kg_context(query, chunk_objects)
+
+    service = GroundedGenerationService()
+    rag_response = service.generate(query, chunk_objects, query_type)
+
+    # Stage 3 — claim-level verification + citation validation
+    # (both best-effort, both escalation-only).
+    verification, rag_response = _generate_verify_response(rag_response, chunk_objects)
+
+    total_latency_ms = int((time.monotonic() - start) * 1000)
+    logger.info(
+        "run_generation_pipeline: query=%r chunks=%d groundedness=%s lat=%dms",
+        query,
+        len(chunk_objects),
+        rag_response.groundedness_score,
+        total_latency_ms,
+    )
+
+    # Stage 4 — response assembly (stable wire shape).
+    return {
+        "query": rag_response.query,
+        "query_type": rag_response.query_type,
+        "answer": rag_response.answer,
+        "citations": [asdict(c) for c in rag_response.citations],
+        "retrieved_chunks": [c.to_dict() for c in rag_response.retrieved_chunks],
+        "groundedness_score": rag_response.groundedness_score,
+        "hallucination_detected": rag_response.hallucination_detected,
+        "hallucinated_claims": rag_response.hallucinated_claims,
+        "confidence": rag_response.confidence,
+        "retrieval_latency_ms": retrieval_data.get("retrieval_latency_ms", 0),
+        "generation_latency_ms": rag_response.generation_latency_ms,
+        "total_latency_ms": total_latency_ms,
+        "llm_model": rag_response.llm_model,
+        "prompt_tokens": rag_response.prompt_tokens,
+        "completion_tokens": rag_response.completion_tokens,
+        "token_usage": rag_response.token_usage,
+        "debug": rag_response.debug,
+        "kg_expansion": kg_expansion,
+        "kg_contract": kg_contract,
+        "verification": verification,
+        "pipeline": pipeline or "legacy",
+    }
+
+
+def _generate_resolve_evidence(
+    query: str,
+    *,
+    chunks: list[dict[str, Any]] | None,
+    query_type: str,
+    top_k: int,
+    collection_name: str | None,
+    filters: dict[str, Any] | None,
+    pipeline: str | None,
+) -> tuple[dict[str, Any], list[Any], str]:
+    """Stage 1 — resolve the evidence set for *query*.
+
+    Compound queries (multiple section references with conjunctions) run
+    one retrieval per sub-query and merge the pools (dedup by chunk_id,
+    score-sorted, truncated to *top_k*).  Pre-provided *chunks* skip
+    retrieval entirely.  Returns ``(retrieval_data, chunk_objects,
+    query_type)``.
+    """
+    from app.rag.retrieval.result import RetrievedChunk
+    from app.rag.retrieval.subquery_decomposer import SubQueryDecomposer
+
+    def _as_chunk(raw: Any) -> RetrievedChunk | None:
+        if isinstance(raw, RetrievedChunk):
+            return raw
+        if isinstance(raw, dict):
+            return RetrievedChunk.from_dict(raw)
+        return None
 
     if chunks is None:
+        # 1.3: Decompose compound queries into sub-queries
+        sub_queries = SubQueryDecomposer().decompose(query)
+        is_compound = len(sub_queries) > 1
+
         if is_compound:
             # Run retrieval for each sub-query and merge results
             all_chunks: list[RetrievedChunk] = []
@@ -410,10 +498,9 @@ def run_generation_pipeline(
                     pipeline=pipeline,
                 )
                 for raw in sq_data.get("chunks", []):
-                    if isinstance(raw, RetrievedChunk):
-                        all_chunks.append(raw)
-                    elif isinstance(raw, dict):
-                        all_chunks.append(RetrievedChunk.from_dict(raw))
+                    chunk = _as_chunk(raw)
+                    if chunk is not None:
+                        all_chunks.append(chunk)
                 # Use the first sub-query retrieval data for metadata
                 if not merged_retrieval_data:
                     merged_retrieval_data = sq_data
@@ -442,25 +529,25 @@ def run_generation_pipeline(
         retrieval_data = {}
         raw_chunks = chunks
 
-    chunk_objects: list[RetrievedChunk] = []
-    for raw in raw_chunks:
-        if isinstance(raw, RetrievedChunk):
-            chunk_objects.append(raw)
-        elif isinstance(raw, dict):
-            chunk_objects.append(RetrievedChunk.from_dict(raw))
+    chunk_objects = [c for c in (_as_chunk(raw) for raw in raw_chunks) if c is not None]
+    return retrieval_data, chunk_objects, query_type
 
-    # KG contract fusion (2026-08-12, validated by the offline fusion
-    # experiment): when RAG_KG_FUSION is enabled, run the graph-RAG
-    # retrieval contract (query -> provisions) and RRF-fuse those provisions
-    # into the ranked context — the production equivalent of eval arm G
-    # (RRF(dense, sparse, KG-contract)), which showed a significant Recall@10
-    # gain over tail-concatenation.  The contract's provisions are
-    # independent of the retrieved chunk IDs (query-to-graph, not
-    # chunk-to-graph), so they can surface gold provisions vector retrieval
-    # missed.  Best-effort by design — never raises, so a missing or
-    # unreachable Neo4j keeps the pipeline functional.  When the contract
-    # injects provisions, the chunk-expansion block below is skipped (the
-    # two KG paths are alternatives — fusing both would re-fuse the list).
+
+def _generate_apply_kg_context(query: str, chunk_objects: list[Any]) -> tuple[list[Any], dict[str, Any] | None, dict[str, Any] | None]:
+    """Stage 2 — enrich the evidence with knowledge-graph context.
+
+    Contract fusion (``RAG_KG_FUSION``) runs the query→provisions graph
+    contract and RRF-fuses those provisions into the ranked context — the
+    production equivalent of eval arm G.  Graph expansion
+    (``RAG_KG_EXPANSION``) expands the retrieved chunk IDs through Neo4j
+    instead.  The two KG paths are alternatives: when the contract injects
+    provisions, chunk expansion is skipped (re-fusing an already-fused
+    list would muddle ordering/scores).  Both are best-effort by design —
+    never raise, so a missing or unreachable Neo4j keeps the pipeline
+    functional.
+
+    Returns ``(chunk_objects, kg_contract, kg_expansion)``.
+    """
     kg_contract: dict[str, Any] | None = None
     if cfg.kg_fusion and chunk_objects:
         try:
@@ -471,7 +558,7 @@ def run_generation_pipeline(
             from kg.queries import LegalKGQueries, provisions_for_query
 
             provisions = provisions_for_query(query, LegalKGQueries(), limit=cfg.kg_max_provisions)
-            logger.info("run_generation_pipeline: kg_contract provisions=%s", len(provisions))
+            logger.info("_generate_apply_kg_context: kg_contract provisions=%s", len(provisions))
             kg_chunks = provisions_to_retrieved_chunks(provisions, limit=cfg.kg_max_provisions)
             if kg_chunks:
                 from app.rag.generation.context_builder import ContextBuilder
@@ -484,26 +571,17 @@ def run_generation_pipeline(
                     "fused": True,
                 }
                 logger.info(
-                    "run_generation_pipeline: RRF-fused %d KG contract provisions into context (slot budget %d)",
+                    "_generate_apply_kg_context: RRF-fused %d KG contract provisions into context (slot budget %d)",
                     len(kg_chunks),
                     slot_budget,
                 )
         except Exception as exc:
-            logger.warning("run_generation_pipeline: kg contract fusion failed: %s", exc)
+            logger.warning("_generate_apply_kg_context: kg contract fusion failed: %s", exc)
             kg_contract = {"error": str(exc), "provisions": 0, "injected": 0, "fused": False}
 
-    # KG graph expansion (Option F — 2026-08-11; wired into generation
-    # 2026-08-12): when RAG_KG_EXPANSION is enabled, expand the retrieved
-    # chunk IDs through the Neo4j legal KG into structured legal context
-    # (provisions, domains, temporal status, authorities, cross-refs) and
-    # inject the provisions into the LLM prompt as additional [Source n]
-    # blocks. Best-effort by design — never raises, so a missing or
-    # unreachable Neo4j keeps the pipeline functional.
     kg_expansion: dict[str, Any] | None = None
     # Skip the chunk-expansion path when contract fusion already injected
-    # provisions: the two KG sources are alternatives, and re-fusing the
-    # already-fused list would muddle ordering/scores (reviewer fix
-    # 2026-08-12).
+    # provisions (reviewer fix 2026-08-12).
     if (kg_contract or {}).get("injected", 0) > 0:
         pass
     elif cfg.kg_expansion and chunk_objects:
@@ -511,7 +589,7 @@ def run_generation_pipeline(
 
         kg_expansion = KGContextExpander().expand_chunks(c.chunk_id for c in chunk_objects)
         logger.info(
-            "run_generation_pipeline: kg_expansion matched_chunks=%s provisions=%s error=%s",
+            "_generate_apply_kg_context: kg_expansion matched_chunks=%s provisions=%s error=%s",
             kg_expansion.get("matched_chunks", 0),
             len(kg_expansion.get("provisions", [])),
             kg_expansion.get("error"),
@@ -520,35 +598,38 @@ def run_generation_pipeline(
         if kg_provisions:
             kg_chunks = provisions_to_retrieved_chunks(kg_provisions, limit=cfg.kg_max_provisions)
             if kg_chunks:
-                # Repaired candidate fusion (2026-08-12): instead of
-                # tail-appending KG evidence after the retrieved top-k, fuse
-                # the retrieved chunks and the KG provision chunks with
-                # Reciprocal Rank Fusion so KG evidence interleaves by merit
-                # (its KG retrieval rank) rather than always ranking last.
-                # The prompt keeps the same slot budget as
-                # ContextBuilder.max_context_chunks.
+                # Repaired candidate fusion (2026-08-12): RRF so KG evidence
+                # interleaves by merit rather than always ranking last.
                 from app.rag.generation.context_builder import ContextBuilder
                 from kg.hybrid import rrf_fuse_chunks
 
                 slot_budget = ContextBuilder().max_context_chunks
                 chunk_objects = rrf_fuse_chunks([chunk_objects, kg_chunks], rrf_k=60.0, top_k=slot_budget)
                 logger.info(
-                    "run_generation_pipeline: RRF-fused %d KG provisions into context (slot budget %d)",
+                    "_generate_apply_kg_context: RRF-fused %d KG provisions into context (slot budget %d)",
                     len(kg_chunks),
                     slot_budget,
                 )
 
-    service = GroundedGenerationService()
-    rag_response = service.generate(query, chunk_objects, query_type)
+    return chunk_objects, kg_contract, kg_expansion
 
-    # Phase 3 claim-level verification on the live path (2026-08-23): when
-    # RAG_HALLUCINATION_DETECTOR is enabled (default), run the
-    # HallucinationDetector chain (claims → evidence → citations → score)
-    # over the generated answer and merge its verdict into the response.
-    # Augments (never replaces) the heuristic ResponseSanitizer: sanitizer
-    # flags are always kept, and claim-level hallucinations the sanitizer
-    # missed are *escalated* into the top-level fields.  Best-effort by
-    # design — never raises, so a detector failure cannot break a query.
+
+def _generate_verify_response(rag_response: Any, chunk_objects: list[Any]) -> tuple[dict[str, Any] | None, Any]:
+    """Stage 3 — claim-level verification and citation validation.
+
+    When ``RAG_HALLUCINATION_DETECTOR`` is enabled (default), run the
+    HallucinationDetector chain (claims → evidence → citations → score)
+    over the generated answer and merge its verdict into the response.
+    Augments (never replaces) the heuristic ResponseSanitizer: sanitizer
+    flags are always kept, and claim-level hallucinations the sanitizer
+    missed are *escalated* into the top-level fields.  Citation validation
+    (2026-08-26) additionally checks that every citation maps to a real
+    retrieved chunk and merges into the same ``verification`` dict so the
+    audit report carries both layers.  Both are best-effort — never raise.
+
+    Returns ``(verification, rag_response)``; ``rag_response`` may have
+    escalations appended (existing behaviour).
+    """
     verification: dict[str, Any] | None = None
     if cfg.hallucination_detector and rag_response.answer and chunk_objects:
         try:
@@ -581,15 +662,9 @@ def run_generation_pipeline(
                 ]
                 rag_response.hallucination_detected = True
         except Exception as exc:
-            logger.warning("run_generation_pipeline: hallucination detection failed: %s", exc)
+            logger.warning("_generate_verify_response: hallucination detection failed: %s", exc)
             verification = {"enabled": True, "error": str(exc)}
 
-    # Phase 3 citation-level validation (2026-08-26): when the
-    # HallucinationDetector ran (or even when it didn't), validate that every
-    # citation in the generated answer maps to a real retrieved chunk and
-    # that section numbers are consistent.  Best-effort by design — never
-    # raises, so a validator failure cannot break a query.  Merged into the
-    # same ``verification`` dict so the audit report carries both layers.
     if rag_response.citations and chunk_objects:
         try:
             from app.rag.verification.citation_validator import CitationValidator
@@ -616,42 +691,11 @@ def run_generation_pipeline(
                 ]
                 rag_response.hallucination_detected = True
         except Exception as exc:
-            logger.warning("run_generation_pipeline: citation validation failed: %s", exc)
+            logger.warning("_generate_verify_response: citation validation failed: %s", exc)
             verification = verification or {}
             verification["citation_validation"] = {"enabled": True, "error": str(exc)}
 
-    total_latency_ms = int((time.monotonic() - start) * 1000)
-    logger.info(
-        "run_generation_pipeline: query=%r chunks=%d groundedness=%s lat=%dms",
-        query,
-        len(chunk_objects),
-        rag_response.groundedness_score,
-        total_latency_ms,
-    )
-
-    return {
-        "query": rag_response.query,
-        "query_type": rag_response.query_type,
-        "answer": rag_response.answer,
-        "citations": [asdict(c) for c in rag_response.citations],
-        "retrieved_chunks": [c.to_dict() for c in rag_response.retrieved_chunks],
-        "groundedness_score": rag_response.groundedness_score,
-        "hallucination_detected": rag_response.hallucination_detected,
-        "hallucinated_claims": rag_response.hallucinated_claims,
-        "confidence": rag_response.confidence,
-        "retrieval_latency_ms": retrieval_data.get("retrieval_latency_ms", 0),
-        "generation_latency_ms": rag_response.generation_latency_ms,
-        "total_latency_ms": total_latency_ms,
-        "llm_model": rag_response.llm_model,
-        "prompt_tokens": rag_response.prompt_tokens,
-        "completion_tokens": rag_response.completion_tokens,
-        "token_usage": rag_response.token_usage,
-        "debug": rag_response.debug,
-        "kg_expansion": kg_expansion,
-        "kg_contract": kg_contract,
-        "verification": verification,
-        "pipeline": pipeline or "legacy",
-    }
+    return verification, rag_response
 
 
 def _build_reranker():
