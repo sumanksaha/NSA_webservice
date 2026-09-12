@@ -38,6 +38,41 @@ document.addEventListener("DOMContentLoaded", function () {
     var permissionHtml = document.getElementById("permission-data")?.textContent || "";
     // Track whether an autosave is in-flight
     var autosaveInProgress = false;
+    var lastSavedHtml = "";
+    var hasUnsavedChanges = false;
+    var toastEl = null;
+    // -----------------------------------------------------------------------
+    // Dirty state tracking
+    // -----------------------------------------------------------------------
+    function markDirty() {
+        hasUnsavedChanges = true;
+        setAutosaveStatus("Unsaved changes", false);
+        if (saveBtn) saveBtn.classList.add("dirty");
+    }
+    function markClean() {
+        hasUnsavedChanges = false;
+        setAutosaveStatus("", false);
+        if (saveBtn) saveBtn.classList.remove("dirty");
+    }
+    function showToast(message, type) {
+        if (!toastEl) {
+            toastEl = document.createElement("div");
+            toastEl.id = "editor-toast";
+            toastEl.style.cssText =
+                "position:fixed;top:1rem;right:1rem;z-index:9999;" +
+                "padding:0.75rem 1rem;border-radius:4px;color:#fff;" +
+                "font-size:0.85rem;opacity:0;transition:opacity 0.3s;" +
+                "max-width:400px;";
+            document.body.appendChild(toastEl);
+        }
+        toastEl.textContent = message;
+        var bg = type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#17a2b8";
+        toastEl.style.backgroundColor = bg;
+        toastEl.style.opacity = "1";
+        setTimeout(function () {
+            toastEl.style.opacity = "0";
+        }, 4000);
+    }
     // Hidden file input used by the toolbar image button
     var imageInput = null;
     // -----------------------------------------------------------------------
@@ -56,33 +91,25 @@ document.addEventListener("DOMContentLoaded", function () {
     // Auto-save indicator helpers
     // -----------------------------------------------------------------------
     function setAutosaveStatus(text, isSaving) {
-        if (!autosaveStatus)
-            return;
+        if (!autosaveStatus) return;
         autosaveStatus.textContent = text;
-        if (isSaving) {
-            autosaveStatus.classList.add("autosaving");
-        }
-        else {
-            autosaveStatus.classList.remove("autosaving");
-        }
+        autosaveStatus.classList.toggle("autosaving", !!isSaving);
+        autosaveStatus.classList.toggle("unsaved", hasUnsavedChanges && !isSaving && !!text);
+        autosaveStatus.classList.toggle("saved", !hasUnsavedChanges && !!text);
     }
     /**
      * Perform an auto-save: send current HTML + Delta to the server.
      * The server stores both WITHOUT generating a PDF (fast path).
      */
     function autoSave() {
-        if (!quill || autosaveInProgress)
-            return;
+        if (!quill || autosaveInProgress) return;
         var html = quill.root.innerHTML;
         var delta = quill.getContents().toJSON();
-        var docType = docTypeSelector
-            ? docTypeSelector.value
-            : initialDocType;
+        var docType = docTypeSelector ? docTypeSelector.value : initialDocType;
         // Update the in-memory HTML variable so switchDocType stays in sync
         if (docType === "permission") {
             permissionHtml = html;
-        }
-        else {
+        } else {
             petitionHtml = html;
         }
         autosaveInProgress = true;
@@ -99,24 +126,24 @@ document.addEventListener("DOMContentLoaded", function () {
             }),
         })
             .then(function (resp) {
-            if (!resp.ok) {
-                throw new Error("Auto-save failed: " + resp.status);
-            }
-            return resp.json();
-        })
+                if (!resp.ok) {
+                    throw new Error("Auto-save failed: " + resp.status);
+                }
+                return resp.json();
+            })
             .then(function (data) {
-            setAutosaveStatus("Saved " + (data.timestamp || ""), false);
-            setTimeout(function () {
-                setAutosaveStatus("", false);
-            }, 2000);
-        })
+                setAutosaveStatus("Saved " + (data.timestamp || ""), false);
+                setTimeout(function () {
+                    setAutosaveStatus("", false);
+                }, 2000);
+            })
             .catch(function (err) {
-            console.error("Auto-save error:", err);
-            setAutosaveStatus("Save failed", false);
-        })
+                console.error("Auto-save error:", err);
+                setAutosaveStatus("Save failed", false);
+            })
             .finally(function () {
-            autosaveInProgress = false;
-        });
+                autosaveInProgress = false;
+            });
     }
     // Debounced version of autoSave
     var debouncedAutoSave = debounce(autoSave, autosaveDebounceMs);
@@ -130,62 +157,60 @@ document.addEventListener("DOMContentLoaded", function () {
         var caseId = window.CASE_ID || "";
         fetch("/document_viewer/saved/" + caseId + "/" + docType)
             .then(function (resp) {
-            if (resp.ok) {
-                return resp.json();
-            }
-            return Promise.resolve({ html: fallbackHtml, delta: null });
-        })
+                if (resp.ok) {
+                    return resp.json();
+                }
+                return Promise.resolve({ html: fallbackHtml, delta: null });
+            })
             .then(function (data) {
-            var html = data.html || fallbackHtml;
-            var delta = data.delta;
-            if (docType === "petition") {
-                petitionHtml = html;
-            }
-            else {
-                permissionHtml = html;
-            }
-            if (quill) {
-                if (delta) {
-                    quill.setContents(delta);
+                var html = data.html || fallbackHtml;
+                var delta = data.delta;
+                if (docType === "petition") {
+                    petitionHtml = html;
+                } else {
+                    permissionHtml = html;
                 }
-                else {
-                    quill.clipboard.dangerouslyPasteHTML(html);
+                if (quill) {
+                    if (delta) {
+                        quill.setContents(delta);
+                    } else {
+                        quill.clipboard.dangerouslyPasteHTML(html);
+                    }
+                    updatePreview();
                 }
-                updatePreview();
-            }
-        })
+            })
             .catch(function () {
-            // Silently fall back to server-rendered HTML
-        });
+                // Silently fall back to server-rendered HTML
+            });
     }
     /**
      * Update the live preview iframe with the current Quill content.
      * Uses a sandboxed iframe to prevent script execution (XSS mitigation).
      */
     function updatePreview() {
-        if (!quill || !previewFrame)
-            return;
+        if (!quill || !previewFrame) return;
         // Extract headings, assign hierarchical numbers, and inject anchor
         // ids so the live TOC panel can scroll the preview to each heading.
         var toc = buildToc(quill.root.innerHTML);
         var html = toc.annotatedHtml;
         var doc = previewFrame.contentDocument;
-        if (!doc)
-            return;
+        if (!doc) return;
         doc.open();
-        doc.write("<!DOCTYPE html>" +
-            "<html><head>" +
-            '<meta charset="utf-8">' +
-            "<style>" +
-            'body { margin: 0; padding: 30px; font-family: "Times New Roman", serif; ' +
-            "line-height: 1.6; color: #333; }" +
-            "table { width: 100%; border-collapse: collapse; margin: 10px 0; }" +
-            "th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }" +
-            ".page-break { page-break-before: always; }" +
-            "</style>" +
-            "</head><body>" +
-            html +
-            "</body></html>");
+        doc.write(
+            "<!DOCTYPE html>" +
+                "<html><head>" +
+                '<meta charset="utf-8">' +
+                "<style>" +
+                'body { margin: 0; padding: 30px; font-family: "Times New Roman", serif; ' +
+                "line-height: 1.6; color: #333; }" +
+                "table { width: 100%; border-collapse: collapse; margin: 10px 0; }" +
+                "th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; }" +
+                ".page-break { page-break-before: always; }" +
+                "</style>" +
+                "</head><body>" +
+                html +
+                "</body></html>"
+        );
         doc.close();
         renderToc(toc.entries);
     }
@@ -210,7 +235,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
     // Mirrors the server-side _ANNEXURE_MARKER_RE in app/toc_generator/engine.py.
-    var ANNEXURE_MARKER_RE = /^(annexure|appendix|enclosure|attachment)(?![a-z])(?:\s*[–—:.-]?\s*(?:[a-z]{1,2}|\d+|\[?[ivxlcdm]+\]?))?$/i;
+    var ANNEXURE_MARKER_RE =
+        /^(annexure|appendix|enclosure|attachment)(?![a-z])(?:\s*[–—:.-]?\s*(?:[a-z]{1,2}|\d+|\[?[ivxlcdm]+\]?))?$/i;
     function isAnnexureMarker(text) {
         return ANNEXURE_MARKER_RE.test(text);
     }
@@ -227,13 +253,10 @@ document.addEventListener("DOMContentLoaded", function () {
         var seen = 0;
         Array.prototype.forEach.call(headings, function (heading) {
             var text = (heading.textContent || "").trim();
-            if (!text)
-                return;
+            if (!text) return;
             var level = parseInt(heading.tagName.charAt(1), 10);
-            while (counters.length > level)
-                counters.pop();
-            while (counters.length < level)
-                counters.push(0);
+            while (counters.length > level) counters.pop();
+            while (counters.length < level) counters.push(0);
             counters[counters.length - 1] += 1;
             seen += 1;
             var id = "toc-" + seen;
@@ -252,15 +275,12 @@ document.addEventListener("DOMContentLoaded", function () {
      * Render the TOC panel as a nested list.
      */
     function renderToc(entries) {
-        if (!liveToc)
-            return;
+        if (!liveToc) return;
         if (!entries.length) {
             liveToc.replaceChildren();
             liveToc.style.display = "none";
-            if (tocEmpty)
-                tocEmpty.style.display = "block";
-            if (tocCount)
-                tocCount.textContent = "";
+            if (tocEmpty) tocEmpty.style.display = "block";
+            if (tocCount) tocCount.textContent = "";
             return;
         }
         var lines = ['<ol class="toc-list">'];
@@ -273,56 +293,52 @@ document.addEventListener("DOMContentLoaded", function () {
                     top.hasSub = true;
                     stack.push(top);
                     lines.push('<ol class="toc-sub">');
-                }
-                else {
+                } else {
                     while (stack.length && stack[stack.length - 1].level >= level) {
                         var closed = stack.pop();
-                        if (closed.hasSub)
-                            lines.push("</ol>");
+                        if (closed.hasSub) lines.push("</ol>");
                         lines.push("</li>");
                     }
                 }
             }
             var annexureClass = entry.annexure ? " toc-annexure" : "";
             var badge = entry.annexure ? '<span class="toc-annexure-badge">Annexure</span> ' : "";
-            lines.push('<li class="toc-item level-' +
-                level +
-                annexureClass +
-                '">' +
-                '<a href="#' +
-                entry.id +
-                '" data-toc-target="' +
-                entry.id +
-                '">' +
-                '<span class="toc-number">' +
-                entry.number +
-                "</span> " +
-                badge +
-                escapeHtml(entry.text) +
-                "</a>");
+            lines.push(
+                '<li class="toc-item level-' +
+                    level +
+                    annexureClass +
+                    '">' +
+                    '<a href="#' +
+                    entry.id +
+                    '" data-toc-target="' +
+                    entry.id +
+                    '">' +
+                    '<span class="toc-number">' +
+                    entry.number +
+                    "</span> " +
+                    badge +
+                    escapeHtml(entry.text) +
+                    "</a>"
+            );
             stack.push({ level: level, hasSub: false });
         });
         while (stack.length) {
             var last = stack.pop();
-            if (last.hasSub)
-                lines.push("</ol>");
+            if (last.hasSub) lines.push("</ol>");
             lines.push("</li>");
         }
         lines.push("</ol>");
         setHTML(liveToc, lines.join("\n"));
         liveToc.style.display = "";
-        if (tocEmpty)
-            tocEmpty.style.display = "none";
-        if (tocCount)
-            tocCount.textContent = "(" + entries.length + ")";
+        if (tocEmpty) tocEmpty.style.display = "none";
+        if (tocCount) tocCount.textContent = "(" + entries.length + ")";
     }
     /**
      * Scroll the live preview iframe so the heading with the given anchor
      * id is visible at the top of the pane.
      */
     function scrollPreviewTo(id) {
-        if (!previewFrame)
-            return;
+        if (!previewFrame) return;
         var doc = previewFrame.contentDocument;
         var target = doc && doc.getElementById(id);
         if (target) {
@@ -333,9 +349,7 @@ document.addEventListener("DOMContentLoaded", function () {
      * Get the HTML for the currently selected document type.
      */
     function getActiveHtml() {
-        var docType = docTypeSelector
-            ? docTypeSelector.value
-            : initialDocType;
+        var docType = docTypeSelector ? docTypeSelector.value : initialDocType;
         return docType === "permission" ? permissionHtml : petitionHtml;
     }
     // -----------------------------------------------------------------------
@@ -375,6 +389,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Set up live preview + debounced auto-save
         quill.on("text-change", updatePreview);
         quill.on("text-change", debouncedAutoSave);
+        quill.on("text-change", markDirty);
     }
     // -----------------------------------------------------------------------
     // Image upload
@@ -406,34 +421,33 @@ document.addEventListener("DOMContentLoaded", function () {
     function uploadEditorImage(file) {
         var formData = new FormData();
         formData.append("image", file);
-        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+        var csrfToken =
+            document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
         fetch("/document_viewer/upload_image", {
             method: "POST",
             headers: { "X-CSRFToken": csrfToken },
             body: formData,
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                if (!resp.ok) {
-                    throw new Error(data.error || "Image upload failed");
-                }
-                return data;
-            });
-        })
+                return resp.json().then(function (data) {
+                    if (!resp.ok) {
+                        throw new Error(data.error || "Image upload failed");
+                    }
+                    return data;
+                });
+            })
             .then(function (data) {
-            if (!quill)
-                return;
-            var range = quill.getSelection(true);
-            if (!range)
-                range = { index: quill.getLength() - 1, length: 0 };
-            quill.insertEmbed(range.index, "image", data.url, "user");
-            quill.setSelection(range.index + 1, 0, "user");
-            updatePreview();
-        })
+                if (!quill) return;
+                var range = quill.getSelection(true);
+                if (!range) range = { index: quill.getLength() - 1, length: 0 };
+                quill.insertEmbed(range.index, "image", data.url, "user");
+                quill.setSelection(range.index + 1, 0, "user");
+                updatePreview();
+            })
             .catch(function (err) {
-            console.error("Image upload error:", err);
-            alert(err.message || "Image upload failed");
-        });
+                console.error("Image upload error:", err);
+                alert(err.message || "Image upload failed");
+            });
     }
     // -----------------------------------------------------------------------
     // Markdown export
@@ -442,14 +456,12 @@ document.addEventListener("DOMContentLoaded", function () {
      * Export the current document as Markdown.
      */
     function exportMarkdown() {
-        if (!quill)
-            return;
+        if (!quill) return;
         var delta = quill.getContents().toJSON();
         var html = quill.root.innerHTML;
-        var docType = docTypeSelector
-            ? docTypeSelector.value
-            : "petition";
-        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+        var docType = docTypeSelector ? docTypeSelector.value : "petition";
+        var csrfToken =
+            document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
         fetch("/document_viewer/export_markdown", {
             method: "POST",
             headers: {
@@ -459,30 +471,30 @@ document.addEventListener("DOMContentLoaded", function () {
             body: JSON.stringify({ delta: delta, html: html, doc_type: docType }),
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                if (!resp.ok) {
-                    throw new Error(data.error || "Markdown export failed");
-                }
-                return data;
-            });
-        })
+                return resp.json().then(function (data) {
+                    if (!resp.ok) {
+                        throw new Error(data.error || "Markdown export failed");
+                    }
+                    return data;
+                });
+            })
             .then(function (data) {
-            var blob = new Blob([data.markdown], {
-                type: "text/markdown;charset=utf-8",
-            });
-            var url = window.URL.createObjectURL(blob);
-            var a = document.createElement("a");
-            a.href = url;
-            a.download = data.filename || "document.md";
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        })
+                var blob = new Blob([data.markdown], {
+                    type: "text/markdown;charset=utf-8",
+                });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = data.filename || "document.md";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
             .catch(function (err) {
-            console.error("Markdown export error:", err);
-            alert(err.message || "Markdown export failed");
-        });
+                console.error("Markdown export error:", err);
+                alert(err.message || "Markdown export failed");
+            });
     }
     // -----------------------------------------------------------------------
     // Document type switching
@@ -491,11 +503,8 @@ document.addEventListener("DOMContentLoaded", function () {
      * Switch the active Quill content when the document type selector changes.
      */
     function switchDocType() {
-        if (!quill)
-            return;
-        var docType = docTypeSelector
-            ? docTypeSelector.value
-            : initialDocType;
+        if (!quill) return;
+        var docType = docTypeSelector ? docTypeSelector.value : initialDocType;
         var content = getActiveHtml();
         quill.clipboard.dangerouslyPasteHTML(content);
         updatePreview();
@@ -508,14 +517,12 @@ document.addEventListener("DOMContentLoaded", function () {
      * Trigger a server-side PDF download of the edited HTML.
      */
     function saveToPdf() {
-        if (!quill)
-            return;
+        if (!quill) return;
         var html = quill.root.innerHTML;
         var delta = quill.getContents().toJSON();
-        var docType = docTypeSelector
-            ? docTypeSelector.value
-            : "petition";
-        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+        var docType = docTypeSelector ? docTypeSelector.value : "petition";
+        var csrfToken =
+            document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
         fetch("/document_viewer/save/" + (window.CASE_ID || ""), {
             method: "POST",
             headers: {
@@ -525,25 +532,25 @@ document.addEventListener("DOMContentLoaded", function () {
             body: JSON.stringify({ html: html, delta: delta, doc_type: docType }),
         })
             .then(function (resp) {
-            if (!resp.ok) {
-                throw new Error("Save failed");
-            }
-            return resp.blob();
-        })
+                if (!resp.ok) {
+                    throw new Error("Save failed");
+                }
+                return resp.blob();
+            })
             .then(function (blob) {
-            var url = window.URL.createObjectURL(blob);
-            var a = document.createElement("a");
-            a.href = url;
-            a.download = "edited_document.pdf";
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        })
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "edited_document.pdf";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
             .catch(function (err) {
-            console.error("Save error:", err);
-            alert("Could not save document. See console for details.");
-        });
+                console.error("Save error:", err);
+                alert("Could not save document. See console for details.");
+            });
     }
     // -----------------------------------------------------------------------
     // Initialize
@@ -571,8 +578,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (liveToc) {
         liveToc.addEventListener("click", function (e) {
             var link = e.target.closest("a[data-toc-target]");
-            if (!link)
-                return;
+            if (!link) return;
             e.preventDefault();
             scrollPreviewTo(link.getAttribute("data-toc-target"));
         });
@@ -585,6 +591,28 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
     // -----------------------------------------------------------------------
+    // Keyboard shortcuts
+    // -----------------------------------------------------------------------
+    document.addEventListener("keydown", function (e) {
+        if (e.ctrlKey && e.key === "s" && saveBtn) {
+            e.preventDefault();
+            saveToPdf();
+        }
+        if (e.ctrlKey && e.shiftKey && e.key === "s") {
+            e.preventDefault();
+            debouncedAutoSave();
+        }
+    });
+    // -----------------------------------------------------------------------
+    // Before-unload confirmation for unsaved changes
+    // -----------------------------------------------------------------------
+    window.addEventListener("beforeunload", function (e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = "You have unsaved changes in this document.";
+        }
+    });
+    // -----------------------------------------------------------------------
     // Expose for testing / debugging
     // -----------------------------------------------------------------------
     window.QuillEditor = {
@@ -592,21 +620,18 @@ document.addEventListener("DOMContentLoaded", function () {
             return quill;
         },
         getPreviewHtml: function () {
-            if (!quill)
-                return "";
+            if (!quill) return "";
             return quill.root.innerHTML;
         },
         getDelta: function () {
-            if (!quill)
-                return null;
+            if (!quill) return null;
             return quill.getContents().toJSON();
         },
         getAutosaveDebounceMs: function () {
             return autosaveDebounceMs;
         },
         getToc: function () {
-            if (!quill)
-                return [];
+            if (!quill) return [];
             return buildToc(quill.root.innerHTML).entries;
         },
         triggerAutosave: function () {
