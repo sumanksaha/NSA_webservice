@@ -1,47 +1,14 @@
 # =============================================================================
-# NSA Webservice — Development Requirements
+# NSA Webservice — Development Dependencies (shim)
 # =============================================================================
-# Install with:  pip install -r requirements-dev.txt
-# Or combined:   pip install -r requirements.txt -r requirements-dev.txt
+# The single source of truth is pyproject.toml [project.optional-dependencies].
+# This file exists so CI cache keys (validation.yml) and muscle-memory
+# `pip install -r requirements-dev.txt` keep working.
+#
+# Runtime deps:  pip install -e .
+# Dev deps:      pip install -r requirements-dev.txt
+#                (equivalent to: pip install -e ".[dev]")
+# Optional ML:   pip install -e ".[all]"
 # =============================================================================
 
-# ---------------------------------------------------------------------------
-# Testing
-# ---------------------------------------------------------------------------
-pytest>=9.1.1
-pytest-cov>=7.1.0
-pytest-xdist>=3.8.0
-pytest-flask>=1.3.0
-
-# ---------------------------------------------------------------------------
-# Code Quality & Linting
-# ---------------------------------------------------------------------------
-black>=26.5.1
-ruff>=0.16.3
-mypy>=2.3.0
-bandit>=1.9.4
-pre-commit>=4.6.1
-
-# ---------------------------------------------------------------------------
-# Security Scanning
-# ---------------------------------------------------------------------------
-pip-audit>=2.7.3
-safety>=3.8.1
-
-# ---------------------------------------------------------------------------
-# Type Stubs (for mypy)
-# ---------------------------------------------------------------------------
-types-requests>=2.33.0.20260712
-types-python-dateutil>=2.9.0.20260716
-types-PyYAML>=6.0.12.20260724
-
-# ---------------------------------------------------------------------------
-# Profiling & Analysis
-# ---------------------------------------------------------------------------
-vulture>=2.16
-py-spy>=0.4.2
-
-# ---------------------------------------------------------------------------
-# Rust Extension Build (Part 1+ of rust/ port)
-# ---------------------------------------------------------------------------
-maturin>=1.0,<2.0   # builds nsa_rust PyO3 extension (cargo/rustc required)
+-e ".[dev]"

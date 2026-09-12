@@ -427,7 +427,9 @@ def create_app(db_uri: str | None = None):
     # ------------------------------------------------------------------
     from app.rag.qdrant_indexer import register_qdrant_hooks
 
-    register_qdrant_hooks()    # Register blueprints (auth first so login page is available)
+    register_qdrant_hooks()
+
+    # Register blueprints (auth first so login page is available)
     from app.blueprints import register_blueprints
 
     register_blueprints(app)
@@ -438,117 +440,12 @@ def create_app(db_uri: str | None = None):
 
     register_default_plugins()
 
-    # Initialize database tables (models must be imported first)
-    # Import models so they're registered with SQLAlchemy metadata
-    from app import models
+    # Database bootstrap (create_all fallback, alembic stamp, self-heal,
+    # FTS5 table, admin seed) lives in app/db_bootstrap.py — extracted from
+    # the factory by the 2026-09-12 review (create_app was a 500-line body).
+    from app.db_bootstrap import bootstrap_database
 
-    # Fallback safeguard: if core tables are missing (e.g., fresh local DB
-    # without migrations applied), create them so startup sync doesn't fail.
-    # On a FRESH database we also stamp the Alembic head: the historical
-    # migration chain was written as incremental patches on top of a
-    # db.create_all()-created schema (e.g. the baseline adds columns to
-    # tables that don't exist yet from migrations alone), so replaying it
-    # against a fresh DB crashes on duplicate columns. Stamping makes the
-    # subsequent `flask db upgrade` in the Render start command a no-op
-    # while future migrations still apply normally.
-    with app.app_context():
-        from sqlalchemy import create_engine
-        from sqlalchemy import inspect as sa_inspect
-
-        engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
-        from app.guard_rail import install_guard
-
-        install_guard(engine)
-        inspector = sa_inspect(engine)
-        if "fso" not in inspector.get_table_names():
-            db.create_all()
-            app.logger.info("Created missing tables via db.create_all() fallback")
-            # Only stamp when there is NO migration history at all — never
-            # clobber a partially-migrated database.
-            if "alembic_version" not in inspector.get_table_names():
-                try:
-                    from flask_migrate import stamp as alembic_stamp
-
-                    alembic_stamp(revision="head")
-                    app.logger.info("Stamped fresh database at migration head")
-                except (Exception, SystemExit) as exc:
-                    app.logger.warning(
-                        "Could not stamp fresh database at migration head (%s) — "
-                        "`flask db upgrade` may replay the full chain next deploy.",
-                        exc,
-                    )
-            # Existing database — self-heal tables that `flask db upgrade`
-            # can NEVER create: a migration inserted mid-chain (e.g. the
-            # Phase 18 `a1b2c3d4e5f6` role/user_roles/comment migration) is an
-            # ancestor of the DB's current version, so Alembic never replays it
-            # and its tables stay missing (login crashed with
-            # `relation "user_roles" does not exist`). create_all() is only
-            # safe here when the DB is stamped at head — then no migration is
-            # pending that could later collide with the created tables.
-            try:
-                from alembic.config import Config as AlembicConfig
-                from alembic.script import ScriptDirectory
-                from sqlalchemy import text
-
-                migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
-                alembic_cfg = AlembicConfig(str(migrations_dir / "alembic.ini"))
-                alembic_cfg.set_main_option("script_location", str(migrations_dir))
-                if "alembic_version" in inspector.get_table_names():
-                    with engine.connect() as conn:
-                        db_version = conn.execute(
-                            text("SELECT version_num FROM alembic_version"),
-                        ).scalar()
-                    if db_version and db_version == ScriptDirectory.from_config(alembic_cfg).get_current_head():
-                        before = set(inspector.get_table_names())
-                        # Concurrent boots (web + Celery worker) may both reach
-                        # this; create_all only adds genuinely missing tables and
-                        # a duplicate-CREATE race is caught below (non-fatal).
-                        db.create_all()
-                        created = sorted(set(sa_inspect(engine).get_table_names()) - before)
-                        if created:
-                            app.logger.warning(
-                                "Schema self-heal: created missing model tables %s (DB stamped at "
-                                "migration head — `flask db upgrade` cannot replay mid-chain "
-                                "insertions).",
-                                created,
-                            )
-            except Exception as exc:
-                app.logger.warning("Schema self-heal skipped: %s", exc)
-
-        # Create FTS5 search virtual table on SQLite (no-op on PostgreSQL).
-        # This runs unconditionally so the table exists even on a pre-existing
-        # database that predates the search feature.
-        from app.search.indexer import ensure_search_table
-
-        ensure_search_table()
-
-        # ------------------------------------------------------------------
-        # Seed default admin account on first boot (empty user table).
-        # Credentials: username=admin  password=admin123
-        # The admin can change the password after first login via the
-        # "Change password" button in the top-right corner.
-        # ------------------------------------------------------------------
-        from app.models import User
-
-        try:
-            _user_count = User.query.count()
-        except Exception:  # pragma: no cover - pre-migration schema (flask db upgrade)
-            # DB predates the current models; skip seeding so `flask db upgrade`
-            # can boot and bring the schema up. Seeding happens on next boot.
-            app.logger.warning("User table not queryable yet — skipping admin seed.")
-            _user_count = 1
-
-        if _user_count == 0 and not os.environ.get("SKIP_ADMIN_SEED"):
-            from werkzeug.security import generate_password_hash
-
-            default_admin = User(
-                username="admin",
-                password_hash=generate_password_hash("admin123"),
-                is_admin=True,
-            )
-            db.session.add(default_admin)
-            db.session.commit()
-            app.logger.info("Default admin account created (username=admin). Change the password after first login.")
+    bootstrap_database(app)
 
     # ------------------------------------------------------------------
     # Auto-restore on empty database (Render free-tier rotation safety net):
