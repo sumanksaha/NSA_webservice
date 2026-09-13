@@ -6,7 +6,7 @@
 [![Flask](https://img.shields.io/badge/Flask-2.x-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Alembic](https://img.shields.io/badge/Alembic-Migrations-7B1FA2)](https://alembic.sqlalchemy.org)
-[![Celery](https://img.shields.io/badge/Celery-5.x-37814A?logo=celery&logoColor=white)](https://celeryproject.org)
+[![QStash](https://img.shields.io/badge/QStash-webhooks-25D0A0)](https://upstash.com/docs/qstash)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![pip-audit](https://github.com/sumanksaha/NSA_webservice/actions/workflows/pip-audit.yml/badge.svg)](https://github.com/sumanksaha/NSA_webservice/actions/workflows/pip-audit.yml)
 [![Code style: black](https://img.shields.io/badge/Code%20Style-Black-000000)](https://github.com/psf/black)
@@ -111,8 +111,8 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 ┌──────────────────────────▼───────────────────────────────────────┐
 │                   DATA LAYER                                      │
 │  ┌────────────────┐ ┌────────────────┐ ┌───────────────────────┐ │
-│  │  PostgreSQL     │ │  SQLAlchemy    │ │  Redis (Celery       │ │
-│  │  (Primary)      │ │  ORM + Alembic │ │  Message Broker)     │ │
+│  │  PostgreSQL     │ │  SQLAlchemy    │ │  Redis (QStash      │ │
+│  │  (Primary)      │ │  ORM + Alembic │ │  status store)    │ │
 │  └────────────────┘ └────────────────┘ └───────────────────────┘ │
 │  ┌────────────────┐ ┌────────────────┐                            │
 │  │  SQLite         │ │  Local DB      │                            │
@@ -212,8 +212,8 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 | **ORM**            | SQLAlchemy                          | 2.x      | Database abstraction                          |
 | **Migrations**     | Alembic                             | 1.13+    | Schema version control                        |
 | **Database**       | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence                              |
-| **Task Queue**     | Celery                              | 5.4+     | Async background jobs                         |
-| **Message Broker** | Redis                               | 5.x      | Celery broker + cache                         |
+| **Task Queue**     | QStash (Upstash)                | 3.x      | Webhook task delivery + sync fallback         |
+| **Message Broker** | Redis                               | 5.x      | QStash task-status store + polling            |
 | **PDF Generation** | WeasyPrint                          | —        | HTML-to-PDF rendering                         |
 | **Excel Export**   | openpyxl                            | —        | Billing reports                               |
 | **Object Storage** | Cloudflare R2 / Backblaze B2        | —        | Photo evidence storage                        |
@@ -247,7 +247,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 - **Inspection Management** with photo verification and geo‑tagging.
 - **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
-- **Case File Generation** delivering PDF documents via WeasyPrint and async processing with Celery.
+- **Case File Generation** delivering PDF documents via WeasyPrint and async processing with QStash.
 - **Adjudication Engine** that suggests legal sections and generates adjudication documents.
 - **FBO Issue State Machine** with full audit‑trail logging.
 - **Billing Dashboard** exporting Excel reports.
@@ -256,7 +256,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Timeline Engine + Gantt** visualizing each case's milestones with warnings for chronologically invalid sequences (Phase 13).
 - **Full‑text + fuzzy search** across case files, adjudications, annexures, and evidence (SQLite FTS5 + RapidFuzz).
 - **Version history, branching, cross‑reference & TOC reports** for edited documents, and **backup / export / import** of complete cases.
-- **OCR extraction pipeline foundation** (models + services + Celery task) toward lab‑report autopopulation.
+- **OCR extraction pipeline foundation** (models + services + QStash task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
 - **Legal RAG vector search** (694 tests) — full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation, LangGraph self-correcting agent with M5 checkpointing + human-in-the-loop.
 - **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
@@ -265,7 +265,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Inspection CRUD           | ✅ Complete    | With photo verification pipeline                                                                                                                                                                                                                                                   |
 | Sample Management         | ✅ Complete    | Code generation, lab tracking                                                                                                                                                                                                                                                      |
-| Case File Generation      | ✅ Complete    | PDF generation, Celery async                                                                                                                                                                                                                                                       |
+| Case File Generation      | ✅ Complete    | PDF generation, QStash async                                                                                                                                                                                                                                                       |
 | Adjudication              | ✅ Complete    | Section suggestion, document generation                                                                                                                                                                                                                                            |
 | FBO Issue State Machine   | ✅ Complete    | With audit trail                                                                                                                                                                                                                                                                   |
 | Billing Dashboard         | ✅ Complete    | Excel export, filtering                                                                                                                                                                                                                                                            |
@@ -287,7 +287,9 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
 | PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase)                                                                                                                                                |     |
 | Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
-| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
+| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                                                             |
+| Petition PDF download     | ✅ Complete    | Validated single-file petition PDF for case files + adjudications (missing-field 400s, section-63 license rule); row buttons are Timeline / Validate / Word Petition / Word Permission / Petition PDF (10 tests)                                                                                                                  |
+| Violation wordings        | ✅ Complete    | Formal observation prose + per-field remediation directives for Improvement Notices; Expired_item polarity fix                                                                                                                                                                                                                  |
 
 ---
 
@@ -296,7 +298,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 ### Phase 1 – Hardening (Q3 2026)
 
 - ✅ PostgreSQL production migration (targeted for Q3 2026)
-- ✅ Persistent Celery worker deployment
+- ✅ Background task transport is QStash webhooks — no persistent worker required (Celery removed 2026-09-13)
 - ✅ RBAC implementation (FSO, Admin, Auditor roles) — model scaffolding + migration + `is_admin` admin UI; `@role_required` decorator + comments + role assignment pending (~30% complete)
 
 ### Phase 2 – Platform Upgrade (Q4 2026)
@@ -328,7 +330,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 ### Phase 1: Hardening (Q3 2026)
 
 - [ ] PostgreSQL production migration
-- [ ] Persistent Celery worker deployment
+- [x] ~~Persistent Celery worker deployment~~ — superseded by QStash webhook delivery (no worker, 2026-09-13)
 - [x] RBAC implementation (FSO, Admin, Auditor roles) — partial (models + migration + admin UI done)
 - [ ] TLS fix for KMC scraper
 - [ ] End-to-end test suite
@@ -367,7 +369,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 - Python 3.12+
 - PostgreSQL 16+ (or SQLite for development)
-- Redis 5.0+ (for Celery)
+- Redis 5.0+ (QStash task-status store)
 - GTK libraries (for WeasyPrint — see [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation))
 
 ### Local Development Setup
@@ -399,12 +401,11 @@ flask db upgrade
 flask run
 ```
 
-### Docker (Planned)
+### Docker
 
-> **Note:** Docker Compose configuration is not yet available. This section is a placeholder for the planned containerization effort (see [Roadmap](#roadmap)).
+`docker-compose.yml` provides the local stack (web + Redis + PostgreSQL).
 
 ```bash
-# (Coming in Phase 1 — Docker containerization)
 # Build and run
 docker compose up -d
 
@@ -450,7 +451,6 @@ NSA_webservice/
 ├── rust/                       # Rust PyO3 legal-text normalizers
 ├── scripts/                    # Utility scripts (KG, FSSAI re-ingest, etc.)
 ├── docs/                       # Documentation (DEEPENING, MULTIDOMAIN, etc.)
-├── celery_app.py               # Celery application factory
 ├── render.yaml                 # Render deployment blueprint
 ├── asgi.py                     # ASGI entry point (FastAPI + Flask coexistence gateway)
 ├── requirements.txt            # Python dependencies
@@ -547,9 +547,6 @@ flask db upgrade
 
 # Run with Gunicorn (production)
 gunicorn --bind 0.0.0.0:10000 app:app
-
-# Run with Celery worker (background tasks)
-celery -A celery_app.celery worker --loglevel=info
 ```
 
 ### Environment Variables
@@ -558,7 +555,7 @@ celery -A celery_app.celery worker --loglevel=info
 | ------------------------- | ------------------- | --------------------------------------------- |
 | `DATABASE_URL`            | Yes                 | PostgreSQL connection string                  |
 | `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)               |
-| `REDIS_URL`               | For Celery          | Redis connection string                       |
+| `REDIS_URL`               | QStash status store | Redis connection string                       |
 | `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON                   |
 | `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                     |
 | `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                              |
@@ -600,7 +597,7 @@ the regression shield.
 | G9   | Dependabot             | `pip` + `github-actions` + `npm` ecosystems, `rebase-strategy: all`         | `TestDependabot` (1)                |
 | G10  | Workflow hygiene       | checkout@v7, setup-python@v7, ruff≥0.16.3, ubuntu-24.04, concurrency groups | `TestWorkflowHygiene` (4)           |
 | G11  | ce-v2 gate             | `real-gate` job only runs on `workflow_dispatch`                            | `TestCeV2Gate` (1)                  |
-| G12  | Env parity             | `shared-secrets` envVarGroup (single `SECRET_KEY`), worker parity verified  | `TestEnvParity` (3)                 |
+| G12  | Env parity             | `shared-secrets` envVarGroup (single `SECRET_KEY`), no worker service (QStash topology) | `TestEnvParity` (2)                 |
 | G13  | Deploy serialization   | `concurrency: { group: render-deploy }` in `deploy.yml`                     | `TestDeployGating` (4)              |
 | G14  | Dev dep scanning       | pip-audit scans `requirements-dev.txt` in validation + weekly pip-audit.yml | `TestSecurityGates` (3)             |
 
@@ -742,7 +739,7 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 
 - Google Sheets sync
 - PDF document generation (WeasyPrint)
-- Celery background tasks
+- QStash background tasks (webhook delivery + sync fallback)
 - S3-compatible object storage (R2/B2)
 
 ### Level 3: Security ✅

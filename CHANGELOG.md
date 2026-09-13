@@ -17,6 +17,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
 > Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
+### Added (2026-09-13)
+
+- **Validated petition-PDF download** (`GET /case/<id>/pdf/petition` on both case-file and adjudication blueprints): serves a single petition PDF only after every required field validates (400 + `missing_fields` otherwise), scans rendered HTML for unresolved Jinja, uniform JSON 404s; list rows now carry Timeline / Validate / Word Petition / Word Permission / Petition PDF buttons (`tests/test_petition_pdf_download.py`, 10 tests).
+- **Remediation directives for Improvement Notices**: new `REMEDIATION_ACTIONS` map keyed by checklist field; `derive_actions` emits true corrective instructions instead of echoing observations; violations carry their checklist `field`.
+- **Scheduled jobs**: nightly local-DB snapshot (default-on, ex-Celery-beat parity) and weekly RAG log cleanup (opt-in) via QStash schedules; loud warning when QStash is unconfigured.
+- **Migration repair**: single head `merge_heads_2026_09` (dangling `previous_revision_id` / filename-vs-revision parents fixed; delete-protection trigger parented so it runs after its tables).
+
+### Changed (2026-09-13)
+
+- **Celery removed — QStash-only task transport**: all task modules unwrapped to plain functions (`TASK_REGISTRY` + sync inline fallback); `.delay()` sites rewired to `publish_task`; worker/flower services dropped; `redis` kept (QStash status store).
+- **Violation observation prose** rewritten to formal inspection register (shared by Improvement Notices and adjudication petitions); titles unchanged.
+- **`DocumentCaseManager` split** into `document_lookup` / `document_reports` / `document_routes` / `document_generation` + thin facade (public API unchanged).
+- Docs (`agent-reference`, WSL bridge, RAG implementation, README) updated to the QStash-only topology.
+
+### Fixed (2026-09-13)
+
+- Produced-document dates render `DD-MM-YYYY` (ISO time suffixes stripped).
+- `lab_registration_no` form/model casing mismatch (validation alias + template alias); non-integer `packet_count` now flagged; adjudication import restores model-cased date keys.
+- `Expired_item` checklist polarity (both "yes" and "no" raised a violation).
+- Adjudication license requirement mirrors the template's section-63 branch.
+- OCR bulk-upload async jobs referenced temp files deleted at response time — uploads now staged under `instance/ocr_uploads/`.
+
+### Removed (2026-09-13)
+
+- `app/food_cell/email_sender.py` + email route/UI/tests (improvement-notice email sending).
+- Dead `app/ai_assistant/tasks.py` (routes use the service layer directly).
+- `celery_app.py`, Celery worker/flower services, `celery` dependency (+12 celery-only lock entries).
+
 ### Added (2026-09-11)
 
 #### Deepening D7 — Inspection Module Architecture
