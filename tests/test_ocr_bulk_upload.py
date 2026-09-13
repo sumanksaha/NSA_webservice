@@ -1,7 +1,7 @@
 """Tests for OCR bulk upload (Phase E — operational modes).
 
 A ZIP of PDFs is uploaded to ``POST /ocr/bulk-upload``; each PDF becomes its
-own ``OCRDocument`` (sync fallback path in tests, since Celery is unconfigured).
+own ``OCRDocument`` (sync path in tests, since QStash is unconfigured).
 """
 
 import io
@@ -64,32 +64,37 @@ def client(app):
 
 
 @pytest.fixture(autouse=True)
-def _no_real_broker(request, monkeypatch):
-    """Force the synchronous fallback unless a test explicitly stubs the task.
+def _no_real_qstash(request, monkeypatch):
+    """Force synchronous inline execution unless a test stubs publishing.
 
-    ``.delay()`` against the configured broker would enqueue REAL work on the
-    production Redis instance (rediss://) — never acceptable from tests.
+    Publishing to QStash would enqueue REAL work against production
+    credentials — never acceptable from tests. The default stub runs the
+    real extraction pipeline inline and reports sync mode.
     """
-    if "stub_task" in request.fixturenames:
+    if "stub_publish" in request.fixturenames:
         return
-    monkeypatch.setattr("app.ocr_extraction.routes.process_ocr_document_async", None)
+
+    from app.ocr_pipeline.persistence import run_ocr_pipeline
+
+    def fake_publish(task_name, payload, **kwargs):
+        ocr_doc = run_ocr_pipeline(payload["file_path"], sample_id=payload.get("sample_id"))
+        return {"mode": "sync", "result": ocr_doc.id}
+
+    monkeypatch.setattr("app.utils.qstash_client.publish_task", fake_publish)
 
 
 @pytest.fixture()
-def stub_task(monkeypatch):
-    """Stubbed Celery task recording .delay() calls instead of publishing."""
+def stub_publish(monkeypatch):
+    """Stubbed QStash publish recording calls instead of publishing."""
 
-    class _FakeTask:
-        def __init__(self):
-            self.calls = []
+    calls = []
 
-        def delay(self, file_path, sample_id=None):
-            self.calls.append({"file_path": file_path, "sample_id": sample_id})
-            return {"task_id": f"fake-{len(self.calls)}"}
+    def fake_publish(task_name, payload, **kwargs):
+        calls.append({"task_name": task_name, **payload})
+        return {"mode": "async", "message_id": f"fake-{len(calls)}"}
 
-    fake = _FakeTask()
-    monkeypatch.setattr("app.ocr_extraction.routes.process_ocr_document_async", fake)
-    return fake
+    monkeypatch.setattr("app.utils.qstash_client.publish_task", fake_publish)
+    return calls
 
 
 def _pdf_bytes(text: str) -> bytes:
@@ -123,13 +128,20 @@ def _upload(client, files: dict[str, bytes], filename="bundle.zip", **form):
 
 
 class TestBulkUpload:
-    def test_async_dispatch_when_task_available(self, app, client, stub_task):
+    def test_async_dispatch_when_task_available(self, app, client, stub_publish):
+        import os
+
         resp = _upload(client, {"a.pdf": _pdf_bytes("Lab Report A")})
         assert resp.status_code == 202
         assert resp.json["status"] == "queued"
         assert resp.json["queued"] == ["a.pdf"]
         # No document persisted yet — the worker owns extraction.
-        assert len(stub_task.calls) == 1
+        assert len(stub_publish) == 1
+        # The queued path must survive the request: staged under
+        # instance/ocr_uploads, never the per-request temp dir.
+        queued_path = stub_publish[0]["file_path"]
+        assert os.path.exists(queued_path), "queued file must exist after response"
+        assert "ocr_uploads" in queued_path and "ocr_bulk_" not in queued_path
         with app.app_context():
             assert OCRDocument.query.count() == 0
 

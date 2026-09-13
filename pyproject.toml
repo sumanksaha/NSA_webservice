@@ -51,7 +51,6 @@ dependencies = [
   "flask-talisman>=1.1.0",
   "flask-wtf>=1.2.0",
   "flask-login>=0.6.3",
-  "celery>=5.6.3",
   "redis>=5.0.0",
   "qstash>=3.4.0",          # Upstash QStash - serverless task queue (webhook-based, no worker)
 
@@ -247,7 +246,6 @@ ignore = [
 "scripts/**/*" = ["B007", "T201", "S101"]  # CLI tools legitimately use print for stdout output
 "app/inspection/inspection_utils.py" = ["S311"]
 "app/sample/sample_utils.py" = ["S311"]
-"celery_verify.py" = ["S110"]
 "check_*.py" = ["B007", "S110", "S608", "SIM108"]
 "count_loc.py" = ["E741", "S110"]
 "create_tables.py" = ["F403"]
@@ -301,7 +299,6 @@ module = [
   "httpx",
   "weasyprint.*",
   "boto3",
-  "celery.*",
   "PIL.*",
   "openpyxl.*",
   "num2words",
@@ -365,8 +362,6 @@ omit = [
   "*/tests/*",
   "*/venv/*",
   "*/instance/*",
-  "*/celery_verify.py",
-  "*/celery_app.py",
   "app/__init__.py",
   "app.py",
 ]

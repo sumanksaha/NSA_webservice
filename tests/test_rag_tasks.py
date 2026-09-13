@@ -12,8 +12,6 @@ result dict instead of an exception).
 
 from __future__ import annotations
 
-import pytest
-
 from app.rag.qdrant_indexer import ChunkIngestionResult
 from app.rag.tasks import embed_and_index_task, ingest_corpus_task, run_embed_and_index, run_ingest_corpus
 
@@ -96,16 +94,13 @@ class TestRunEmbedAndIndex:
 
 class TestEmbedAndIndexTask:
     def test_task_delegates_to_pipeline_and_is_registered(self, monkeypatch):
-        if not _celery_available():
-            pytest.skip("Celery not installed — task remains a plain function")
-
         fake = _FakeIndexer()
         _patch_indexer(monkeypatch, fake)
         result = embed_and_index_task("doc-1", "full act text", {"type": "act"})
         assert result["document_id"] == "doc-1"
         assert result["ok"] is True
         assert len(fake.calls) == 1  # the task really ran the pipeline
-        assert embed_and_index_task.name == "rag.embed_and_index_task"
+        assert embed_and_index_task.__name__ == "embed_and_index_task"
 
 
 class TestIngestCorpusTask:
@@ -119,9 +114,6 @@ class TestIngestCorpusTask:
         assert result == summary
 
     def test_task_registered_and_dispatches(self, monkeypatch, tmp_path):
-        if not _celery_available():
-            pytest.skip("Celery not installed — task remains a plain function")
-
         calls = {}
 
         def fake_ingest(corpus_dir, document):
@@ -134,10 +126,4 @@ class TestIngestCorpusTask:
         assert calls["corpus_dir"] == str(tmp_path)
         assert calls["document"] == {"type": "act"}
         assert result["indexed"] == 1
-        assert ingest_corpus_task.name == "rag.ingest_corpus_task"
-
-
-def _celery_available() -> bool:
-    from app.rag import tasks
-
-    return tasks.celery is not None
+        assert ingest_corpus_task.__name__ == "ingest_corpus_task"

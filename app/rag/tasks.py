@@ -1,16 +1,13 @@
 (
-    """Celery tasks for the RAG pipeline.
+    """Task entry points for the RAG pipeline.
 
 ``retrieve_task`` wraps the Phase 1 retrieval pipeline (query
-classification -> hybrid retrieval -> reranking -> logging) as a Celery task
-so it can be dispatched asynchronously via QStash.
+classification -> hybrid retrieval -> reranking -> logging) so it can
+be dispatched asynchronously via QStash.
 
 ``embed_and_index_task`` wraps the Agent A corpus-ingestion pipeline (chunk ->
-embed -> Qdrant upsert) as a Celery task for async batch embedding, following
-the same pattern as ``retrieve_task`` / ``app/food_cell/tasks.py``.
-
-Tasks are registered with Celery only when the Celery instance is
-available; otherwise they remain plain functions (graceful degradation).
+embed -> Qdrant upsert) for async batch embedding, following
+the same pattern as ``retrieve_task``.
 """
     ""
 )
@@ -21,12 +18,6 @@ import json
 import logging
 import time
 from typing import Any
-
-# Lazy import so the module boots even when Celery isn't installed.
-try:
-    from celery_app import celery
-except ImportError:
-    celery = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -297,18 +288,12 @@ def _retrieval_fetch(
 
 
 def retrieve_task(
-    self,
     query: str,
     top_k: int = 10,
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Celery task wrapper around :func:`run_retrieval_pipeline`.
-
-    Registered with ``bind=True`` so that *self* (the Celery task instance)
-    is injected automatically -- following the pattern in
-    ``app/food_cell/tasks.py`` and ``app/ai_assistant/tasks.py``.
-    """
+    """Task entry point around :func:`run_retrieval_pipeline`."""
     return run_retrieval_pipeline(
         query=query,
         top_k=top_k,
@@ -356,16 +341,11 @@ def run_embed_and_index(
 
 
 def embed_and_index_task(
-    self,
     document_id: str,
     text: str,
     document: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Celery task wrapper around :func:`run_embed_and_index`.
-
-    Registered with ``bind=True`` so *self* (the Celery task instance) is
-    injected automatically -- following the pattern in ``app/food_cell/tasks.py``.
-    """
+    """Task entry point around :func:`run_embed_and_index`."""
     return run_embed_and_index(document_id=document_id, text=text, document=document)
 
 
@@ -394,11 +374,10 @@ def run_ingest_corpus(
 
 
 def ingest_corpus_task(
-    self,
     corpus_dir: str,
     document: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Celery task wrapper around :func:`run_ingest_corpus` (bind=True)."""
+    """Task entry point around :func:`run_ingest_corpus`."""
     return run_ingest_corpus(corpus_dir=corpus_dir, document=document)
 
 
@@ -750,7 +729,6 @@ def _build_reranker():
 
 
 def generate_task(
-    self,
     query: str,
     chunks: list[dict[str, Any]] | None = None,
     query_type: str = "",
@@ -758,7 +736,7 @@ def generate_task(
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Celery task wrapper around run_generation_pipeline (bind=True)."""
+    """Task entry point around run_generation_pipeline."""
     return run_generation_pipeline(
         query=query,
         chunks=chunks,
@@ -793,20 +771,11 @@ def run_evaluate(dataset, pipeline_fn=None, eval_run_id=None, top_k=10):
     return runner.evaluate_batch(entries, eval_run_id=eval_run_id, persist=True)
 
 
-def evaluate_task(self, dataset, pipeline_fn=None, eval_run_id=None, top_k=10):
-    """Celery task wrapper around run_evaluate (bind=True)."""
+def evaluate_task(dataset, pipeline_fn=None, eval_run_id=None, top_k=10):
+    """Task entry point around run_evaluate."""
     return run_evaluate(
         dataset=dataset,
         pipeline_fn=pipeline_fn,
         eval_run_id=eval_run_id,
         top_k=top_k,
     )
-
-
-# Register as a Celery task if celery is available
-if celery is not None:
-    retrieve_task = celery.task(bind=True, name="rag.retrieve_task")(retrieve_task)  # type: ignore[assignment]
-    embed_and_index_task = celery.task(bind=True, name="rag.embed_and_index_task")(embed_and_index_task)  # type: ignore[assignment]
-    ingest_corpus_task = celery.task(bind=True, name="rag.ingest_corpus_task")(ingest_corpus_task)  # type: ignore[assignment]
-    generate_task = celery.task(bind=True, name="rag.generate_task")(generate_task)  # type: ignore[assignment]
-    evaluate_task = celery.task(bind=True, name="rag.evaluate_task")(evaluate_task)  # type: ignore[assignment]

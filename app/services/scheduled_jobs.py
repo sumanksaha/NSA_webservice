@@ -22,18 +22,20 @@ class ScheduledJob:
     """One declaratively-defined recurring job.
 
     Attributes:
-        name: Task key in ``app.utils.qstash_client.TASK_REGISTRY``.
-        flag_key: Config key enabling the schedule (opt-in boolean).
-        cron_key: Config key holding the cron expression (``None`` = fixed).
-        default_cron: Schedule used when ``cron_key`` is unset/default.
-        description: One-line human description (documentation/introspection).
+    name: Task key in ``app.utils.qstash_client.TASK_REGISTRY``.
+    flag_key: Config key enabling the schedule (opt-in boolean).
+    cron_key: Config key holding the cron expression (``None`` = fixed).
+    default_cron: Schedule used when ``cron_key`` is unset/default.
+    enabled_by_default: When True the job runs unless explicitly disabled.
+    description: One-line human description (documentation/introspection).
     """
 
     name: str
     flag_key: str
     cron_key: str | None
     default_cron: str
-    description: str
+    enabled_by_default: bool = False
+    description: str = ""
 
 
 #: The job registry — single source of truth for startup schedules.
@@ -52,6 +54,14 @@ JOBS: tuple[ScheduledJob, ...] = (
         default_cron="0 3 * * *",  # daily 03:00 UTC
         description="Daily RAG corpus ingestion against RAG_CORPUS_DIR.",
     ),
+    ScheduledJob(
+        name="create_daily_db_snapshot",
+        flag_key="ENABLE_SNAPSHOT_SCHEDULE",
+        cron_key=None,
+        default_cron="0 0 * * *",  # daily at midnight UTC (ex-Celery-beat)
+        enabled_by_default=True,
+        description="Daily local DB snapshot ZIP under instance/backups/.",
+    ),
 )
 
 
@@ -69,7 +79,7 @@ def register_all(app: Any, publisher: Any = None) -> list[dict[str, Any]]:
 
     results: list[dict[str, Any]] = []
     for job in JOBS:
-        if not cfg.get_bool(job.flag_key):
+        if not cfg.get_bool(job.flag_key, job.enabled_by_default):
             continue
         cron = cfg.get_str(job.cron_key, job.default_cron) if job.cron_key else job.default_cron
         payload: dict[str, Any] = {}
@@ -83,6 +93,15 @@ def register_all(app: Any, publisher: Any = None) -> list[dict[str, Any]]:
             result = publisher(job.name, schedule=cron, payload=payload)
             results.append({"job": job.name, "status": "registered", "result": result})
             logger.info("Registered %s (%s): %s", job.name, cron, result)
+            if isinstance(result, dict) and result.get("mode") == "disabled":
+                # QStash unconfigured: the schedule does NOT exist remotely.
+                # Unlike the old always-on Celery beat, nothing will run —
+                # say so explicitly instead of logging a calm "registered".
+                logger.warning(
+                    "Schedule %s NOT active: QStash unconfigured, no %s will run",
+                    job.name,
+                    "snapshots" if job.name == "create_daily_db_snapshot" else "runs",
+                )
         except Exception as e:
             results.append({"job": job.name, "status": "error", "error": str(e)})
             logger.warning("QStash schedule registration failed for %s: %s", job.name, e)

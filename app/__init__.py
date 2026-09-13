@@ -14,14 +14,9 @@ from app.extensions import csrf, db, login_manager, talisman
 
 _fso_sync_lock = threading.Lock()
 
-# Module-level Celery instance — populated after app factory runs
-celery = None
-
 
 class App(Flask):
-    """Flask app subclass with a typed ``celery`` attribute."""
-
-    celery: Any = None
+    """Flask app subclass."""
 
 
 def _load_or_create_production_secret_key(app: Flask) -> str:
@@ -498,21 +493,8 @@ def create_app(db_uri: str | None = None):
         else:
             app.logger.warning("Scheduled job %s failed: %s", entry["job"], entry["error"])
 
-    # Initialize Celery with Flask app context support
-    # Lazy import to avoid ModuleNotFoundError in deployment environments
-    try:
-        from celery_app import make_celery
-
-        app.celery = make_celery(app)
-    except ImportError:
-        # Celery not available (e.g., in minimal deployment)
-        app.celery = None
-
     return app
 
 
 # Create the Flask application instance for Gunicorn
 app = create_app()
-
-# Export celery at module level so it can be imported elsewhere
-celery = app.celery

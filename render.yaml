@@ -3,11 +3,12 @@
 # =============================================================================
 #
 # Shared secrets (CI/CD research doc G12 / §4.6): a single envVarGroup holds
-# secrets that both services (web + worker) must share. Using generateValue
+# secrets that the web service needs. Using generateValue
 # per-service produced two different SECRET_KEYs; this group guarantees one.
 # https://render.com/docs/blueprint-spec — "Environment variable groups"
 #
-# Services: web (prod) + staging-web (staging) + worker (prod Celery).
+# Services: web (prod) + staging-web (staging). Background work runs via
+# QStash webhook delivery — no worker process required.
 # Staging deploys via the `staging` GitHub environment / deploy hook after
 # CI passes; production deploys after staging succeeds (deploy.yml).
 # =============================================================================
@@ -233,103 +234,6 @@ services:
             value: "5"
           - key: RAG_HALLUCINATION_DETECTOR
             value: "true"
-
-    - type: worker
-      name: food-adjudication-celery-worker
-      env: python
-      # Gated together with the web service — see the web service note above.
-      autoDeploy: false
-      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1 && bash scripts/install_pandoc.sh /usr/local/bin
-      startCommand: celery -A app.celery worker --loglevel=info
-      envVars:
-          - key: DATABASE_URL
-            fromDatabase:
-                name: nsa-webservice-db
-                property: connectionString
-          - key: SECRET_KEY
-            fromGroup: shared-secrets
-          - key: REDIS_URL
-            sync: false
-          - key: SPREADSHEET_ID
-            sync: false
-          - key: GOOGLE_CREDENTIALS_JSON
-            sync: false
-          - key: R2_ACCESS_KEY
-            sync: false
-          - key: R2_SECRET_KEY
-            sync: false
-          - key: R2_BUCKET
-            sync: false
-          - key: R2_ENDPOINT
-            sync: false
-          - key: R2_PUBLIC_BASE_URL
-            sync: false
-          - key: R2_REGION
-            value: auto
-          - key: DISABLE_PDF_GENERATION
-            value: "false"
-          - key: PDF_USE_DIRECT_URLS
-            value: "false"
-          - key: SKIP_FSO_STARTUP_SYNC
-            value: "1"
-          - key: QSTASH_TOKEN
-            sync: false
-          - key: QSTASH_CURRENT_SIGNING_KEY
-            sync: false
-          - key: QSTASH_NEXT_SIGNING_KEY
-            sync: false
-          - key: PUBLIC_BASE_URL
-            sync: false
-          - key: CLOUDINARY_CLOUD_NAME
-            sync: false
-          - key: CLOUDINARY_API_KEY
-            sync: false
-          - key: CLOUDINARY_API_SECRET
-            sync: false
-          - key: AIRTABLE_API_KEY
-            sync: false
-          - key: AIRTABLE_BASE_ID
-            sync: false
-          - key: ENABLE_AIRTABLE_SYNC
-            value: "true"
-          - key: MS_TENANT_ID
-            sync: false
-          - key: MS_CLIENT_ID
-            sync: false
-          - key: MS_CLIENT_SECRET
-            sync: false
-          - key: MS_DRIVE_ID
-            sync: false
-          - key: MS_SPREADSHEET_ID
-            sync: false
-          - key: ENABLE_EXCEL_SYNC
-            value: "false"
-          - key: RAG_QDRANT_URL
-            sync: false
-          - key: RAG_QDRANT_API_KEY
-            sync: false
-          - key: RAG_QDRANT_COLLECTION
-            value: fssai_legal_768
-          - key: RAG_VECTOR_SIZE
-            value: "768"
-          - key: RAG_EMBEDDING_MODEL
-            value: sentence-transformers/all-mpnet-base-v2
-          - key: RAG_FULL_ENRICHMENT
-            value: "false"
-          - key: RAG_KG_MAX_PROVISIONS
-            value: "5"
-          - key: RAG_HALLUCINATION_DETECTOR
-            value: "true"
-          - key: API_V2_KEY
-            sync: false
-          - key: RAG_USE_AGENT_PIPELINE
-            value: "false"
-          - key: RAG_AGENT_HITL
-            value: "false"
-          - key: RAG_KG_EXPANSION
-            value: "false"
-          - key: RAG_KG_FUSION
-            value: "false"
 
 databases:
     - name: nsa-webservice-db

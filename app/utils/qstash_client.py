@@ -7,8 +7,7 @@ a persistent background worker — which the Render free tier does not support.
 
 If QStash is not configured (missing env vars) or the publish call fails, this
 module falls back to running the task synchronously via ``_run_task_inline``
-(which calls ``Task.run()`` directly, bypassing Celery's result backend) so
-work is never silently lost (the same behavior as before QStash).
+(plain function call, in-process) so work is never silently lost.
 """
 
 import hashlib
@@ -32,6 +31,12 @@ TASK_REGISTRY: dict[str, tuple[str, str]] = {
     "ingest_corpus": ("app.rag.tasks", "ingest_corpus_task"),
     # Phase 14: Neo4j Aura knowledge-graph sync (async via QStash webhook).
     "sync_kg_to_neo4j": ("app.knowledge_graph.tasks", "sync_kg_to_neo4j"),
+    # Food Cell DO intimation after sample save (ex-Celery .delay()).
+    "send_do_intimation": ("app.food_cell.tasks", "send_do_intimation"),
+    # OCR bulk-upload per-PDF extraction (ex-Celery .delay()).
+    "process_ocr_document_async": ("app.ocr_pipeline.tasks", "process_ocr_document_async"),
+    # Nightly local DB snapshot (ex-Celery-beat; scheduled via scheduled_jobs).
+    "create_daily_db_snapshot": ("app.utils.backup", "create_daily_db_snapshot"),
 }
 
 # Path (relative to PUBLIC_BASE_URL) where the webhook accepts QStash deliveries.
@@ -118,36 +123,14 @@ def resolve_task(task_name: str):
 
 
 def _run_task_inline(task_name: str, payload: dict) -> Any:
-    """Execute a QStash task synchronously **without** a Celery result backend.
+    """Execute a QStash task synchronously, in-process.
 
-    This replaces the previous ``task.apply(kwargs=payload).result`` pattern.
-    Celery's ``.apply()`` calls ``backend.mark_as_done()`` to persist the
-    result in Redis.  When ``REDIS_URL`` uses ``rediss://`` without the
-    ``ssl_cert_reqs`` query parameter, Celery's Redis backend raises
-    ``ValueError: A rediss:// URL must have parameter ssl_cert_reqs ...`` —
-    crashing every sync-fallback invocation (and the QStash webhook) even
-    though the task body itself ran fine.
-
-    The fix: call ``Task.run()`` directly.  ``.run()`` is a bound method on
-    Celery ``Task`` objects (so ``self`` is auto-injected for ``bind=True``
-    tasks), executes the task function inline, and returns its result
-    **without** touching the result backend.
-
-    For the non-Celery fallback path (``celery is None`` → a plain function
-    or the ``_SyncFunc`` shim from ``knowledge_graph/tasks.py``), we fall
-    back to the existing ``.apply(kwargs=...).result`` interface, which works
-    because those shims don't use a Redis backend.
-
-    The caller must already be within a Flask app context (route handlers
-    and webhook endpoints always are), so ``ContextTask.__call__``'s
-    app-context wrapping is redundant here.
+    Tasks are plain functions resolved from :data:`TASK_REGISTRY` and
+    invoked as ``fn(**payload)``. The caller must already be within a
+    Flask app context (route handlers and webhook endpoints always are).
     """
     task = resolve_task(task_name)
-    if hasattr(task, "run"):
-        # Celery Task — run() is a bound method, self is auto-passed.
-        return task.run(**payload)
-    # Non-Celery shim (e.g. _SyncFunc) or plain function — use .apply().
-    return task.apply(kwargs=payload).result
+    return task(**payload)
 
 
 def qstash_configured() -> bool:
@@ -183,7 +166,7 @@ def make_dedup_key(task_name: str, record_id: int | str, payload: dict) -> str:
 
 
 def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None) -> dict[str, Any]:
-    """Publish ``payload`` to QStash; fall back to synchronous ``.apply()``.
+    """Publish ``payload`` to QStash; fall back to synchronous inline execution.
 
     Returns a dict with either:
         ``{"mode": "async", "message_id": str}`` — enqueued on QStash, or

@@ -424,12 +424,10 @@ class TestDailySnapshot:
             assert "database.json" in zf.namelist()
         Path(path).unlink(missing_ok=True)
 
-    def test_beat_schedule_configured(self, test_client):
-        """make_celery sets a beat_schedule with the daily-db-snapshot task."""
-        _, app = test_client
-        with app.app_context():
-            celery_instance = app.celery
-            assert celery_instance is not None
-            beat = celery_instance.conf.beat_schedule
-            assert "daily-db-snapshot" in beat
-            assert beat["daily-db-snapshot"]["task"] == "app.utils.backup.create_daily_db_snapshot_task"
+    def test_snapshot_schedule_registered(self):
+        """The nightly snapshot is a QStash scheduled job (ex-Celery-beat)."""
+        from app.services.scheduled_jobs import JOBS
+
+        by_name = {job.name: job for job in JOBS}
+        assert "create_daily_db_snapshot" in by_name, "snapshot job missing from JOBS"
+        assert by_name["create_daily_db_snapshot"].default_cron == "0 0 * * *"

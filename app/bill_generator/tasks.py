@@ -2,6 +2,9 @@
 
 Produces a bill PDF via WeasyPrint, saves it to disk, and returns
 metadata (file path, record ID, timestamp) — never raw PDF bytes.
+
+Dispatched via QStash (:mod:`app.utils.qstash_client`) with synchronous
+inline fallback; QStash redelivers on failure (retries=3).
 """
 
 import logging
@@ -9,16 +12,10 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Lazy import to avoid ModuleNotFoundError in deployment environments
-try:
-    from celery_app import celery
-except ImportError:
-    celery = None
-
 logger = logging.getLogger(__name__)
 
 
-def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
+def generate_bill_pdf(bill_id: int, template_vars: dict) -> dict:
     """Render a bill PDF from a Jinja2 template and save it to disk.
 
     Returns a metadata dict (not the PDF bytes):
@@ -90,10 +87,10 @@ def generate_bill_pdf(self, bill_id: int, template_vars: dict) -> dict:
         logger.info("Bill PDF saved: %s", file_path)
     except OSError as exc:
         logger.warning("I/O error saving bill PDF: %s", exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
     except Exception as exc:
         logger.warning("Transient error saving bill PDF: %s", exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
 
     return _metadata(bill_id, str(file_path), generated_at, "ok", None)
 
@@ -112,8 +109,3 @@ def _metadata(
         "status": status,
         "error": error,
     }
-
-
-# Register as Celery task if celery is available
-if celery is not None:
-    generate_bill_pdf = celery.task(bind=True, max_retries=3)(generate_bill_pdf)

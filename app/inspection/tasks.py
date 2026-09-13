@@ -1,17 +1,14 @@
 """OCR tasks for the Inspection blueprint.
 
-Provides a Celery task that performs zonal OCR on scanned documents
-and photos attached to inspection records.
+Provides a plain-function entry point that performs zonal OCR on scanned
+documents and photos attached to inspection records. Dispatched via QStash
+with synchronous inline fallback.
 """
 
-# Lazy import to avoid ModuleNotFoundError in deployment environments
-try:
-    from celery_app import celery
-except ImportError:
-    celery = None
+from __future__ import annotations
 
 
-def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
+def run_ocr_extraction(file_path: str, zones: dict | None = None) -> dict:
     """Perform zonal OCR on a scanned PDF or image file.
 
     Converts PDF pages to images (via ``pdf2image``) or processes image
@@ -35,8 +32,9 @@ def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
 
     Raises
     ------
-    self.retry(...)
-        For transient errors (file I/O, resource contention).
+    RuntimeError
+        For transient errors (file I/O, resource contention) — the
+        QStash dispatcher redelivers on failure.
     ValueError
         For non-transient errors (unsupported format, missing file).
 
@@ -77,14 +75,14 @@ def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
     except OSError as exc:
         # File I/O errors are typically transient (e.g. NFS glitch)
         logger.warning("Transient I/O error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
     except ValueError:
         # Non-transient — let it propagate
         raise
     except Exception as exc:
         # Transient: network mount, lock contention, etc.
         logger.warning("Transient error opening %s: %s", file_path, exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
 
     import pytesseract
 
@@ -108,7 +106,7 @@ def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
             # Retry only for recognised transient conditions
             if any(term in err_str for term in ("timeout", "temporary", "eagain")):
                 logger.warning("Transient OCR error on page %d: %s", page_num, exc)
-                raise self.retry(exc=exc, countdown=60) from exc
+                raise
             # Otherwise record the failure and continue with remaining pages
             logger.error("Non-transient OCR error on page %d: %s", page_num, exc)
             results[f"p{page_num}_error"] = str(exc)
@@ -119,6 +117,4 @@ def run_ocr_extraction(self, file_path: str, zones: dict | None = None) -> dict:
     return results
 
 
-# Register as Celery task if celery is available
-if celery is not None:
-    run_ocr_extraction = celery.task(bind=True, max_retries=3)(run_ocr_extraction)
+__all__ = ["run_ocr_extraction"]

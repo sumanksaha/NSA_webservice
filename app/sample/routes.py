@@ -245,12 +245,13 @@ def create_sample():
         except Exception as e:
             current_app.logger.warning(f"Sample sync failed (non-fatal): {e}")
 
-        # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
+        # Post-save: trigger Food Cell DO intimation (best-effort, via QStash
+        # with synchronous inline fallback).
         if not sample.food_cell_forwarded:
             try:
-                from app.food_cell.tasks import send_do_intimation
+                from app.utils.qstash_client import publish_task
 
-                send_do_intimation.delay(sample.id)  # pyright: ignore[reportFunctionMemberAccess]
+                publish_task("send_do_intimation", {"sample_id": sample.id})
             except Exception as e:
                 current_app.logger.warning(f"DO intimation trigger failed: {e}")
 

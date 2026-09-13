@@ -63,10 +63,9 @@ def _web_service() -> dict:
     return next(s for s in services if s.get("type") == "web" and "staging" not in s.get("name", ""))
 
 
-def _worker_service() -> dict:
-    """Return the Celery worker service (type=worker)."""
-    services = _render()["services"]
-    return next(s for s in services if s.get("type") == "worker")
+def _worker_services() -> list:
+    """Return worker services (type=worker) — must be empty (QStash topology)."""
+    return [s for s in _render()["services"] if s.get("type") == "worker"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -132,10 +131,10 @@ class TestRenderHealthAndMigrations:
         web = _web_service()
         assert web.get("healthCheckPath") == "/health"
 
-    def test_worker_service_has_no_pre_deploy_command(self):
-        """Only the web service migrates — the worker should never run flask db upgrade."""
-        worker = _worker_service()
-        assert "preDeployCommand" not in worker, "worker must not run migrations — one migrator only (web)"
+    def test_no_worker_service(self):
+        """QStash topology: background work needs no worker service — only
+        the web service(s) migrate, so there is nothing that could."""
+        assert _worker_services() == [], "render.yaml must not define a worker service"
 
     def test_web_service_uses_pre_deploy_command(self):
         web = _web_service()
@@ -151,11 +150,6 @@ class TestRenderHealthAndMigrations:
                 assert "db upgrade" in svc.get("startCommand", ""), (
                     f"{svc['name']}: startCommand must retain migration fallback"
                 )
-
-    def test_worker_never_migrates(self):
-        """The Celery worker start command must never run migrations."""
-        worker = _worker_service()
-        assert "db upgrade" not in worker.get("startCommand", ""), "worker must not run migrations"
 
     def test_health_endpoint_registered_as_public(self):
         """app/health/routes.py::health must be in public_endpoints so the
@@ -337,29 +331,12 @@ class TestEnvParity:
         assert sk_var["key"] == "SECRET_KEY"
 
     def test_no_generate_value_on_service_secret_key(self):
-        """Neither web nor worker should have generateValue: true on SECRET_KEY."""
+        """No service should have generateValue: true on SECRET_KEY."""
         for svc in _render()["services"]:
             for v in svc["envVars"]:
                 if v.get("key") == "SECRET_KEY":
                     assert "generateValue" not in v, f"{svc['name']}: SECRET_KEY must use fromGroup, not generateValue"
                     assert "fromGroup" in v
-
-    def test_web_and_worker_env_parity(self):
-        """All RAG/API/QStash keys on the web service must also be on the worker."""
-        web = _web_service()
-        worker = _worker_service()
-
-        web_keys = {v["key"] for v in web["envVars"]}
-        worker_keys = {v["key"] for v in worker["envVars"]}
-
-        # SKIP_FSO_STARTUP_SYNC is intentionally worker-only
-        worker_only = worker_keys - web_keys
-        assert worker_only == {"SKIP_FSO_STARTUP_SYNC"}, f"Unexpected worker-only keys: {worker_only}"
-
-        # No web-only keys that the worker needs for its tasks
-        # (worker doesn't need API_V2_KEY for serving, but it does for RAG agent task dispatch)
-        missing = web_keys - worker_keys
-        assert not missing, f"Worker missing these web keys: {missing}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
