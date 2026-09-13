@@ -1,9 +1,4 @@
-"""Verification service — single source of truth with VerificationHelper wrapper.
-
-Provides verify_photo_location and a VerificationHelper facade for
-consumers that need a class interface (Item 2 shrink: collapsed
-verification_engine.py + verification_service.py into one file).
-"""
+"""Verification service using adapters for external services."""
 
 from typing import Any
 
@@ -97,23 +92,4 @@ def verify_photo_location(
     return result
 
 
-class VerificationHelper:
-    """Single helper class wrapping all verification logic.
-
-    Item 2 shrink: collapsed verification_engine.py + verification_service.py
-    into one file with this unified class.
-    """
-
-    @staticmethod
-    def verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo) -> dict:
-        """Delegates to module-level verify_photo_location."""
-        return verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo)
-
-    @staticmethod
-    def get_status(raw_lat, raw_lng, accuracy, ip_address, fbo) -> str:
-        """Quick status check returning only the verification_status string."""
-        result = verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo)
-        return result["verification_status"]
-
-
-__all__ = ["VerificationHelper", "verify_photo_location"]
+__all__ = ["verify_photo_location"]

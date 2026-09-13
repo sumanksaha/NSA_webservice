@@ -1,7 +1,7 @@
-"""Sync orchestration — Google Sheets only (Airtable/Excel removed).
+"""Sync orchestration — Google Sheets only.
 
-Single entry point for syncing a row dict to Google Sheets.
-All other sync paths were removed as part of shrink item 8.
+This simplifies the sync mechanism by focusing solely on Google Sheets,
+removing Airtable and Excel support.
 
 Usage::
 

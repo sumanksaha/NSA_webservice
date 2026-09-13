@@ -1,12 +1,12 @@
 """Live query Supabase fssai_licenses / fssai_registrations for a premises name."""
 
+import os
 import sys
 from sqlalchemy import create_engine, text
 
 # Supabase Postgres connection.
-DB_URL = (
-    "postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
-)
+# Set SUPABASE_DATABASE_URL in the environment; no credentials are committed.
+DB_URL = os.getenv("SUPABASE_DATABASE_URL")
 
 
 def search_premises(name: str):
