@@ -21,6 +21,7 @@ def _clean_env(monkeypatch):
         "ENABLE_BACKUP_SCHEDULE",
         "ENABLE_SNAPSHOT_SCHEDULE",
         "RAG_ENABLE_INGESTION_SCHEDULE",
+        "RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
         "RAG_INGESTION_CRON",
         "RAG_CORPUS_DIR",
     ):
@@ -53,6 +54,21 @@ def test_snapshot_schedule_on_by_default():
     results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
     assert [(a, k) for a, k in calls] == [(("create_daily_db_snapshot",), {"schedule": "0 0 * * *", "payload": {}})]
     assert [r["job"] for r in results] == ["create_daily_db_snapshot"]
+
+
+def test_log_cleanup_schedule_opt_in(monkeypatch):
+    """The RAG log cleanup runs only when explicitly enabled."""
+    from app.utils.qstash_client import resolve_task
+
+    assert resolve_task("cleanup_rag_query_logs").__name__ == "cleanup_rag_query_logs"
+    monkeypatch.setenv("RAG_ENABLE_LOG_CLEANUP_SCHEDULE", "true")
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
+    calls = []
+    results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
+    assert [(a, k) for a, k in calls] == [
+        (("cleanup_rag_query_logs",), {"schedule": "0 4 * * 0", "payload": {}})
+    ]
+    assert [r["job"] for r in results] == ["cleanup_rag_query_logs"]
 
 
 def test_backup_schedule_registered_when_enabled(monkeypatch):

@@ -4,7 +4,7 @@ This module provides pure functions to derive the following context fields:
 - applicable_sections: list[str] - e.g., ["55", "56", "58"]
 - sections_display: str - e.g., "55, 56 and 58"
 - case_track: "hygienic" | "nonsample_licence" | "sample"
-- violations: list[dict] with keys: title, observation (adjudication only)
+- violations: list[dict] with keys: title, observation, field (adjudication only)
 - same_entity: bool (case file)
 
 All functions are pure (no side effects, same input -> same output).
@@ -17,17 +17,56 @@ All functions are pure (no side effects, same input -> same output).
 # Checklist violation rules - these map checkbox field names to (title, observation) tuples
 # Used by adjudication to build the violations list
 CHECKLIST_RULES: dict[str, tuple[str, str]] = {
-    "clean_premise": ("Unclean Premises", "The premises were found inadequately maintained and unhygienic."),
-    "refrigerator_clean": ("Improper Refrigerator Maintenance", "Refrigeration facilities were found unclean."),
-    "proper_attire": ("Improper Protective Attire", "Food handlers lacked prescribed attire."),
-    "proper_covered_utensil": ("Improper Covering of Food", "Food and utensils were uncovered."),
-    "date_tag": ("Absence of Date Tagging", "Stored food items lacked traceability."),
-    "veg_nonveg_separation": ("Improper Veg/Non-Veg Separation", "Segregation not maintained."),
-    "food_segregation": ("Improper Food Segregation", "Risk of cross contamination."),
-    "license_display": ("Improper License Display", "License not prominently displayed."),
-    "Expired_item": ("Expired Items", "Expired items present."),
-    "Pest_report": ("Pest Control Report Missing", "Routine pest control not documented."),
-    "Water_report": ("Water Test Report Missing", "Potable water testing unavailable."),
+    "clean_premise": (
+        "Unclean Premises",
+        "The food premises, including floors, walls, ceilings and food-contact surfaces, "
+        "were not maintained in a clean and hygienic condition at the time of inspection.",
+    ),
+    "refrigerator_clean": (
+        "Improper Refrigerator Maintenance",
+        "The refrigeration facilities were not maintained in a clean condition and in proper "
+        "working order, risking contamination of the food stored therein.",
+    ),
+    "proper_attire": (
+        "Improper Protective Attire",
+        "Food handlers on duty were not wearing clean protective clothing, headgear and "
+        "footwear as required for the hygienic handling of food.",
+    ),
+    "proper_covered_utensil": (
+        "Improper Covering of Food",
+        "Food articles and utensils were found uncovered and exposed to dust, pests and "
+        "other contaminants.",
+    ),
+    "date_tag": (
+        "Absence of Date Tagging",
+        "Stored food articles did not bear legible date tags or traceability markings, "
+        "so batch identity and stock rotation could not be established.",
+    ),
+    "veg_nonveg_separation": (
+        "Improper Veg/Non-Veg Separation",
+        "Vegetarian and non-vegetarian food articles were not stored, handled and "
+        "displayed separately from each other.",
+    ),
+    "food_segregation": (
+        "Improper Food Segregation",
+        "Raw, cooked and ready-to-eat food articles were not segregated at each stage "
+        "of handling, creating a risk of cross-contamination.",
+    ),
+    "license_display": (
+        "Improper License Display",
+        "The FSSAI license/registration was not displayed at a prominent place in the "
+        "food business premises.",
+    ),
+    "Pest_report": (
+        "Pest Control Report Missing",
+        "No valid pest-control record was produced at the time of inspection; routine "
+        "pest management of the premises is undocumented.",
+    ),
+    "Water_report": (
+        "Water Test Report Missing",
+        "No potable-water test report was produced; the safety of water used in food "
+        "preparation and cleaning is unverified.",
+    ),
 }
 
 CHECKLIST_FIELDS: tuple[str, ...] = (
@@ -46,19 +85,93 @@ CHECKLIST_FIELDS: tuple[str, ...] = (
 )
 
 
+# Remediation directives per checklist field, rendered as the numbered
+# corrective actions (Part 2) of the Improvement Notice. Unlike the
+# observations above — which record what was *found* — these instruct
+# what the FBO must *do*.
+REMEDIATION_ACTIONS: dict[str, str] = {
+    "clean_premise": (
+        "Maintain the entire food premises, including all food-contact surfaces, "
+        "in a clean and hygienic condition at all times."
+    ),
+    "refrigerator_clean": (
+        "Clean and sanitise all refrigeration facilities and keep them in proper "
+        "working condition."
+    ),
+    "proper_attire": (
+        "Ensure all food handlers wear clean protective attire, including headgear "
+        "and footwear, while on duty."
+    ),
+    "proper_covered_utensil": (
+        "Keep all food articles and utensils covered and protected from dust, pests "
+        "and other contaminants at all times."
+    ),
+    "date_tag": (
+        "Affix legible date tags to all stored food articles and maintain "
+        "batch-wise traceability and stock-rotation records."
+    ),
+    "veg_nonveg_separation": (
+        "Store, handle and display vegetarian and non-vegetarian food articles "
+        "strictly separately from each other."
+    ),
+    "food_segregation": (
+        "Segregate raw, cooked and ready-to-eat food articles at every stage of "
+        "handling so as to eliminate cross-contamination."
+    ),
+    "license_display": (
+        "Display the FSSAI license/registration prominently at the entry of the "
+        "food business premises."
+    ),
+    "artificial_colour": (
+        "Discontinue the use of artificial colours except as permitted under the "
+        "Food Safety and Standards (Food Products Standards and Food Additives) "
+        "Regulations, and declare permitted colours on the label."
+    ),
+    "Expired_item": (
+        "Remove all expired food articles from the premises immediately and "
+        "institute first-expiry-first-out stock rotation."
+    ),
+    "Pest_report": (
+        "Engage licensed pest control, eliminate pest harbourage in the premises, "
+        "and preserve pest-management records for verification."
+    ),
+    "Water_report": (
+        "Use only potable water in food operations and preserve periodic "
+        "water-test reports for verification."
+    ),
+}
+
+
 def derive_actions(violations: list[dict[str, str]]) -> list[str]:
     """Derive corrective actions for an Improvement Notice from violations.
 
-    One action per violation, same order. Each action names the violated
-    item (``title``) and what was observed, as a directive sentence.
+    One directive per violation, same order. Each violation carries its
+    checklist ``field`` (see :func:`derive_violations`), which selects a
+    specific remediation instruction from :data:`REMEDIATION_ACTIONS`.
+    Violations without a known field fall back to a generic directive.
     """
-    return [f"Take corrective action: {v['title']} — {v['observation']}" for v in violations]
+    actions = []
+    for v in violations:
+        field = v.get("field", "") if isinstance(v, dict) else ""
+        directive = REMEDIATION_ACTIONS.get(field)
+        if directive:
+            actions.append(directive)
+            continue
+        title = v.get("title", "") if isinstance(v, dict) else str(v)
+        actions.append(f"Take immediate corrective action to rectify: {title}.")
+    return actions
 
 
 # Special violation rules that are not in the checklist but need to be checked
 SPECIAL_VIOLATION_RULES: dict[str, tuple[str, str]] = {
-    "artificial_colour": ("Use of Artificial Colours", "Artificial colours were reportedly used in food preparation."),
-    "Expired_item": ("Expired Items Present", "Expired food items were found on the premises."),
+    "artificial_colour": (
+        "Use of Artificial Colours",
+        "Artificial colours were reportedly used in the preparation of food articles.",
+    ),
+    "Expired_item": (
+        "Expired Items Present",
+        "Food articles past their expiry/best-before date were found stored on the premises.",
+    ),
 }
 
 
@@ -207,8 +320,7 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
     """Derive violations list for adjudication cases.
 
     Scans checklist fields and builds a list of violation dicts with
-    'title' and 'observation' keys (note: 'Observation' in templates,
-    but canonical is 'observation').
+    'title', 'observation' and 'field' (checklist key) keys.
 
     Also handles special cases like artificial_colour and Expired_item
     which have different logic.
@@ -217,8 +329,8 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
         form_data: Dictionary of adjudication form data with checklist fields
 
     Returns:
-        List of violation dicts, each with 'title' and 'observation' keys.
-        Empty list if no violations found.
+        List of violation dicts, each with 'title', 'observation' and
+        'field' (checklist key) keys. Empty list if no violations found.
 
     """
     violations = []
@@ -236,6 +348,7 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
             violations.append({
                 "title": title,
                 "observation": observation,
+                "field": field_name,
             })
 
     # Check special violations (fields marked as 'yes' indicate violations)
@@ -247,11 +360,13 @@ def derive_violations(form_data: dict) -> list[dict[str, str]]:
                     violations.append({
                         "title": title,
                         "observation": observation,
+                        "field": field_name,
                     })
             elif field_value:
                 violations.append({
                     "title": title,
                     "observation": observation,
+                    "field": field_name,
                 })
 
     return violations
@@ -286,7 +401,9 @@ def derive_same_entity(
 __all__ = [
     # Constants
     "CHECKLIST_RULES",
+    "REMEDIATION_ACTIONS",
     "SPECIAL_VIOLATION_RULES",
+    "derive_actions",
     "derive_applicable_sections_from_adjudication",
     # Individual derivations
     "derive_applicable_sections_from_case_file",

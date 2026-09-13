@@ -73,7 +73,7 @@ default=suman_saha
 | Python | 3.14.4 | App runtime, RAG pipeline |
 | Node.js | 22 LTS | Build tools, npm packages |
 | PostgreSQL | 18 | Primary database |
-| Redis | 7.x | Celery broker, cache |
+| Redis | 7.x | QStash task-status store |
 | Git | 2.53.0 | Version control |
 | WeasyPrint | system | PDF generation |
 | build-essential | — | C compiler, headers |

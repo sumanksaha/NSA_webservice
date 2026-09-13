@@ -480,9 +480,6 @@ class TestViolationsDerivationFromChecklist:
         # fields (artificial_colour, Expired_item) is a violation. So a fully
         # compliant form sets regular fields to "yes" and leaves the special
         # ones unset (only non-empty form values are stored).
-        # NOTE: Expired_item is currently listed in BOTH rule tables, so any
-        # *stored* value ("yes" or "no") yields a violation — known quirk,
-        # not exercised here.
         regular = (
             "clean_premise",
             "refrigerator_clean",
@@ -529,5 +526,6 @@ class TestViolationsDerivationFromChecklist:
         """Actions shown on the notice are derived 1:1 from violations."""
         insp_id = _violating_inspection(client)
         body = client.get(_notice_url(insp_id, "html")).data.decode()
-        for v in SAMPLE_VIOLATIONS:
-            assert f"Take corrective action: {v['title']}" in body
+        assert "Maintain the entire food premises" in body
+        assert "Display the FSSAI license/registration prominently" in body
+        assert "Engage licensed pest control" in body

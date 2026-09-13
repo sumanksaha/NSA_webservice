@@ -62,6 +62,13 @@ JOBS: tuple[ScheduledJob, ...] = (
         enabled_by_default=True,
         description="Daily local DB snapshot ZIP under instance/backups/.",
     ),
+    ScheduledJob(
+        name="cleanup_rag_query_logs",
+        flag_key="RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
+        cron_key=None,
+        default_cron="0 4 * * 0",  # weekly Sunday 04:00 UTC
+        description="Weekly RAG query-log retention cleanup (90-day default).",
+    ),
 )
 
 

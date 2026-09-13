@@ -1,14 +1,21 @@
 """Tests for derive_actions — corrective-action derivation for Improvement Notices.
 
-Contract: one corrective action per violation, same order, empty in → empty out.
-Action phrasing is templated from the violation's title + observation.
+Contract: one corrective directive per violation, same order, empty in → empty out.
+Directives come from REMEDIATION_ACTIONS keyed by the violation's checklist field.
 """
 
 from __future__ import annotations
 
 from app.shared.context_derivers import derive_actions, derive_violations
 
-UNCLEAN_OBSERVATION = "The premises were found inadequately maintained and unhygienic."
+UNCLEAN_OBSERVATION = (
+    "The food premises, including floors, walls, ceilings and food-contact surfaces, "
+    "were not maintained in a clean and hygienic condition at the time of inspection."
+)
+UNCLEAN_DIRECTIVE = (
+    "Maintain the entire food premises, including all food-contact surfaces, "
+    "in a clean and hygienic condition at all times."
+)
 
 
 class TestDeriveActions:
@@ -20,10 +27,15 @@ class TestDeriveActions:
             {
                 "title": "Unclean Premises",
                 "observation": UNCLEAN_OBSERVATION,
+                "field": "clean_premise",
             }
         ]
+        assert derive_actions(violations) == [UNCLEAN_DIRECTIVE]
+
+    def test_unknown_field_falls_back_to_generic_directive(self):
+        violations = [{"title": "Unclean Premises", "observation": UNCLEAN_OBSERVATION}]
         assert derive_actions(violations) == [
-            "Take corrective action: Unclean Premises — " + UNCLEAN_OBSERVATION,
+            "Take immediate corrective action to rectify: Unclean Premises.",
         ]
 
     def test_order_preserved_across_multiple_violations(self):
@@ -47,3 +59,19 @@ class TestDeriveActions:
         assert len(violations) == 2  # clean_premise flagged "no", artificial_colour flagged "yes"
         actions = derive_actions(violations)
         assert len(actions) == 2
+        assert actions[0] == UNCLEAN_DIRECTIVE
+
+
+class TestExpiredItemPolarity:
+    """Expired_item means 'expired items present' — only 'yes' violates."""
+
+    def test_no_means_compliant(self):
+        assert derive_violations({"Expired_item": "no"}) == []
+
+    def test_yes_means_violation_with_directive(self):
+        violations = derive_violations({"Expired_item": "yes"})
+        assert [v["title"] for v in violations] == ["Expired Items Present"]
+        assert derive_actions(violations) == [
+            "Remove all expired food articles from the premises immediately and "
+            "institute first-expiry-first-out stock rotation."
+        ]

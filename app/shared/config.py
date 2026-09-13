@@ -349,6 +349,13 @@ _TABLE: tuple[Setting, ...] = (
         help="Register the daily local-DB-snapshot QStash schedule at startup (ScheduledJobs).",
     ),
     Setting(
+        "RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
+        "rag_log_cleanup_schedule_enabled",
+        bool,
+        False,
+        help="Register the weekly RAG query-log cleanup QStash schedule at startup (ScheduledJobs).",
+    ),
+    Setting(
         "RAG_ENABLE_INGESTION_SCHEDULE",
         "enable_ingestion_schedule",
         bool,

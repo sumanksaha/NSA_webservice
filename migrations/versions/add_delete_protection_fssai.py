@@ -8,7 +8,7 @@ Only TRUNCATE bypasses triggers, which is acceptable as it's a more obvious
 intentional operation that requires superuser access.
 
 Revision ID: add_delete_protection_fssai
-Revises: <previous_migration>
+Revises: add_inspection_sample_details
 Create Date: 2026-08-29
 """
 
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "add_delete_protection_fssai"
-down_revision = None  # Update to the previous migration revision
+down_revision = "add_inspection_sample_details"
 branch_labels = None
 depends_on = None
 

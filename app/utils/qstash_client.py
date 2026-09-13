@@ -37,6 +37,8 @@ TASK_REGISTRY: dict[str, tuple[str, str]] = {
     "process_ocr_document_async": ("app.ocr_pipeline.tasks", "process_ocr_document_async"),
     # Nightly local DB snapshot (ex-Celery-beat; scheduled via scheduled_jobs).
     "create_daily_db_snapshot": ("app.utils.backup", "create_daily_db_snapshot"),
+    # RAG query-log retention cleanup (opt-in weekly schedule).
+    "cleanup_rag_query_logs": ("app.scripts.cleanup_rag_logs", "cleanup_rag_query_logs"),
 }
 
 # Path (relative to PUBLIC_BASE_URL) where the webhook accepts QStash deliveries.
