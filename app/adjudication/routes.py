@@ -816,7 +816,9 @@ def _rbac_check(case_id: int):
 
     from app.shared.rbac import scoped_officer_name
 
-    adj = Adjudication.query.get_or_404(case_id)
+    adj = db.session.get(Adjudication, case_id)
+    if adj is None:
+        return None, (jsonify({"error": "Case not found"}), 404)
     scope = scoped_officer_name(current_user)
     if scope is not None and adj.food_safety_officer != scope:
         return None, (jsonify({"error": "Case not found"}), 404)
@@ -888,6 +890,106 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
         )
     else:
         return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
+
+
+_ADJUDICATION_PETITION_REQUIRED: dict[str, str] = {
+    "case_number": "Case Number",
+    "food_safety_officer_name": "Food Safety Officer Name",
+    "fbo_owner": "FBO Owner",
+    "fbo_name": "FBO Name",
+    "fbo_address": "FBO Address",
+    "first_inspection_date": "First Inspection Date",
+    "compliance_deadline": "Compliance Deadline",
+    "followup_inspection_date": "Follow-up Inspection Date",
+}
+
+
+@adjudication_bp.route("/case/<int:case_id>/pdf/petition")
+@login_required
+def download_petition_pdf(case_id: int):  # type: ignore[return-value]
+    """Download the Petition as a PDF file.
+
+    Validates that every required field made it into the rendered petition
+    — returns 400 listing the missing fields instead of a half-empty PDF.
+    """
+    from app.shared.petition_check import has_unresolved_jinja, missing_required_fields
+
+    adj, error_resp = _rbac_check(case_id)
+    if error_resp:
+        return error_resp
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    if str(context.get("pre_authorization", "no")).strip().lower() == "yes":
+        return (
+            jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+            400,
+        )
+
+    required = dict(_ADJUDICATION_PETITION_REQUIRED)
+    # Template renders the trade-license branch when the FBO is unlicensed
+    # OR section 63 applies — mirror that condition here so the checked
+    # field is always the one actually rendered.
+    uses_trade_license = (
+        str(context.get("non_license", "no")).strip().lower() == "yes"
+        or "63" in (context.get(DERIVED_APPLICABLE_SECTIONS) or [])
+    )
+    if uses_trade_license:
+        required["ce_license_no"] = "Trade License No"
+    else:
+        required["fssai_license"] = "FSSAI License / Registration No"
+    required["authorization_date"] = "Authorization Date"
+    if str(context.get("complaint_lodged", "no")).strip().lower() == "yes":
+        required["complaint_date"] = "Complaint Date"
+        required["concerned_food"] = "Concerned Food"
+        required["problem"] = "Problem"
+
+    missing = missing_required_fields(required, context)
+    if missing:
+        return (
+            jsonify({
+                "error": "Petition is incomplete — these fields are missing and would render blank.",
+                "missing_fields": missing,
+            }),
+            400,
+        )
+
+    all_photos = (
+        Evidence.query
+        .filter(
+            Evidence.evidence_type == "photo",
+            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+        )
+        .order_by(Evidence.captured_at.asc())
+        .all()
+    )
+    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
+    context["adjudication"] = {
+        "photos": verified_photos,
+        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
+    }
+
+    rendered_html = render_template("adjudication/template_nonsample_petition.html", **context)
+    rendered_html = post_process_pdf_html(rendered_html, adjudication_id=case_id)
+    if has_unresolved_jinja(rendered_html):
+        return (
+            jsonify({"error": "Petition template has unresolved placeholders and cannot be generated."}),
+            500,
+        )
+
+    pdf_bytes, error = generate_pdf_from_html(rendered_html)
+    if not pdf_bytes:
+        current_app.logger.error(f"Petition PDF generation failed: {error}")
+        return jsonify({"error": f"PDF generation failed: {error}"}), 500
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"Petition_{adj.case_number or case_id}.pdf",
+        mimetype="application/pdf",
+    )
 
 
 # ---------------------------------------------------------------------------

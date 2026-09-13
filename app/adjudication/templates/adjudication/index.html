@@ -498,33 +498,27 @@ block extra_css %}
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
                         <a
-                            href="{{ url_for('adjudication.download_petition_docx', case_id=c.id) }}"
+                            href="{{ url_for('adjudication.download_docx', case_id=c.id, doc_type='petition') }}"
                             class="btn btn-secondary btn-sm"
                             title="Download Petition as Word"
                         >
                             <i class="fa-solid fa-file-word"></i> Petition
                         </a>
                         <a
-                            href="{{ url_for('adjudication.download_permission_docx', case_id=c.id) }}"
+                            href="{{ url_for('adjudication.download_docx', case_id=c.id, doc_type='permission') }}"
                             class="btn btn-secondary btn-sm"
                             title="Download Permission Letter as Word"
                         >
                             <i class="fa-solid fa-file-word"></i> Permission
                         </a>
-                        <a
-                            href="{{ url_for('adjudication.download_both_docx', case_id=c.id) }}"
-                            class="btn btn-primary btn-sm"
-                            title="Download both as Word ZIP"
-                        >
-                            <i class="fa-solid fa-file-zipper"></i> Word ZIP
-                        </a>
                         <button
                             type="button"
-                            class="btn btn-secondary btn-sm js-copy-letter"
-                            data-url="{{ url_for('adjudication.copy_letter', case_id=c.id, doc_type='petition') }}"
-                            title="Copy Petition letter body to clipboard for Gmail"
+                            class="btn btn-primary btn-sm js-petition-pdf"
+                            data-url="{{ url_for('adjudication.download_petition_pdf', case_id=c.id) }}"
+                            data-case-number="{{ c.case_number }}"
+                            title="Download Petition as PDF — all fields are validated first"
                         >
-                            <i class="fa-solid fa-copy"></i> Copy Letter
+                            <i class="fa-solid fa-file-pdf"></i> Petition PDF
                         </button>
                     </td>
                 </tr>
@@ -923,45 +917,51 @@ block extra_css %}
 </script>
 
 <script>
-    // Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
-    document.querySelectorAll(".js-copy-letter").forEach(function (btn) {
+    // Petition PDF — downloads the validated petition PDF.
+    // On 400 the server lists the missing fields, shown below the table.
+    document.querySelectorAll(".js-petition-pdf").forEach(function (btn) {
         btn.addEventListener("click", async function () {
             var url = this.getAttribute("data-url");
             var originalHTML = this.innerHTML;
-            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
-            this.disabled = true;
+            var self = this;
+            function reset(html, cls) {
+                self.innerHTML = html;
+                if (cls) self.classList.add(cls);
+                setTimeout(function () {
+                    self.innerHTML = originalHTML;
+                    if (cls) self.classList.remove(cls);
+                    self.disabled = false;
+                }, 2500);
+            }
+            self.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking…';
+            self.disabled = true;
 
             try {
                 var resp = await fetch(url);
-                if (!resp.ok) throw new Error("Failed to load letter");
-                var html = await resp.text();
-
-                // Copy as rich HTML so Gmail paste retains formatting
-                var blob = new Blob([html], { type: "text/html" });
-                var plainBlob = new Blob([html], { type: "text/plain" });
-                var item = new ClipboardItem({
-                    "text/html": blob,
-                    "text/plain": plainBlob,
-                });
-                await navigator.clipboard.write([item]);
-
-                this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                this.classList.add("btn-success");
-                var self = this;
+                if (!resp.ok) {
+                    var errBody = await resp.json().catch(function () {
+                        return {};
+                    });
+                    var missing = errBody.missing_fields ? Object.values(errBody.missing_fields).join(", ") : "";
+                    var msg = errBody.error || "PDF download failed";
+                    throw new Error(missing ? msg + " Missing: " + missing : msg);
+                }
+                var blob = await resp.blob();
+                var objectUrl = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = objectUrl;
+                a.download = "Petition_" + (self.getAttribute("data-case-number") || "case") + ".pdf";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
                 setTimeout(function () {
-                    self.innerHTML = originalHTML;
-                    self.classList.remove("btn-success");
-                    self.disabled = false;
-                }, 2000);
+                    URL.revokeObjectURL(objectUrl);
+                }, 1000);
+                reset('<i class="fa-solid fa-check"></i> Done!', "btn-success");
             } catch (err) {
-                this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
-                this.classList.add("btn-danger");
-                var self = this;
-                setTimeout(function () {
-                    self.innerHTML = originalHTML;
-                    self.classList.remove("btn-danger");
-                    self.disabled = false;
-                }, 2000);
+                var statusEl = document.getElementById("adjudication-val-status");
+                if (statusEl) statusEl.textContent = err.message;
+                reset('<i class="fa-solid fa-circle-exclamation"></i> Incomplete', "btn-danger");
             }
         });
     });

@@ -795,6 +795,64 @@ def download_both_docx(case_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Petition PDF download — validated single-file download
+# ---------------------------------------------------------------------------
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/pdf/petition")
+@login_required
+def download_petition_pdf(case_id: int):
+    """Download the Petition as a PDF file.
+
+    Validates that every required field made it into the rendered petition
+    — returns 400 listing the missing fields instead of a half-empty PDF.
+    """
+    from app.shared.petition_check import has_unresolved_jinja, missing_required_fields
+    from app.utils.pdf_utils import generate_pdf_from_html, post_process_pdf_html
+
+    # Visibility check first: fails closed on unknown ids, so missing and
+    # out-of-scope cases both get the same JSON 404.
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+    case = db.session.get(CaseFile, case_id)
+    if case is None:
+        return jsonify({"error": "Case not found"}), 404
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+
+    missing = missing_required_fields(_REQUIRED_FIELDS, case_data)
+    if missing:
+        return (
+            jsonify({
+                "error": "Petition is incomplete — these fields are missing and would render blank.",
+                "missing_fields": missing,
+            }),
+            400,
+        )
+
+    petition_html = str(render_template("case_file_generator/petition.html", **case_data))
+    petition_html = post_process_pdf_html(petition_html, case_id=case_id)
+    if has_unresolved_jinja(petition_html):
+        return (
+            jsonify({"error": "Petition template has unresolved placeholders and cannot be generated."}),
+            500,
+        )
+
+    pdf_bytes, error = generate_pdf_from_html(petition_html)
+    if not pdf_bytes:
+        current_app.logger.error("Petition PDF generation failed: %s", error)
+        return jsonify({"error": f"PDF generation failed: {error}"}), 500
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"Petition_{case.case_number or case_id}.pdf",
+        mimetype="application/pdf",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Copy Letter — returns rendered HTML for copy-paste into Gmail
 # ---------------------------------------------------------------------------
 
