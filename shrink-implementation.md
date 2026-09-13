@@ -1,5 +1,20 @@
 # Shrink Implementation Plan — Ponytail Audit Findings (Second Pass)
 
+## Status (2026-09-13)
+
+| # | Target | Verdict | Notes |
+|---|--------|---------|-------|
+| 1 | `case_query_service` inline | ✅ Done (pre-existing) | Manager uses `db.session.get` directly; module kept as read-only utility per plan |
+| 2 | Verification simplify | ✅ Done | `_guarded()` helper extracted in `verification_service.py`; public `verify_photo_location` kept; `test_inspection_photo_service` + characterization pass |
+| 3 | `word_converter` functional | ✅ Superseded | The `CaseFileWordConverter` the plan targeted no longer exists (DOCX moved to ADR-001 adoc pipeline); remaining `ImprovementNoticeWordConverter` is a different, fully-tested module — not refactored |
+| 4 | Adjudication RBAC | ✅ Done | `_rbac_docx_gate` + `_rbac_scope_for_case` + dead `_rbac_scope_for_form` + inline `copy_letter` gate → single `_rbac_check()` |
+| 5 | `to_dict` one-liners | ✅ Done (pre-existing) | Both converters iterate `model.__table__.columns` |
+| 6 | `parse_date` inline | ❌ Kept deliberately | Shared ISO/timezone/time-suffix normalization used by 5+ call sites; inlining would duplicate logic |
+| 7 | Shared RBAC merge | ✅ Done (pre-existing) | `app/shared/rbac.py` is the single source of truth |
+| 8 | `sync_orchestrator` Sheets-only | ✅ Done (part) | Stale `test_sync_orchestrator.py` rewritten to Sheets-only contract; stale triple-target comments fixed. `airtable_sync`/`excel_sync`/`pyairtable` KEPT — live `backup_coordinator` targets, not dead code |
+| 9 | `context_derivers` inline | ✅ Done (part) | Dead wrappers with zero importers deleted (`derive_case_file_context`, `derive_adjudication_context`, `derive_applicable_sections_from_form_data`, ~140 lines + unused `case_keys` imports). Live multi-consumer rules kept — inlining them would duplicate legal strings |
+| 10 | `case_keys` prune | ✅ Done (part) | Dead maps/helpers/TypedDicts deleted (484 → 52 lines, 13 live keys kept). Live constants NOT replaced with literals — typo risk in legal-document keys |
+
 ## 1. `app/shared/case_query_service.py` → Inline into `DocumentCaseManager`
 
 **Goal:** Eliminate the indirection layer between DocumentCaseManager and direct model lookups.

@@ -200,6 +200,17 @@ def _validate_form(case_dict: dict, case_type: str) -> None:
             raise ValueError(f"Adjudication missing required fields: {missing}")
 
 
+# Model column names → canonical form keys for adjudication exports.
+# ``adjudication_to_dict()`` returns model-cased keys while
+# ``_process_adjudication_form()`` reads lower-case form keys (plus the
+# follow-up date lives on the model as ``inspection_date``).
+_ADJUDICATION_MODEL_TO_FORM_KEYS: dict[str, str] = {
+    "First_inspection_date": "first_inspection_date",
+    "Complaint_date": "complaint_date",
+    "inspection_date": "followup_inspection_date",
+}
+
+
 def _normalize_dates_for_form(data: dict, case_type: str) -> dict:
     """Convert ISO datetime strings from export back to ``YYYY-MM-DD`` for form validators.
 
@@ -230,6 +241,10 @@ def _normalize_dates_for_form(data: dict, case_type: str) -> dict:
         ]
 
     result = data.copy()
+    if case_type != "case_file":
+        for model_key, form_key in _ADJUDICATION_MODEL_TO_FORM_KEYS.items():
+            if model_key in result and result.get(form_key) in (None, ""):
+                result[form_key] = result[model_key]
     for field in date_fields:
         if field in result and isinstance(result[field], str) and result[field]:
             try:

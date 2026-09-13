@@ -104,6 +104,28 @@ def build_adjudication_context(form_data: dict) -> dict:
     # Backward compatible violations field
     context["violations"] = context[DERIVED_VIOLATIONS]
 
+    # Normalise dates to DD-MM-YYYY (model dicts carry ISO datetimes with a
+    # trailing time that must not leak into produced documents). Templates use
+    # lower-case keys while the model uses e.g. ``First_inspection_date``.
+    from app.utils.filters import format_date_indian
+
+    for template_key, model_key in (
+        ("first_inspection_date", "First_inspection_date"),
+        ("compliance_deadline", "compliance_deadline"),
+        ("complaint_date", "Complaint_date"),
+        ("followup_inspection_date", "inspection_date"),
+        ("authorization_date", "authorization_date"),
+    ):
+        raw = context.get(template_key)
+        if raw in (None, "") and model_key != template_key:
+            raw = context.get(model_key)
+        if raw in (None, ""):
+            continue
+        formatted = format_date_indian(raw)
+        context[template_key] = formatted
+        if model_key in context:
+            context[model_key] = formatted
+
     return context
 
 

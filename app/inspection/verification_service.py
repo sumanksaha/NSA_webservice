@@ -11,6 +11,21 @@ _ip_adapter = IpGeolocationAdapter()
 _license_adapter = LicenseLookupAdapter()
 
 
+def _guarded(label: str, call, fallback: dict[str, Any]) -> dict[str, Any]:
+    """Run an external-service *call*, degrading to *fallback* on any error."""
+    try:
+        return call()
+    except Exception as exc:
+        try:
+            from flask import current_app
+
+            if current_app:
+                current_app.logger.warning(f"{label} failed: {exc}")
+        except Exception:
+            pass
+        return fallback
+
+
 def verify_photo_location(
     raw_lat: float,
     raw_lng: float,
@@ -32,33 +47,21 @@ def verify_photo_location(
     }
 
     # 1. Reverse geocode to get locality
-    try:
-        geocode_result = _geocoder.reverse(raw_lat, raw_lng)
-    except Exception as exc:
-        try:
-            from flask import current_app
-
-            if current_app:
-                current_app.logger.warning(f"geocoding failed: {exc}")
-        except Exception:
-            pass
-        geocode_result = {"error": str(exc), "locality": None}
+    geocode_result = _guarded(
+        "geocoding",
+        lambda: _geocoder.reverse(raw_lat, raw_lng),
+        {"locality": None},
+    )
 
     if geocode_result.get("error") is None:
         result["locality"] = geocode_result.get("locality")
 
     # 2. Geolocate IP address
-    try:
-        ip_result = _ip_adapter.geolocate(ip_address)
-    except Exception as exc:
-        try:
-            from flask import current_app
-
-            if current_app:
-                current_app.logger.warning(f"ip_geolocate failed: {exc}")
-        except Exception:
-            pass
-        ip_result = {"error": str(exc), "city": None, "region": None}
+    ip_result = _guarded(
+        "ip_geolocate",
+        lambda: _ip_adapter.geolocate(ip_address),
+        {"city": None, "region": None},
+    )
 
     ip_city = ip_result.get("city")
     ip_region = ip_result.get("region")

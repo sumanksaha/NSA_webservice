@@ -106,19 +106,40 @@ def _safe_int(value, default=None):
         return default
 
 
+# Model-cased keys accepted as aliases of their canonical form keys.
+# ``case_file_to_dict()`` / export payloads use model column names
+# (e.g. ``Lab_Registration_No``) while forms, templates, and the canonical
+# contract (``app.shared.case_keys``) use ``lab_registration_no``.
+_FIELD_ALIASES: dict[str, str] = {
+    "Lab_Registration_No": "lab_registration_no",
+}
+
+
+def _lookup_field(form_data: dict, field: str):
+    """Return the value for *field*, falling back to model-cased aliases."""
+    value = form_data.get(field, "")
+    if value is None or (isinstance(value, str) and not value.strip()):
+        for alias, canonical in _FIELD_ALIASES.items():
+            if canonical == field:
+                value = form_data.get(alias, "")
+                if value is not None and (not isinstance(value, str) or value.strip()):
+                    break
+    return value
+
+
 def validate_case_file_form(form_data: dict) -> dict[str, str]:
     errors: dict[str, str] = {}
     for field, label in _REQUIRED_FIELDS.items():
-        value = form_data.get(field, "")
+        value = _lookup_field(form_data, field)
         if value is None or (isinstance(value, str) and not value.strip()):
             errors[field] = f"{label} is required."
 
     # --- Numeric validations ---
     packet_count = form_data.get("packet_count", "")
-    if packet_count:
+    if packet_count not in (None, ""):
         try:
-            pkt = _safe_int(packet_count)
-            if pkt is not None and pkt <= 0:
+            pkt = int(packet_count)
+            if pkt <= 0:
                 errors["packet_count"] = "Packet Count must be a positive number."
         except (TypeError, ValueError):
             errors["packet_count"] = "Packet Count must be a valid integer."
@@ -184,11 +205,11 @@ def process_form_data(form_data):
     for key, value in form_data.items():
         if value is None or (isinstance(value, str) and not value.strip()):
             continue
-        if key in date_fields and isinstance(value, str):
-            try:
-                dt = datetime.strptime(value, "%Y-%m-%d")
-                case_data[key] = dt.strftime("%d/%m/%Y")
-            except ValueError:
+        if key in date_fields:
+            dt = parse_date(value)
+            if dt is not None:
+                case_data[key] = dt.strftime("%d-%m-%Y")
+            else:
                 case_data[key] = value
         else:
             case_data[key] = value
@@ -227,6 +248,13 @@ def process_form_data(form_data):
     for field in date_fields:
         if field in case_data:
             case_data[field] = format_date_indian(case_data[field])
+
+    # Alias model-cased keys to their canonical form keys so templates
+    # (which use ``lab_registration_no``) render on regenerate/docx/editor
+    # paths built from ``case_file_to_dict()`` (which uses model columns).
+    for alias, canonical in _FIELD_ALIASES.items():
+        if alias in case_data and not case_data.get(canonical):
+            case_data[canonical] = case_data[alias]
 
     if "cost_in_words" not in case_data or not case_data["cost_in_words"]:
         total_cost = case_data.get("total_cost", "0")
@@ -302,7 +330,7 @@ def _process_case_file_form(form_data):
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
         sample_code=form_data.get("sample_code", ""),
-        Lab_Registration_No=form_data.get("lab_registration_no", ""),
+        Lab_Registration_No=_lookup_field(form_data, "lab_registration_no"),
         sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
         is_misbranded=form_data.get("is_misbranded") == "misbranded",
@@ -504,7 +532,7 @@ def generate_case_file_route():
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
         sample_code=form_data.get("sample_code", ""),
-        Lab_Registration_No=form_data.get("lab_registration_no", ""),
+        Lab_Registration_No=_lookup_field(form_data, "lab_registration_no"),
         sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
         is_misbranded=form_data.get("is_misbranded") == "misbranded",

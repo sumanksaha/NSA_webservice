@@ -10,26 +10,6 @@ This module provides pure functions to derive the following context fields:
 All functions are pure (no side effects, same input -> same output).
 """
 
-from app.shared.case_keys import (
-    DERIVED_APPLICABLE_SECTIONS,
-    DERIVED_CASE_TRACK,
-    DERIVED_SAME_ENTITY,
-    DERIVED_SECTIONS_DISPLAY,
-    DERIVED_VIOLATIONS,
-    PARTY_MANUFACTURER_FSSAI,
-    PARTY_RETAILER_FSSAI,
-    SAMPLE_IS_MISBRANDED,
-    SAMPLE_IS_SUBSTANDARD,
-    SECTION_55,
-    SECTION_56,
-    SECTION_58,
-    SECTION_63,
-    SECTION_64,
-    SHARED_COMPLAINT_LODGED,
-    SHARED_NON_LICENSE,
-    SHARED_PRE_AUTHORIZATION,
-)
-
 # =============================================================================
 # VIOLATION DEFINITION (from adjudication RULES)
 # =============================================================================
@@ -156,49 +136,6 @@ def derive_applicable_sections_from_adjudication(
         sections.append("64")
 
     return sorted(sections)
-
-
-def derive_applicable_sections_from_form_data(form_data: dict) -> list[str]:
-    """Derive applicable sections by detecting the case type from form data.
-
-    This is a unified function that works for both case file and adjudication
-    by examining the available fields.
-
-    For case file: looks for is_substandard/is_misbranded flags
-    For adjudication: looks for section_* checkboxes
-
-    Args:
-        form_data: Dictionary of form data (canonical keys)
-
-    Returns:
-        List of section numbers as strings
-
-    """
-    # Check if this is a sample/case file case
-    is_substandard = form_data.get(SAMPLE_IS_SUBSTANDARD, False)
-    is_misbranded = form_data.get(SAMPLE_IS_MISBRANDED, False)
-
-    # Normalize the values
-    def normalize_bool(val):
-        if isinstance(val, str):
-            return val.strip().lower() in ("substandard", "misbranded", "yes", "true", "1")
-        return bool(val)
-
-    if normalize_bool(is_substandard) or normalize_bool(is_misbranded):
-        # This is a sample/case file case
-        return derive_applicable_sections_from_case_file(
-            is_substandard=normalize_bool(is_substandard),
-            is_misbranded=normalize_bool(is_misbranded),
-        )
-
-    # Otherwise, check section checkboxes (adjudication)
-    return derive_applicable_sections_from_adjudication(
-        section_55=bool(form_data.get(SECTION_55)),
-        section_56=bool(form_data.get(SECTION_56)),
-        section_58=bool(form_data.get(SECTION_58)),
-        section_63=bool(form_data.get(SECTION_63)),
-        section_64=bool(form_data.get(SECTION_64)),
-    )
 
 
 def derive_sections_display(applicable_sections: list[str]) -> str:
@@ -343,119 +280,6 @@ def derive_same_entity(
 
 
 # =============================================================================
-# FULL CONTEXT DERIVER FOR CASE FILE
-# =============================================================================
-
-
-def derive_case_file_context(form_data: dict) -> dict:
-    """Derive all context fields for case file generator.
-
-    This is a convenience function that derives all the required fields
-    for case file document generation.
-
-    Args:
-        form_data: Dictionary of case file form data (canonical keys)
-
-    Returns:
-        Dictionary with derived fields:
-        - applicable_sections: list[str]
-        - sections_display: str
-        - case_track: str
-        - same_entity: bool
-        - violations: [] (empty for sample cases)
-
-    """
-
-    # Normalize sample analysis flags
-    def normalize_sample_flag(val):
-        if isinstance(val, str):
-            return val.strip().lower() in ("substandard", "misbranded", "yes", "true", "1")
-        return bool(val)
-
-    is_substandard = normalize_sample_flag(form_data.get(SAMPLE_IS_SUBSTANDARD))
-    is_misbranded = normalize_sample_flag(form_data.get(SAMPLE_IS_MISBRANDED))
-
-    # Get manufacturer and retailer FSSAI for same_entity
-    manufacturer_fssai = form_data.get(PARTY_MANUFACTURER_FSSAI, "")
-    retailer_fssai = form_data.get(PARTY_RETAILER_FSSAI, "")
-
-    derived = {
-        DERIVED_APPLICABLE_SECTIONS: derive_applicable_sections_from_case_file(
-            is_substandard=is_substandard,
-            is_misbranded=is_misbranded,
-        ),
-        DERIVED_SECTIONS_DISPLAY: "",  # Will be computed below
-        DERIVED_CASE_TRACK: "sample",  # Case file is always sample track
-        DERIVED_VIOLATIONS: [],  # Sample cases don't have violations
-        DERIVED_SAME_ENTITY: derive_same_entity(manufacturer_fssai, retailer_fssai),
-    }
-
-    # Compute sections_display from applicable_sections
-    derived[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(derived[DERIVED_APPLICABLE_SECTIONS])
-
-    return derived
-
-
-# =============================================================================
-# FULL CONTEXT DERIVER FOR ADJUDICATION
-# =============================================================================
-
-
-def derive_adjudication_context(form_data: dict) -> dict:
-    """Derive all context fields for adjudication.
-
-    This is a convenience function that derives all the required fields
-    for adjudication document generation.
-
-    Args:
-        form_data: Dictionary of adjudication form data (canonical keys)
-
-    Returns:
-        Dictionary with derived fields:
-        - applicable_sections: list[str]
-        - sections_display: str
-        - case_track: str
-        - violations: list[dict]
-        - same_entity: False (adjudication doesn't use this)
-
-    """
-    # Get section checkboxes
-    section_55 = form_data.get(SECTION_55)
-    section_56 = form_data.get(SECTION_56)
-    section_58 = form_data.get(SECTION_58)
-    section_63 = form_data.get(SECTION_63)
-    section_64 = form_data.get(SECTION_64)
-
-    # Get case flags
-    non_license = form_data.get(SHARED_NON_LICENSE)
-    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION)
-    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED)
-
-    applicable_sections = derive_applicable_sections_from_adjudication(
-        section_55=bool(section_55),
-        section_56=bool(section_56),
-        section_58=bool(section_58),
-        section_63=bool(section_63),
-        section_64=bool(section_64),
-    )
-
-    derived = {
-        DERIVED_APPLICABLE_SECTIONS: applicable_sections,
-        DERIVED_SECTIONS_DISPLAY: derive_sections_display(applicable_sections),
-        DERIVED_CASE_TRACK: derive_case_track(
-            non_license=non_license,
-            pre_authorization=pre_authorization,
-            complaint_lodged=complaint_lodged,
-            is_sample=False,  # Adjudication is not sample
-        ),
-        DERIVED_VIOLATIONS: derive_violations(form_data),
-        DERIVED_SAME_ENTITY: False,  # Adjudication doesn't use same_entity
-    }
-
-    return derived
-
-
-# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -463,13 +287,9 @@ __all__ = [
     # Constants
     "CHECKLIST_RULES",
     "SPECIAL_VIOLATION_RULES",
-    "derive_adjudication_context",
     "derive_applicable_sections_from_adjudication",
     # Individual derivations
     "derive_applicable_sections_from_case_file",
-    "derive_applicable_sections_from_form_data",
-    # Full context derivations
-    "derive_case_file_context",
     "derive_case_track",
     "derive_same_entity",
     "derive_sections_display",

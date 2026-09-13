@@ -50,7 +50,7 @@ from app.shared.context_derivers import (
     derive_violations,
 )
 from app.shared.document_case_manager import DocumentCaseManager
-from app.utils.filters import parse_date
+from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
 
@@ -169,6 +169,36 @@ def _process_adjudication_form(form_data):
     )
 
 
+def _format_adjudication_dates(context: dict) -> dict:
+    """Normalise all adjudication date values to DD-MM-YYYY for templates.
+
+    Templates reference lower-case keys (``first_inspection_date``,
+    ``complaint_date``, ``followup_inspection_date``, ...) while
+    ``adjudication_to_dict()`` returns model-cased keys with ISO datetime
+    strings (``First_inspection_date`` → ``2026-01-15T00:00:00``). Without
+    normalisation the trailing time leaks into produced documents.
+    """
+    pairs = [
+        ("first_inspection_date", "First_inspection_date"),
+        ("compliance_deadline", "compliance_deadline"),
+        ("complaint_date", "Complaint_date"),
+        # The follow-up date is stored on the model as ``inspection_date``.
+        ("followup_inspection_date", "inspection_date"),
+        ("authorization_date", "authorization_date"),
+    ]
+    for template_key, model_key in pairs:
+        raw = context.get(template_key)
+        if raw in (None, "") and model_key != template_key:
+            raw = context.get(model_key)
+        if raw in (None, ""):
+            continue
+        formatted = format_date_indian(raw)
+        context[template_key] = formatted
+        if model_key in context:
+            context[model_key] = formatted
+    return context
+
+
 def _prepare_adjudication_context(case_data):
     """Prepare template rendering context for adjudication documents."""
     form_data = case_data
@@ -202,7 +232,7 @@ def _prepare_adjudication_context(case_data):
     context[DERIVED_VIOLATIONS] = derive_violations(form_data)
     context[DERIVED_SAME_ENTITY] = False
     context["violations"] = context[DERIVED_VIOLATIONS]
-    return context
+    return _format_adjudication_dates(context)
 
 
 # --------------------------------------------------------------------------- #
@@ -401,7 +431,7 @@ def suggest_sections_route():
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
 def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
     """Regenerate documents from an existing adjudication case."""
-    _, error_resp, adj = _rbac_scope_for_case(case_id)
+    adj, error_resp = _rbac_check(case_id)
     if error_resp:
         return error_resp
     form_data = adjudication_to_dict(adj)
@@ -776,8 +806,12 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
 # ---------------------------------------------------------------------------
 
 
-def _rbac_docx_gate(case_id: int):
-    """Adapter: permission gate reused by all docx routes."""
+def _rbac_check(case_id: int):
+    """Permission gate for existing adjudication cases.
+
+    Returns ``(adj, None)`` when the current user may access the case,
+    otherwise ``(None, error_response)``.
+    """
     from flask_login import current_user
 
     from app.shared.rbac import scoped_officer_name
@@ -785,32 +819,8 @@ def _rbac_docx_gate(case_id: int):
     adj = Adjudication.query.get_or_404(case_id)
     scope = scoped_officer_name(current_user)
     if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404, adj
-    return None, None, adj
-
-
-def _rbac_scope_for_form(form_data: dict) -> None:
-    """Adapter: FSO account binding — stamps the officer name into form_data."""
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    scope = scoped_officer_name(current_user)
-    if scope:
-        form_data["food_safety_officer_name"] = scope
-
-
-def _rbac_scope_for_case(case_id: int):
-    """Adapter: permission gate for existing case routes."""
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    adj = Adjudication.query.get_or_404(case_id)
-    scope = scoped_officer_name(current_user)
-    if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404, adj
-    return None, None, adj
+        return None, (jsonify({"error": "Case not found"}), 404)
+    return adj, None
 
 
 @adjudication_bp.route("/case/<int:case_id>/docx/<doc_type>")
@@ -819,8 +829,8 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     """Download Adjudication DOCX — adapter picks format."""
     from app.adjudication.adoc_renderer import render_adoc_to_docx
 
-    gate, error_resp, adj = _rbac_docx_gate(case_id)
-    if gate is not None:
+    adj, error_resp = _rbac_check(case_id)
+    if error_resp:
         return error_resp
 
     form_data = adjudication_to_dict(adj)
@@ -892,14 +902,9 @@ def copy_letter(case_id: int, doc_type: str):
 
     ``doc_type`` is ``petition`` or ``permission``.
     """
-    adj = Adjudication.query.get_or_404(case_id)
-    from flask_login import current_user
-
-    from app.shared.rbac import scoped_officer_name
-
-    scope = scoped_officer_name(current_user)
-    if scope is not None and adj.food_safety_officer != scope:
-        return jsonify({"error": "Case not found"}), 404
+    adj, error_resp = _rbac_check(case_id)
+    if error_resp:
+        return error_resp
 
     if doc_type not in ("petition", "permission"):
         return jsonify({"error": "Invalid doc_type"}), 400
