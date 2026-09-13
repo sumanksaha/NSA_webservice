@@ -169,4 +169,61 @@ Kolkata Municipal Corporation
 . That one sealed packet containing one sample packet (Part I) of along with a copy of memorandum duly filled in Form VI bearing code no. {{ sample_code }} and specimen impression of the seal used by the complainant Food Safety Officer was sent to the Food Analyst, Central Laboratory (Food), K.M.C. under due entry in the peon book, which was duly received by the Food Analyst, K.M.C. on {{ do_receipt_date }} under Laboratory Registration No {{ lab_registration_no }}.
 . That two sealed packets — one containing two sample packets (Part II and Part III) along with two copies of the memorandum duly filled in form VI bearing code no. {{ sample_code }} and another containing one sample packet (Part IV) along with one copy of the memorandum duly filled in Form VI bearing code no. {{ sample_code }} were deposited at the Food Cell under due entry in the peon book.
 . That in due course of time the complaint received the report of Food Analyst bearing No: {{ analyst_report_no }} Dated {{ analyst_report_date }} through the Designated Officer along with a directive letter Vide No: {{ directive_letter_no }} Dated {{ directive_letter_date }} which reveals that sampled food article is {% if analysis_result %}The sample was found to be {{ analysis_result }}.{% endif %}
-. That one copy of aforesaid Food Analyst report along with a forwarding letter of Designated Officer vide No {{ directive_letter_no }} Dated {{ directive_letter_date }} has been served upon {% if same_entity %}{{ retailer_name }} on {{ retailer_report_receive_date }}{% else %}{{ retailer_name }} on {{ retailer_report_receive_date }} and to {{ manufacturer_name
+. That one copy of aforesaid Food Analyst report along with a forwarding letter of Designated Officer vide No {{ directive_letter_no }} Dated {{ directive_letter_date }} has been served upon {% if same_entity %}{{ retailer_name }} on {{ retailer_report_receive_date }}{% else %}{{ retailer_name }} on {{ retailer_report_receive_date }} and to {{ manufacturer_name }} on {{ manufacturer_report_receive_date }}{% endif %} by the complainant and the receipt of the same has been duly acknowledged. FSO also asked the manufacturer to prefer an appeal before Designated Officer against the finding of Food Analyst but the manufacturer did not prefer an appeal against the report of Food Analyst.
+. That the sample of *{{ product_name }}* is found to be in contravention of Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and thus the Food Business Operator(s) should be penalized {% if applicable_sections %}u/s {{ sections_display }}{% else %}under the relevant section{% endif %} of the Food Safety and Standards Act, 2006.
+. That Food Safety Officer submitted all the relevant documents in connection with above sample and placed before the Designated Officer for his perusal and further proceedings.
+. That the Designated officer authorized Food Safety Officer to file with the Adjudicating Officer an application for Adjudication.
+
+-- GROUNDS --
+
+[.justify]
+. That the sample of *{{ product_name }}* collected from the premises of *{{ retailer_fbo_name }}* on {{ inspection_date }} vide code No. {{ sample_code }} was analysed by the Food Analyst, and the report bearing No. {{ analyst_report_no }} dated {{ analyst_report_date }} revealed that the sampled food article {% if analysis_result %}was found to be *{{ analysis_result }}*.{% else %}was not conforming to the standards prescribed under the Food Safety and Standards Act, 2006.{% endif %}
+. That the said food article is in contravention of the provisions of Section 26(2)(ii) of the Food Safety and Standards Act, 2006 and the Food Business Operator(s) are liable to be penalised {% if applicable_sections %}u/s {{ sections_display }}{% else %}under the relevant section{% endif %} of the Food Safety and Standards Act, 2006.
+. That the Food Business Operator(s) did not prefer any appeal against the report of the Food Analyst within the stipulated time as provided under Section 46(4) of the Food Safety and Standards Act, 2006.
+. That the complainant has submitted all the relevant documents in connection with the above sample before the Designated Officer, who after perusal of the same has authorised the complainant to file the present petition for adjudication.
+
+[.legal-notice-box]
+{% for sec in applicable_sections %}
+*Liability under Section {{ sec }}:* +
+{% if sec == '51' %}
+Any person who whether by himself or by any other person on his behalf manufactures for sale or stores or sells or distributes or imports any article of food for human consumption which is **sub-standard** shall be liable to a penalty which may extend to five lakh rupees.
+{% elif sec == '52' %}
+Any person who whether by himself or by any other person on his behalf manufactures for sale or stores or sells or distributes or imports any article of food for human consumption which is **misbranded** shall be liable to a penalty which may extend to three lakh rupees.
+{% else %}
+Liability provisions for Section {{ sec }} apply.
+{% endif %}
+{% endfor %}
+{% if not applicable_sections %}
+Error: no applicable sections specified.
+{% endif %}
+
+-- PRAYER --
+
+[.justify]
+In view of the facts and circumstances stated above, it is most respectfully prayed that this Hon'ble Adjudicating Officer may be pleased to:
+
+[.justify]
+. take cognizance of the complaint and initiate adjudication proceedings against the Food Business Operator(s) for the aforesaid contravention;
+. impose penalty upon the Food Business Operator(s) {% if applicable_sections %}u/s {{ sections_display }}{% else %}under the relevant section{% endif %} of the Food Safety and Standards Act, 2006, as deemed fit and proper;
+. award costs of the proceedings; and
+. pass such other order or orders as may be deemed fit and proper in the interest of justice.
+
+[.justify]
+And for this act of kindness your petitioner as in duty bound shall ever pray.
+
+[.footer-table]
+|===
+|Designated Officer +
+Kolkata Municipal Corporation |Food Safety Officer +
+Kolkata Municipal Corporation
+|===
+
+*List of Enclosures*
+
+[.justify]
+. Photocopies of Form V dated {{ inspection_date }}
+. Photocopies of Form VI dated {{ inspection_date }}
+. Lab submission receipt dated {{ do_receipt_date }}
+. Analyst Report {{ analyst_report_no }} dated {{ analyst_report_date }}
+. Directive {{ directive_letter_no }} dated {{ directive_letter_date }}
+. Authorization of Designated Officer dated __________________

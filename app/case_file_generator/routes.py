@@ -40,6 +40,8 @@ from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
 
+from .adoc_renderer import render_docx
+
 case_file_generator_bp = Blueprint("case_file_generator", __name__, template_folder="templates", static_folder="static")
 
 
@@ -97,6 +99,13 @@ def _parse_date(value: str) -> datetime | None:
         return None
 
 
+def _safe_int(value, default=None):
+    try:
+        return int(value) if value not in (None, "") else default
+    except (TypeError, ValueError):
+        return default
+
+
 def validate_case_file_form(form_data: dict) -> dict[str, str]:
     errors: dict[str, str] = {}
     for field, label in _REQUIRED_FIELDS.items():
@@ -108,7 +117,8 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     packet_count = form_data.get("packet_count", "")
     if packet_count:
         try:
-            if int(packet_count) <= 0:
+            pkt = _safe_int(packet_count)
+            if pkt is not None and pkt <= 0:
                 errors["packet_count"] = "Packet Count must be a positive number."
         except (TypeError, ValueError):
             errors["packet_count"] = "Packet Count must be a valid integer."
@@ -141,13 +151,19 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
             parsed_dates[field] = dt
 
     # --- Date ordering validation ---
-    if "mfg_date" in parsed_dates and "expiry_date" in parsed_dates:
-        if parsed_dates["mfg_date"] >= parsed_dates["expiry_date"]:
-            errors["expiry_date"] = "Date of Expiry must be after Date of Manufacturing."
+    if (
+        "mfg_date" in parsed_dates
+        and "expiry_date" in parsed_dates
+        and parsed_dates["mfg_date"] >= parsed_dates["expiry_date"]
+    ):
+        errors["expiry_date"] = "Date of Expiry must be after Date of Manufacturing."
 
-    if "do_receipt_date" in parsed_dates and "analyst_report_date" in parsed_dates:
-        if parsed_dates["do_receipt_date"] > parsed_dates["analyst_report_date"]:
-            errors["analyst_report_date"] = "Analyst Report Date must be on or after DO Receipt Date."
+    if (
+        "do_receipt_date" in parsed_dates
+        and "analyst_report_date" in parsed_dates
+        and parsed_dates["do_receipt_date"] > parsed_dates["analyst_report_date"]
+    ):
+        errors["analyst_report_date"] = "Analyst Report Date must be on or after DO Receipt Date."
     return errors
 
 
@@ -227,70 +243,39 @@ def process_form_data(form_data):
 def case_file_to_dict(case_file):
     """Convert a CaseFile model instance to a dictionary for JSON serialization.
 
-    Keys match the model column names so templates can use them directly
-    without aliasing.
+    Uses SQLAlchemy __table__.columns for the core fields, with
+    date/computed fields handled separately.
     """
-    return {
-        "id": case_file.id,
-        "case_number": case_file.case_number,
-        "food_safety_officer_name": case_file.food_safety_officer_name,
-        "authorization_date": case_file.authorization_date.isoformat() if case_file.authorization_date else None,
-        "inspection_date": (case_file.inspection_date.isoformat() if case_file.inspection_date else None),
-        "inspection_time": case_file.inspection_time,
-        "sample_id": case_file.sample_id,
-        "manufacturer_fssai": case_file.manufacturer_fssai,
-        "manufacturer_name": case_file.manufacturer_name,
-        "manufacturer_fbo_name": case_file.manufacturer_fbo_name,
-        "manufacturer_address": case_file.manufacturer_address,
-        "retailer_fssai": case_file.retailer_fssai,
-        "retailer_name": case_file.retailer_name,
-        "retailer_fbo_name": case_file.retailer_fbo_name,
-        "retailer_address": case_file.retailer_address,
-        "product_name": case_file.product_name,
-        "batch_no": case_file.batch_no,
-        "sample_quantity": case_file.sample_quantity,
-        "packet_count": case_file.packet_count,
-        "mfg_date": case_file.mfg_date.isoformat() if case_file.mfg_date else None,
-        "expiry_date": case_file.expiry_date.isoformat() if case_file.expiry_date else None,
-        "other_food_articles": case_file.other_food_articles,
-        "total_cost": case_file.total_cost,
-        "cost_in_words": case_file.cost_in_words,
-        "sample_code": case_file.sample_code,
-        "lab_registration_no": case_file.Lab_Registration_No,
-        "do_receipt_date": case_file.do_receipt_date.isoformat() if case_file.do_receipt_date else None,
-        "is_misbranded": "misbranded" if case_file.is_misbranded else "",
-        "is_substandard": "substandard" if case_file.is_substandard else "",
-        "analyst_report_no": case_file.analyst_report_no,
-        "analyst_report_date": case_file.analyst_report_date.isoformat() if case_file.analyst_report_date else None,
-        "directive_letter_no": case_file.directive_letter_no,
-        "directive_letter_date": (
-            case_file.directive_letter_date.isoformat() if case_file.directive_letter_date else None
-        ),
-        "retailer_report_receive_date": (
-            case_file.retailer_report_receive_date.isoformat() if case_file.retailer_report_receive_date else None
-        ),
-        "manufacturer_report_receive_date": (
-            case_file.manufacturer_report_receive_date.isoformat()
-            if case_file.manufacturer_report_receive_date
-            else None
-        ),
-        "applicable_regulation": case_file.applicable_regulation,
-        "applicable_clause": case_file.applicable_clause,
-        "applicable_sections": case_file.applicable_sections,
-        "created_at": case_file.created_at.isoformat() if case_file.created_at else None,
-        "synced_at": case_file.synced_at.isoformat() if case_file.synced_at else None,
-    }
+    cols = [c.name for c in CaseFile.__table__.columns]
+    result = {c: getattr(case_file, c, None) for c in cols}
+
+    # Date fields that need isoformat serialization
+    for date_field in (
+        "authorization_date",
+        "inspection_date",
+        "mfg_date",
+        "expiry_date",
+        "do_receipt_date",
+        "analyst_report_date",
+        "directive_letter_date",
+        "retailer_report_receive_date",
+        "manufacturer_report_receive_date",
+    ):
+        val = result.get(date_field)
+        result[date_field] = val.isoformat() if val else None
+
+    # Boolean fields need string representation for templates
+    result["is_misbranded"] = "misbranded" if result.get("is_misbranded") else ""
+    result["is_substandard"] = "substandard" if result.get("is_substandard") else ""
+
+    return result
 
 
 def _process_case_file_form(form_data):
     """Create a CaseFile model instance from validated form data."""
-    sample_id = None
-    import contextlib
+    sample_id = _safe_int(form_data.get("sample_id")) if form_data.get("sample_id") else None
 
-    with contextlib.suppress(ValueError):
-        sample_id = int(form_data.get("sample_id", "")) if form_data.get("sample_id") else None
-
-    packet_count = int(form_data.get("packet_count", 4))
+    packet_count = _safe_int(form_data.get("packet_count"), 4)
 
     return CaseFile(
         case_number=form_data.get("case_number", ""),
@@ -500,7 +485,7 @@ def generate_case_file_route():
         authorization_date=parse_date(form_data.get("authorization_date", "")),
         inspection_date=parse_date(form_data.get("inspection_date", "")),
         inspection_time=form_data.get("inspection_time", ""),
-        sample_id=int(form_data["sample_id"]) if form_data.get("sample_id") else None,
+        sample_id=_safe_int(form_data["sample_id"]) if form_data.get("sample_id") else None,
         manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
         manufacturer_name=form_data.get("manufacturer_name", ""),
         manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
@@ -512,7 +497,7 @@ def generate_case_file_route():
         product_name=form_data.get("product_name", ""),
         batch_no=form_data.get("batch_no", ""),
         sample_quantity=form_data.get("sample_quantity", ""),
-        packet_count=int(form_data.get("packet_count", 4)),
+        packet_count=_safe_int(form_data.get("packet_count"), 4),
         mfg_date=parse_date(form_data.get("mfg_date", "")),
         expiry_date=parse_date(form_data.get("expiry_date", "")),
         other_food_articles=form_data.get("other_food_articles", ""),
@@ -560,7 +545,6 @@ def generate_case_file_route():
         return jsonify({"error": f"Case file sync failed: {e}"}), 500
 
     case_data = process_form_data(form_data)
-    payload = {"case_file_id": case_file_record.id, "case_data": case_data}
     # Synchronous PDF generation (QStash/Celery removed)
     from app.case_file_generator.tasks import generate_case_file_pdf
 
@@ -715,12 +699,9 @@ def download_petition_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
-    from app.case_file_generator.word_converter import CaseFileWordConverter
-
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
-    converter = CaseFileWordConverter()
-    docx_bytes = converter.build_petition(case_data)
+    docx_bytes = render_docx("petition", case_data)
 
     buf = io.BytesIO(docx_bytes)
     buf.seek(0)
@@ -740,12 +721,9 @@ def download_permission_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
-    from app.case_file_generator.word_converter import CaseFileWordConverter
-
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
-    converter = CaseFileWordConverter()
-    docx_bytes = converter.build_permission_letter(case_data)
+    docx_bytes = render_docx("permission", case_data)
 
     buf = io.BytesIO(docx_bytes)
     buf.seek(0)
@@ -768,14 +746,11 @@ def download_both_docx(case_id: int):
     import io as _io
     import zipfile
 
-    from app.case_file_generator.word_converter import CaseFileWordConverter
-
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
-    converter = CaseFileWordConverter()
 
-    petition_docx = converter.build_petition(case_data)
-    permission_docx = converter.build_permission_letter(case_data)
+    petition_docx = render_docx("petition", case_data)
+    permission_docx = render_docx("permission", case_data)
 
     label = case.case_number or str(case_id)
     zip_buf = _io.BytesIO()

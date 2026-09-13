@@ -52,7 +52,6 @@ from app.extensions import db
 from app.models import Evidence
 from app.services.audit_context import audit_logger
 from app.services.sync_orchestrator import sync_row
-from app.shared.case_query_service import CaseQueryService
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
 from app.utils.qstash_client import make_dedup_key, publish_task
 
@@ -117,9 +116,8 @@ class DocumentCaseManager:
         self.validate_form_fn = validate_form_fn
         self.prepare_context_fn = prepare_context_fn or (lambda ctx: ctx)
         self.templates = templates or {}
-        # Query layer extracted into CaseQueryService so callers needing only
-        # lookups avoid the 5-callback constructor (deepening D5).
-        self._query_service = CaseQueryService(model, case_type)
+        # ponytail: direct model access — CaseQueryService was a thin
+        # wrapper around db.session.get() / query.filter_by(); inlined
 
     # ------------------------------------------------------------------ #
     # Route registration
@@ -242,22 +240,14 @@ class DocumentCaseManager:
     # ------------------------------------------------------------------ #
 
     def get_case(self, case_id: int) -> Any | None:
-        """Retrieve a case by primary key.
-
-        Delegates to the internal :class:`CaseQueryService`.
-        """
-        return self._query_service.get_case(case_id)
+        return db.session.get(self.model, case_id)
 
     def get_case_by_number(self, case_number: str) -> Any | None:
-        """Retrieve a case by case number.
-
-        Delegates to the internal :class:`CaseQueryService`.
-        """
-        return self._query_service.get_case_by_number(case_number)
+        return self.model.query.filter_by(case_number=case_number).first()
 
     def list_cases(self) -> list[dict]:
-        """Return all cases as summary dicts."""
-        return self._query_service.list_cases()
+        cases = self.model.query.order_by(self.model.created_at.desc()).all()
+        return [self._case_summary(c) for c in cases]
 
     # ------------------------------------------------------------------ #
     # Document generation / regeneration
@@ -499,9 +489,7 @@ class DocumentCaseManager:
         image_ids = form_data.get("_photo_image_ids", [])
         statuses = form_data.get("_photo_statuses", [])
         if image_ids:
-            audit_logger(
-                "adjudication_order" if self.case_type == "adjudication" else "case_file"
-            ).log(
+            audit_logger("adjudication_order" if self.case_type == "adjudication" else "case_file").log(
                 str(case_id),
                 "ADJUDICATION_ORDER_REGENERATED" if self.case_type == "adjudication" else "CASE_FILE_REGENERATED",
                 actor=form_data.get("food_safety_officer_name", "unknown"),
@@ -671,8 +659,21 @@ class DocumentCaseManager:
         return getattr(case, self._officer_column().key, None) == scope
 
     def _case_summary(self, case) -> dict:
-        """Return a summary dict for list_cases — delegates to CaseQueryService."""
-        return self._query_service.case_summary(case)
+        if self.case_type == "case_file":
+            return {
+                "id": case.id,
+                "case_number": case.case_number,
+                "product_name": case.product_name,
+                "manufacturer_name": case.manufacturer_name,
+                "created_at": case.created_at.isoformat() if case.created_at else None,
+            }
+        return {
+            "id": case.id,
+            "case_number": case.case_number,
+            "fbo_name": case.fbo_name,
+            "food_safety_officer": case.food_safety_officer,
+            "created_at": case.created_at.isoformat() if case.created_at else None,
+        }
 
     def _get_case_number(self, case) -> str:
         return case.case_number

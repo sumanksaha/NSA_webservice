@@ -1,9 +1,3 @@
-"""Render Jinja2-templated .adoc files → .docx via pandoc.
-
-Single source of truth: .adoc templates (same as preview HTML pipeline).
-Uses pandoc when available; falls back to python-docx for local development.
-"""
-
 from __future__ import annotations
 
 import io
@@ -18,10 +12,16 @@ from docx.shared import Inches
 if TYPE_CHECKING:
     from flask import Flask
 
+"""Render Jinja2-templated .adoc files → .docx via pandoc.
+
+Single source of truth: .adoc templates (same as preview HTML pipeline).
+Uses pandoc when available; falls back to python-docx for local development.
+"""
+
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "adjudication"
 
 
-def render_adoc_to_docx(template_name: str, context: dict, app: "Flask | None" = None) -> bytes:
+def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = None) -> bytes:
     """Render an .adoc template with Jinja2, then convert to DOCX via pandoc.
 
     Args:
@@ -48,20 +48,19 @@ def render_adoc_to_docx(template_name: str, context: dict, app: "Flask | None" =
         with app.app_context():
             rendered_adoc = render_template_string(adoc_source, **context)
     else:
-        rendered_adoc = render_template_string(adoc_source, **context)
-
-    # Pandoc: HTML → docx (the .adoc files are HTML)
+        rendered_adoc = render_template_string(
+            adoc_source, **context
+        )  # Pandoc: docx is a ZIP (binary) — no text-mode stdout/stderr decoding.
     try:
         result = subprocess.run(
             ["pandoc", "-f", "html", "-t", "docx", "-o", "-"],
-            input=rendered_adoc,
+            input=rendered_adoc.encode("utf-8"),
             capture_output=True,
-            text=True,
             check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(result.stderr[:500])
-        return result.stdout.encode("utf-8")
+            raise RuntimeError(result.stderr.decode("utf-8", errors="replace")[:500])
+        return result.stdout
     except (RuntimeError, FileNotFoundError):
         # Fallback: render via python-docx with proper context substitution
         return _fallback_docx_from_adoc(adoc_source, context, app)
@@ -76,7 +75,7 @@ def is_pandoc_available() -> bool:
         return False
 
 
-def _fallback_docx_from_adoc(adoc_source: str, context: dict, app: "Flask | None" = None) -> bytes:
+def _fallback_docx_from_adoc(adoc_source: str, context: dict, app: Flask | None = None) -> bytes:
     """Fallback DOCX renderer when pandoc is unavailable.
 
     Renders the .adoc template with Jinja2 (same as preview), then builds a

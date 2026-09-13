@@ -25,6 +25,10 @@ SHELL ["/bin/bash", "-c"]
 # pdf2image needs poppler-utils (pdftoppm).
 # pytesseract needs tesseract-ocr binary.
 # psycopg2 needs libpq-dev (runtime: libpq5).
+# NOTE: pandoc is NOT installed via apt — the distro version predates the
+# AsciiDoc input reader (pandoc >= 3.8.3), which the .adoc → .docx pipeline
+# (app/shared/adoc_renderer.py) requires. The pinned upstream build is
+# installed right below instead.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         gcc \
@@ -41,9 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libffi-dev \
         poppler-utils \
         tesseract-ocr \
-        pandoc \
         curl && \
     rm -rf /var/lib/apt/lists/*
+
+# Pinned pandoc with AsciiDoc input support (>= 3.8.3) — see
+# scripts/install_pandoc.sh for why apt's pandoc is not used.
+COPY scripts/install_pandoc.sh /tmp/install_pandoc.sh
+RUN bash /tmp/install_pandoc.sh /usr/local/bin && rm -f /tmp/install_pandoc.sh
 
 WORKDIR /app
 

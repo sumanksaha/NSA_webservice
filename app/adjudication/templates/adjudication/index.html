@@ -1,32 +1,38 @@
-{% extends "base.html" %}
-
-{% block title %}NSA Non sample- adjudication Portal{% endblock %}
-
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}NSA Non sample- adjudication Portal{% endblock %} {%
+block extra_css %}
 <style>
-    .status-indicator { font-size: 0.85rem; font-style: italic; }
+    .status-indicator {
+        font-size: 0.85rem;
+        font-style: italic;
+    }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-scale-balanced"></i> Non sample- adjudication Portal</h2>
     </div>
 
     <form method="post" action="{{ url_for('adjudication.generate_all') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         {% if prefill and prefill.from_inspection %}
-        <input type="hidden" name="from_inspection" value="{{ prefill.from_inspection }}">
+        <input type="hidden" name="from_inspection" value="{{ prefill.from_inspection }}" />
         {% endif %}
 
         <!-- Food Safety Officer -->
         <div class="form-row">
             <div class="form-group full-width">
-                <label for="food_safety_officer_name" class="form-label">Food Safety Officer Name <span class="required"></span></label>
-                <input type="text" id="food_safety_officer_name" name="food_safety_officer_name" class="form-input"
-                       value="{{ prefill.food_safety_officer_name if prefill and prefill.food_safety_officer_name else '' }}"
-                       required placeholder="Enter FSO name">
+                <label for="food_safety_officer_name" class="form-label"
+                    >Food Safety Officer Name <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    id="food_safety_officer_name"
+                    name="food_safety_officer_name"
+                    class="form-input"
+                    value="{{ prefill.food_safety_officer_name if prefill and prefill.food_safety_officer_name else '' }}"
+                    required
+                    placeholder="Enter FSO name"
+                />
             </div>
         </div>
 
@@ -37,19 +43,29 @@
         <div class="form-row">
             <div class="toggle-card" id="non_license_toggle_card">
                 <label for="non_license_toggle">
-                    <input type="checkbox" id="non_license_toggle" name="non_license" value="yes">
+                    <input type="checkbox" id="non_license_toggle" name="non_license" value="yes" />
                     Non-Licensed / Unregistered FBO?
                 </label>
             </div>
             <div class="toggle-card" id="pre_authorization_toggle_card">
                 <label for="pre_authorization_toggle">
-                    <input type="checkbox" id="pre_authorization_toggle" name="pre_authorization" value="yes">
+                    <input
+                        type="checkbox"
+                        id="pre_authorization_toggle"
+                        name="pre_authorization"
+                        value="yes"
+                    />
                     Pre-Authorization Case?
                 </label>
             </div>
             <div class="toggle-card" id="complaint_toggle_card">
                 <label for="complaint_toggle">
-                    <input type="checkbox" id="complaint_toggle" name="complaint_lodged" value="yes">
+                    <input
+                        type="checkbox"
+                        id="complaint_toggle"
+                        name="complaint_lodged"
+                        value="yes"
+                    />
                     Was a third-party complaint lodged?
                 </label>
             </div>
@@ -59,39 +75,70 @@
         <div id="license_lookup_block" class="conditional-block">
             <label class="form-label">KMC Trade License Details Lookup</label>
             <div class="lookup-wrapper">
-                <input type="text" id="ce_license_no" class="form-input"
-                       value="{{ prefill.ce_license_no if prefill and prefill.ce_license_no else '' }}"
-                       placeholder="Enter License Number">
-                <button type="button" id="ce_fetch_btn" class="btn btn-secondary" aria-label="Fetch KMC trade license details">Fetch Details</button>
+                <input
+                    type="text"
+                    id="ce_license_no"
+                    class="form-input"
+                    value="{{ prefill.ce_license_no if prefill and prefill.ce_license_no else '' }}"
+                    placeholder="Enter License Number"
+                />
+                <button
+                    type="button"
+                    id="ce_fetch_btn"
+                    class="btn btn-secondary"
+                    aria-label="Fetch KMC trade license details"
+                >
+                    Fetch Details
+                </button>
             </div>
             <div id="ce_lookup_status" class="status-indicator"></div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label for="ce_trade_name" class="form-label">Trade/Unit Name</label>
-                    <input type="text" id="ce_trade_name" class="form-input" readonly
-                           value="{{ prefill.ce_trade_name if prefill and prefill.ce_trade_name else '' }}">
+                    <input
+                        type="text"
+                        id="ce_trade_name"
+                        class="form-input"
+                        readonly
+                        value="{{ prefill.ce_trade_name if prefill and prefill.ce_trade_name else '' }}"
+                    />
                 </div>
                 <div class="form-group">
                     <label for="ce_proprietor" class="form-label">Proprietor</label>
-                    <input type="text" id="ce_proprietor" class="form-input" readonly
-                           value="{{ prefill.ce_proprietor if prefill and prefill.ce_proprietor else '' }}">
+                    <input
+                        type="text"
+                        id="ce_proprietor"
+                        class="form-input"
+                        readonly
+                        value="{{ prefill.ce_proprietor if prefill and prefill.ce_proprietor else '' }}"
+                    />
                 </div>
                 <div class="form-group">
                     <label for="ce_address" class="form-label">Address</label>
-                    <input type="text" id="ce_address" class="form-input" readonly
-                           value="{{ prefill.ce_address if prefill and prefill.ce_address else '' }}">
+                    <input
+                        type="text"
+                        id="ce_address"
+                        class="form-input"
+                        readonly
+                        value="{{ prefill.ce_address if prefill and prefill.ce_address else '' }}"
+                    />
                 </div>
                 <div class="form-group">
                     <label for="ce_status" class="form-label">License Status</label>
-                    <input type="text" id="ce_status" class="form-input" readonly
-                           value="{{ prefill.ce_status if prefill and prefill.ce_status else '' }}">
+                    <input
+                        type="text"
+                        id="ce_status"
+                        class="form-input"
+                        readonly
+                        value="{{ prefill.ce_status if prefill and prefill.ce_status else '' }}"
+                    />
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="ce-copy-label">
-                    <input type="checkbox" id="ce_copy_toggle">
+                    <input type="checkbox" id="ce_copy_toggle" />
                     Copy fetched details into FBO Owner / FBO Name / FBO Address below
                 </label>
             </div>
@@ -103,43 +150,95 @@
         </div>
         <div class="form-row form-row--3">
             <div class="form-group">
-                <label for="case_number" class="form-label">Case Number <span class="required"></span></label>
-                <input type="text" name="case_number" class="form-input" required placeholder="e.g., 2026/FSS/104">
+                <label for="case_number" class="form-label"
+                    >Case Number <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    name="case_number"
+                    class="form-input"
+                    required
+                    placeholder="e.g., 2026/FSS/104"
+                />
             </div>
             <div class="form-group">
-                <label for="fbo_owner" class="form-label">FBO Owner <span class="required"></span></label>
-                <input type="text" name="fbo_owner" class="form-input"
-                       value="{{ prefill.fbo_name if prefill and prefill.fbo_name and not (prefill.get('fbo_owner') or '').strip() else (prefill.fbo_owner if prefill and prefill.fbo_owner else '') }}"
-                       required placeholder="FBO Owner Name">
+                <label for="fbo_owner" class="form-label"
+                    >FBO Owner <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    name="fbo_owner"
+                    class="form-input"
+                    value="{{ prefill.fbo_name if prefill and prefill.fbo_name and not (prefill.get('fbo_owner') or '').strip() else (prefill.fbo_owner if prefill and prefill.fbo_owner else '') }}"
+                    required
+                    placeholder="FBO Owner Name"
+                />
             </div>
             <div class="form-group">
-                <label for="fbo_name" class="form-label">FBO Name <span class="required"></span></label>
-                <input type="text" name="fbo_name" id="fbo_name" class="form-input"
-                       value="{{ prefill.fbo_name if prefill and prefill.fbo_name else '' }}"
-                       required placeholder="Trade/FBO Name">
+                <label for="fbo_name" class="form-label"
+                    >FBO Name <span class="required"></span
+                ></label>
+                <input
+                    type="text"
+                    name="fbo_name"
+                    id="fbo_name"
+                    class="form-input"
+                    value="{{ prefill.fbo_name if prefill and prefill.fbo_name else '' }}"
+                    required
+                    placeholder="Trade/FBO Name"
+                />
             </div>
         </div>
 
         <div class="form-row form-row--3">
             <div class="form-group">
-                <label for="fbo_address" class="form-label">FBO Address <span class="required"></span></label>
-                <textarea name="fbo_address" id="fbo_address" class="form-textarea" required placeholder="Full FBO address details">{{ prefill.fbo_address if prefill and prefill.fbo_address else '' }}</textarea>
+                <label for="fbo_address" class="form-label"
+                    >FBO Address <span class="required"></span
+                ></label>
+                <textarea
+                    name="fbo_address"
+                    id="fbo_address"
+                    class="form-textarea"
+                    required
+                    placeholder="Full FBO address details"
+                >
+{{ prefill.fbo_address if prefill and prefill.fbo_address else '' }}</textarea>
             </div>
             <div class="form-group">
-                <label for="fssai_license" class="form-label">FSSAI License / Registration No <span class="required"></span></label>
+                <label for="fssai_license" class="form-label"
+                    >FSSAI License / Registration No <span class="required"></span
+                ></label>
                 <div class="lookup-wrapper">
-                    <input type="text" name="fssai_license" id="fssai_license" class="form-input"
-                           value="{{ prefill.fssai_license if prefill and prefill.fssai_license else '' }}"
-                           required placeholder="FSSAI License Number">
-                    <button type="button" id="fssai_fetch_btn" class="btn btn-secondary" aria-label="Fetch FSSAI license details">Fetch</button>
+                    <input
+                        type="text"
+                        name="fssai_license"
+                        id="fssai_license"
+                        class="form-input"
+                        value="{{ prefill.fssai_license if prefill and prefill.fssai_license else '' }}"
+                        required
+                        placeholder="FSSAI License Number"
+                    />
+                    <button
+                        type="button"
+                        id="fssai_fetch_btn"
+                        class="btn btn-secondary"
+                        aria-label="Fetch FSSAI license details"
+                    >
+                        Fetch
+                    </button>
                 </div>
                 <div id="fssai_lookup_status"></div>
             </div>
             <div class="form-group" id="concerned_food_field">
                 <label for="concerned_food" class="form-label">Concerned Food</label>
-                <input type="text" name="concerned_food" id="concerned_food" class="form-input"
-                       value="{{ prefill.concerned_food if prefill and prefill.concerned_food else '' }}"
-                       placeholder="e.g., Prepared Food">
+                <input
+                    type="text"
+                    name="concerned_food"
+                    id="concerned_food"
+                    class="form-input"
+                    value="{{ prefill.concerned_food if prefill and prefill.concerned_food else '' }}"
+                    placeholder="e.g., Prepared Food"
+                />
             </div>
         </div>
 
@@ -147,7 +246,13 @@
         <div id="complaint_fields" class="conditional-block">
             <div class="form-group">
                 <label for="problem" class="form-label">Complaint / Problem</label>
-                <textarea name="problem" id="problem" class="form-textarea" placeholder="Describe the third-party complaint or hygiene issues observed...">{{ prefill.problem if prefill and prefill.problem else '' }}</textarea>
+                <textarea
+                    name="problem"
+                    id="problem"
+                    class="form-textarea"
+                    placeholder="Describe the third-party complaint or hygiene issues observed..."
+                >
+{{ prefill.problem if prefill and prefill.problem else '' }}</textarea>
             </div>
         </div>
 
@@ -157,30 +262,56 @@
         </div>
         <div class="form-row form-row--5">
             <div class="form-group">
-                <label for="first_inspection_date" class="form-label">First Inspection Date <span class="required"></span></label>
-                <input type="date" name="first_inspection_date" id="first_inspection_date" class="form-input"
-                       value="{{ prefill.first_inspection_date if prefill and prefill.first_inspection_date else '' }}"
-                       required>
+                <label for="first_inspection_date" class="form-label"
+                    >First Inspection Date <span class="required"></span
+                ></label>
+                <input
+                    type="date"
+                    name="first_inspection_date"
+                    id="first_inspection_date"
+                    class="form-input"
+                    value="{{ prefill.first_inspection_date if prefill and prefill.first_inspection_date else '' }}"
+                    required
+                />
             </div>
             <div class="form-group">
-                <label for="compliance_deadline" class="form-label">Compliance Deadline (Directive Sheet) <span class="required"></span></label>
-                <input type="date" name="compliance_deadline" id="compliance_deadline" class="form-input"
-                       value="{{ prefill.compliance_deadline if prefill and prefill.compliance_deadline else '' }}"
-                       required>
+                <label for="compliance_deadline" class="form-label"
+                    >Compliance Deadline (Directive Sheet) <span class="required"></span
+                ></label>
+                <input
+                    type="date"
+                    name="compliance_deadline"
+                    id="compliance_deadline"
+                    class="form-input"
+                    value="{{ prefill.compliance_deadline if prefill and prefill.compliance_deadline else '' }}"
+                    required
+                />
             </div>
             <div class="form-group" id="complaint_date_field">
                 <label for="complaint_date" class="form-label">Complaint Date</label>
-                <input type="date" name="complaint_date" id="complaint_date" class="form-input">
+                <input type="date" name="complaint_date" id="complaint_date" class="form-input" />
             </div>
             <div class="form-group">
-                <label for="followup_inspection_date" class="form-label">Follow-up Inspection Date <span class="required"></span></label>
-                <input type="date" name="followup_inspection_date" id="followup_inspection_date" class="form-input"
-                       value="{{ prefill.followup_inspection_date if prefill and prefill.followup_inspection_date else '' }}"
-                       required>
+                <label for="followup_inspection_date" class="form-label"
+                    >Follow-up Inspection Date <span class="required"></span
+                ></label>
+                <input
+                    type="date"
+                    name="followup_inspection_date"
+                    id="followup_inspection_date"
+                    class="form-input"
+                    value="{{ prefill.followup_inspection_date if prefill and prefill.followup_inspection_date else '' }}"
+                    required
+                />
             </div>
             <div class="form-group" id="authorization_date_field">
                 <label for="authorization_date" class="form-label">Authorization Date</label>
-                <input type="date" name="authorization_date" id="authorization_date" class="form-input">
+                <input
+                    type="date"
+                    name="authorization_date"
+                    id="authorization_date"
+                    class="form-input"
+                />
             </div>
         </div>
 
@@ -193,8 +324,33 @@
             <div class="checklist-card">
                 <label>{{ c.replace('_',' ') }}</label>
                 <select name="{{ c }}">
-                    <option value="yes" {% if c not in ['artificial_colour', 'Expired_item'] %}selected{% endif %}>Yes</option>
-                    <option value="no" {% if c in ['artificial_colour', 'Expired_item'] %}selected{% endif %}>No</option>
+                    <option
+                        value="yes"
+                        {%
+                        if
+                        c
+                        not
+                        in
+                        ['artificial_colour', 'Expired_item']
+                        %}selected{%
+                        endif
+                        %}
+                    >
+                        Yes
+                    </option>
+                    <option
+                        value="no"
+                        {%
+                        if
+                        c
+                        in
+                        ['artificial_colour', 'Expired_item']
+                        %}selected{%
+                        endif
+                        %}
+                    >
+                        No
+                    </option>
                 </select>
             </div>
             {% endfor %}
@@ -205,7 +361,13 @@
             <h3>Applicable FSS Act Sections</h3>
         </div>
 
-        <div class="flex-between--wrap">                <button type="button" class="btn btn-primary" id="suggest_sections_btn" aria-label="AI-suggest applicable FSS Act sections">
+        <div class="flex-between--wrap">
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="suggest_sections_btn"
+                aria-label="AI-suggest applicable FSS Act sections"
+            >
                 <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Sections (AI)
             </button>
             <span id="suggest_status" class="status-indicator"></span>
@@ -214,42 +376,81 @@
         <div class="form-row">
             <div class="toggle-card" id="section_55_card">
                 <label for="section_55">
-                    <input type="checkbox" class="section-checkbox" id="section_55" name="section_55" value="yes">
+                    <input
+                        type="checkbox"
+                        class="section-checkbox"
+                        id="section_55"
+                        name="section_55"
+                        value="yes"
+                    />
                     Sec. 55 – Failure to Comply with FSO Directions
                 </label>
             </div>
             <div class="toggle-card" id="section_56_card">
                 <label for="section_56">
-                    <input type="checkbox" class="section-checkbox" id="section_56" name="section_56" value="yes">
+                    <input
+                        type="checkbox"
+                        class="section-checkbox"
+                        id="section_56"
+                        name="section_56"
+                        value="yes"
+                    />
                     Sec. 56 – Unhygienic/Unsanitary Processing
                 </label>
             </div>
             <div class="toggle-card" id="section_58_card">
                 <label for="section_58">
-                    <input type="checkbox" class="section-checkbox manual-section" id="section_58" name="section_58" value="yes">
+                    <input
+                        type="checkbox"
+                        class="section-checkbox manual-section"
+                        id="section_58"
+                        name="section_58"
+                        value="yes"
+                    />
                     Sec. 58 – General Contravention
                 </label>
                 <p class="form-hint">Manual selection only.</p>
             </div>
             <div class="toggle-card" id="section_63_card">
                 <label for="section_63">
-                    <input type="checkbox" class="section-checkbox" id="section_63" name="section_63" value="yes">
+                    <input
+                        type="checkbox"
+                        class="section-checkbox"
+                        id="section_63"
+                        name="section_63"
+                        value="yes"
+                    />
                     Sec. 63 – Operating Without License
                 </label>
             </div>
             <div class="toggle-card" id="section_64_card">
                 <label for="section_64">
-                    <input type="checkbox" class="section-checkbox" id="section_64" name="section_64" value="yes">
+                    <input
+                        type="checkbox"
+                        class="section-checkbox"
+                        id="section_64"
+                        name="section_64"
+                        value="yes"
+                    />
                     Sec. 64 – Subsequent Offence
                 </label>
             </div>
         </div>
 
         <div class="actions-centered">
-            <button type="button" class="btn btn-secondary btn-lg" id="previewBtn" aria-label="Preview adjudication documents before generation">
+            <button
+                type="button"
+                class="btn btn-secondary btn-lg"
+                id="previewBtn"
+                aria-label="Preview adjudication documents before generation"
+            >
                 <i class="fa-solid fa-eye"></i> Preview Documents
             </button>
-            <button type="submit" class="btn btn-primary btn-lg" aria-label="Generate full adjudication case pack">
+            <button
+                type="submit"
+                class="btn btn-primary btn-lg"
+                aria-label="Generate full adjudication case pack"
+            >
                 <i class="fa-solid fa-file-zipper"></i> Generate Full Case Pack
             </button>
         </div>
@@ -280,37 +481,58 @@
                     <td>{{ c.case_number }}</td>
                     <td>{{ c.fbo_name or '—' }}</td>
                     <td>
-                        <a href="{{ url_for('timeline.view', case_id_or_adjudication_id=c.id, kind='adjudication') }}"
-                           class="btn btn-secondary btn-sm" title="Open adjudication timeline">
+                        <a
+                            href="{{ url_for('timeline.view', case_id_or_adjudication_id=c.id, kind='adjudication') }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Open adjudication timeline"
+                        >
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
-                        <button type="button" class="btn btn-secondary btn-sm js-validate-case"
-                                data-case-id="{{ c.id }}" data-case-type="adjudication"
-                                title="Run legal validation on this adjudication">
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-validate-case"
+                            data-case-id="{{ c.id }}"
+                            data-case-type="adjudication"
+                            title="Run legal validation on this adjudication"
+                        >
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
-                        <a href="{{ url_for('adjudication.download_petition_docx', case_id=c.id) }}"
-                           class="btn btn-secondary btn-sm" title="Download Petition as Word">
+                        <a
+                            href="{{ url_for('adjudication.download_petition_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Petition as Word"
+                        >
                             <i class="fa-solid fa-file-word"></i> Petition
                         </a>
-                        <a href="{{ url_for('adjudication.download_permission_docx', case_id=c.id) }}"
-                           class="btn btn-secondary btn-sm" title="Download Permission Letter as Word">
+                        <a
+                            href="{{ url_for('adjudication.download_permission_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Permission Letter as Word"
+                        >
                             <i class="fa-solid fa-file-word"></i> Permission
                         </a>
-                        <a href="{{ url_for('adjudication.download_both_docx', case_id=c.id) }}"
-                           class="btn btn-primary btn-sm" title="Download both as Word ZIP">
+                        <a
+                            href="{{ url_for('adjudication.download_both_docx', case_id=c.id) }}"
+                            class="btn btn-primary btn-sm"
+                            title="Download both as Word ZIP"
+                        >
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
-                        <button type="button" class="btn btn-secondary btn-sm js-copy-letter"
-                                data-url="{{ url_for('adjudication.copy_letter', case_id=c.id, doc_type='petition') }}"
-                                title="Copy Petition letter body to clipboard for Gmail">
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-copy-letter"
+                            data-url="{{ url_for('adjudication.copy_letter', case_id=c.id, doc_type='petition') }}"
+                            title="Copy Petition letter body to clipboard for Gmail"
+                        >
                             <i class="fa-solid fa-copy"></i> Copy Letter
                         </button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="form-hint">No adjudications yet. Create one above to see its timeline.</td>
+                    <td colspan="4" class="form-hint">
+                        No adjudications yet. Create one above to see its timeline.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -320,24 +542,22 @@
     <div class="mt--md">
         <span id="adjudication-val-status" class="form-hint"></span>
     </div>
-    <div id="adjudication-val-drawer" class="mt--md" style="display: none;"></div>
+    <div id="adjudication-val-drawer" class="mt--md" style="display: none"></div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
     // Handles complaint fields toggling (concerned_food is always visible)
     const complaintToggle = document.getElementById("complaint_toggle");
     const complaintCard = document.getElementById("complaint_toggle_card");
     const complaintBlocks = [
         document.getElementById("complaint_fields"),
-        document.getElementById("complaint_date_field")
+        document.getElementById("complaint_date_field"),
     ];
 
     function syncComplaintFields() {
         const isComplaint = complaintToggle.checked;
         complaintCard.classList.toggle("active", isComplaint);
-        complaintBlocks.forEach(block => {
+        complaintBlocks.forEach((block) => {
             if (block) {
                 block.classList.toggle("active", isComplaint);
                 const txt = block.querySelector("textarea");
@@ -351,20 +571,22 @@
     syncComplaintFields();
 
     // Checkbox styling active classes
-    document.querySelectorAll(".section-checkbox").forEach(cb => {
+    document.querySelectorAll(".section-checkbox").forEach((cb) => {
         cb.addEventListener("change", () => {
             document.getElementById(cb.id + "_card").classList.toggle("active", cb.checked);
         });
     });
 
     // Non-license toggle
-    document.getElementById("non_license_toggle").addEventListener("change", function() {
+    document.getElementById("non_license_toggle").addEventListener("change", function () {
         document.getElementById("non_license_toggle_card").classList.toggle("active", this.checked);
         syncLicenseLookupVisibility();
     });
 
-    document.getElementById("pre_authorization_toggle").addEventListener("change", function() {
-        document.getElementById("pre_authorization_toggle_card").classList.toggle("active", this.checked);
+    document.getElementById("pre_authorization_toggle").addEventListener("change", function () {
+        document
+            .getElementById("pre_authorization_toggle_card")
+            .classList.toggle("active", this.checked);
         syncAuthorizationDateVisibility();
     });
 
@@ -409,9 +631,12 @@
 
     function copyKmcToFbo() {
         if (!ceCopyToggle.checked) return;
-        document.querySelector('[name="fbo_owner"]').value = document.getElementById("ce_proprietor").value;
-        document.querySelector('[name="fbo_name"]').value = document.getElementById("ce_trade_name").value;
-        document.querySelector('[name="fbo_address"]').value = document.getElementById("ce_address").value;
+        document.querySelector('[name="fbo_owner"]').value =
+            document.getElementById("ce_proprietor").value;
+        document.querySelector('[name="fbo_name"]').value =
+            document.getElementById("ce_trade_name").value;
+        document.querySelector('[name="fbo_address"]').value =
+            document.getElementById("ce_address").value;
     }
 
     ceFetchBtn.addEventListener("click", async () => {
@@ -429,10 +654,11 @@
             const resp = await fetch("{{ url_for('adjudication.lookup_ce_route') }}", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ license_no: licNo })
+                body: JSON.stringify({ license_no: licNo }),
             });
             if (resp.redirected) {
-                ceStatus.textContent = "Your session may have expired. Please log in again and retry.";
+                ceStatus.textContent =
+                    "Your session may have expired. Please log in again and retry.";
                 ceStatus.className = "status-indicator status--error";
                 return;
             }
@@ -445,7 +671,13 @@
             const id = data.identity;
             document.getElementById("ce_trade_name").value = id.tradeName || "";
             document.getElementById("ce_proprietor").value = id.licProprietor || "";
-            document.getElementById("ce_address").value = [id.addressInfo1, id.addressInfo2, id.addressCity].filter(Boolean).join(", ");
+            document.getElementById("ce_address").value = [
+                id.addressInfo1,
+                id.addressInfo2,
+                id.addressCity,
+            ]
+                .filter(Boolean)
+                .join(", ");
             document.getElementById("ce_status").value = id.licStatus || "";
 
             ceStatus.textContent = "Fetched successfully.";
@@ -468,11 +700,13 @@
     fssaiFetchBtn.addEventListener("click", async () => {
         const licNo = document.getElementById("fssai_license").value.trim();
         if (!licNo) {
-            fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Please enter a FSSAI license number.';
+            fssaiStatus.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Please enter a FSSAI license number.';
             fssaiStatus.className = "info-box info-box--error";
             return;
         }
-        fssaiStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Querying FSSAI database...';
+        fssaiStatus.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Querying FSSAI database...';
         fssaiStatus.className = "info-box";
         fssaiFetchBtn.disabled = true;
 
@@ -480,16 +714,19 @@
             const resp = await fetch("{{ url_for('adjudication.lookup_fssai_route') }}", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ license_no: licNo })
+                body: JSON.stringify({ license_no: licNo }),
             });
             if (resp.redirected) {
-                fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
+                fssaiStatus.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again and retry.';
                 fssaiStatus.className = "info-box info-box--error";
                 return;
             }
             const data = await resp.json();
             if (!resp.ok || !data.identity) {
-                fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || "License not found in FSSAI records.");
+                fssaiStatus.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (data.error || "License not found in FSSAI records.");
                 fssaiStatus.className = "info-box info-box--error";
                 return;
             }
@@ -499,13 +736,21 @@
             const src = id.source === "license_data" ? "License DB" : "Registration DB";
 
             fssaiStatus.innerHTML =
-                '<i class="fa-solid fa-circle-check"></i> <strong>Found:</strong> ' + (id.companyName || 'N/A') + '<br>' +
-                '<strong>Address:</strong> ' + (id.fullAddress || 'N/A') + '<br>' +
-                '<strong>Expiry:</strong> ' + (id.expiryDate || 'N/A') + '<br>' +
-                '<strong>Source:</strong> ' + src;
+                '<i class="fa-solid fa-circle-check"></i> <strong>Found:</strong> ' +
+                (id.companyName || "N/A") +
+                "<br>" +
+                "<strong>Address:</strong> " +
+                (id.fullAddress || "N/A") +
+                "<br>" +
+                "<strong>Expiry:</strong> " +
+                (id.expiryDate || "N/A") +
+                "<br>" +
+                "<strong>Source:</strong> " +
+                src;
             fssaiStatus.className = "info-box info-box--success";
         } catch (err) {
-            fssaiStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Lookup failed: ' + err.message;
+            fssaiStatus.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Lookup failed: ' + err.message;
             fssaiStatus.className = "info-box info-box--error";
         } finally {
             fssaiFetchBtn.disabled = false;
@@ -517,11 +762,16 @@
     const suggestStatus = document.getElementById("suggest_status");
 
     suggestBtn.addEventListener("click", async () => {
-        const alreadyChecked = Array.from(document.querySelectorAll(".section-checkbox:not(.manual-section):checked"))
-                                   .map(cb => cb.id.replace("section_", ""));
+        const alreadyChecked = Array.from(
+            document.querySelectorAll(".section-checkbox:not(.manual-section):checked")
+        ).map((cb) => cb.id.replace("section_", ""));
 
         if (alreadyChecked.length > 0) {
-            const proceed = confirm("AI suggestion will overwrite your current selections for Sec. " + alreadyChecked.join(", Sec. ") + ". Proceed?");
+            const proceed = confirm(
+                "AI suggestion will overwrite your current selections for Sec. " +
+                    alreadyChecked.join(", Sec. ") +
+                    ". Proceed?"
+            );
             if (!proceed) {
                 suggestStatus.textContent = "Cancelled. Kept manual choices.";
                 suggestStatus.className = "status-indicator";
@@ -536,27 +786,30 @@
             const formData = new FormData(document.querySelector("form"));
             const resp = await fetch("{{ url_for('adjudication.suggest_sections_route') }}", {
                 method: "POST",
-                body: formData
+                body: formData,
             });
             if (resp.redirected) {
-                suggestStatus.textContent = "Your session may have expired. Please log in again and retry.";
+                suggestStatus.textContent =
+                    "Your session may have expired. Please log in again and retry.";
                 suggestStatus.className = "status-indicator status--error";
                 return;
             }
             const data = await resp.json();
 
             const manualSelected = new Set(
-                Array.from(document.querySelectorAll(".manual-section:checked")).map(cb => cb.id.replace("section_", ""))
+                Array.from(document.querySelectorAll(".manual-section:checked")).map((cb) =>
+                    cb.id.replace("section_", "")
+                )
             );
 
             // Clear all non-manual sections
-            document.querySelectorAll(".section-checkbox:not(.manual-section)").forEach(cb => {
+            document.querySelectorAll(".section-checkbox:not(.manual-section)").forEach((cb) => {
                 cb.checked = false;
                 document.getElementById(cb.id + "_card").classList.remove("active");
             });
 
             // Set suggested sections
-            (data.sections || []).forEach(sec => {
+            (data.sections || []).forEach((sec) => {
                 if (manualSelected.has(sec)) return;
                 const cb = document.getElementById("section_" + sec);
                 if (cb) {
@@ -575,9 +828,11 @@
 
     // --- Inline field error rendering (parity with case file generator) ---
     function clearFieldErrors() {
-        document.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
-        document.querySelectorAll('.form-input--error').forEach(function(el) {
-            el.classList.remove('form-input--error');
+        document.querySelectorAll(".field-error").forEach(function (el) {
+            el.remove();
+        });
+        document.querySelectorAll(".form-input--error").forEach(function (el) {
+            el.classList.remove("form-input--error");
         });
     }
 
@@ -585,27 +840,29 @@
         clearFieldErrors();
         if (!errors) return;
         var firstField = null;
-        Object.keys(errors).forEach(function(field) {
+        Object.keys(errors).forEach(function (field) {
             var input = document.querySelector('[name="' + field + '"]');
             if (!input) return;
-            input.classList.add('form-input--error');
-            var group = input.closest('.form-group');
+            input.classList.add("form-input--error");
+            var group = input.closest(".form-group");
             if (!group) return;
-            var errEl = document.createElement('div');
-            errEl.className = 'field-error';
+            var errEl = document.createElement("div");
+            errEl.className = "field-error";
             errEl.textContent = errors[field];
             group.appendChild(errEl);
             if (!firstField) firstField = input;
         });
-        if (firstField) firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (firstField) firstField.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     // --- Preview via shared PreviewModal ---
-    var previewBtn = document.getElementById('previewBtn');
+    var previewBtn = document.getElementById("previewBtn");
     var caseForm = document.querySelector("form[action*='generate_all']");
 
     // Wire generate button to submit the form
-    PreviewModal.onGenerate = function() { caseForm.submit(); };
+    PreviewModal.onGenerate = function () {
+        caseForm.submit();
+    };
 
     function showPreview() {
         if (!previewBtn) return;
@@ -614,39 +871,43 @@
         previewBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering…';
 
         var formData = new FormData(caseForm);
-        var statusBox = document.createElement('div');
-        statusBox.className = 'info-box';
+        var statusBox = document.createElement("div");
+        statusBox.className = "info-box";
         previewBtn.parentNode.insertBefore(statusBox, previewBtn.nextSibling);
-        statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
+        statusBox.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
 
         fetch('{{ url_for("adjudication.preview_adjudication_route") }}', {
-            method: 'POST',
-            body: formData
+            method: "POST",
+            body: formData,
         })
-        .then(resp => resp.json())
-        .then(data => {
-            if (data.error) {
-                statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Preview failed');
-                statusBox.className = 'info-box info-box--error';
-                if (data.errors) renderFieldErrors(data.errors);
-            } else {
-                statusBox.remove();
-                PreviewModal.open(data.petition_html, data.permission_html);
-            }
-        })
-        .catch(err => {
-            statusBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + err.message;
-            statusBox.className = 'info-box info-box--error';
-        })
-        .finally(() => {
-            previewBtn.disabled = false;
-            previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
-        });
+            .then((resp) => resp.json())
+            .then((data) => {
+                if (data.error) {
+                    statusBox.innerHTML =
+                        '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                        (data.error || "Preview failed");
+                    statusBox.className = "info-box info-box--error";
+                    if (data.errors) renderFieldErrors(data.errors);
+                } else {
+                    statusBox.remove();
+                    PreviewModal.open(data.petition_html, data.permission_html);
+                }
+            })
+            .catch((err) => {
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + err.message;
+                statusBox.className = "info-box info-box--error";
+            })
+            .finally(() => {
+                previewBtn.disabled = false;
+                previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
+            });
     }
 
     // Wire up the Preview button
     if (previewBtn) {
-        previewBtn.addEventListener('click', function(e) {
+        previewBtn.addEventListener("click", function (e) {
             e.preventDefault();
             showPreview();
         });
@@ -654,55 +915,55 @@
 </script>
 <script>
     ValidationDrawer.initRowButtons({
-        buttonsSelector: '.js-validate-case',
-        drawerId: 'adjudication-val-drawer',
-        statusId: 'adjudication-val-status',
-        endpoint: '{{ url_for("validation.validate") }}'
+        buttonsSelector: ".js-validate-case",
+        drawerId: "adjudication-val-drawer",
+        statusId: "adjudication-val-status",
+        endpoint: '{{ url_for("validation.validate") }}',
     });
 </script>
 
 <script>
-// Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
-document.querySelectorAll('.js-copy-letter').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-        var url = this.getAttribute('data-url');
-        var originalHTML = this.innerHTML;
-        this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
-        this.disabled = true;
+    // Copy Letter — fetches rendered HTML and copies to clipboard for Gmail paste
+    document.querySelectorAll(".js-copy-letter").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+            var url = this.getAttribute("data-url");
+            var originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…';
+            this.disabled = true;
 
-        try {
-            var resp = await fetch(url);
-            if (!resp.ok) throw new Error('Failed to load letter');
-            var html = await resp.text();
+            try {
+                var resp = await fetch(url);
+                if (!resp.ok) throw new Error("Failed to load letter");
+                var html = await resp.text();
 
-            // Copy as rich HTML so Gmail paste retains formatting
-            var blob = new Blob([html], { type: 'text/html' });
-            var plainBlob = new Blob([html], { type: 'text/plain' });
-            var item = new ClipboardItem({
-                'text/html': blob,
-                'text/plain': plainBlob
-            });
-            await navigator.clipboard.write([item]);
+                // Copy as rich HTML so Gmail paste retains formatting
+                var blob = new Blob([html], { type: "text/html" });
+                var plainBlob = new Blob([html], { type: "text/plain" });
+                var item = new ClipboardItem({
+                    "text/html": blob,
+                    "text/plain": plainBlob,
+                });
+                await navigator.clipboard.write([item]);
 
-            this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-            this.classList.add('btn-success');
-            var self = this;
-            setTimeout(function() {
-                self.innerHTML = originalHTML;
-                self.classList.remove('btn-success');
-                self.disabled = false;
-            }, 2000);
-        } catch (err) {
-            this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
-            this.classList.add('btn-danger');
-            var self = this;
-            setTimeout(function() {
-                self.innerHTML = originalHTML;
-                self.classList.remove('btn-danger');
-                self.disabled = false;
-            }, 2000);
-        }
+                this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                this.classList.add("btn-success");
+                var self = this;
+                setTimeout(function () {
+                    self.innerHTML = originalHTML;
+                    self.classList.remove("btn-success");
+                    self.disabled = false;
+                }, 2000);
+            } catch (err) {
+                this.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Failed';
+                this.classList.add("btn-danger");
+                var self = this;
+                setTimeout(function () {
+                    self.innerHTML = originalHTML;
+                    self.classList.remove("btn-danger");
+                    self.disabled = false;
+                }, 2000);
+            }
+        });
     });
-});
 </script>
 {% endblock %}

@@ -185,6 +185,9 @@ jobs:
                   sudo apt-get install -y -qq libgobject-2.0-0 libpango-1.0-0 \
                     libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 \
                     tesseract-ocr 2>/dev/null || true
+                  # Pinned pandoc (>= 3.8.3) with the AsciiDoc input reader —
+                  # apt's pandoc is too old for the .adoc → .docx pipeline.
+                  bash scripts/install_pandoc.sh /usr/local/bin
 
             - name: Install Python dependencies
               run: |
@@ -228,6 +231,9 @@ jobs:
                   sudo apt-get install -y -qq libgobject-2.0-0 libpango-1.0-0 \
                     libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 \
                     tesseract-ocr 2>/dev/null || true
+                  # Pinned pandoc (>= 3.8.3) with the AsciiDoc input reader —
+                  # apt's pandoc is too old for the .adoc → .docx pipeline.
+                  bash scripts/install_pandoc.sh /usr/local/bin
 
             - name: Install Python dependencies (incl. optional ML extras)
               run: |

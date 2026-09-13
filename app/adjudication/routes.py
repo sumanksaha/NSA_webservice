@@ -87,50 +87,42 @@ RULES = {
 
 
 def adjudication_to_dict(adj):
-    """Convert an Adjudication model instance to a dictionary for JSON serialization."""
-    return {
-        "id": adj.id,
-        "case_number": adj.case_number,
-        "food_safety_officer_name": adj.food_safety_officer,
-        "non_license": adj.non_license,
-        "pre_authorization": adj.pre_authorization,
-        "complaint_lodged": adj.complaint_lodged,
-        "ce_license_no": adj.ce_license_no,
-        "ce_trade_name": adj.ce_trade_name,
-        "ce_proprietor": adj.ce_proprietor,
-        "ce_address": adj.ce_address,
-        "ce_status": adj.ce_status,
-        "fbo_owner": adj.fbo_owner,
-        "fbo_name": adj.fbo_name,
-        "fbo_address": adj.fbo_address,
-        "fssai_license": adj.fssai_license,
-        "concerned_food": adj.concerned_food,
-        "problem": adj.problem,
-        "first_inspection_date": (adj.First_inspection_date.isoformat() if adj.First_inspection_date else None),
-        "compliance_deadline": adj.compliance_deadline.isoformat() if adj.compliance_deadline else None,
-        "complaint_date": adj.Complaint_date.isoformat() if adj.Complaint_date else None,
-        "followup_inspection_date": (adj.inspection_date.isoformat() if adj.inspection_date else None),
-        "authorization_date": adj.authorization_date.isoformat() if adj.authorization_date else None,
-        "clean_premise": adj.clean_premise,
-        "refrigerator_clean": adj.refrigerator_clean,
-        "proper_attire": adj.proper_attire,
-        "proper_covered_utensil": adj.proper_covered_utensil,
-        "date_tag": adj.date_tag,
-        "veg_nonveg_separation": adj.veg_nonveg_separation,
-        "food_segregation": adj.food_segregation,
-        "license_display": adj.license_display,
-        "artificial_colour": adj.artificial_colour,
-        "Expired_item": adj.Expired_item,
-        "Pest_report": adj.Pest_report,
-        "Water_report": adj.Water_report,
-        "section_55": adj.section_55,
-        "section_56": adj.section_56,
-        "section_58": adj.section_58,
-        "section_63": adj.section_63,
-        "section_64": adj.section_64,
-        "created_at": adj.created_at.isoformat() if adj.created_at else None,
-        "synced_at": adj.synced_at.isoformat() if adj.synced_at else None,
-    }
+    """Convert an Adjudication model instance to a dictionary for JSON serialization.
+
+    Uses SQLAlchemy __table__.columns for core fields with date formatting.
+    """
+    cols = [c.name for c in adj.__table__.columns]
+    result = {c: getattr(adj, c, None) for c in cols}
+    # Date fields need isoformat
+    for d in (
+        "First_inspection_date",
+        "compliance_deadline",
+        "Complaint_date",
+        "inspection_date",
+        "authorization_date",
+        "created_at",
+        "synced_at",
+    ):
+        val = result.get(d)
+        result[d] = val.isoformat() if val else None
+    # Boolean fields for templates
+    for b in (
+        "clean_premise",
+        "refrigerator_clean",
+        "proper_attire",
+        "proper_covered_utensil",
+        "date_tag",
+        "veg_nonveg_separation",
+        "food_segregation",
+        "license_display",
+        "artificial_colour",
+        "Expired_item",
+        "Pest_report",
+        "Water_report",
+    ):
+        result[b] = result.get(b)
+    result["food_safety_officer_name"] = result.get("food_safety_officer")
+    return result
 
 
 def _process_adjudication_form(form_data):
@@ -407,9 +399,9 @@ def suggest_sections_route():
 
 
 @adjudication_bp.route("/regenerate/<int:case_id>", methods=["GET"])
-def regenerate_adjudication_documents(case_id):
+def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
     """Regenerate documents from an existing adjudication case."""
-    result, error_resp, adj = _rbac_scope_for_case(case_id)
+    _, error_resp, adj = _rbac_scope_for_case(case_id)
     if error_resp:
         return error_resp
     form_data = adjudication_to_dict(adj)
@@ -536,7 +528,7 @@ def preview_adjudication_route():
 
     # Templates reference ``adjudication.photos`` — set empty since we're
     # previewing from form data, not an existing record.
-    context["adjudication"] = {"photos": [], "photo_embeds": []}
+    context["adjudication"] = {"photos": [], "photo_embeds": []}  # type: ignore[assignment]
 
     petition_html = str(render_template("adjudication/template_nonsample_petition.html", **context))
     permission_html = str(render_template("adjudication/Legal_NonsampleAdjudication_Template.html", **context))
@@ -606,7 +598,9 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
     except StaleDataError:
         db.session.rollback()
         abort(
-            make_response(jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409)
+            make_response(
+                jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409
+            )
         )
 
     # Link back to inspection if this was created from one
@@ -683,7 +677,9 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
     return adj
 
 
-def _select_adjudication_photos(adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict) -> list:
+def _select_adjudication_photos(
+    adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict
+) -> list:
     """Select photo evidence for the documents, auditing flagged inclusions.
 
     Verified photos always go in; FLAG photos only with an explicit
@@ -737,7 +733,11 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         if not form_data.get("authorization_date"):
-            abort(make_response(jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400))
+            abort(
+                make_response(
+                    jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
+                )
+            )
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -779,7 +779,9 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
 def _rbac_docx_gate(case_id: int):
     """Adapter: permission gate reused by all docx routes."""
     from flask_login import current_user
+
     from app.shared.rbac import scoped_officer_name
+
     adj = Adjudication.query.get_or_404(case_id)
     scope = scoped_officer_name(current_user)
     if scope is not None and adj.food_safety_officer != scope:
@@ -790,7 +792,9 @@ def _rbac_docx_gate(case_id: int):
 def _rbac_scope_for_form(form_data: dict) -> None:
     """Adapter: FSO account binding — stamps the officer name into form_data."""
     from flask_login import current_user
+
     from app.shared.rbac import scoped_officer_name
+
     scope = scoped_officer_name(current_user)
     if scope:
         form_data["food_safety_officer_name"] = scope
@@ -799,7 +803,9 @@ def _rbac_scope_for_form(form_data: dict) -> None:
 def _rbac_scope_for_case(case_id: int):
     """Adapter: permission gate for existing case routes."""
     from flask_login import current_user
+
     from app.shared.rbac import scoped_officer_name
+
     adj = Adjudication.query.get_or_404(case_id)
     scope = scoped_officer_name(current_user)
     if scope is not None and adj.food_safety_officer != scope:
@@ -809,7 +815,7 @@ def _rbac_scope_for_case(case_id: int):
 
 @adjudication_bp.route("/case/<int:case_id>/docx/<doc_type>")
 @login_required
-def download_docx(case_id: int, doc_type: str):
+def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     """Download Adjudication DOCX — adapter picks format."""
     from app.adjudication.adoc_renderer import render_adoc_to_docx
 

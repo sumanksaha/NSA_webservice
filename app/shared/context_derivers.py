@@ -193,11 +193,11 @@ def derive_applicable_sections_from_form_data(form_data: dict) -> list[str]:
 
     # Otherwise, check section checkboxes (adjudication)
     return derive_applicable_sections_from_adjudication(
-        section_55=form_data.get(SECTION_55),
-        section_56=form_data.get(SECTION_56),
-        section_58=form_data.get(SECTION_58),
-        section_63=form_data.get(SECTION_63),
-        section_64=form_data.get(SECTION_64),
+        section_55=bool(form_data.get(SECTION_55)),
+        section_56=bool(form_data.get(SECTION_56)),
+        section_58=bool(form_data.get(SECTION_58)),
+        section_63=bool(form_data.get(SECTION_63)),
+        section_64=bool(form_data.get(SECTION_64)),
     )
 
 
@@ -432,11 +432,11 @@ def derive_adjudication_context(form_data: dict) -> dict:
     complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED)
 
     applicable_sections = derive_applicable_sections_from_adjudication(
-        section_55=section_55,
-        section_56=section_56,
-        section_58=section_58,
-        section_63=section_63,
-        section_64=section_64,
+        section_55=bool(section_55),
+        section_56=bool(section_56),
+        section_58=bool(section_58),
+        section_63=bool(section_63),
+        section_64=bool(section_64),
     )
 
     derived = {

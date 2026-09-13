@@ -31,7 +31,7 @@ services:
       # traffic to new instances and cancels the deploy if checks never pass,
       # keeping old instances serving. https://render.com/docs/health-checks
       healthCheckPath: /health
-      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
+      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1 && bash scripts/install_pandoc.sh /usr/local/bin
       # Migration safety (gap G3 / research §5): run Alembic in Render's
       # pre-deploy step (build → pre-deploy → start) so a failed migration
       # cancels the deploy BEFORE traffic cutover instead of killing boot.
@@ -141,7 +141,7 @@ services:
       autoDeploy: false
       # G4: health check — same /health endpoint as production
       healthCheckPath: /health
-      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
+      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1 && bash scripts/install_pandoc.sh /usr/local/bin
       # G3: pre-deploy migrations — same pattern as production (with the
       # same idempotent boot-time fallback for free-tier plans)
       preDeployCommand: FLASK_APP=app:create_app flask db upgrade
@@ -239,7 +239,7 @@ services:
       env: python
       # Gated together with the web service — see the web service note above.
       autoDeploy: false
-      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1
+      buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1 && bash scripts/install_pandoc.sh /usr/local/bin
       startCommand: celery -A app.celery worker --loglevel=info
       envVars:
           - key: DATABASE_URL

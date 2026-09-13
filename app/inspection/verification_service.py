@@ -1,4 +1,9 @@
-"""Verification service using adapters for external services."""
+"""Verification service — single source of truth with VerificationHelper wrapper.
+
+Provides verify_photo_location and a VerificationHelper facade for
+consumers that need a class interface (Item 2 shrink: collapsed
+verification_engine.py + verification_service.py into one file).
+"""
 
 from typing import Any
 
@@ -69,7 +74,12 @@ def verify_photo_location(
 
     # 4. License lookup (if applicable)
     if hasattr(fbo, "license_number") and fbo.license_number:
-        result["license_valid"] = _license_adapter.lookup(fbo.license_number, source="fssai")["found"]
+        lookup_res = _license_adapter.lookup(fbo.license_number, source="fssai")
+        result["license_valid"] = (
+            getattr(lookup_res, "found", False)
+            or (getattr(lookup_res, "__getitem__", None) and lookup_res.get("found"))
+            or False
+        )
 
     # 5. Set verification status
     if accuracy is not None and accuracy > 100:
@@ -85,3 +95,25 @@ def verify_photo_location(
         result["verification_status"] = "FLAG"
 
     return result
+
+
+class VerificationHelper:
+    """Single helper class wrapping all verification logic.
+
+    Item 2 shrink: collapsed verification_engine.py + verification_service.py
+    into one file with this unified class.
+    """
+
+    @staticmethod
+    def verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo) -> dict:
+        """Delegates to module-level verify_photo_location."""
+        return verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo)
+
+    @staticmethod
+    def get_status(raw_lat, raw_lng, accuracy, ip_address, fbo) -> str:
+        """Quick status check returning only the verification_status string."""
+        result = verify_photo_location(raw_lat, raw_lng, accuracy, ip_address, fbo)
+        return result["verification_status"]
+
+
+__all__ = ["VerificationHelper", "verify_photo_location"]
