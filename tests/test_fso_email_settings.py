@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -67,19 +66,19 @@ def _teardown_test_env(ctx):
 
 class TestFsoEmailList:
     def test_list_renders_200(self, env):
-        app, admin_client, _, ctx = env
+        _app, admin_client, _, _ctx = env
         resp = admin_client.get("/auth/fso-email")
         assert resp.status_code == 200
         assert b"Officer Alpha" in resp.data
         assert b"Officer Beta" in resp.data
 
     def test_list_shows_not_configured(self, env):
-        app, admin_client, _, ctx = env
+        _app, admin_client, _, _ctx = env
         resp = admin_client.get("/auth/fso-email")
         assert b"Not Configured" in resp.data
 
     def test_list_denied_for_non_admin(self, env):
-        app, _, regular_client, ctx = env
+        _app, _, regular_client, _ctx = env
         resp = regular_client.get("/auth/fso-email")
         # Non-admin should be redirected or 403
         assert resp.status_code in (302, 403)
@@ -87,19 +86,19 @@ class TestFsoEmailList:
 
 class TestFsoEmailEdit:
     def test_edit_form_renders(self, env):
-        app, admin_client, _, ctx = env
+        _app, admin_client, _, _ctx = env
         resp = admin_client.get("/auth/fso-email/Officer%20Alpha")
         assert resp.status_code == 200
         assert b"Officer Alpha" in resp.data
         assert b"SMTP Host" in resp.data
 
     def test_edit_404_for_unknown_fso(self, env):
-        app, admin_client, _, ctx = env
+        _app, admin_client, _, _ctx = env
         resp = admin_client.get("/auth/fso-email/Nonexistent")
         assert resp.status_code == 404
 
     def test_post_saves_config(self, env):
-        app, admin_client, _, ctx = env
+        app, admin_client, _, _ctx = env
         resp = admin_client.post(
             "/auth/fso-email/Officer%20Alpha",
             data={
@@ -128,7 +127,7 @@ class TestFsoEmailEdit:
             assert fso.smtp_use_tls is True
 
     def test_post_saves_without_tls(self, env):
-        app, admin_client, _, ctx = env
+        app, admin_client, _, _ctx = env
         resp = admin_client.post(
             "/auth/fso-email/Officer%20Beta",
             data={
@@ -151,7 +150,7 @@ class TestFsoEmailEdit:
 
     def test_post_clears_config(self, env):
         """Submitting empty fields clears the email config."""
-        app, admin_client, _, ctx = env
+        app, admin_client, _, _ctx = env
         resp = admin_client.post(
             "/auth/fso-email/Officer%20Alpha",
             data={
@@ -174,7 +173,7 @@ class TestFsoEmailEdit:
             assert fso.smtp_host is None
 
     def test_edit_denied_for_non_admin(self, env):
-        app, _, regular_client, ctx = env
+        _app, _, regular_client, _ctx = env
         resp = regular_client.get("/auth/fso-email/Officer%20Alpha")
         assert resp.status_code in (302, 403)
 

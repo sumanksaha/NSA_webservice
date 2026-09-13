@@ -658,7 +658,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
 # ---------------------------------------------------------------------------
 
 
-def _has_condition_marker(req: "Requirement", marker: str) -> bool:
+def _has_condition_marker(req: Requirement, marker: str) -> bool:
     """True when *req* carries *marker* in its conditions.
 
     Substring check over the joined conditions: markers are prefixes of
@@ -751,7 +751,12 @@ def _construct_tasks(
             # provision's definitional cross-references), so it depends on
             # the first wave-1 task regardless of its own domain.
             deps = [wave1_tasks[0].task_id]
-        if not deps and domain is not None and wave2_by_domain.get(domain):
+        if (
+            not deps
+            and domain is not None
+            and wave2_by_domain.get(domain)
+            and not _has_condition_marker(req, _COMPARATIVE_MARKER)
+        ):
             # No wave-1 foundation exists in this domain (the query mentions
             # no provision/definition/cross-reference).  Anchor on the first
             # wave-2 task already created in the same domain so the DAG keeps
@@ -761,8 +766,7 @@ def _construct_tasks(
             # (comparative sides carry no marker and stay independent), and
             # dependencies only point at earlier-created tasks, so this
             # cannot introduce a cycle.
-            if not _has_condition_marker(req, _COMPARATIVE_MARKER):
-                deps = [wave2_by_domain[domain][0].task_id]
+            deps = [wave2_by_domain[domain][0].task_id]
         task = _build_task(
             task_id=f"T{len(wave1_tasks) + j + 1}",
             objective=_objective_for_requirement(req),

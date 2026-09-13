@@ -1,6 +1,7 @@
 """Unit tests for PhotoProcessor."""
 
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,10 +29,15 @@ class TestPhotoProcessor:
         mock_file = MagicMock()
         mock_file.filename = "test.jpg"
         mock_file.read = lambda: img_bytes.getvalue()
+        mock_file.save = lambda path: Path(path).write_bytes(img_bytes.getvalue())
 
         with patch("app.inspection.services.photo_processor.Image.open", return_value=img):
-            with patch("app.inspection.services.photo_processor.current_app") as mock_app:
-                mock_app.instance_path = "/tmp"
+            # NOTE: `new=` avoids mock inspecting the flask LocalProxy
+            # (plain patch() touches it and explodes outside app context).
+            with patch(
+                "app.inspection.services.photo_processor.current_app",
+                new=MagicMock(instance_path="/tmp"),
+            ):
                 form_data = {
                     "lat": "12.9716",
                     "lng": "77.5946",

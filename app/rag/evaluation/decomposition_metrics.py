@@ -26,7 +26,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from app.rag.evidence_task import AnswerRequirementGraph
+from app.rag.evidence_task import AnswerRequirement, AnswerRequirementGraph
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +237,7 @@ def evidence_completeness(
 # ---------------------------------------------------------------------------
 
 def record_requirement_prediction(
-    benchmark_entry: "QueryBenchmark",
+    benchmark_entry: QueryBenchmark,
     requirement_graph: AnswerRequirementGraph,
 ) -> None:
     """Record requirement-graph-level prediction metadata on a benchmark entry.
@@ -294,7 +294,7 @@ class RequirementLevelMetrics:
 
 
 def compute_requirement_level_metrics(
-    entry: "QueryBenchmark",
+    entry: QueryBenchmark,
     requirement_graph: AnswerRequirementGraph | None = None,
     sufficiency_map: dict[str, bool] | None = None,
 ) -> RequirementLevelMetrics | None:
@@ -378,7 +378,7 @@ def _is_multi_claim_task(task: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 def requirement_level_report(
-    benchmark: "Any",  # DecompositionBenchmark
+    benchmark: Any,  # DecompositionBenchmark
     sufficiency_map: dict[str, dict[str, bool]] | None = None,
 ) -> dict[str, Any]:
     """Compute requirement-level metrics aggregated across a benchmark.

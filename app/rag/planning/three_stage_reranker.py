@@ -69,7 +69,7 @@ class ThreeStageReranker:
         # Stage 2: Deterministic legal ranker (section proximity, authority hierarchy)
         legal_scores = self._score_legal_features(chunks, query_type)
         # Combine identity + legal for Stage 1+2 output
-        stage12_scores = [(identity + legal) / 2 for identity, legal in zip(identity_scores, legal_scores)]
+        stage12_scores = [(identity + legal) / 2 for identity, legal in zip(identity_scores, legal_scores, strict=False)]
 
         # Stage 3: Cross-encoder on top N from stage 1+2
         # Take top 2x for CE reranking (configurable)

@@ -80,11 +80,11 @@ class TestAutoAdjustWidths:
     def test_auto_adjust_width_uses_longest_value(self):
         wb = Workbook()
         ws = wb.active
-        # Column A: longest value is "SL/WB/110223/2026/00001" (14 chars)
+        # Column A: longest value is "SL/WB/110223/2026/00001" (23 chars)
         ws["A1"].value = "Header"
         ws["A2"].value = "SL/WB/110223/2026/00001"
         SheetStyler().auto_adjust_widths(ws)
-        expected = (14 + 2) * 1.2
+        expected = (23 + 2) * 1.2
         assert abs(ws.column_dimensions["A"].width - expected) < 0.001
 
     def test_auto_adjust_width_handles_none_cells(self):

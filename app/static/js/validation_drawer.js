@@ -3,8 +3,7 @@
     function ready(fn) {
         if (document.readyState === "loading") {
             document.addEventListener("DOMContentLoaded", fn);
-        }
-        else {
+        } else {
             fn();
         }
     }
@@ -23,41 +22,39 @@
         }
     }
     function gradeColor(score) {
-        if (score >= 90)
-            return "#0b6e4f";
-        if (score >= 75)
-            return "#c77d0a";
+        if (score >= 90) return "#0b6e4f";
+        if (score >= 75) return "#c77d0a";
         return "#b3261e";
     }
     function findingList(items, icon, color) {
-        if (!items.length)
-            return "";
+        if (!items.length) return "";
         var html = '<ul style="margin: 0; padding-left: 1.25rem; line-height: 1.7;">';
         items.forEach(function (item) {
             html +=
                 '<li><span style="color: ' +
-                    color +
-                    ';"><i class="fa-solid ' +
-                    icon +
-                    '"></i></span> ' +
-                    esc(item.message) +
-                    (item.field_name
-                        ? ' <span class="text--muted" style="font-size: 0.8125rem;">(' +
-                            esc(item.field_name) +
-                            ")</span>"
-                        : "") +
-                    (item.suggestion
-                        ? ' <div class="form-hint" style="margin: 0.15rem 0 0.4rem 0;">' +
-                            esc(item.suggestion) +
-                            "</div>"
-                        : "") +
-                    "</li>";
+                color +
+                ';"><i class="fa-solid ' +
+                icon +
+                '"></i></span> ' +
+                esc(item.message) +
+                (item.field_name
+                    ? ' <span class="text--muted" style="font-size: 0.8125rem;">(' +
+                      esc(item.field_name) +
+                      ")</span>"
+                    : "") +
+                (item.suggestion
+                    ? ' <div class="form-hint" style="margin: 0.15rem 0 0.4rem 0;">' +
+                      esc(item.suggestion) +
+                      "</div>"
+                    : "") +
+                "</li>";
         });
         return html + "</ul>";
     }
     function renderReport(data, drawerEl) {
         var color = gradeColor(data.score);
-        var html = '<div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">' +
+        var html =
+            '<div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">' +
             '<div style="width: 92px; height: 92px; border-radius: 50%; border: 6px solid ' +
             color +
             ";" +
@@ -87,18 +84,18 @@
         if (data.errors && data.errors.length) {
             html +=
                 '<div class="card card-sm mt--md"><div class="card-header"><h4><i class="fa-solid fa-circle-xmark"></i> Errors (' +
-                    data.errors.length +
-                    ")</h4></div>" +
-                    findingList(data.errors, "fa-circle-xmark", "#b3261e") +
-                    "</div>";
+                data.errors.length +
+                ")</h4></div>" +
+                findingList(data.errors, "fa-circle-xmark", "#b3261e") +
+                "</div>";
         }
         if (data.warnings && data.warnings.length) {
             html +=
                 '<div class="card card-sm mt--sm"><div class="card-header"><h4><i class="fa-solid fa-triangle-exclamation"></i> Warnings (' +
-                    data.warnings.length +
-                    ")</h4></div>" +
-                    findingList(data.warnings, "fa-triangle-exclamation", "#c77d0a") +
-                    "</div>";
+                data.warnings.length +
+                ")</h4></div>" +
+                findingList(data.warnings, "fa-triangle-exclamation", "#c77d0a") +
+                "</div>";
         }
         if (data.suggestions && data.suggestions.length) {
             html +=
@@ -113,8 +110,7 @@
     function post(endpoint, payload, drawerEl, statusEl, btn, originalHtml, onDone) {
         btn.disabled = true;
         setHTML(btn, '<i class="fa-solid fa-spinner fa-spin"></i> Validating\u2026');
-        if (statusEl)
-            statusEl.textContent = "Processing\u2026";
+        if (statusEl) statusEl.textContent = "Processing\u2026";
         drawerEl.style.display = "none";
         fetch(endpoint, {
             method: "POST",
@@ -122,58 +118,59 @@
             body: JSON.stringify(payload),
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                return { ok: resp.ok, data: data };
-            });
-        })
+                return resp.json().then(function (data) {
+                    return { ok: resp.ok, data: data };
+                });
+            })
             .then(function (out) {
-            if (!out.ok) {
-                if (statusEl)
-                    statusEl.textContent = out.data.error || "Validation failed";
-                return;
-            }
-            renderReport(out.data, drawerEl);
-            drawerEl.style.display = "block";
-            if (statusEl)
-                statusEl.textContent = "";
-            drawerEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        })
+                if (!out.ok) {
+                    if (statusEl) statusEl.textContent = out.data.error || "Validation failed";
+                    return;
+                }
+                renderReport(out.data, drawerEl);
+                drawerEl.style.display = "block";
+                if (statusEl) statusEl.textContent = "";
+                drawerEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            })
             .catch(function () {
-            if (statusEl)
-                statusEl.textContent = "Request failed \u2014 please try again.";
-        })
+                if (statusEl) statusEl.textContent = "Request failed \u2014 please try again.";
+            })
             .finally(function () {
-            btn.disabled = false;
-            setHTML(btn, originalHtml);
-            if (onDone)
-                onDone();
-        });
+                btn.disabled = false;
+                setHTML(btn, originalHtml);
+                if (onDone) onDone();
+            });
     }
     function initRowButtons(opts) {
         ready(function () {
             var buttons = document.querySelectorAll(opts.buttonsSelector || ".js-validate-case");
             var drawerEl = document.getElementById(opts.drawerId);
-            if (!buttons.length || !drawerEl)
-                return;
+            if (!buttons.length || !drawerEl) return;
             var statusEl = opts.statusId ? document.getElementById(opts.statusId) : null;
             var endpoint = opts.endpoint;
             var busy = false;
             Array.prototype.forEach.call(buttons, function (btn) {
                 var originalHtml = btn.innerHTML;
                 btn.addEventListener("click", function () {
-                    if (busy)
-                        return;
+                    if (busy) return;
                     var caseId = parseInt(btn.getAttribute("data-case-id") || "0", 10);
                     var caseType = btn.getAttribute("data-case-type") || "case_file";
                     if (!caseId || caseId < 1) {
-                        if (statusEl)
-                            statusEl.textContent = "Invalid case ID on this button.";
+                        if (statusEl) statusEl.textContent = "Invalid case ID on this button.";
                         return;
                     }
                     busy = true;
-                    post(endpoint, { case_id: caseId, case_type: caseType }, drawerEl, statusEl, btn, originalHtml, function () {
-                        busy = false;
-                    });
+                    post(
+                        endpoint,
+                        { case_id: caseId, case_type: caseType },
+                        drawerEl,
+                        statusEl,
+                        btn,
+                        originalHtml,
+                        function () {
+                            busy = false;
+                        }
+                    );
                 });
             });
         });
@@ -183,8 +180,7 @@
             var btn = document.getElementById(opts.buttonId);
             var caseIdInput = document.getElementById(opts.caseIdInputId);
             var drawerEl = document.getElementById(opts.drawerId);
-            if (!btn || !caseIdInput || !drawerEl)
-                return;
+            if (!btn || !caseIdInput || !drawerEl) return;
             var statusEl = opts.statusId ? document.getElementById(opts.statusId) : null;
             var typeSelect = document.getElementById(opts.typeSelectId);
             var endpoint = opts.endpoint;
@@ -192,12 +188,18 @@
             btn.addEventListener("click", function () {
                 var caseId = parseInt(caseIdInput.value, 10);
                 if (!caseId || caseId < 1) {
-                    if (statusEl)
-                        statusEl.textContent = "Enter a numeric case ID first.";
+                    if (statusEl) statusEl.textContent = "Enter a numeric case ID first.";
                     return;
                 }
                 var caseType = typeSelect ? typeSelect.value : "case_file";
-                post(endpoint, { case_id: caseId, case_type: caseType }, drawerEl, statusEl, btn, originalHtml);
+                post(
+                    endpoint,
+                    { case_id: caseId, case_type: caseType },
+                    drawerEl,
+                    statusEl,
+                    btn,
+                    originalHtml
+                );
             });
         });
     }

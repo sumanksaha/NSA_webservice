@@ -6,7 +6,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from flask import Flask, redirect, url_for
-from flask_login import current_user  # noqa: F401 — used by set_audit_user / template exposure
+from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 

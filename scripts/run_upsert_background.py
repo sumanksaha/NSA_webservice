@@ -19,7 +19,7 @@ with open('C:/github/NSA_webservice/upsert_output.log', 'w') as f:
     f.write(f"\n\nReturn code: {result.returncode}\n")
 
 print(f"Process completed with return code: {result.returncode}")
-print(f"Output written to upsert_output.log")
+print("Output written to upsert_output.log")
 print("\n--- STDOUT (last 50 lines) ---")
 for line in result.stdout.split('\n')[-50:]:
     print(line)

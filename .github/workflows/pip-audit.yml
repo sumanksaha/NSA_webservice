@@ -36,4 +36,9 @@ jobs:
       - name: Run pip-audit on all requirements (runtime + dev)
         # (G14, research §4.3): requirements-dev.txt was never scanned anywhere
         # in the pipeline — now covered alongside runtime deps.
-        run: pip-audit --requirement requirements.txt --requirement requirements-dev.txt
+        # Triaged ignore (2026-09-13): PYSEC-2026-3740 / CVE-2026-81726 in
+        # nltk 3.10.3 (transitive-only dep — no first-party code imports
+        # nltk) has no patched release (3.10.3 is latest on PyPI), and the
+        # vulnerable model-persistence APIs are unreachable from this app.
+        # Re-audit when nltk ships a fix; drop the flag then.
+        run: pip-audit --requirement requirements.txt --requirement requirements-dev.txt --ignore-vuln PYSEC-2026-3740

@@ -37,22 +37,6 @@ def _app():
 
 @pytest.fixture
 def app_ctx(_app):
-    """Push a fresh app context per test."""
-    from app.extensions import db
-
-    ctx = _app.app_context()
-    ctx.push()
-    db.session.remove()
-    try:
-        yield _app
-    finally:
-        db.session.remove()
-        with contextlib.suppress(Exception):
-            ctx.pop()
-
-
-@pytest.fixture
-def app_ctx(_app):
     """Push a fresh app context per test.
 
     ``tests/conftest.py::_pop_leaked_flask_app_context`` force-pops every

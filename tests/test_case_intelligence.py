@@ -2,7 +2,7 @@
 
 Covers:
 - Evidence strength calculation based on evidence completeness
-- Traceability calculation based on evidence connectivity  
+- Traceability calculation based on evidence connectivity
 - Readiness score calculation based on multiple factors
 - HTTP endpoints: GET /case-intelligence/<id>/scores and /summary
 """
@@ -11,17 +11,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from flask import Flask
-from flask.testing import FlaskClient
-
 from app import create_app
 from app.case_intelligence.engine import (
+    EvidenceStrengthScore,
+    ReadinessScore,
     _calculate_evidence_strength,
     _calculate_readiness_score,
     _calculate_traceability,
     calculate_intelligence_scores,
-    EvidenceStrengthScore,
-    ReadinessScore,
 )
 
 
@@ -216,9 +213,8 @@ def _make_case_file(db, **overrides):
 
 def test_intelligence_scores_endpoint():
     """Test the /case-intelligence/<id>/scores endpoint."""
-    from app import create_app
     from app.extensions import db
-    from app.models import User, FSO
+    from app.models import FSO, User
 
     app = create_app()
     app.config["TESTING"] = True
@@ -275,9 +271,8 @@ def test_intelligence_scores_endpoint():
 
 def test_intelligence_summary_endpoint():
     """Test the /case-intelligence/<id>/summary endpoint."""
-    from app import create_app
     from app.extensions import db
-    from app.models import User, FSO
+    from app.models import FSO, User
 
     app = create_app()
     app.config["TESTING"] = True

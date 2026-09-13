@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -19,6 +20,18 @@ Uses pandoc when available; falls back to python-docx for local development.
 """
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "adjudication"
+
+
+def _pandoc_cmd(*args: str) -> list[str]:
+    """Resolve the pandoc binary to a full path (S607: no PATH lookups).
+
+    Raises FileNotFoundError when pandoc is not installed — callers already
+    treat that as "use the python-docx fallback".
+    """
+    pandoc = shutil.which("pandoc")
+    if not pandoc:
+        raise FileNotFoundError("pandoc binary not found on PATH")
+    return [pandoc, *args]
 
 
 def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = None) -> bytes:
@@ -52,8 +65,9 @@ def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = N
             adoc_source, **context
         )  # Pandoc: docx is a ZIP (binary) — no text-mode stdout/stderr decoding.
     try:
-        result = subprocess.run(
-            ["pandoc", "-f", "html", "-t", "docx", "-o", "-"],
+        # Fixed argv, no shell: the only variable element is the resolved binary path.
+        result = subprocess.run(  # noqa: S603
+            _pandoc_cmd("-f", "html", "-t", "docx", "-o", "-"),
             input=rendered_adoc.encode("utf-8"),
             capture_output=True,
             check=False,
@@ -69,7 +83,8 @@ def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = N
 def is_pandoc_available() -> bool:
     """Check if pandoc binary is on PATH."""
     try:
-        subprocess.run(["pandoc", "--version"], capture_output=True, check=True)
+        # Fixed argv, no shell: the only variable element is the resolved binary path.
+        subprocess.run(_pandoc_cmd("--version"), capture_output=True, check=True)  # noqa: S603
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
         return False

@@ -30,36 +30,35 @@
         var formData = new FormData(form);
         fetch(form.action, { method: "POST", body: formData })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                if (!resp.ok) {
-                    var err = new Error(data.error ||
-                        "Request failed (" + resp.status + ")");
-                    err.status = resp.status;
-                    err.errors = data.errors || null;
-                    err.data = data; // full body — e.g. bill_id when only the PDF step failed
-                    throw err;
-                }
-                return data;
-            });
-        })
+                return resp.json().then(function (data) {
+                    if (!resp.ok) {
+                        var err = new Error(data.error || "Request failed (" + resp.status + ")");
+                        err.status = resp.status;
+                        err.errors = data.errors || null;
+                        err.data = data; // full body — e.g. bill_id when only the PDF step failed
+                        throw err;
+                    }
+                    return data;
+                });
+            })
             .then(function (data) {
-            // Synchronous path: result is inline (no task_id).
-            if (!data.task_id) {
-                onDone({ status: "completed", result: data });
-                return;
-            }
-            // Async (QStash): poll the status store until done.
-            pollStatus(data.task_id, onDone, resolvedOpts);
-        })
+                // Synchronous path: result is inline (no task_id).
+                if (!data.task_id) {
+                    onDone({ status: "completed", result: data });
+                    return;
+                }
+                // Async (QStash): poll the status store until done.
+                pollStatus(data.task_id, onDone, resolvedOpts);
+            })
             .catch(function (err) {
-            onDone({
-                status: "error",
-                error: err.message,
-                errors: err.errors || null,
-                data: err.data || null,
-                result: null,
+                onDone({
+                    status: "error",
+                    error: err.message,
+                    errors: err.errors || null,
+                    data: err.data || null,
+                    result: null,
+                });
             });
-        });
     }
     // -----------------------------------------------------------------------
     // Core: pollStatus
@@ -77,51 +76,49 @@
             attempts += 1;
             fetch(taskStatusUrl(taskId))
                 .then(function (resp) {
-                if (resp.status === 404)
-                    return null;
-                return resp.json();
-            })
+                    if (resp.status === 404) return null;
+                    return resp.json();
+                })
                 .then(function (record) {
-                if (attempts >= maxPolls) {
-                    clearInterval(timer);
-                    onDone({
-                        status: "error",
-                        error: "Timed out waiting for task.",
-                        result: null,
-                    });
-                    return;
-                }
-                if (!record)
-                    return; // not tracked yet — keep polling
-                if (record.status === "completed") {
-                    clearInterval(timer);
-                    onDone({
-                        status: "completed",
-                        result: record.result || {},
-                        task: record.task,
-                    });
-                    return;
-                }
-                if (record.status === "error") {
-                    clearInterval(timer);
-                    onDone({
-                        status: "error",
-                        error: record.error || "Task failed.",
-                        result: record.result || null,
-                    });
-                }
-                // pending / running — keep polling
-            })
+                    if (attempts >= maxPolls) {
+                        clearInterval(timer);
+                        onDone({
+                            status: "error",
+                            error: "Timed out waiting for task.",
+                            result: null,
+                        });
+                        return;
+                    }
+                    if (!record) return; // not tracked yet — keep polling
+                    if (record.status === "completed") {
+                        clearInterval(timer);
+                        onDone({
+                            status: "completed",
+                            result: record.result || {},
+                            task: record.task,
+                        });
+                        return;
+                    }
+                    if (record.status === "error") {
+                        clearInterval(timer);
+                        onDone({
+                            status: "error",
+                            error: record.error || "Task failed.",
+                            result: record.result || null,
+                        });
+                    }
+                    // pending / running — keep polling
+                })
                 .catch(function (err) {
-                if (attempts >= maxPolls) {
-                    clearInterval(timer);
-                    onDone({
-                        status: "error",
-                        error: err.message,
-                        result: null,
-                    });
-                }
-            });
+                    if (attempts >= maxPolls) {
+                        clearInterval(timer);
+                        onDone({
+                            status: "error",
+                            error: err.message,
+                            result: null,
+                        });
+                    }
+                });
         }, interval);
     }
     // -----------------------------------------------------------------------
@@ -132,14 +129,15 @@
      */
     function downloadLink(result, label) {
         var filePath = result && result.file_path;
-        if (!filePath)
-            return "";
+        if (!filePath) return "";
         var text = label || "Download file";
-        return ('<a class="btn btn-primary btn-sm" href="' +
+        return (
+            '<a class="btn btn-primary btn-sm" href="' +
             downloadUrl(filePath) +
             '" target="_blank" rel="noopener"><i class="fa-solid fa-file-arrow-down"></i> ' +
             text +
-            "</a>");
+            "</a>"
+        );
     }
     // -----------------------------------------------------------------------
     // Expose on window

@@ -6,6 +6,7 @@ import contextlib
 from datetime import UTC, datetime
 
 from app.extensions import db
+from app.models import Adjudication, Evidence, Inspection
 from app.services.audit_context import audit_logger
 
 
@@ -31,8 +32,6 @@ class EvidenceStore:
         **kwargs,
     ):
         """Create an Evidence DB record for photo evidence."""
-        from app.models import Evidence
-
         photo_evidence = Evidence(
             id=photo_id,
             inspection_id=inspection_id,
@@ -63,8 +62,6 @@ class EvidenceStore:
         self, evidence_id: str, locality: str | None, verification_result: dict, stamped_filepath: str
     ):
         """Update evidence record after stamping and verification."""
-        from app.models import Evidence
-
         photo = db.session.get(Evidence, evidence_id)
         if not photo:
             raise FileNotFoundError(f"Photo with id {evidence_id} not found")
@@ -86,8 +83,6 @@ class EvidenceStore:
 
     def delete(self, photo_id: str) -> bool:
         """Delete a photo evidence record from DB."""
-        from app.models import Evidence
-
         photo = db.session.get(Evidence, photo_id)
         if not photo:
             raise FileNotFoundError(f"Photo with id {photo_id} not found")
@@ -103,8 +98,6 @@ class EvidenceStore:
 
     def list_for_inspection(self, inspection_id: int):
         """List all photo evidence for an inspection."""
-        from app.models import Evidence, Inspection
-
         inspection = db.session.get(Inspection, inspection_id)
         if not inspection:
             raise FileNotFoundError(f"Inspection with id {inspection_id} not found")
@@ -118,8 +111,6 @@ class EvidenceStore:
 
     def list_adjudication(self, adjudication_id: int, page: int = 1, per_page: int = 50):
         """List all photos for an adjudication, with pagination."""
-        from app.models import Adjudication, Evidence
-
         adjudication = db.session.get(Adjudication, adjudication_id)
         if not adjudication:
             raise FileNotFoundError(f"Adjudication with id {adjudication_id} not found")

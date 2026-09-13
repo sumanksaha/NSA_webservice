@@ -12,6 +12,7 @@ All tests are offline — no Qdrant, no sentence-transformers, no GPU.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -20,6 +21,12 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# These four tests exercise torch's own loss functions directly and need
+# the optional torch stack installed.
+_requires_torch = pytest.mark.skipif(
+    importlib.util.find_spec("torch") is None, reason="torch not installed"
+)
 
 from evaluation.failure_taxonomy import (
     CATEGORIES,
@@ -626,6 +633,7 @@ class TestPairwiseDataset:
 class TestRankingLossTrainer:
     """Test ranking loss computation logic (no model loading)."""
 
+    @_requires_torch
     def test_margin_ranking_loss_basic(self):
         """Margin ranking loss penalizes when neg > pos."""
         import torch
@@ -642,6 +650,7 @@ class TestRankingLossTrainer:
         # Loss should be positive (second pair is wrong)
         assert loss.item() > 0
 
+    @_requires_torch
     def test_margin_ranking_loss_perfect(self):
         """Margin ranking loss is ~0 when pos >> neg + margin."""
         import torch
@@ -657,6 +666,7 @@ class TestRankingLossTrainer:
         )
         assert loss.item() < 0.01
 
+    @_requires_torch
     def test_contrastive_loss_basic(self):
         """Contrastive loss penalizes when neg > pos."""
         import torch
@@ -668,6 +678,7 @@ class TestRankingLossTrainer:
         # Loss should be small (pos > neg)
         assert 0.0 < loss.item() < 1.0
 
+    @_requires_torch
     def test_contrastive_loss_reversal(self):
         """Contrastive loss is large when neg > pos."""
         import torch

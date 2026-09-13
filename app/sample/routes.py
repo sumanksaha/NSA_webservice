@@ -40,18 +40,16 @@ def validate_sample_code(code: str, sample_type: str) -> str | None:
     """
     if not code:
         return "sample_code is required"
-    if sample_type == "enforcement":
-        if not ENFORCEMENT_CODE_PATTERN.match(code):
-            return (
-                "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL "
-                "(e.g. SL/WB/110223/2026/25275)"
-            )
-    elif sample_type == "surveillance":
-        if not SURVEILLANCE_CODE_PATTERN.match(code):
-            return (
-                "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY "
-                "(e.g. FSO/Br-02/SS/INF/05/26-27)"
-            )
+    if sample_type == "enforcement" and not ENFORCEMENT_CODE_PATTERN.match(code):
+        return (
+            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL "
+            "(e.g. SL/WB/110223/2026/25275)"
+        )
+    elif sample_type == "surveillance" and not SURVEILLANCE_CODE_PATTERN.match(code):
+        return (
+            "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY "
+            "(e.g. FSO/Br-02/SS/INF/05/26-27)"
+        )
     return None
 
 

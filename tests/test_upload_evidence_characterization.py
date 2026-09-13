@@ -11,7 +11,6 @@ and OCR dispatch.
 from __future__ import annotations
 
 import os
-from datetime import datetime
 from unittest import mock
 
 import pytest
@@ -73,7 +72,7 @@ def _stub_stamp(monkeypatch):
 
 class TestUploadEvidenceOrchestration:
     def test_happy_path_persists_and_returns_result(self, photo_env, monkeypatch):
-        test_app, service, inspection, file_obj = photo_env
+        _test_app, service, inspection, file_obj = photo_env
         _stub_verify(monkeypatch)
         _stub_stamp(monkeypatch)
         monkeypatch.setattr("app.inspection.photo_service._OCR_AVAILABLE", False)
@@ -96,7 +95,7 @@ class TestUploadEvidenceOrchestration:
         assert row.filepath == result.filepath
 
     def test_db_failure_rolls_back_and_cleans_temp_file(self, photo_env, monkeypatch):
-        test_app, service, inspection, file_obj = photo_env
+        _test_app, service, inspection, file_obj = photo_env
         _stub_verify(monkeypatch)
 
         # Fail the very first commit (Evidence insert).
@@ -110,7 +109,7 @@ class TestUploadEvidenceOrchestration:
         assert file_obj.saved_to and not os.path.exists(file_obj.saved_to[0])  # temp cleaned
 
     def test_stamp_failure_deletes_pending_row(self, photo_env, monkeypatch):
-        test_app, service, inspection, file_obj = photo_env
+        _test_app, service, inspection, file_obj = photo_env
         _stub_verify(monkeypatch)
 
         def _boom(*a, **k):
@@ -126,12 +125,11 @@ class TestUploadEvidenceOrchestration:
         assert Evidence.query.count() == 0  # PENDING row removed
 
     def test_ocr_dispatch_async_and_sync_modes(self, photo_env, monkeypatch):
-        test_app, service, inspection, file_obj = photo_env
+        _test_app, service, inspection, file_obj = photo_env
         _stub_verify(monkeypatch)
         _stub_stamp(monkeypatch)
         monkeypatch.setattr("app.inspection.photo_service._OCR_AVAILABLE", True)
 
-        import app.inspection.photo_service as ps_mod
 
         # Async mode → task id surfaced.
         monkeypatch.setattr(
@@ -150,7 +148,7 @@ class TestUploadEvidenceOrchestration:
         assert result2.ocr_result == {"text": "ok"}
 
     def test_ocr_dispatch_failure_is_best_effort(self, photo_env, monkeypatch):
-        test_app, service, inspection, file_obj = photo_env
+        _test_app, service, inspection, file_obj = photo_env
         _stub_verify(monkeypatch)
         _stub_stamp(monkeypatch)
         monkeypatch.setattr("app.inspection.photo_service._OCR_AVAILABLE", True)

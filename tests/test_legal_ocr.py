@@ -8,15 +8,25 @@ Covers:
 - ``IngestionPipeline`` OCR wiring: scanned PDFs get OCR'd, text PDFs don't,
   and a missing OCR component leaves the load path unchanged
 
-All tests use mock-injection — no EasyOCR/torch model stack is required.
+All tests use mock-injection — no EasyOCR/torch model stack is required,
+except ``test_easyocr_candidate_parsing`` which needs the importable
+``easyocr`` package (its import gate runs before the injected fake) and
+skips when it is missing.
 """
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+
+import pytest
 
 from app.rag.ingestion import IngestionPipeline, make_ingestion_pipeline
 from app.rag.legal_ocr import LegalDocumentOCR
+
+_requires_easyocr = pytest.mark.skipif(
+    importlib.util.find_spec("easyocr") is None, reason="easyocr not installed"
+)
 
 
 class _FakePipeline:
@@ -99,6 +109,7 @@ class TestFillScannedPdf:
 
 
 class TestOCREngineEasyOCR:
+    @_requires_easyocr
     def test_easyocr_candidate_parsing(self):
         """recognize() returns easyocr output when the engine is mocked."""
         from app.ocr_pipeline.ocr_engine import OCREngine

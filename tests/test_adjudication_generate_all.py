@@ -24,7 +24,6 @@ import pytest
 
 from app.extensions import db
 from app.models import User
-
 from tests.test_preview_adjudication import VALID_FORM
 
 

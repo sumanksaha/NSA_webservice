@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 import io
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -31,6 +32,18 @@ _ROLE_TEXT_RE = re.compile(r"\[[.#][^\]]*\]#(.*?)#")
 _BLOCK_ATTR_RE = re.compile(r"^\[[.#][^\]]*\]$")
 # Section-style headings written as "-- TITLE --"
 _DASHED_TITLE_RE = re.compile(r"^--\s+(.+?)\s+--$")
+
+
+def _pandoc_cmd(*args: str) -> list[str]:
+    """Resolve the pandoc binary to a full path (S607: no PATH lookups).
+
+    Raises FileNotFoundError when pandoc is not installed — the caller
+    treats that as "use the python-docx fallback".
+    """
+    pandoc = shutil.which("pandoc")
+    if not pandoc:
+        raise FileNotFoundError("pandoc binary not found on PATH")
+    return [pandoc, *args]
 
 
 def render_adoc_to_docx(template_dir: Path | str, template_name: str, context: dict) -> bytes:
@@ -65,8 +78,9 @@ def _pandoc_asciidoc_to_docx(rendered_adoc: str) -> bytes | None:
     archive) to stdout, which must never be decoded as text.
     """
     try:
-        result = subprocess.run(
-            ["pandoc", "-f", "asciidoc", "-t", "docx", "-o", "-"],
+        # Fixed argv, no shell: the only variable element is the resolved binary path.
+        result = subprocess.run(  # noqa: S603
+            _pandoc_cmd("-f", "asciidoc", "-t", "docx", "-o", "-"),
             input=rendered_adoc.encode("utf-8"),
             capture_output=True,
             check=False,

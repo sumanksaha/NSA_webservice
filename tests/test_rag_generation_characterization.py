@@ -89,7 +89,7 @@ class TestCompoundQueryDecomposition:
         assert ids.count("dup") == 1
         scores = [c["score"] for c in result["retrieved_chunks"]]
         assert scores == sorted(scores, reverse=True)
-        assert "only_a" == ids[0]
+        assert ids[0] == "only_a"
 
     def test_compound_topk_truncates_merged_pool(self, no_kg, monkeypatch):
         def _fake_retrieval(*, query, top_k, collection_name, filters, pipeline):
@@ -143,7 +143,6 @@ class TestHallucinationVerification:
 
     def test_detector_escalates_missed_claims(self, no_kg, monkeypatch):
         """Claims the sanitizer missed are appended, flagged, and counted."""
-        import app.rag.tasks as tasks_mod
 
         fake_report = SimpleNamespace(
             detected=True,

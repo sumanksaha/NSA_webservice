@@ -1,9 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
-    var config = (window.VC_CONFIG || {});
-    var targetId = config.caseId !== null && config.caseId !== undefined
-        ? config.caseId
-        : config.adjudicationId;
+    var config = window.VC_CONFIG || {};
+    var targetId =
+        config.caseId !== null && config.caseId !== undefined
+            ? config.caseId
+            : config.adjudicationId;
     var kindParam = config.caseType ? "?kind=" + encodeURIComponent(config.caseType) : "";
     var API_BASE = "/api/version-control/";
     var currentDocType = "petition";
@@ -42,17 +43,14 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
     function formatDate(iso) {
-        if (!iso)
-            return "\u2014";
+        if (!iso) return "\u2014";
         var d = new Date(iso);
-        if (isNaN(d.getTime()))
-            return iso;
+        if (isNaN(d.getTime())) return iso;
         return d.toLocaleString();
     }
     function setStatus(message) {
         setHTML(versionList, '<p class="vc-empty">' + escapeHtml(message) + "</p>");
-        if (versionCount)
-            versionCount.textContent = "";
+        if (versionCount) versionCount.textContent = "";
     }
     // -----------------------------------------------------------------------
     // Version list
@@ -68,51 +66,58 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         var rows = versions
             .map(function (v) {
-            var createdBy = v.created_by
-                ? escapeHtml(v.created_by.username || "user#" + v.created_by.id)
-                : "\u2014";
-            var summary = escapeHtml(v.change_summary || "\u2014");
-            return ("<tr>" +
-                '<td class="vc-version-no">v' +
-                v.version_number +
-                "</td>" +
-                '<td class="vc-meta">' +
-                formatDate(v.created_at) +
-                "</td>" +
-                '<td class="vc-meta">' +
-                createdBy +
-                "</td>" +
-                '<td class="vc-summary">' +
-                summary +
-                "</td>" +
-                '<td class="vc-actions">' +
-                '<button type="button" class="vc-btn" data-restore="' +
-                v.id +
-                '" data-version="' +
-                v.version_number +
-                '">Restore</button>' +
-                '<button type="button" class="vc-btn" data-branch="' +
-                v.id +
-                '" data-version="' +
-                v.version_number +
-                '">Branch</button>' +
-                "</td>" +
-                "</tr>");
-        })
+                var createdBy = v.created_by
+                    ? escapeHtml(v.created_by.username || "user#" + v.created_by.id)
+                    : "\u2014";
+                var summary = escapeHtml(v.change_summary || "\u2014");
+                return (
+                    "<tr>" +
+                    '<td class="vc-version-no">v' +
+                    v.version_number +
+                    "</td>" +
+                    '<td class="vc-meta">' +
+                    formatDate(v.created_at) +
+                    "</td>" +
+                    '<td class="vc-meta">' +
+                    createdBy +
+                    "</td>" +
+                    '<td class="vc-summary">' +
+                    summary +
+                    "</td>" +
+                    '<td class="vc-actions">' +
+                    '<button type="button" class="vc-btn" data-restore="' +
+                    v.id +
+                    '" data-version="' +
+                    v.version_number +
+                    '">Restore</button>' +
+                    '<button type="button" class="vc-btn" data-branch="' +
+                    v.id +
+                    '" data-version="' +
+                    v.version_number +
+                    '">Branch</button>' +
+                    "</td>" +
+                    "</tr>"
+                );
+            })
             .join("");
-        setHTML(versionList, '<table class="vc-table">' +
-            "<thead><tr><th>Version</th><th>Created</th><th>By</th><th>Summary</th><th>Actions</th></tr></thead>" +
-            "<tbody>" +
-            rows +
-            "</tbody>" +
-            "</table>");
+        setHTML(
+            versionList,
+            '<table class="vc-table">' +
+                "<thead><tr><th>Version</th><th>Created</th><th>By</th><th>Summary</th><th>Actions</th></tr></thead>" +
+                "<tbody>" +
+                rows +
+                "</tbody>" +
+                "</table>"
+        );
         if (versionCount)
             versionCount.textContent =
                 versions.length + (versions.length === 1 ? " version" : " versions");
         var options = versions
             .map(function (v) {
-            return ('<option value="' + v.version_number + '">v' + v.version_number + "</option>");
-        })
+                return (
+                    '<option value="' + v.version_number + '">v' + v.version_number + "</option>"
+                );
+            })
             .join("");
         setHTML(compareFrom, options);
         setHTML(compareTo, options);
@@ -125,18 +130,17 @@ document.addEventListener("DOMContentLoaded", function () {
         setStatus("Loading version history\u2026");
         fetch(API_BASE + "history/" + targetId + kindParam)
             .then(function (resp) {
-            if (!resp.ok)
-                throw new Error("history request failed: " + resp.status);
-            return resp.json();
-        })
+                if (!resp.ok) throw new Error("history request failed: " + resp.status);
+                return resp.json();
+            })
             .then(function (data) {
-            versions = data[currentDocType] || [];
-            renderVersions();
-        })
+                versions = data[currentDocType] || [];
+                renderVersions();
+            })
             .catch(function (err) {
-            console.error("Version history load error:", err);
-            setStatus("Could not load version history.");
-        });
+                console.error("Version history load error:", err);
+                setStatus("Could not load version history.");
+            });
     }
     // -----------------------------------------------------------------------
     // Compare
@@ -148,34 +152,40 @@ document.addEventListener("DOMContentLoaded", function () {
         var wordDiff = diff.word_count_diff || 0;
         if (!diff.content_changed) {
             setHTML(diffSummary, "");
-            setHTML(diffOutput, '<span class="vc-diff-empty">The two versions are identical.</span>');
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">The two versions are identical.</span>'
+            );
             return;
         }
-        setHTML(diffSummary, '<span class="vc-stat vc-stat-add"><i class="fa-solid fa-plus"></i> +' +
-            insertions.length +
-            " words</span>" +
-            '<span class="vc-stat vc-stat-del"><i class="fa-solid fa-minus"></i> -' +
-            deletions.length +
-            " words</span>" +
-            '<span class="vc-stat vc-stat-sim">Similarity ' +
-            Math.round((diff.similarity || 0) * 100) +
-            "%</span>" +
-            '<span class="vc-stat vc-stat-sim">Word-count \u0394 ' +
-            (wordDiff > 0 ? "+" : "") +
-            wordDiff +
-            "</span>");
+        setHTML(
+            diffSummary,
+            '<span class="vc-stat vc-stat-add"><i class="fa-solid fa-plus"></i> +' +
+                insertions.length +
+                " words</span>" +
+                '<span class="vc-stat vc-stat-del"><i class="fa-solid fa-minus"></i> -' +
+                deletions.length +
+                " words</span>" +
+                '<span class="vc-stat vc-stat-sim">Similarity ' +
+                Math.round((diff.similarity || 0) * 100) +
+                "%</span>" +
+                '<span class="vc-stat vc-stat-sim">Word-count \u0394 ' +
+                (wordDiff > 0 ? "+" : "") +
+                wordDiff +
+                "</span>"
+        );
         var html = "";
         if (deletions.length) {
             html +=
                 '<div class="vc-stat vc-stat-del"><strong>Removed:</strong> ' +
-                    escapeHtml(deletions.join(" ")) +
-                    "</div>";
+                escapeHtml(deletions.join(" ")) +
+                "</div>";
         }
         if (insertions.length) {
             html +=
                 '<div class="vc-stat vc-stat-add"><strong>Added:</strong> ' +
-                    escapeHtml(insertions.join(" ")) +
-                    "</div>";
+                escapeHtml(insertions.join(" ")) +
+                "</div>";
         }
         if (!html) {
             html = '<span class="vc-diff-empty">Content changed but the diff is empty.</span>';
@@ -185,10 +195,14 @@ document.addEventListener("DOMContentLoaded", function () {
     function runCompare() {
         if (!compareFrom.value || !compareTo.value) {
             setHTML(diffSummary, "");
-            setHTML(diffOutput, '<span class="vc-diff-empty">Select both versions to compare.</span>');
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">Select both versions to compare.</span>'
+            );
             return;
         }
-        var url = API_BASE +
+        var url =
+            API_BASE +
             "compare/" +
             targetId +
             "/" +
@@ -202,44 +216,49 @@ document.addEventListener("DOMContentLoaded", function () {
         setHTML(diffOutput, "");
         fetch(url)
             .then(function (resp) {
-            if (!resp.ok)
-                throw new Error("compare request failed: " + resp.status);
-            return resp.json();
-        })
+                if (!resp.ok) throw new Error("compare request failed: " + resp.status);
+                return resp.json();
+            })
             .then(renderDiff)
             .catch(function (err) {
-            console.error("Compare error:", err);
-            setHTML(diffSummary, "");
-            setHTML(diffOutput, '<span class="vc-diff-empty">Could not compare versions.</span>');
-        });
+                console.error("Compare error:", err);
+                setHTML(diffSummary, "");
+                setHTML(
+                    diffOutput,
+                    '<span class="vc-diff-empty">Could not compare versions.</span>'
+                );
+            });
     }
     // -----------------------------------------------------------------------
     // Restore
     // -----------------------------------------------------------------------
     function restoreVersion(versionId, versionNumber) {
-        var ok = window.confirm("Restore this document to v" +
-            versionNumber +
-            "?\n\nThis makes the snapshot the current document and records a new history entry.");
-        if (!ok)
-            return;
-        fetch(API_BASE + "restore/" + targetId + "/" + currentDocType + "/" + versionId + kindParam, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ change_summary: "Restored to version " + versionNumber }),
-        })
+        var ok = window.confirm(
+            "Restore this document to v" +
+                versionNumber +
+                "?\n\nThis makes the snapshot the current document and records a new history entry."
+        );
+        if (!ok) return;
+        fetch(
+            API_BASE + "restore/" + targetId + "/" + currentDocType + "/" + versionId + kindParam,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ change_summary: "Restored to version " + versionNumber }),
+            }
+        )
             .then(function (resp) {
-            if (!resp.ok)
-                throw new Error("restore failed: " + resp.status);
-            return resp.json();
-        })
+                if (!resp.ok) throw new Error("restore failed: " + resp.status);
+                return resp.json();
+            })
             .then(function () {
-            window.alert("Document restored to v" + versionNumber + ".");
-            loadHistory();
-        })
+                window.alert("Document restored to v" + versionNumber + ".");
+                loadHistory();
+            })
             .catch(function (err) {
-            console.error("Restore error:", err);
-            window.alert("Could not restore the document.");
-        });
+                console.error("Restore error:", err);
+                window.alert("Could not restore the document.");
+            });
     }
     // -----------------------------------------------------------------------
     // Branch
@@ -270,8 +289,7 @@ document.addEventListener("DOMContentLoaded", function () {
         };
         if (config.caseId !== null && config.caseId !== undefined) {
             body.case_id = config.caseId;
-        }
-        else {
+        } else {
             body.adjudication_id = config.adjudicationId;
         }
         fetch(API_BASE + "branch", {
@@ -280,21 +298,22 @@ document.addEventListener("DOMContentLoaded", function () {
             body: JSON.stringify(body),
         })
             .then(function (resp) {
-            if (!resp.ok)
-                throw new Error("branch failed: " + resp.status);
-            return resp.json();
-        })
+                if (!resp.ok) throw new Error("branch failed: " + resp.status);
+                return resp.json();
+            })
             .then(function (data) {
-            closeBranchModal();
-            window.alert("Branch '" +
-                (data.branch && data.branch.branch_name ? data.branch.branch_name : name) +
-                "' created.");
-            loadHistory();
-        })
+                closeBranchModal();
+                window.alert(
+                    "Branch '" +
+                        (data.branch && data.branch.branch_name ? data.branch.branch_name : name) +
+                        "' created."
+                );
+                loadHistory();
+            })
             .catch(function (err) {
-            console.error("Branch error:", err);
-            window.alert("Could not create the branch.");
-        });
+                console.error("Branch error:", err);
+                window.alert("Could not create the branch.");
+            });
     }
     // -----------------------------------------------------------------------
     // Wire up events
@@ -306,17 +325,22 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             currentDocType = tab.getAttribute("data-doc-type") || "petition";
             setHTML(diffSummary, "");
-            setHTML(diffOutput, '<span class="vc-diff-empty">Select two versions above to see what changed.</span>');
+            setHTML(
+                diffOutput,
+                '<span class="vc-diff-empty">Select two versions above to see what changed.</span>'
+            );
             loadHistory();
         });
     });
-    if (compareBtn)
-        compareBtn.addEventListener("click", runCompare);
+    if (compareBtn) compareBtn.addEventListener("click", runCompare);
     versionList.addEventListener("click", function (event) {
         var target = event.target;
         var restoreBtn = target.closest("[data-restore]");
         if (restoreBtn) {
-            restoreVersion(restoreBtn.getAttribute("data-restore") || "", restoreBtn.getAttribute("data-version") || "");
+            restoreVersion(
+                restoreBtn.getAttribute("data-restore") || "",
+                restoreBtn.getAttribute("data-version") || ""
+            );
             return;
         }
         var branchBtn = target.closest("[data-branch]");
@@ -324,21 +348,17 @@ document.addEventListener("DOMContentLoaded", function () {
             openBranchModal(branchBtn.getAttribute("data-version") || "");
         }
     });
-    if (branchConfirm)
-        branchConfirm.addEventListener("click", createBranch);
-    if (branchCancel)
-        branchCancel.addEventListener("click", closeBranchModal);
+    if (branchConfirm) branchConfirm.addEventListener("click", createBranch);
+    if (branchCancel) branchCancel.addEventListener("click", closeBranchModal);
     branchModal.addEventListener("click", function (event) {
-        if (event.target === branchModal)
-            closeBranchModal();
+        if (event.target === branchModal) closeBranchModal();
     });
     branchNameInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
             event.preventDefault();
             createBranch();
         }
-        if (event.key === "Escape")
-            closeBranchModal();
+        if (event.key === "Escape") closeBranchModal();
     });
     // --- Initial load ---
     loadHistory();

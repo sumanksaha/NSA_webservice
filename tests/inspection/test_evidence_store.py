@@ -24,6 +24,7 @@ class TestEvidenceStore:
         """Save evidence creates an Evidence record."""
         store = EvidenceStore()
         mock_evidence = MagicMock()
+        mock_evidence.id = "test-id"
 
         mock_session.add = MagicMock()
         mock_session.commit = MagicMock()
@@ -42,22 +43,17 @@ class TestEvidenceStore:
         mock_session.add.assert_called_once()
         mock_session.commit.assert_called_once()
 
-    def test_save_evidence_rollback_on_failure(self):
-        """Rollback on exception."""
+    @patch("app.inspection.services.evidence_store.db.session")
+    def test_save_evidence_rollback_on_failure(self, mock_session):
+        """Rollback on exception — and the error is wrapped, not leaked."""
         store = EvidenceStore()
+        mock_session.commit.side_effect = Exception("DB error")
 
         with patch("app.inspection.services.evidence_store.Evidence"):
             with pytest.raises(RuntimeError, match="Failed to save"):
-                # Mock db.session.commit to raise
-                import app.inspection.services.evidence_store as es_mod
+                store.save_evidence("test-id", filepath="/tmp/test.jpg")
 
-                original_commit = es_mod.db.session.commit
-                es_mod.db.session.commit = MagicMock(side_effect=Exception("DB error"))
-                try:
-                    store.save_evidence("test-id", filepath="/tmp/test.jpg")
-                finally:
-                    es_mod.db.session.commit = original_commit
-                raise RuntimeError("Failed to save")
+        mock_session.rollback.assert_called_once()
 
     @patch("app.inspection.services.evidence_store.db.session")
     def test_update_stamped_evidence(self, mock_session):

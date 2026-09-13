@@ -45,7 +45,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from neo4j import GraphDatabase, basic_auth
+# NOTE: the neo4j driver is imported lazily in main() so the pure-logic
+# helpers (classification, cypher constants, date tables) stay importable
+# and testable without the optional driver installed.
 
 #: Labels that own legal instruments in this KG.
 _INSTRUMENT_LABELS = "Act|Rule|Regulation|Notification|Circular|Order|Guideline|Judgment"
@@ -151,6 +153,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        from neo4j import GraphDatabase, basic_auth
+    except ImportError:
+        print("neo4j driver not installed — cannot run remediation.", file=sys.stderr)
+        return 2
     drv = GraphDatabase.driver(
         os.environ["NEO4J_URI"],
         auth=basic_auth(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]),

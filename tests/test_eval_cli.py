@@ -22,13 +22,16 @@ class TestBenchmarkMode:
         assert out.count("q") >= 5
 
     def test_benchmark_json_output(self, capsys):
+        from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
+
+        expected_entries = len(GOLD_DECOMPOSITION)
         code = run_benchmark(as_json=True)
         out = capsys.readouterr().out
         assert code == 0
         payload = json.loads(out)
-        assert payload["report"]["total_queries"] == 5
+        assert payload["report"]["total_queries"] == expected_entries
         assert payload["report"]["task_recall"] == 1.0
-        assert len(payload["per_entry"]) == 5
+        assert len(payload["per_entry"]) == expected_entries
 
     def test_benchmark_perfect_gate_passes(self, capsys):
         code = run_benchmark(min_recall=1.0)

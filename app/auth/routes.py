@@ -284,8 +284,8 @@ def create_user():
             # Save FSO email + Gmail SMTP defaults
             fso_email = (request.form.get("fso_email") or "").strip()
             if fso_email:
-                from app.models.inspection import FSO as FSOModel
-                fso_record = db.session.get(FSOModel, fso_name)
+                from app.models.inspection import FSO
+                fso_record = db.session.get(FSO, fso_name)
                 if fso_record:
                     fso_record.email = fso_email
                     fso_record.smtp_host = "smtp.gmail.com"
@@ -446,9 +446,9 @@ def delete_user(user_id):
 @admin_required
 def fso_email_list():
     """List all FSOs with their email configuration status."""
-    from app.models.inspection import FSO as FSOModel
+    from app.models.inspection import FSO
 
-    fsos = FSOModel.query.order_by(FSOModel.fso_name.asc()).all()
+    fsos = FSO.query.order_by(FSO.fso_name.asc()).all()
     return render_template("auth/fso_email_list.html", fsos=fsos)
 
 
@@ -457,9 +457,9 @@ def fso_email_list():
 @admin_required
 def fso_email_edit(fso_name: str):
     """Edit SMTP email configuration for a specific FSO."""
-    from app.models.inspection import FSO as FSOModel
+    from app.models.inspection import FSO
 
-    fso = db.session.get(FSOModel, fso_name)
+    fso = db.session.get(FSO, fso_name)
     if fso is None:
         abort(404)
 

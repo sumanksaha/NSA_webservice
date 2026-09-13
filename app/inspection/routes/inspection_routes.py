@@ -457,6 +457,7 @@ def delete_inspection(inspection_id):
 def premises_search():
     """Search Supabase license/registration tables and build an inspection checklist."""
     import os  # ponytail: local import, no new dependency
+
     from sqlalchemy import create_engine, text
     # Use env/config only; never commit secrets.
     supabase_url = current_app.config.get("SUPABASE_DB_URL") or os.environ.get("SUPABASE_DB_URL")

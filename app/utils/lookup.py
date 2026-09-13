@@ -25,13 +25,12 @@ import ssl
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-from typing import Any
 
 fcntl: Any
 try:
@@ -90,7 +89,7 @@ class LookupResult:
     """
 
     found: bool
-    error: Optional[str] = None
+    error: str | None = None
     data: dict = field(default_factory=dict)
 
     # Backwards-compatible convenience for callers that still want a
@@ -98,7 +97,7 @@ class LookupResult:
     def __bool__(self) -> bool:
         return self.found
 
-    def as_tuple(self) -> tuple[Optional[dict], Optional[str]]:
+    def as_tuple(self) -> tuple[dict | None, str | None]:
         """Legacy compatibility — returns ``(data_or_None, error_or_None)``."""
         return (self.data if self.found else None), self.error
 
@@ -108,7 +107,7 @@ class LookupResult:
 # --------------------------------------------------------------------------- #
 
 
-def repair_kmc_json(raw_text: str) -> Optional[dict]:
+def repair_kmc_json(raw_text: str) -> dict | None:
     """Repair the KMC portal's unquoted-key JSON and parse it.
 
     Pure function (no I/O, no side effects).  The KMC search endpoint returns
@@ -144,8 +143,8 @@ class KmcHttpClient(Protocol):
     def post(
         self,
         url: str,
-        data: Optional[dict] = None,
-        headers: Optional[dict] = None,
+        data: dict | None = None,
+        headers: dict | None = None,
     ) -> httpx.Response: ...
 
 
@@ -159,7 +158,7 @@ class DefaultKmcHttpClient:
 
     def __init__(self, timeout: float = _KMC_HTTP_TIMEOUT) -> None:
         self._timeout = timeout
-        self._client: Optional[httpx.Client] = None
+        self._client: httpx.Client | None = None
 
     # -- internal ----------------------------------------------------------------
 
@@ -186,8 +185,8 @@ class DefaultKmcHttpClient:
     def post(
         self,
         url: str,
-        data: Optional[dict] = None,
-        headers: Optional[dict] = None,
+        data: dict | None = None,
+        headers: dict | None = None,
     ) -> httpx.Response:
         return self.client.post(url, data=data, headers=headers or {})
 
@@ -347,8 +346,8 @@ def lookup_fssai(license_no: str) -> LookupResult:
 def lookup_ce(
     license_no: str,
     *,
-    rate_limiter: Optional[RateLimiter] = None,
-    http_client: Optional[DefaultKmcHttpClient] = None,
+    rate_limiter: RateLimiter | None = None,
+    http_client: DefaultKmcHttpClient | None = None,
 ) -> LookupResult:
     """Fetches Trade License details from the KMC portal.
 

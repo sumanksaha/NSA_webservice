@@ -9,17 +9,15 @@ Author: NSA Webservice Team
 Date: 2026-08-26
 """
 
-import re
-import os
-from pathlib import Path
-from typing import List
 import logging
+import re
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def parse_html_for_asciidoc(html_content: str) -> tuple[str, List[str], List[str], List[str]]:
+def parse_html_for_asciidoc(html_content: str) -> tuple[str, list[str], list[str], list[str]]:
     """Parse HTML and extract AsciiDoc content, tables, lists, and paragraphs."""
     asciidoc_sections = []
     tables = []
@@ -29,9 +27,6 @@ def parse_html_for_asciidoc(html_content: str) -> tuple[str, List[str], List[str
     # Remove scripts and styles
     cleaned_html = re.sub(r'<script.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
     cleaned_html = re.sub(r'<style.*?</style>', '', cleaned_html, flags=re.DOTALL | re.IGNORECASE)
-
-    # Extract HTML comments as metadata
-    html_comments = re.findall(r'<!--(.*?)-->', html_content, re.DOTALL)
 
     # Process headings
     h1_pattern = r'<h1[^>]*>(.*?)</h1>'
@@ -127,7 +122,7 @@ def parse_html_for_asciidoc(html_content: str) -> tuple[str, List[str], List[str
 def convert_html_to_asciidoc(html_path: Path, adoc_path: Path, html_ref_dir: Path) -> bool:
     """Convert a single HTML template to AsciiDoc format."""
     try:
-        with open(html_path, 'r', encoding='utf-8') as f:
+        with open(html_path, encoding='utf-8') as f:
             html_content = f.read()
 
         # Extract title
@@ -135,7 +130,7 @@ def convert_html_to_asciidoc(html_path: Path, adoc_path: Path, html_ref_dir: Pat
         title = title_match.group(1).strip() if title_match else "Legal Document"
 
         # Parse HTML for AsciiDoc content
-        asciidoc_content, tables, lists, paragraphs = parse_html_for_asciidoc(html_content)
+        asciidoc_content, tables, lists, _paragraphs = parse_html_for_asciidoc(html_content)
 
         # Create AsciiDoc content with metadata
         adoc_lines = []
@@ -168,7 +163,7 @@ def convert_html_to_asciidoc(html_path: Path, adoc_path: Path, html_ref_dir: Pat
             adoc_lines.append("")
             adoc_lines.append("=== Tables ===")
             for i, table in enumerate(tables):
-                adoc_lines.append(f"\n*Table {i+1}: Document Structure*')
+                adoc_lines.append(f"\n*Table {i+1}: Document Structure*")
                 adoc_lines.append(table)
 
         # Add lists if any
@@ -193,7 +188,7 @@ def convert_html_to_asciidoc(html_path: Path, adoc_path: Path, html_ref_dir: Pat
             f.write(f"<!DOCTYPE html>\n<html>\n<head>\n<title>HTML Reference: {html_path.name}</title>\n</head>\n<body>\n")
             f.write(f"<h1>HTML Reference for {title}</h1>\n")
             f.write(f"<p><strong>Original File:</strong> {html_path}</p>\n")
-            f.write(f"<p><strong>Generated:</strong> 2026-08-26</p>\n")
+            f.write("<p><strong>Generated:</strong> 2026-08-26</p>\n")
             f.write("<h2>Full HTML Content:</h2>\n")
             f.write(f"<pre><code>{html_content[:2000]}...</code></pre>\n")
             f.write("</body>\n</html>")

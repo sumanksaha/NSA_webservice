@@ -21,8 +21,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy.orm.exc import StaleDataError
-
 from app.extensions import db
 from app.models import Adjudication, Bill, CaseFile, DoIntimation, Inspection, Sample
 
@@ -115,7 +113,8 @@ class BackupRestorer:
 
         keys: list[str] = []
         try:
-            from app.utils.storage import _get_bucket, _get_client as _get_r2_client
+            from app.utils.storage import _get_bucket
+            from app.utils.storage import _get_client as _get_r2_client
 
             r2 = _get_r2_client()
             prefix_path = f"nsa_backups/{prefix}_csv/"
@@ -133,7 +132,8 @@ class BackupRestorer:
 
     def _download_r2_csv(self, key: str) -> str | None:
         try:
-            from app.utils.storage import _get_bucket, _get_client as _get_r2_client
+            from app.utils.storage import _get_bucket
+            from app.utils.storage import _get_client as _get_r2_client
 
             r2 = _get_r2_client()
             resp = r2.get_object(Bucket=_get_bucket(), Key=key)
@@ -256,9 +256,16 @@ _backup_restorer = BackupRestorer()
 restore_from = _backup_restorer.restore_from
 restore_if_empty = _backup_restorer.restore_if_empty
 auto_restore_if_empty = _backup_restorer.auto_restore_if_empty
-restore_from_airtable_csv = lambda: _backup_restorer.restore_from("airtable")
-restore_from_excel_csv = lambda: _backup_restorer.restore_from("excel")
-restore_from_sheets_csv = lambda: _backup_restorer.restore_from("sheets")
+def restore_from_airtable_csv():
+    return _backup_restorer.restore_from("airtable")
+
+
+def restore_from_excel_csv():
+    return _backup_restorer.restore_from("excel")
+
+
+def restore_from_sheets_csv():
+    return _backup_restorer.restore_from("sheets")
 
 # Pure-function re-exports kept for test compatibility.
 _csv_to_records = BackupRestorer._csv_to_records

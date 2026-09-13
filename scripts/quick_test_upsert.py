@@ -2,8 +2,9 @@
 import csv
 import os
 from pathlib import Path
-from sqlalchemy import create_engine, text
+
 from psycopg2.extras import execute_values
+from sqlalchemy import create_engine, text
 
 # Set DB URL
 os.environ['DATABASE_URL'] = 'postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres'
@@ -34,7 +35,7 @@ engine = create_engine(
 )
 
 # Test reading CSV
-with open(test_sources[0]["csv"], "r", encoding="utf-8", errors="replace") as f:
+with open(test_sources[0]["csv"], encoding="utf-8", errors="replace") as f:
     reader = csv.reader(f)
     csv_headers = next(reader)
     rows = list(reader)
@@ -48,13 +49,13 @@ raw_conn = engine.raw_connection()
 raw_conn.autocommit = False
 try:
     cursor = raw_conn.cursor()
-    
+
     # Prepare test data
     all_values = []
     for row in rows:
         vals = [row[0], row[1], row[2], row[3]]
         all_values.append(tuple(vals))
-    
+
     # Insert test data
     execute_values(
         cursor,
@@ -63,16 +64,16 @@ try:
         template=None,
         page_size=10
     )
-    
+
     raw_conn.commit()
     print(f"Successfully inserted {len(all_values)} test rows")
-    
+
     # Verify
     with engine.connect() as conn:
         pks = ", ".join(f"'{row[0]}'" for row in all_values)
         count = conn.execute(text(f"SELECT COUNT(*) FROM fssai_licenses WHERE license_no IN ({pks})")).scalar()
         print(f"Verified {count} rows in database")
-    
+
     cursor.close()
 finally:
     raw_conn.close()

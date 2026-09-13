@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import mimetypes
+import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from flask import current_app
 from PIL import ExifTags, Image
+from werkzeug.utils import secure_filename
 
 
 @dataclass
@@ -55,13 +60,6 @@ class PhotoProcessor:
             raise ValueError("captured_at must be a valid ISO format datetime string")
 
         # Save to temp
-        import mimetypes
-        import os
-        import uuid
-
-        from flask import current_app
-        from werkzeug.utils import secure_filename
-
         image_id = str(uuid.uuid4())
         filename = secure_filename(file_obj.filename)
         temp_dir = Path(current_app.instance_path) / "temp_uploads"

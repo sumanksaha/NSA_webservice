@@ -7,9 +7,7 @@ Convention: ``signature/{name_lower_no_spaces}.jpg``
 from __future__ import annotations
 
 import base64
-import os
 from pathlib import Path
-
 
 # Root of the signature directory (project root / signature/)
 _SIGNATURE_DIR = Path(__file__).resolve().parent.parent.parent / "signature"

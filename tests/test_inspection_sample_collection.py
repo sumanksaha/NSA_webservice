@@ -51,7 +51,7 @@ class TestSampleCollectionSchema:
     def test_inspection_has_sample_collected_column(self, env):
         from app.models import Inspection
 
-        _app, _client, ctx = env
+        _app, _client, _ctx = env
         insp = Inspection(
             inspection_code="T001",
             fso_name="Test Officer",
@@ -65,7 +65,7 @@ class TestSampleCollectionSchema:
     def test_inspection_has_sample_code_column(self, env):
         from app.models import Inspection
 
-        _app, _client, ctx = env
+        _app, _client, _ctx = env
         insp = Inspection(
             inspection_code="T002",
             fso_name="Test Officer",
@@ -80,7 +80,7 @@ class TestSampleCollectionSchema:
 class TestCreateInspectionSampleCollection:
     def test_create_without_sample(self, env):
         """Create inspection without sample_collected works."""
-        _app, client, ctx = env
+        _app, client, _ctx = env
         resp = client.post(
             "/inspection/create",
             data={
@@ -97,7 +97,7 @@ class TestCreateInspectionSampleCollection:
 
     def test_create_with_sample_collected_and_code(self, env):
         """Create inspection with sample collected and valid code."""
-        _app, client, ctx = env
+        _app, client, _ctx = env
         resp = client.post(
             "/inspection/create",
             data={
@@ -124,7 +124,7 @@ class TestCreateInspectionSampleCollection:
 
     def test_create_sample_collected_without_code(self, env):
         """Creating with sample_collected but no code returns 400."""
-        _app, client, ctx = env
+        _app, client, _ctx = env
         resp = client.post(
             "/inspection/create",
             data={
@@ -142,7 +142,7 @@ class TestCreateInspectionSampleCollection:
 
     def test_create_sample_collected_invalid_code_format(self, env):
         """Creating with invalid sample code format returns 400."""
-        _app, client, ctx = env
+        _app, client, _ctx = env
         resp = client.post(
             "/inspection/create",
             data={
@@ -162,7 +162,7 @@ class TestCreateInspectionSampleCollection:
 
 class TestUpdateInspectionSampleCollection:
     def test_update_sample_collected_and_code(self, env):
-        _app, client, ctx = env
+        _app, client, _ctx = env
         from app.extensions import db
         from app.models import Inspection
 
@@ -189,7 +189,7 @@ class TestUpdateInspectionSampleCollection:
         assert insp.sample_code == "SL/WB/654321/0987/54321"
 
     def test_update_sample_collected_no_code(self, env):
-        _app, client, ctx = env
+        _app, client, _ctx = env
         from app.extensions import db
         from app.models import Inspection
 
@@ -212,7 +212,7 @@ class TestUpdateInspectionSampleCollection:
         assert "sample_code" in str(data.get("error", "")).lower()
 
     def test_update_invalid_sample_code(self, env):
-        _app, client, ctx = env
+        _app, client, _ctx = env
         from app.extensions import db
         from app.models import Inspection
 
@@ -238,7 +238,7 @@ class TestUpdateInspectionSampleCollection:
         assert "SL/WB" in str(data.get("error", ""))
 
     def test_update_uncheck_sample(self, env):
-        _app, client, ctx = env
+        _app, client, _ctx = env
         from app.extensions import db
         from app.models import Inspection
 
@@ -287,7 +287,7 @@ class TestWorkDiarySampleFields:
         from app.models import Inspection
         from app.workdiary.engine import WorkDiaryEngine
 
-        _app, _client, ctx = env
+        _app, _client, _ctx = env
         insp = Inspection(
             inspection_code="T010",
             fso_name="Test Officer",

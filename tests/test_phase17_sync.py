@@ -27,12 +27,19 @@ from app.sync.supabase_sync import SupabaseSyncService, SyncResult, get_sync_ser
 
 def _make_app(enable_sync: bool = False):
     """Create a test app with DB tables, a user, and an FSO."""
+    from app.sync.supabase_sync import get_sync_service
+
     app = create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
     app.config["ENABLE_SUPABASE_SYNC"] = enable_sync
     app.config["SUPABASE_URL"] = "https://test.supabase.co" if enable_sync else ""
     app.config["SUPABASE_API_KEY"] = "test-key" if enable_sync else ""
+    # The sync service is a process-wide singleton that caches its client:
+    # drop the cached client so each app gets the connectivity its own
+    # config implies (otherwise an earlier enabled-app leaks into
+    # disabled-app assertions, and vice versa).
+    get_sync_service()._client = None
 
     with app.app_context():
         db.drop_all()
@@ -580,8 +587,13 @@ class TestSyncRoutesEnabled:
         assert data["status"] in ("ok", "partial", "disabled")
 
     def test_pull_endpoint_success(self, enabled_client):
-        c, _ = enabled_client
-        resp = c.post("/sync/pull", json={})
+        c, app = enabled_client
+        with app.app_context():
+            service = get_sync_service()
+            mock_client = mock.MagicMock()
+            mock_client.table().select().execute.return_value = mock.MagicMock(data=[])
+            with mock.patch.object(service, "_client", mock_client):
+                resp = c.post("/sync/pull", json={})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] in ("ok", "partial", "disabled")
@@ -662,7 +674,10 @@ class TestSyncRoutesEnabled:
 class TestPhase17Config:
     """Verify the Phase 17 settings declared in app/shared/config.py."""
 
-    def test_enable_supabase_sync_declared(self):
+    def test_enable_supabase_sync_declared(self, monkeypatch):
+        # Hermetic: the developer .env may set ENABLE_SUPABASE_SYNC=false;
+        # the declared contract is the default (always-True deprecated flag).
+        monkeypatch.delenv("ENABLE_SUPABASE_SYNC", raising=False)
         assert hasattr(cfg, "supabase_sync_enabled")
         # Supabase sync is now always enabled — the flag default is True.
         # Use the named accessor which respects opt_in=False convention.
@@ -694,11 +709,13 @@ class TestSyncNoNetwork:
         with app.app_context():
             service = get_sync_service()
             result = service.push()
-            assert result.status == "disabled"
+            # No "disabled" status exists anymore (sync is mandatory); the
+            # contract is a well-formed result, never an exception.
+            assert result.status in ("ok", "partial", "error")
 
     def test_pull_disabled_does_not_raise(self):
         app = _make_app()
         with app.app_context():
             service = get_sync_service()
             result = service.pull()
-            assert result.status == "disabled"
+            assert result.status in ("ok", "partial", "error")

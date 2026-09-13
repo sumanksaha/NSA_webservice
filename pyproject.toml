@@ -197,6 +197,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S105", "S106", "S108", "S311", "T20", "B017", "SIM117", "N806", "N814", "N817"]
+# Characterization test reuses fixtures imported from a sibling test module;
+# test-method parameters MUST repeat the fixture names for pytest injection,
+# which reads as shadowing to pyflakes.
+"tests/test_upload_evidence_characterization.py" = ["F811"]
 # Experiment/research scripts: compact one-liners, loop-var reuse and
 # dataset-sampling randomness are deliberate; style churn is not valuable.
 "evaluation/*" = [
@@ -244,6 +248,20 @@ ignore = [
 "app/utils/sync.py" = ["S110"]
 "app/rag/retrieval/*" = ["S101"]  # internal invariant checks on rule-based parse results (equivalent to test assertions)
 "scripts/**/*" = ["B007", "T201", "S101"]  # CLI tools legitimately use print for stdout output
+# One-off ETL / verification scripts: SQL identifiers interpolated from
+# internal constants (table names), never from request/user input; pandoc is
+# invoked as a fixed argv list. Same rationale as scripts/**/* above.
+"scripts/fast_upsert.py" = ["S608"]
+"scripts/quick_test_upsert.py" = ["S608"]
+"scripts/supabase_premises_search.py" = ["S608"]
+"scripts/upsert_kmc_csv_to_supabase.py" = ["S608"]
+"scripts/verify_protection.py" = ["S608"]
+"scripts/adoc_render.py" = ["S603"]
+# Root-level one-off utilities: print-to-stdout CLIs, same as scripts/**/*.
+"check_config_access.py" = ["T201"]
+"count_csv.py" = ["T201"]
+"inspect_csv.py" = ["T201"]
+"upsert_reg.py" = ["T201", "S608"]
 "app/inspection/inspection_utils.py" = ["S311"]
 "app/sample/sample_utils.py" = ["S311"]
 "check_*.py" = ["B007", "S110", "S608", "SIM108"]

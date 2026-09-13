@@ -39,8 +39,10 @@ def _clean_env(monkeypatch):
 def test_defaults_outside_app_context():
     assert cfg.rag_enabled is True
     assert cfg.evidence_selector is False
-    assert cfg.kg_fusion is False
-    assert cfg.kg_expansion is False
+    # KG context is on by default (declaration table in app/shared/config.py);
+    # tasks.py applies fusion first, expansion only when fusion is off.
+    assert cfg.kg_fusion is True
+    assert cfg.kg_expansion is True
     assert cfg.ensemble_ce_head == 30  # unified with create_app (was 20 in tasks.py)
     assert cfg.ensemble_ce_weight == 0.5
     assert cfg.agent_checkpointer == "memory"

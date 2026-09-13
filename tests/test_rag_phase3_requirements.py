@@ -14,6 +14,14 @@ from app.rag.agent.sufficiency import (
     SufficiencyAssessor,
     task_requirement_id,
 )
+from app.rag.evaluation.benchmark import DecompositionBenchmark
+from app.rag.evaluation.decomposition_metrics import (
+    atomicity_score,
+    decomposition_efficiency,
+    evidence_completeness,
+    requirement_coverage,
+)
+from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
 from app.rag.evidence_task import (
     AnswerRequirement,
     AnswerRequirementGraph,
@@ -23,16 +31,7 @@ from app.rag.evidence_task import (
     EvidenceTask,
     build_claim_verification,
     requirement_graph_from_tasks,
-    requirement_to_answer_type,
 )
-from app.rag.evaluation.benchmark import DecompositionBenchmark
-from app.rag.evaluation.decomposition_metrics import (
-    atomicity_score,
-    decomposition_efficiency,
-    evidence_completeness,
-    requirement_coverage,
-)
-from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
 from app.rag.planning.query_planner import QueryPlanner
 
 

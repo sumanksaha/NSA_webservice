@@ -21,6 +21,7 @@ from flask import (
     request,
     send_file,
 )
+
 from app.annexure.metadata import (
     compute_sha256,
     extract_image_text,

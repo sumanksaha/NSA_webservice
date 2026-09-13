@@ -206,7 +206,7 @@ class TestDecisionEngine:
 
 
 try:
-    import cv2 as _cv2
+    import cv2  # noqa: F401 -- availability probe; import success sets _cv2_available
 
     _cv2_available = True
 except ImportError:

@@ -102,7 +102,7 @@ class SupabaseSyncService:
             return None
 
         try:
-            from supabase import create_client, Client
+            from supabase import create_client
         except ImportError:
             return None
 

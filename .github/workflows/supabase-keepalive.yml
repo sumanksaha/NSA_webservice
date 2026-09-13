@@ -16,10 +16,21 @@ permissions:
 jobs:
     ping:
         runs-on: ubuntu-latest
+        timeout-minutes: 10
+        env:
+            PROD_HEALTH_URL: ${{ vars.PROD_HEALTH_URL }}
         steps:
             - name: Ping /health
               run: |
-                  URL="${{ vars.PROD_HEALTH_URL || 'https://nsa-webservice.onrender.com/health' }}"
-                  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 "$URL")
-                  echo "GET $URL -> $code"
-                  test "$code" = "200"
+                  # NOTE: do NOT use "${{ vars.X || 'default' }}" — the GHA `||`
+                  # operator yields a boolean, not the fallback string. The
+                  # default is applied in shell instead.
+                  URL="${PROD_HEALTH_URL:-https://nsa-webservice.onrender.com/health}"
+                  echo "GET $URL"
+                  # Render's free tier sleeps: first hit wakes the service
+                  # (~30-60s cold start), so retry transient failures instead
+                  # of failing the run on a single slow wake-up.
+                  curl --fail --silent --show-error \
+                    --connect-timeout 15 --max-time 90 \
+                    --retry-all-errors --retry 6 --retry-delay 30 \
+                    "$URL"

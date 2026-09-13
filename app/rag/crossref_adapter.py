@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from app.rag.legal_sections import FSS_ACT_SECTIONS, is_known_section_for_act
 
