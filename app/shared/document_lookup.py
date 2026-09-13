@@ -56,6 +56,7 @@ def visible_to_current_user(model: type, case_type: str, case) -> bool:
 
 def case_summary(case_type: str, case) -> dict:
     """Compact dict for case lists."""
+    archived = bool(getattr(case, "is_archived", False))
     if case_type == "case_file":
         return {
             "id": case.id,
@@ -63,6 +64,7 @@ def case_summary(case_type: str, case) -> dict:
             "product_name": case.product_name,
             "manufacturer_name": case.manufacturer_name,
             "created_at": case.created_at.isoformat() if case.created_at else None,
+            "is_archived": archived,
         }
     return {
         "id": case.id,
@@ -70,7 +72,19 @@ def case_summary(case_type: str, case) -> dict:
         "fbo_name": case.fbo_name,
         "food_safety_officer": case.food_safety_officer,
         "created_at": case.created_at.isoformat() if case.created_at else None,
+        "is_archived": archived,
     }
+
+
+def apply_archive_filter(query, model: type, include_archived: bool = False):
+    """Exclude archived rows unless *include_archived* is set.
+
+    Models predating the archive migration lack the column — fall back to
+    the unfiltered query in that case.
+    """
+    if include_archived or not hasattr(model, "is_archived"):
+        return query
+    return query.filter(model.is_archived.is_(False))
 
 
 def get_case_number(case) -> str:

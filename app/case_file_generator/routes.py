@@ -288,6 +288,9 @@ def case_file_to_dict(case_file):
         "directive_letter_date",
         "retailer_report_receive_date",
         "manufacturer_report_receive_date",
+        "archived_at",
+        "created_at",
+        "synced_at",
     ):
         val = result.get(date_field)
         result[date_field] = val.isoformat() if val else None
@@ -297,6 +300,69 @@ def case_file_to_dict(case_file):
     result["is_substandard"] = "substandard" if result.get("is_substandard") else ""
 
     return result
+
+
+def _form_date(value) -> str:
+    """Normalise a model date value to a ``YYYY-MM-DD`` form string."""
+    dt = parse_date(value) if not isinstance(value, datetime) else value
+    return dt.strftime("%Y-%m-%d") if dt else ""
+
+
+def case_file_form_dict(case_file) -> dict:
+    """Convert a CaseFile record to form-keyed values for the edit page."""
+    record = case_file_to_dict(case_file)
+    form = dict(record)
+    for field in _DATE_FIELDS:
+        form[field] = _form_date(record.get(field))
+    form["lab_registration_no"] = record.get("Lab_Registration_No") or ""
+    form["sample_id"] = record.get("sample_id") or ""
+    return form
+
+
+def apply_case_file_update(case_file, form_data: dict) -> None:
+    """Apply validated edit-form data onto an existing CaseFile (in place).
+
+    ``case_number`` is never touched (immutable identity, enforced by the
+    shared PUT route). All other entered fields are updatable.
+    """
+    case_file.food_safety_officer_name = form_data.get("food_safety_officer_name", "")
+    case_file.authorization_date = parse_date(form_data.get("authorization_date", ""))
+    case_file.inspection_date = parse_date(form_data.get("inspection_date", ""))
+    case_file.inspection_time = form_data.get("inspection_time", "")
+    sample_id_raw = (form_data.get("sample_id") or "").strip() if isinstance(form_data.get("sample_id"), str) else form_data.get("sample_id")
+    case_file.sample_id = _safe_int(sample_id_raw) if sample_id_raw not in (None, "") else None
+    case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
+    case_file.manufacturer_name = form_data.get("manufacturer_name", "")
+    case_file.manufacturer_fbo_name = form_data.get("manufacturer_fbo_name", "")
+    case_file.manufacturer_address = form_data.get("manufacturer_address", "")
+    case_file.retailer_fssai = form_data.get("retailer_fssai", "")
+    case_file.retailer_name = form_data.get("retailer_name", "")
+    case_file.retailer_fbo_name = form_data.get("retailer_fbo_name", "")
+    case_file.retailer_address = form_data.get("retailer_address", "")
+    case_file.product_name = form_data.get("product_name", "")
+    case_file.batch_no = form_data.get("batch_no", "")
+    case_file.sample_quantity = form_data.get("sample_quantity", "")
+    case_file.packet_count = _safe_int(form_data.get("packet_count"), case_file.packet_count)
+    case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
+    case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
+    case_file.other_food_articles = form_data.get("other_food_articles", "")
+    case_file.total_cost = form_data.get("total_cost", "")
+    case_file.cost_in_words = form_data.get("cost_in_words", "")
+    case_file.sample_code = form_data.get("sample_code", "")
+    case_file.Lab_Registration_No = _lookup_field(form_data, "lab_registration_no")
+    case_file.sample_submission_date = parse_date(form_data.get("do_receipt_date", ""))
+    case_file.do_receipt_date = parse_date(form_data.get("do_receipt_date", ""))
+    case_file.is_misbranded = form_data.get("is_misbranded") == "misbranded"
+    case_file.is_substandard = form_data.get("is_substandard") == "substandard"
+    case_file.analyst_report_no = form_data.get("analyst_report_no", "")
+    case_file.analyst_report_date = parse_date(form_data.get("analyst_report_date", ""))
+    case_file.directive_letter_no = form_data.get("directive_letter_no", "")
+    case_file.directive_letter_date = parse_date(form_data.get("directive_letter_date", ""))
+    case_file.retailer_report_receive_date = parse_date(form_data.get("retailer_report_receive_date", ""))
+    case_file.manufacturer_report_receive_date = parse_date(form_data.get("manufacturer_report_receive_date", ""))
+    case_file.applicable_regulation = form_data.get("applicable_regulation", "")
+    case_file.applicable_clause = form_data.get("applicable_clause", "")
+    case_file.applicable_sections = ", ".join(get_applicable_sections(form_data))
 
 
 def _process_case_file_form(form_data):
@@ -402,6 +468,9 @@ _manager = DocumentCaseManager(
     model_to_dict_fn=case_file_to_dict,
     process_form_fn=_process_case_file_form,
     validate_form_fn=validate_case_file_form,
+    apply_update_fn=apply_case_file_update,
+    form_dict_fn=case_file_form_dict,
+    sheets_module="sample",
     templates={
         "petition": "case_file_generator/petition.html",
         "permission": "case_file_generator/permission_letter.html",

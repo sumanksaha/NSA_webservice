@@ -102,6 +102,7 @@ def adjudication_to_dict(adj):
         "authorization_date",
         "created_at",
         "synced_at",
+        "archived_at",
     ):
         val = result.get(d)
         result[d] = val.isoformat() if val else None
@@ -286,6 +287,86 @@ def validate_adjudication_form(form_data: dict) -> dict[str, str]:
     return errors
 
 
+# Model column -> edit-form field name (form uses lower-case / followup alias).
+_ADJUDICATION_FORM_FIELDS: tuple[str, ...] = (
+    "non_license",
+    "pre_authorization",
+    "complaint_lodged",
+    "ce_license_no",
+    "ce_trade_name",
+    "ce_proprietor",
+    "ce_address",
+    "ce_status",
+    "fbo_owner",
+    "fbo_name",
+    "fbo_address",
+    "fssai_license",
+    "concerned_food",
+    "problem",
+    "clean_premise",
+    "refrigerator_clean",
+    "proper_attire",
+    "proper_covered_utensil",
+    "date_tag",
+    "veg_nonveg_separation",
+    "food_segregation",
+    "license_display",
+    "artificial_colour",
+    "Expired_item",
+    "Pest_report",
+    "Water_report",
+    "section_55",
+    "section_56",
+    "section_58",
+    "section_63",
+    "section_64",
+)
+
+# Form field -> model column for date fields with mismatched names.
+_ADJUDICATION_DATE_MAP: dict[str, str] = {
+    "first_inspection_date": "First_inspection_date",
+    "compliance_deadline": "compliance_deadline",
+    "complaint_date": "Complaint_date",
+    "followup_inspection_date": "inspection_date",
+    "authorization_date": "authorization_date",
+}
+
+
+def _form_date(value) -> str:
+    """Normalise a model date value to a ``YYYY-MM-DD`` form string."""
+    dt = parse_date(value)
+    return dt.strftime("%Y-%m-%d") if dt else ""
+
+
+def adjudication_form_dict(adj) -> dict:
+    """Convert an Adjudication record to form-keyed values for the edit page."""
+    record = adjudication_to_dict(adj)
+    form = {
+        "case_number": record.get("case_number") or "",
+        "food_safety_officer_name": record.get("food_safety_officer") or "",
+    }
+    for field in _ADJUDICATION_FORM_FIELDS:
+        form[field] = record.get(field) or ""
+    for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
+        form[form_field] = _form_date(record.get(model_col))
+    return form
+
+
+def apply_adjudication_update(adj, form_data: dict) -> None:
+    """Apply validated edit-form data onto an existing Adjudication (in place).
+
+    ``case_number`` is never touched (immutable identity, enforced by the
+    shared PUT route). All other entered fields are updatable.
+    """
+    adj.food_safety_officer = form_data.get("food_safety_officer_name", "")
+    for field in _ADJUDICATION_FORM_FIELDS:
+        if field in form_data:
+            setattr(adj, field, form_data.get(field) or "")
+    for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
+        raw = (form_data.get(form_field) or "").strip() if isinstance(form_data.get(form_field), str) else form_data.get(form_field)
+        setattr(adj, model_col, parse_date(raw) if raw else None)
+
+
 # --------------------------------------------------------------------------- #
 # DocumentCaseManager — common routes delegation
 # --------------------------------------------------------------------------- #
@@ -297,6 +378,10 @@ _manager = DocumentCaseManager(
     case_type="adjudication",
     model_to_dict_fn=adjudication_to_dict,
     process_form_fn=_process_adjudication_form,
+    validate_form_fn=validate_adjudication_form,
+    apply_update_fn=apply_adjudication_update,
+    form_dict_fn=adjudication_form_dict,
+    sheets_module="non_sample",
     prepare_context_fn=_prepare_adjudication_context,
     templates={
         "permission": "adjudication/Legal_NonsampleAdjudication_Template.html",

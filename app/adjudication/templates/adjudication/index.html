@@ -463,6 +463,15 @@ block extra_css %}
 <div class="card mt--lg">
     <div class="card-header">
         <h2><i class="fa-solid fa-timeline"></i> Case Timelines</h2>
+        {% if show_archived %}
+        <a href="{{ url_for('adjudication.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-eye-slash"></i> Hide archived
+        </a>
+        {% else %}
+        <a href="{{ url_for('adjudication.index', include_archived=1) }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-box-archive"></i> Show archived
+        </a>
+        {% endif %}
     </div>
     <div class="table-container">
         <table class="table">
@@ -478,7 +487,12 @@ block extra_css %}
                 {% for c in cases %}
                 <tr>
                     <td>{{ c.id }}</td>
-                    <td>{{ c.case_number }}</td>
+                    <td>
+                        {{ c.case_number }}
+                        {% if c.is_archived %}
+                        <span class="badge badge-secondary" title="Archived — hidden by default">archived</span>
+                        {% endif %}
+                    </td>
                     <td>{{ c.fbo_name or '—' }}</td>
                     <td>
                         <a
@@ -488,6 +502,32 @@ block extra_css %}
                         >
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
+                        <a
+                            href="{{ url_for('adjudication.edit_form', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Edit the data entered for this adjudication"
+                        >
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </a>
+                        {% if c.is_archived %}
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-unarchive-case"
+                            data-url="{{ url_for('adjudication.unarchive_case', case_id=c.id) }}"
+                            title="Restore this case to the case lists"
+                        >
+                            <i class="fa-solid fa-box-open"></i> Unarchive
+                        </button>
+                        {% else %}
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-archive-case"
+                            data-url="{{ url_for('adjudication.archive_case', case_id=c.id) }}"
+                            title="Archive: hide from case lists, keep all data"
+                        >
+                            <i class="fa-solid fa-box-archive"></i> Archive
+                        </button>
+                        {% endif %}
                         <button
                             type="button"
                             class="btn btn-secondary btn-sm js-validate-case"
@@ -907,6 +947,7 @@ block extra_css %}
         });
     }
 </script>
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
 <script>
     ValidationDrawer.initRowButtons({
         buttonsSelector: ".js-validate-case",
@@ -962,6 +1003,37 @@ block extra_css %}
                 var statusEl = document.getElementById("adjudication-val-status");
                 if (statusEl) statusEl.textContent = err.message;
                 reset('<i class="fa-solid fa-circle-exclamation"></i> Incomplete', "btn-danger");
+            }
+        });
+    });
+</script>
+
+<script>
+    // Archive / Unarchive — hides the case link from lists, keeps all data.
+    document.querySelectorAll(".js-archive-case, .js-unarchive-case").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+            var isArchive = this.classList.contains("js-archive-case");
+            if (
+                !confirm(
+                    isArchive
+                        ? "Archive this case? It will be hidden from case lists but its data is kept."
+                        : "Restore this case to the case lists?"
+                )
+            ) {
+                return;
+            }
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            var body = new FormData();
+            if (meta) body.append("csrf_token", meta.getAttribute("content"));
+            try {
+                var resp = await fetch(this.getAttribute("data-url"), { method: "POST", body: body });
+                var payload = await resp.json().catch(function () {
+                    return {};
+                });
+                if (!resp.ok) throw new Error(payload.error || "Action failed");
+                window.location.reload();
+            } catch (err) {
+                alert("Error: " + err.message);
             }
         });
     });

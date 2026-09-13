@@ -1,5 +1,4 @@
-{% extends "base.html" %} {% block title %}Sample -adjudication{% endblock %} {% block content %} {%
-set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with context %}
+{% extends "base.html" %} {% block title %}Sample -adjudication{% endblock %} {% block content %}
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-folder-open"></i> Sample -adjudication</h2>
@@ -506,11 +505,8 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
         </div>
 
         <div class="actions-centered">
-            <button type="button" id="previewBtn" class="btn btn-secondary btn-lg">
-                <i class="fa-solid fa-eye"></i> Preview Documents
-            </button>
             <button type="submit" id="caseSubmitBtn" class="btn btn-primary btn-lg">
-                <i class="fa-solid fa-file-zipper"></i> Generate Case Files
+                <i class="fa-solid fa-save"></i> Save
             </button>
         </div>
     </form>
@@ -520,6 +516,15 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
 <div class="card mt--lg">
     <div class="card-header">
         <h2><i class="fa-solid fa-timeline"></i> Case Timelines</h2>
+        {% if show_archived %}
+        <a href="{{ url_for('case_file_generator.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-eye-slash"></i> Hide archived
+        </a>
+        {% else %}
+        <a href="{{ url_for('case_file_generator.index', include_archived=1) }}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-box-archive"></i> Show archived
+        </a>
+        {% endif %}
     </div>
     <div class="table-container">
         <table class="table">
@@ -535,7 +540,12 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
                 {% for c in cases %}
                 <tr>
                     <td>{{ c.id }}</td>
-                    <td>{{ c.case_number }}</td>
+                    <td>
+                        {{ c.case_number }}
+                        {% if c.is_archived %}
+                        <span class="badge badge-secondary" title="Archived — hidden by default">archived</span>
+                        {% endif %}
+                    </td>
                     <td>{{ c.manufacturer_name or c.product_name or '—' }}</td>
                     <td>
                         <a
@@ -545,6 +555,32 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
                         >
                             <i class="fa-solid fa-timeline"></i> Timeline
                         </a>
+                        <a
+                            href="{{ url_for('case_file_generator.edit_form', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Edit the data entered for this case file"
+                        >
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </a>
+                        {% if c.is_archived %}
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-unarchive-case"
+                            data-url="{{ url_for('case_file_generator.unarchive_case', case_id=c.id) }}"
+                            title="Restore this case to the case lists"
+                        >
+                            <i class="fa-solid fa-box-open"></i> Unarchive
+                        </button>
+                        {% else %}
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm js-archive-case"
+                            data-url="{{ url_for('case_file_generator.archive_case', case_id=c.id) }}"
+                            title="Archive: hide from case lists, keep all data"
+                        >
+                            <i class="fa-solid fa-box-archive"></i> Archive
+                        </button>
+                        {% endif %}
                         <button
                             type="button"
                             class="btn btn-secondary btn-sm js-validate-case"
@@ -598,72 +634,6 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
 {% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='js/task_status.js') }}"></script>
 <script>
-    // --- Preview via shared PreviewModal ---
-    // Wire generate button to trigger form submission
-    PreviewModal.onGenerate = function () {
-        document.getElementById("caseFileForm").dispatchEvent(new Event("submit"));
-    };
-
-    async function showPreview() {
-        var previewBtn = document.getElementById("previewBtn");
-        var statusBox = document.getElementById("case-task-status");
-        previewBtn.disabled = true;
-        previewBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering…';
-        statusBox.style.display = "block";
-        statusBox.className = "info-box";
-        statusBox.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin"></i> Rendering document preview…';
-
-        try {
-            var formData = new FormData(document.getElementById("caseFileForm"));
-            var response = await fetch(
-                '{{ url_for("case_file_generator.preview_case_file_route") }}',
-                {
-                    method: "POST",
-                    body: formData,
-                }
-            );
-
-            if (response.redirected) {
-                statusBox.innerHTML =
-                    '<i class="fa-solid fa-circle-exclamation"></i> Your session may have expired. Please log in again.';
-                statusBox.className = "info-box info-box--error";
-                previewBtn.disabled = false;
-                previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
-                return;
-            }
-
-            var data = await response.json();
-            if (!response.ok) {
-                statusBox.innerHTML =
-                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
-                    (data.error || "Preview failed.");
-                statusBox.className = "info-box info-box--error";
-                if (data.errors) renderFieldErrors(data.errors);
-                previewBtn.disabled = false;
-                previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
-                return;
-            }
-
-            statusBox.style.display = "none";
-            PreviewModal.open(data.petition_html, data.permission_html);
-        } catch (error) {
-            statusBox.innerHTML =
-                '<i class="fa-solid fa-circle-exclamation"></i> Preview error: ' + error.message;
-            statusBox.className = "info-box info-box--error";
-        } finally {
-            previewBtn.disabled = false;
-            previewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Preview Documents';
-        }
-    }
-
-    // Wire up the Preview button
-    document.getElementById("previewBtn").addEventListener("click", function (e) {
-        e.preventDefault();
-        clearFieldErrors();
-        showPreview();
-    });
-
     // Load sample codes on page load
     async function loadSampleCodes() {
         try {
@@ -869,8 +839,8 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
         if (firstField) firstField.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
-    // Asynchronous case file generation: submit via fetch(), poll the QStash
-    // task, then show a download link for the generated ZIP.
+    // Save the case file: submit via fetch(), poll the task, then show
+    // a download link for the generated ZIP.
     document.getElementById("caseFileForm").addEventListener("submit", function (e) {
         e.preventDefault();
         clearFieldErrors();
@@ -879,15 +849,15 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
         var submitBtn = document.getElementById("caseSubmitBtn");
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating…';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
         statusBox.style.display = "block";
         statusBox.className = "info-box";
         statusBox.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin"></i> Creating case file and generating PDFs…';
+            '<i class="fa-solid fa-spinner fa-spin"></i> Saving case file and generating documents…';
 
         TaskPoll.submitAndPoll(form, function (outcome) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-file-zipper"></i> Generate Case Files';
+            submitBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
 
             if (outcome.status === "error") {
                 statusBox.className = "info-box info-box--error";
@@ -977,6 +947,37 @@ set modal_accent = 'var(--color-info)' %} {% include '_preview_modal.html' with 
                 var statusEl = document.getElementById("case-file-val-status");
                 if (statusEl) statusEl.textContent = err.message;
                 reset('<i class="fa-solid fa-circle-exclamation"></i> Incomplete', "btn-danger");
+            }
+        });
+    });
+</script>
+
+<script>
+    // Archive / Unarchive — hides the case link from lists, keeps all data.
+    document.querySelectorAll(".js-archive-case, .js-unarchive-case").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+            var isArchive = this.classList.contains("js-archive-case");
+            if (
+                !confirm(
+                    isArchive
+                        ? "Archive this case? It will be hidden from case lists but its data is kept."
+                        : "Restore this case to the case lists?"
+                )
+            ) {
+                return;
+            }
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            var body = new FormData();
+            if (meta) body.append("csrf_token", meta.getAttribute("content"));
+            try {
+                var resp = await fetch(this.getAttribute("data-url"), { method: "POST", body: body });
+                var payload = await resp.json().catch(function () {
+                    return {};
+                });
+                if (!resp.ok) throw new Error(payload.error || "Action failed");
+                window.location.reload();
+            } catch (err) {
+                alert("Error: " + err.message);
             }
         });
     });

@@ -76,6 +76,12 @@ class CaseFile(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
 
+    # Archive (soft-delete): archived rows are hidden from case lists but
+    # retained in the DB and synced to Supabase (is_archived flag included
+    # in the upsert payload automatically).
+    is_archived = db.Column(db.Boolean, nullable=False, default=False)
+    archived_at = db.Column(db.DateTime, nullable=True)
+
     # PDF generation tracking (populated by Celery task)
     pdf_task_id = db.Column(db.String(100), nullable=True)
     pdf_generated_at = db.Column(db.DateTime, nullable=True)
@@ -154,6 +160,12 @@ class Adjudication(db.Model):
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
+
+    # Archive (soft-delete): archived rows are hidden from case lists but
+    # retained in the DB and synced to Supabase (is_archived flag included
+    # in the upsert payload automatically).
+    is_archived = db.Column(db.Boolean, nullable=False, default=False)
+    archived_at = db.Column(db.DateTime, nullable=True)
 
     # Photo evidence — unified Evidence model (Phase 5); photos are
     # queried via ``Evidence.query.filter_by(adjudication_id=...,

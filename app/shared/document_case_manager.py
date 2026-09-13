@@ -47,6 +47,8 @@ ModelToDictFn = Callable[[Any], dict]
 ProcessFormFn = Callable[[dict], Any]  # model instance
 PrepareContextFn = Callable[[dict], dict]
 ValidateFormFn = Callable[[dict], dict[str, str]]
+ApplyUpdateFn = Callable[[Any, dict], None]  # (instance, form_data) -> None
+FormDictFn = Callable[[Any], dict]  # instance -> form-keyed dict for edit pages
 
 
 class PDFResult:
@@ -91,6 +93,9 @@ class DocumentCaseManager:
         validate_form_fn: ValidateFormFn | None = None,
         prepare_context_fn: PrepareContextFn | None = None,
         templates: dict[str, str] | None = None,
+        apply_update_fn: ApplyUpdateFn | None = None,
+        form_dict_fn: FormDictFn | None = None,
+        sheets_module: str | None = None,
     ) -> None:
         self.model = model
         self.template_dir = template_dir
@@ -101,6 +106,9 @@ class DocumentCaseManager:
         self.validate_form_fn = validate_form_fn
         self.prepare_context_fn = prepare_context_fn or (lambda ctx: ctx)
         self.templates = templates or {}
+        self.apply_update_fn = apply_update_fn
+        self.form_dict_fn = form_dict_fn
+        self.sheets_module = sheets_module
 
     # ------------------------------------------------------------------ #
     # Route registration
@@ -115,6 +123,10 @@ class DocumentCaseManager:
             self.bp_name,
             self.template_dir,
             self.model_to_dict_fn,
+            validate_form_fn=self.validate_form_fn,
+            apply_update_fn=self.apply_update_fn,
+            form_dict_fn=self.form_dict_fn,
+            sheets_module=self.sheets_module,
         )
 
     # ------------------------------------------------------------------ #
