@@ -242,8 +242,9 @@ def _result_to_dict(result: Any) -> dict[str, Any]:
 async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONResponse:
     """Full RAG pipeline as a LangGraph agent (M3, M5).
 
-    Delegates to ``app.rag.agent.graph.run_agent`` when ``RAG_USE_AGENT_PIPELINE``
-    is true; otherwise mirrors the legacy ``GET /api/rag/query`` behaviour.
+    Transport layer only: legacy fallback runs here, the agent contract
+    (validation, error mapping, 202 shape) lives in
+    ``app.rag.agent.service`` — the same core the Flask route uses.
     """
     use_agent = get_flag("RAG_USE_AGENT_PIPELINE")
     use_hitl = get_flag("RAG_AGENT_HITL")
@@ -259,75 +260,35 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONRes
         )
         return result
 
-    # Agent path — LangGraph import is lazy (app boots without langgraph).
-    try:
-        from app.rag.agent.graph import run_agent
-        from app.rag.agent.state import initial_state
+    from app.rag.agent.service import run_agent_query
 
-        state = initial_state(
-            req.query,
-            top_k=req.top_k,
-            collection_name=req.collection_name,
-            filters=req.filters or {},
-        )
-        result = run_agent(state, thread_id=req.thread_id, hitl=use_hitl)
-    except ImportError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=503)
-    except Exception as exc:
-        return JSONResponse({"error": f"RAG agent query failed: {exc}"}, status_code=500)
-
-    if use_hitl and "__interrupt__" in result:
-        interrupts = result["__interrupt__"]
-        review = interrupts[0].value if interrupts else {}
-        return JSONResponse(
-            {
-                "status": "awaiting_review",
-                "thread_id": req.thread_id,
-                "review": review,
-                "hint": "POST /api/v2/rag/query/agent/resume with {thread_id, approved}.",
-            },
-            status_code=202,
-        )
-
-    return result.get("response") or {}
+    status, body = run_agent_query(
+        query=req.query,
+        top_k=req.top_k,
+        collection_name=req.collection_name,
+        filters=req.filters or {},
+        thread_id=req.thread_id if use_hitl else None,
+        hitl=use_hitl,
+        resume_hint="POST /api/v2/rag/query/agent/resume with {thread_id, approved}.",
+    )
+    if status == 200:
+        return body
+    return JSONResponse(body, status_code=status)
 
 
 @app.post("/api/v2/rag/query/agent/resume", response_model=None)
 async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any] | JSONResponse:
-    """Resume a paused M5 human-in-the-loop run (mirrors the Flask route)."""
-    use_hitl = get_flag("RAG_AGENT_HITL")
-    if not use_hitl:
-        return JSONResponse(
-            {"error": "RAG_AGENT_HITL is false — no review flow to resume."},
-            status_code=400,
-        )
-    if not req.thread_id or not req.thread_id.strip():
-        return JSONResponse({"error": "thread_id must be a non-empty string."}, status_code=400)
+    """Resume a paused M5 human-in-the-loop run (same core as the Flask route)."""
+    from app.rag.agent.service import resume_agent_query
 
-    try:
-        from app.rag.agent.graph import resume_agent
-
-        result = resume_agent(req.thread_id, approved=req.approved)
-    except ValueError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
-    except Exception as exc:
-        return JSONResponse({"error": f"RAG agent resume failed: {exc}"}, status_code=500)
-
-    if "__interrupt__" in result:
-        interrupts = result["__interrupt__"]
-        review = interrupts[0].value if interrupts else {}
-        # The graph paused again (e.g. after a rejection-triggered retry that
-        # still isn't grounded) — 202, matching the Flask route's contract.
-        return JSONResponse(
-            {
-                "status": "awaiting_review",
-                "thread_id": req.thread_id,
-                "review": review,
-            },
-            status_code=202,
-        )
-
-    return result.get("response") or {}
+    status, body = resume_agent_query(
+        thread_id=req.thread_id,
+        approved=req.approved,
+        hitl=get_flag("RAG_AGENT_HITL"),
+    )
+    if status == 200:
+        return body
+    return JSONResponse(body, status_code=status)
 
 
 # --------------------------------------------------------------------------- #

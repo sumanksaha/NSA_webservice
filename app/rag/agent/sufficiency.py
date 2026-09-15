@@ -20,19 +20,18 @@ from typing import Any
 from app.rag.evidence_task import AnswerContract, EvidenceTask
 
 # --------------------------------------------------------------------------- #
-# Thresholds (single tuning point for the rubric)
+# Thresholds — canonical values live in app.rag.agent.thresholds (single
+# tuning point for every routing/gating constant).  The names below are
+# kept as aliases so existing imports keep working.
 # --------------------------------------------------------------------------- #
+from app.rag.agent.thresholds import (
+    CLAIM_GROUNDEDNESS_RETRY_BELOW,
+    SUFFICIENCY_SIGNAL_THRESHOLDS,
+    SUFFICIENT_TASK_RATIO,
+)
 
 #: Signal thresholds — a signal passes at >= its threshold.
-THRESHOLDS: dict[str, float] = {
-    "coverage": 0.2,  # >= 1 solid chunk (narrow subquestions need one good provision)
-    "relevance": 0.35,  # median retrieval score (reranker-normalized floor)
-    "authority": 0.5,  # any statute + no low-authority-only evidence
-    "specificity": 0.6,  # section-stamped or numeric evidence share
-    "completeness": 1.0,  # all contract required fields retrievable
-    "contradiction": 0.0,  # conflict ratio must stay below this
-    "temporal": 0.0,  # temporal-restriction conflict ratio below this
-}
+THRESHOLDS: dict[str, float] = SUFFICIENCY_SIGNAL_THRESHOLDS
 
 #: Minimum share of chunks that must be section-stamped (or carry numeric
 #: provisions) for the specificity signal to pass.
@@ -40,7 +39,7 @@ _SPECIFICITY_SHARE = 0.3
 
 #: Minimum claim-groundedness (share of answer claims entailed by evidence,
 #: item 15) for the generated answer to finalize without a targeted retry.
-CLAIM_GROUNDEDNESS_THRESHOLD = 0.5
+CLAIM_GROUNDEDNESS_THRESHOLD = CLAIM_GROUNDEDNESS_RETRY_BELOW
 
 #: Chunk count treated as "full coverage" when normalizing (matches top_k=10).
 _COVERAGE_NORM = 4
@@ -235,9 +234,7 @@ _FIELD_HINTS: dict[str, list[str]] = {
 }
 
 
-def _contract_retrievable(
-    contract: AnswerContract | None, chunks: list[dict[str, Any]]
-) -> tuple[bool, list[str]]:
+def _contract_retrievable(contract: AnswerContract | None, chunks: list[dict[str, Any]]) -> tuple[bool, list[str]]:
     """(all_required_fields_hinted, missing_fields) for one task's contract.
 
     A field is "retrievable" when at least one chunk's text carries one of
@@ -322,14 +319,15 @@ class SufficiencyAssessor:
         }
 
         # 2. Relevance — median retrieval score (reranker output).
-        scores = sorted(
-            float(c.get("score") or 0.0) for c in chunks if isinstance(c, dict)
-        )
+        scores = sorted(float(c.get("score") or 0.0) for c in chunks if isinstance(c, dict))
         median_score = scores[len(scores) // 2] if scores else 0.0
         signals["relevance"] = {
             "value": round(median_score, 3),
             "passed": n > 0 and median_score >= self.thresholds["relevance"],
-            "detail": {"min": round(min(scores), 3) if scores else 0.0, "max": round(max(scores), 3) if scores else 0.0},
+            "detail": {
+                "min": round(min(scores), 3) if scores else 0.0,
+                "max": round(max(scores), 3) if scores else 0.0,
+            },
         }
 
         # 3. Authority — max authority weight in the evidence (item 17).
@@ -346,8 +344,10 @@ class SufficiencyAssessor:
         for c in chunks:
             if not isinstance(c, dict):
                 continue
-            if c.get("section_number") or _EFFECTIVE_RE.search(str(c.get("text") or "")) or re.search(
-                r"\b(₹|rs\.?)\s*[\d,]+", str(c.get("text") or ""), re.IGNORECASE
+            if (
+                c.get("section_number")
+                or _EFFECTIVE_RE.search(str(c.get("text") or ""))
+                or re.search(r"\b(₹|rs\.?)\s*[\d,]+", str(c.get("text") or ""), re.IGNORECASE)
             ):
                 specific += 1
         specificity_share = specific / n if n else 0.0
@@ -358,9 +358,7 @@ class SufficiencyAssessor:
         }
 
         # 5. Completeness — contract required fields retrievable.
-        retrievable, missing_fields = _contract_retrievable(
-            getattr(task, "answer_contract", None), chunks
-        )
+        retrievable, missing_fields = _contract_retrievable(getattr(task, "answer_contract", None), chunks)
         signals["completeness"] = {
             "value": 1.0 if retrievable else 0.0,
             "passed": retrievable,
@@ -452,7 +450,7 @@ def task_requirement_id(task: Any) -> str | None:
 def aggregate_verdicts(
     verdicts: list[TaskSufficiency],
     *,
-    min_sufficient_ratio: float = 0.5,
+    min_sufficient_ratio: float = SUFFICIENT_TASK_RATIO,
 ) -> dict[str, Any]:
     """Fold per-task verdicts into the gate's routing signals.
 
@@ -472,9 +470,7 @@ def aggregate_verdicts(
             "failure_codes": [],
             "verdicts": [],
         }
-    sufficient_count = sum(
-        1 for v in verdicts if not (set(v.failures) & GATING_SIGNALS)
-    )
+    sufficient_count = sum(1 for v in verdicts if not (set(v.failures) & GATING_SIGNALS))
     failed_tasks = [v.task_id for v in verdicts if v.failures]
     failure_codes: list[str] = []
     for v in verdicts:

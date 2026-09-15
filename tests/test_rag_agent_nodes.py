@@ -499,6 +499,51 @@ def test_execute_task_node_runs_waves_in_dependency_order(monkeypatch):
     assert out["task_results"]["T2"]["cross_references"]
 
 
+def test_execute_task_node_propagates_app_context_to_workers(monkeypatch):
+    """Parallel DAG workers run inside a Flask app context (not context-free).
+
+    Regression: ``ThreadPoolExecutor`` threads start with no app context, so
+    any ``current_app``/``db`` access inside ``run_retrieval_pipeline`` raised
+    "Working outside of application context" on the parallel path only —
+    invisible to tests that never push a context.
+    """
+    import threading
+
+    import flask
+
+    import app.rag.tasks as tasks
+    from tests.test_rag_routes import _setup_test_env
+
+    app, _client, ctx = _setup_test_env()
+    try:
+        app.config["AGENT_CTX_PROBE"] = "propagated"
+        seen: dict[str, tuple[bool, str | None, str]] = {}
+        lock = threading.Lock()
+
+        def fake_run(query, **kw):
+            # Raises RuntimeError without a pushed context; also proves the
+            # worker sees the caller's config (Pattern A in-context reads).
+            in_ctx = flask.has_app_context()
+            val = flask.current_app.config.get("AGENT_CTX_PROBE") if in_ctx else None
+            with lock:
+                seen[query] = (in_ctx, val, threading.current_thread().name)
+            return {"chunks": [{"chunk_id": f"c-{query}"}], "query_type": "offence"}
+
+        monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+        state = _make_state(
+            tasks={"T1": _task_dict("T1"), "T2": _task_dict("T2")},
+            task_order=["T1", "T2"],
+        )
+        out = execute_task_node(state)
+        assert out["tasks_completed"] == 2
+        assert len(seen) == 2
+        assert all(in_ctx and val == "propagated" for in_ctx, val, _ in seen.values())
+        # At least one retrieval ran off the calling thread (parallel path).
+        assert any(name != threading.current_thread().name for _, _, name in seen.values())
+    finally:
+        ctx.pop()
+
+
 def test_execute_task_node_respects_parallelism_flag(monkeypatch):
     """``cfg.task_parallelism`` disabled → sequential fallback, same results."""
     import app.rag.tasks as tasks

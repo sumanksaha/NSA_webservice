@@ -37,11 +37,11 @@ def app_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def _fresh_durability_warning():
     """Reset the once-per-process HITL warning flag around every test."""
-    import app.rag.agent.routes as agent_routes
+    import app.rag.agent.service as agent_service
 
-    agent_routes._hitl_durability_warned = False
+    agent_service._hitl_durability_warned = False
     yield
-    agent_routes._hitl_durability_warned = False
+    agent_service._hitl_durability_warned = False
 
 
 # ---------------------------------------------------------------------- #
@@ -165,20 +165,20 @@ def test_durability_warning_logged_once_per_process(app_env, monkeypatch):
     app.config["RAG_USE_AGENT_PIPELINE"] = True
     app.config["RAG_AGENT_HITL"] = True
     import app.rag.agent.graph as graph_mod
-    import app.rag.agent.routes as agent_routes
+    import app.rag.agent.service as agent_service
 
     monkeypatch.setattr(graph_mod, "run_agent", lambda state, **kw: _interrupt_result())
 
-    # Spy on the route module's logger (caplog is unreliable here: the app's
+    # Spy on the service core's logger (caplog is unreliable here: the app's
     # logging config can suppress propagation for this logger).
     warnings_seen: list[str] = []
-    original_warning = agent_routes.logger.warning
+    original_warning = agent_service.logger.warning
 
     def _spy(msg, *args, **kwargs):
         warnings_seen.append(str(msg))
         return original_warning(msg, *args, **kwargs)
 
-    monkeypatch.setattr(agent_routes.logger, "warning", _spy)
+    monkeypatch.setattr(agent_service.logger, "warning", _spy)
 
     client.post("/api/rag/query/agent", json={"query": "q1"})
     client.post("/api/rag/query/agent", json={"query": "q2"})
@@ -187,7 +187,7 @@ def test_durability_warning_logged_once_per_process(app_env, monkeypatch):
     assert len(durability_warnings) == 1  # warned once despite two paused runs
 
     # A fresh process (flag reset) warns again.
-    agent_routes._hitl_durability_warned = False
+    agent_service._hitl_durability_warned = False
     client.post("/api/rag/query/agent", json={"query": "q3"})
     durability_warnings = [w for w in warnings_seen if "paused threads are LOST on process restart" in w]
     assert len(durability_warnings) == 2
