@@ -48,9 +48,9 @@ WEBHOOK_PATH = "/tasks/run"
 # status stuck at "pending" forever with no signal to operators.)
 FAILURE_CALLBACK_PATH = "/tasks/failed"
 
-# QStash schedule endpoint for recurring tasks.
-# Docs: https://upstash.com/docs/qstash/features/schedules
-_SCHEDULE_ENDPOINT = "https://qstash.upstash.io/v2/schedules"
+# QStash schedule registration goes through the official SDK
+# (``client.schedule.create``) — see :func:`publish_recurring` for why the
+# previous hand-rolled HTTP call had to go.
 
 # Redis keys + TTL for the task-status store (frontend polling).
 TASK_STATUS_KEY = "qstash:task:{message_id}"
@@ -237,11 +237,22 @@ def publish_recurring(
     QStash plan.  If QStash is not configured, a warning is logged and the
     function returns ``{"mode": "disabled"}``.
 
+    Uses the official ``qstash`` SDK's ``schedule.create``: the previous
+    hand-rolled ``httpx.post`` against ``/v2/schedules`` was rejected by the
+    live API with a misleading 400 ("invalid destination url: endpoint has
+    invalid scheme") even for well-formed ``https://`` destinations, so
+    startup schedule registration silently never happened in production.
+
+    Registration is idempotent: a deterministic schedule id is derived from
+    the task name (or ``dedup_key``), so re-running at every app boot
+    (deploy/restart) re-asserts the same schedule instead of stacking
+    duplicates.
+
     Args:
         task_name: Key in ``TASK_REGISTRY``.
         schedule: Cron-like expression (e.g. ``"0 2 * * *"`` for daily 02:00 UTC).
         payload: Optional payload to send to the webhook on each run.
-        dedup_key: Optional deduplication key.
+        dedup_key: Optional override for the deterministic schedule id.
 
     Returns:
         ``{"mode": "scheduled", "schedule_id": str}`` on success,
@@ -260,7 +271,7 @@ def publish_recurring(
         return {"mode": "disabled"}
 
     try:
-        import httpx
+        from qstash import QStash
 
         base = os.environ["PUBLIC_BASE_URL"].strip().rstrip("/")
         if not base.startswith(("http://", "https://")):
@@ -268,35 +279,21 @@ def publish_recurring(
         webhook_url = f"{base}{WEBHOOK_PATH}/{task_name}"
         failure_url = f"{base}{FAILURE_CALLBACK_PATH}/{task_name}"
 
-        headers = {
-            "Authorization": f"Bearer {os.environ['QSTASH_TOKEN']}",
-            "Content-Type": "application/json",
-        }
-        body = {
-            "destination": webhook_url,
-            "cron": schedule,
-            "body": json.dumps(payload or {}),
-            "method": "POST",
-            "failureCallback": failure_url,
-        }
-        resp = httpx.post(
-            _SCHEDULE_ENDPOINT,
-            headers=headers,
-            json=body,
-            timeout=30,
+        # Deterministic id so repeated boots re-assert rather than duplicate.
+        schedule_id = "scd-" + hashlib.sha256((dedup_key or f"recurring:{task_name}").encode()).hexdigest()[:32]
+
+        client = QStash(token=os.environ["QSTASH_TOKEN"])
+        created_id = client.schedule.create(
+            destination=webhook_url,
+            cron=schedule,
+            body=json.dumps(payload or {}),
+            content_type="application/json",
+            method="POST",
+            failure_callback=failure_url,
+            schedule_id=schedule_id,
         )
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            return {
-                "mode": "scheduled",
-                "schedule_id": data.get("scheduleId"),
-            }
-        logger.warning(
-            "QStash schedule creation failed (status %d): %s",
-            resp.status_code,
-            resp.text[:200],
-        )
-        return {"mode": "disabled"}
+        logger.info("Registered recurring task %s on QStash (schedule_id=%s)", task_name, created_id)
+        return {"mode": "scheduled", "schedule_id": created_id}
     except Exception as exc:
         logger.warning("QStash recurring schedule failed for %s (%s)", task_name, exc)
         return {"mode": "disabled"}

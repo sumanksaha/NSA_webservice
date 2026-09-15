@@ -57,24 +57,27 @@ Biggest cuts: delete `feedback_dashboard` (dead blueprint), `case_intelligence` 
 
 ---
 
-## Status (2026-09-13) — verified item by item against the code
+## Status (2026-09-13, re-verified 2026-09-15) — item by item against the code
 
 Most `delete` premises are stale (modules evolved since the audit).
 `DocumentCaseManager` split done as facade + 4 helper modules (stable API).
-Celery removed (QStash-only); `email_sender` NOT deleted (live route).
+Celery removed (QStash-only); `email_sender` + `ai_assistant/tasks.py`
+since deleted (2026-09-15 re-verification).
 
 ### `delete`
 - `case_intelligence`, `feedback_dashboard`, `food_cell/services.py`,
   `backup_coordinator`, `version_control`, `document_loader`,
   `document_cleaner` — ✅ Live (blueprints registered / imported by
   annexure, notepad, RAG ingestion + tests). Audit claims stale.
-- `food_cell/email_sender.py` — ⚠️ KEPT deliberately: serves
-  `POST /improvement-notice/inspection/<id>/email` + 310 lines of tests.
-  Audit's "zero callers" is factually wrong.
-- `scripts/cleanup_rag_logs.py` — ⚠️ Open: exists, docs-only references,
-  not wired to any scheduler.
-- `ai_assistant/tasks.py` — ✅ No `ai_task` exists; current
-  `run_ai_action` unwrapped to a plain function (zero callers, kept).
+- `food_cell/email_sender.py` — ✅ Deleted since the 2026-09-13 status:
+  file removed; the improvement-notice email route is gone (html/pdf/docx/
+  save routes remain in `food_cell/routes.py`).
+- `scripts/cleanup_rag_logs.py` — ✅ Closed (2026-09-15): registered in the
+  QStash `TASK_REGISTRY` and `scheduled_jobs.JOBS` (weekly Sun 04:00 UTC),
+  and now **default-on** — opt out with `RAG_ENABLE_LOG_CLEANUP_SCHEDULE=false`
+  (documented in `.env.example`).
+- `ai_assistant/tasks.py` — ✅ Deleted since the 2026-09-13 status: module
+  removed entirely; `run_ai_action` no longer exists.
 
 ### `yagni`
 - `lookup.py`, `pdf_utils`, `PluginRegistry`, `sync_orchestrator`,
@@ -98,7 +101,7 @@ Celery removed (QStash-only); `email_sender` NOT deleted (live route).
   to `scheduled_jobs`, default-on = old beat parity);
   `.delay()` sites rewired to `publish_task`; worker + flower services
   dropped from docker-compose/render.yaml; `celery` removed from
-  pyproject (uv.lock not regenerated — no `uv` binary in env).
+  pyproject (uv.lock since regenerated — zero celery/flower entries).
 
 ### `shrink` — see `shrink-implementation.md` status table (2026-09-13).
 

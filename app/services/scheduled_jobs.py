@@ -67,6 +67,7 @@ JOBS: tuple[ScheduledJob, ...] = (
         flag_key="RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
         cron_key=None,
         default_cron="0 4 * * 0",  # weekly Sunday 04:00 UTC
+        enabled_by_default=True,  # opt-out via RAG_ENABLE_LOG_CLEANUP_SCHEDULE=false
         description="Weekly RAG query-log retention cleanup (90-day default).",
     ),
 )
