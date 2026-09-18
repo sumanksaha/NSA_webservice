@@ -8,6 +8,7 @@ Adds versioning columns to LegalDocument for corpus rollback capability.
 - version_id: integer, default 1, bumped on every re-ingest
 - is_latest: boolean, marks the active version of a document
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -22,7 +23,9 @@ depends_on = None
 def upgrade() -> None:
     """Add version_id and is_latest columns to legal_document table."""
     op.add_column("legal_document", sa.Column("version_id", sa.Integer(), nullable=False, server_default="1"))
-    op.add_column("legal_document", sa.Column("is_latest", sa.Boolean(), nullable=False, server_default=sa.text("true")))
+    op.add_column(
+        "legal_document", sa.Column("is_latest", sa.Boolean(), nullable=False, server_default=sa.text("true"))
+    )
     # Add index for efficient version lookups
     op.create_index("idx_legal_document_version", "legal_document", ["document_id", "version_id"])
     op.create_index("idx_legal_document_is_latest", "legal_document", ["is_latest"])

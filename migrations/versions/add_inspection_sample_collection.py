@@ -29,9 +29,7 @@ def upgrade() -> None:
     with op.batch_alter_table("inspection", schema=None) as batch_op:
         batch_op.add_column(sa.Column("sample_collected", sa.Boolean(), nullable=True))
         batch_op.add_column(sa.Column("sample_code", sa.String(length=100), nullable=True))
-        batch_op.create_index(
-            "idx_inspection_sample_code", ["sample_code"], unique=False
-        )
+        batch_op.create_index("idx_inspection_sample_code", ["sample_code"], unique=False)
 
 
 def downgrade() -> None:
