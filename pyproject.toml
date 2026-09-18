@@ -7,7 +7,7 @@ name = "nsa-webservice"
 version = "0.8.0"
 description = "Government-grade Legal Intelligence Platform for Food Safety Officer adjudication, inspection tracking, sample management, and legal document generation."
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 license = { file = "LICENSE" }
 authors = [{ name = "Suman Saha", email = "github@sumansaha.com" }]
 keywords = [
@@ -26,6 +26,8 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Office/Business :: Workflow",
   "Topic :: Security",

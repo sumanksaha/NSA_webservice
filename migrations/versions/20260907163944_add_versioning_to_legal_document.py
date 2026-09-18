@@ -7,6 +7,10 @@ Create Date: 2026-09-07
 Adds versioning columns to LegalDocument for corpus rollback capability.
 - version_id: integer, default 1, bumped on every re-ingest
 - is_latest: boolean, marks the active version of a document
+
+Matches the LegalDocument model (app/models/rag.py): no document_id column
+exists on legal_document (that lives on legal_chunk), so no version index
+is created here.
 """
 
 from alembic import op
@@ -26,14 +30,9 @@ def upgrade() -> None:
     op.add_column(
         "legal_document", sa.Column("is_latest", sa.Boolean(), nullable=False, server_default=sa.text("true"))
     )
-    # Add index for efficient version lookups
-    op.create_index("idx_legal_document_version", "legal_document", ["document_id", "version_id"])
-    op.create_index("idx_legal_document_is_latest", "legal_document", ["is_latest"])
 
 
 def downgrade() -> None:
     """Remove versioning columns from legal_document table."""
-    op.drop_index("idx_legal_document_is_latest", table_name="legal_document")
-    op.drop_index("idx_legal_document_version", table_name="legal_document")
     op.drop_column("legal_document", "is_latest")
     op.drop_column("legal_document", "version_id")
