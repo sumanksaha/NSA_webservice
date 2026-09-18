@@ -13,9 +13,6 @@ from __future__ import annotations
 import io
 import zipfile
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -254,7 +251,7 @@ class TestWordRoute:
         _teardown_test_env(ctx)
 
     def test_docx_returns_valid_docx(self):
-        app, client, ctx = self._setup()
+        _app, client, ctx = self._setup()
         try:
             form = {
                 "food_safety_officer_name": "Test Officer",
@@ -278,7 +275,7 @@ class TestWordRoute:
             self._teardown(ctx)
 
     def test_docx_correct_filename(self):
-        app, client, ctx = self._setup()
+        _app, client, ctx = self._setup()
         try:
             form = {
                 "food_safety_officer_name": "Test Officer",
@@ -299,7 +296,7 @@ class TestWordRoute:
             self._teardown(ctx)
 
     def test_docx_404_for_missing_inspection(self):
-        app, client, ctx = self._setup()
+        _app, client, ctx = self._setup()
         try:
             resp = client.get(
                 "/food-cell/improvement-notice/inspection/99999/docx"
@@ -313,7 +310,7 @@ class TestWordRoute:
         mode). Note: the /docx route currently freezes the record
         unconditionally, unlike /html and /pdf — see the freeze-semantics
         follow-up."""
-        app, client, ctx = self._setup()
+        _app, client, ctx = self._setup()
         try:
             insp_id = _make_inspection(client)
             resp = client.get(

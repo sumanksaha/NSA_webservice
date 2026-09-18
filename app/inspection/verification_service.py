@@ -1,8 +1,29 @@
+"""Verification service using adapters for external services."""
+
 from typing import Any
 
-from .distance_verification import get_or_geocode_fbo_location, haversine_distance
-from .geo_verification import reverse_geocode
-from .ip_verification import ip_geolocate, region_match
+from .verification.geocoding_adapter import NominatimGeocoder
+from .verification.ip_adapter import IpGeolocationAdapter, region_match
+from .verification.lookup_adapter import LicenseLookupAdapter
+
+_geocoder = NominatimGeocoder()
+_ip_adapter = IpGeolocationAdapter()
+_license_adapter = LicenseLookupAdapter()
+
+
+def _guarded(label: str, call, fallback: dict[str, Any]) -> dict[str, Any]:
+    """Run an external-service *call*, degrading to *fallback* on any error."""
+    try:
+        return call()
+    except Exception as exc:
+        try:
+            from flask import current_app
+
+            if current_app:
+                current_app.logger.warning(f"{label} failed: {exc}")
+        except Exception:
+            pass
+        return fallback
 
 
 def verify_photo_location(
@@ -13,9 +34,10 @@ def verify_photo_location(
     fbo: Any,
 ) -> dict[str, Any]:
     """Runs all verification checks and returns a combined result.
+
+    Uses adapters for external services (Nominatim, IP geolocation).
     Degrades gracefully if any external call times out or raises.
     """
-    # Initialize result with proper type annotation
     result: dict[str, Any] = {
         "locality": None,
         "ip_match": False,
@@ -24,74 +46,53 @@ def verify_photo_location(
         "flag_reasons": [],
     }
 
-    # 1. Reverse geocode to get locality (with per-call timeout)
-    try:
-        geocode_result = reverse_geocode(raw_lat, raw_lng)
-    except Exception as exc:
-        try:
-            from flask import current_app
-
-            if current_app:
-                current_app.logger.warning(f"reverse_geocode failed: {exc}")
-        except Exception:
-            pass
-        geocode_result = {"error": str(exc), "locality": None}
+    # 1. Reverse geocode to get locality
+    geocode_result = _guarded(
+        "geocoding",
+        lambda: _geocoder.reverse(raw_lat, raw_lng),
+        {"locality": None},
+    )
 
     if geocode_result.get("error") is None:
         result["locality"] = geocode_result.get("locality")
 
-    # 2. Geolocate IP address (with per-call timeout)
-    try:
-        ip_result = ip_geolocate(ip_address)
-    except Exception as exc:
-        try:
-            from flask import current_app
-
-            if current_app:
-                current_app.logger.warning(f"ip_geolocate failed: {exc}")
-        except Exception:
-            pass
-        ip_result = {"error": str(exc), "city": None, "region": None}
+    # 2. Geolocate IP address
+    ip_result = _guarded(
+        "ip_geolocate",
+        lambda: _ip_adapter.geolocate(ip_address),
+        {"city": None, "region": None},
+    )
 
     ip_city = ip_result.get("city")
     ip_region = ip_result.get("region")
 
-    # 3. Check IP match - convert to str for region_match
+    # 3. Check IP match
     if result["locality"] is not None and ip_city is not None and ip_region is not None:
         result["ip_match"] = region_match(str(ip_city), str(ip_region), str(result["locality"]))
 
-    # 4. Get FBO location (with per-call timeout)
-    try:
-        fbo_lat, fbo_lng = get_or_geocode_fbo_location(fbo)
-    except Exception as exc:
-        try:
-            from flask import current_app
+    # 4. License lookup (if applicable)
+    if hasattr(fbo, "license_number") and fbo.license_number:
+        lookup_res = _license_adapter.lookup(fbo.license_number, source="fssai")
+        result["license_valid"] = (
+            getattr(lookup_res, "found", False)
+            or (getattr(lookup_res, "__getitem__", None) and lookup_res.get("found"))
+            or False
+        )
 
-            if current_app:
-                current_app.logger.warning(f"get_or_geocode_fbo_location failed: {exc}")
-        except Exception:
-            pass
-        fbo_lat, fbo_lng = None, None
-
-    # 5. Calculate distance to FBO if available
-    if fbo_lat is not None and fbo_lng is not None:
-        result["distance_to_fbo_m"] = haversine_distance(raw_lat, raw_lng, fbo_lat, fbo_lng)
-
-    # 6. Check flag conditions
+    # 5. Set verification status
     if accuracy is not None and accuracy > 100:
         result["flag_reasons"].append("accuracy_exceeds_100m")
 
     if not result["ip_match"]:
         result["flag_reasons"].append("ip_region_mismatch")
 
-    if result["distance_to_fbo_m"] is not None and result["distance_to_fbo_m"] > 500:
-        result["flag_reasons"].append("distance_exceeds_500m")
-
     if result["distance_to_fbo_m"] is None:
         result["flag_reasons"].append("fbo_location_unavailable")
 
-    # 7. Set verification status
     if result["flag_reasons"]:
         result["verification_status"] = "FLAG"
 
     return result
+
+
+__all__ = ["verify_photo_location"]

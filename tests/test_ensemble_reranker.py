@@ -426,6 +426,12 @@ class TestEnsemblePipelineWiring:
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
         monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "true")
         monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "true")
+        # build_hybrid_retriever is lru_cache-wrapped: a fake cached by an
+        # earlier test in the same batch (e.g. test_identifier_route) would
+        # otherwise be returned here and never record "reranker".
+        from app.rag.retrieval.factory import clear_retriever_cache
+
+        clear_retriever_cache()
 
         result = run_retrieval_pipeline("What does Section 55 say about adulteration?", top_k=5)
         assert isinstance(recorded["reranker"], EnsembleReranker)

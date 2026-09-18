@@ -40,18 +40,16 @@ def validate_sample_code(code: str, sample_type: str) -> str | None:
     """
     if not code:
         return "sample_code is required"
-    if sample_type == "enforcement":
-        if not ENFORCEMENT_CODE_PATTERN.match(code):
-            return (
-                "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL "
-                "(e.g. SL/WB/110223/2026/25275)"
-            )
-    elif sample_type == "surveillance":
-        if not SURVEILLANCE_CODE_PATTERN.match(code):
-            return (
-                "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY "
-                "(e.g. FSO/Br-02/SS/INF/05/26-27)"
-            )
+    if sample_type == "enforcement" and not ENFORCEMENT_CODE_PATTERN.match(code):
+        return (
+            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL "
+            "(e.g. SL/WB/110223/2026/25275)"
+        )
+    elif sample_type == "surveillance" and not SURVEILLANCE_CODE_PATTERN.match(code):
+        return (
+            "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY "
+            "(e.g. FSO/Br-02/SS/INF/05/26-27)"
+        )
     return None
 
 
@@ -245,12 +243,13 @@ def create_sample():
         except Exception as e:
             current_app.logger.warning(f"Sample sync failed (non-fatal): {e}")
 
-        # Post-save: trigger Food Cell DO intimation (best-effort, async via Celery)
+        # Post-save: trigger Food Cell DO intimation (best-effort, via QStash
+        # with synchronous inline fallback).
         if not sample.food_cell_forwarded:
             try:
-                from app.food_cell.tasks import send_do_intimation
+                from app.utils.qstash_client import publish_task
 
-                send_do_intimation.delay(sample.id)  # pyright: ignore[reportFunctionMemberAccess]
+                publish_task("send_do_intimation", {"sample_id": sample.id})
             except Exception as e:
                 current_app.logger.warning(f"DO intimation trigger failed: {e}")
 

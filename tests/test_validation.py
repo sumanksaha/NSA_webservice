@@ -66,7 +66,7 @@ def _setup_test_env():
     db.drop_all()
     db.create_all()
 
-    user = User(username="validationuser", password_hash="pbkdf2:sha256$test$dummy")
+    user = User(username="validationuser", password_hash="pbkdf2:sha256$test$dummy", fso_name="Test Officer")
     db.session.add(user)
     db.session.add(FSO(fso_name="Test Officer"))
     db.session.commit()

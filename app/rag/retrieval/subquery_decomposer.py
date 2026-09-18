@@ -6,6 +6,7 @@ retrieval, improving answer completeness and reducing context contamination.
 """
 
 from __future__ import annotations
+
 import logging
 import re
 

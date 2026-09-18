@@ -96,7 +96,7 @@ class TestBillingUtils:
             # Create sample objects
             samples = [
                 Sample(
-                    sample_code="SKS-2026-00001",
+                    sample_code="SL/WB/110223/2026/00001",
                     sample_name="Sample 1",
                     sample_type="Food",
                     fso_name="Test FSO",
@@ -104,7 +104,7 @@ class TestBillingUtils:
                     price="100.00",
                 ),
                 Sample(
-                    sample_code="SKS-2026-00002",
+                    sample_code="SL/WB/110223/2026/00002",
                     sample_name="Sample 2",
                     sample_type="Food",
                     fso_name="Test FSO",
@@ -112,7 +112,7 @@ class TestBillingUtils:
                     price="150.50",
                 ),
                 Sample(
-                    sample_code="SKS-2026-00003",
+                    sample_code="SL/WB/110223/2026/00003",
                     sample_name="Sample 3",
                     sample_type="Water",
                     fso_name="Test FSO",
@@ -172,7 +172,7 @@ class TestExcelExport:
         with app.app_context():
             samples = [
                 {
-                    "sample_code": "SKS-2026-00001",
+                    "sample_code": "SL/WB/110223/2026/00001",
                     "sample_name": "Test",
                     "sample_type": "Food",
                     "fso_name": "FSO1",
@@ -217,7 +217,7 @@ class TestExcelExport:
         with app.app_context():
             samples = [
                 {
-                    "sample_code": "SKS-2026-00001",
+                    "sample_code": "SL/WB/110223/2026/00001",
                     "sample_name": "Test1",
                     "sample_type": "Food",
                     "fso_name": "FSO1",
@@ -228,7 +228,7 @@ class TestExcelExport:
                     "price": "100.00",
                 },
                 {
-                    "sample_code": "SKS-2026-00002",
+                    "sample_code": "SL/WB/110223/2026/00002",
                     "sample_name": "Test2",
                     "sample_type": "Water",
                     "fso_name": "FSO2",
@@ -310,7 +310,7 @@ class TestBillingFilters:
             db.session.add(fso)
 
             sample1 = Sample(
-                sample_code="SKS-2026-00001",
+                sample_code="SL/WB/110223/2026/00001",
                 sample_name="Sample 1",
                 sample_type="Food",
                 fso_name="Test FSO",
@@ -318,7 +318,7 @@ class TestBillingFilters:
                 price="100.00",
             )
             sample2 = Sample(
-                sample_code="SKS-2026-00002",
+                sample_code="SL/WB/110223/2026/00002",
                 sample_name="Sample 2",
                 sample_type="Water",
                 fso_name="Test FSO",
@@ -356,7 +356,7 @@ class TestBillingFilters:
 
             # Add samples
             sample1 = Sample(
-                sample_code="SKS-2026-00001",
+                sample_code="SL/WB/110223/2026/00001",
                 sample_name="S1",
                 sample_type="Food",
                 fso_name="FSO 1",
@@ -364,7 +364,7 @@ class TestBillingFilters:
                 price="100",
             )
             sample2 = Sample(
-                sample_code="SKS-2026-00002",
+                sample_code="SL/WB/110223/2026/00002",
                 sample_name="S2",
                 sample_type="Water",
                 fso_name="FSO 2",
@@ -392,7 +392,7 @@ class TestBillingFilters:
 
             samples = [
                 Sample(
-                    sample_code="SKS-2026-00001",
+                    sample_code="SL/WB/110223/2026/00001",
                     sample_name="S1",
                     sample_type="Food",
                     fso_name="Test FSO",
@@ -400,7 +400,7 @@ class TestBillingFilters:
                     price="100",
                 ),
                 Sample(
-                    sample_code="SKS-2026-00002",
+                    sample_code="SL/WB/110223/2026/00002",
                     sample_name="S2",
                     sample_type="Water",
                     fso_name="Test FSO",
@@ -408,7 +408,7 @@ class TestBillingFilters:
                     price="50",
                 ),
                 Sample(
-                    sample_code="SKS-2026-00003",
+                    sample_code="SL/WB/110223/2026/00003",
                     sample_name="S3",
                     sample_type="Food",
                     fso_name="Test FSO",

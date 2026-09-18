@@ -130,13 +130,14 @@ class HTMLToAsciiDocConverter:
                 para_text = line[:-4].strip()
                 if para_text:
                     asciidoc_lines.append(para_text)
-            elif "<p>" not in line and "</p>" not in line:
+            elif "<p>" not in line and "</p>" not in line and not any(
+                tag in line for tag in ["<table>", "<ul>", "<ol>", "<div>", "<span>"]
+            ):
                 # Regular text
-                if not any(tag in line for tag in ["<table>", "<ul>", "<ol>", "<div>", "<span>"]):
-                    ascii_line = re.sub(r"<[^>]+>", " ", line)
-                    ascii_line = re.sub(r"\s+", " ", ascii_line).strip()
-                    if ascii_line:
-                        asciidoc_lines.append(ascii_line)
+                ascii_line = re.sub(r"<[^>]+>", " ", line)
+                ascii_line = re.sub(r"\s+", " ", ascii_line).strip()
+                if ascii_line:
+                    asciidoc_lines.append(ascii_line)
 
         # Write AsciiDoc content
         self.output_path.parent.mkdir(parents=True, exist_ok=True)

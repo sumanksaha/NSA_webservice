@@ -1,0 +1,263 @@
+{% extends "base.html" %} {% block title %}Edit Adjudication - {{ case_number }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-pen-to-square"></i> Edit Nonsample Adjudication</h2>
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">{{ case_number }}</span>
+    </div>
+
+    {% if is_archived %}
+    <div class="alert alert-warning" style="margin: 1rem">
+        This case is <strong>archived</strong> and hidden from case lists. Unarchive it to edit.
+        <button type="button" class="btn btn-secondary btn-sm" id="unarchiveBtn">
+            <i class="fa-solid fa-box-open"></i> Unarchive
+        </button>
+    </div>
+    {% endif %}
+
+    <form
+        id="editAdjudicationForm"
+        action="{{ url_for('adjudication.update_case', case_id=case_id) }}"
+        method="post"
+    >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="case_number" class="form-label">Case Number (cannot be changed)</label>
+                <input
+                    type="text" id="case_number" name="case_number" class="form-input"
+                    value="{{ form.case_number or '' }}" readonly
+                />
+            </div>
+            <div class="form-group">
+                <label for="food_safety_officer_name" class="form-label">Food Safety Officer Name</label>
+                <input
+                    type="text" id="food_safety_officer_name" name="food_safety_officer_name"
+                    class="form-input" value="{{ form.food_safety_officer_name or '' }}" required
+                />
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Case Flags</h3></div>
+        <div class="form-row">
+            {% for field, label in [('non_license', 'Non-Licensed / Unregistered FBO?'), ('pre_authorization', 'Pre-Authorization Case?'), ('complaint_lodged', 'Third-party complaint lodged?')] %}
+            <label class="toggle-card">
+                <input
+                    type="checkbox" name="{{ field }}" value="yes" data-off="no"
+                    {% if form[field] == 'yes' %}checked{% endif %}
+                />
+                {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="section-header"><h3>KMC Trade License Details</h3></div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="ce_license_no" class="form-label">License Number</label>
+                <input type="text" id="ce_license_no" name="ce_license_no" class="form-input" value="{{ form.ce_license_no or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="ce_trade_name" class="form-label">Trade/Unit Name</label>
+                <input type="text" id="ce_trade_name" name="ce_trade_name" class="form-input" value="{{ form.ce_trade_name or '' }}" />
+            </div>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="ce_proprietor" class="form-label">Proprietor</label>
+                <input type="text" id="ce_proprietor" name="ce_proprietor" class="form-input" value="{{ form.ce_proprietor or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="ce_status" class="form-label">Status</label>
+                <input type="text" id="ce_status" name="ce_status" class="form-input" value="{{ form.ce_status or '' }}" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="ce_address" class="form-label">Trade Address</label>
+                <input type="text" id="ce_address" name="ce_address" class="form-input" value="{{ form.ce_address or '' }}" />
+            </div>
+        </div>
+
+        <div class="section-header"><h3>FBO Details</h3></div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="fbo_owner" class="form-label">FBO Owner</label>
+                <input type="text" id="fbo_owner" name="fbo_owner" class="form-input" value="{{ form.fbo_owner or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="fbo_name" class="form-label">FBO Name</label>
+                <input type="text" id="fbo_name" name="fbo_name" class="form-input" value="{{ form.fbo_name or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="fbo_address" class="form-label">FBO Address</label>
+                <textarea id="fbo_address" name="fbo_address" class="form-textarea" required>{{ form.fbo_address or '' }}</textarea>
+            </div>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="fssai_license" class="form-label">FSSAI License / Registration No</label>
+                <input type="text" id="fssai_license" name="fssai_license" class="form-input" value="{{ form.fssai_license or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="concerned_food" class="form-label">Concerned Food</label>
+                <input type="text" id="concerned_food" name="concerned_food" class="form-input" value="{{ form.concerned_food or '' }}" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="problem" class="form-label">Problem</label>
+                <textarea id="problem" name="problem" class="form-textarea">{{ form.problem or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Dates</h3></div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="first_inspection_date" class="form-label">First Inspection Date</label>
+                <input type="date" id="first_inspection_date" name="first_inspection_date" class="form-input" value="{{ form.first_inspection_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="compliance_deadline" class="form-label">Compliance Deadline</label>
+                <input type="date" id="compliance_deadline" name="compliance_deadline" class="form-input" value="{{ form.compliance_deadline or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="complaint_date" class="form-label">Complaint Date</label>
+                <input type="date" id="complaint_date" name="complaint_date" class="form-input" value="{{ form.complaint_date or '' }}" />
+            </div>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="followup_inspection_date" class="form-label">Follow-up Inspection Date</label>
+                <input type="date" id="followup_inspection_date" name="followup_inspection_date" class="form-input" value="{{ form.followup_inspection_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="authorization_date" class="form-label">Authorization Date</label>
+                <input type="date" id="authorization_date" name="authorization_date" class="form-input" value="{{ form.authorization_date or '' }}" />
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Checklist</h3></div>
+        <div class="checklist-grid">
+            {% for c in ['clean_premise', 'refrigerator_clean', 'proper_attire', 'proper_covered_utensil', 'date_tag', 'veg_nonveg_separation', 'food_segregation', 'license_display', 'artificial_colour', 'Expired_item', 'Pest_report', 'Water_report'] %}
+            <div class="checklist-card">
+                <label>{{ c.replace('_', ' ') }}</label>
+                <select name="{{ c }}">
+                    <option value="yes" {% if form[c] == 'yes' %}selected{% endif %}>Yes</option>
+                    <option value="no" {% if form[c] != 'yes' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="section-header"><h3>Applicable FSS Act Sections</h3></div>
+        <div class="form-row">
+            {% for s in ['section_55', 'section_56', 'section_58', 'section_63', 'section_64'] %}
+            <label class="toggle-card">
+                <input
+                    type="checkbox" name="{{ s }}" value="yes" data-off="no"
+                    {% if form[s] == 'yes' %}checked{% endif %}
+                />
+                {{ s.replace('_', ' ').title() }}
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="actions-centered">
+            <button type="submit" class="btn btn-primary btn-lg" {% if is_archived %}disabled{% endif %}>
+                <i class="fa-solid fa-save"></i> Save Changes
+            </button>
+            <a href="{% if is_archived %}{{ url_for('adjudication.index', include_archived=1) }}{% else %}{{ url_for('adjudication.index') }}{% endif %}" class="btn btn-secondary btn-lg">
+                <i class="fa-solid fa-xmark"></i> Cancel
+            </a>
+            {% if not is_archived %}
+            <button type="button" class="btn btn-secondary btn-lg" id="archiveBtn">
+                <i class="fa-solid fa-box-archive"></i> Archive Case
+            </button>
+            {% endif %}
+        </div>
+        <div id="edit-status" class="form-hint" style="margin-top: 0.5rem"></div>
+    </form>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    document.getElementById("editAdjudicationForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const status = document.getElementById("edit-status");
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        submitBtn.disabled = true;
+        status.textContent = "";
+        try {
+            const formData = new FormData(form);
+            // Unchecked checkboxes are absent from FormData — send explicit "off" values.
+            form.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+                if (!cb.checked && !formData.has(cb.name)) {
+                    formData.append(cb.name, cb.dataset.off || "no");
+                }
+            });
+            const response = await fetch(form.action, { method: "PUT", body: formData });
+            const data = await response.json();
+            if (response.ok) {
+                status.textContent = "Saved. Returning to case list...";
+                window.location.href = "{{ url_for('adjudication.index') }}";
+            } else if (data.errors) {
+                const fields = Object.entries(data.errors)
+                    .map(([f, msg]) => f + ": " + msg)
+                    .join("\n");
+                status.textContent = "Please correct the highlighted fields.";
+                alert("Validation failed:\n" + fields);
+            } else {
+                status.textContent = data.error || "Failed to update case.";
+                alert("Error: " + (data.error || "Failed to update case"));
+            }
+        } catch (error) {
+            status.textContent = "Error: " + error.message;
+            alert("Error: " + error.message);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+
+    function csrfToken() {
+        const el = document.querySelector('meta[name="csrf-token"]');
+        return el ? el.getAttribute("content") : "";
+    }
+    async function postArchiveAction(url, confirmMsg) {
+        if (!confirm(confirmMsg)) return;
+        const body = new FormData();
+        body.append("csrf_token", csrfToken());
+        const response = await fetch(url, { method: "POST", body });
+        const data = await response.json();
+        if (response.ok) {
+            window.location.href = "{{ url_for('adjudication.index') }}";
+        } else {
+            alert("Error: " + (data.error || "Action failed"));
+        }
+    }
+    const archiveBtn = document.getElementById("archiveBtn");
+    if (archiveBtn) {
+        archiveBtn.addEventListener("click", () =>
+            postArchiveAction(
+                "{{ url_for('adjudication.archive_case', case_id=case_id) }}",
+                "Archive this case? It will be hidden from case lists but its data is kept."
+            )
+        );
+    }
+    const unarchiveBtn = document.getElementById("unarchiveBtn");
+    if (unarchiveBtn) {
+        unarchiveBtn.addEventListener("click", () =>
+            postArchiveAction(
+                "{{ url_for('adjudication.unarchive_case', case_id=case_id) }}",
+                "Restore this case to the case lists?"
+            )
+        );
+    }
+</script>
+{% endblock %}

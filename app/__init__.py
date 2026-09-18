@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, current_app, flash, redirect, request, url_for
+from flask import Flask, redirect, url_for
 from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -14,14 +14,9 @@ from app.extensions import csrf, db, login_manager, talisman
 
 _fso_sync_lock = threading.Lock()
 
-# Module-level Celery instance — populated after app factory runs
-celery = None
-
 
 class App(Flask):
-    """Flask app subclass with a typed ``celery`` attribute."""
-
-    celery: Any = None
+    """Flask app subclass."""
 
 
 def _load_or_create_production_secret_key(app: Flask) -> str:
@@ -382,32 +377,12 @@ def create_app(db_uri: str | None = None):
         except (RuntimeError, AttributeError):
             db.session.info["audit_user_id"] = None
 
-    @app.before_request
-    def require_login():
-        if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
-            return redirect(url_for("auth.login", next=request.url))
+    # Auth gates (global login + Phase 18 RBAC) live in app/shared/rbac.py —
+    # the single home for access policy (2026-09-12 review: the factory was
+    # carrying auth logic that belonged in the RBAC seam).
+    from app.shared.rbac import register_auth_gates
 
-    @app.before_request
-    def enforce_rbac():
-        """Phase 18 role gate — deny-by-default beyond ALWAYS_ALLOWED.
-
-        Redirects (with an explanatory flash) instead of a dead 403 page;
-        nav links for disallowed blueprints are hidden in base.html so this
-        mostly guards direct URLs and stale bookmarks.
-        """
-        from app.shared.rbac import blueprint_allowed, landing_endpoint
-
-        if current_app.config.get("DISABLE_RBAC"):
-            return None
-        if not current_user.is_authenticated:
-            return None
-        endpoint = request.endpoint
-        if not endpoint or endpoint in public_endpoints:
-            return None
-        if blueprint_allowed(current_user, request.blueprint):
-            return None
-        flash("You do not have access to that section.", "error")
-        return redirect(landing_endpoint(current_user))
+    register_auth_gates(app, public_endpoints)
 
     # Register custom Jinja filters globally
     from app.utils.filters import format_date_indian, to_words
@@ -450,91 +425,9 @@ def create_app(db_uri: str | None = None):
     register_qdrant_hooks()
 
     # Register blueprints (auth first so login page is available)
-    from app.adjudication.routes import adjudication_bp
-    from app.annexure import annexure_bp
-    from app.audit import audit_bp
-    from app.auth.routes import auth_bp
-    from app.bill_generator.routes import bill_generator_bp
-    from app.billing.routes import billing_bp
-    from app.case_file_generator.routes import case_file_generator_bp
-    from app.fbo_issue.routes import fbo_issue_bp
-    from app.food_cell import food_cell_bp
-    from app.health import health_bp
-    from app.inspection.routes import inspection_bp
-    from app.knowledge_graph import kg_bp
-    from app.legal_analysis import legal_analysis_bp
-    from app.notepad import notepad_bp
-    from app.sample.routes import sample_bp
-    from app.search import search_bp
-    from app.settings.routes import settings_bp
-    from app.sync import sync_bp
-    from app.tasks_webhook import tasks_webhook_bp
-    from app.timeline import timeline_bp
-    from app.validation import validation_bp
-    from app.version_control import version_control_bp
+    from app.blueprints import register_blueprints
 
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
-    app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
-    from app.document_viewer import document_viewer_bp
-
-    app.register_blueprint(document_viewer_bp, url_prefix="/document_viewer")
-    from app.evidence import evidence_bp
-
-    app.register_blueprint(evidence_bp, url_prefix="/evidence")
-    app.register_blueprint(bill_generator_bp, url_prefix="/bill_generator")
-    app.register_blueprint(fbo_issue_bp, url_prefix="/fbo-issue")
-    app.register_blueprint(sample_bp, url_prefix="/sample")
-    app.register_blueprint(billing_bp, url_prefix="/billing")
-    app.register_blueprint(settings_bp, url_prefix="/settings")
-    app.register_blueprint(inspection_bp, url_prefix="/inspection")
-    app.register_blueprint(legal_analysis_bp, url_prefix="/legal")
-    app.register_blueprint(audit_bp, url_prefix="/admin")
-    app.register_blueprint(version_control_bp)
-    app.register_blueprint(tasks_webhook_bp)
-    app.register_blueprint(search_bp, url_prefix="/search")
-    app.register_blueprint(annexure_bp, url_prefix="/annexure")
-    app.register_blueprint(validation_bp, url_prefix="/validation")
-    app.register_blueprint(health_bp)
-    app.register_blueprint(food_cell_bp, url_prefix="/food-cell")
-    app.register_blueprint(kg_bp, url_prefix="/knowledge-graph")
-    app.register_blueprint(notepad_bp, url_prefix="/notepad")
-    app.register_blueprint(sync_bp, url_prefix="/sync")
-    from app.case_intelligence import intelligence_bp
-    app.register_blueprint(intelligence_bp, url_prefix="/case-intelligence")
-    from app.ai_assistant import ai_bp
-
-    app.register_blueprint(ai_bp, url_prefix="/ai-assistant")
-    # timeline_bp carries its own url_prefix ("/timeline") in the Blueprint.
-    app.register_blueprint(timeline_bp)
-    # Analytics dashboard (Phase 15)
-    from app.analytics import analytics_bp
-
-    app.register_blueprint(analytics_bp, url_prefix="/analytics")
-    # Comments API (Phase 18) — visibility inherited from the parent case
-    from app.comments import comments_bp
-
-    app.register_blueprint(comments_bp)
-
-    # Work diary (accumulates Inspections per FSO; preview + PDF download)
-    from app.workdiary import workdiary_bp
-
-    app.register_blueprint(workdiary_bp)
-    # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
-    from app.rag import rag_bp
-
-    app.register_blueprint(rag_bp)
-
-    # OCR pipeline Phases B–E (review workflow, conflicts, autopopulation, feedback)
-    from app.autopopulation import autopopulation_bp
-    from app.conflict_resolution import conflict_resolution_bp
-    from app.feedback_dashboard import feedback_dashboard_bp
-    from app.ocr_extraction import ocr_extraction_bp
-
-    app.register_blueprint(ocr_extraction_bp, url_prefix="/ocr")
-    app.register_blueprint(conflict_resolution_bp, url_prefix="/conflict-resolution")
-    app.register_blueprint(autopopulation_bp, url_prefix="/autopopulation")
-    app.register_blueprint(feedback_dashboard_bp, url_prefix="/feedback-dashboard")
+    register_blueprints(app)
 
     # Phase 20: Register default plugin providers (OCR, AI, Rules, PDF)
     # Lazy-imported so the app boots without optional deps (torch, httpx, etc.)
@@ -542,117 +435,12 @@ def create_app(db_uri: str | None = None):
 
     register_default_plugins()
 
-    # Initialize database tables (models must be imported first)
-    # Import models so they're registered with SQLAlchemy metadata
-    from app import models
+    # Database bootstrap (create_all fallback, alembic stamp, self-heal,
+    # FTS5 table, admin seed) lives in app/db_bootstrap.py — extracted from
+    # the factory by the 2026-09-12 review (create_app was a 500-line body).
+    from app.db_bootstrap import bootstrap_database
 
-    # Fallback safeguard: if core tables are missing (e.g., fresh local DB
-    # without migrations applied), create them so startup sync doesn't fail.
-    # On a FRESH database we also stamp the Alembic head: the historical
-    # migration chain was written as incremental patches on top of a
-    # db.create_all()-created schema (e.g. the baseline adds columns to
-    # tables that don't exist yet from migrations alone), so replaying it
-    # against a fresh DB crashes on duplicate columns. Stamping makes the
-    # subsequent `flask db upgrade` in the Render start command a no-op
-    # while future migrations still apply normally.
-    with app.app_context():
-        from sqlalchemy import create_engine
-        from sqlalchemy import inspect as sa_inspect
-
-        engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
-        from app.guard_rail import install_guard
-
-        install_guard(engine)
-        inspector = sa_inspect(engine)
-        if "fso" not in inspector.get_table_names():
-            db.create_all()
-            app.logger.info("Created missing tables via db.create_all() fallback")
-            # Only stamp when there is NO migration history at all — never
-            # clobber a partially-migrated database.
-            if "alembic_version" not in inspector.get_table_names():
-                try:
-                    from flask_migrate import stamp as alembic_stamp
-
-                    alembic_stamp(revision="head")
-                    app.logger.info("Stamped fresh database at migration head")
-                except (Exception, SystemExit) as exc:
-                    app.logger.warning(
-                        "Could not stamp fresh database at migration head (%s) — "
-                        "`flask db upgrade` may replay the full chain next deploy.",
-                        exc,
-                    )
-            # Existing database — self-heal tables that `flask db upgrade`
-            # can NEVER create: a migration inserted mid-chain (e.g. the
-            # Phase 18 `a1b2c3d4e5f6` role/user_roles/comment migration) is an
-            # ancestor of the DB's current version, so Alembic never replays it
-            # and its tables stay missing (login crashed with
-            # `relation "user_roles" does not exist`). create_all() is only
-            # safe here when the DB is stamped at head — then no migration is
-            # pending that could later collide with the created tables.
-            try:
-                from alembic.config import Config as AlembicConfig
-                from alembic.script import ScriptDirectory
-                from sqlalchemy import text
-
-                migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
-                alembic_cfg = AlembicConfig(str(migrations_dir / "alembic.ini"))
-                alembic_cfg.set_main_option("script_location", str(migrations_dir))
-                if "alembic_version" in inspector.get_table_names():
-                    with engine.connect() as conn:
-                        db_version = conn.execute(
-                            text("SELECT version_num FROM alembic_version"),
-                        ).scalar()
-                    if db_version and db_version == ScriptDirectory.from_config(alembic_cfg).get_current_head():
-                        before = set(inspector.get_table_names())
-                        # Concurrent boots (web + Celery worker) may both reach
-                        # this; create_all only adds genuinely missing tables and
-                        # a duplicate-CREATE race is caught below (non-fatal).
-                        db.create_all()
-                        created = sorted(set(sa_inspect(engine).get_table_names()) - before)
-                        if created:
-                            app.logger.warning(
-                                "Schema self-heal: created missing model tables %s (DB stamped at "
-                                "migration head — `flask db upgrade` cannot replay mid-chain "
-                                "insertions).",
-                                created,
-                            )
-            except Exception as exc:
-                app.logger.warning("Schema self-heal skipped: %s", exc)
-
-        # Create FTS5 search virtual table on SQLite (no-op on PostgreSQL).
-        # This runs unconditionally so the table exists even on a pre-existing
-        # database that predates the search feature.
-        from app.search.indexer import ensure_search_table
-
-        ensure_search_table()
-
-        # ------------------------------------------------------------------
-        # Seed default admin account on first boot (empty user table).
-        # Credentials: username=admin  password=admin123
-        # The admin can change the password after first login via the
-        # "Change password" button in the top-right corner.
-        # ------------------------------------------------------------------
-        from app.models import User
-
-        try:
-            _user_count = User.query.count()
-        except Exception:  # pragma: no cover - pre-migration schema (flask db upgrade)
-            # DB predates the current models; skip seeding so `flask db upgrade`
-            # can boot and bring the schema up. Seeding happens on next boot.
-            app.logger.warning("User table not queryable yet — skipping admin seed.")
-            _user_count = 1
-
-        if _user_count == 0 and not os.environ.get("SKIP_ADMIN_SEED"):
-            from werkzeug.security import generate_password_hash
-
-            default_admin = User(
-                username="admin",
-                password_hash=generate_password_hash("admin123"),
-                is_admin=True,
-            )
-            db.session.add(default_admin)
-            db.session.commit()
-            app.logger.info("Default admin account created (username=admin). Change the password after first login.")
+    bootstrap_database(app)
 
     # ------------------------------------------------------------------
     # Auto-restore on empty database (Render free-tier rotation safety net):
@@ -705,21 +493,8 @@ def create_app(db_uri: str | None = None):
         else:
             app.logger.warning("Scheduled job %s failed: %s", entry["job"], entry["error"])
 
-    # Initialize Celery with Flask app context support
-    # Lazy import to avoid ModuleNotFoundError in deployment environments
-    try:
-        from celery_app import make_celery
-
-        app.celery = make_celery(app)
-    except ImportError:
-        # Celery not available (e.g., in minimal deployment)
-        app.celery = None
-
     return app
 
 
 # Create the Flask application instance for Gunicorn
 app = create_app()
-
-# Export celery at module level so it can be imported elsewhere
-celery = app.celery

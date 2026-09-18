@@ -1,23 +1,20 @@
 (function (window, _document) {
     "use strict";
     function esc(s) {
-        if (s == null)
-            return "";
+        if (s == null) return "";
         var d = document.createElement("div");
         d.textContent = String(s);
         return d.innerHTML;
     }
     function fmtNum(n, digits) {
         digits = digits == null ? 3 : digits;
-        if (n == null || isNaN(n))
-            return "\u2014";
+        if (n == null || isNaN(n)) return "\u2014";
         return Number(n).toFixed(digits);
     }
     function truncate(text, max) {
         text = esc(text || "");
         max = max || 280;
-        if (text.length <= max)
-            return text;
+        if (text.length <= max) return text;
         return text.slice(0, max - 3) + "\u2026";
     }
     function showStatus(el, message, kind) {
@@ -34,13 +31,10 @@
         var icon = btn.querySelector("i");
         if (loading) {
             btn.disabled = true;
-            if (icon)
-                icon.className = "fa-solid fa-spinner fa-spin";
-        }
-        else {
+            if (icon) icon.className = "fa-solid fa-spinner fa-spin";
+        } else {
             btn.disabled = false;
-            if (icon)
-                icon.className = "fa-solid fa-paper-plane";
+            if (icon) icon.className = "fa-solid fa-paper-plane";
         }
     }
     var _reviewState = null;
@@ -48,25 +42,22 @@
         var reviewEl = document.getElementById("ragReview");
         var contentEl = document.getElementById("ragReviewContent");
         var resultsEl = document.getElementById("ragResults");
-        if (!reviewEl || !contentEl || !resultsEl)
-            return;
+        if (!reviewEl || !contentEl || !resultsEl) return;
         contentEl.innerHTML =
             "<strong>Proposed answer:</strong> " +
                 esc(truncate(reviewPayload.proposed_answer || "", 300)) ||
-                esc("Review the agent's proposed answer before finalizing.");
+            esc("Review the agent's proposed answer before finalizing.");
         resultsEl.innerHTML = "";
         reviewEl.style.display = "block";
     }
     function hideReview() {
         var reviewEl = document.getElementById("ragReview");
-        if (reviewEl)
-            reviewEl.style.display = "none";
+        if (reviewEl) reviewEl.style.display = "none";
     }
     function renderResponse(data) {
         var resultsEl = document.getElementById("ragResults");
         var statusEl = document.getElementById("ragStatus");
-        if (!resultsEl || !statusEl)
-            return;
+        if (!resultsEl || !statusEl) return;
         hideStatus(statusEl);
         var citationHtml = "";
         var citations = data.citations || [];
@@ -78,16 +69,16 @@
                     : c.document_title || "Source";
                 citationHtml +=
                     '<div class="rag-citation">' +
-                        '<span class="rag-citation-label">' +
-                        esc(label) +
-                        "</span>" +
-                        '<span class="rag-citation-snippet">' +
-                        truncate(c.snippet, 200) +
-                        "</span>" +
-                        '<span class="rag-citation-confidence">conf: ' +
-                        fmtNum(c.confidence) +
-                        "</span>" +
-                        "</div>";
+                    '<span class="rag-citation-label">' +
+                    esc(label) +
+                    "</span>" +
+                    '<span class="rag-citation-snippet">' +
+                    truncate(c.snippet, 200) +
+                    "</span>" +
+                    '<span class="rag-citation-confidence">conf: ' +
+                    fmtNum(c.confidence) +
+                    "</span>" +
+                    "</div>";
             });
             citationHtml += "</div>";
         }
@@ -95,9 +86,9 @@
         if (data.hallucination_detected) {
             hallucHtml =
                 '<div class="rag-hallucination">' +
-                    "<strong>\u26a0 Hallucination detected</strong> \u2014 " +
-                    esc((data.hallucinated_claims || []).join(". ")) +
-                    "</div>";
+                "<strong>\u26a0 Hallucination detected</strong> \u2014 " +
+                esc((data.hallucinated_claims || []).join(". ")) +
+                "</div>";
         }
         var verificationHtml = "";
         var ver = data.verification;
@@ -105,33 +96,32 @@
             if (ver.error) {
                 verificationHtml =
                     '<div class="rag-verification" title="' +
-                        esc(ver.error) +
-                        '">' +
-                        "Claim verification unavailable for this answer." +
-                        "</div>";
-            }
-            else {
+                    esc(ver.error) +
+                    '">' +
+                    "Claim verification unavailable for this answer." +
+                    "</div>";
+            } else {
                 var verified = ver.claims_verified || 0;
                 var total = ver.claims_total || 0;
                 var unverified = ver.claims_unverified || 0;
                 var cls = ver.detected ? " rag-verification-warning" : "";
                 verificationHtml =
                     '<div class="rag-verification' +
-                        cls +
-                        '">' +
-                        (ver.detected ? "\u26a0 " : "\u2713 ") +
-                        "Claim verification \u2014 " +
-                        verified +
-                        "/" +
-                        total +
-                        " claims evidence-backed" +
-                        (unverified > 0 ? " \u00b7 " + unverified + " unverified" : "") +
-                        (ver.escalated_claims && ver.escalated_claims > 0
-                            ? " \u00b7 " + ver.escalated_claims + " escalated"
-                            : "") +
-                        " \u00b7 score: " +
-                        fmtNum(ver.groundedness_score) +
-                        "</div>";
+                    cls +
+                    '">' +
+                    (ver.detected ? "\u26a0 " : "\u2713 ") +
+                    "Claim verification \u2014 " +
+                    verified +
+                    "/" +
+                    total +
+                    " claims evidence-backed" +
+                    (unverified > 0 ? " \u00b7 " + unverified + " unverified" : "") +
+                    (ver.escalated_claims && ver.escalated_claims > 0
+                        ? " \u00b7 " + ver.escalated_claims + " escalated"
+                        : "") +
+                    " \u00b7 score: " +
+                    fmtNum(ver.groundedness_score) +
+                    "</div>";
             }
         }
         var chunkHtml = "";
@@ -139,30 +129,30 @@
         if (chunks.length) {
             chunkHtml =
                 '<div style="margin-top:1rem;"><small style="color:var(--text-muted,#6b7280);font-weight:600;">' +
-                    "Retrieved context (" +
-                    chunks.length +
-                    " chunk" +
-                    (chunks.length > 1 ? "s" : "") +
-                    ")" +
-                    '</small><div class="rag-chunks">';
+                "Retrieved context (" +
+                chunks.length +
+                " chunk" +
+                (chunks.length > 1 ? "s" : "") +
+                ")" +
+                '</small><div class="rag-chunks">';
             chunks.forEach(function (ch) {
                 var title = ch.document_title || "Untitled";
                 var sec = ch.section_number ? " \u00a7" + ch.section_number : "";
                 var act = ch.act_name ? " / " + ch.act_name : "";
                 chunkHtml +=
                     '<div class="rag-chunk">' +
-                        '<div class="rag-chunk-header">' +
-                        '<span class="rag-chunk-title">' +
-                        esc(title + sec + act) +
-                        "</span>" +
-                        '<span class="rag-chunk-score">score: ' +
-                        fmtNum(ch.score, 4) +
-                        "</span>" +
-                        "</div>" +
-                        '<div class="rag-chunk-text">' +
-                        truncate(ch.text, 300) +
-                        "</div>" +
-                        "</div>";
+                    '<div class="rag-chunk-header">' +
+                    '<span class="rag-chunk-title">' +
+                    esc(title + sec + act) +
+                    "</span>" +
+                    '<span class="rag-chunk-score">score: ' +
+                    fmtNum(ch.score, 4) +
+                    "</span>" +
+                    "</div>" +
+                    '<div class="rag-chunk-text">' +
+                    truncate(ch.text, 300) +
+                    "</div>" +
+                    "</div>";
             });
             chunkHtml += "</div></div>";
         }
@@ -171,22 +161,23 @@
             var ag = data.agent;
             agentHtml =
                 '<div class="rag-agent-block">' +
-                    "Pipeline: agent | retries: " +
-                    (ag.retry_count || 0) +
-                    (ag.expanded_query
-                        ? " | expanded query: " + esc(truncate(ag.expanded_query, 100))
-                        : "") +
-                    "</div>";
+                "Pipeline: agent | retries: " +
+                (ag.retry_count || 0) +
+                (ag.expanded_query
+                    ? " | expanded query: " + esc(truncate(ag.expanded_query, 100))
+                    : "") +
+                "</div>";
         }
         var stubHtml = "";
         if (data.llm_model && String(data.llm_model).indexOf("stub") === 0) {
             stubHtml =
                 '<div class="rag-stub-warning">' +
-                    "\u26a0 <strong>Stub mode</strong> \u2014 this answer was generated " +
-                    "without a live LLM (no OPENROUTER_API_KEY configured on the server)." +
-                    "</div>";
+                "\u26a0 <strong>Stub mode</strong> \u2014 this answer was generated " +
+                "without a live LLM (no OPENROUTER_API_KEY configured on the server)." +
+                "</div>";
         }
-        var html = '<div class="rag-answer-card">' +
+        var html =
+            '<div class="rag-answer-card">' +
             stubHtml +
             '<div class="rag-answer-meta">' +
             '<span class="rag-gauge">Groundedness: ' +
@@ -223,14 +214,13 @@
         var friendly = (statusCode && USER_FRIENDLY_ERRORS[statusCode]) || message;
         var resultsEl = document.getElementById("ragResults");
         var statusEl = document.getElementById("ragStatus");
-        if (!resultsEl || !statusEl)
-            return;
+        if (!resultsEl || !statusEl) return;
         hideStatus(statusEl);
         resultsEl.innerHTML =
             '<div class="rag-answer-card" style="border-color:#fecaca;">' +
-                '<div class="rag-answer-text" style="color:#b91c1c;">' +
-                esc(friendly) +
-                "</div></div>";
+            '<div class="rag-answer-text" style="color:#b91c1c;">' +
+            esc(friendly) +
+            "</div></div>";
     }
     function getPayload() {
         var query = document.getElementById("ragQuery").value.trim();
@@ -247,10 +237,8 @@
         return { payload: payload, query: query };
     }
     function validateQuery(query) {
-        if (!query)
-            return "Please enter a legal question.";
-        if (query.length > 2000)
-            return "Question is too long (max 2000 characters).";
+        if (!query) return "Please enter a legal question.";
+        if (query.length > 2000) return "Question is too long (max 2000 characters).";
         return null;
     }
     function submitQuery() {
@@ -277,44 +265,44 @@
             body: JSON.stringify(body),
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                return { ok: resp.ok, status: resp.status, data: data };
-            });
-        })
+                return resp.json().then(function (data) {
+                    return { ok: resp.ok, status: resp.status, data: data };
+                });
+            })
             .then(function (out) {
-            setLoading(btn, false);
-            hideStatus(statusEl);
-            if (out.status === 202) {
-                _reviewState = {
-                    thread_id: out.data.thread_id,
-                    review: out.data.review,
-                };
-                showStatus(statusEl, "Agent paused \u2014 awaiting your review.", "info");
-                showReview(out.data.review || {});
-                return;
-            }
-            if (!out.ok) {
-                var msg = out.data && out.data.error
-                    ? String(out.data.error)
-                    : "Request failed (HTTP " + out.status + ")";
-                showStatus(statusEl, msg, "error");
-                renderError(msg, out.status);
-                return;
-            }
-            showStatus(statusEl, "Answer generated.", "success");
-            renderResponse(out.data);
-            saveHistoryEntry(ctx.query, out.data);
-        })
+                setLoading(btn, false);
+                hideStatus(statusEl);
+                if (out.status === 202) {
+                    _reviewState = {
+                        thread_id: out.data.thread_id,
+                        review: out.data.review,
+                    };
+                    showStatus(statusEl, "Agent paused \u2014 awaiting your review.", "info");
+                    showReview(out.data.review || {});
+                    return;
+                }
+                if (!out.ok) {
+                    var msg =
+                        out.data && out.data.error
+                            ? String(out.data.error)
+                            : "Request failed (HTTP " + out.status + ")";
+                    showStatus(statusEl, msg, "error");
+                    renderError(msg, out.status);
+                    return;
+                }
+                showStatus(statusEl, "Answer generated.", "success");
+                renderResponse(out.data);
+                saveHistoryEntry(ctx.query, out.data);
+            })
             .catch(function () {
-            setLoading(btn, false);
-            hideStatus(statusEl);
-            showStatus(statusEl, "Network error \u2014 please try again.", "error");
-            renderError("Network error \u2014 please check your connection.");
-        });
+                setLoading(btn, false);
+                hideStatus(statusEl);
+                showStatus(statusEl, "Network error \u2014 please try again.", "error");
+                renderError("Network error \u2014 please check your connection.");
+            });
     }
     function resumeReview(approved) {
-        if (!_reviewState || !_reviewState.thread_id)
-            return;
+        if (!_reviewState || !_reviewState.thread_id) return;
         var btn = approved
             ? document.getElementById("ragApproveBtn")
             : document.getElementById("ragRejectBtn");
@@ -328,48 +316,46 @@
             body: JSON.stringify({ thread_id: _reviewState.thread_id, approved: approved }),
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                return { ok: resp.ok, status: resp.status, data: data };
-            });
-        })
+                return resp.json().then(function (data) {
+                    return { ok: resp.ok, status: resp.status, data: data };
+                });
+            })
             .then(function (out) {
-            var a = document.getElementById("ragApproveBtn");
-            var r = document.getElementById("ragRejectBtn");
-            if (a)
-                a.disabled = false;
-            if (r)
-                r.disabled = false;
-            hideStatus(statusEl);
-            if (out.status === 202) {
-                _reviewState = { thread_id: out.data.thread_id, review: out.data.review };
-                showStatus(statusEl, "Agent paused again \u2014 awaiting review.", "info");
-                showReview(out.data.review || {});
-                return;
-            }
-            if (!out.ok) {
-                var msg = out.data && out.data.error
-                    ? String(out.data.error)
-                    : "Resume failed (HTTP " + out.status + ")";
-                showStatus(statusEl, msg, "error");
-                renderError(msg, out.status);
-                return;
-            }
-            showStatus(statusEl, "Answer finalized.", "success");
-            var reviewedQuery = _reviewState && _reviewState.review ? _reviewState.review.query || "" : "";
-            renderResponse(out.data);
-            saveHistoryEntry(reviewedQuery, out.data);
-        })
+                var a = document.getElementById("ragApproveBtn");
+                var r = document.getElementById("ragRejectBtn");
+                if (a) a.disabled = false;
+                if (r) r.disabled = false;
+                hideStatus(statusEl);
+                if (out.status === 202) {
+                    _reviewState = { thread_id: out.data.thread_id, review: out.data.review };
+                    showStatus(statusEl, "Agent paused again \u2014 awaiting review.", "info");
+                    showReview(out.data.review || {});
+                    return;
+                }
+                if (!out.ok) {
+                    var msg =
+                        out.data && out.data.error
+                            ? String(out.data.error)
+                            : "Resume failed (HTTP " + out.status + ")";
+                    showStatus(statusEl, msg, "error");
+                    renderError(msg, out.status);
+                    return;
+                }
+                showStatus(statusEl, "Answer finalized.", "success");
+                var reviewedQuery =
+                    _reviewState && _reviewState.review ? _reviewState.review.query || "" : "";
+                renderResponse(out.data);
+                saveHistoryEntry(reviewedQuery, out.data);
+            })
             .catch(function () {
-            var a = document.getElementById("ragApproveBtn");
-            var r = document.getElementById("ragRejectBtn");
-            if (a)
-                a.disabled = false;
-            if (r)
-                r.disabled = false;
-            hideStatus(statusEl);
-            showStatus(statusEl, "Network error \u2014 please try again.", "error");
-            renderError(" Network error \u2014 please try again.");
-        });
+                var a = document.getElementById("ragApproveBtn");
+                var r = document.getElementById("ragRejectBtn");
+                if (a) a.disabled = false;
+                if (r) r.disabled = false;
+                hideStatus(statusEl);
+                showStatus(statusEl, "Network error \u2014 please try again.", "error");
+                renderError(" Network error \u2014 please try again.");
+            });
     }
     // ------------------------------------------------------------------ //
     // Session history (localStorage)                                      //
@@ -384,26 +370,22 @@
             var raw = window.localStorage.getItem(HISTORY_KEY);
             var items = raw ? JSON.parse(raw) : [];
             return Array.isArray(items) ? items : [];
-        }
-        catch {
+        } catch {
             return [];
         }
     }
     function persistHistory(items) {
         try {
             window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
-        }
-        catch {
+        } catch {
             /* storage unavailable */
         }
     }
     function saveHistoryEntry(query, data) {
-        if (!query && !(data && data.answer))
-            return;
+        if (!query && !(data && data.answer)) return;
         var items = loadHistory();
         items.unshift({ query: query || "", ts: Date.now(), data: data || {} });
-        if (items.length > HISTORY_MAX)
-            items = items.slice(0, HISTORY_MAX);
+        if (items.length > HISTORY_MAX) items = items.slice(0, HISTORY_MAX);
         persistHistory(items);
         renderHistory();
     }
@@ -413,15 +395,15 @@
     }
     function renderHistory() {
         var panel = document.getElementById("ragHistoryPanel");
-        if (!panel)
-            return;
+        if (!panel) return;
         var items = loadHistory();
         if (!items.length) {
             panel.style.display = "none";
             panel.innerHTML = "";
             return;
         }
-        var html = '<div class="rag-history-header">' +
+        var html =
+            '<div class="rag-history-header">' +
             "<strong>Session history</strong> (" +
             items.length +
             ")" +
@@ -432,31 +414,28 @@
             var hhmm = pad2(when.getHours()) + ":" + pad2(when.getMinutes());
             html +=
                 '<div class="rag-history-item" data-idx="' +
-                    i +
-                    '">' +
-                    '<span class="rag-history-q">' +
-                    truncate(item.query || "(no question)", 120) +
-                    "</span>" +
-                    '<span class="rag-history-meta">' +
-                    hhmm +
-                    (item.data && item.data.llm_model ? " \u00b7 " + esc(item.data.llm_model) : "") +
-                    "</span>" +
-                    "</div>";
+                i +
+                '">' +
+                '<span class="rag-history-q">' +
+                truncate(item.query || "(no question)", 120) +
+                "</span>" +
+                '<span class="rag-history-meta">' +
+                hhmm +
+                (item.data && item.data.llm_model ? " \u00b7 " + esc(item.data.llm_model) : "") +
+                "</span>" +
+                "</div>";
         });
         panel.innerHTML = html;
         panel.style.display = "block";
         var clearBtn = document.getElementById("ragClearHistoryBtn");
-        if (clearBtn)
-            clearBtn.addEventListener("click", clearHistory);
+        if (clearBtn) clearBtn.addEventListener("click", clearHistory);
         Array.prototype.forEach.call(panel.querySelectorAll(".rag-history-item"), function (el) {
             el.addEventListener("click", function () {
                 var idx = parseInt(el.getAttribute("data-idx") || "0", 10);
                 var item = loadHistory()[idx];
-                if (!item)
-                    return;
+                if (!item) return;
                 var ta = document.getElementById("ragQuery");
-                if (ta)
-                    ta.value = item.query || "";
+                if (ta) ta.value = item.query || "";
                 hideReview();
                 renderResponse(item.data);
             });
@@ -468,8 +447,7 @@
             var approveBtn = document.getElementById("ragApproveBtn");
             var rejectBtn = document.getElementById("ragRejectBtn");
             var queryInput = document.getElementById("ragQuery");
-            if (!submitBtn)
-                return;
+            if (!submitBtn) return;
             submitBtn.addEventListener("click", submitQuery);
             renderHistory();
             if (approveBtn)
@@ -491,8 +469,7 @@
         };
         if (document.readyState === "loading") {
             document.addEventListener("DOMContentLoaded", ready);
-        }
-        else {
+        } else {
             ready();
         }
     }

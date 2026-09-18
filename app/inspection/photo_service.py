@@ -30,9 +30,9 @@ from flask import current_app
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
-from app.services.audit_context import audit_logger
 from app.inspection.image_processing import process_and_stamp_image
 from app.inspection.verification_service import verify_photo_location
+from app.services.audit_context import audit_logger
 from app.utils.storage import delete_photo, upload_photo
 
 logger = logging.getLogger(__name__)
@@ -111,10 +111,66 @@ class InspectionPhotoService:
 
         Requires a Flask request context (uses ``request.form`` and
         ``request.remote_addr``) and a Flask app context.
+
+        Orchestrates four stages (split from a single 177-line body,
+        2026-09-12 review): guard + coordinate resolution, evidence
+        persistence, geo-verification + stamping, and OCR dispatch.
+        Behaviour is unchanged.
         """
         from flask import request
 
-        from app.models import Adjudication, CaseFile, Evidence, Inspection
+        inspection = self._guard_upload(inspection_id)
+
+        # Stage 1 — resolve coordinates (form > EXIF > 0.0) and validate
+        # the capture timestamp.
+        resolved_lat, resolved_lng, resolved_acc, captured_at_str = self._resolve_photo_coordinates(file_obj)
+
+        # Stage 2 — save the file and persist the PENDING evidence row
+        # (temp file cleaned up if the insert fails).
+        image_id, _filename, _temp_path, photo_evidence = self._persist_pending_evidence(
+            inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str
+        )
+
+        actor = request.remote_addr
+        audit_logger("photo").log(
+            image_id,
+            "UPLOAD_RECEIVED",
+            actor=actor,
+            raw_lat=resolved_lat,
+            raw_lng=resolved_lng,
+            accuracy=resolved_acc,
+        )
+
+        # Stage 3 — geo-verify, stamp the image, and finalize the row.
+        # A stamping failure removes the PENDING row (fail closed).
+        result, filepath = self._verify_and_stamp(
+            photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str
+        )
+        audit_logger("photo").log(image_id, "VERIFICATION_RUN", actor=actor, **result)
+
+        # Stage 4 — best-effort OCR dispatch.
+        ocr_task_id, ocr_result = self._dispatch_ocr(filepath, image_id)
+
+        audit_logger("photo").log(image_id, "PHOTO_SAVED", actor=actor, filepath=filepath)
+
+        return PhotoUploadResult(
+            photo_id=image_id,
+            filepath=filepath,
+            raw_lat=resolved_lat,
+            raw_lng=resolved_lng,
+            accuracy=resolved_acc,
+            verification=result,
+            stamped=True,
+            ocr_task_id=ocr_task_id,
+            ocr_result=ocr_result,
+        )
+
+    def _guard_upload(self, inspection_id: int):
+        """Fail fast when the inspection is missing or the violation type
+        excludes photo evidence (sample-based substandard/misbranded cases)."""
+        from flask import current_app  # noqa: F401  (context required by caller)
+
+        from app.models import Adjudication, CaseFile, Inspection
 
         inspection = db.session.get(Inspection, inspection_id)
         if not inspection:
@@ -129,14 +185,16 @@ class InspectionPhotoService:
                     inspection_date=adjudication.First_inspection_date,
                 ).first()
                 if sample_case and (sample_case.is_substandard or sample_case.is_misbranded):
-                    raise ValueError(
-                        "Photo evidence not applicable for this violation type"
-                    )
+                    raise ValueError("Photo evidence not applicable for this violation type")
+        return inspection
 
-        # --- EXIF GPS extraction ---
+    def _resolve_photo_coordinates(self, file_obj) -> tuple[float | None, float | None, float | None, str]:
+        """Extract EXIF GPS, apply the form > EXIF > 0.0 fallback, validate the
+        capture timestamp.  Requires a request context."""
+        from flask import request
+
         exif_lat, exif_lng, exif_accuracy = self._extract_exif_gps(file_obj)
 
-        # --- Coordinate fallback (form values > EXIF > 0.0) ---
         resolved_lat = self._pick_coord(request.form.get("lat"), exif_lat)
         resolved_lng = self._pick_coord(request.form.get("lng"), exif_lng)
         resolved_acc = self._pick_coord(
@@ -145,26 +203,41 @@ class InspectionPhotoService:
 
         captured_at_str = request.form["captured_at"]
         try:
-            captured_at_dt = datetime.fromisoformat(captured_at_str)
+            datetime.fromisoformat(captured_at_str)
         except ValueError:
-            raise ValueError(
-                "captured_at must be a valid ISO format datetime string"
-            ) from None
+            raise ValueError("captured_at must be a valid ISO format datetime string") from None
+        return resolved_lat, resolved_lng, resolved_acc, captured_at_str
 
-        # --- File save to temp dir ---
+    def _persist_pending_evidence(
+        self, inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str
+    ):
+        """Save the upload to the temp dir and insert the PENDING Evidence row.
+
+        Returns ``(image_id, filename, temp_path, photo_evidence)``.  A DB
+        failure rolls back and removes the temp file.
+        """
+        import contextlib
+        import uuid
+        from datetime import datetime
+        from pathlib import Path
+
+        from flask import current_app, request
+
+        from app.models import Evidence
+
         image_id = str(uuid.uuid4())
         filename = secure_filename(file_obj.filename)
         temp_dir = Path(current_app.instance_path) / "temp_uploads"
-        os.makedirs(str(temp_dir), exist_ok=True)
+        with contextlib.suppress(OSError):
+            os.makedirs(str(temp_dir), exist_ok=True)
         temp_path = temp_dir / f"{image_id}_{filename}"
         file_obj.save(str(temp_path))
 
-        # --- Evidence DB record ---
         case_id = request.form.get("case_id")
         photo_evidence = Evidence(
             id=image_id,
-            inspection_id=inspection_id,
-            case_id=case_id or str(inspection_id),
+            inspection_id=inspection.id,
+            case_id=case_id or str(inspection.id),
             evidence_type="photo",
             filepath=str(temp_path),
             filename=filename,
@@ -172,7 +245,7 @@ class InspectionPhotoService:
             raw_lat=resolved_lat,
             raw_lng=resolved_lng,
             accuracy=resolved_acc,
-            captured_at=captured_at_dt,
+            captured_at=datetime.fromisoformat(captured_at_str),
             uploaded_at=datetime.now(UTC),
             verification_status="PENDING",
             stamped=False,
@@ -186,32 +259,29 @@ class InspectionPhotoService:
             with contextlib.suppress(Exception):
                 os.remove(str(temp_path))
             raise RuntimeError(f"Failed to save photo evidence: {exc!s}") from exc
+        return image_id, filename, temp_path, photo_evidence
 
-        actor = request.remote_addr
-        audit_logger("photo").log(
-            image_id,
-            "UPLOAD_RECEIVED",
-            actor=actor,
-            raw_lat=resolved_lat,
-            raw_lng=resolved_lng,
-            accuracy=resolved_acc,
-        )
+    def _verify_and_stamp(
+        self, photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str
+    ):
+        """Geo-verify the coordinates, stamp the image, finalize the row.
 
-        # --- Geo-verification ---
-        result = verify_photo_location(
-            resolved_lat, resolved_lng, resolved_acc, actor, inspection
-        )
-        audit_logger("photo").log(image_id, "VERIFICATION_RUN", actor=actor, **result)
+        Returns ``(result, filepath)``.  A stamping failure deletes the
+        PENDING row and re-raises; a finalize-commit failure raises.
+        """
+        import contextlib
 
-        # --- Image stamping ---
+        result = verify_photo_location(resolved_lat, resolved_lng, resolved_acc, actor, inspection)
+        audit_logger("photo").log(photo_evidence.id, "VERIFICATION_RUN", actor=actor, **result)
+
         try:
             filepath = process_and_stamp_image(
                 file_obj,
                 result["locality"],
                 captured_at_str,
                 result["verification_status"],
-                image_id,
-                str(inspection_id),
+                photo_evidence.id,
+                str(photo_evidence.inspection_id),
             )
         except ValueError:
             with contextlib.suppress(Exception):
@@ -231,46 +301,36 @@ class InspectionPhotoService:
         except Exception as exc:
             db.session.rollback()
             raise RuntimeError(f"Failed to update photo evidence: {exc!s}") from exc
+        return result, filepath
 
-        audit_logger("photo").log(image_id, "PHOTO_SAVED", actor=actor, filepath=filepath)
+    def _dispatch_ocr(self, filepath: str, image_id: str) -> tuple[str | None, dict | None]:
+        """Best-effort OCR dispatch via QStash.  Never raises: a dispatch
+        failure (or a sync-mode exception result) leaves both outputs None."""
+        if not _OCR_AVAILABLE:
+            return None, None
 
-        # --- OCR dispatch (best-effort) ---
-        ocr_task_id = None
-        ocr_result = None
-        if _OCR_AVAILABLE:
-            from app.utils.qstash_client import make_dedup_key, publish_task
+        from flask import current_app
 
-            payload = {"file_path": filepath}
-            try:
-                dispatched = publish_task(
-                    "run_ocr_extraction",
-                    payload=payload,
-                    dedup_key=make_dedup_key("run_ocr_extraction", image_id, payload),
-                )
-            except Exception as exc:
-                current_app.logger.warning("OCR dispatch failed: %s", exc)
-            else:
-                if dispatched["mode"] == "async":
-                    ocr_task_id = dispatched["message_id"]
-                else:
-                    ocr_result = dispatched["result"]
-                    if isinstance(ocr_result, Exception):
-                        current_app.logger.warning(
-                            "OCR extraction returned exception: %s", ocr_result
-                        )
-                        ocr_result = None
+        from app.utils.qstash_client import make_dedup_key, publish_task
 
-        return PhotoUploadResult(
-            photo_id=image_id,
-            filepath=filepath,
-            raw_lat=resolved_lat,
-            raw_lng=resolved_lng,
-            accuracy=resolved_acc,
-            verification=result,
-            stamped=True,
-            ocr_task_id=ocr_task_id,
-            ocr_result=ocr_result,
-        )
+        payload = {"file_path": filepath}
+        try:
+            dispatched = publish_task(
+                "run_ocr_extraction",
+                payload=payload,
+                dedup_key=make_dedup_key("run_ocr_extraction", image_id, payload),
+            )
+        except Exception as exc:
+            current_app.logger.warning("OCR dispatch failed: %s", exc)
+            return None, None
+
+        if dispatched["mode"] == "async":
+            return dispatched["message_id"], None
+        ocr_result = dispatched["result"]
+        if isinstance(ocr_result, Exception):
+            current_app.logger.warning("OCR extraction returned exception: %s", ocr_result)
+            ocr_result = None
+        return None, ocr_result
 
     def upload_adjudication_photo(
         self,
@@ -288,9 +348,7 @@ class InspectionPhotoService:
 
         adjudication = db.session.get(Adjudication, adjudication_id)
         if not adjudication:
-            raise FileNotFoundError(
-                f"Adjudication with id {adjudication_id} not found"
-            )
+            raise FileNotFoundError(f"Adjudication with id {adjudication_id} not found")
 
         # --- Validation ---
         original_filename = file_obj.filename
@@ -300,9 +358,7 @@ class InspectionPhotoService:
 
         ext = Path(safe_filename).suffix.lower().lstrip(".")
         if ext not in _ALLOWED_EXTENSIONS:
-            raise ValueError(
-                f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}"
-            )
+            raise ValueError(f"Unsupported file extension '.{ext}'. Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}")
 
         # --- Storage ---
         try:
@@ -310,9 +366,7 @@ class InspectionPhotoService:
         except ValueError:
             raise
         except Exception:
-            current_app.logger.exception(
-                f"Failed to upload photo for adjudication {adjudication_id}"
-            )
+            current_app.logger.exception(f"Failed to upload photo for adjudication {adjudication_id}")
             raise RuntimeError("Storage service unavailable") from None
 
         caption = caption or ""
@@ -333,9 +387,7 @@ class InspectionPhotoService:
             db.session.rollback()
             with contextlib.suppress(Exception):
                 delete_photo(file_url)
-            current_app.logger.exception(
-                f"Failed to save photo evidence for adjudication {adjudication_id}"
-            )
+            current_app.logger.exception(f"Failed to save photo evidence for adjudication {adjudication_id}")
             raise RuntimeError("Database error") from None
         return PhotoUploadResult(
             photo_id=photo.id,
@@ -380,9 +432,8 @@ class InspectionPhotoService:
             raise FileNotFoundError(f"Inspection with id {inspection_id} not found")
 
         photos = (
-            Evidence.query.filter_by(
-                inspection_id=inspection_id, evidence_type="photo"
-            )
+            Evidence.query
+            .filter_by(inspection_id=inspection_id, evidence_type="photo")
             .order_by(Evidence.uploaded_at.desc())
             .all()
         )
@@ -404,15 +455,12 @@ class InspectionPhotoService:
 
         adjudication = db.session.get(Adjudication, adjudication_id)
         if not adjudication:
-            raise FileNotFoundError(
-                f"Adjudication with id {adjudication_id} not found"
-            )
+            raise FileNotFoundError(f"Adjudication with id {adjudication_id} not found")
 
         per_page = min(per_page, 200)
         paginated = (
-            Evidence.query.filter_by(
-                adjudication_id=adjudication_id, evidence_type="photo"
-            )
+            Evidence.query
+            .filter_by(adjudication_id=adjudication_id, evidence_type="photo")
             .order_by(Evidence.uploaded_at.asc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
@@ -457,7 +505,7 @@ class InspectionPhotoService:
                 if decoded == "GPSInfo":
                     for gps_tag in value:
                         gps_decoded = ExifTags.GPSTAGS.get(gps_tag, gps_tag)
-                        gps_info[gps_decoded] = value[gps_tag]
+                        gps_info[str(gps_decoded)] = value[gps_tag]
 
             def _convert_to_degrees(ref: str | None, values) -> float | None:
                 if not values or len(values) < 3:
@@ -472,9 +520,7 @@ class InspectionPhotoService:
                     return None
 
             lat = _convert_to_degrees(gps_info.get("GPSLatitudeRef"), gps_info.get("GPSLatitude"))
-            lng = _convert_to_degrees(
-                gps_info.get("GPSLongitudeRef"), gps_info.get("GPSLongitude")
-            )
+            lng = _convert_to_degrees(gps_info.get("GPSLongitudeRef"), gps_info.get("GPSLongitude"))
 
             accuracy: float | None = None
             if "GPSAltitude" in gps_info:
@@ -500,5 +546,8 @@ class InspectionPhotoService:
             except (TypeError, ValueError):
                 pass
         if fallback is not None:
-            return float(fallback)
+            try:
+                return float(fallback)
+            except (TypeError, ValueError):
+                pass
         return 0.0

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import base64
 import io
-import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -141,6 +139,7 @@ class TestSignatureInWordConverter:
 
     def test_signature_embedded_in_docx(self, sig_dir):
         from docx import Document
+
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
         ctx = {
@@ -167,6 +166,7 @@ class TestSignatureInWordConverter:
 
     def test_no_signature_still_works(self):
         from docx import Document
+
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
         ctx = {
@@ -197,8 +197,9 @@ class TestSignatureInHTMLTemplate:
     """HTML template includes signature image when signature_path is provided."""
 
     def _render(self, signature_path=None, fso_name="Suman Saha"):
-        from app import create_app
         from flask import render_template
+
+        from app import create_app
 
         app = create_app()
         with app.app_context():

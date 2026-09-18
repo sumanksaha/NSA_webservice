@@ -31,14 +31,23 @@ app never import it (plan §5.1).
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import threading
 from collections.abc import Callable
 from typing import Any  # ponytail: TypedDict unused — precise per-node types overkill for single-impl graph
 
-from app.rag.agent.nodes import GROUNDEDNESS_THRESHOLD
 from app.rag.agent.state import RAGState
-from app.rag.agent.sufficiency import CLAIM_GROUNDEDNESS_THRESHOLD
+
+# Canonical routing thresholds (single tuning point: thresholds.py).
+# Imported under their historic names so tests and routers keep working.
+from app.rag.agent.thresholds import (
+    CLAIM_GROUNDEDNESS_RETRY_BELOW as CLAIM_GROUNDEDNESS_THRESHOLD,
+)
+from app.rag.agent.thresholds import (
+    GROUNDEDNESS_RETRY_BELOW as GROUNDEDNESS_THRESHOLD,
+)
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -223,39 +232,131 @@ def checkpointer_is_durable() -> bool:
 #: (interrupted) thread can be resumed by a later HTTP call.
 _memory_saver: Any | None = None
 
+#: Cached PostgresSaver singleton + the DSN it was built for.  The saver
+#: holds one psycopg connection for the life of the process (per worker);
+#: recreating it per request leaked connections (one open ``psycopg.connect``
+#: per agent call, never closed) and re-ran ``setup()`` DDL every time.
+#: ``PostgresSaver`` serializes access with its own internal lock, so sharing
+#: one saver across request threads is safe for the sync Flask path (each
+#: gunicorn worker process holds its own singleton).
+_postgres_saver: Any | None = None
+_postgres_dsn: str | None = None
+_postgres_setup_done: set[str] = set()
+_postgres_lock = threading.Lock()
+
+
+def _close_postgres_checkpointer() -> None:
+    """Close and drop the cached PostgresSaver connection (best-effort).
+
+    Called automatically at process exit (``atexit``) and when the DSN
+    changes; tests can also call it (via ``_reset_checkpointers``) to
+    avoid leaking real connections across cases.
+    """
+    global _postgres_saver, _postgres_dsn
+    saver, _postgres_saver = _postgres_saver, None
+    _postgres_dsn = None
+    if saver is None:
+        return
+    try:
+        conn = getattr(saver, "conn", None)
+        close = getattr(conn, "close", None)
+        if callable(close):
+            close()
+    except Exception as exc:
+        logger.debug("closing PostgresSaver connection failed (%s)", exc)
+
+
+def _reset_checkpointers() -> None:
+    """Drop all cached checkpointers (memory + postgres).
+
+    Test/shutdown helper: closes the postgres connection (if any) so no
+    connection survives past the test that created it.
+    """
+    global _memory_saver
+    with _postgres_lock:
+        _close_postgres_checkpointer()
+        _memory_saver = None
+
+
+atexit.register(_close_postgres_checkpointer)
+
 
 def _build_checkpointer(kind: str | None = None) -> Any | None:
     """Build the checkpointer for ``kind`` (memory | postgres | none).
 
     * ``memory``  — :class:`langgraph.checkpoint.memory.MemorySaver`
-      (default; no DB, in-process only — dev/tests).
+      (default; no DB, in-process only — dev/tests).  Cached singleton.
     * ``postgres`` — :class:`langgraph.checkpoint.postgres.PostgresSaver`
       against ``DATABASE_URL``; requires ``langgraph-checkpoint-postgres``
-      + ``psycopg`` (psycopg-binary provides libpq).  Creates the
-      checkpoint tables on first use.  Best-effort: a missing dep / bad
-      DSN degrades to ``None`` (no checkpointing) rather than raising.
+      + ``psycopg`` (psycopg-binary provides libpq).  Cached singleton per
+      DSN: the connection is opened once (``autocommit=True`` + ``dict_row``
+      factory, mirroring ``PostgresSaver.from_conn_string``) and ``setup()``
+      runs once per DSN.  A DSN change closes the old connection before
+      opening a new one.  Best-effort: a missing dep / bad DSN degrades to
+      ``None`` (no checkpointing) rather than raising.
     * ``none`` — no checkpointer (no resume support).
+
+    Security note (2026 checkpointer advisory): persisted checkpoints
+    contain the full ``RAGState`` — user queries, retrieved chunk text,
+    generated answers.  Treat restored state as **untrusted input** (never
+    render checkpoint bytes without going through the normal sanitize /
+    citation-validation path) and as **sensitive data at rest**: production
+    Postgres should use encryption at rest, and operators who need less
+    exposure should prefer ``RAG_AGENT_CHECKPOINTER=memory`` (nothing
+    persisted) or narrow checkpoint retention.  No redaction is applied
+    here by design — the resume path needs the full state to continue.
     """
     kind = (kind or _checkpointer_kind()).lower()
     if kind in ("none", ""):
         return None
     if kind == "postgres":
-        try:
-            import psycopg
-            from langgraph.checkpoint.postgres import PostgresSaver
+        with _postgres_lock:
+            try:
+                import psycopg
+                from langgraph.checkpoint.postgres import PostgresSaver
 
-            dsn = os.environ.get("DATABASE_URL") or ""
-            if not dsn:
-                logger.warning("RAG_AGENT_CHECKPOINTER=postgres but DATABASE_URL unset — no checkpointing")
+                dsn = os.environ.get("DATABASE_URL") or ""
+                if not dsn:
+                    logger.warning("RAG_AGENT_CHECKPOINTER=postgres but DATABASE_URL unset — no checkpointing")
+                    return None
+                global _postgres_saver, _postgres_dsn
+                # Reuse the cached saver while the DSN is unchanged and the
+                # underlying connection is still open.
+                if _postgres_saver is not None and _postgres_dsn == dsn:
+                    try:
+                        if int(getattr(getattr(_postgres_saver, "conn", None), "closed", 0)) == 0:
+                            return _postgres_saver
+                    except (TypeError, ValueError):
+                        pass
+                    # Cached connection died — drop it and reconnect below.
+                    _close_postgres_checkpointer()
+                elif _postgres_saver is not None:
+                    # DSN changed — close the old connection before opening
+                    # a new one so config rotations never leak.
+                    _close_postgres_checkpointer()
+                # Mirror from_conn_string: autocommit (setup() DDL must
+                # commit; a bare connect() would leave it uncommitted) and
+                # dict_row (checkpoint reads index rows by column name).
+                from psycopg.rows import dict_row
+
+                conn = psycopg.connect(dsn, autocommit=True, prepare_threshold=0, row_factory=dict_row)
+                try:
+                    saver = PostgresSaver(conn)  # type: ignore[arg-type]
+                    if dsn not in _postgres_setup_done:
+                        saver.setup()  # idempotent CREATE TABLE IF NOT EXISTS
+                        _postgres_setup_done.add(dsn)
+                except Exception:
+                    try:
+                        conn.close()
+                    except Exception as exc:
+                        logger.debug("closing failed PostgresSaver connection (%s)", exc)
+                    raise
+                _postgres_saver = saver
+                _postgres_dsn = dsn
+                return saver
+            except Exception as exc:
+                logger.warning("PostgresSaver unavailable — no checkpointing (%s)", exc)
                 return None
-            # Normalise for psycopg (accepts postgres:// and postgresql://).
-            conn = psycopg.connect(dsn)
-            saver = PostgresSaver(conn)  # type: ignore[arg-type]
-            saver.setup()  # idempotent CREATE TABLE IF NOT EXISTS
-            return saver
-        except Exception as exc:
-            logger.warning("PostgresSaver unavailable — no checkpointing (%s)", exc)
-            return None
     try:
         from langgraph.checkpoint.memory import MemorySaver
 
@@ -269,9 +370,25 @@ def _build_checkpointer(kind: str | None = None) -> Any | None:
         return None
 
 
+def _resolve_evidence_selector(explicit: bool | None) -> bool:
+    """Resolve the ``evidence_selector`` topology flag.
+
+    An explicit bool pins the topology (tests / callers that manage the
+    flag themselves); ``None`` reads the live ``ENABLE_EVIDENCE_SELECTOR``
+    config on every call so flag flips take effect without a restart.
+    """
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        return bool(cfg.evidence_selector)
+    except Exception:
+        return False
+
+
 def build_graph(
     hitl: bool = False,
     checkpointer: Any | None = None,
+    evidence_selector: bool | None = None,
 ) -> Any:
     """Build and compile the agent ``StateGraph``.
 
@@ -281,6 +398,10 @@ def build_graph(
         checkpointer: A LangGraph checkpointer (e.g. ``MemorySaver`` /
             ``PostgresSaver``) to enable thread resume; ``None`` disables
             checkpointing.
+        evidence_selector: Insert the optional ``evidence`` node between
+            ``retrieve`` and ``generate``.  ``None`` (default) reads the
+            live ``ENABLE_EVIDENCE_SELECTOR`` config; pass an explicit bool
+            to pin the topology regardless of config.
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
     """
@@ -354,7 +475,9 @@ def build_graph(
     builder.add_edge("synthesize", "verify")
 
     # Optional evidence node between retrieve and generate (feature-flagged).
-    if cfg.evidence_selector:
+    # The flag is resolved per build (see _resolve_evidence_selector), never
+    # frozen at import — see _get_graph for the request-path cache.
+    if _resolve_evidence_selector(evidence_selector):
         builder.add_node("evidence", nodes.evidence_node)
         builder.add_edge("retrieve", "evidence")
         builder.add_edge("evidence", "generate")
@@ -367,7 +490,10 @@ def build_graph(
     if hitl:
         # M5: human-in-the-loop gate.  review interrupts; approved → finalize,
         # rejected → expand_query (re-generate with a rewritten query).
-        builder.add_node("review", review_node)
+        # Same (state, cfg=None) registration shape as every other node —
+        # LangGraph tolerates both arities, but uniformity means a future
+        # signature change (e.g. config-aware nodes) touches one pattern.
+        builder.add_node("review", lambda state, cfg=None: review_node(state))
         builder.add_edge("citation_quality", "review")
         builder.add_conditional_edges(
             "review",
@@ -400,11 +526,50 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-# Compiled once at import, per the plan §5.2 ("compile()d once at import").
-# Lazy: importing this module is the only place langgraph gets imported,
-# so the rest of the app is untouched when it is missing.  The default
-# graph carries no checkpointer (zero overhead for the non-resume path);
-# ``run_agent`` rebuilds with a checkpointer only when a thread_id is given.
+#: Request-path graph cache, keyed by ``(hitl, evidence_selector)``.
+#: The compiled topology depends on both flags, so both are part of the key:
+#: flipping ``ENABLE_EVIDENCE_SELECTOR`` at runtime compiles (at most) one
+#: additional graph instead of serving a stale topology — no restart needed.
+#: Graphs carrying a checkpointer are never cached here (the saver identity
+#: can change across calls); they are built fresh per call as before.
+_graph_cache: dict[tuple[bool, bool], Any] = {}
+_graph_cache_lock = threading.Lock()
+
+
+def _get_graph(
+    hitl: bool = False,
+    evidence_selector: bool | None = None,
+    checkpointer: Any | None = None,
+) -> Any:
+    """Return the compiled graph for this request's flag combination.
+
+    ``evidence_selector=None`` resolves the live config on every call, so
+    the served topology always matches the current flags.  Raises
+    ``ImportError`` (with the install hint) when langgraph is missing.
+    """
+    resolved = _resolve_evidence_selector(evidence_selector)
+    if checkpointer is not None:
+        return build_graph(hitl=hitl, checkpointer=checkpointer, evidence_selector=resolved)
+    key = (bool(hitl), resolved)
+    with _graph_cache_lock:
+        graph = _graph_cache.get(key)
+        if graph is None:
+            graph = build_graph(hitl=hitl, evidence_selector=resolved)
+            _graph_cache[key] = graph
+        return graph
+
+
+def _reset_graph_cache() -> None:
+    """Drop all cached compiled graphs (test helper)."""
+    with _graph_cache_lock:
+        _graph_cache.clear()
+
+
+# Compiled once at import for introspection/tests (plan §5.2).  Lazy:
+# importing this module is the only place langgraph gets imported, so the
+# rest of the app is untouched when it is missing.  The request path
+# (``run_agent`` / ``resume_agent``) does NOT use these directly — it goes
+# through ``_get_graph``, which resolves the live topology flags per call.
 try:
     agent_graph: Any = build_graph(hitl=False)
     agent_graph_hitl: Any = build_graph(hitl=True)
@@ -432,29 +597,28 @@ def run_agent(
         checkpointer: Optional explicit checkpointer (bypasses config).
 
     Returns:
-        The final ``RAGState`` dict.  When the graph pauses at the M5
-        review interrupt, the returned dict carries the ``__interrupt__``
-        key (LangGraph convention) instead of a final ``response`` — the
-        caller should detect it and surface the review request.
-    """
-    graph = agent_graph
-    if hitl:
-        graph = agent_graph_hitl
-    if graph is None:
-        raise ImportError(
-            "The LangGraph agent pipeline is not available (langgraph missing). "
-            "Install langgraph to use /api/rag/query/agent."
-        )
+        The ``RAGResponse``-schema dict on completion (unwrapped from the
+        final state — use :func:`_completed_payload` in
+        :mod:`app.rag.agent.service`, which also accepts full-state
+        results, rather than re-unwrapping here).  When the graph pauses
+        at the M5 review interrupt, returns the raw state carrying the
+        ``__interrupt__`` key (LangGraph convention) instead — the caller
+        should detect it and surface the review request.
 
+    The graph comes from the flag-aware ``_get_graph`` cache, so the live
+    ``ENABLE_EVIDENCE_SELECTOR`` value is honoured on every call.
+    """
     if thread_id:
         # Rebuild with a checkpointer so resume works across requests.
         cp = checkpointer if checkpointer is not None else _build_checkpointer()
-        graph = build_graph(hitl=hitl, checkpointer=cp)
+        graph = _get_graph(hitl, checkpointer=cp)
         result = graph.invoke(
             state,
             config={"configurable": {"thread_id": thread_id}},
         )
     else:
+        # Raises ImportError with the install hint when langgraph is missing.
+        graph = _get_graph(hitl)
         result = graph.invoke(state)
 
     # Contract (M3): a completed run returns the ``RAGResponse``-schema
@@ -483,7 +647,7 @@ def resume_agent(
     cp = checkpointer if checkpointer is not None else _build_checkpointer()
     if cp is None:
         raise ValueError("Resume requires a checkpointer (RAG_AGENT_CHECKPOINTER=memory|postgres).")
-    graph = build_graph(hitl=hitl, checkpointer=cp)
+    graph = _get_graph(hitl, checkpointer=cp)
     return graph.invoke(
         Command(resume={"approved": approved}),
         config={"configurable": {"thread_id": thread_id}},

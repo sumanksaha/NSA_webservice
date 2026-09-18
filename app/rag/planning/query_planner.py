@@ -20,10 +20,13 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from app.rag.evidence_task import (
+    AnswerRequirement,
+    AnswerRequirementGraph,
     EvidenceRequirement,
     EvidenceTask,
     RetrievalPlan,
     TaskDAG,
+    get_answer_contract,
 )
 from app.rag.retrieval.identifier import detect_act, detect_section
 from app.rag.retrieval.reference_extractor import CONFIDENCE_MEDIUM, extract_references
@@ -83,7 +86,15 @@ class Requirement:
 
 @dataclass
 class DecompositionResult:
-    """Output of the query decomposition process."""
+    """Output of the query decomposition process.
+
+    The planner extracts requirements first, then derives EvidenceTasks
+    from those requirements (``_construct_tasks``) — each task carries its
+    source requirement id.  The resulting ``AnswerRequirementGraph`` is
+    attached as ``requirement_graph``; the ``tasks``/``dag``/
+    ``evidence_requirements`` fields remain so downstream nodes and the
+    benchmark keep working unchanged.
+    """
 
     complexity: ComplexityLevel
     intent: Intent
@@ -95,6 +106,7 @@ class DecompositionResult:
     coverage_matrix: dict[str, list[str]]  # user_requirement -> task_ids
     total_tasks: int
     evidence_requirements: list[EvidenceRequirement]
+    requirement_graph: Any | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +203,12 @@ _COMPARATIVE_RE = re.compile(
 #: Condition marker stamped on comparative-side requirements so task
 #: construction can tell them apart from ordinary condition lookups.
 _COMPARATIVE_MARKER = "compare: "
+
+#: Condition marker stamped on requirements that must be *resolved through*
+#: the provision even though their evidence type is otherwise foundational
+#: (e.g. the definition in an adversarial permission question is found via
+#: the provision's definitional cross-references, not standalone).
+_RESOLVE_THROUGH_MARKER = "through: provision"
 
 
 def _extract_comparative_sides(query: str) -> list[str]:
@@ -350,7 +368,8 @@ def _extract_requirements(query: str) -> list[Requirement]:
     """Extract structured evidence requirements from the query.
 
     Maps user intent → evidence requirements. Each requirement becomes
-    a potential task in the decomposition.
+    a potential task in the decomposition and an :class:`AnswerRequirement`
+    in the requirement graph.
     """
     requirements: list[Requirement] = []
     req_id = 0
@@ -400,6 +419,18 @@ def _extract_requirements(query: str) -> list[Requirement]:
     req_id += 1
     evidence_type = intent_to_requirement.get(intent, EvidenceRequirement.PROVISION)
     subject = entities.get("instrument", query[:50])
+
+    # Multi-hop retype (Phase 3 torture-test gap): "Which provision
+    # authorizes the X prescribed by Rule Y ..." is a CROSS_REFERENCE
+    # requirement (resolve Rule Y → authorizing section), not a plain
+    # provision lookup — the penalty that follows depends on the resolved
+    # section.
+    if (
+        evidence_type == EvidenceRequirement.PROVISION
+        and _mentions_any(q, ["authorize", "authorise", "prescribed by"])
+        and "rule" in q
+    ):
+        evidence_type = EvidenceRequirement.CROSS_REFERENCE
 
     # Build condition list from entities and negation
     conditions = []
@@ -490,12 +521,151 @@ def _extract_requirements(query: str) -> list[Requirement]:
             )
         )
 
+    # Adversarial permission questions ("Does Section X permit Y?") hinge on
+    # what the Act actually *defines* Y to be — the definition is resolved
+    # through the provision (its definitional cross-references), so the
+    # requirement carries the through-marker and lands in wave 2.
+    if (
+        re.search(r"(?:^|[.?!]\s+)(does|is|are|can|may)\b", q.strip())
+        and _mentions_any(q, ["permit", "allow", "prohibit", "lawful", "legal"])
+        and not any(r.evidence_type == EvidenceRequirement.DEFINITION for r in requirements)
+    ):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.DEFINITION,
+                subject=subject,
+                conditions=[*(conditions or []), _RESOLVE_THROUGH_MARKER],
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
+    # Check for amendment/repeal chains (Phase 3: temporal queries decompose
+    # into the provision/penalty requirement AND the amendment requirement —
+    # "Was Section 12 amended after 2020?" and "...before the 2021 amendment"
+    # both need the amendment chain, not just the current text).
+    if _mentions_any(
+        q,
+        [
+            "amend",
+            "amended",
+            "amendment",
+            "repeal",
+            "repealed",
+            "supersede",
+            "superseded",
+            "substituted",
+        ],
+    ) and not any(r.evidence_type == EvidenceRequirement.AMENDMENT for r in requirements):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.AMENDMENT,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
+    # Check for enforcement-authority mentions ("who can enforce it",
+    # "initiate action", "prosecute") — a distinct requirement from the
+    # provision itself (Phase 3 torture-test gap).
+    if _mentions_any(
+        q,
+        [
+            "enforce",
+            "enforcement",
+            "prosecute",
+            "prosecution",
+            "initiate action",
+            "empowered",
+            "power to",
+            "authority to",
+        ],
+    ) and not any(r.evidence_type == EvidenceRequirement.AUTHORITY for r in requirements):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.AUTHORITY,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
+    # Yes/no offence questions ("Has he committed an offence ...?") need an
+    # explicit apply-the-facts requirement in addition to the provision
+    # (Phase 3 torture-test gap: fact patterns decompose into the rule and
+    # its application to the stated facts).
+    if (
+        _mentions_any(q, ["offence", "offense", "contravention", "liable", "penalized", "penalised"])
+        and re.search(r"(?:^|[.?!]\s+)(does|is|are|has|have|did|can|may|will)\b", q.strip())
+        and not any(r.evidence_type == EvidenceRequirement.FACT_APPLICATION for r in requirements)
+    ):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.FACT_APPLICATION,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
+    # Yes/no permission questions ("Does Section X permit Y?") are answered
+    # through the provision AND its exceptions — the exception check is part
+    # of the minimum sufficient decomposition (reviewer §25 adversarial).
+    if (
+        re.search(r"(?:^|[.?!]\s+)(does|is|are|can|may)\b", q.strip())
+        and _mentions_any(q, ["permit", "allow", "prohibit", "lawful", "legal"])
+        and not any(r.evidence_type == EvidenceRequirement.EXCEPTION for r in requirements)
+    ):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.EXCEPTION,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
     return requirements
 
 
 # ---------------------------------------------------------------------------
 # Task Construction (Stage 2)
 # ---------------------------------------------------------------------------
+
+
+def _has_condition_marker(req: Requirement, marker: str) -> bool:
+    """True when *req* carries *marker* in its conditions.
+
+    Substring check over the joined conditions: markers are prefixes of
+    condition strings (``compare: <side>``, ``through: provision``), not
+    standalone elements, so plain list membership never matches.
+    """
+    return any(marker in str(c) for c in (req.conditions or []))
 
 
 def _construct_tasks(
@@ -516,11 +686,14 @@ def _construct_tasks(
     wave 2 gathers what is *resolved through* wave 1 (penalties,
     exceptions, fact application).  Tasks inside a wave stay independent
     so the executor can retrieve them in parallel.
+
+    Each task is stamped with the requirement id it was derived from so
+    downstream retrieval/sufficiency code can trace task → requirement.
     """
     tasks: list[EvidenceTask] = []
 
-    if complexity == ComplexityLevel.SIMPLE:
-        # Single task covers all requirements
+    if complexity == ComplexityLevel.SIMPLE and len(requirements) == 1:
+        # Single task covers the single requirement
         req = requirements[0]
         task = _build_task(
             task_id="T1",
@@ -532,13 +705,17 @@ def _construct_tasks(
         tasks.append(task)
         return tasks
 
+    # More than one requirement: even at SIMPLE complexity, one task cannot
+    # serve several independently verifiable requirements — fall through to
+    # the wave construction so every requirement gets its own task.
+
     # Partition requirements into foundation (wave 1) and dependent (wave 2)
     # roles.  Wave-2 tasks depend on the wave-1 tasks of the SAME evidence
     # domain; when no wave-1 task shares the domain, they stay independent.
     wave1_reqs: list[Requirement] = []
     wave2_reqs: list[Requirement] = []
     for req in requirements:
-        if req.evidence_type in _WAVE_1_TYPES:
+        if req.evidence_type in _WAVE_1_TYPES and not _has_condition_marker(req, _RESOLVE_THROUGH_MARKER):
             wave1_reqs.append(req)
         else:
             wave2_reqs.append(req)
@@ -557,6 +734,7 @@ def _construct_tasks(
         )
 
     wave2_tasks: list[EvidenceTask] = []
+    wave2_by_domain: dict[str, list[EvidenceTask]] = {}
     for j, req in enumerate(wave2_reqs):
         # Domain-based dependency: a wave-2 task depends on wave-1 tasks in
         # the same legal domain (e.g. penalty resolves through provision).
@@ -566,15 +744,39 @@ def _construct_tasks(
             for t in wave1_tasks
             if domain is not None and _DOMAIN_OF.get(t.evidence_requirement) == domain
         ]
-        wave2_tasks.append(
-            _build_task(
-                task_id=f"T{len(wave1_tasks) + j + 1}",
-                objective=_objective_for_requirement(req),
-                question=_question_for_requirement(req, query),
-                requirement=req,
-                dependency=deps,
-            )
+        if _has_condition_marker(req, _RESOLVE_THROUGH_MARKER) and wave1_tasks and not deps:
+            # An explicit through-marker overrides domain lookup: this
+            # requirement resolves through the wave-1 foundation (e.g. the
+            # definition in a permission question is found via the
+            # provision's definitional cross-references), so it depends on
+            # the first wave-1 task regardless of its own domain.
+            deps = [wave1_tasks[0].task_id]
+        if (
+            not deps
+            and domain is not None
+            and wave2_by_domain.get(domain)
+            and not _has_condition_marker(req, _COMPARATIVE_MARKER)
+        ):
+            # No wave-1 foundation exists in this domain (the query mentions
+            # no provision/definition/cross-reference).  Anchor on the first
+            # wave-2 task already created in the same domain so the DAG keeps
+            # a resolution order — an amendment requirement resolves through
+            # the penalty provision it modifies — instead of leaving both
+            # unanchored.  Never applies to domain-less requirements
+            # (comparative sides carry no marker and stay independent), and
+            # dependencies only point at earlier-created tasks, so this
+            # cannot introduce a cycle.
+            deps = [wave2_by_domain[domain][0].task_id]
+        task = _build_task(
+            task_id=f"T{len(wave1_tasks) + j + 1}",
+            objective=_objective_for_requirement(req),
+            question=_question_for_requirement(req, query),
+            requirement=req,
+            dependency=deps,
         )
+        if domain is not None:
+            wave2_by_domain.setdefault(domain, []).append(task)
+        wave2_tasks.append(task)
 
     tasks = wave1_tasks + wave2_tasks
 
@@ -621,6 +823,10 @@ _DOMAIN_OF: dict[EvidenceRequirement, str] = {
     EvidenceRequirement.FACT_APPLICATION: "provision",
     EvidenceRequirement.PROVISION: "provision",
     EvidenceRequirement.DEFINITION: "definition",
+    # Explicit cross-references are provision-domain foundational evidence:
+    # a penalty/exception resolved through "the provision authorized by Rule
+    # X" depends on the cross-reference task that resolves Rule X.
+    EvidenceRequirement.CROSS_REFERENCE: "provision",
 }
 
 
@@ -686,11 +892,10 @@ def _build_task(
         answer_type=_answer_type_for_requirement(evidence_type),
         must_be_explicit=True,
         retrieval=retrieval,
+        source_requirement_id=requirement.requirement_id,
     )
 
     # Add answer contract
-    from app.rag.evidence_task import get_answer_contract
-
     contract = get_answer_contract(evidence_type)
     task = task.with_answer_contract(contract.required_fields)
 
@@ -749,7 +954,12 @@ def _objective_for_requirement(req: Requirement) -> str:
 
 
 def _question_for_requirement(req: Requirement, query: str) -> str:
-    """Generate a question for a requirement based on the query."""
+    """Generate a question for a requirement based on the query.
+
+    This is the retrieval question for the requirement - the subquery the
+    reviewer's architecture wants to derive *from* the requirement, not the
+    other way around.
+    """
     evidence_type = req.evidence_type
     subject = req.subject
 
@@ -811,12 +1021,11 @@ def _apply_minimum_sufficient(
     Don't decompose more than necessary. For SIMPLE queries, keep 1 task.
     For MULTI_PART, keep parallel tasks. For MULTI_HOP, keep necessary DAG.
     """
-    if complexity == ComplexityLevel.SIMPLE and len(tasks) > 1:
-        # Collapse to single task
-        merged = tasks[0]
-        for task in tasks[1:]:
-            merged = merged.with_dependency(task.task_id)
-        return [merged]
+    # NOTE (Phase 3): the old SIMPLE collapse (merge all tasks into one) is
+    # gone — tasks are now derived one-per-requirement, and a single task
+    # cannot serve several independently verifiable requirements.  Over-
+    # decomposition is prevented upstream: requirements are only extracted
+    # when the query actually mentions them.
 
     # Remove redundant tasks: a task is subsumed by another with the same
     # evidence type AND the same subject question (duplicate requirement
@@ -934,6 +1143,7 @@ class QueryPlanner:
             coverage_matrix=coverage_matrix,
             total_tasks=len(tasks),
             evidence_requirements=evidence_reqs,
+            requirement_graph=_build_requirement_graph(requirements, tasks, query),
         )
 
     def _build_coverage_matrix(self, tasks: list[EvidenceTask], query: str) -> dict[str, list[str]]:
@@ -974,25 +1184,57 @@ class QueryPlanner:
 # ---------------------------------------------------------------------------
 
 
-def _legacy_plan(query: str, query_type: str = "general") -> dict[str, Any]:
-    """Compatibility wrapper for existing plan_node integration."""
-    planner = QueryPlanner()
-    result = planner.plan(query)
-    return {
-        "intent": result.intent.value,
-        "complexity": result.complexity.value,
-        "tasks": [
-            {
-                "task_id": t.task_id,
-                "objective": t.objective,
-                "question": t.question,
-                "evidence_requirement": t.evidence_requirement.value,
-                "dependency": t.dependency,
-                "answer_type": t.answer_type,
-                "answer_contract": (t.answer_contract.required_fields if t.answer_contract else []),
-            }
-            for t in result.tasks
-        ],
-        "total_tasks": result.total_tasks,
-        "dag_valid": not result.dag.has_cycle(),
-    }
+def _build_requirement_graph(requirements: list[Requirement], tasks: list[EvidenceTask], query: str) -> AnswerRequirementGraph:
+    """Build an AnswerRequirementGraph from extracted requirements + derived tasks.
+
+    This bridges the internal Requirement model (private extraction helper) to
+    the public AnswerRequirementGraph the reviewer's architecture wants as the
+    primary decomposition output. Each requirement becomes one
+    AnswerRequirement whose ``question`` is the retrieval question derived for
+    it, and each task dependency becomes a requirement dependency.
+
+    Requirement ids use the planner's internal ``r{N}`` scheme so they stay
+    stable across the Requirement → AnswerRequirement round-trip.
+    """
+    answer_reqs: list[AnswerRequirement] = []
+    for req in requirements:
+        # Find the task(s) derived from this requirement
+        req_tasks = [t for t in tasks if t.source_requirement_id == req.requirement_id]
+        primary_task = req_tasks[0] if req_tasks else None
+
+        answer_reqs.append(
+            AnswerRequirement(
+                id=req.requirement_id,
+                type=req.evidence_type,
+                subject=req.subject,
+                question=primary_task.question if primary_task else _question_for_requirement(req, query),
+                answer_type=primary_task.answer_type if primary_task else _answer_type_for_requirement(req.evidence_type),
+                evidence_required=[req.evidence_type.value],
+                mandatory=True,
+                conditions=list(req.conditions),
+                jurisdiction=req.jurisdiction,
+                temporal_scope=req.temporal_scope,
+            )
+        )
+
+    # Requirement dependencies mirror task dependencies: if task T2 depends on
+    # T1 and T1 was derived from R1 and T2 from R2, then R2 depends on R1.
+    by_task_id = {t.task_id: t for t in tasks}
+    dependencies: list[tuple[str, str]] = []
+    for task in tasks:
+        task_req_id = task.source_requirement_id
+        if not task_req_id:
+            continue
+        for dep_id in task.dependency or []:
+            dep_task = by_task_id.get(dep_id)
+            if dep_task is None:
+                continue
+            dep_req_id = dep_task.source_requirement_id
+            if dep_req_id:
+                dependencies.append((dep_req_id, task_req_id))
+
+    return AnswerRequirementGraph(
+        query=query,
+        requirements=answer_reqs,
+        dependencies=list(dict.fromkeys(dependencies)),  # stable unique
+    )

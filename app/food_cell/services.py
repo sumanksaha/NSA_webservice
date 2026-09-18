@@ -6,11 +6,11 @@ Public API:
 
 Safe to call from both request scope (sync) and Celery background workers.
 
-The triple-target sync (Google Sheets / Airtable / Excel Online) is delegated
+The Sheets sync is delegated
 to the shared :func:`app.services.sync_orchestrator.sync_row` seam — one
 adapter for the sync concern across the whole app. Tests stub that seam
 directly (patch ``food_cell.services.sync_row``); there is no longer a
-food_cell-local duplicate of the triple try/except.
+food_cell-local duplicate of the try/except.
 
 Document rendering / storage lives in :class:`DODocumentRenderer`.
 """
@@ -94,11 +94,10 @@ def generate_and_forward_do_intimation(
     # --- Update Sample forward timestamp ---
     sample.food_cell_forwarded = datetime.now(UTC)
 
-    # --- Sync to parallel targets (synchronous, mandatory) ---
-    # sync_row fans out to Sheets (primary), Airtable, and Excel Online
-    # synchronously — any failure raises and is caught by the caller. The
-    # module key "food_cell_do_intimations" resolves the worksheet/table
-    # for every target.
+    # --- Sync to Sheets (synchronous, mandatory) ---
+    # sync_row forwards to Google Sheets synchronously — any failure raises
+    # and is caught by the caller. The module key "food_cell_do_intimations"
+    # resolves the worksheet for the target.
     sync_row(
         "food_cell_do_intimations",
         renderer.build_sync_row(sample, intimation),

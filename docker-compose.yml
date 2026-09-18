@@ -1,8 +1,9 @@
 # =============================================================================
 # NSA Webservice — local development stack
 #
-# Mirrors Render's service layout: a Flask web process, a Celery worker, a
-# Redis broker, and a PostgreSQL database. Run `docker compose up`.
+# Mirrors Render's service layout: a Flask web process, a Redis store
+# (QStash task-status + frontend polling), and a PostgreSQL database.
+# Run `docker compose up`.
 #
 # Required env vars (see .env.example): DATABASE_URL (set below), REDIS_URL,
 # SECRET_KEY, SPREADSHEET_ID, GOOGLE_CREDENTIALS_JSON, etc.
@@ -28,30 +29,6 @@ services:
       # Persist SQLite fallback / uploads across restarts.
       - instance_data:/app/instance
       - uploads_data:/app/uploads
-
-  worker:
-    build: .
-    image: nsa-webservice:latest
-    container_name: nsa-webservice-worker
-    restart: unless-stopped
-    command: celery -A app.celery worker --loglevel=info
-    env_file: .env
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - instance_data:/app/instance
-      - uploads_data:/app/uploads
-
-  flower:
-    image: mher/flower:1.2
-    container_name: nsa-webservice-flower
-    restart: unless-stopped
-    command: ["flower", "--port=5555", "--broker=redis://redis:6379/0"]
-    ports:
-      - "5555:5555"
-    depends_on:
-      - redis
 
   redis:
     image: redis:7-alpine

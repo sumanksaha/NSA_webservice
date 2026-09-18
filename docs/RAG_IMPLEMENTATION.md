@@ -56,7 +56,7 @@ The RAG pipeline is organized by phase, each building on the previous:
 - **Single retrieval composition root** (`app/rag/retrieval/factory.py`): all construction decisions centralized — cannot drift across consumers.
 - **Injectable cache** (`app/rag/retrieval/cache.py`): `RetrievalCache` (LRU + TTL) with optional parameter on `run_retrieval_pipeline` — testable in isolation (ADR-0002).
 - **Lazy imports**: optional dependencies (LangGraph, Qdrant, sentence-transformers) are never imported at module load. The legacy pipeline and the rest of the app are untouched when they are absent.
-- **Plain-function entry points**: every Celery task (`retrieve_task`, `generate_task`, `evaluate_task`, `ingest_corpus_task`, `embed_and_index_task`) wraps a plain function — tests and routes call the plain function directly.
+- **Plain-function entry points**: every task (`retrieve_task`, `generate_task`, `evaluate_task`, `ingest_corpus_task`, `embed_and_index_task`) is a plain function dispatched via QStash — tests and routes call the function directly.
 - **Shared config seam** (`app/shared/config.py`): all feature flags resolved through `cfg.*` (Pattern A — Flask config in-context, env var out-of-context).
 
 ---
@@ -68,7 +68,7 @@ The RAG pipeline is organized by phase, each building on the previous:
 **Entry points:**
 
 - `app/rag/ingestion.py` — `run_ingest_document()`, `ingest_corpus_dir()`, `make_ingestion_pipeline()`
-- `app/rag/tasks.py` — Celery wrappers (`embed_and_index_task`, `ingest_corpus_task`)
+- `app/rag/tasks.py` — task entry points (`embed_and_index_task`, `ingest_corpus_task`)
 
 **Pipeline flow:**
 
@@ -602,14 +602,14 @@ When `RAG_RERANKER_ENDPOINT` is set, the CE head is scored via TEI HTTP endpoint
 
 **Task patterns:**
 
-- **Celery task wrappers** — plain function + `bind=True` for self-injection
+- **Plain task functions** — no self-injection, no broker wrapper
 - **Resilient pipeline** — `ResilientRAGPipeline` with circuit breaker
 - **Plain-function entry points** — tests and routes call plain functions directly
 
 **Task definitions:**
 
 ```python
-# Celery tasks in app/rag/tasks.py
+# Tasks in app/rag/tasks.py
 - retrieve_task()         # wraps run_retrieval_pipeline
 - generate_task()         # wraps run_generation_pipeline
 - evaluate_task()         # wraps run_evaluate
@@ -619,9 +619,9 @@ When `RAG_RERANKER_ENDPOINT` is set, the CE head is scored via TEI HTTP endpoint
 
 **Task registration:**
 
-- **Auto-registration** — when Celery instance is available
-- **Graceful degradation** — plain functions when Celery unavailable
-- **Task naming** — `rag.*` with descriptive names
+- **QStash registry** — `TASK_REGISTRY` maps names to plain functions,
+  dispatched via webhook with synchronous inline fallback
+- **Task naming** — `rag.*` logical names in the registry
 
 ---
 
@@ -670,7 +670,7 @@ When `RAG_RERANKER_ENDPOINT` is set, the CE head is scored via TEI HTTP endpoint
 | RAG E2E       | `tests/test_rag_e2e.py`, `tests/test_rag_e2e_verification.py`          | End-to-end integration |
 | RAG Interface | `tests/test_rag_interface.py`, `tests/test_rag_routes.py`              | HTTP endpoints         |
 | RAG Phase 4   | `tests/test_rag_phase4_measurement.py`                                 | Evaluation metrics     |
-| RAG Tasks     | `tests/test_rag_tasks.py`                                              | Celery task wrappers   |
+| RAG Tasks     | `tests/test_rag_tasks.py`                                              | Plain task functions   |
 | RAG UI GAPS   | `tests/test_rag_ui_gaps.py`                                            | UI functionality       |
 
 **Testing approach:**
@@ -698,7 +698,7 @@ When `RAG_RERANKER_ENDPOINT` is set, the CE head is scored via TEI HTTP endpoint
 
 - **Render** — modern web hosting with auto-deploy
 - **Docker** — containerized deployment (`Dockerfile`)
-- **Celery** — task queue for async processing
+- **QStash** — task queue for async processing (webhook delivery + sync fallback)
 - **Qdrant** — vector database for embeddings
 - **PostgreSQL** — primary database for metadata and state
 
@@ -770,7 +770,7 @@ services:
 ### Compatibility constraints
 
 1. **Flask app context** — config resolution requires proper Flask app context
-2. **Celery availability** — task queue required for production deployment
+2. **QStash credentials** — `QSTASH_TOKEN` + signing keys + `PUBLIC_BASE_URL` required for async dispatch (sync inline fallback otherwise)
 3. **Qdrant version** — compatible with Qdrant 1.x/2.x
 4. **LangGraph version** — requires specific version for checkpointer integration
 

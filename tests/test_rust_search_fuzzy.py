@@ -311,9 +311,14 @@ def test_fuzzy_threshold_boundary():
     spans_match = nsa_rust.find_match_spans("Acmee", "Acme Foods", 60.0)
     assert json.loads(spans_match) != []
 
-    # With a very high threshold, no fuzzy match
+    # With a very high threshold, no fuzzy match for a typo term ...
     spans_nomatch = nsa_rust.find_match_spans("Acmee", "Acme Foods", 999.0)
-    assert json.loads(spans_nomatch) != []  # exact "Acme" still matches
+    assert json.loads(spans_nomatch) == []
+    assert _find_match_spans("Acmee", "Acme Foods", 999.0) == []
+    # ... but an exact substring still matches regardless of threshold.
+    spans_exact = nsa_rust.find_match_spans("Acme", "Acme Foods", 999.0)
+    assert json.loads(spans_exact) != []
+    assert _find_match_spans("Acme", "Acme Foods", 999.0) != []
 
 
 # ---------------------------------------------------------------------------

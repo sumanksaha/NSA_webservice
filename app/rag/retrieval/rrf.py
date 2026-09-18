@@ -10,6 +10,13 @@ across:
 The shared function computes *scores only* — callers manage which object to
 keep per key (first-wins vs keep-higher-score), pre-processing (KG dedup),
 and top-k slicing in their own domain-specific wrappers.
+
+Deliberate exceptions (2026-09-12 review): ``evaluation/rerank_legal.py``
+(``rrf_scores``) and ``scripts/enrichment/evaluate_retrieval.py``
+(``rrf_fuse``) keep tiny local copies. They are offline experiment fixtures
+whose grid-search results must stay reproducible and independent of ``app/``
+refactors; do not "fix" them onto this core without re-baselining the
+affected evaluation reports.
 """
 
 from __future__ import annotations

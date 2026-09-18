@@ -20,19 +20,18 @@ from typing import Any
 from app.rag.evidence_task import AnswerContract, EvidenceTask
 
 # --------------------------------------------------------------------------- #
-# Thresholds (single tuning point for the rubric)
+# Thresholds — canonical values live in app.rag.agent.thresholds (single
+# tuning point for every routing/gating constant).  The names below are
+# kept as aliases so existing imports keep working.
 # --------------------------------------------------------------------------- #
+from app.rag.agent.thresholds import (
+    CLAIM_GROUNDEDNESS_RETRY_BELOW,
+    SUFFICIENCY_SIGNAL_THRESHOLDS,
+    SUFFICIENT_TASK_RATIO,
+)
 
 #: Signal thresholds — a signal passes at >= its threshold.
-THRESHOLDS: dict[str, float] = {
-    "coverage": 0.2,  # >= 1 solid chunk (narrow subquestions need one good provision)
-    "relevance": 0.35,  # median retrieval score (reranker-normalized floor)
-    "authority": 0.5,  # any statute + no low-authority-only evidence
-    "specificity": 0.6,  # section-stamped or numeric evidence share
-    "completeness": 1.0,  # all contract required fields retrievable
-    "contradiction": 0.0,  # conflict ratio must stay below this
-    "temporal": 0.0,  # temporal-restriction conflict ratio below this
-}
+THRESHOLDS: dict[str, float] = SUFFICIENCY_SIGNAL_THRESHOLDS
 
 #: Minimum share of chunks that must be section-stamped (or carry numeric
 #: provisions) for the specificity signal to pass.
@@ -40,7 +39,7 @@ _SPECIFICITY_SHARE = 0.3
 
 #: Minimum claim-groundedness (share of answer claims entailed by evidence,
 #: item 15) for the generated answer to finalize without a targeted retry.
-CLAIM_GROUNDEDNESS_THRESHOLD = 0.5
+CLAIM_GROUNDEDNESS_THRESHOLD = CLAIM_GROUNDEDNESS_RETRY_BELOW
 
 #: Chunk count treated as "full coverage" when normalizing (matches top_k=10).
 _COVERAGE_NORM = 4
@@ -97,12 +96,23 @@ def chunk_authority_score(chunk: dict[str, Any]) -> float:
     return min(1.0, score)
 
 
+def chunk_temporally_invalid(chunk: dict[str, Any]) -> bool:
+    """True when a chunk's text marks it repealed/superseded/omitted.
+
+    Scope-free per-chunk check (no task temporal scope needed): repeal
+    language means the text describes a provision no longer in force.
+    Effective-date-vs-scope conflicts need the task's scope and stay in
+    :func:`_temporal_conflicts`.
+    """
+    return bool(REPEALED_RE.search(str(chunk.get("text") or "")))
+
+
 # --------------------------------------------------------------------------- #
 # Temporal validity
 # --------------------------------------------------------------------------- #
 
 #: Phrases that mark a chunk as temporally superseded/restricted.
-_REPEALED_RE = re.compile(r"\b(repealed|superseded|omitted|substituted by)\b", re.IGNORECASE)
+REPEALED_RE = re.compile(r"\b(repealed|superseded|omitted|substituted by)\b", re.IGNORECASE)
 _AMENDED_RE = re.compile(r"\bamended\b", re.IGNORECASE)
 #: Effectiveness phrases ("with effect from", "w.e.f.", "effective ... 2021").
 _EFFECTIVE_RE = re.compile(
@@ -131,7 +141,7 @@ def _temporal_conflicts(chunks: list[dict[str, Any]], task: Any) -> list[str]:
     for chunk in chunks:
         text = str(chunk.get("text") or "")
         cid = str(chunk.get("chunk_id") or "")
-        if _REPEALED_RE.search(text):
+        if REPEALED_RE.search(text):
             conflicts.append(cid)
             continue
         m = _EFFECTIVE_RE.search(text)
@@ -224,9 +234,7 @@ _FIELD_HINTS: dict[str, list[str]] = {
 }
 
 
-def _contract_retrievable(
-    contract: AnswerContract | None, chunks: list[dict[str, Any]]
-) -> tuple[bool, list[str]]:
+def _contract_retrievable(contract: AnswerContract | None, chunks: list[dict[str, Any]]) -> tuple[bool, list[str]]:
     """(all_required_fields_hinted, missing_fields) for one task's contract.
 
     A field is "retrievable" when at least one chunk's text carries one of
@@ -267,6 +275,11 @@ class TaskSufficiency:
     signals: dict[str, dict[str, Any]] = field(default_factory=dict)
     failures: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)
+    # Answer-requirement identity (Phase 3): which requirement in the
+    # AnswerRequirementGraph this task serves (``EvidenceTask.
+    # source_requirement_id``).  ``None`` for tasks planned before the
+    # requirement graph existed (backward compatible).
+    requirement_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -275,6 +288,7 @@ class TaskSufficiency:
             "signals": self.signals,
             "failures": self.failures,
             "conflicts": self.conflicts,
+            "requirement_id": self.requirement_id,
         }
 
 
@@ -305,14 +319,15 @@ class SufficiencyAssessor:
         }
 
         # 2. Relevance — median retrieval score (reranker output).
-        scores = sorted(
-            float(c.get("score") or 0.0) for c in chunks if isinstance(c, dict)
-        )
+        scores = sorted(float(c.get("score") or 0.0) for c in chunks if isinstance(c, dict))
         median_score = scores[len(scores) // 2] if scores else 0.0
         signals["relevance"] = {
             "value": round(median_score, 3),
             "passed": n > 0 and median_score >= self.thresholds["relevance"],
-            "detail": {"min": round(min(scores), 3) if scores else 0.0, "max": round(max(scores), 3) if scores else 0.0},
+            "detail": {
+                "min": round(min(scores), 3) if scores else 0.0,
+                "max": round(max(scores), 3) if scores else 0.0,
+            },
         }
 
         # 3. Authority — max authority weight in the evidence (item 17).
@@ -329,8 +344,10 @@ class SufficiencyAssessor:
         for c in chunks:
             if not isinstance(c, dict):
                 continue
-            if c.get("section_number") or _EFFECTIVE_RE.search(str(c.get("text") or "")) or re.search(
-                r"\b(₹|rs\.?)\s*[\d,]+", str(c.get("text") or ""), re.IGNORECASE
+            if (
+                c.get("section_number")
+                or _EFFECTIVE_RE.search(str(c.get("text") or ""))
+                or re.search(r"\b(₹|rs\.?)\s*[\d,]+", str(c.get("text") or ""), re.IGNORECASE)
             ):
                 specific += 1
         specificity_share = specific / n if n else 0.0
@@ -341,9 +358,7 @@ class SufficiencyAssessor:
         }
 
         # 5. Completeness — contract required fields retrievable.
-        retrievable, missing_fields = _contract_retrievable(
-            getattr(task, "answer_contract", None), chunks
-        )
+        retrievable, missing_fields = _contract_retrievable(getattr(task, "answer_contract", None), chunks)
         signals["completeness"] = {
             "value": 1.0 if retrievable else 0.0,
             "passed": retrievable,
@@ -375,6 +390,7 @@ class SufficiencyAssessor:
             signals=signals,
             failures=failures,
             conflicts=signals["contradiction"]["detail"]["conflicts"],
+            requirement_id=task_requirement_id(task),
         )
 
 
@@ -412,10 +428,29 @@ def signal_to_failure(signal: str) -> str:
     return _SIGNAL_TO_FAILURE.get(signal, "INSUFFICIENT_EVIDENCE_COVERAGE")
 
 
+def task_requirement_id(task: Any) -> str | None:
+    """Extract the answer-requirement id a task was derived from.
+
+    Reads the first-class ``source_requirement_id`` field (Phase 3).  Falls
+    back to the legacy ``requirement_id:{id}`` entity marker so tasks
+    serialized before the field existed (in-flight checkpoints, cached
+    plans) still resolve; returns ``None`` when neither is present.
+    """
+    req_id = getattr(task, "source_requirement_id", None)
+    if req_id:
+        return str(req_id)
+    for entity in getattr(task, "entities", None) or []:
+        if isinstance(entity, str) and entity.startswith("requirement_id:"):
+            legacy = entity.split(":", 1)[1].strip()
+            if legacy:
+                return legacy
+    return None
+
+
 def aggregate_verdicts(
     verdicts: list[TaskSufficiency],
     *,
-    min_sufficient_ratio: float = 0.5,
+    min_sufficient_ratio: float = SUFFICIENT_TASK_RATIO,
 ) -> dict[str, Any]:
     """Fold per-task verdicts into the gate's routing signals.
 
@@ -435,9 +470,7 @@ def aggregate_verdicts(
             "failure_codes": [],
             "verdicts": [],
         }
-    sufficient_count = sum(
-        1 for v in verdicts if not (set(v.failures) & GATING_SIGNALS)
-    )
+    sufficient_count = sum(1 for v in verdicts if not (set(v.failures) & GATING_SIGNALS))
     failed_tasks = [v.task_id for v in verdicts if v.failures]
     failure_codes: list[str] = []
     for v in verdicts:

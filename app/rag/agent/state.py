@@ -76,6 +76,10 @@ class RAGState(TypedDict, total=False):
     # Per-task 7-signal sufficiency verdicts (Phase 2, item 14):
     # list of TaskSufficiency.to_dict() — signals/failures/conflicts per task.
     task_sufficiency: list[dict[str, Any]]
+    # Per-requirement sufficiency (Phase 3): requirement_id → all tasks serving
+    # that requirement passed the rubric.  Keyed by AnswerRequirementGraph ids
+    # so the benchmark's evidence_completeness (EC) metric has real-run data.
+    requirement_sufficiency: dict[str, bool]
     # Live verification signals (Phase 2, item 16) aggregated by the gate:
     # has_conflicts — pairwise evidence contradictions found;
     # temporal_conflict — superseded/effective-date conflicts found;
@@ -173,6 +177,7 @@ def initial_state(
         "tasks_completed": 0,
         "task_results": {},
         "task_sufficiency": [],
+        "requirement_sufficiency": {},
         "has_conflicts": False,
         "temporal_conflict": False,
         "authority_score": 1.0,

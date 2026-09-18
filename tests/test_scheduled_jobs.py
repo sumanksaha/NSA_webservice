@@ -17,7 +17,14 @@ from app.services.scheduled_jobs import JOBS, register_all
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    for key in ("ENABLE_BACKUP_SCHEDULE", "RAG_ENABLE_INGESTION_SCHEDULE", "RAG_INGESTION_CRON", "RAG_CORPUS_DIR"):
+    for key in (
+        "ENABLE_BACKUP_SCHEDULE",
+        "ENABLE_SNAPSHOT_SCHEDULE",
+        "RAG_ENABLE_INGESTION_SCHEDULE",
+        "RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
+        "RAG_INGESTION_CRON",
+        "RAG_CORPUS_DIR",
+    ):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -32,14 +39,41 @@ def test_jobs_are_enumerable_and_declared():
             assert job.cron_key in declared, job.cron_key
 
 
-def test_nothing_registered_when_all_flags_off():
+def test_nothing_registered_when_all_flags_off(monkeypatch):
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
     calls = []
     assert register_all(app=None, publisher=lambda *a, **k: calls.append((a, k))) == []
     assert calls == []
 
 
+def test_snapshot_schedule_on_by_default():
+    """The nightly snapshot is enabled by default (as the old Celery beat
+    was always on). It only *runs* once QStash is configured — without
+    credentials the schedule registers as disabled and logs a warning."""
+    calls = []
+    results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
+    assert [(a, k) for a, k in calls] == [(("create_daily_db_snapshot",), {"schedule": "0 0 * * *", "payload": {}})]
+    assert [r["job"] for r in results] == ["create_daily_db_snapshot"]
+
+
+def test_log_cleanup_schedule_opt_in(monkeypatch):
+    """The RAG log cleanup runs only when explicitly enabled."""
+    from app.utils.qstash_client import resolve_task
+
+    assert resolve_task("cleanup_rag_query_logs").__name__ == "cleanup_rag_query_logs"
+    monkeypatch.setenv("RAG_ENABLE_LOG_CLEANUP_SCHEDULE", "true")
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
+    calls = []
+    results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
+    assert [(a, k) for a, k in calls] == [
+        (("cleanup_rag_query_logs",), {"schedule": "0 4 * * 0", "payload": {}})
+    ]
+    assert [r["job"] for r in results] == ["cleanup_rag_query_logs"]
+
+
 def test_backup_schedule_registered_when_enabled(monkeypatch):
     monkeypatch.setenv("ENABLE_BACKUP_SCHEDULE", "true")
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
     captured = {}
 
     def fake_publisher(task_name, schedule, payload):
@@ -53,6 +87,7 @@ def test_backup_schedule_registered_when_enabled(monkeypatch):
 
 
 def test_ingestion_schedule_gated_on_corpus_dir(monkeypatch):
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
     monkeypatch.setenv("RAG_ENABLE_INGESTION_SCHEDULE", "true")
     # No RAG_CORPUS_DIR → skipped entirely.
     assert register_all(app=None, publisher=lambda *a, **k: {}) == []
@@ -76,6 +111,7 @@ def test_ingestion_schedule_gated_on_corpus_dir(monkeypatch):
 
 def test_publisher_failure_is_reported_not_raised(monkeypatch):
     monkeypatch.setenv("ENABLE_BACKUP_SCHEDULE", "true")
+    monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
 
     def boom(*a, **k):
         raise RuntimeError("qstash down")

@@ -19,6 +19,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from app.rag.entity_extractor import _plain_entity_names
 

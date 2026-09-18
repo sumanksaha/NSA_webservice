@@ -362,14 +362,16 @@ fn default_true() -> bool {
 }
 
 pub fn remove_ocr_artifacts(text: &str) -> (String, Vec<RemovedItem>) {
-    let original_len = text.len();
+    // Count in chars (Python `len`), not bytes: multi-byte garbage such as
+    // ● (3 bytes) must count as one removed char.
+    let original_len = text.chars().count();
     let mut cleaned = String::with_capacity(text.len());
     for ch in text.chars() {
         if is_allowed_ocr(ch as u32) {
             cleaned.push(ch);
         }
     }
-    let chars_removed = original_len - cleaned.len();
+    let chars_removed = original_len - cleaned.chars().count();
     if chars_removed > 0 {
         (
             cleaned,

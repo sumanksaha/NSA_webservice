@@ -1,4 +1,5 @@
 import os
+
 from sqlalchemy import create_engine, text
 
 os.environ['DATABASE_URL'] = 'postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres'
@@ -32,7 +33,7 @@ conn = e.connect()
 lic_count = conn.execute(text("SELECT COUNT(*) FROM fssai_licenses")).scalar()
 reg_count = conn.execute(text("SELECT COUNT(*) FROM fssai_registrations")).scalar()
 conn.close()
-print(f"\nFinal counts:")
+print("\nFinal counts:")
 print(f"  fssai_licenses: {lic_count} rows")
 print(f"  fssai_registrations: {reg_count} rows")
-print(f"\nDELETE protection status verified.")
+print("\nDELETE protection status verified.")

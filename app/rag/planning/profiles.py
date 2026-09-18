@@ -13,7 +13,6 @@ Upgrade path: richer profile languages, runtime profile editing.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass

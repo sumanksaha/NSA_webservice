@@ -1,4 +1,7 @@
-import sys, os, re
+import os
+import re
+import sys
+
 sys.stdout.reconfigure(encoding='utf-8')
 root = 'app'
 # All setting keys

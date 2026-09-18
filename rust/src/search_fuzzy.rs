@@ -65,126 +65,182 @@ pub fn ratio(s1: &str, s2: &str) -> f64 {
     (lcs * 2) as f64 / (n1 + n2) as f64 * 100.0
 }
 
+/// Indel edit distance between two char slices (`len(a) + len(b) - 2 * LCS`).
+fn indel_distance(a: &[char], b: &[char]) -> usize {
+    a.len() + b.len() - 2 * lcs_length(a, b)
+}
+
+/// Normalized Indel similarity from a distance and length sum (0–100).
+///
+/// Matches rapidfuzz's `_norm_distance`: `100 - 100 * dist / lensum`
+/// (100 when the length sum is 0).
+fn norm_distance(dist: usize, lensum: usize) -> f64 {
+    if lensum == 0 {
+        return 100.0;
+    }
+    100.0 - 100.0 * dist as f64 / lensum as f64
+}
+
+/// Indel similarity of two char slices (0-100), the core of `fuzz.ratio`.
+fn similarity_chars(a: &[char], b: &[char]) -> f64 {
+    let (n1, n2) = (a.len(), b.len());
+    if n1 == 0 && n2 == 0 {
+        return 100.0;
+    }
+    if n1 == 0 || n2 == 0 {
+        return 0.0;
+    }
+    norm_distance(indel_distance(a, b), n1 + n2)
+}
+
 // ---------------------------------------------------------------------------
-// partial_ratio — matches rapidfuzz `fuzz.partial_ratio`
+// partial_ratio — matches rapidfuzz `fuzz.partial_ratio` (short needle)
 // ---------------------------------------------------------------------------
 
-/// `fuzz.partial_ratio(s1, s2)` — best-window Indel ratio (0–100).
+/// Core of `partial_ratio`: best alignment of `shorter` inside `longer`.
 ///
-/// Finds the shorter string, slides it across all substrings of the longer
-/// string of the same length, and returns the max `ratio`.
+/// Mirrors rapidfuzz's short-needle (`len ≤ 64`) implementation exactly —
+/// every alignment family is scored, not just fixed-length windows:
+/// 1. prefixes `longer[..i]` for `1 ≤ i < len(shorter)`,
+/// 2. fixed windows `longer[i..i+len(shorter)]`,
+/// 3. suffixes `longer[i..]`.
+/// A candidate is skipped unless its boundary char occurs in `shorter`
+/// (the charset pre-filter).  Returns `(score, char_start, char_end)` with
+/// the span in `longer` coords.  Caller guarantees `shorter` is non-empty
+/// and `len(shorter) <= len(longer)`.
+fn partial_impl(shorter: &[char], longer: &[char]) -> (f64, usize, usize) {
+    let n_short = shorter.len();
+    let n_long = longer.len();
+    let charset: HashSet<char> = shorter.iter().copied().collect();
+
+    let mut best: f64 = 0.0;
+    let mut best_start: usize = 0;
+    let mut best_end: usize = n_short.min(n_long);
+
+    // 1) Prefixes longer[..i].
+    for i in 1..n_short {
+        if !charset.contains(&longer[i - 1]) {
+            continue;
+        }
+        let r = similarity_chars(shorter, &longer[..i]);
+        if r > best {
+            best = r;
+            best_start = 0;
+            best_end = i;
+        }
+        if best >= 100.0 {
+            return (best, best_start, best_end);
+        }
+    }
+
+    // 2) Fixed windows longer[i..i + n_short].
+    for i in 0..(n_long - n_short) {
+        if !charset.contains(&longer[i + n_short - 1]) {
+            continue;
+        }
+        let r = similarity_chars(shorter, &longer[i..i + n_short]);
+        if r > best {
+            best = r;
+            best_start = i;
+            best_end = i + n_short;
+        }
+        if best >= 100.0 {
+            return (best, best_start, best_end);
+        }
+    }
+
+    // 3) Suffixes longer[i..].
+    for i in (n_long - n_short)..n_long {
+        if !charset.contains(&longer[i]) {
+            continue;
+        }
+        let r = similarity_chars(shorter, &longer[i..]);
+        if r > best {
+            best = r;
+            best_start = i;
+            best_end = n_long;
+        }
+        if best >= 100.0 {
+            return (best, best_start, best_end);
+        }
+    }
+
+    (best, best_start, best_end)
+}
+
+/// `fuzz.partial_ratio(s1, s2)` — best-alignment Indel ratio (0–100).
+///
+/// Optimal alignment of the shorter string inside the longer one.  When
+/// both strings have equal length and the forward score is not perfect,
+/// the reverse direction is also tried (mirrors rapidfuzz).  Both empty →
+/// 100; one empty → 0.
 pub fn partial_ratio(s1: &str, s2: &str) -> f64 {
     let c1: Vec<char> = s1.chars().collect();
     let c2: Vec<char> = s2.chars().collect();
+    if c1.is_empty() && c2.is_empty() {
+        return 100.0;
+    }
     if c1.is_empty() || c2.is_empty() {
         return 0.0;
     }
-    let (shorter, longer) = if c1.len() <= c2.len() {
-        (c1.as_slice(), c2.as_slice())
+    if c1.len() <= c2.len() {
+        let (score, _, _) = partial_impl(&c1, &c2);
+        if score != 100.0 && c1.len() == c2.len() {
+            let (rev_score, _, _) = partial_impl(&c2, &c1);
+            if rev_score > score {
+                return rev_score;
+            }
+        }
+        score
     } else {
-        (c2.as_slice(), c1.as_slice())
-    };
-    let n_short = shorter.len();
-    let n_long = longer.len();
-    if n_short == n_long {
-        return ratio(s1, s2);
+        let (score, _, _) = partial_impl(&c2, &c1);
+        score
     }
-    let mut best: f64 = 0.0;
-    let shorter_str: String = shorter.iter().collect();
-    for start in 0..=(n_long - n_short) {
-        let window: String = longer[start..start + n_short].iter().collect();
-        let r = ratio(&shorter_str, &window);
-        if r > best {
-            best = r;
-        }
-        if best >= 100.0 {
-            break;
-        }
-    }
-    best
 }
 
-/// `fuzz.partial_ratio_alignment(s1, s2)` — best-window Indel ratio + span.
+/// `fuzz.partial_ratio_alignment(s1, s2)` — best-alignment Indel ratio + span.
 ///
 /// Returns `(dest_start, dest_end, best_score)` where `dest_start`/`dest_end`
 /// are byte offsets into **s2** (the second argument).  This matches rapidfuzz's
-/// `Alignment.dest_start`/`Alignment.dest_end` semantics:
-/// - When `s2` is the longer string (common: short query, long text), the
-///   dest span is the best-matching window in `s2`.
-/// - When `s1` is longer, the dest span covers all of `s2` (the shorter
-///   string is the "source" matched within the longer `s1`).
+/// `ScoreAlignment` semantics:
+/// - When `s1` is shorter-or-equal, the dest span is the winning alignment
+///   (prefix, window, or suffix) in `s2`.
+/// - When `s1` is longer, the dest span covers all of `s2` (the winning
+///   alignment lives in `s1`; only its score is reported).
+/// - Equal length with an imperfect forward score also tries the reverse
+///   direction and keeps the winner.
+/// Both empty → `(0, 0, 100.0)`; one empty → `(0, 0, 0.0)`.
 pub fn partial_ratio_alignment(s1: &str, s2: &str) -> Option<(usize, usize, f64)> {
     let c1: Vec<char> = s1.chars().collect();
     let c2: Vec<char> = s2.chars().collect();
+    if c1.is_empty() && c2.is_empty() {
+        return Some((0, 0, 100.0));
+    }
     if c1.is_empty() || c2.is_empty() {
-        return None;
+        return Some((0, 0, 0.0));
     }
 
-    if c1.len() == c2.len() {
-        let score = ratio(s1, s2);
-        return Some((0, s2.len(), score));
-    }
-
-    // Determine shorter/longer.  `s2` is always "dest".
-    let (shorter_chars, longer_str, s2_is_longer) = if c1.len() <= c2.len() {
-        // s2 is longer → dest = window in s2
-        (c1.as_slice(), s2, true)
-    } else {
-        // s1 is longer → dest = entire s2 (the shorter)
-        (c2.as_slice(), s1, false)
+    // Byte offset of each char index in s2 (plus the end sentinel).
+    let mut byte_offsets: Vec<usize> = s2.char_indices().map(|(b, _)| b).collect();
+    byte_offsets.push(s2.len());
+    let to_bytes = |char_start: usize, char_end: usize| -> (usize, usize) {
+        (byte_offsets[char_start], byte_offsets[char_end])
     };
-    let n_short = shorter_chars.len();
-    let longer_chars: Vec<char> = longer_str.chars().collect();
-    let n_long = longer_chars.len();
 
-    if s2_is_longer {
-        // s2 is longer: dest_start/dest_end are a window in s2.
-        // Pre-compute byte offsets for each char index of s2.
-        let byte_offsets: Vec<usize> = s2.char_indices().map(|(b, _)| b).collect();
-
-        let mut best_score = 0.0;
-        let mut best_char_start = 0usize;
-
-        for start in 0..=(n_long - n_short) {
-            let window: String = longer_chars[start..start + n_short].iter().collect();
-            let shorter_str: String = shorter_chars.iter().collect();
-            let r = ratio(&shorter_str, &window);
-            if r > best_score {
-                best_score = r;
-                best_char_start = start;
-            }
-            if best_score >= 100.0 {
-                break;
+    if c1.len() <= c2.len() {
+        let (score, cs, ce) = partial_impl(&c1, &c2);
+        if score != 100.0 && c1.len() == c2.len() {
+            let (rev_score, _, _) = partial_impl(&c2, &c1);
+            if rev_score > score {
+                return Some((0, s2.len(), rev_score));
             }
         }
-
-        let char_end = best_char_start + n_short;
-        let byte_start = byte_offsets[best_char_start];
-        let byte_end = if char_end < byte_offsets.len() {
-            byte_offsets[char_end]
-        } else {
-            s2.len()
-        };
-
-        Some((byte_start, byte_end, best_score))
+        let (bs, be) = to_bytes(cs, ce);
+        Some((bs, be, score))
     } else {
-        // s1 is longer: dest covers all of s2, score = best window in s1.
-        let shorter_str: String = shorter_chars.iter().collect();
-        let mut best_score = 0.0;
-
-        for start in 0..=(n_long - n_short) {
-            let window: String = longer_chars[start..start + n_short].iter().collect();
-            let r = ratio(&shorter_str, &window);
-            if r > best_score {
-                best_score = r;
-            }
-            if best_score >= 100.0 {
-                break;
-            }
-        }
-
-        // dest = entire s2 (0 to len(s2) in bytes)
-        Some((0, s2.len(), best_score))
+        // s1 is longer: dest covers all of s2, score from impl(s2, s1).
+        let (score, _, _) = partial_impl(&c2, &c1);
+        Some((0, s2.len(), score))
     }
 }
 
@@ -194,16 +250,15 @@ pub fn partial_ratio_alignment(s1: &str, s2: &str) -> Option<(usize, usize, f64)
 
 /// `fuzz.token_set_ratio(s1, s2)` — token-set Indel ratio (0–100).
 ///
-/// Mirrors rapidfuzz: splits on whitespace, computes set intersection &
-/// differences, then returns the max `ratio` across comparison strings
-/// (`intersection + diff1` vs `intersection + diff2`, and
-/// `intersection + diff1 + diff2` vs itself).
+/// Mirrors rapidfuzz exactly: tokenless either side → 0; a non-empty
+/// intersection subsuming one side → 100; otherwise the max of the
+/// length-normalized Indel distance between the sorted difference strings
+/// (normalized by the sector-adjusted length sum) and the two
+/// sector-vs-sector+diff ratios.
 pub fn token_set_ratio(s1: &str, s2: &str) -> f64 {
     let tokens1: Vec<&str> = s1.split_whitespace().collect();
     let tokens2: Vec<&str> = s2.split_whitespace().collect();
-    if tokens1.is_empty() && tokens2.is_empty() {
-        return 100.0;
-    }
+    // FuzzyWuzzy compat: either side tokenless → 0 (even both-empty).
     if tokens1.is_empty() || tokens2.is_empty() {
         return 0.0;
     }
@@ -211,31 +266,41 @@ pub fn token_set_ratio(s1: &str, s2: &str) -> f64 {
     let set1: HashSet<&str> = tokens1.iter().copied().collect();
     let set2: HashSet<&str> = tokens2.iter().copied().collect();
 
-    let mut intersection = set1.intersection(&set2).copied().collect::<Vec<_>>();
+    let intersection = set1.intersection(&set2).copied().collect::<Vec<_>>();
     let mut diff_ab: Vec<&str> = set1.difference(&set2).copied().collect();
     let mut diff_ba: Vec<&str> = set2.difference(&set1).copied().collect();
-    intersection.sort();
     diff_ab.sort();
     diff_ba.sort();
 
-    let sorted_sect = intersection.join(" ");
-    let combined_1a = format!("{} {}", sorted_sect, diff_ab.join(" "));
-    let combined_1b = format!("{} {}", sorted_sect, diff_ba.join(" "));
-    let combined_all = format!(
-        "{} {} {}",
-        sorted_sect,
-        diff_ab.join(" "),
-        diff_ba.join(" ")
+    // One token set subsumes the other → perfect score (FuzzyWuzzy compat).
+    if !intersection.is_empty() && (diff_ab.is_empty() || diff_ba.is_empty()) {
+        return 100.0;
+    }
+
+    let diff_ab_joined = diff_ab.join(" ");
+    let diff_ba_joined = diff_ba.join(" ");
+    let ab_len: usize = diff_ab_joined.chars().count();
+    let ba_len: usize = diff_ba_joined.chars().count();
+    // Length of the space-joined intersection (order-independent).
+    let sect_len: usize = intersection.iter().map(|t| t.chars().count()).sum::<usize>()
+        + intersection.len().saturating_sub(1);
+    let sect_ab_len = sect_len + usize::from(sect_len != 0) + ab_len;
+    let sect_ba_len = sect_len + usize::from(sect_len != 0) + ba_len;
+
+    let ab_chars: Vec<char> = diff_ab_joined.chars().collect();
+    let ba_chars: Vec<char> = diff_ba_joined.chars().collect();
+    let mut best = norm_distance(
+        indel_distance(&ab_chars, &ba_chars),
+        sect_ab_len + sect_ba_len,
     );
-
-    let combined_1a = combined_1a.trim().to_string();
-    let combined_1b = combined_1b.trim().to_string();
-    let combined_all = combined_all.trim().to_string();
-
-    let mut best: f64 = 0.0;
-    best = best.max(ratio(&combined_1a, &combined_1b));
-    best = best.max(ratio(&combined_1a, &combined_all));
-    best = best.max(ratio(&combined_1b, &combined_all));
+    best = best.max(norm_distance(
+        usize::from(sect_len != 0) + ab_len,
+        sect_len + sect_ab_len,
+    ));
+    best = best.max(norm_distance(
+        usize::from(sect_len != 0) + ba_len,
+        sect_len + sect_ba_len,
+    ));
     best
 }
 
@@ -375,6 +440,7 @@ pub fn find_match_spans(query: &str, text: &str, fuzzy_word_threshold: f64) -> S
 
 /// `apply_marks(text, spans_json)` — wrap `[start, end]` byte spans in
 /// `<mark>`…`</mark>`.  `spans_json` is a JSON array of `[start, end]` pairs.
+/// Forgiving slice semantics mirror `_apply_marks` (see body comments).
 pub fn apply_marks(text: &str, spans_json: &str) -> String {
     let spans: Vec<(usize, usize)> = match serde_json::from_str::<Vec<Vec<usize>>>(spans_json) {
         Ok(v) => v
@@ -396,14 +462,20 @@ pub fn apply_marks(text: &str, spans_json: &str) -> String {
 
     let mut pieces: Vec<&str> = Vec::new();
     let mut cursor = 0usize;
+    // Mirror Python slice semantics: out-of-range indices clamp (slicing
+    // never raises), and a reversed/empty span still emits an empty
+    // `<mark></mark>` pair while moving the cursor.  Indices snap back to
+    // the nearest char boundary so multi-byte text can never panic.
     for (s, e) in &spans {
-        if *s > cursor {
-            pieces.push(&text[cursor..*s]);
+        let cs = clamp_to_char_boundary(text, (*s).min(text.len()));
+        let ce = clamp_to_char_boundary(text, (*e).min(text.len()));
+        if cs > cursor {
+            pieces.push(&text[cursor..cs]);
         }
         pieces.push("<mark>");
-        pieces.push(&text[*s..*e]);
+        pieces.push(if ce > cs { &text[cs..ce] } else { "" });
         pieces.push("</mark>");
-        cursor = *e;
+        cursor = ce;
     }
     if cursor < text.len() {
         pieces.push(&text[cursor..]);

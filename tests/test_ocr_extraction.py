@@ -170,13 +170,13 @@ class TestOcrExtraction:
 
 
 # --------------------------------------------------------------------------- #
-# Celery Task Persistence (process_ocr_document_async)
+# Task persistence (process_ocr_document_async)
 # --------------------------------------------------------------------------- #
 
 
 @pytest.fixture()
 def ocr_task_db():
-    """In-memory app + DB for Celery-task persistence tests."""
+    """In-memory app + DB for task persistence tests."""
     from app import create_app
     from app.extensions import db
 
@@ -196,23 +196,15 @@ def ocr_task_db():
 
 
 def _run_task_sync(file_path: Path, sample_id: int | None = None) -> str:
-    """Invoke ``process_ocr_document_async`` synchronously, offline.
-
-    ``update_state`` normally writes to the Celery result backend (Redis),
-    which is unavailable in the test env — patch it to a no-op so the task
-    body runs against the in-memory DB without touching the broker.
-    """
-    from unittest.mock import patch
-
+    """Invoke ``process_ocr_document_async`` directly (plain function)."""
     from app.ocr_pipeline.tasks import process_ocr_document_async
 
-    with patch.object(process_ocr_document_async, "update_state", lambda *a, **k: None):
-        return process_ocr_document_async.run(str(file_path), sample_id=sample_id)
+    return process_ocr_document_async(str(file_path), sample_id=sample_id)
 
 
 class TestOcrTaskPersistence:
     def test_task_persists_ocr_document_row(self, single_page_pdf, ocr_task_db):
-        """The Celery task must write an OCRDocument row with extraction payload."""
+        """The task must write an OCRDocument row with extraction payload."""
         from app.extensions import db
         from app.models import LabTestParameter, OCRDocument
 

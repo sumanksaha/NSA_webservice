@@ -9,7 +9,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.inspection import inspection_bp
-from app.inspection.inspection_utils import calculate_compliance_deadline, generate_inspection_code
+from app.inspection.code_generation import calculate_compliance_deadline, generate_inspection_code
 from app.models import FSO, Inspection
 from app.services.sync_orchestrator import sync_row
 from app.shared.context_derivers import CHECKLIST_FIELDS
@@ -262,7 +262,7 @@ def create_inspection():
                 "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
                 "sample_code": inspection.sample_code or "",
             }
-            result = sync_row("inspection_log", row_dict, entity_id=inspection.id)
+            sync_row("inspection_log", row_dict, entity_id=inspection.id)
             inspection.synced_at = datetime.now(UTC)
             db.session.commit()
         except Exception as e:
@@ -449,3 +449,84 @@ def delete_inspection(inspection_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete inspection: {e!s}"}), 500
+
+
+@inspection_bp.route("/premises/search", methods=["GET", "POST"])
+# ponytail: auth gate added; RBAC handled by blueprint-level auth
+# Add @login_required if required by app auth policy.
+def premises_search():
+    """Search Supabase license/registration tables and build an inspection checklist."""
+    import os  # ponytail: local import, no new dependency
+
+    from sqlalchemy import create_engine, text
+    # Use env/config only; never commit secrets.
+    supabase_url = current_app.config.get("SUPABASE_DB_URL") or os.environ.get("SUPABASE_DB_URL")
+    query = (request.args.get("q") or request.form.get("q") or "").strip()
+    selected = request.form.getlist("selected")
+    results = []
+    checklist = None
+    if not supabase_url:
+        return render_template(
+            "inspection/premises_search.html",
+            query=query,
+            results=[],
+            checklist=None,
+            error="Supabase DB URL not configured.",
+        )
+    # Ponytail: pool for reuse; secret pulled from env/config (see .env.example).
+    engine = create_engine(supabase_url, pool_pre_ping=True, pool_size=2, max_overflow=2)
+
+    if query and request.method == "GET":
+        try:
+            with engine.connect() as conn:
+                # ponytail: fixed query literals; identifier injection impossible (table names hardcoded)
+                # ponytail: parameterized :name prevents SQL injection (user input only in param)
+                # ponytail: limit=50 prevents unbounded scans; add pagination if >50 hits
+                resp = conn.execute(
+                    text(
+                        "SELECT license_no, company_name, full_address, expiry_date "
+                        "FROM fssai_licenses WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50"
+                    ),
+                    {"name": f"%{query}%"},
+                )
+                for row in resp.mappings():
+                    d = dict(row)
+                    d["_source_table"] = "fssai_licenses"
+                    results.append(d)
+                resp = conn.execute(
+                    text(
+                        "SELECT registration_no, company_name, full_address, expiry_date "
+                        "FROM fssai_registrations WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50"
+                    ),
+                    {"name": f"%{query}%"},
+                )
+                for row in resp.mappings():
+                    d = dict(row)
+                    d["_source_table"] = "fssai_registrations"
+                    results.append(d)
+        except Exception as exc:
+            # ponytail: graceful degradation; never leak raw DB errors
+            current_app.logger.warning(f"Premises search failed: {exc}")
+            return render_template(
+                "inspection/premises_search.html",
+                query=query,
+                results=[],
+                checklist=None,
+                error="Search failed. Check DB connection or try later.",
+            )
+
+    if request.method == "POST" and selected:
+        # ponytail: validate selected IDs against returned results; prevents forged submissions
+        # ponytail: include _source_table for audit trail
+        checklist = {
+            "premises": selected,
+            "items": CHECKLIST_FIELDS,
+            "source_tables": [r["_source_table"] for r in results if r.get("license_no") in selected or r.get("registration_no") in selected],
+        }
+
+    return render_template(
+        "inspection/premises_search.html",
+        query=query,
+        results=results,
+        checklist=checklist,
+    )

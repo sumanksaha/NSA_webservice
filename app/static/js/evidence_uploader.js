@@ -29,19 +29,22 @@
             var row = document.createElement("div");
             row.className = "evidence-queue-item";
             var safeName = escapeHtml(file.name);
-            setHTML(row, '<span class="evidence-queue-icon"><i class="fa-solid fa-file"></i></span>' +
-                '<span class="evidence-queue-name" title="' +
-                safeName +
-                '">' +
-                safeName +
-                "</span>" +
-                '<span class="evidence-queue-size">' +
-                formatSize(file.size) +
-                "</span>" +
-                '<button type="button" class="btn btn-secondary btn-sm" data-index="' +
-                index +
-                '" title="Remove">' +
-                '<i class="fa-solid fa-xmark"></i></button>');
+            setHTML(
+                row,
+                '<span class="evidence-queue-icon"><i class="fa-solid fa-file"></i></span>' +
+                    '<span class="evidence-queue-name" title="' +
+                    safeName +
+                    '">' +
+                    safeName +
+                    "</span>" +
+                    '<span class="evidence-queue-size">' +
+                    formatSize(file.size) +
+                    "</span>" +
+                    '<button type="button" class="btn btn-secondary btn-sm" data-index="' +
+                    index +
+                    '" title="Remove">' +
+                    '<i class="fa-solid fa-xmark"></i></button>'
+            );
             row.querySelector("button").addEventListener("click", function () {
                 selectedFiles.splice(index, 1);
                 renderQueue();
@@ -86,36 +89,38 @@
         fileInput.click();
     });
     fileInput.addEventListener("change", function () {
-        if (fileInput.files)
-            addFiles(fileInput.files);
+        if (fileInput.files) addFiles(fileInput.files);
         fileInput.value = "";
     });
     // Upload
     form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (selectedFiles.length === 0) {
-            showStatus('<i class="fa-solid fa-circle-exclamation"></i> Add at least one file.', true);
+            showStatus(
+                '<i class="fa-solid fa-circle-exclamation"></i> Add at least one file.',
+                true
+            );
             return;
         }
         var fd = new FormData();
         selectedFiles.forEach(function (file) {
             fd.append("files", file);
         });
-        [
-            "evidence_type",
-            "caption",
-            "tags",
-            "case_id",
-            "adjudication_id",
-            "inspection_id",
-        ].forEach(function (name) {
-            var field = form.querySelector('[name="' + name + '"]');
-            if (field && field.value) {
-                fd.append(name, field.value);
+        ["evidence_type", "caption", "tags", "case_id", "adjudication_id", "inspection_id"].forEach(
+            function (name) {
+                var field = form.querySelector('[name="' + name + '"]');
+                if (field && field.value) {
+                    fd.append(name, field.value);
+                }
             }
-        });
+        );
         var originalText = uploadBtn.innerHTML;
-        setHTML(uploadBtn, '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' + selectedFiles.length + "\u2026");
+        setHTML(
+            uploadBtn,
+            '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' +
+                selectedFiles.length +
+                "\u2026"
+        );
         uploadBtn.disabled = true;
         showStatus('<i class="fa-solid fa-spinner fa-spin"></i> Uploading\u2026', false);
         fetch(form.dataset.uploadUrl || "", {
@@ -123,50 +128,60 @@
             body: fd,
         })
             .then(function (resp) {
-            return resp.json().then(function (data) {
-                return { resp: resp, data: data };
-            });
-        })
+                return resp.json().then(function (data) {
+                    return { resp: resp, data: data };
+                });
+            })
             .then(function (out) {
-            var data = out.data;
-            var results = (data.results || []);
-            var rows = results.map(function (r) {
-                if (r.status === "ok") {
-                    return ('<div><i class="fa-solid fa-circle-check"></i> ' +
+                var data = out.data;
+                var results = data.results || [];
+                var rows = results.map(function (r) {
+                    if (r.status === "ok") {
+                        return (
+                            '<div><i class="fa-solid fa-circle-check"></i> ' +
+                            escapeHtml(r.filename) +
+                            " \u2014 uploaded</div>"
+                        );
+                    }
+                    return (
+                        '<div><i class="fa-solid fa-circle-exclamation"></i> ' +
                         escapeHtml(r.filename) +
-                        " \u2014 uploaded</div>");
+                        " \u2014 " +
+                        escapeHtml(r.error || "failed") +
+                        "</div>"
+                    );
+                });
+                var okCount = results.filter(function (r) {
+                    return r.status === "ok";
+                }).length;
+                showStatus(
+                    "<strong>" +
+                        okCount +
+                        " of " +
+                        results.length +
+                        " uploaded</strong>" +
+                        rows.join(""),
+                    out.resp.status >= 400 && out.resp.status !== 207
+                );
+                if (out.resp.ok || out.resp.status === 207) {
+                    selectedFiles = [];
+                    renderQueue();
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, 1200);
                 }
-                return ('<div><i class="fa-solid fa-circle-exclamation"></i> ' +
-                    escapeHtml(r.filename) +
-                    " \u2014 " +
-                    escapeHtml(r.error || "failed") +
-                    "</div>");
-            });
-            var okCount = results.filter(function (r) {
-                return r.status === "ok";
-            }).length;
-            showStatus("<strong>" +
-                okCount +
-                " of " +
-                results.length +
-                " uploaded</strong>" +
-                rows.join(""), out.resp.status >= 400 && out.resp.status !== 207);
-            if (out.resp.ok || out.resp.status === 207) {
-                selectedFiles = [];
-                renderQueue();
-                setTimeout(function () {
-                    window.location.reload();
-                }, 1200);
-            }
-        })
+            })
             .catch(function (err) {
-            showStatus('<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' +
-                escapeHtml(err.message), true);
-        })
+                showStatus(
+                    '<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' +
+                        escapeHtml(err.message),
+                    true
+                );
+            })
             .finally(function () {
-            setHTML(uploadBtn, originalText);
-            uploadBtn.disabled = false;
-        });
+                setHTML(uploadBtn, originalText);
+                uploadBtn.disabled = false;
+            });
     });
     // Edit metadata
     document.querySelectorAll(".evidence-edit").forEach(function (btn) {
@@ -185,22 +200,24 @@
             if (type === null) {
                 return;
             }
-            fetch((htmlBtn.dataset.updateUrl || "").replace("__ID__", encodeURIComponent(id || "")), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ caption: caption, tags: tags, evidence_type: type }),
-            })
+            fetch(
+                (htmlBtn.dataset.updateUrl || "").replace("__ID__", encodeURIComponent(id || "")),
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ caption: caption, tags: tags, evidence_type: type }),
+                }
+            )
                 .then(function (resp) {
-                return resp.json();
-            })
+                    return resp.json();
+                })
                 .then(function (data) {
-                if (data.status === "ok") {
-                    window.location.reload();
-                }
-                else {
-                    window.alert(String(data.error || "Update failed"));
-                }
-            });
+                    if (data.status === "ok") {
+                        window.location.reload();
+                    } else {
+                        window.alert(String(data.error || "Update failed"));
+                    }
+                });
         });
     });
     // Delete
@@ -210,20 +227,25 @@
             if (!window.confirm("Delete this evidence file?")) {
                 return;
             }
-            fetch((htmlBtn.dataset.deleteUrl || "").replace("__ID__", encodeURIComponent(htmlBtn.dataset.id || "")), {
-                method: "POST",
-            })
+            fetch(
+                (htmlBtn.dataset.deleteUrl || "").replace(
+                    "__ID__",
+                    encodeURIComponent(htmlBtn.dataset.id || "")
+                ),
+                {
+                    method: "POST",
+                }
+            )
                 .then(function (resp) {
-                return resp.json();
-            })
+                    return resp.json();
+                })
                 .then(function (data) {
-                if (data.status === "ok") {
-                    window.location.reload();
-                }
-                else {
-                    window.alert(String(data.error || "Delete failed"));
-                }
-            });
+                    if (data.status === "ok") {
+                        window.location.reload();
+                    } else {
+                        window.alert(String(data.error || "Delete failed"));
+                    }
+                });
         });
     });
     function setHTML(el, html) {

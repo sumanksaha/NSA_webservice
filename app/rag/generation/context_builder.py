@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from app.rag.retrieval.result import RetrievedChunk
 
@@ -47,7 +47,7 @@ class ContextBuilder:
     # (precedent chains); prohibition queries need fewer but more focused
     # chunks; cross_reference queries need more chunks to cover referenced
     # sections.
-    _QUERY_TYPE_BUDGETS: dict[str, dict[str, int]] = {
+    _QUERY_TYPE_BUDGETS: ClassVar[dict[str, dict[str, int]]] = {
         "case_law": {"max_context_chars": 16_000, "max_chunks": 12},
         "cross_reference": {"max_context_chars": 14_000, "max_chunks": 12},
         "prohibition": {"max_context_chars": 10_000, "max_chunks": 8},
@@ -55,7 +55,7 @@ class ContextBuilder:
         "penalty": {"max_context_chars": 12_000, "max_chunks": 10},
         "general": {"max_context_chars": 12_000, "max_chunks": 10},
         "procedure": {"max_context_chars": 12_000, "max_chunks": 10},
-    }  # noqa: mutable-default-value
+    }
 
     def __init__(
         self,

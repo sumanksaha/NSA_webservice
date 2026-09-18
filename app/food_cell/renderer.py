@@ -3,8 +3,8 @@
 Extracted from :mod:`app.food_cell.services` so that the document-generation
 helpers (render HTML/PDF, persist paths, build the sync row, mint the DO
 reference) live in one focused class.  ``services.py`` keeps only the
-orchestration (``generate_and_forward_do_intimation``) and delegates the
-triple-target sync to :func:`app.services.sync_orchestrator.sync_row`.
+ orchestration (``generate_and_forward_do_intimation``) and delegates the
+ Sheets sync to :func:`app.services.sync_orchestrator.sync_row`.
 
 Also renders Improvement Notice documents (u/s 32 of the FSS Act) via
 :meth:`render_improvement_notice_html` / :meth:`render_improvement_notice_pdf`.

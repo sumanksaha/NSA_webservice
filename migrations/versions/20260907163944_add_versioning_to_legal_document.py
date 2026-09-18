@@ -1,7 +1,7 @@
 """add_versioning_to_legal_document
 
-Revision ID: add_versioning_to_legal_document
-Revises: add_rag_query_log_pipeline
+Revision ID: add_legal_document_versioning
+Revises: add_fso_email_config
 Create Date: 2026-09-07
 
 Adds versioning columns to LegalDocument for corpus rollback capability.
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "add_versioning_to_legal_document"
-down_revision = "add_rag_query_log_pipeline"
+revision = "add_legal_document_versioning"
+down_revision = "add_fso_email_config"
 branch_labels = None
 depends_on = None
 

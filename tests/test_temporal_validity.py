@@ -203,3 +203,44 @@ class TestProvisionVersions:
         assert v.document_id == "d1"
         assert v.section == "55"
         assert v.is_current is True
+
+
+class TestIsValidChunkMetadata:
+    """``is_valid`` must find payload fields on dict / to_dict chunks.
+
+    Regression: ``RetrievedChunk`` has no status/effective-date attributes,
+    so attribute-only lookup always fell through to ``unknown``.
+    """
+
+    def test_dict_chunk_repealed(self):
+        r = is_valid(
+            "p1",
+            "2025-01-01",
+            chunk={"chunk_id": "p1", "status": "repealed"},
+        )
+        assert r.status == VALIDITY_INVALID
+
+    def test_dict_chunk_current_with_window(self):
+        r = is_valid(
+            "p2",
+            "2025-01-01",
+            chunk={"chunk_id": "p2", "status": "current", "effective_from": "2020-01-01"},
+        )
+        assert r.status == VALIDITY_VALID
+
+    def test_explicit_override_beats_chunk(self):
+        r = is_valid(
+            "p3",
+            "2025-01-01",
+            chunk={"chunk_id": "p3", "status": "current"},
+            provision_status="repealed",
+        )
+        assert r.status == VALIDITY_INVALID
+
+    def test_to_dict_chunk_found(self):
+        class DictChunk:
+            def to_dict(self):
+                return {"chunk_id": "p4", "provision_status": "superseded"}
+
+        r = is_valid("p4", "2025-01-01", chunk=DictChunk())
+        assert r.status == VALIDITY_INVALID

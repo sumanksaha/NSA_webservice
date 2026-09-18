@@ -24,7 +24,6 @@ from app.models import AuditLog
 from app.services.audit import verify_audit_chain
 from app.services.audit_context import AuditLogger, audit_logger
 
-
 # --------------------------------------------------------------------------- #
 # Fixtures                                                                    #
 # --------------------------------------------------------------------------- #

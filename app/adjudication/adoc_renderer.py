@@ -1,13 +1,8 @@
-"""Render Jinja2-templated .adoc files → .docx via pandoc.
-
-Single source of truth: .adoc templates (same as preview HTML pipeline).
-Uses pandoc when available; falls back to python-docx for local development.
-"""
-
 from __future__ import annotations
 
 import io
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,10 +13,28 @@ from docx.shared import Inches
 if TYPE_CHECKING:
     from flask import Flask
 
+"""Render Jinja2-templated .adoc files → .docx via pandoc.
+
+Single source of truth: .adoc templates (same as preview HTML pipeline).
+Uses pandoc when available; falls back to python-docx for local development.
+"""
+
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "adjudication"
 
 
-def render_adoc_to_docx(template_name: str, context: dict, app: "Flask | None" = None) -> bytes:
+def _pandoc_cmd(*args: str) -> list[str]:
+    """Resolve the pandoc binary to a full path (S607: no PATH lookups).
+
+    Raises FileNotFoundError when pandoc is not installed — callers already
+    treat that as "use the python-docx fallback".
+    """
+    pandoc = shutil.which("pandoc")
+    if not pandoc:
+        raise FileNotFoundError("pandoc binary not found on PATH")
+    return [pandoc, *args]
+
+
+def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = None) -> bytes:
     """Render an .adoc template with Jinja2, then convert to DOCX via pandoc.
 
     Args:
@@ -48,20 +61,20 @@ def render_adoc_to_docx(template_name: str, context: dict, app: "Flask | None" =
         with app.app_context():
             rendered_adoc = render_template_string(adoc_source, **context)
     else:
-        rendered_adoc = render_template_string(adoc_source, **context)
-
-    # Pandoc: HTML → docx (the .adoc files are HTML)
+        rendered_adoc = render_template_string(
+            adoc_source, **context
+        )  # Pandoc: docx is a ZIP (binary) — no text-mode stdout/stderr decoding.
     try:
-        result = subprocess.run(
-            ["pandoc", "-f", "html", "-t", "docx", "-o", "-"],
-            input=rendered_adoc,
+        # Fixed argv, no shell: the only variable element is the resolved binary path.
+        result = subprocess.run(  # noqa: S603
+            _pandoc_cmd("-f", "html", "-t", "docx", "-o", "-"),
+            input=rendered_adoc.encode("utf-8"),
             capture_output=True,
-            text=True,
             check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(result.stderr[:500])
-        return result.stdout.encode("utf-8")
+            raise RuntimeError(result.stderr.decode("utf-8", errors="replace")[:500])
+        return result.stdout
     except (RuntimeError, FileNotFoundError):
         # Fallback: render via python-docx with proper context substitution
         return _fallback_docx_from_adoc(adoc_source, context, app)
@@ -70,13 +83,14 @@ def render_adoc_to_docx(template_name: str, context: dict, app: "Flask | None" =
 def is_pandoc_available() -> bool:
     """Check if pandoc binary is on PATH."""
     try:
-        subprocess.run(["pandoc", "--version"], capture_output=True, check=True)
+        # Fixed argv, no shell: the only variable element is the resolved binary path.
+        subprocess.run(_pandoc_cmd("--version"), capture_output=True, check=True)  # noqa: S603
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
         return False
 
 
-def _fallback_docx_from_adoc(adoc_source: str, context: dict, app: "Flask | None" = None) -> bytes:
+def _fallback_docx_from_adoc(adoc_source: str, context: dict, app: Flask | None = None) -> bytes:
     """Fallback DOCX renderer when pandoc is unavailable.
 
     Renders the .adoc template with Jinja2 (same as preview), then builds a

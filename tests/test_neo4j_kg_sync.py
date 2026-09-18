@@ -292,7 +292,7 @@ class TestNeo4jWriteGuard:
 
 
 class TestSyncKgTask:
-    """Test the Celery task and sync fallback."""
+    """Test the sync task entry point."""
 
     def test_task_not_configured(self):
         from app.knowledge_graph.tasks import _run_sync_kg_to_neo4j  # pyright: ignore[reportMissingImports]
@@ -316,10 +316,9 @@ class TestSyncKgTask:
                 assert result["edges"] == 3
 
     def test_task_exposed_as_callable(self):
-        """The task should be callable whether or not Celery is available."""
+        """The task entry point must be a plain callable."""
         from app.knowledge_graph.tasks import sync_kg_to_neo4j  # pyright: ignore[reportMissingImports]
 
-        # Should have either __call__ (fallback) or run (Celery task)
         assert callable(sync_kg_to_neo4j)
 
 

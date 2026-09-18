@@ -10,14 +10,13 @@ Usage in tasks.py:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # --- Lazy Prometheus / OTel adapter (ponytail: stdlib first, optional import) ---
 try:
-    from prometheus_client import Counter, Histogram, Gauge, generate_latest
+    from prometheus_client import Counter, Gauge, Histogram, generate_latest
     _HAS_PROMETHEUS = True
 except ImportError:
     _HAS_PROMETHEUS = False
@@ -91,7 +90,7 @@ def export(
     success: bool = True,
 ) -> None:
     """Export pipeline metrics to Prometheus (no-op if unavailable).
-    
+
     Args:
         pipeline_latency_ms: End-to-end pipeline latency.
         retrieval_mrr: Mean Reciprocal Rank of gold chunk (optional).

@@ -101,6 +101,78 @@ def test_checkpointer_postgres_degrades_gracefully(monkeypatch):
     assert _build_checkpointer() is None
 
 
+def _patch_postgres_fakes(monkeypatch):
+    """Swap psycopg.connect/PostgresSaver for fakes; return call counters."""
+    import psycopg
+    import langgraph.checkpoint.postgres as pg_mod
+
+    calls = {"connect": 0, "setup": 0, "kwargs": []}
+    conns = []
+
+    class FakeConn:
+        def __init__(self):
+            self.closed = 0
+
+        def close(self):
+            self.closed = 1
+
+    class FakeSaver:
+        def __init__(self, conn):
+            self.conn = conn
+
+        def setup(self):
+            calls["setup"] += 1
+
+    def fake_connect(dsn, **kw):
+        calls["connect"] += 1
+        calls["kwargs"].append(kw)
+        conn = FakeConn()
+        conns.append(conn)
+        return conn
+
+    monkeypatch.setattr(psycopg, "connect", fake_connect)
+    monkeypatch.setattr(pg_mod, "PostgresSaver", FakeSaver)
+    return calls, conns
+
+
+def test_checkpointer_postgres_reuses_singleton(monkeypatch):
+    """Repeated builds share one connection and run setup() once (no leak)."""
+    from app.rag.agent import graph as graph_mod
+
+    # Unique DSN: _postgres_setup_done persists across tests (tables persist
+    # in the real DB), so each test needs its own DSN for deterministic counts.
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/db_singleton")
+    calls, _ = _patch_postgres_fakes(monkeypatch)
+    try:
+        first = _build_checkpointer("postgres")
+        second = _build_checkpointer("postgres")
+        assert first is second
+        assert calls["connect"] == 1
+        assert calls["setup"] == 1
+        assert calls["kwargs"][0].get("autocommit") is True
+    finally:
+        graph_mod._reset_checkpointers()
+
+
+def test_checkpointer_postgres_dsn_change_closes_old(monkeypatch):
+    """A DSN change closes the old connection instead of leaking it."""
+    from app.rag.agent import graph as graph_mod
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/db_change_a")
+    calls, conns = _patch_postgres_fakes(monkeypatch)
+    try:
+        first = _build_checkpointer("postgres")
+        monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/db_change_b")
+        second = _build_checkpointer("postgres")
+        assert second is not first
+        assert calls["connect"] == 2
+        assert calls["setup"] == 2
+        assert conns[0].closed == 1
+        assert conns[1].closed == 0
+    finally:
+        graph_mod._reset_checkpointers()
+
+
 # ---------------------------------------------------------------------- #
 # review_node / route_after_review
 # ---------------------------------------------------------------------- #

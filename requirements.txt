@@ -9,7 +9,7 @@
 #   pip install -e .
 #
 # To install dev deps as well:
-#   pip install -e ".[dev]"   (once dev extras are configured)
+#   pip install -e ".[dev]"   (dev extras now configured in pyproject.toml)
 #   -- or --
 #   pip install -r requirements-dev.txt
 #

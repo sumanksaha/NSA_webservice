@@ -302,19 +302,3 @@ def create_daily_db_snapshot() -> str:
     path.write_bytes(build_backup_archive().getvalue())
     logger.info("Daily DB snapshot written: %s", path)
     return str(path)
-
-
-# Celery beat handler. Registered on the standalone ``celery_app.celery``
-# instance (same pattern as the other task modules); ``make_celery`` later
-# reconfigures that same instance with the app's broker/backend and the
-# ``daily-db-snapshot`` beat entry.
-try:
-    from celery_app import celery as _celery
-
-    @_celery.task(name="app.utils.backup.create_daily_db_snapshot_task")
-    def create_daily_db_snapshot_task() -> str:
-        """Celery-beat wrapper around :func:`create_daily_db_snapshot`."""
-        return create_daily_db_snapshot()
-
-except ImportError:  # pragma: no cover - Celery not installed (minimal deploys)
-    pass

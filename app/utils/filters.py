@@ -3,18 +3,13 @@ from datetime import datetime
 from num2words import num2words
 
 
-def parse_date(date_val):
-    """Parse a date value into a datetime object.
+def _to_datetime(date_val):
+    """Coerce *date_val* to a datetime, stripping any time component.
 
-    Accepts:
-      - datetime objects (returned as-is)
-      - date objects (converted to datetime at midnight)
-      - ISO strings (YYYY-MM-DD)
-      - Indian format strings (DD/MM/YYYY or DD-MM-YYYY)
-
-    Returns:
-        datetime or None if the value cannot be parsed.
-
+    Accepts datetime/date objects, ISO strings (``YYYY-MM-DD`` optionally
+    followed by ``THH:MM:SS[.ffffff][+HH:MM]`` or a space separator), and
+    Indian strings (``DD/MM/YYYY``, ``DD-MM-YYYY``, optionally with a time
+    suffix). Returns None when the value cannot be parsed.
     """
     if date_val is None or date_val == "":
         return None
@@ -24,12 +19,54 @@ def parse_date(date_val):
         # date-like object (not a string)
         return datetime.combine(date_val, datetime.min.time())
     date_str = str(date_val).strip()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+    if not date_str:
+        return None
+    # Fast path: ISO 8601 via fromisoformat (handles 'T'/space separator,
+    # microseconds, and timezone offsets). fromisoformat does not accept a
+    # trailing 'Z', so normalise it first.
+    try:
+        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        pass
+    # Fall back to explicit formats, including datetime variants whose time
+    # part must be stripped so produced documents render DD-MM-YYYY only.
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%d/%m/%YT%H:%M:%S",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y",
+        "%d-%m-%YT%H:%M:%S",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%YT%H.%M.%S",
+        "%d-%m-%Y",
+    ):
         try:
             return datetime.strptime(date_str, fmt)
         except ValueError:
             continue
     return None
+
+
+def parse_date(date_val):
+    """Parse a date value into a datetime object.
+
+    Accepts:
+      - datetime objects (returned as-is)
+      - date objects (converted to datetime at midnight)
+      - ISO strings (YYYY-MM-DD, optionally with a time/timezone suffix)
+      - Indian format strings (DD/MM/YYYY or DD-MM-YYYY, optionally with
+        a time suffix such as ``T00:00:00``)
+
+    Returns:
+        datetime or None if the value cannot be parsed.
+
+    """
+    return _to_datetime(date_val)
 
 
 def to_words(number):
@@ -61,23 +98,17 @@ def to_words(number):
 
 
 def format_date_indian(date_val):
-    """Jinja filter to convert a date string (YYYY-MM-DD, DD/MM/YYYY, etc.) or datetime object
+    """Jinja filter to convert a date string or datetime object
     to Indian DD-MM-YYYY format (e.g. '15-05-2026').
+
+    Any time component (``T00:00:00``, `` 00:00:00``, timezone, ...) is
+    stripped so produced documents render the date only. Unparseable
+    values are returned unchanged.
     """
     if not date_val:
         return ""
-    if isinstance(date_val, datetime):
-        dt = date_val
-    else:
-        date_str = str(date_val).strip()
-        dt = None
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
-            try:
-                dt = datetime.strptime(date_str, fmt)
-                break
-            except ValueError:
-                continue
-        if not dt:
-            return date_val
+    dt = _to_datetime(date_val)
+    if not dt:
+        return date_val
 
     return dt.strftime("%d-%m-%Y")

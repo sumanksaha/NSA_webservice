@@ -2,7 +2,7 @@
 
 > **Date:** 2026-08-22 · **Method:** primary-source investigation only. Every claim below is
 > cited to the owning source file (+ function/line where useful). Documentation files
-> (`agents.md`, `task.md`, `plan.md`) are cited **only as context**, never as evidence.
+> (`docs/agent-reference.md` (formerly `agents.md`), `task.md`, `plan.md`) are cited **only as context**, never as evidence.
 >
 > **Headline finding:** contrary to what "RAG is API-only" would suggest, a full interactive
 > RAG query UI **exists and is wired**: a server-rendered page at `GET /api/rag/`
@@ -145,7 +145,7 @@ Entry: `app/rag/tasks.py:421-590` `run_generation_pipeline(query, chunks=None, .
 
 **Stage B — optional Knowledge-Graph enrichment (both flag-gated, default off):**
 - `RAG_KG_FUSION`: query→provisions contract RRF-fused into ranked context
-  (tasks.py:468-509; default-false per `.env.example` / `agents.md` §6 — context only).
+  (tasks.py:468-509; default-false per `.env.example` / `docs/agent-reference.md` (formerly `agents.md`) §6 — context only).
 - `RAG_KG_EXPANSION`: chunk-ID expansion through the Neo4j legal KG via
   `kg/hybrid.py::KGContextExpander`, provisions injected as extra `[Source n]` blocks,
   best-effort/never raises (tasks.py:511-555). Mutually exclusive with fusion

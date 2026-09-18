@@ -20,7 +20,6 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from app.shared.config import cfg
 
@@ -35,7 +34,7 @@ class CircuitState(Enum):
 @dataclass
 class CircuitBreaker:
     """Per-domain circuit breaker for KG calls.
-    
+
     Attributes:
         failure_threshold: Number of failures before opening.
         timeout_seconds: How long to stay open before attempting half-open.
@@ -58,7 +57,7 @@ class CircuitBreaker:
         timeout_seconds: int | None = None,
     ) -> CircuitBreaker:
         """Factory method to get/create a breaker for a query type.
-        
+
         Caches breakers per query_type for global reuse.
         """
         failure_threshold = failure_threshold or cfg.kg_failure_threshold or 5

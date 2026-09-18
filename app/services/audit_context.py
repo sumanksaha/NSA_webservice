@@ -1,135 +1,134 @@
-"""D7 audit caller seam — ``app.services.audit_context``.
+"""Best-effort audit-log caller seam (D7 deepening task).
 
-Thin, best-effort caller-facing layer on top of the hash-chained audit core
-(``app.services.audit``). Centralises the three concerns that were previously
-*duplicated* across route modules as ad-hoc ``log_audit`` wrappers:
+The hash-chained core :func:`app.services.audit.log_audit` is already a deep
+module — but every caller historically re-implemented the same shallow wrapper:
+bind ``entity_type``, normalize ``actor`` from the request context, wrap in
+``try/except`` so an audit failure never fails the operation, and log a
+warning.  That wrapper was duplicated 3x (``annexure/routes.py``,
+``evidence/routes.py``, ``document_lifecycle.py``) with inconsistent ``actor``
+sources.
 
-* **entity-type binding** — ``audit_logger("annexure")`` returns an
-  ``AuditLogger`` bound to that entity type, so callers never pass it again;
-* **actor normalization** — the actor is resolved from flask-login's
-  ``current_user`` (authenticated + active → ``username``, otherwise
-  ``"anonymous"``), with an explicit ``actor=`` kwarg override; resolution
-  tolerates ``current_user`` being unavailable or raising (Celery tasks,
-  shell sessions, unit tests without a request context);
-* **error swallowing** — audit writes are best-effort: any failure of the
-  shared writer (transient DB error, core ``log_audit`` raising, etc.) is
-  contained so the originating route/save operation is never aborted.
+:func:`audit_logger` is the single factory for that wrapper.  Callers bind
+once per module and never touch :func:`log_audit`'s five positional
+parameters again:
 
-Patch surface (for tests)::
+    from app.services.audit_context import audit_logger
 
-    patch("app.services.audit_context._default_writer")
-    patch("app.services.audit_context.current_user", stub)
+    _audit = audit_logger("annexure")   # bind entity_type once at import
+    _audit.log(annexure.id, "ANNEXURE_DELETED", filename=annexure.filename)
 
-``_default_writer`` is resolved *at call time* (a bare module-global lookup
-inside ``AuditLogger.log``), so a single patch point redirects every instance
-— including long-lived module-level bindings such as
-``app.annexure.routes._audit = audit_logger("annexure")``.
+Behaviour (identical to the wrappers it replaces):
+
+* ``actor`` defaults to the authenticated user's username, ``"anonymous"``
+  otherwise (an explicit ``actor=`` kwarg wins).  An inactive user also
+  degrades to ``"anonymous"``.
+* Any exception raised by the core writer — including the DB rollback +
+  re-raise it performs on failure — is swallowed and logged at WARNING so
+  the caller's operation proceeds ("best-effort" semantics).
+* Details are passed through as keyword arguments and serialized to the
+  ``details_json`` column by the core.
 """
 
 from __future__ import annotations
 
-import contextlib
+import logging
 from typing import Any
 
 from flask_login import current_user
 
-__all__ = ["AuditLogger", "audit_logger", "_default_writer"]
+logger = logging.getLogger(__name__)
 
-
-def _resolve_actor() -> str:
-    """Resolve the audit actor from the current flask request.
-
-    Returns the authenticated user's ``username`` when the user is both
-    authenticated and active; otherwise ``"anonymous"``.  Any failure while
-    touching ``current_user`` (no request context, flask-login raising, a
-    stub whose property blows up) degrades to ``"anonymous"`` — auditing is
-    best-effort and must never crash the caller.
-    """
-    try:
-        user = current_user
-        if user is not None and user.is_authenticated and getattr(user, "is_active", False):
-            name = getattr(user, "username", None)
-            if name:
-                return str(name)
-    except Exception:
-        # ``current_user`` access can raise outside a request context
-        # (e.g. inside a Celery task); fall through to "anonymous".
-        pass
-    return "anonymous"
-
-
-def _default_writer(
-    entity_type: str,
-    entity_id: str,
-    action: str,
-    actor: str,
-    details: dict,
-) -> None:
-    """Write a single audit entry to the hash-chained core.
-
-    Delegates to :func:`app.services.audit.log_audit`.  The import is lazy so
-    that patching ``app.services.audit.log_audit`` (used by the
-    ``test_real_core_failure_is_swallowed`` path) takes effect at call time,
-    and to keep ``audit_context`` importable before the DB/extensions are
-    wired up.
-    """
-    from app.services.audit import log_audit
-
-    log_audit(
-        entity_type=entity_type,
-        entity_id=entity_id,
-        action=action,
-        actor=actor,
-        details=details,
-    )
+__all__ = ["AuditLogger", "audit_logger"]
 
 
 class AuditLogger:
-    """Caller-facing audit logger bound to a single ``entity_type``.
+    """Best-effort audit writer bound to one ``entity_type``.
 
-    Constructed either directly (``AuditLogger("case_file")``) or via the
-    :func:`audit_logger` factory, which is the form used by route modules.
+    Prefer the :func:`audit_logger` factory; instantiate this class directly
+    only when dependency-injecting the core writer in tests.
     """
 
-    __slots__ = ("entity_type",)
+    def __init__(
+        self,
+        entity_type: str,
+        *,
+        writer=None,
+    ) -> None:
+        self._entity_type = entity_type
+        # Stored unbound: when ``writer`` is not injected, the module-level
+        # ``_default_writer`` is resolved at *call* time, so patching
+        # ``app.services.audit_context._default_writer`` redirects every
+        # instance (including module-level bindings) in tests.
+        self._writer = writer
 
-    def __init__(self, entity_type: str) -> None:
-        self.entity_type = entity_type
+    # ------------------------------------------------------------------ #
+    # Public API                                                          #
+    # ------------------------------------------------------------------ #
 
-    def log(self, entity_id: Any, action: str, **details: Any) -> None:
-        """Log ``action`` for ``entity_id`` with best-effort resilience.
+    def log(self, entity_id: Any, action: str, *, actor: str | None = None, **details: Any) -> None:
+        """Record an audit event; never raises.
 
-        ``entity_id`` is ``str()``-coerced (the core contract).  The reserved
-        ``actor`` kwarg, if supplied and truthy, overrides actor resolution;
-        otherwise the actor is derived from ``current_user``.  Everything is
-        written through :data:`_default_writer`, whose failures are swallowed.
-
-        The writer is referenced as a bare module global (``_default_writer``)
-        rather than captured at construction, so patching
-        ``app.services.audit_context._default_writer`` redirects every
-        instance, including pre-existing module-level bindings.
+        Args:
+            entity_id: Primary key of the audited record (str()-coerced to
+                match the core writer's ``entity_id: str`` contract).
+            action: Event name, e.g. ``"ANNEXURE_DELETED"``.
+            actor: Explicit actor override; resolved from the request
+                context when omitted.
+            **details: Structured event details, stored as JSON.
         """
-        actor = details.pop("actor", None) or _resolve_actor()
-        entity_id = str(entity_id)
         try:
-            _default_writer(
-                entity_type=self.entity_type,
-                entity_id=entity_id,
+            (self._writer or _default_writer)(
+                entity_type=self._entity_type,
+                entity_id=str(entity_id),
                 action=action,
-                actor=actor,
+                actor=actor if actor is not None else self._resolve_actor(),
                 details=details,
             )
         except Exception:
-            # Audit is best-effort: never propagate a writer failure to the
-            # route / save operation that triggered this log entry.
-            with contextlib.suppress(Exception):
-                pass
+            logger.warning(
+                "Audit log write failed for %s %s (%s); continuing.",
+                self._entity_type,
+                entity_id,
+                action,
+            )
+
+    # ------------------------------------------------------------------ #
+    # Internals                                                           #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _resolve_actor() -> str:
+        """Current user's username, or ``"anonymous"`` outside a request."""
+        try:
+            if current_user.is_authenticated and current_user.is_active:
+                return current_user.username
+        except Exception:
+            # No request context (Celery task, shell, ...) — flask-login's
+            # current_user raises or is anonymous there.
+            pass
+        return "anonymous"
+
+    @property
+    def entity_type(self) -> str:
+        """The bound entity type (read-only, for tests)."""
+        return self._entity_type
+
+
+def _default_writer(**kwargs: Any) -> None:
+    """Import the hash-chained core lazily to avoid import cycles at app
+    factory bootstrap (blueprints import this module before extensions are
+    fully wired)."""
+    from app.services.audit import log_audit
+
+    log_audit(**kwargs)
 
 
 def audit_logger(entity_type: str) -> AuditLogger:
-    """Return an :class:`AuditLogger` bound to ``entity_type``.
+    """Return an :class:`AuditLogger` bound to a fixed ``entity_type``.
 
-    Convenience factory used by route modules so the entity type reads at the
-    call site: ``audit_logger("photo").log(image_id, "UPLOAD_RECEIVED", ...)``.
+    Usage::
+
+        _audit = audit_logger("annexure")
+        _audit.log(annexure.id, "ANNEXURE_DELETED", filename=annexure.filename)
     """
     return AuditLogger(entity_type)

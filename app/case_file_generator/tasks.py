@@ -22,12 +22,6 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Lazy import to avoid ModuleNotFoundError in deployment environments
-try:
-    from celery_app import celery
-except ImportError:
-    celery = None
-
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +39,7 @@ def _get_pdf_engine():
         return None
 
 
-def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
+def generate_case_file_pdf(case_file_id: int, case_data: dict) -> dict:
     """Render Petition + Permission Letter PDFs from Jinja2 templates and
     save them as a ZIP archive on disk.
 
@@ -174,10 +168,10 @@ def generate_case_file_pdf(self, case_file_id: int, case_data: dict) -> dict:
             "PDF engine unavailable (plugin registry), using legacy implementation for case_file %s",
             case_file_id,
         )
-        return _legacy_generate_case_file_pdf(self, case_file_id, case_data, generated_at)
+        return _legacy_generate_case_file_pdf(case_file_id, case_data, generated_at)
 
 
-def _legacy_generate_case_file_pdf(self, case_file_id: int, case_data: dict, generated_at):
+def _legacy_generate_case_file_pdf(case_file_id: int, case_data: dict, generated_at):
     """Legacy implementation for backward compatibility (Phase 1-2 only)."""
     from flask import render_template
 
@@ -253,10 +247,10 @@ def _legacy_generate_case_file_pdf(self, case_file_id: int, case_data: dict, gen
         logger.info("Case file ZIP saved: %s", zip_path)
     except OSError as exc:
         logger.warning("I/O error saving case file ZIP: %s", exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
     except Exception as exc:
         logger.warning("Transient error saving case file ZIP: %s", exc)
-        raise self.retry(exc=exc, countdown=60) from exc
+        raise
 
     return _metadata(
         case_file_id,
@@ -283,5 +277,4 @@ def _metadata(
     }
 
 
-# Synchronous - Celery/QStash removed per user directive.
-# Registering removed; call generate_case_file_pdf() directly.
+__all__ = ["generate_case_file_pdf"]

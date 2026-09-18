@@ -111,7 +111,7 @@ python scripts/enrich_kg_semantics.py           # write semantic edges (idempote
 | `RAG_AUDIT_REPORT.md` §6.2 | `RAG_COLLECTION_NAME` (not a real env var) | Corrected to `RAG_QDRANT_COLLECTION` |
 | `RAG_AUDIT_REPORT.md` §3.2 | Payload table lists fields the code doesn't emit (`act_number`, `year`, `cited_sections`, `cited_acts`, `chunk_quality_grade`, `language`, `source_hash`) | Annotated: pre-2026-08-09 snapshot; current §5.1 payload verified against `Chunk.to_payload()` |
 | `RAG_AUDIT_REPORT.md` §2 | "695 RAG tests", "1,733 total" | Updated: verified collect 2026-08-10 → **1,757 total / 694 RAG-related** |
-| `agents.md` | "437 RAG tests" (subset accounting), "~700+ tests" | Header + inventory annotated with the reconciled totals |
+| `docs/agent-reference.md` (formerly `agents.md`) | "437 RAG tests" (subset accounting), "~700+ tests" | Header + inventory annotated with the reconciled totals |
 
 ## 7. Guardrails (binding)
 

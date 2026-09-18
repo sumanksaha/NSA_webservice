@@ -26,9 +26,10 @@ def client():
     app.config["TESTING"] = True
     with app.test_client() as c:
         with app.app_context():
+            from werkzeug.security import generate_password_hash
+
             from app.extensions import db
             from app.models.auth import User
-            from werkzeug.security import generate_password_hash
 
             # Clean up any pre-existing test user (module-scoped DB persists)
             existing = User.query.filter_by(username="tdduser").first()

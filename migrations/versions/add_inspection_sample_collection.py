@@ -1,7 +1,7 @@
 """add sample collection fields to inspection
 
 Revision ID: add_inspection_sample_collection
-Revises: add_notepad_daily_plan
+Revises: add_daily_plan_table
 Create Date: 2026-08-28
 
 Adds ``sample_collected`` (nullable Boolean) and ``sample_code`` (nullable

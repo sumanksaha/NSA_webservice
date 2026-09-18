@@ -97,15 +97,15 @@ class TestQstashSchedule:
         result = publish_recurring("ingest_corpus", schedule="0 3 * * *", payload={"corpus_dir": "/tmp/corpus"})
         assert result == {"mode": "disabled"}
 
-    def test_resolve_task_returns_celery_task(self):
+    def test_resolve_task_returns_registered_function(self):
         from app.rag.tasks import ingest_corpus_task
         from app.utils.qstash_client import resolve_task
 
         callable_ = resolve_task("ingest_corpus")
         assert callable(callable_)
-        # The registry points at the Celery-wrapped task with the canonical name.
+        # The registry points at the plain task function.
         assert callable_ is ingest_corpus_task
-        assert ingest_corpus_task.name == "rag.ingest_corpus_task"
+        assert ingest_corpus_task.__name__ == "ingest_corpus_task"
 
     def test_run_ingest_corpus_delegates_and_returns_summary(self, monkeypatch, tmp_path):
         from app.rag.tasks import run_ingest_corpus

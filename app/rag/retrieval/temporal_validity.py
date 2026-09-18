@@ -133,7 +133,11 @@ def is_valid(
     Args:
         document_id: Chunk/provision identifier.
         query_date: Date to check against (defaults to today).
-        chunk: Optional ``RetrievedChunk`` to source payload fields from.
+        chunk: Optional chunk to source payload fields from — a
+            ``RetrievedChunk``, its ``to_dict()``/payload mapping, or any
+            object carrying the fields.  (``RetrievedChunk`` itself has no
+            status/effective-date attributes, so object-attribute lookup
+            alone never finds them; mappings are read first.)
         provision_status: Override for status (if chunk not provided).
         effective_from: Override for effective_from date.
         effective_to: Override for effective_to date.
@@ -151,13 +155,32 @@ def is_valid(
 
     query_date_str = query_date.isoformat() if isinstance(query_date, (date, datetime)) else str(query_date)
 
-    # Resolve payload fields from chunk if provided
+    # Resolve payload fields from chunk if provided.  Precedence per field:
+    # explicit argument > chunk mapping (dict / to_dict payload, where
+    # Qdrant/Neo4j metadata actually lives) > object attribute.
     if chunk is not None:
+        if isinstance(chunk, dict):
+            fields: dict[str, Any] = chunk
+        else:
+            to_dict = getattr(chunk, "to_dict", None)
+            try:
+                raw = to_dict() if callable(to_dict) else {}
+            except Exception:
+                raw = {}
+            fields = raw if isinstance(raw, dict) else {}
         provision_status = (
-            provision_status or getattr(chunk, "status", None) or getattr(chunk, "provision_status", None)
+            provision_status
+            or fields.get("status")
+            or fields.get("provision_status")
+            or getattr(chunk, "status", None)
+            or getattr(chunk, "provision_status", None)
         )
-        effective_from = effective_from or getattr(chunk, "effective_from", None)
-        effective_to = effective_to or getattr(chunk, "effective_to", None)
+        effective_from = (
+            effective_from or fields.get("effective_from") or getattr(chunk, "effective_from", None)
+        )
+        effective_to = (
+            effective_to or fields.get("effective_to") or getattr(chunk, "effective_to", None)
+        )
 
     status_lower = (provision_status or "").lower().strip()
 
@@ -322,6 +345,71 @@ def temporal_validity_score(document_id: str | None, query_date: str | None = No
 # --------------------------------------------------------------------------- #
 # Feature flag
 # --------------------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# Amendment / repeal chains (Phase 3 step 5 — first-class temporal subsystem)
+# --------------------------------------------------------------------------- #
+
+import re as _re
+
+_AMEND_RE = _re.compile(
+    r"(amended|amendment|substituted|inserted|repealed|re-enacted|superseded)"
+    r"[^.]{0,120}?(?:by\s+)?([A-Z][A-Za-z ]{2,80}?(?:Act|Regulation|Rules?|Amendment)[^.]{0,80}?\d{4})?",
+    _re.IGNORECASE,
+)
+
+
+@dataclass
+class AmendmentEvent:
+    """One amendment/repeal event in a provision's lineage."""
+
+    kind: str  # amended | substituted | inserted | repealed | re-enacted | superseded
+    instrument: str | None = None  # amending Act/Regulation, if named
+    raw: str = ""
+
+
+def extract_amendment_chain(text: str) -> list[AmendmentEvent]:
+    """Extract amendment/repeal events from provision text (deterministic).
+
+    Events are returned in textual order so lineage resolution can honour
+    the last terminal event (repeal-then-reenact ≠ reenact-then-repeal).
+    """
+    events: list[AmendmentEvent] = []
+    for m in _AMEND_RE.finditer(text or ""):
+        raw_kind = m.group(1).lower()
+        # Normalise: "amendment" → "amended", "re-enact" variants → "re-enacted".
+        kind = {"amendment": "amended"}.get(raw_kind, raw_kind)
+        if kind in ("re-enact", "reenacted", "reenact"):
+            kind = "re-enacted"
+        events.append(
+            AmendmentEvent(kind=kind, instrument=(m.group(2) or "").strip() or None, raw=m.group(0).strip()[:200])
+        )
+    return events
+
+
+def resolve_temporal_state(
+    provision_id: str | None,
+    query_date: str | None,
+    chain: list[AmendmentEvent],
+    base_status: str = VALIDITY_UNKNOWN,
+) -> str:
+    """Resolve valid/invalid/unknown given an amendment chain.
+
+    The last terminal event (repealed/superseded/re-enacted) wins, so a
+    repeal after a re-enactment correctly resolves to invalid. Amendment /
+    substitution events alone preserve the base status. Empty chain →
+    base_status. ``provision_id``/``query_date`` are accepted for API
+    compatibility with :func:`is_valid` (per-event dates are not extracted
+    from text, so date-thresholding is out of scope).
+    """
+    _ = (provision_id, query_date)  # reserved for future per-event dating
+    if not chain:
+        return base_status if base_status in _VALIDITY_VALUES else VALIDITY_UNKNOWN
+    terminal = [e.kind for e in chain if e.kind in ("repealed", "superseded", "re-enacted")]
+    if terminal:
+        return VALIDITY_VALID if terminal[-1] == "re-enacted" else VALIDITY_INVALID
+    return base_status if base_status in _VALIDITY_VALUES else VALIDITY_UNKNOWN
 
 
 # --------------------------------------------------------------------------- #

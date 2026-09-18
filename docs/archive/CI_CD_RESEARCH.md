@@ -2,7 +2,7 @@
 
 > **Date:** 2026-08-24 · **Method:** primary-source investigation only. Every claim below is
 > cited to the owning source file (+ line/job where useful) or to the official first-party doc
-> URL that states the mechanism. Documentation files inside the repo (`agents.md`, `task.md`,
+> URL that states the mechanism. Documentation files inside the repo (`docs/agent-reference.md` (formerly `agents.md`), `task.md`,
 > `plan.md`, `CHANGELOG.md`) are cited **only as context**, never as evidence. Absences were
 > verified by named searches and are stated as such.
 >
@@ -512,7 +512,7 @@ https://render.com/docs/blueprint-spec.)
   `RAG_QDRANT_BM25`, `RAG_LEGAL_QUERY_TYPING`, `RAG_CE_SECTION_PREFIX`, `RAG_TORCH_THREADS`,
   `NEO4J_*` incl. `NEO4J_ALLOW_WRITE`, `ENABLE_BACKUP_SCHEDULE`, `RAG_INGESTION_CRON` /
   `RAG_ENABLE_INGESTION_SCHEDULE`, `RAG_AGENT_CHECKPOINTER`, `RAG_HALLUCINATION_DETECTOR`.
-  These are runtime app flags read via the config seam (context: agents.md §6) — legitimate, but
+  These are runtime app flags read via the config seam (context: docs/agent-reference.md §6 (formerly agents.md)) — legitimate, but
   note the operational gap that **none of the remote-inference flags Render needs on small
   instances** (`RAG_EMBED_ENDPOINT`, `RAG_RERANKER_ENDPOINT`, `RAG_EMBED_REMOTE_FALLBACK=false`,
   `RAG_QDRANT_BM25`) appear in render.yaml; they must be set dashboard-side and are invisible to

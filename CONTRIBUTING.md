@@ -37,7 +37,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
    ```bash
    pip install -r requirements.txt
-   pip install -r requirements-dev.txt  # For development
+   pip install -r requirements-dev.txt  # For development (shim for `pip install -e ".[dev]"`)
    ```
 
 ## Development Setup

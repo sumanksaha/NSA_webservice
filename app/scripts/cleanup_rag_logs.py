@@ -2,7 +2,8 @@
 
 Deletes log entries older than RAG_LOG_RETENTION_DAYS (default 90).
 Best-effort: never raises, logs all actions.
-Can be called as Celery beat task or manual maintenance tool.
+Dispatched via QStash (``cleanup_rag_query_logs`` in TASK_REGISTRY,
+weekly schedule in ScheduledJobs) or run manually: ``python -m ...``.
 """
 
 from __future__ import annotations
@@ -41,4 +42,4 @@ def cleanup_rag_query_logs(days: int = RETENTION_DAYS) -> dict[str, int]:
 
 if __name__ == "__main__":
     result = cleanup_rag_query_logs()
-    print(result)
+    print(result)  # noqa: T201 — CLI entry point prints its result

@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import contextlib
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from dataclasses import dataclass
 
 
 @pytest.fixture(scope="module")
@@ -135,7 +133,7 @@ class TestCsvParsing:
 
 class TestRestoreEngine:
     def test_parameterized_engine_dispatches_by_prefix(self):
-        from app.utils.sync import restore_from, BACKUP_MODULE_TO_TABLE
+        from app.utils.sync import restore_from
 
         with (
             patch("app.services.backup_restorer.BackupRestorer._list_r2_csv_backups", return_value=["r2:e.csv"]),

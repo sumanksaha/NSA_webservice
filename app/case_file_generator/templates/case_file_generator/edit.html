@@ -1,0 +1,321 @@
+{% extends "base.html" %} {% block title %}Edit Case File - {{ case_number }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-pen-to-square"></i> Edit Sample Case File</h2>
+        <span class="text--primary" style="font-size: 1.125rem; font-weight: 600">{{ case_number }}</span>
+    </div>
+
+    {% if is_archived %}
+    <div class="alert alert-warning" style="margin: 1rem">
+        This case is <strong>archived</strong> and hidden from case lists. Unarchive it to edit.
+        <button type="button" class="btn btn-secondary btn-sm" id="unarchiveBtn">
+            <i class="fa-solid fa-box-open"></i> Unarchive
+        </button>
+    </div>
+    {% endif %}
+
+    <form
+        id="editCaseFileForm"
+        action="{{ url_for('case_file_generator.update_case', case_id=case_id) }}"
+        method="post"
+    >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="case_number" class="form-label">Case Number (cannot be changed)</label>
+                <input
+                    type="text" id="case_number" name="case_number" class="form-input"
+                    value="{{ form.case_number or '' }}" readonly
+                />
+            </div>
+            <div class="form-group">
+                <label for="food_safety_officer_name" class="form-label">Food Safety Officer Name</label>
+                <input
+                    type="text" id="food_safety_officer_name" name="food_safety_officer_name"
+                    class="form-input" value="{{ form.food_safety_officer_name or '' }}" required
+                />
+            </div>
+        </div>
+
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="authorization_date" class="form-label">Authorization Date</label>
+                <input type="date" id="authorization_date" name="authorization_date" class="form-input" value="{{ form.authorization_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="inspection_date" class="form-label">Sample Draw Date</label>
+                <input type="date" id="inspection_date" name="inspection_date" class="form-input" value="{{ form.inspection_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="inspection_time" class="form-label">Sample Draw Time (HH:MM)</label>
+                <input type="text" id="inspection_time" name="inspection_time" class="form-input" value="{{ form.inspection_time or '' }}" required />
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Manufacturer Details</h3></div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="manufacturer_fssai" class="form-label">Manufacturer FSSAI Number</label>
+                <input type="text" id="manufacturer_fssai" name="manufacturer_fssai" class="form-input" value="{{ form.manufacturer_fssai or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="manufacturer_name" class="form-label">Manufacturer Name</label>
+                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" value="{{ form.manufacturer_name or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="manufacturer_fbo_name" class="form-label">Manufacturer FBO Name</label>
+                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" value="{{ form.manufacturer_fbo_name or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="manufacturer_address" class="form-label">Manufacturer Address</label>
+                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea" required>{{ form.manufacturer_address or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Retailer Details</h3></div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="retailer_fssai" class="form-label">Retailer FSSAI Number</label>
+                <input type="text" id="retailer_fssai" name="retailer_fssai" class="form-input" value="{{ form.retailer_fssai or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="retailer_name" class="form-label">Retailer Name</label>
+                <input type="text" id="retailer_name" name="retailer_name" class="form-input" value="{{ form.retailer_name or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="retailer_fbo_name" class="form-label">Retailer FBO Name</label>
+                <input type="text" id="retailer_fbo_name" name="retailer_fbo_name" class="form-input" value="{{ form.retailer_fbo_name or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="retailer_address" class="form-label">Retailer Address</label>
+                <textarea id="retailer_address" name="retailer_address" class="form-textarea" required>{{ form.retailer_address or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Product &amp; Sample Details</h3></div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="product_name" class="form-label">Product Name</label>
+                <input type="text" id="product_name" name="product_name" class="form-input" value="{{ form.product_name or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="batch_no" class="form-label">Batch Number</label>
+                <input type="text" id="batch_no" name="batch_no" class="form-input" value="{{ form.batch_no or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="sample_quantity" class="form-label">Sample Quantity</label>
+                <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" value="{{ form.sample_quantity or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="packet_count" class="form-label">Packet Count</label>
+                <input type="number" id="packet_count" name="packet_count" class="form-input" value="{{ form.packet_count or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="mfg_date" class="form-label">Date of Manufacturing</label>
+                <input type="date" id="mfg_date" name="mfg_date" class="form-input" value="{{ form.mfg_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="expiry_date" class="form-label">Date of Expiry</label>
+                <input type="date" id="expiry_date" name="expiry_date" class="form-input" value="{{ form.expiry_date or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="sample_code" class="form-label">Sample Code</label>
+                <input type="text" id="sample_code" name="sample_code" class="form-input" value="{{ form.sample_code or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="lab_registration_no" class="form-label">Lab Registration Number</label>
+                <input type="text" id="lab_registration_no" name="lab_registration_no" class="form-input" value="{{ form.lab_registration_no or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="do_receipt_date" class="form-label">DO Receipt Date</label>
+                <input type="date" id="do_receipt_date" name="do_receipt_date" class="form-input" value="{{ form.do_receipt_date or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="sample_id" class="form-label">Linked Sample ID (optional)</label>
+                <input type="number" id="sample_id" name="sample_id" class="form-input" value="{{ form.sample_id or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="other_food_articles" class="form-label">Other Food Articles</label>
+                <input type="text" id="other_food_articles" name="other_food_articles" class="form-input" value="{{ form.other_food_articles or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="total_cost" class="form-label">Total Cost</label>
+                <input type="text" id="total_cost" name="total_cost" class="form-input" value="{{ form.total_cost or '' }}" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="cost_in_words" class="form-label">Cost in Words</label>
+                <input type="text" id="cost_in_words" name="cost_in_words" class="form-input" value="{{ form.cost_in_words or '' }}" />
+            </div>
+        </div>
+
+        <div class="section-header"><h3>Analysis Result &amp; Regulatory Action</h3></div>
+        <div class="form-group">
+            <div class="analysis-result-group">
+                <label class="toggle-card">
+                    <input
+                        type="checkbox" name="is_misbranded" value="misbranded" data-off=""
+                        {% if form.is_misbranded == 'misbranded' %}checked{% endif %}
+                    />
+                    Misbranded
+                </label>
+                <label class="toggle-card">
+                    <input
+                        type="checkbox" name="is_substandard" value="substandard" data-off=""
+                        {% if form.is_substandard == 'substandard' %}checked{% endif %}
+                    />
+                    Substandard
+                </label>
+            </div>
+        </div>
+        <div class="form-row form-row--4">
+            <div class="form-group">
+                <label for="analyst_report_no" class="form-label">Analyst Report Number</label>
+                <input type="text" id="analyst_report_no" name="analyst_report_no" class="form-input" value="{{ form.analyst_report_no or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="analyst_report_date" class="form-label">Analyst Report Date</label>
+                <input type="date" id="analyst_report_date" name="analyst_report_date" class="form-input" value="{{ form.analyst_report_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="directive_letter_no" class="form-label">Directive Letter Number</label>
+                <input type="text" id="directive_letter_no" name="directive_letter_no" class="form-input" value="{{ form.directive_letter_no or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="directive_letter_date" class="form-label">Directive Letter Date</label>
+                <input type="date" id="directive_letter_date" name="directive_letter_date" class="form-input" value="{{ form.directive_letter_date or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="retailer_report_receive_date" class="form-label">Retailer Report Receive Date</label>
+                <input type="date" id="retailer_report_receive_date" name="retailer_report_receive_date" class="form-input" value="{{ form.retailer_report_receive_date or '' }}" required />
+            </div>
+            <div class="form-group">
+                <label for="manufacturer_report_receive_date" class="form-label">Manufacturer Report Receive Date</label>
+                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" value="{{ form.manufacturer_report_receive_date or '' }}" required />
+            </div>
+        </div>
+        <div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="applicable_regulation" class="form-label">Applicable Regulation</label>
+                <input type="text" id="applicable_regulation" name="applicable_regulation" class="form-input" value="{{ form.applicable_regulation or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="applicable_clause" class="form-label">Applicable Clause</label>
+                <input type="text" id="applicable_clause" name="applicable_clause" class="form-input" value="{{ form.applicable_clause or '' }}" />
+            </div>
+        </div>
+
+        <div class="actions-centered">
+            <button type="submit" class="btn btn-primary btn-lg" {% if is_archived %}disabled{% endif %}>
+                <i class="fa-solid fa-save"></i> Save Changes
+            </button>
+            <a href="{% if is_archived %}{{ url_for('case_file_generator.index', include_archived=1) }}{% else %}{{ url_for('case_file_generator.index') }}{% endif %}" class="btn btn-secondary btn-lg">
+                <i class="fa-solid fa-xmark"></i> Cancel
+            </a>
+            {% if not is_archived %}
+            <button type="button" class="btn btn-secondary btn-lg" id="archiveBtn">
+                <i class="fa-solid fa-box-archive"></i> Archive Case
+            </button>
+            {% endif %}
+        </div>
+        <div id="edit-status" class="form-hint" style="margin-top: 0.5rem"></div>
+    </form>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    document.getElementById("editCaseFileForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const status = document.getElementById("edit-status");
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        submitBtn.disabled = true;
+        status.textContent = "";
+        try {
+            const formData = new FormData(form);
+            // Unchecked checkboxes are absent from FormData — send explicit "off" values.
+            form.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+                if (!cb.checked && !formData.has(cb.name)) {
+                    formData.append(cb.name, cb.dataset.off || "");
+                }
+            });
+            const response = await fetch(form.action, { method: "PUT", body: formData });
+            const data = await response.json();
+            if (response.ok) {
+                status.textContent = "Saved. Returning to case list...";
+                window.location.href = "{{ url_for('case_file_generator.index') }}";
+            } else if (data.errors) {
+                const fields = Object.entries(data.errors)
+                    .map(([f, msg]) => f + ": " + msg)
+                    .join("\n");
+                status.textContent = "Please correct the highlighted fields.";
+                alert("Validation failed:\n" + fields);
+            } else {
+                status.textContent = data.error || "Failed to update case.";
+                alert("Error: " + (data.error || "Failed to update case"));
+            }
+        } catch (error) {
+            status.textContent = "Error: " + error.message;
+            alert("Error: " + error.message);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+
+    function csrfToken() {
+        const el = document.querySelector('meta[name="csrf-token"]');
+        return el ? el.getAttribute("content") : "";
+    }
+    async function postArchiveAction(url, confirmMsg) {
+        if (!confirm(confirmMsg)) return;
+        const body = new FormData();
+        body.append("csrf_token", csrfToken());
+        const response = await fetch(url, { method: "POST", body });
+        const data = await response.json();
+        if (response.ok) {
+            window.location.href = "{{ url_for('case_file_generator.index') }}";
+        } else {
+            alert("Error: " + (data.error || "Action failed"));
+        }
+    }
+    const archiveBtn = document.getElementById("archiveBtn");
+    if (archiveBtn) {
+        archiveBtn.addEventListener("click", () =>
+            postArchiveAction(
+                "{{ url_for('case_file_generator.archive_case', case_id=case_id) }}",
+                "Archive this case? It will be hidden from case lists but its data is kept."
+            )
+        );
+    }
+    const unarchiveBtn = document.getElementById("unarchiveBtn");
+    if (unarchiveBtn) {
+        unarchiveBtn.addEventListener("click", () =>
+            postArchiveAction(
+                "{{ url_for('case_file_generator.unarchive_case', case_id=case_id) }}",
+                "Restore this case to the case lists?"
+            )
+        );
+    }
+</script>
+{% endblock %}

@@ -6,22 +6,14 @@ import json
 import logging
 from pathlib import Path
 
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from app.extensions import db
 from app.models import LabTestParameter, OCRDocument
 from app.ocr_extraction import ocr_extraction_bp
 from app.ocr_extraction.service import apply_field_corrections, correct_lab_parameter
-from app.ocr_pipeline.persistence import run_ocr_pipeline
 
 logger = logging.getLogger(__name__)
-
-# Lazy-imported Celery task (the tasks module degrades gracefully when Celery
-# is absent — matching the QStash sync-fallback philosophy).
-try:
-    from app.ocr_pipeline.tasks import process_ocr_document_async
-except ImportError:  # pragma: no cover - celery absent
-    process_ocr_document_async = None
 
 
 @ocr_extraction_bp.route("/documents")
@@ -108,14 +100,15 @@ def bulk_upload():
     Each ``*.pdf`` member is split → extracted → persisted as its own
     ``OCRDocument`` (Phase E acceptance criterion). Behaviour:
 
-    - Celery configured → one ``process_ocr_document_async`` task dispatched
-      per PDF; responds 202 with the queued file names.
-    - No Celery (dev/free tier) → processed inline, same as the QStash sync
-      fallback; responds 200 with per-file results.
+    - QStash dispatch succeeds → one ``process_ocr_document_async`` task
+      queued per PDF; responds 202 with the queued file names.
+    - QStash unavailable → processed inline via the synchronous fallback;
+      responds 200 with per-file results.
 
     Duplicate files (same SHA-256 already extracted) are skipped and reported.
     """
     import tempfile
+    import uuid
     import zipfile
 
     upload = request.files.get("file") or request.files.get("zip")
@@ -133,8 +126,23 @@ def bulk_upload():
     processed: list[dict] = []
     duplicates: list[str] = []
 
+    # Members are staged in a temp dir for validation, then persisted under
+    # instance/ocr_uploads/<batch>/ — queued jobs run after this request
+    # finishes, so the queued file_path must outlive the temp dir. The
+    # persisted copy also backs the OCRDocument.file_path review link.
+    stable_dir = Path(current_app.instance_path) / "ocr_uploads" / uuid.uuid4().hex
+    stable_dir.mkdir(parents=True, exist_ok=True)
+
+    def _stage(pdf_path: Path, member_name: str) -> Path:
+        target = stable_dir / Path(member_name).name
+        if target.exists():
+            target = stable_dir / f"{uuid.uuid4().hex}_{Path(member_name).name}"
+        with open(pdf_path, "rb") as src, open(target, "wb") as dst:
+            dst.write(src.read())
+        return target
+
     # Processing stays INSIDE the temp-dir lifetime: extracted member PDFs
-    # must exist on disk while the pipeline reads them.
+    # must exist on disk while being hashed and staged.
     with tempfile.TemporaryDirectory(prefix="ocr_bulk_", ignore_cleanup_errors=True) as tmp:
         zip_path = Path(tmp) / "bundle.zip"
         upload.save(str(zip_path))
@@ -152,19 +160,32 @@ def bulk_upload():
                 duplicates.append(member_name)
                 continue
 
-            # Guard on the task object, not just celery presence.
-            if process_ocr_document_async is not None:
-                process_ocr_document_async.delay(str(pdf_path), sample_id=sample_id)
+            stable_path = _stage(pdf_path, member_name)
+            try:
+                from app.utils.qstash_client import publish_task
+
+                dispatched = publish_task(
+                    "process_ocr_document_async",
+                    {"file_path": str(stable_path), "sample_id": sample_id},
+                )
+            except Exception as exc:
+                logger.error("bulk_upload: dispatch failed for %s — %s", member_name, exc)
+                processed.append({"file": member_name, "error": str(exc)})
+                db.session.remove()
+                continue
+
+            if dispatched["mode"] == "async":
                 queued.append(member_name)
             else:
-                try:
-                    ocr_doc = run_ocr_pipeline(pdf_path, sample_id=sample_id)
-                    processed.append({"file": member_name, "document_id": ocr_doc.id})
-                except Exception as exc:
-                    logger.error("bulk_upload: failed for %s — %s", member_name, exc)
-                    processed.append({"file": member_name, "error": str(exc)})
-                finally:
-                    db.session.remove()
+                result = dispatched["result"]
+                if isinstance(result, Exception):
+                    logger.error("bulk_upload: failed for %s — %s", member_name, result)
+                    processed.append({"file": member_name, "error": str(result)})
+                elif not result:
+                    processed.append({"file": member_name, "error": "Extraction returned no document id"})
+                else:
+                    processed.append({"file": member_name, "document_id": result})
+                db.session.remove()
 
     payload = {
         "total_pdfs": len(members),
@@ -172,7 +193,7 @@ def bulk_upload():
         "processed": processed,
         "duplicates_skipped": duplicates,
     }
-    if queued and process_ocr_document_async is not None:
+    if queued:
         return jsonify({**payload, "status": "queued"}), 202
     return jsonify({**payload, "status": "completed"}), 200
 

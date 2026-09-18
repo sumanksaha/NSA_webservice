@@ -15,6 +15,85 @@ from enum import StrEnum
 from typing import Any
 
 
+class ClaimVerificationStatus(StrEnum):
+    """Status of a single claim against retrieved evidence.
+
+    Replaces one overall groundedness score with per-claim status so the
+    answer can represent which parts are supported, which are partial, and
+    which are contradicted or unsupported.
+    """
+
+    SUPPORTED = "SUPPORTED"
+    PARTIALLY_SUPPORTED = "PARTIALLY_SUPPORTED"
+    UNSUPPORTED = "UNSUPPORTED"
+    CONTRADICTED = "CONTRADICTED"
+
+
+class ClaimVerification:
+    """One claim verified against retrieved evidence.
+
+    Attributes:
+        claim_id: Stable claim identifier used in the answer contract.
+        text: The claim sentence text.
+        status: Verdict from :class:`ClaimVerificationStatus`.
+        confidence: 0.0–1.0 confidence in the verdict.
+        evidence: Chunk ids supporting or relating to the claim.
+        authority_score: Best authority weight among supporting evidence.
+        temporal_valid: Whether the supporting evidence is temporally consistent.
+        contradictions: Contradictions raised against this claim, if any.
+    """
+
+    def __init__(
+        self,
+        *,
+        claim_id: str,
+        text: str,
+        status: ClaimVerificationStatus,
+        confidence: float = 0.0,
+        evidence: list[str] | None = None,
+        authority_score: float = 0.0,
+        temporal_valid: bool = True,
+        contradictions: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.claim_id = claim_id
+        self.text = text
+        self.status = status
+        self.confidence = confidence
+        self.evidence = list(evidence or [])
+        self.authority_score = authority_score
+        self.temporal_valid = temporal_valid
+        self.contradictions = list(contradictions or [])
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "claim_id": self.claim_id,
+            "text": self.text,
+            "status": self.status.value,
+            "confidence": round(self.confidence, 3),
+            "evidence": list(self.evidence),
+            "authority_score": round(self.authority_score, 3),
+            "temporal_valid": bool(self.temporal_valid),
+            "contradictions": list(self.contradictions),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ClaimVerification:
+        try:
+            status = ClaimVerificationStatus(str(data.get("status", ClaimVerificationStatus.UNSUPPORTED.value)))
+        except ValueError:
+            status = ClaimVerificationStatus.UNSUPPORTED
+        return cls(
+            claim_id=str(data.get("claim_id", "")),
+            text=str(data.get("text", "")),
+            status=status,
+            confidence=float(data.get("confidence", 0.0)),
+            evidence=[str(e) for e in (data.get("evidence") or [])],
+            authority_score=float(data.get("authority_score", 0.0)),
+            temporal_valid=bool(data.get("temporal_valid", True)),
+            contradictions=[dict(c) for c in (data.get("contradictions") or [])],
+        )
+
+
 class EvidenceRequirement(StrEnum):
     """Controlled vocabulary of evidence requirements for legal queries.
 
@@ -147,6 +226,8 @@ class EvidenceTask:
         must_be_explicit: Whether the answer must be explicitly stated (not inferred).
         answer_contract: What fields must be present for success.
         retrieval: How this task should be retrieved.
+        source_requirement_id: Id of the AnswerRequirement this task was
+            derived from (planner bookkeeping; ``None`` for external tasks).
     """
 
     task_id: str
@@ -161,6 +242,11 @@ class EvidenceTask:
     must_be_explicit: bool = True
     answer_contract: AnswerContract | None = None
     retrieval: RetrievalPlan = field(default_factory=RetrievalPlan)
+    # Source requirement in the AnswerRequirementGraph this task was derived
+    # from (Phase 3).  First-class field instead of a ``requirement_id:{id}``
+    # entity marker: one honest name, no magic-string parsing, and retrieval
+    # scoping entities stay clean.
+    source_requirement_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-safe dict (LangGraph state / checkpointing).
@@ -181,6 +267,7 @@ class EvidenceTask:
             "must_be_explicit": self.must_be_explicit,
             "answer_contract": self.answer_contract.to_dict() if self.answer_contract else None,
             "retrieval": self.retrieval.to_dict(),
+            "source_requirement_id": self.source_requirement_id,
         }
 
     @classmethod
@@ -215,6 +302,7 @@ class EvidenceTask:
             must_be_explicit=bool(data.get("must_be_explicit", True)),
             answer_contract=contract,
             retrieval=RetrievalPlan.from_dict(data.get("retrieval") or {}),
+            source_requirement_id=data.get("source_requirement_id"),
         )
 
     def with_dependency(self, dep_id: str) -> EvidenceTask:
@@ -232,6 +320,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -250,6 +339,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -268,6 +358,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -286,6 +377,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=self.answer_contract,
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -304,6 +396,7 @@ class EvidenceTask:
             must_be_explicit=self.must_be_explicit,
             answer_contract=AnswerContract(required_fields=required_fields),
             retrieval=self.retrieval,
+            source_requirement_id=self.source_requirement_id,
         )
         return new
 
@@ -416,6 +509,133 @@ class TaskDAG:
 
 
 @dataclass
+class AnswerRequirement:
+    """One independently verifiable answer requirement from query decomposition.
+
+    This is the *first-class* unit the reviewer's architecture points at:
+    decompose the question into answer requirements, then derive retrieval
+    questions / EvidenceTasks from those requirements.
+
+    Attributes:
+        id: Requirement identifier (e.g. "R1", "R2").
+        type: Evidence requirement taxonomy entry.
+        subject: What the requirement is about.
+        question: The retrieval question derived from this requirement.
+        answer_type: Expected answer shape for this requirement.
+        evidence_required: Evidence types / source signals this requirement needs.
+        mandatory: Whether failing this requirement should block/abstain.
+        conditions: Extra conditions shaping retrieval/answer.
+        jurisdiction: Optional jurisdiction constraint.
+        temporal_scope: Optional time window.
+    """
+
+    id: str
+    type: EvidenceRequirement
+    subject: str
+    question: str
+    answer_type: str = "text"
+    evidence_required: list[str] = field(default_factory=list)
+    mandatory: bool = True
+    conditions: list[str] = field(default_factory=list)
+    jurisdiction: str | None = None
+    temporal_scope: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "type": self.type.value,
+            "subject": self.subject,
+            "question": self.question,
+            "answer_type": self.answer_type,
+            "evidence_required": list(self.evidence_required),
+            "mandatory": bool(self.mandatory),
+            "conditions": list(self.conditions),
+            "jurisdiction": self.jurisdiction,
+            "temporal_scope": self.temporal_scope,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AnswerRequirement:
+        try:
+            req_type = EvidenceRequirement(str(data.get("type", "provision")))
+        except ValueError:
+            req_type = EvidenceRequirement.PROVISION
+        return cls(
+            id=str(data.get("id", "")),
+            type=req_type,
+            subject=str(data.get("subject", "")),
+            question=str(data.get("question", "")),
+            answer_type=str(data.get("answer_type", "text")),
+            evidence_required=[str(e) for e in (data.get("evidence_required") or [])],
+            mandatory=bool(data.get("mandatory", True)),
+            conditions=[str(c) for c in (data.get("conditions") or [])],
+            jurisdiction=data.get("jurisdiction"),
+            temporal_scope=data.get("temporal_scope"),
+        )
+
+
+@dataclass
+class AnswerRequirementGraph:
+    """Structured answer-requirement graph for one user query.
+
+    This is the proposed primary decomposition output: a set of requirements
+    with explicit dependencies, plus a helper to derive the EvidenceTask DAG
+    so existing executor/synthesis code keeps working.
+
+    The graph distinguishes *mandatory* requirements (must be answered for a
+    defensible answer) from optional ones (nice-to-have context).
+    """
+
+    query: str
+    requirements: list[AnswerRequirement]
+    dependencies: list[tuple[str, str]]  # (depends_on, requirement_id)
+    derived_tasks: list[EvidenceTask] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "query": self.query,
+            "requirements": [r.to_dict() for r in self.requirements],
+            "dependencies": [list(d) for d in self.dependencies],
+            "derived_tasks": [t.to_dict() for t in self.derived_tasks],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AnswerRequirementGraph:
+        reqs = [AnswerRequirement.from_dict(r) for r in (data.get("requirements") or [])]
+        deps = [tuple(d) for d in (data.get("dependencies") or [])]
+        tasks = [EvidenceTask.from_dict(t) for t in (data.get("derived_tasks") or [])]
+        return cls(
+            query=str(data.get("query", "")),
+            requirements=reqs,
+            dependencies=deps,
+            derived_tasks=tasks,
+        )
+
+    def requirement_ids(self) -> list[str]:
+        return [r.id for r in self.requirements]
+
+    def mandatory_ids(self) -> list[str]:
+        return [r.id for r in self.requirements if r.mandatory]
+
+    def dependency_set(self) -> set[tuple[str, str]]:
+        return set(self.dependencies)
+
+    def requirement_by_id(self, req_id: str) -> AnswerRequirement | None:
+        for r in self.requirements:
+            if r.id == req_id:
+                return r
+        return None
+
+    def add_derived_tasks(self, tasks: list[EvidenceTask]) -> AnswerRequirementGraph:
+        return AnswerRequirementGraph(
+            query=self.query,
+            requirements=self.requirements,
+            dependencies=self.dependencies,
+            derived_tasks=list(tasks),
+        )
+
+
+@dataclass
 class CoverageMatrix:
     """Tracks which user requirements are covered by which EvidenceTasks.
 
@@ -477,6 +697,53 @@ class CoverageMatrix:
             "missing": self.missing,
             "coverage_ratio": round(self.coverage_ratio, 4),
         }
+
+
+def requirement_graph_from_tasks(
+    query: str,
+    tasks: list[EvidenceTask],
+    *,
+    make_mandatory: bool = True,
+) -> AnswerRequirementGraph:
+    """Build an AnswerRequirementGraph from existing EvidenceTasks.
+
+    This is the backward-compatible bridge: existing decomposition paths can
+    keep producing EvidenceTasks, and this converts them into the new
+    requirement-first representation without rewriting the planner yet.
+
+    Each task becomes one requirement whose question/task_id/answer_type are
+    carried over, and each task dependency becomes a requirement dependency.
+    """
+    by_id = {t.task_id: t for t in tasks}
+    requirements: list[AnswerRequirement] = []
+    for task in tasks:
+        requirements.append(
+            AnswerRequirement(
+                id=task.task_id,
+                type=task.evidence_requirement,
+                subject=task.question or task.objective,
+                question=task.question or task.objective,
+                answer_type=task.answer_type or requirement_to_answer_type(task.evidence_requirement),
+                evidence_required=[task.evidence_requirement.value],
+                mandatory=make_mandatory,
+                conditions=list(task.retrieval.lexical_queries or []),
+                jurisdiction=task.jurisdiction,
+                temporal_scope=task.temporal_scope,
+            )
+        )
+
+    dependencies: list[tuple[str, str]] = []
+    for task in tasks:
+        for dep_id in task.dependency or []:
+            if dep_id in by_id:
+                dependencies.append((dep_id, task.task_id))
+
+    return AnswerRequirementGraph(
+        query=query,
+        requirements=requirements,
+        dependencies=dependencies,
+        derived_tasks=list(tasks),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -600,3 +867,139 @@ _DEFAULT_ANSWER_CONTRACTS = DEFAULT_ANSWER_CONTRACTS
 def get_answer_contract(requirement: EvidenceRequirement) -> AnswerContract:
     """Get the default answer contract for an evidence requirement."""
     return DEFAULT_ANSWER_CONTRACTS.get(requirement, AnswerContract(required_fields=["detail", "citation"]))
+
+
+def build_claim_verification(
+    claims: list[dict[str, Any]],
+    verifications: list[dict[str, Any]],
+    chunk_authority: dict[str, float] | None = None,
+    contradictions: list[dict[str, Any]] | None = None,
+    temporally_invalid_ids: set[str] | None = None,
+) -> list[ClaimVerification]:
+    """Build per-claim :class:`ClaimVerification` records for the response.
+
+    This is the first-class upgrade to the existing claim path: instead of
+    returning only ``verified`` + ``confidence``, the agent can return a
+    richer claim matrix with status, evidence, authority and contradiction
+    signals.
+
+    All signals are **per claim**, keyed by the claim's own supporting-chunk
+    ids — a claim is judged only by the evidence that supports it, never by
+    what other chunks elsewhere in the answer do (the old global
+    ``authority_values``/``temporal_conflict`` flattening).
+
+    Args:
+        claims: Extracted claim dicts (``claim_id``/``text``).
+        verifications: Per-claim verifier output (``verified``, ``confidence``,
+            ``supporting_chunks``), aligned with *claims* by index.
+        chunk_authority: chunk_id → 0–1 authority weight.  A claim's authority
+            score is the best weight among its own supporting chunks.
+        contradictions: Contradiction-pair dicts with ``chunk_a``/``chunk_b``.
+            A claim is CONTRADICTED only when one of *its own* supporting
+            chunks is on the losing side of a pair whose other side is also
+            evidence for this claim (both sides present → the claim asserts
+            something the evidence disagrees about); a chunk merely appearing
+            in some unrelated pair does not taint the claim.
+        temporally_invalid_ids: Chunk ids carrying repealed/superseded text.
+            Claims standing on such evidence are capped at
+            PARTIALLY_SUPPORTED.
+
+    Status mapping:
+
+    - ``verified=True`` + own-evidence contradiction → CONTRADICTED
+    - ``verified=True`` + strong own-authority + confidence → SUPPORTED
+    - ``verified=True`` otherwise → PARTIALLY_SUPPORTED
+    - ``verified=False`` + own-evidence contradiction → CONTRADICTED
+    - ``verified=False`` otherwise → UNSUPPORTED
+    """
+    contradiction_pairs = [c for c in (contradictions or []) if isinstance(c, dict)]
+    chunk_authority = dict(chunk_authority or {})
+    invalid_ids = set(temporally_invalid_ids or set())
+    out: list[ClaimVerification] = []
+    for idx, claim in enumerate(claims):
+        v = verifications[idx] if idx < len(verifications) else {}
+        verified = bool(v.get("verified", False))
+        confidence = float(v.get("confidence", 0.0))
+        evidence = [str(c) for c in (v.get("supporting_chunks") or [])]
+        evidence_set = set(evidence)
+
+        # Per-claim authority: best weight among THIS claim's supporting
+        # chunks (0.5 neutral floor mirrors chunk_authority_score's unknown-
+        # metadata treatment).
+        own_authorities = [chunk_authority[c] for c in evidence if c in chunk_authority]
+        authority_score = max(own_authorities) if own_authorities else 0.5
+
+        # Per-claim contradictions: pairs where BOTH sides are this claim's
+        # evidence — the claim sits on a conflict inside its own support.
+        claim_contradictions = [
+            dict(c)
+            for c in contradiction_pairs
+            if c.get("chunk_a") in evidence_set and c.get("chunk_b") in evidence_set
+        ]
+
+        status = ClaimVerificationStatus.UNSUPPORTED
+        if verified:
+            if claim_contradictions:
+                status = ClaimVerificationStatus.CONTRADICTED
+            elif confidence >= 0.7 and authority_score >= 0.8:
+                status = ClaimVerificationStatus.SUPPORTED
+            else:
+                status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
+        else:
+            if claim_contradictions:
+                status = ClaimVerificationStatus.CONTRADICTED
+
+        # Temporal cap: a claim standing on temporally invalid text (repealed/
+        # superseded) cannot be fully SUPPORTED, even when textually verified.
+        temporal_valid = not (evidence_set & invalid_ids)
+        if status is ClaimVerificationStatus.SUPPORTED and not temporal_valid:
+            status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
+
+        out.append(
+            ClaimVerification(
+                claim_id=str(claim.get("claim_id", f"C{idx + 1}")),
+                text=str(claim.get("text", "")),
+                status=status,
+                confidence=confidence,
+                evidence=evidence,
+                authority_score=authority_score,
+                temporal_valid=temporal_valid,
+                contradictions=claim_contradictions,
+            )
+        )
+    return out
+
+
+def requirement_to_answer_type(requirement: EvidenceRequirement) -> str:
+    """Default answer type for an evidence requirement.
+
+    Keeps the mapping in one place so retrieval/rerank/sufficiency code can
+    ask "what kind of answer should this requirement produce?" without
+    re-deriving it from the task objective text.
+    """
+    mapping: dict[EvidenceRequirement, str] = {
+        EvidenceRequirement.PROVISION: "citation",
+        EvidenceRequirement.DEFINITION: "text",
+        EvidenceRequirement.SCOPE: "text",
+        EvidenceRequirement.ELEMENT: "text",
+        EvidenceRequirement.EXCEPTION: "text",
+        EvidenceRequirement.CONDITION: "text",
+        EvidenceRequirement.PROHIBITION: "text",
+        EvidenceRequirement.DUTY: "text",
+        EvidenceRequirement.RIGHT: "text",
+        EvidenceRequirement.PENALTY: "numeric_or_rule",
+        EvidenceRequirement.OFFENCE: "text",
+        EvidenceRequirement.PROCEDURE: "text",
+        EvidenceRequirement.AUTHORITY: "citation",
+        EvidenceRequirement.JURISDICTION: "citation",
+        EvidenceRequirement.TIME_LIMIT: "numeric_or_rule",
+        EvidenceRequirement.THRESHOLD: "numeric_or_rule",
+        EvidenceRequirement.STANDARD: "text",
+        EvidenceRequirement.CROSS_REFERENCE: "citation",
+        EvidenceRequirement.AMENDMENT: "yes_no_or_rule",
+        EvidenceRequirement.REPEAL: "yes_no_or_rule",
+        EvidenceRequirement.CASE_LAW: "citation",
+        EvidenceRequirement.INTERPRETATION: "text",
+        EvidenceRequirement.FACT_APPLICATION: "boolean",
+    }
+    return mapping.get(requirement, "text")

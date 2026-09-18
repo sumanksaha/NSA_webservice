@@ -21,6 +21,7 @@ callers (QdrantIndexer / SparseRetriever) degrade to dense-only / rapidfuzz.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.shared.config import cfg
 
