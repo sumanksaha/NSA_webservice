@@ -116,11 +116,11 @@ Functions:
 
 ```python
 DOMAIN_COLLECTIONS = {
-    "fssai":       "fssai_legal_768",
-    "env":         "env_legal_768",
-    "commercial":  "commercial_legal_768",
-    "animal":      "animal_legal_768",
-    "wb_state":    "wb_state_legal_768",
+    "fssai": "fssai_legal_768",
+    "env": "env_legal_768",
+    "commercial": "commercial_legal_768",
+    "animal": "animal_legal_768",
+    "wb_state": "wb_state_legal_768",
 }
 ```
 

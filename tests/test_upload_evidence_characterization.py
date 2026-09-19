@@ -130,7 +130,6 @@ class TestUploadEvidenceOrchestration:
         _stub_stamp(monkeypatch)
         monkeypatch.setattr("app.inspection.photo_service._OCR_AVAILABLE", True)
 
-
         # Async mode → task id surfaced.
         monkeypatch.setattr(
             "app.utils.qstash_client.publish_task",

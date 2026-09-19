@@ -53,9 +53,7 @@ class _FakeStore:
         return out
 
     def ensure_collection(self, create_payload_indexes=True, sparse_enabled=False):
-        self.ensure_calls.append(
-            {"create_payload_indexes": create_payload_indexes, "sparse_enabled": sparse_enabled}
-        )
+        self.ensure_calls.append({"create_payload_indexes": create_payload_indexes, "sparse_enabled": sparse_enabled})
         return True
 
     def upsert_points(self, points):
@@ -102,7 +100,9 @@ class TestBackupCollection:
 
     def test_dense_only_collection_flat_vectors(self, tmp_path):
         store = _FakeStore(
-            points=[{"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}],
+            points=[
+                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}
+            ],
             sparse=False,
         )
         out = tmp_path / "dense.json"
@@ -146,7 +146,9 @@ class TestRestoreCollection:
 
     def test_restore_roundtrip_dense_only(self, tmp_path):
         src = _FakeStore(
-            points=[{"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}],
+            points=[
+                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}
+            ],
             sparse=False,
         )
         archive = tmp_path / "dense.json"
@@ -174,9 +176,7 @@ class TestRestoreCollection:
             "has_sparse": False,
             "vector_size": 768,
             "point_count": 1,
-            "points": [
-                {"id": "44444444-4444-4444-4444-444444444444", "vector": {"other": [0.1]}, "payload": {}}
-            ],
+            "points": [{"id": "44444444-4444-4444-4444-444444444444", "vector": {"other": [0.1]}, "payload": {}}],
         }
         # Integrity hash not required by restore when sha256 is absent.
         out = tmp_path / "bad.json"

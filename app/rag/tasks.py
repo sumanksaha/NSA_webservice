@@ -117,9 +117,7 @@ def run_retrieval_pipeline(
 
     # Stage 1 — understand the query: classify, parse, legal typing,
     # identifier route.
-    query_type, legal_qt, identifier, identifier_query, merged_filters = _retrieval_understand_query(
-        query, filters
-    )
+    query_type, legal_qt, identifier, identifier_query, merged_filters = _retrieval_understand_query(query, filters)
 
     # Stage 2 — fetch evidence through the hybrid retriever with the
     # §12.1 cache in front of it.
@@ -556,7 +554,9 @@ def _generate_resolve_evidence(
     return retrieval_data, chunk_objects, query_type
 
 
-def _generate_apply_kg_context(query: str, chunk_objects: list[Any]) -> tuple[list[Any], dict[str, Any] | None, dict[str, Any] | None]:
+def _generate_apply_kg_context(
+    query: str, chunk_objects: list[Any]
+) -> tuple[list[Any], dict[str, Any] | None, dict[str, Any] | None]:
     """Stage 2 — enrich the evidence with knowledge-graph context.
 
     Contract fusion (``RAG_KG_FUSION``) runs the query→provisions graph

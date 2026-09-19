@@ -77,9 +77,7 @@ class RemoteEmbedClient:
         except Exception as exc:
             local = self._get_local_encoder()
             if local is not None:
-                logger.warning(
-                    "RemoteEmbedClient: remote embed failed (%s) — falling back to local encoder", exc
-                )
+                logger.warning("RemoteEmbedClient: remote embed failed (%s) — falling back to local encoder", exc)
                 return self._local_embed(local, texts)
             raise RuntimeError(f"Remote embedder unavailable and no local fallback: {exc}") from exc
 

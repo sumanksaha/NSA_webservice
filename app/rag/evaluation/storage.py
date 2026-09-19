@@ -93,9 +93,7 @@ class EvalStorage:
     ) -> RAGEvalDataset | None:
         """Create or replace a dataset entry (idempotent by query+name)."""
         try:
-            entry = db.session.query(RAGEvalDataset).filter_by(
-                name=name, query=query
-            ).first()
+            entry = db.session.query(RAGEvalDataset).filter_by(name=name, query=query).first()
             if entry is None:
                 entry = RAGEvalDataset(
                     name=name,
@@ -130,7 +128,9 @@ class EvalStorage:
     def list_results(self, eval_run_id: str) -> list[RAGEvalResult]:
         """List all result rows for an evaluation run."""
         return (
-            db.session.query(RAGEvalResult).filter_by(eval_run_id=eval_run_id)
+            db.session
+            .query(RAGEvalResult)
+            .filter_by(eval_run_id=eval_run_id)
             .order_by(RAGEvalResult.created_at.asc())
             .all()
         )

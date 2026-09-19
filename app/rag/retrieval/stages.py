@@ -87,6 +87,7 @@ def _enrich_evidence_set(query: str, result: Any) -> dict[str, Any]:
 # Enrich functions — lazy imports keep boots lightweight.
 # ---------------------------------------------------------------------------
 
+
 # Add evidence task based stage
 def _enrich_evidence_plan(query: str, result: Any) -> dict[str, Any]:
     """Plan per-task retrieval from Evidence Tasks attached to result.

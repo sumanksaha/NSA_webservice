@@ -24,9 +24,7 @@ from typing import Any
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'\[])")
 
 #: Section references: "Section 55", "Sec. 55", "§55", "Section 3(1)(a)".
-_SECTION_RE = re.compile(
-    r"(?:[Ss]ection|\u00a7|Sec\.?)\s*(\d+(?:\([a-zA-Z0-9]+\))*)", re.IGNORECASE
-)
+_SECTION_RE = re.compile(r"(?:[Ss]ection|\u00a7|Sec\.?)\s*(\d+(?:\([a-zA-Z0-9]+\))*)", re.IGNORECASE)
 
 #: Percentage figures: "100%", "fifty percent".
 _PERCENT_RE = re.compile(r"\b(\d+(?:\.\d+)?)\s*%")
@@ -178,8 +176,6 @@ class ClaimExtractor:
         # Remove empty lists.
         return {k: v for k, v in entities.items() if v}
 
-    def to_dict(
-        self, claims: list[ExtractedClaim]
-    ) -> list[dict[str, Any]]:
+    def to_dict(self, claims: list[ExtractedClaim]) -> list[dict[str, Any]]:
         """Convenience: serialize a list of claims."""
         return [c.to_dict() for c in claims]

@@ -56,7 +56,10 @@ python3 -c "from app.services.legal_engine import get_legal_engine; print('Legal
 ```python
 # app/services/legal_engine.py
 _engine = None
+
+
 class LegalEngineUnavailable(RuntimeError): ...
+
 
 def _get_engine():
     global _engine
@@ -74,6 +77,7 @@ def _get_engine():
 def get_legal_engine():
     """Return LegalParagraphEngine instance, raising ImportError if unavailable."""
     from legal_paragraph_detection_engine import LegalParagraphEngine
+
     return LegalParagraphEngine
 ```
 

@@ -31,7 +31,7 @@ def _assert_nesting_balanced(html: str) -> None:
     for closing, tag in re.findall(r"<(/?)(ol|li)\b[^>]*>", html):
         if closing:
             assert stack and stack[-1] == tag, (
-                f"Unexpected </{tag}> with " f"{stack[-1] if stack else 'empty stack'} still open"
+                f"Unexpected </{tag}> with {stack[-1] if stack else 'empty stack'} still open"
             )
             stack.pop()
         else:
@@ -356,13 +356,7 @@ class TestGenerateTocData:
 
 class TestAnnexureDetection:
     def test_flags_annexure_markers(self):
-        html = (
-            "<h1>ANNEXURE A</h1>"
-            "<h2>ANNEXURE - B</h2>"
-            "<h3>APPENDIX I</h3>"
-            "<h1>ANNEXURE 1</h1>"
-            "<h2>Annexure</h2>"
-        )
+        html = "<h1>ANNEXURE A</h1><h2>ANNEXURE - B</h2><h3>APPENDIX I</h3><h1>ANNEXURE 1</h1><h2>Annexure</h2>"
         entries = TocGeneratorEngine().extract_toc(html)
         assert [e.text for e in entries] == [
             "ANNEXURE A",
@@ -387,7 +381,7 @@ class TestAnnexureDetection:
         assert all(e.is_annexure for e in entries)
 
     def test_does_not_flag_regular_headings(self):
-        html = "<h1>STATEMENT OF FACTS</h1>" "<h2>GROUNDS</h2>" "<h3>PRAYER</h3>" "<h2>Photographic Evidence</h2>"
+        html = "<h1>STATEMENT OF FACTS</h1><h2>GROUNDS</h2><h3>PRAYER</h3><h2>Photographic Evidence</h2>"
         entries = TocGeneratorEngine().extract_toc(html)
         assert entries
         assert all(not e.is_annexure for e in entries)
@@ -395,7 +389,7 @@ class TestAnnexureDetection:
     def test_does_not_flag_plurals_or_titles(self):
         # "ANNEXURES" is a section that lists annexures, not an annexure
         # itself; "Annexure Management" is UI copy, not a marker.
-        html = "<h1>ANNEXURES</h1>" "<h2>LIST OF ANNEXURES</h2>" "<h3>Annexure Management</h3>" "<h4>APPENDICES</h4>"
+        html = "<h1>ANNEXURES</h1><h2>LIST OF ANNEXURES</h2><h3>Annexure Management</h3><h4>APPENDICES</h4>"
         entries = TocGeneratorEngine().extract_toc(html)
         assert len(entries) == 4
         assert all(not e.is_annexure for e in entries)
@@ -411,7 +405,7 @@ class TestAnnexureDetection:
         assert toc_html.count("toc-annexure-badge") == 1
 
     def test_annotate_html_includes_annexure_badge(self):
-        html = "<div data-toc></div>" "<h1>ANNEXURE A</h1>" "<h1>STATEMENT OF FACTS</h1>"
+        html = "<div data-toc></div><h1>ANNEXURE A</h1><h1>STATEMENT OF FACTS</h1>"
         result = TocGeneratorEngine().annotate_html(html)
         _assert_nesting_balanced(result)
         assert 'class="toc-item level-1 toc-annexure"' in result

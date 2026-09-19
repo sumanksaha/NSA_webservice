@@ -148,10 +148,13 @@ class TestBulkUpload:
     def test_processes_each_pdf_into_its_own_document(self, app, client):
         with app.app_context():
             before = OCRDocument.query.count()
-        resp = _upload(client, {
-            "a.pdf": _pdf_bytes("Lab Report A — Batch: B1"),
-            "b.pdf": _pdf_bytes("Lab Report B — Batch: B2"),
-        })
+        resp = _upload(
+            client,
+            {
+                "a.pdf": _pdf_bytes("Lab Report A — Batch: B1"),
+                "b.pdf": _pdf_bytes("Lab Report B — Batch: B2"),
+            },
+        )
         assert resp.status_code == 200
         body = resp.json
         assert body["status"] == "completed"
@@ -175,10 +178,13 @@ class TestBulkUpload:
             assert OCRDocument.query.count() == after_first
 
     def test_one_bad_pdf_does_not_kill_the_batch(self, app, client):
-        resp = _upload(client, {
-            "good.pdf": _pdf_bytes("Valid Report"),
-            "bad.pdf": b"this is not a pdf at all",
-        })
+        resp = _upload(
+            client,
+            {
+                "good.pdf": _pdf_bytes("Valid Report"),
+                "bad.pdf": b"this is not a pdf at all",
+            },
+        )
         assert resp.status_code == 200
         results = {p["file"]: p for p in resp.json["processed"]}
         assert "document_id" in results["good.pdf"]
@@ -219,6 +225,4 @@ class TestExtractionPayloadIntegrity:
             doc = db.session.get(OCRDocument, doc_id)
         payload = json.loads(doc.extracted_json)
         assert {"fields", "lab_test_parameters", "extracted_text", "page_count"} <= set(payload)
-        assert any(p["parameter_name"] for p in payload["lab_test_parameters"]) or payload[
-            "extracted_text"
-        ]
+        assert any(p["parameter_name"] for p in payload["lab_test_parameters"]) or payload["extracted_text"]

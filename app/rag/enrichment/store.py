@@ -97,10 +97,7 @@ def finish_checkpoint(
 
 def get_last_checkpoint() -> EnrichmentCheckpoint | None:
     """Return the most recently completed checkpoint (resume anchor)."""
-    return (
-        EnrichmentCheckpoint.query.order_by(EnrichmentCheckpoint.finished_at.desc().nulls_last())
-        .first()
-    )
+    return EnrichmentCheckpoint.query.order_by(EnrichmentCheckpoint.finished_at.desc().nulls_last()).first()
 
 
 def record_cross_references(
@@ -123,11 +120,9 @@ def record_cross_references(
                 continue
             target = xr["target_chunk_id"]
             relation = xr.get("relation", "REFERS_TO")
-            row = (
-                ChunkCrossReference.query.filter_by(
-                    source_chunk_id=source, target_chunk_id=target, relation=relation
-                ).first()
-            )
+            row = ChunkCrossReference.query.filter_by(
+                source_chunk_id=source, target_chunk_id=target, relation=relation
+            ).first()
             if row is None:
                 row = ChunkCrossReference(
                     id=str(uuid.uuid4()),
@@ -199,17 +194,15 @@ def resource_usage_summary() -> dict[str, Any]:
     """Aggregate resource telemetry for reports/resource_usage.json."""
     from sqlalchemy import func
 
-    rows = (
-        db.session.query(
-            func.avg(ResourceUsage.peak_ram_mb),
-            func.avg(ResourceUsage.avg_ram_mb),
-            func.avg(ResourceUsage.duration_s),
-            func.sum(ResourceUsage.processed),
-            func.sum(ResourceUsage.failed),
-            func.sum(ResourceUsage.retries),
-            func.max(ResourceUsage.peak_ram_mb),
-        ).first()
-    )
+    rows = db.session.query(
+        func.avg(ResourceUsage.peak_ram_mb),
+        func.avg(ResourceUsage.avg_ram_mb),
+        func.avg(ResourceUsage.duration_s),
+        func.sum(ResourceUsage.processed),
+        func.sum(ResourceUsage.failed),
+        func.sum(ResourceUsage.retries),
+        func.max(ResourceUsage.peak_ram_mb),
+    ).first()
     return {
         "avg_peak_ram_mb": round(rows[0], 2) if rows and rows[0] is not None else None,
         "avg_avg_ram_mb": round(rows[1], 2) if rows and rows[1] is not None else None,

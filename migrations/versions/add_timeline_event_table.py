@@ -8,6 +8,7 @@ Revision ID: add_timeline_event_table
 Revises: add_ocr_pipeline_models
 Create Date: 2026-08-05
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -34,12 +35,8 @@ def upgrade():
     )
     op.create_index("idx_timeline_event_case_id", "timeline_event", ["case_id"], unique=False)
     op.create_index("idx_timeline_event_timestamp", "timeline_event", ["timestamp"], unique=False)
-    op.create_index(
-        "idx_timeline_case_ts", "timeline_event", ["case_id", "timestamp"], unique=False
-    )
-    op.create_index(
-        "idx_timeline_event_type", "timeline_event", ["case_type", "event_type"], unique=False
-    )
+    op.create_index("idx_timeline_case_ts", "timeline_event", ["case_id", "timestamp"], unique=False)
+    op.create_index("idx_timeline_event_type", "timeline_event", ["case_type", "event_type"], unique=False)
 
 
 def downgrade():

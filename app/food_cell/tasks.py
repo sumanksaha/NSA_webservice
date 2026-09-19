@@ -24,6 +24,7 @@ def send_do_intimation(sample_id: int) -> int | None:
     """
     logger.info("send_do_intimation: starting for sample_id=%s", sample_id)
     from app.food_cell.services import generate_and_forward_do_intimation
+
     intimation = generate_and_forward_do_intimation(sample_id)
     if intimation is None:
         logger.warning("send_do_intimation: sample %s not found", sample_id)

@@ -133,14 +133,10 @@ class GroundedGenerationService:
 
         # 6. Log generation (best-effort)
         total_latency_ms = int((time.perf_counter() - total_start) * 1000)
-        self._log_generation(
-            query_log_id, query, llm_response, sanitized, total_latency_ms, built
-        )
+        self._log_generation(query_log_id, query, llm_response, sanitized, total_latency_ms, built)
 
         # 7. Assemble response
-        return self._assemble_response(
-            query, query_type, chunks, llm_response, sanitized, total_latency_ms, built
-        )
+        return self._assemble_response(query, query_type, chunks, llm_response, sanitized, total_latency_ms, built)
 
     # ------------------------------------------------------------------ #
     # Pipeline steps (each isolated for testability)
@@ -156,13 +152,9 @@ class GroundedGenerationService:
             return self.context_builder.build(query, chunks, query_type)
         except Exception as exc:
             logger.warning("ContextBuilder failed: %s", exc)
-            return BuiltContext(
-                context="", citations=[], chunk_count=0, truncated=True
-            )
+            return BuiltContext(context="", citations=[], chunk_count=0, truncated=True)
 
-    def _render_prompt(
-        self, query: str, built: BuiltContext
-    ) -> tuple[str, str]:
+    def _render_prompt(self, query: str, built: BuiltContext) -> tuple[str, str]:
         try:
             return self.prompt_template.render_default(query, built.context)
         except Exception as exc:
@@ -220,9 +212,7 @@ class GroundedGenerationService:
         try:
             # Estimate real token counts (LLM client may be in stub mode).
             full_prompt = built.context
-            token_est = self.token_counter.estimate_usage(
-                context=full_prompt, response=llm_response.text or ""
-            )
+            token_est = self.token_counter.estimate_usage(context=full_prompt, response=llm_response.text or "")
             self.generation_logger.log_generation(
                 query_log_id,
                 query=query,

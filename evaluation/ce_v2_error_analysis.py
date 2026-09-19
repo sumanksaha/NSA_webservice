@@ -26,6 +26,7 @@ MRR@10 improved / regressed vs v1).
 
 Output: evaluation/out/cache/ce_v2_error_analysis.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -108,9 +109,7 @@ def classify_failure(
     if not top_payload:
         return "other"
     top_sec = _norm_sec(top_payload.get("section_number"))
-    top_fams = _families_of(
-        top_payload.get("act_name") or top_payload.get("document_title"), family_map
-    )
+    top_fams = _families_of(top_payload.get("act_name") or top_payload.get("document_title"), family_map)
     top_doc = str(top_payload.get("document_title") or "").lower()
 
     for cid in gold_cids:
@@ -150,10 +149,8 @@ def main() -> int:
     from evaluation.resolution import FamilyMap
 
     parser = argparse.ArgumentParser(description="CE v2 per-query error analysis (Step 0 rebuild)")
-    parser.add_argument("--model-v1", type=Path, default=None,
-                        help="Override the v1 (frozen control) model directory")
-    parser.add_argument("--model-v2", type=Path, default=None,
-                        help="Override the v2 (candidate) model directory")
+    parser.add_argument("--model-v1", type=Path, default=None, help="Override the v1 (frozen control) model directory")
+    parser.add_argument("--model-v2", type=Path, default=None, help="Override the v2 (candidate) model directory")
     args = parser.parse_args()
     for key, arg in (("v1", args.model_v1), ("v2", args.model_v2)):
         if arg is not None:
@@ -200,9 +197,7 @@ def main() -> int:
             mets[key] = m
             ranked = []
             for cid, text in cand["candidates"]:
-                sc = scores[key].get(
-                    _score_key({"question_id": qid}, "pos" if cid in gold_ids else "neg", text)
-                )
+                sc = scores[key].get(_score_key({"question_id": qid}, "pos" if cid in gold_ids else "neg", text))
                 if sc is not None:
                     ranked.append((sc, cid))
             ranked.sort(key=lambda x: x[0], reverse=True)
@@ -243,8 +238,7 @@ def main() -> int:
             "n_candidates": len(cand["candidates"]),
             "n_gold": len(gold_cids),
             "metrics": {
-                key: {"r10": mets[key]["r_at"].get(10, 0), "mrr": mets[key]["mrr"],
-                      "ndcg": mets[key]["ndcg"]}
+                key: {"r10": mets[key]["r_at"].get(10, 0), "mrr": mets[key]["mrr"], "ndcg": mets[key]["ndcg"]}
                 for key in MODELS
             },
         })
@@ -258,9 +252,17 @@ def main() -> int:
     for cat in cats:
         recs = [r for r in per_query if r["type"] == cat]
         if not recs:
-            taxonomy.append({"category": cat, "count": 0, "pct_total": 0.0, "pct_fail": 0.0,
-                             "r10_delta": 0.0, "mrr_delta": 0.0, "ndcg_delta": 0.0,
-                             "v2_plus": 0, "v2_minus": 0})
+            taxonomy.append({
+                "category": cat,
+                "count": 0,
+                "pct_total": 0.0,
+                "pct_fail": 0.0,
+                "r10_delta": 0.0,
+                "mrr_delta": 0.0,
+                "ndcg_delta": 0.0,
+                "v2_plus": 0,
+                "v2_minus": 0,
+            })
             continue
         d = {"r10": [], "mrr": [], "ndcg": []}
         plus = minus = 0
@@ -300,24 +302,32 @@ def main() -> int:
 
     # -------- console (ASCII only; fixes the cp1252 crash) --------
     print("\n=== Per-Query Analysis ===\n")
-    print(f"{'QID':<6} {'Dom':<11} {'Diff':<12} {'Pairs':>6} {'V1_rk':>6} {'V2_rk':>6} "
-          f"{'Type':<22} {'RetFail':>7} {'RerankFail':>10}")
+    print(
+        f"{'QID':<6} {'Dom':<11} {'Diff':<12} {'Pairs':>6} {'V1_rk':>6} {'V2_rk':>6} "
+        f"{'Type':<22} {'RetFail':>7} {'RerankFail':>10}"
+    )
     print("-" * 90)
     for r in per_query:
-        print(f"{r['qid']:<6} {r['domain']:<11} {r['difficulty']:<12} {r['pairs']:>6} "
-              f"{r['v1_rank']!s:>6} {r['v2_rank']!s:>6} {r['type']:<22} "
-              f"{r['ret_fail']:>7} {r['rerank_fail']:>10}")
+        print(
+            f"{r['qid']:<6} {r['domain']:<11} {r['difficulty']:<12} {r['pairs']:>6} "
+            f"{r['v1_rank']!s:>6} {r['v2_rank']!s:>6} {r['type']:<22} "
+            f"{r['ret_fail']:>7} {r['rerank_fail']:>10}"
+        )
 
     print("\n=== Failure Taxonomy ===\n")
     print(f"Total queries: {n_total}")
     print(f"Total failures (pos not at rank 1): {n_fail}")
-    print(f"{'Category':<22} {'Count':>5} {'%Total':>7} {'%Fail':>6} {'R10_delta':>10} "
-          f"{'MRR_delta':>10} {'NDCG_delta':>11} {'V2+':>4} {'V2-':>4}")
+    print(
+        f"{'Category':<22} {'Count':>5} {'%Total':>7} {'%Fail':>6} {'R10_delta':>10} "
+        f"{'MRR_delta':>10} {'NDCG_delta':>11} {'V2+':>4} {'V2-':>4}"
+    )
     print("-" * 90)
     for t in taxonomy:
-        print(f"{t['category']:<22} {t['count']:>5} {t['pct_total']:>7.4f} {t['pct_fail']:>6.4f} "
-              f"{t['r10_delta']:>+10.4f} {t['mrr_delta']:>+10.4f} {t['ndcg_delta']:>+11.4f} "
-              f"{t['v2_plus']:>4} {t['v2_minus']:>4}")
+        print(
+            f"{t['category']:<22} {t['count']:>5} {t['pct_total']:>7.4f} {t['pct_fail']:>6.4f} "
+            f"{t['r10_delta']:>+10.4f} {t['mrr_delta']:>+10.4f} {t['ndcg_delta']:>+11.4f} "
+            f"{t['v2_plus']:>4} {t['v2_minus']:>4}"
+        )
     print(f"\nOutput: {ERR_OUT}")
     return 0
 

@@ -413,9 +413,7 @@ class LegalEntityExtractor:
                 confidence = float(item.get("confidence") or 0.0)
             except (TypeError, ValueError):
                 confidence = 0.0
-            entities.append(
-                LegalEntity(name=name, entity_type=entity_type, confidence=confidence, method="llm")
-            )
+            entities.append(LegalEntity(name=name, entity_type=entity_type, confidence=confidence, method="llm"))
         return entities
 
     # ------------------------------------------------------------------ #

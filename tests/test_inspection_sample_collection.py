@@ -115,9 +115,7 @@ class TestCreateInspectionSampleCollection:
         assert data.get("message") == "Inspection created successfully"
         from app.models import Inspection
 
-        insp = Inspection.query.filter_by(
-            inspection_code=data.get("inspection_code")
-        ).first()
+        insp = Inspection.query.filter_by(inspection_code=data.get("inspection_code")).first()
         assert insp is not None
         assert insp.sample_collected is True
         assert insp.sample_code == "SL/WB/123456/7890/12345"

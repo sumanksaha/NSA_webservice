@@ -112,13 +112,9 @@ class EvalRunner:
         # RAGAS-style reference metrics (Phase 4) — deterministic, no LLM.
         metric_scores: dict[str, EvalScore] = {
             "faithfulness": FaithfulnessMetric().compute(answer, chunks, query=query),
-            "answer_relevance": AnswerRelevanceMetric().compute(
-                answer, query, expected_answer
-            ),
+            "answer_relevance": AnswerRelevanceMetric().compute(answer, query, expected_answer),
             "context_precision": ContextPrecisionMetric().compute(query, chunks),
-            "context_recall": ContextRecallMetric().compute(
-                expected_citations or [], chunks
-            ),
+            "context_recall": ContextRecallMetric().compute(expected_citations or [], chunks),
             "citation_recall": CitationRecallMetric().compute(cited_ids or [], chunks),
             "groundedness": GroundednessMetric().compute(answer, chunks),
         }
@@ -130,12 +126,8 @@ class EvalRunner:
             "retrieved_chunks": [c.to_dict() for c in chunks],
             "cited_chunk_ids": cited_ids or [],
             "metrics": {name: s.score for name, s in metric_scores.items()},
-            "metric_details": {
-                name: s.detail for name, s in metric_scores.items()
-            },
-            "metric_explanations": {
-                name: s.explanation for name, s in metric_scores.items()
-            },
+            "metric_details": {name: s.detail for name, s in metric_scores.items()},
+            "metric_explanations": {name: s.explanation for name, s in metric_scores.items()},
             "coverage": coverage.to_dict(),
             "retrieval_mrr": mrr,
             "latency_ms": pipeline_latency_ms,
@@ -247,8 +239,7 @@ class EvalRunner:
             vals = [
                 r["metrics"][name]
                 for r in results
-                if isinstance(r.get("metrics"), dict)
-                and isinstance(r["metrics"].get(name), (int, float))
+                if isinstance(r.get("metrics"), dict) and isinstance(r["metrics"].get(name), (int, float))
             ]
             summary[f"{name}_avg"] = round(sum(vals) / len(vals), 4) if vals else None
         passed = sum(
@@ -256,10 +247,7 @@ class EvalRunner:
             for r in results
             if isinstance(r.get("metrics"), dict)
             and r["metrics"]
-            and all(
-                isinstance(v, (int, float)) and v >= 0.5
-                for v in r["metrics"].values()
-            )
+            and all(isinstance(v, (int, float)) and v >= 0.5 for v in r["metrics"].values())
         )
         summary["passed"] = passed
         mrrs = [r.get("retrieval_mrr", 0.0) for r in results if isinstance(r.get("retrieval_mrr"), (int, float))]

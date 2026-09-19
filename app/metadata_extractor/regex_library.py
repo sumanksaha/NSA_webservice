@@ -402,10 +402,34 @@ STATE_PATTERN = _p(
 # the Food ...").  Mid-line references ("...section 92 of the Food Safety and
 # Standards Act, 2006") cannot match because ``^`` anchors at the line start.
 DOCUMENT_TYPE_PATTERNS: list[tuple[str, re.Pattern, str]] = [
-    ("act", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Act)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:ACT)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Act|ACT)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Act"),
-    ("regulation", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Regulations?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:REGULATIONS?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Regulations?|REGULATIONS?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Regulation"),
-    ("rule", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Rules?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:RULES?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Rules?|RULES?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Rule"),
-    ("bill", _p(r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Bill)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:BILL)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Bill|BILL)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"), "Bill"),
+    (
+        "act",
+        _p(
+            r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Act)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:ACT)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Act|ACT)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"
+        ),
+        "Act",
+    ),
+    (
+        "regulation",
+        _p(
+            r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Regulations?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:REGULATIONS?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Regulations?|REGULATIONS?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"
+        ),
+        "Regulation",
+    ),
+    (
+        "rule",
+        _p(
+            r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Rules?)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:RULES?)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Rules?|RULES?)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"
+        ),
+        "Rule",
+    ),
+    (
+        "bill",
+        _p(
+            r"^\s*(?:(?-i:THE|The)[ \t]+)?(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t][A-Za-z0-9'&,()\- \t]*?[ \t](?-i:Bill)|(?:(?-i:[A-Z])[A-Za-z0-9'&,()\- \t]*?[ \t]+)?(?-i:BILL)|(?:[A-Za-z0-9'&,\-]+(?:[ \t]+[A-Za-z0-9'&,\-]+)*\))[ \t]+(?:[A-Za-z0-9'&,()\-]+[ \t]+)*?(?-i:(?:Bill|BILL)))[ \t]*,?[ \t]*\d{4}[ \t\r]*\.?[ \t\r]*$"
+        ),
+        "Bill",
+    ),
     ("judgment", _p(r"(?:JUDGMENT|ORDER|DECREE|AWARD)\s+(?:DATED|IN\s+THE\s+(?:SUPREME|HIGH)\s+COURT)"), "Judgment"),
     # Case-sensitive + line-anchored + word-boundaried (evaluated 2026-08-09
     # against the FSSAI corpus): the module compiles patterns with IGNORECASE,

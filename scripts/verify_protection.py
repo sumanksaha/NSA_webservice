@@ -2,8 +2,11 @@ import os
 
 from sqlalchemy import create_engine, text
 
-os.environ['DATABASE_URL'] = 'postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres'
-e = create_engine(os.environ['DATABASE_URL'], connect_args={'sslmode': 'require'})
+os.environ["DATABASE_URL"] = (
+    "postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
+)
+e = create_engine(os.environ["DATABASE_URL"], connect_args={"sslmode": "require"})
+
 
 def test_delete_block(table, pk):
     """Test DELETE protection on a single table using fresh connection"""
@@ -19,6 +22,7 @@ def test_delete_block(table, pk):
         return "not allowed" in msg.lower()  # True if blocked correctly
     finally:
         conn.close()
+
 
 # Test both tables with fresh transactions
 for table, pk in [("fssai_licenses", "license_no"), ("fssai_registrations", "registration_no")]:

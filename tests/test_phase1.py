@@ -31,6 +31,7 @@ def test_client():
             db.session.commit()
 
             from app.models import FSO
+
             db.session.add(FSO(fso_name="Test Officer"))
             db.session.commit()
 

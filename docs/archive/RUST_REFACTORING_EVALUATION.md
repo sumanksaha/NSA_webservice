@@ -344,16 +344,19 @@ nsa_webservice/
 ```python
 # Before (pure Python):
 from legal_paragraph_detection_engine import LegalParagraphEngine
+
 engine = LegalParagraphEngine()
 paragraphs = engine.process_document(text)
 
 # After (Rust-accelerated, same API):
 try:
     from nsa_rust.legal_engine import process_document_rust  # PyO3 module
+
     paragraphs = process_document_rust(text)  # 7x faster
 except ImportError:
     # Fallback: pure Python path (same as before)
     from legal_paragraph_detection_engine import LegalParagraphEngine
+
     paragraphs = LegalParagraphEngine().process_document(text)
 ```
 
@@ -439,14 +442,11 @@ from nsa_rust.verification import verify_claims_rust  # shared Rust module
 
 app = FastAPI(title="RAG Verification API")
 
+
 @app.post("/verify")
 async def verify(payload: VerifyRequest):
     # Rust extension runs in a thread pool (async-safe)
-    report = await asyncio.to_thread(
-        verify_claims_rust,
-        payload.response,
-        payload.chunks
-    )
+    report = await asyncio.to_thread(verify_claims_rust, payload.response, payload.chunks)
     return report
 ```
 
@@ -710,6 +710,7 @@ measure_chunking(text, chunker=Chunker())  # → chunks/s, latency
 
 # After (Rust):
 from nsa_rust.legal_engine import process_document
+
 measure_chunking_rust(text)  # → same metrics, 7x higher chunks/s
 ```
 

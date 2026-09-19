@@ -308,9 +308,9 @@ def download_edited_case_file(case_id: int):
     html_content = Path(file_path).read_text(encoding="utf-8")
     pdf_bytes, error = generate_pdf_from_html(html_content)
     if pdf_bytes:
-        return send_file(BytesIO(pdf_bytes), as_attachment=True,
-                         download_name=f"...{doc_type}.pdf",
-                         mimetype="application/pdf")
+        return send_file(
+            BytesIO(pdf_bytes), as_attachment=True, download_name=f"...{doc_type}.pdf", mimetype="application/pdf"
+        )
 ```
 
 #### 5.1.5 Same four routes for `adjudication`, with adjusted doc_type values
@@ -410,9 +410,11 @@ Three pure functions:
 def edited_html_dir() -> Path:
     """Return instance/edited_docs/, creating it if needed."""
 
+
 def save_edited_html(case_type: str, case_id: int, doc_type: str, html: str) -> str:
     """Write edited HTML to disk. Returns filename."""
     # instance/edited_docs/{case_type}_{case_id}_{doc_type}_{timestamp}.html
+
 
 def get_latest_edited_html(case_type: str, case_id: int, doc_type: str) -> str | None:
     """Return path to most recent saved HTML for this case/doc, or None."""
@@ -427,8 +429,9 @@ Editing is **not** a DB change (HTML is stored on the filesystem), so we call
 
 ```python
 from app.services.audit import log_audit
+
 log_audit(
-    subject="adjudication_order",     # or "case_file"
+    subject="adjudication_order",  # or "case_file"
     key=str(case_id),
     action="DOCUMENT_EDITED",
     actor=...,
@@ -612,9 +615,7 @@ document_viewer_bp = Blueprint("document_viewer", __name__, template_folder="tem
      @adjudication_bp.route("/<int:case_id>/editor", methods=["GET"])
      def edit_adjudication(case_id: int):
          adj = Adjudication.query.get_or_404(case_id)
-         is_pre_authorization = (
-             str(adj.pre_authorization or "").strip().lower() == "yes"
-         )
+         is_pre_authorization = str(adj.pre_authorization or "").strip().lower() == "yes"
          doc_type = "permission" if is_pre_authorization else "petition"
          html = render_adjudication_document(case_id, doc_type)
          return render_template(
@@ -629,6 +630,7 @@ document_viewer_bp = Blueprint("document_viewer", __name__, template_folder="tem
    - Added to the blueprint registration block in `create_app()`:
      ```python
      from app.document_viewer import document_viewer_bp
+
      app.register_blueprint(document_viewer_bp)
      ```
    - Note: No `url_prefix` -- routes are colocated on `case_file_generator_bp` and

@@ -363,7 +363,11 @@ def apply_adjudication_update(adj, form_data: dict) -> None:
         if field in form_data:
             setattr(adj, field, form_data.get(field) or "")
     for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
-        raw = (form_data.get(form_field) or "").strip() if isinstance(form_data.get(form_field), str) else form_data.get(form_field)
+        raw = (
+            (form_data.get(form_field) or "").strip()
+            if isinstance(form_data.get(form_field), str)
+            else form_data.get(form_field)
+        )
         setattr(adj, model_col, parse_date(raw) if raw else None)
 
 
@@ -1017,9 +1021,8 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
     # Template renders the trade-license branch when the FBO is unlicensed
     # OR section 63 applies — mirror that condition here so the checked
     # field is always the one actually rendered.
-    uses_trade_license = (
-        str(context.get("non_license", "no")).strip().lower() == "yes"
-        or "63" in (context.get(DERIVED_APPLICABLE_SECTIONS) or [])
+    uses_trade_license = str(context.get("non_license", "no")).strip().lower() == "yes" or "63" in (
+        context.get(DERIVED_APPLICABLE_SECTIONS) or []
     )
     if uses_trade_license:
         required["ce_license_no"] = "Trade License No"

@@ -26,10 +26,14 @@ class _FakeSparseEmbedder:
 
     def embed(self, texts):
         for _text in texts:
-            yield type("SparseOut", (), {
-                "indices": self._result["indices"],
-                "values": self._result["values"],
-            })()
+            yield type(
+                "SparseOut",
+                (),
+                {
+                    "indices": self._result["indices"],
+                    "values": self._result["values"],
+                },
+            )()
 
 
 class _ChunkLike:

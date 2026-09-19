@@ -30,12 +30,9 @@ def validate():
     case_type = payload.get("case_type")
 
     if not isinstance(case_id, int) or case_type not in _VALID_CASE_TYPES:
-        return jsonify(
-            {
-                "error": "case_id (int) and case_type "
-                "('case_file' | 'adjudication') are required.",
-            }
-        ), 400
+        return jsonify({
+            "error": "case_id (int) and case_type ('case_file' | 'adjudication') are required.",
+        }), 400
 
     result = engine.validate_case(case_id, case_type)
     if "error" in result:
@@ -48,9 +45,7 @@ def case_summary(case_id):
     """Validation report for a case (``?kind=case_file|adjudication``)."""
     kind = request.args.get("kind")
     if kind is not None and kind not in _VALID_CASE_TYPES:
-        return jsonify(
-            {"error": "kind must be 'case_file' or 'adjudication'."}
-        ), 400
+        return jsonify({"error": "kind must be 'case_file' or 'adjudication'."}), 400
 
     result = engine.validate_case(case_id, kind)
     if "error" in result:

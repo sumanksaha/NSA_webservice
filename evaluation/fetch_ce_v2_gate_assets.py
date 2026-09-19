@@ -20,6 +20,7 @@ Usage:
     python -m evaluation.fetch_ce_v2_gate_assets
     python -m evaluation.fetch_ce_v2_gate_assets --model-v2-repo sumanksaha/Foodmultidomain
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,12 +54,21 @@ MODEL_REPOS: list[tuple[str, str, str]] = [
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Download CE-v2 gate assets from the HF Hub")
-    parser.add_argument("--model-v1-repo", default="sumanksaha/legal-ce-v1",
-                        help="Control checkpoint repo (default: sumanksaha/legal-ce-v1)")
-    parser.add_argument("--model-v2-repo", default="sumanksaha/Foodmultidomain",
-                        help="Candidate checkpoint repo (default: sumanksaha/Foodmultidomain)")
-    parser.add_argument("--assets-repo", default="sumanksaha/ce-v2-gate-assets",
-                        help="Gate data repo (default: sumanksaha/ce-v2-gate-assets)")
+    parser.add_argument(
+        "--model-v1-repo",
+        default="sumanksaha/legal-ce-v1",
+        help="Control checkpoint repo (default: sumanksaha/legal-ce-v1)",
+    )
+    parser.add_argument(
+        "--model-v2-repo",
+        default="sumanksaha/Foodmultidomain",
+        help="Candidate checkpoint repo (default: sumanksaha/Foodmultidomain)",
+    )
+    parser.add_argument(
+        "--assets-repo",
+        default="sumanksaha/ce-v2-gate-assets",
+        help="Gate data repo (default: sumanksaha/ce-v2-gate-assets)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the plan and download nothing")
     args = parser.parse_args()
 

@@ -129,13 +129,7 @@ def upsert_csv_to_db(engine, source: dict, batch_size: int = 5000) -> tuple[int,
                     csv_pks.add(row[pk_idx])
 
             # Use execute_values for safe bulk upsert
-            execute_values(
-                cursor,
-                source["upsert_sql"],
-                all_values,
-                template=None,
-                page_size=batch_size
-            )
+            execute_values(cursor, source["upsert_sql"], all_values, template=None, page_size=batch_size)
 
             raw_conn.commit()
 
@@ -165,9 +159,7 @@ def upsert_csv_to_db(engine, source: dict, batch_size: int = 5000) -> tuple[int,
             raw_conn.commit()
 
             # Delete from main table where PK not in temp table
-            cursor.execute(
-                f"DELETE FROM {source['table']} WHERE {source['pk']} NOT IN (SELECT pk FROM temp_csv_pks)"
-            )
+            cursor.execute(f"DELETE FROM {source['table']} WHERE {source['pk']} NOT IN (SELECT pk FROM temp_csv_pks)")
             deleted = cursor.rowcount
             raw_conn.commit()
 

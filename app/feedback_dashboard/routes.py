@@ -18,7 +18,8 @@ def field_accuracy_metrics() -> dict:
     """
     total_docs = db.session.query(OCRDocument).count()
     rows = (
-        db.session.query(OCRCorrection.field_name, db.func.count(OCRCorrection.id))
+        db.session
+        .query(OCRCorrection.field_name, db.func.count(OCRCorrection.id))
         .group_by(OCRCorrection.field_name)
         .all()
     )
@@ -26,10 +27,7 @@ def field_accuracy_metrics() -> dict:
     per_field: dict[str, dict] = {}
     for field_name, corrections in rows:
         corrected_docs = (
-            db.session.query(OCRCorrection.id)
-            .filter(OCRCorrection.field_name == field_name)
-            .distinct()
-            .count()
+            db.session.query(OCRCorrection.id).filter(OCRCorrection.field_name == field_name).distinct().count()
         )
         accuracy = round(max(0.0, 1.0 - (corrected_docs / total_docs)), 4) if total_docs else 1.0
         per_field[field_name] = {
@@ -65,9 +63,7 @@ def _count_few_shot_examples() -> int:
 def dashboard():
     metrics = field_accuracy_metrics()
     worst = [
-        {"field": name, **stats}
-        for name, stats in list(metrics["fields"].items())[:10]
-        if stats["accuracy"] < 1.0
+        {"field": name, **stats} for name, stats in list(metrics["fields"].items())[:10] if stats["accuracy"] < 1.0
     ]
     return render_template(
         "feedback_dashboard/index.html",

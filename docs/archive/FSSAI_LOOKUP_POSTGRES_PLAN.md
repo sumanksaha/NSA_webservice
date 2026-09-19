@@ -34,11 +34,12 @@
 ### Step 1 — Models (`app/models/lookup.py`)
 
 ```python
-class FssaiLicense(db.Model):          # table "fssai_licenses"
+class FssaiLicense(db.Model):  # table "fssai_licenses"
     license_no: PK
     company_name, full_address, expiry_date
 
-class FssaiRegistration(db.Model):     # table "fssai_registrations"
+
+class FssaiRegistration(db.Model):  # table "fssai_registrations"
     registration_no: PK
     company_name, full_address, expiry_date
 ```

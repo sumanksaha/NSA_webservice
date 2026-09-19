@@ -109,23 +109,17 @@ class EvidenceVerifier:
             evidence for a claim without a section match.
     """
 
-    def __init__(
-        self, similarity_threshold: int = _SIMILARITY_THRESHOLD
-    ) -> None:
+    def __init__(self, similarity_threshold: int = _SIMILARITY_THRESHOLD) -> None:
         self.similarity_threshold = similarity_threshold
 
     # ------------------------------------------------------------------ #
     # Public API
     # ------------------------------------------------------------------ #
 
-    def verify_claim(
-        self, claim: ExtractedClaim, chunks: list[RetrievedChunk]
-    ) -> EvidenceVerification:
+    def verify_claim(self, claim: ExtractedClaim, chunks: list[RetrievedChunk]) -> EvidenceVerification:
         """Verify a single :class:`ExtractedClaim` against *chunks*."""
         if not chunks:
-            return EvidenceVerification(
-                verified=False, confidence=_UNVERIFIED_CONFIDENCE
-            )
+            return EvidenceVerification(verified=False, confidence=_UNVERIFIED_CONFIDENCE)
 
         # 1. Section-number match — highest confidence.
         if claim.section_numbers:
@@ -183,13 +177,9 @@ class EvidenceVerifier:
                 evidence_snippet="",
             )
 
-        return EvidenceVerification(
-            verified=False, confidence=_UNVERIFIED_CONFIDENCE
-        )
+        return EvidenceVerification(verified=False, confidence=_UNVERIFIED_CONFIDENCE)
 
-    def verify_claims(
-        self, claims: list[ExtractedClaim], chunks: list[RetrievedChunk]
-    ) -> list[EvidenceVerification]:
+    def verify_claims(self, claims: list[ExtractedClaim], chunks: list[RetrievedChunk]) -> list[EvidenceVerification]:
         """Verify a list of claims, returning one result per claim."""
         return [self.verify_claim(c, chunks) for c in claims]
 
@@ -198,21 +188,14 @@ class EvidenceVerifier:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _match_sections(
-        section_numbers: list[str], chunks: list[RetrievedChunk]
-    ) -> list[RetrievedChunk]:
+    def _match_sections(section_numbers: list[str], chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
         """Return chunks whose ``section_number`` matches any claim section."""
         section_set = set(section_numbers)
-        matched = [
-            c for c in chunks
-            if c.section_number and c.section_number in section_set
-        ]
+        matched = [c for c in chunks if c.section_number and c.section_number in section_set]
         # Sort by retrieval score descending so the best chunk is first.
         return sorted(matched, key=lambda c: c.score, reverse=True)
 
-    def _best_text_match(
-        self, claim_text: str, chunks: list[RetrievedChunk]
-    ) -> tuple[float, RetrievedChunk | None]:
+    def _best_text_match(self, claim_text: str, chunks: list[RetrievedChunk]) -> tuple[float, RetrievedChunk | None]:
         """Find the chunk with the highest ``partial_ratio`` to *claim_text*."""
         best_score = 0.0
         best_chunk: RetrievedChunk | None = None
@@ -224,9 +207,7 @@ class EvidenceVerifier:
         return best_score, best_chunk
 
     @staticmethod
-    def _authority_support(
-        claim: ExtractedClaim, chunks: list[RetrievedChunk]
-    ) -> bool:
+    def _authority_support(claim: ExtractedClaim, chunks: list[RetrievedChunk]) -> bool:
         """Check if claim's authority entities appear in any chunk text."""
         authorities = claim.entities.get("authority", [])
         if not authorities:
@@ -241,10 +222,9 @@ class EvidenceVerifier:
     @staticmethod
     def _numeric_values(text: str) -> list[str]:
         """Extract monetary/percentage/amount values from *text*."""
-        return [
-            f"{m.group(1)}{m.group(2)}"
-            for m in _AMOUNT_RE.finditer(text)
-        ] + [m.group(1) for m in _PERCENT_RE.finditer(text)]
+        return [f"{m.group(1)}{m.group(2)}" for m in _AMOUNT_RE.finditer(text)] + [
+            m.group(1) for m in _PERCENT_RE.finditer(text)
+        ]
 
     def find_contradictions(
         self,
@@ -278,18 +258,12 @@ class EvidenceVerifier:
                     continue
                 seen_pairs.add(pair)
                 # Numeric conflicts only count within the same provision.
-                same_provision = bool(
-                    a.section_number
-                    and b.section_number
-                    and a.section_number == b.section_number
-                )
+                same_provision = bool(a.section_number and b.section_number and a.section_number == b.section_number)
                 a_vals = self._numeric_values(a.text)
                 b_vals = self._numeric_values(b.text)
                 if same_provision and a_vals and b_vals and set(a_vals).isdisjoint(b_vals):
                     conflicts.append(
-                        Contradiction(
-                            a=a, b=b, kind="numeric", values=sorted(set(a_vals) | set(b_vals))[:4]
-                        )
+                        Contradiction(a=a, b=b, kind="numeric", values=sorted(set(a_vals) | set(b_vals))[:4])
                     )
                     continue
                 if not same_provision:

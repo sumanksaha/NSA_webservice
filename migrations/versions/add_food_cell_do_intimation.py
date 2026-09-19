@@ -8,6 +8,7 @@ Revises: merge_heads
 Create Date: 2026-08-06
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 

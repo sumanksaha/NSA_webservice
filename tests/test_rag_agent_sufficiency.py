@@ -43,9 +43,7 @@ def _chunk(chunk_id, score=0.9, text="the penalty is Rs. 500 under section 12", 
 
 def test_authority_score_prefers_statutes():
     assert chunk_authority_score({"document_type": "act"}) == 1.0
-    assert chunk_authority_score({"document_type": "regulation"}) > chunk_authority_score(
-        {"document_type": "blog"}
-    )
+    assert chunk_authority_score({"document_type": "regulation"}) > chunk_authority_score({"document_type": "blog"})
 
 
 def test_authority_score_uses_authority_name_hierarchy():
@@ -62,12 +60,10 @@ def test_authority_score_uses_authority_name_hierarchy():
 
 def test_find_contradictions_numeric_same_section():
     verifier = EvidenceVerifier()
-    chunks = as_retrieved_chunks(
-        [
-            _chunk("c1", text="fine of Rs. 500", section_number="12"),
-            _chunk("c2", text="fine of Rs. 1000", section_number="12"),
-        ]
-    )
+    chunks = as_retrieved_chunks([
+        _chunk("c1", text="fine of Rs. 500", section_number="12"),
+        _chunk("c2", text="fine of Rs. 1000", section_number="12"),
+    ])
     conflicts = verifier.find_contradictions(chunks)
     assert len(conflicts) == 1
     assert conflicts[0].kind == "numeric"
@@ -75,23 +71,19 @@ def test_find_contradictions_numeric_same_section():
 
 def test_find_contradictions_ignores_different_sections():
     verifier = EvidenceVerifier()
-    chunks = as_retrieved_chunks(
-        [
-            _chunk("c1", text="fine of Rs. 500", section_number="12"),
-            _chunk("c2", text="fine of Rs. 1000", section_number="15"),
-        ]
-    )
+    chunks = as_retrieved_chunks([
+        _chunk("c1", text="fine of Rs. 500", section_number="12"),
+        _chunk("c2", text="fine of Rs. 1000", section_number="15"),
+    ])
     assert verifier.find_contradictions(chunks) == []
 
 
 def test_find_contradictions_prohibition_vs_permission():
     verifier = EvidenceVerifier()
-    chunks = as_retrieved_chunks(
-        [
-            _chunk("c1", text="no person shall sell this product", section_number="12"),
-            _chunk("c2", text="the product may be sold freely", section_number="12"),
-        ]
-    )
+    chunks = as_retrieved_chunks([
+        _chunk("c1", text="no person shall sell this product", section_number="12"),
+        _chunk("c2", text="the product may be sold freely", section_number="12"),
+    ])
     conflicts = verifier.find_contradictions(chunks)
     assert len(conflicts) == 1
     assert conflicts[0].kind == "prohibition"
@@ -137,7 +129,8 @@ def test_assess_task_fails_coverage_on_empty_evidence():
 
 def test_assess_task_fails_relevance_on_low_scores():
     verdict = SufficiencyAssessor().assess_task(
-        _task(), [_chunk("c1", score=0.2, text="unrelated text about packaging")],
+        _task(),
+        [_chunk("c1", score=0.2, text="unrelated text about packaging")],
     )
     assert "relevance" in verdict.failures
 

@@ -69,13 +69,16 @@ class OCRProvider(ABC):
     @abstractmethod
     def extract_text(self, file_path: Path | str) -> dict: ...
 
+
 class AIProvider(ABC):
     @abstractmethod
     def generate(self, prompt: str, **kwargs) -> str: ...
 
+
 class RuleProvider(ABC):
     @abstractmethod
     def evaluate_rules(self, data: dict) -> list[ValidationResult]: ...
+
 
 class PDFProvider(ABC):
     @abstractmethod
@@ -166,6 +169,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass
 class OCRResult:
     text: str
@@ -173,10 +177,13 @@ class OCRResult:
     ocr_engine_used: str
     page_count: int
 
+
 class OCRProvider(ABC):
     field_name: str = ""
+
     @abstractmethod
     def extract_text(self, file_path: str | Path) -> OCRResult: ...
+
 
 class AIProvider(ABC):
     @abstractmethod
@@ -184,9 +191,11 @@ class AIProvider(ABC):
     @abstractmethod
     def is_enabled(self) -> bool: ...
 
+
 class RuleProvider(ABC):
     @abstractmethod
     def suggest_sections(self, case_data: dict) -> dict: ...
+
 
 class PDFProvider(ABC):
     @abstractmethod
@@ -233,6 +242,7 @@ class EasyOCRPlugin(OCRProvider):
 class FSSAIRuleSuggesterPlugin(RuleProvider):
     def suggest_sections(self, case_data):
         from app.utils.suggester import suggest_sections  # lazy
+
         return suggest_sections(case_data)  # returns {"sections": [...], "reasoning": {...}}
 ```
 

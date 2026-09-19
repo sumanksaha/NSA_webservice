@@ -15,6 +15,7 @@ Revises: add_airtable_base_map, fix_rbac_tables
 Create Date: 2026-08-07
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 

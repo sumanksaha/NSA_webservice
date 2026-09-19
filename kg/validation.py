@@ -37,10 +37,9 @@ class KGValidator:
 
     def _execute(self, cypher: str, params: dict | None = None) -> list[dict]:
         import os
+
         database = self._database or os.environ.get("NEO4J_DATABASE", "neo4j")
-        result = self._get_driver().execute_query(
-            cypher, parameters_=params or {}, database_=database
-        )
+        result = self._get_driver().execute_query(cypher, parameters_=params or {}, database_=database)
         return [dict(r) for r in result.records]
 
     # ------------------------------------------------------------------ #
@@ -132,21 +131,49 @@ class KGValidator:
         the allowed set defined in the schema.
         """
         allowed = [
-            "CONTAINS", "HAS_SUBSECTION", "HAS_CLAUSE", "HAS_SCHEDULE",
-            "MADE_UNDER", "AMENDS", "REPEALS", "REPLACES",
-            "APPLIES_TO", "RELATES_TO", "IMPOSES_DUTY", "CREATES_OBLIGATION",
-            "CREATES_PROHIBITION", "CREATES_OFFENCE", "PRESCRIBES_PENALTY",
-            "PRESCRIBES", "REQUIRES", "GRANTS_PERMISSION", "GRANTS_POWER_TO",
-            "ENFORCED_BY", "REQUIRES_AUTHORIZATION_FROM",
-            "RELATED_TO", "INTERACTS_WITH", "COMPLEMENTS",
-            "CROSS_REFERENCES", "DEPENDS_ON", "OVERLAPS_WITH",
-            "SOURCE_OF", "HAS_CHUNK", "SUPPORTED_BY",
-            "BELONGS_TO_DOMAIN", "APPLIES_TO_JURISDICTION",
-            "ISSUED_BY", "RELEVANT_IN",
-            "INVOLVES", "TRIGGERS", "FINDS", "VIOLATES", "HAS_PENALTY",
+            "CONTAINS",
+            "HAS_SUBSECTION",
+            "HAS_CLAUSE",
+            "HAS_SCHEDULE",
+            "MADE_UNDER",
+            "AMENDS",
+            "REPEALS",
+            "REPLACES",
+            "APPLIES_TO",
+            "RELATES_TO",
+            "IMPOSES_DUTY",
+            "CREATES_OBLIGATION",
+            "CREATES_PROHIBITION",
+            "CREATES_OFFENCE",
+            "PRESCRIBES_PENALTY",
+            "PRESCRIBES",
+            "REQUIRES",
+            "GRANTS_PERMISSION",
+            "GRANTS_POWER_TO",
+            "ENFORCED_BY",
+            "REQUIRES_AUTHORIZATION_FROM",
+            "RELATED_TO",
+            "INTERACTS_WITH",
+            "COMPLEMENTS",
+            "CROSS_REFERENCES",
+            "DEPENDS_ON",
+            "OVERLAPS_WITH",
+            "SOURCE_OF",
+            "HAS_CHUNK",
+            "SUPPORTED_BY",
+            "BELONGS_TO_DOMAIN",
+            "APPLIES_TO_JURISDICTION",
+            "ISSUED_BY",
+            "RELEVANT_IN",
+            "INVOLVES",
+            "TRIGGERS",
+            "FINDS",
+            "VIOLATES",
+            "HAS_PENALTY",
             "TRIGGERS_NOTICE",
         ]
-        results = self._execute("""
+        results = self._execute(
+            """
             MATCH (n)-[r]->(m)
             WHERE (n:LegalProvision OR n:Act OR n:Rule OR n:Regulation
                    OR n:Notification OR n:Authority OR n:LegalConcept
@@ -167,7 +194,9 @@ class KGValidator:
             AND NOT type(r) IN $allowed
             RETURN DISTINCT type(r) AS rel_type, count(*) AS cnt
             LIMIT 20
-        """, {"allowed": allowed})
+        """,
+            {"allowed": allowed},
+        )
         return {
             "check": "invalid_relationship_types",
             "passed": len(results) == 0,
@@ -252,12 +281,15 @@ class KGValidator:
 
     def check_cross_domain_retrieval(self, concept: str) -> dict[str, Any]:
         """Verify a concept returns provisions from multiple domains."""
-        results = self._execute("""
+        results = self._execute(
+            """
             MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO]-(p:LegalProvision)
             MATCH (p)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain)
             RETURN collect(DISTINCT d.domain_name) AS domains
             LIMIT 1
-        """, {"concept": concept})
+        """,
+            {"concept": concept},
+        )
         if not results:
             return {"check": "cross_domain_retrieval", "passed": False, "domains": [], "count": 0}
         domains = results[0]["domains"] or []

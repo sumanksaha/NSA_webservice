@@ -14,6 +14,7 @@ Key design:
   ``_escape_formula``).
 - R2 CSV export for backup/restore chain.
 """
+
 import csv
 import io
 import logging
@@ -96,10 +97,7 @@ def _get_base_id(module: str) -> str | None:
     base is near capacity and ``schema.bases:write`` scope is available,
     a new base is created and its ID is returned.
     """
-    primary_base = (
-        current_app.config.get("AIRTABLE_BASE_ID")
-        or _env("AIRTABLE_BASE_ID")
-    )
+    primary_base = current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")
     if not primary_base:
         logger.debug("AIRTABLE_BASE_ID not configured - Airtable sync disabled")
         return None
@@ -127,10 +125,7 @@ def _base_near_capacity(client, base_id: str, module: str) -> bool:
         return False
     try:
         table = client.table(base_id, table_name)
-        return any(
-            count >= BASE_ROTATION_THRESHOLD
-            for count, _ in enumerate(table.iterate(page_size=100), start=1)
-        )
+        return any(count >= BASE_ROTATION_THRESHOLD for count, _ in enumerate(table.iterate(page_size=100), start=1))
     except Exception as e:
         logger.debug("Capacity check failed for base %s: %s", base_id, e)
         return False
@@ -197,9 +192,7 @@ def _rotate_base(module: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Record tracking (AirtableBaseMap model)
 # ---------------------------------------------------------------------------
-def _track_airtable_sync(
-    db_record_id: int, module: str, airtable_record_id: str, base_id: str
-) -> None:
+def _track_airtable_sync(db_record_id: int, module: str, airtable_record_id: str, base_id: str) -> None:
     """Persist the mapping between a local DB record and its Airtable row."""
     try:
         from app.extensions import db
@@ -221,9 +214,7 @@ def _track_airtable_sync(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def sync_to_airtable(
-    module: str, row_dict: dict, db_record_id: int | None = None
-) -> bool:
+def sync_to_airtable(module: str, row_dict: dict, db_record_id: int | None = None) -> bool:
     """Sync a row of data to the appropriate Airtable base/table.
 
     Args:
@@ -262,9 +253,7 @@ def sync_to_airtable(
     try:
         table = client.table(base_id, table_name)
         result = table.create(fields)
-        airtable_record_id = (
-            result.get("id") if isinstance(result, dict) else None
-        )
+        airtable_record_id = result.get("id") if isinstance(result, dict) else None
 
         if db_record_id is not None and airtable_record_id:
             _track_airtable_sync(db_record_id, module, airtable_record_id, base_id)
@@ -295,10 +284,7 @@ def export_airtable_all_bases_to_r2() -> str | None:
     if client is None:
         return None
 
-    base_id = (
-        current_app.config.get("AIRTABLE_BASE_ID")
-        or _env("AIRTABLE_BASE_ID")
-    )
+    base_id = current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")
     if not base_id:
         return None
 

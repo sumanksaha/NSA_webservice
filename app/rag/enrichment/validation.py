@@ -54,8 +54,11 @@ def validate_record(record: dict, payload: dict | None = None) -> ValidationResu
     # 1. Shape
     _check(record.get("enrichment_version"), "missing enrichment_version", issues)
     _check(record.get("chunk_id"), "missing chunk_id", issues)
-    _check(record.get("status") in {"PENDING", "PROCESSING", "ENRICHED", "VALIDATED", "FAILED", "SKIPPED"},
-           f"invalid status {record.get('status')!r}", issues)
+    _check(
+        record.get("status") in {"PENDING", "PROCESSING", "ENRICHED", "VALIDATED", "FAILED", "SKIPPED"},
+        f"invalid status {record.get('status')!r}",
+        issues,
+    )
     _check(isinstance(record.get("legal_location"), dict), "legal_location must be a dict", issues)
     _check(isinstance(record.get("cross_references"), list), "cross_references must be a list", issues)
     _check(isinstance(record.get("entities"), list), "entities must be a list", issues)
@@ -66,28 +69,43 @@ def validate_record(record: dict, payload: dict | None = None) -> ValidationResu
         _check(str(text) == str(payload_text), "original_text differs from payload chunk_text", issues)
         phash = payload.get("content_hash")
         if phash:
-            _check(str(record.get("original_sha256")) == str(phash),
-                   "original_sha256 differs from payload content_hash", issues)
+            _check(
+                str(record.get("original_sha256")) == str(phash),
+                "original_sha256 differs from payload content_hash",
+                issues,
+            )
 
     # 4. No invented legal values — every source=llm explicit value needs evidence
     for field_name in (
-        "legal_concepts", "obligations", "prohibitions", "permissions", "powers",
-        "duties", "conditions", "exceptions", "offences", "penalties",
-        "procedures", "applicability",
+        "legal_concepts",
+        "obligations",
+        "prohibitions",
+        "permissions",
+        "powers",
+        "duties",
+        "conditions",
+        "exceptions",
+        "offences",
+        "penalties",
+        "procedures",
+        "applicability",
     ):
         for item in record.get(field_name) or []:
             if not isinstance(item, dict):
                 _check(False, f"{field_name} item must be a dict", issues)
                 continue
             if item.get("source") == "llm" and item.get("kind") == "explicit":
-                _check(bool(item.get("evidence_span")),
-                       f"{field_name} explicit LLM value lacks evidence_span", issues)
+                _check(bool(item.get("evidence_span")), f"{field_name} explicit LLM value lacks evidence_span", issues)
 
     # legal_location values: explicit section/etc. must come from determinism
     loc = record.get("legal_location") or {}
     for key in ("section", "subsection", "schedule", "annexure", "act"):
         v = loc.get(key)
-        if isinstance(v, dict) and v.get("value") is not None and v.get("source") not in {"deterministic", "existing_payload"}:
+        if (
+            isinstance(v, dict)
+            and v.get("value") is not None
+            and v.get("source") not in {"deterministic", "existing_payload"}
+        ):
             _check(False, f"legal_location.{key} has non-deterministic source {v.get('source')!r}", issues)
 
     # 5. Confidence + evidence spans

@@ -105,9 +105,7 @@ class ResponseSanitizer:
         hallucination = len(invalid) > 0 or groundedness < self.groundedness_threshold
 
         # Simple claim flagging for obviously unverifiable statements.
-        hallucinated_claims = self._flag_unverifiable_claims(
-            response_text, valid, chunks
-        )
+        hallucinated_claims = self._flag_unverifiable_claims(response_text, valid, chunks)
 
         # Overall confidence — weighted blend.
         confidence = self._compute_confidence(groundedness, valid, chunks)
@@ -141,13 +139,9 @@ class ResponseSanitizer:
         claims: list[str] = []
 
         mentioned_sections = set(re.findall(r"\b[Ss]ection\s+(\d+)", response_text))
-        retrieved_sections = {
-            c.section_number for c in chunks if c.section_number
-        }
+        retrieved_sections = {c.section_number for c in chunks if c.section_number}
         for sec in mentioned_sections - retrieved_sections:
-            claims.append(
-                f"Claims about Section {sec} not found in retrieved documents"
-            )
+            claims.append(f"Claims about Section {sec} not found in retrieved documents")
 
         return claims
 
@@ -173,7 +167,5 @@ class ResponseSanitizer:
         avg_chunk_score = sum(c.score for c in chunks) / len(chunks) if chunks else 0.0
 
         # Weighted blend: grounding (0.5) + citation quality (0.3) + chunk relevance (0.2)
-        confidence = (
-            groundedness * 0.5 + avg_cit_conf * 0.3 + avg_chunk_score * 0.2
-        )
+        confidence = groundedness * 0.5 + avg_cit_conf * 0.3 + avg_chunk_score * 0.2
         return min(1.0, max(0.0, confidence))

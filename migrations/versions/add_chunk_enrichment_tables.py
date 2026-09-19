@@ -15,6 +15,7 @@ Revision ID: add_chunk_enrichment_tables
 Revises: add_entities_to_legal_chunk
 Create Date: 2026-08-10
 """
+
 from alembic import op
 import sqlalchemy as sa
 

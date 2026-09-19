@@ -7,6 +7,7 @@ validate it on every push.
 
 Runs in the main validation job (tests/ is on the pytest testpaths).
 """
+
 from __future__ import annotations
 
 import copy

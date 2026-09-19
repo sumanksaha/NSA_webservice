@@ -25,14 +25,12 @@ def lookup_fssai_route():
         return jsonify({"error": result.error, "source": "fssai"}), 404
 
     if result.found:
-        return jsonify(
-            {
-                "fbo_name": result.data.get("companyName"),
-                "fbo_address": result.data.get("fullAddress"),
-                "expiry_date": result.data.get("expiryDate"),
-                "source": result.data.get("source"),
-            }
-        )
+        return jsonify({
+            "fbo_name": result.data.get("companyName"),
+            "fbo_address": result.data.get("fullAddress"),
+            "expiry_date": result.data.get("expiryDate"),
+            "source": result.data.get("source"),
+        })
 
     return jsonify({"error": "FSSAI license not found"}), 404
 

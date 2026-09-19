@@ -24,11 +24,14 @@ from app.rag.retrieval.result import RetrievedChunk
 def _chunks(n=3):
     return [
         RetrievedChunk(
-            chunk_id=f"c{i}", score=0.9 - i * 0.1,
-            text=f"Section {i+1} of the FSS Act, 2006 governs food licensing. "
+            chunk_id=f"c{i}",
+            score=0.9 - i * 0.1,
+            text=f"Section {i + 1} of the FSS Act, 2006 governs food licensing. "
             f"Food businesses must obtain a license under these provisions.",
             section_number=str(i + 1),
-            document_title="FSS Act 2006", document_type="act", authority="FSSAI",
+            document_title="FSS Act 2006",
+            document_type="act",
+            authority="FSSAI",
         )
         for i in range(n)
     ]
@@ -193,14 +196,19 @@ def _make_pipeline(answer="Section 55 requires a license.", chunk_ids=None, cite
             "answer": answer,
             "retrieved_chunks": [
                 RetrievedChunk(
-                    chunk_id=cid, score=0.9, text=f"Section {i+1} of the FSS Act governs licensing.",
-                    section_number=str(i + 1), document_title="FSS Act", document_type="act",
+                    chunk_id=cid,
+                    score=0.9,
+                    text=f"Section {i + 1} of the FSS Act governs licensing.",
+                    section_number=str(i + 1),
+                    document_title="FSS Act",
+                    document_type="act",
                 )
                 for i, cid in enumerate(chunk_ids)
             ],
             "cited_chunk_ids": cited_ids,
             "query_type": "section_lookup",
         }
+
     return pipeline
 
 
@@ -223,6 +231,7 @@ class TestEvalRunner:
     def test_evaluate_one_empty_chunks(self):
         def pipeline(query):
             return {"answer": "No relevant info.", "retrieved_chunks": [], "cited_chunk_ids": []}
+
         runner = EvalRunner(pipeline_fn=pipeline)
         result = runner.evaluate_one("q", "expected", ["c0"])
         assert result["metrics"]["context_precision"] == 0.0
@@ -236,6 +245,7 @@ class TestEvalRunner:
     def test_mrr_not_found(self):
         def pipeline(query):
             return {"answer": "a", "retrieved_chunks": _chunks(2)[:1], "cited_chunk_ids": []}
+
         runner = EvalRunner(pipeline_fn=pipeline)
         result = runner.evaluate_one("q", "expected", ["ghost"])
         assert result["retrieval_mrr"] == 0.0
@@ -245,8 +255,12 @@ class TestEvalRunner:
         runner = EvalRunner(pipeline_fn=pipeline)
         result = runner.evaluate_one("q", "expected answer about Section 55", ["c0"])
         expected_metrics = {
-            "faithfulness", "answer_relevance", "context_precision",
-            "context_recall", "citation_recall", "groundedness",
+            "faithfulness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+            "groundedness",
         }
         assert set(result["metrics"].keys()) == expected_metrics
 
@@ -254,10 +268,18 @@ class TestEvalRunner:
         pipeline = _make_pipeline()
         runner = EvalRunner(pipeline_fn=pipeline)
         entries = [
-            {"query": "What does Section 1 say?", "expected_answer": "License req.",
-             "expected_citations": ["c0"], "query_type": "section_lookup"},
-            {"query": "Section 2?", "expected_answer": "Penalties.",
-             "expected_citations": ["c1"], "query_type": "section_lookup"},
+            {
+                "query": "What does Section 1 say?",
+                "expected_answer": "License req.",
+                "expected_citations": ["c0"],
+                "query_type": "section_lookup",
+            },
+            {
+                "query": "Section 2?",
+                "expected_answer": "Penalties.",
+                "expected_citations": ["c1"],
+                "query_type": "section_lookup",
+            },
         ]
         report = runner.evaluate_batch(entries, persist=False)
         assert report["eval_run_id"]
@@ -271,6 +293,7 @@ class TestEvalRunner:
     def test_batch_handles_errors(self):
         def bad_pipeline(query):
             raise RuntimeError("Qdrant is down")
+
         runner = EvalRunner(pipeline_fn=bad_pipeline)
         entries = [{"query": "q1", "expected_answer": "a1", "expected_citations": []}]
         report = runner.evaluate_batch(entries, persist=False)
@@ -287,8 +310,14 @@ class TestEvalRunner:
         report = runner.evaluate_batch(entries, persist=False)
         summary = report["summary"]
         assert summary["total"] == 2
-        for name in ["faithfulness", "answer_relevance", "context_precision",
-                      "context_recall", "citation_recall", "groundedness"]:
+        for name in [
+            "faithfulness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+            "groundedness",
+        ]:
             assert f"{name}_avg" in summary
 
     def test_metric_detail_and_explanations(self):
@@ -336,6 +365,7 @@ class TestEvalStorage:
         from app import create_app
         from app.extensions import db
         from app.models import FSO, User
+
         app = create_app()
         app.config["TESTING"] = True
         app.config["WTF_CSRF_ENABLED"] = False
@@ -351,6 +381,7 @@ class TestEvalStorage:
 
     def _teardown(self, ctx):
         from app.extensions import db
+
         db.session.remove()
         db.drop_all()
         ctx.pop()
@@ -421,7 +452,9 @@ class TestEvalStorage:
         try:
             storage = EvalStorage()
             result = storage.save_result(
-                eval_run_id="run-3", query="q", metrics={},
+                eval_run_id="run-3",
+                query="q",
+                metrics={},
             )
             assert result.avg_score is None
             assert result.passed is False

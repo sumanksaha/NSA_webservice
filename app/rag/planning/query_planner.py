@@ -185,9 +185,7 @@ def _keyword_variants(keyword: str) -> list[str]:
 
 def _mentions(query_lower: str, keyword: str) -> bool:
     """Word-boundary keyword match tolerant to simple plural forms."""
-    return any(
-        re.search(rf"\b{re.escape(v)}\b", query_lower) for v in _keyword_variants(keyword)
-    )
+    return any(re.search(rf"\b{re.escape(v)}\b", query_lower) for v in _keyword_variants(keyword))
 
 
 def _mentions_any(query_lower: str, keywords: list[str]) -> bool:
@@ -241,7 +239,7 @@ def _extract_comparative_sides(query: str) -> list[str]:
             for prep in (" between ", " for ", " of ", " in "):
                 idx = part.lower().rfind(prep)
                 if idx != -1:
-                    part = part[idx + len(prep):]
+                    part = part[idx + len(prep) :]
                     break
         side = part.strip(" \"'")
         if side:
@@ -347,9 +345,7 @@ def _assess_complexity(query: str) -> ComplexityLevel:
     multi_hop_hits = sum(1 for indicator in multi_hop_indicators if indicator in q)
 
     # Check for multiple evidence types
-    evidence_type_hits = sum(
-        1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values() if _mentions_any(q, keywords)
-    )
+    evidence_type_hits = sum(1 for keywords in _EVIDENCE_TYPE_KEYWORDS.values() if _mentions_any(q, keywords))
 
     if conjunction_count >= 2 or section_refs >= 2 or multi_hop_hits >= 2:
         return ComplexityLevel.MULTI_HOP
@@ -455,19 +451,19 @@ def _extract_requirements(query: str) -> list[Requirement]:
     # Detect additional requirements from keywords (plural-tolerant,
     # word-bounded — substring checks silently missed "penalties")
     if _mentions_any(q, ["penalty", "fine", "punishment"]) and evidence_type != EvidenceRequirement.PENALTY:
-            req_id += 1
-            requirements.append(
-                Requirement(
-                    requirement_id=f"r{req_id}",
-                    evidence_type=EvidenceRequirement.PENALTY,
-                    subject=subject,
-                    conditions=conditions,
-                    negation=has_negation,
-                    jurisdiction=jurisdiction,
-                    temporal_scope=temporal_scope,
-                    entities=list(entities.values()),
-                )
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.PENALTY,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
             )
+        )
 
     # Check for exception mentions
     if _mentions_any(q, ["exception", "unless", "except", "notwithstanding"]) and not any(
@@ -740,9 +736,7 @@ def _construct_tasks(
         # the same legal domain (e.g. penalty resolves through provision).
         domain = _DOMAIN_OF.get(req.evidence_type)
         deps = [
-            t.task_id
-            for t in wave1_tasks
-            if domain is not None and _DOMAIN_OF.get(t.evidence_requirement) == domain
+            t.task_id for t in wave1_tasks if domain is not None and _DOMAIN_OF.get(t.evidence_requirement) == domain
         ]
         if _has_condition_marker(req, _RESOLVE_THROUGH_MARKER) and wave1_tasks and not deps:
             # An explicit through-marker overrides domain lookup: this
@@ -870,7 +864,7 @@ def _build_task(
         for ref in extract_references(question, act_hint=act_hint, min_confidence=CONFIDENCE_MEDIUM):
             target = ref.section or ref.rule or ref.schedule or ref.chapter
             if target:
-                cross_reference_targets.append(f"{act_hint or ref.act or ''}::{target}".lstrip(':'))
+                cross_reference_targets.append(f"{act_hint or ref.act or ''}::{target}".lstrip(":"))
 
     retrieval = RetrievalPlan(
         identifiers=identifiers,
@@ -1184,7 +1178,9 @@ class QueryPlanner:
 # ---------------------------------------------------------------------------
 
 
-def _build_requirement_graph(requirements: list[Requirement], tasks: list[EvidenceTask], query: str) -> AnswerRequirementGraph:
+def _build_requirement_graph(
+    requirements: list[Requirement], tasks: list[EvidenceTask], query: str
+) -> AnswerRequirementGraph:
     """Build an AnswerRequirementGraph from extracted requirements + derived tasks.
 
     This bridges the internal Requirement model (private extraction helper) to
@@ -1208,7 +1204,9 @@ def _build_requirement_graph(requirements: list[Requirement], tasks: list[Eviden
                 type=req.evidence_type,
                 subject=req.subject,
                 question=primary_task.question if primary_task else _question_for_requirement(req, query),
-                answer_type=primary_task.answer_type if primary_task else _answer_type_for_requirement(req.evidence_type),
+                answer_type=primary_task.answer_type
+                if primary_task
+                else _answer_type_for_requirement(req.evidence_type),
                 evidence_required=[req.evidence_type.value],
                 mandatory=True,
                 conditions=list(req.conditions),

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class EvidenceStrengthScore(Enum):
     """Score levels for evidence quality."""
+
     STRONG = "strong"
     MODERATE = "moderate"
     WEAK = "weak"
@@ -29,6 +30,7 @@ class EvidenceStrengthScore(Enum):
 
 class ReadinessScore(Enum):
     """Overall case readiness level."""
+
     READY = "ready"
     NEEDS_ATTENTION = "needs_attention"
     NOT_READY = "not_ready"

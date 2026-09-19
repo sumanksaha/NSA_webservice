@@ -2,11 +2,11 @@ import os
 import re
 import sys
 
-sys.stdout.reconfigure(encoding='utf-8')
-root = 'app'
+sys.stdout.reconfigure(encoding="utf-8")
+root = "app"
 # All setting keys
 settings = set()
-with open('app/shared/config.py', encoding='utf-8') as f:
+with open("app/shared/config.py", encoding="utf-8") as f:
     for line in f:
         m = re.match(r'\s*Setting\(\s*"(\w+)"', line)
         if m:
@@ -16,10 +16,10 @@ with open('app/shared/config.py', encoding='utf-8') as f:
 pat = re.compile(r'(?:current_app|app)\.config(?:\.get\(|\[)\s*\(?\s*["\'](\w+)["\']')
 for dirpath, _, files in os.walk(root):
     for fname in files:
-        if not fname.endswith('.py'):
+        if not fname.endswith(".py"):
             continue
         fpath = os.path.join(dirpath, fname)
-        with open(fpath, encoding='utf-8', errors='replace') as f:
+        with open(fpath, encoding="utf-8", errors="replace") as f:
             for i, line in enumerate(f, 1):
                 for m in pat.finditer(line):
                     key = m.group(1)

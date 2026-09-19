@@ -131,9 +131,7 @@ class HallucinationDetector:
                 detected=True,
                 groundedness_score=0.0,
                 claims=[],
-                hallucinated_claims=(
-                    [response_text] if response_text else []
-                ),
+                hallucinated_claims=([response_text] if response_text else []),
                 detail={"reason": "no_response_or_chunks"},
             )
 
@@ -157,10 +155,11 @@ class HallucinationDetector:
         # 6. LLM double-check on unverified claims (best-effort, stub-safe).
         llm_claims = self._llm_verify_claims(unverified, chunks) if self.use_llm else []
 
-        hallucinated = [
-            c.text for i, c in enumerate(unverified)
-            if i not in {v for v in llm_claims}
-        ] if self.use_llm else [c.text for c in unverified]
+        hallucinated = (
+            [c.text for i, c in enumerate(unverified) if i not in {v for v in llm_claims}]
+            if self.use_llm
+            else [c.text for c in unverified]
+        )
 
         report = HallucinationReport(
             detected=grounding.score < self.groundedness_threshold,
@@ -176,10 +175,7 @@ class HallucinationDetector:
                 "claim_count": len(claims),
                 "verified_claim_count": len(verified),
                 "unverified_claim_count": len(unverified),
-                "citation_validity_ratio": (
-                    grounding.citation_validity_ratio
-                    if citation_result is not None else None
-                ),
+                "citation_validity_ratio": (grounding.citation_validity_ratio if citation_result is not None else None),
                 "claim_support_ratio": grounding.claim_support_ratio,
                 "threshold": self.groundedness_threshold,
             },
@@ -224,9 +220,7 @@ class HallucinationDetector:
             return set()
 
         context = " ".join(c.text for c in chunks)[:_LLM_CONTEXT_LIMIT]
-        claims_text = "\n".join(
-            f"{i+1}. {c.text}" for i, c in enumerate(unverified)
-        )
+        claims_text = "\n".join(f"{i + 1}. {c.text}" for i, c in enumerate(unverified))
 
         system_prompt = (
             "You are a legal factuality checker. For each numbered claim "
@@ -234,10 +228,7 @@ class HallucinationDetector:
             "are supported by the provided context. If none are supported, "
             "reply with 'none'."
         )
-        user_prompt = (
-            f"Context:\n{context}\n\nClaims to verify:\n{claims_text}\n\n"
-            "Supported claim numbers:"
-        )
+        user_prompt = f"Context:\n{context}\n\nClaims to verify:\n{claims_text}\n\nSupported claim numbers:"
 
         try:
             import re
@@ -255,9 +246,7 @@ class HallucinationDetector:
             return set()
 
     @staticmethod
-    def _confidence(
-        grounding: GroundednessScore, claims: list[ExtractedClaim]
-    ) -> float:
+    def _confidence(grounding: GroundednessScore, claims: list[ExtractedClaim]) -> float:
         """Overall confidence in the detection result.
 
         Higher when we have more claims to check (more signal) and a

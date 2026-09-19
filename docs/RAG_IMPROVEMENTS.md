@@ -457,7 +457,7 @@ RetrievalPlan(
     metadata_filters={...},
     required_source_types=[...],
     cross_reference_targets=[...],
-    temporal_constraints={...}
+    temporal_constraints={...},
 )
 ```
 

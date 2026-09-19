@@ -9,6 +9,7 @@ Revision ID: add_entity_relationship_tables
 Revises: a1b2c3d4e5f6
 Create Date: 2026-08-05
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -32,9 +33,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_entity_type", "entity", ["entity_type"], unique=False)
-    op.create_index(
-        "idx_entity_type_source", "entity", ["entity_type", "source_table", "source_id"], unique=False
-    )
+    op.create_index("idx_entity_type_source", "entity", ["entity_type", "source_table", "source_id"], unique=False)
 
     op.create_table(
         "relationship",

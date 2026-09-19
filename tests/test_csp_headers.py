@@ -53,9 +53,7 @@ class TestCSPHeaders:
             if part.startswith("script-src"):
                 script_directive = part
                 break
-        assert "'unsafe-inline'" in script_directive, (
-            f"script-src lost 'unsafe-inline': {csp!r}"
-        )
+        assert "'unsafe-inline'" in script_directive, f"script-src lost 'unsafe-inline': {csp!r}"
 
     def test_default_object_src_only_policy_is_gone(self, client):
         """Exact default-policy fingerprint that caused the outage."""

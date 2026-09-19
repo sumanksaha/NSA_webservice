@@ -40,10 +40,10 @@ def _print_benchmark_report(report: dict, per_entry_rows: list[dict] | None = No
                 PER_ENTRY.format(
                     row["id"],
                     row["query_class"][:6],
-                    f'{row["recall"]:.2f}',
-                    f'{row["precision"]:.2f}',
-                    f'{row["f1"]:.2f}',
-                    f'{row["dep_accuracy"]:.2f}',
+                    f"{row['recall']:.2f}",
+                    f"{row['precision']:.2f}",
+                    f"{row['f1']:.2f}",
+                    f"{row['dep_accuracy']:.2f}",
                     row["query"][:52],
                 )
             )
@@ -63,10 +63,7 @@ def _print_benchmark_report(report: dict, per_entry_rows: list[dict] | None = No
     if per_class:
         print("  per query class:")
         for cls, stats in per_class.items():
-            print(
-                f"    {cls:<20} n={stats.get('count', 0)} "
-                f"recall={stats.get('avg_recall')} f1={stats.get('avg_f1')}"
-            )
+            print(f"    {cls:<20} n={stats.get('count', 0)} recall={stats.get('avg_recall')} f1={stats.get('avg_f1')}")
 
 
 def run_benchmark(min_recall: float | None = None, as_json: bool = False) -> int:
@@ -92,26 +89,18 @@ def run_benchmark(min_recall: float | None = None, as_json: bool = False) -> int
             pred[kind] = pred.get(kind, 0) + 1
         matched = sum(min(gold.get(k, 0), pred.get(k, 0)) for k in set(gold) | set(pred))
         n_gold, n_pred = sum(gold.values()), sum(pred.values())
-        gold_edges = {
-            (d, kind)
-            for kind, deps in (entry.get("gold_dependencies") or {}).items()
-            for d in deps
-        }
+        gold_edges = {(d, kind) for kind, deps in (entry.get("gold_dependencies") or {}).items() for d in deps}
         pred_edges = set(record.predicted_dependencies or set())
         union = gold_edges | pred_edges
-        per_entry_rows.append(
-            {
-                "id": f"q{i}",
-                "query": entry["query"],
-                "query_class": entry.get("query_class", "general"),
-                "recall": round(matched / n_gold, 2) if n_gold else 0.0,
-                "precision": round(matched / n_pred, 2) if n_pred else 0.0,
-                "f1": round(2 * matched / (n_gold + n_pred), 2) if n_gold + n_pred else 0.0,
-                "dep_accuracy": round(len(gold_edges & pred_edges) / len(union), 2)
-                if union
-                else 1.0,
-            }
-        )
+        per_entry_rows.append({
+            "id": f"q{i}",
+            "query": entry["query"],
+            "query_class": entry.get("query_class", "general"),
+            "recall": round(matched / n_gold, 2) if n_gold else 0.0,
+            "precision": round(matched / n_pred, 2) if n_pred else 0.0,
+            "f1": round(2 * matched / (n_gold + n_pred), 2) if n_gold + n_pred else 0.0,
+            "dep_accuracy": round(len(gold_edges & pred_edges) / len(union), 2) if union else 1.0,
+        })
 
     report = bench.evaluate()
 
@@ -156,9 +145,7 @@ def run_query_batch(queries: list[str], as_json: bool = False) -> int:
                 "answer": result.get("answer", ""),
                 "retrieved_chunks": result.get("chunks") or [],
                 "cited_chunk_ids": [
-                    c.get("chunk_id")
-                    for c in (result.get("chunks") or [])
-                    if isinstance(c, dict) and c.get("chunk_id")
+                    c.get("chunk_id") for c in (result.get("chunks") or []) if isinstance(c, dict) and c.get("chunk_id")
                 ],
             }
 
@@ -190,16 +177,10 @@ def run_query_batch(queries: list[str], as_json: bool = False) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="eval_rag", description="RAG evaluation: gold benchmark + live batch"
-    )
+    parser = argparse.ArgumentParser(prog="eval_rag", description="RAG evaluation: gold benchmark + live batch")
     parser.add_argument("--benchmark", action="store_true", help="gold decomposition benchmark")
-    parser.add_argument(
-        "--min-recall", type=float, default=None, help="fail (exit 1) when task recall < value"
-    )
-    parser.add_argument(
-        "--queries", nargs="+", default=None, help="run the live pipeline over these queries"
-    )
+    parser.add_argument("--min-recall", type=float, default=None, help="fail (exit 1) when task recall < value")
+    parser.add_argument("--queries", nargs="+", default=None, help="run the live pipeline over these queries")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args(argv)
 

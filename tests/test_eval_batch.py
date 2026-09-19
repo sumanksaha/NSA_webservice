@@ -13,13 +13,19 @@ from app.rag.retrieval.result import RetrievedChunk
 
 def _chunk(cid, score, text, section=None):
     return RetrievedChunk(
-        chunk_id=cid, score=score, text=text, section_number=section,
-        document_title="FSS Act", document_type="act", authority="FSSAI",
+        chunk_id=cid,
+        score=score,
+        text=text,
+        section_number=section,
+        document_title="FSS Act",
+        document_type="act",
+        authority="FSSAI",
     )
 
 
 def _pipeline_factory(chunks, answer="Section 55 requires a food business license."):
     """Build a pipeline callable that uses the given chunks + answer."""
+
     def pipeline(query):
         return {
             "answer": answer,
@@ -27,6 +33,7 @@ def _pipeline_factory(chunks, answer="Section 55 requires a food business licens
             "cited_chunk_ids": [c.chunk_id for c in chunks if c.section_number],
             "query_type": "section_lookup",
         }
+
     return pipeline
 
 
@@ -38,26 +45,36 @@ class TestEvalBatch:
             _chunk("c2", 0.70, "The FSSAI is the regulatory authority under the Act.", None),
         ]
         return chunks, [
-            {"query": "What does Section 55 say?",
-             "expected_answer": "Section 55 requires licensing.",
-             "expected_citations": ["c0"],
-             "query_type": "section_lookup"},
-            {"query": "What are the penalties under Section 3?",
-             "expected_answer": "Section 3(1)(a) imposes penalties.",
-             "expected_citations": ["c1"],
-             "query_type": "section_lookup"},
-            {"query": "Who is the regulatory authority?",
-             "expected_answer": "FSSAI is the authority.",
-             "expected_citations": ["c2"],
-             "query_type": "general_qa"},
-            {"query": "What does Section 55 say about licensing?",
-             "expected_answer": "Licensing is required under Section 55.",
-             "expected_citations": ["c0"],
-             "query_type": "section_lookup"},
-            {"query": "Is there a central authority?",
-             "expected_answer": "Yes, FSSAI.",
-             "expected_citations": ["c2"],
-             "query_type": "general_qa"},
+            {
+                "query": "What does Section 55 say?",
+                "expected_answer": "Section 55 requires licensing.",
+                "expected_citations": ["c0"],
+                "query_type": "section_lookup",
+            },
+            {
+                "query": "What are the penalties under Section 3?",
+                "expected_answer": "Section 3(1)(a) imposes penalties.",
+                "expected_citations": ["c1"],
+                "query_type": "section_lookup",
+            },
+            {
+                "query": "Who is the regulatory authority?",
+                "expected_answer": "FSSAI is the authority.",
+                "expected_citations": ["c2"],
+                "query_type": "general_qa",
+            },
+            {
+                "query": "What does Section 55 say about licensing?",
+                "expected_answer": "Licensing is required under Section 55.",
+                "expected_citations": ["c0"],
+                "query_type": "section_lookup",
+            },
+            {
+                "query": "Is there a central authority?",
+                "expected_answer": "Yes, FSSAI.",
+                "expected_citations": ["c2"],
+                "query_type": "general_qa",
+            },
         ]
 
     def test_batch_over_five_queries(self):
@@ -103,8 +120,14 @@ class TestEvalBatch:
         runner = EvalRunner(pipeline_fn=_pipeline_factory(chunks))
         report = runner.evaluate_batch(entries, persist=False)
         summary = report["summary"]
-        for name in ["faithfulness", "answer_relevance", "context_precision",
-                      "context_recall", "citation_recall", "groundedness"]:
+        for name in [
+            "faithfulness",
+            "answer_relevance",
+            "context_precision",
+            "context_recall",
+            "citation_recall",
+            "groundedness",
+        ]:
             key = f"{name}_avg"
             assert key in summary
             avg = summary[key]
@@ -130,9 +153,7 @@ class TestEvalBatch:
         report = runner.evaluate_batch(entries, persist=False)
         assert report["summary"]["total"] == 5
         assert report["summary"]["errors"] == 2  # 2 queries contain "authority"
-        assert report["summary"]["errors"] + sum(
-            1 for r in report["results"] if "error" not in r
-        ) == 5
+        assert report["summary"]["errors"] + sum(1 for r in report["results"] if "error" not in r) == 5
 
     def test_eval_run_id_passthrough(self):
         chunks, entries = self._dataset()
@@ -146,6 +167,7 @@ class TestEvalBatch:
         report = runner.evaluate_batch(entries, persist=False)
         assert report["eval_run_id"]  # non-empty
         import re as _re
+
         # Should be a UUID-like string
         assert _re.match(r"[0-9a-f]{8}-[0-9a-f]{4}", report["eval_run_id"])
 

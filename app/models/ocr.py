@@ -17,6 +17,7 @@ Index layout mirrors ``migrations/versions/add_ocr_pipeline_models.py``
 exactly (explicit ``idx_*``/``ix_*`` names in ``__table_args__``) so that
 ``flask db migrate`` reports zero drift for these tables.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -113,7 +114,9 @@ class FieldAuthority(db.Model):
     source = db.Column(db.String(32), nullable=False, unique=True)  # vision_llm | zonal_ocr | manual
     weight = db.Column(db.Float, nullable=False, default=1.0)
 
-    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
 
     def __repr__(self) -> str:
         return f"<FieldAuthority {self.source}={self.weight}>"

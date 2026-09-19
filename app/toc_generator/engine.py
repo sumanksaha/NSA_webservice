@@ -177,7 +177,7 @@ class TocGeneratorEngine:
             if entry.is_annexure:
                 item_class += " toc-annexure"
             lines.append(
-                f'<li class="{item_class}">' f'<a href="{entry.href}">{number_span}{badge}{html.escape(entry.text)}</a>'
+                f'<li class="{item_class}"><a href="{entry.href}">{number_span}{badge}{html.escape(entry.text)}</a>'
             )
             li_stack.append((level, False))
 
@@ -251,9 +251,7 @@ class TocGeneratorEngine:
             if _TOC_PLACEHOLDER_RE.search(html):
 
                 def _nav_repl(_m: re.Match[str]) -> str:
-                    return (
-                        '<nav class="toc-nav" role="navigation" aria-label="Table of Contents">' f"{toc_html}" "</nav>"
-                    )
+                    return f'<nav class="toc-nav" role="navigation" aria-label="Table of Contents">{toc_html}</nav>'
 
                 html = _TOC_PLACEHOLDER_RE.sub(_nav_repl, html, count=1)
             return html

@@ -175,15 +175,13 @@ def create_issue():
         db.session.commit()
 
         return (
-            jsonify(
-                {
-                    "message": "FBO issue created successfully",
-                    "issue_id": new_issue.id,
-                    "fbo_id": new_issue.fbo_id,
-                    "state": new_issue.state,
-                    "created_at": new_issue.created_at.isoformat() if new_issue.created_at else None,
-                }
-            ),
+            jsonify({
+                "message": "FBO issue created successfully",
+                "issue_id": new_issue.id,
+                "fbo_id": new_issue.fbo_id,
+                "state": new_issue.state,
+                "created_at": new_issue.created_at.isoformat() if new_issue.created_at else None,
+            }),
             201,
         )
 
@@ -212,11 +210,9 @@ def transition_issue(issue_id):
         return jsonify({"error": "asserted_by is required"}), 400
     if to_state not in ("open", "permission_pending", "permission_granted", "closed", "dismissed"):
         return (
-            jsonify(
-                {
-                    "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'",
-                }
-            ),
+            jsonify({
+                "error": f"Invalid to_state: {to_state}. Must be one of 'open', 'permission_pending', 'permission_granted', 'closed', 'dismissed'",
+            }),
             400,
         )
 
@@ -232,22 +228,18 @@ def transition_issue(issue_id):
         disallowed = SOURCE_TYPE_DISALLOWED_TARGETS.get(issue.source_type, set())
         if to_state in disallowed:
             return (
-                jsonify(
-                    {
-                        "error": f"Cannot transition {issue.source_type}-sourced issue to {to_state} state "
-                        f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)",
-                    }
-                ),
+                jsonify({
+                    "error": f"Cannot transition {issue.source_type}-sourced issue to {to_state} state "
+                    f"(DB CHECK constraint ck_sample_not_dismissed prohibits this)",
+                }),
                 400,
             )
         valid_targets = VALID_TRANSITIONS.get(from_state, [])
         return (
-            jsonify(
-                {
-                    "error": f"Invalid state transition: {from_state} -> {to_state}. "
-                    f"Valid transitions from {from_state}: {valid_targets}",
-                }
-            ),
+            jsonify({
+                "error": f"Invalid state transition: {from_state} -> {to_state}. "
+                f"Valid transitions from {from_state}: {valid_targets}",
+            }),
             400,
         )
 
@@ -272,15 +264,13 @@ def transition_issue(issue_id):
         db.session.commit()
 
         return (
-            jsonify(
-                {
-                    "message": "State transition successful",
-                    "issue_id": issue.id,
-                    "from_state": from_state,
-                    "to_state": to_state,
-                    "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
-                }
-            ),
+            jsonify({
+                "message": "State transition successful",
+                "issue_id": issue.id,
+                "from_state": from_state,
+                "to_state": to_state,
+                "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            }),
             200,
         )
 
@@ -310,33 +300,29 @@ def get_issue(issue_id):
     # Build audit history list
     audits = []
     for audit in audit_history:
-        audits.append(
-            {
-                "id": audit.id,
-                "from_state": audit.from_state,
-                "to_state": audit.to_state,
-                "asserted_by": audit.asserted_by,
-                "asserted_at": audit.asserted_at.isoformat() if audit.asserted_at else None,
-                "note": audit.note,
-            }
-        )
+        audits.append({
+            "id": audit.id,
+            "from_state": audit.from_state,
+            "to_state": audit.to_state,
+            "asserted_by": audit.asserted_by,
+            "asserted_at": audit.asserted_at.isoformat() if audit.asserted_at else None,
+            "note": audit.note,
+        })
 
     return (
-        jsonify(
-            {
-                "id": issue.id,
-                "fbo_id": issue.fbo_id,
-                "manufacturer_fbo_id": issue.manufacturer_fbo_id,
-                "fbo_name": issue.fbo_name,
-                "source_type": issue.source_type,
-                "state": issue.state,
-                "fso_name": issue.fso_name,
-                "created_at": issue.created_at.isoformat() if issue.created_at else None,
-                "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
-                "detail": detail,
-                "audit_history": audits,
-            }
-        ),
+        jsonify({
+            "id": issue.id,
+            "fbo_id": issue.fbo_id,
+            "manufacturer_fbo_id": issue.manufacturer_fbo_id,
+            "fbo_name": issue.fbo_name,
+            "source_type": issue.source_type,
+            "state": issue.state,
+            "fso_name": issue.fso_name,
+            "created_at": issue.created_at.isoformat() if issue.created_at else None,
+            "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            "detail": detail,
+            "audit_history": audits,
+        }),
         200,
     )
 
@@ -367,19 +353,17 @@ def list_issues():
             except Exception:
                 detail = issue.detail_json
 
-        result.append(
-            {
-                "id": issue.id,
-                "fbo_id": issue.fbo_id,
-                "manufacturer_fbo_id": issue.manufacturer_fbo_id,
-                "fbo_name": issue.fbo_name,
-                "source_type": issue.source_type,
-                "state": issue.state,
-                "fso_name": issue.fso_name,
-                "created_at": issue.created_at.isoformat() if issue.created_at else None,
-                "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
-                "detail": detail,
-            }
-        )
+        result.append({
+            "id": issue.id,
+            "fbo_id": issue.fbo_id,
+            "manufacturer_fbo_id": issue.manufacturer_fbo_id,
+            "fbo_name": issue.fbo_name,
+            "source_type": issue.source_type,
+            "state": issue.state,
+            "fso_name": issue.fso_name,
+            "created_at": issue.created_at.isoformat() if issue.created_at else None,
+            "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            "detail": detail,
+        })
 
     return jsonify(result), 200

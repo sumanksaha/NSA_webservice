@@ -139,9 +139,7 @@ class TestPlannerRequirementIdentity:
         graph = plan.requirement_graph
         dep_task = next(t for t in plan.tasks if t.dependency)
         assert dep_task.source_requirement_id
-        dep_req = next(
-            t.source_requirement_id for t in plan.tasks if t.task_id in dep_task.dependency
-        )
+        dep_req = next(t.source_requirement_id for t in plan.tasks if t.task_id in dep_task.dependency)
         assert (dep_req, dep_task.source_requirement_id) in graph.dependencies
 
     def test_serialized_tasks_keep_source_id(self):
@@ -161,9 +159,7 @@ class TestPlannerSecondaryRequirements:
         assert EvidenceRequirement.AMENDMENT in types
 
     def test_temporal_before_query_yields_amendment_requirement(self):
-        plan = QueryPlanner().plan(
-            "What was the applicable penalty for substandard food before the 2021 amendment?"
-        )
+        plan = QueryPlanner().plan("What was the applicable penalty for substandard food before the 2021 amendment?")
         types = [r.type for r in plan.requirement_graph.requirements]
         assert EvidenceRequirement.PENALTY in types
         assert EvidenceRequirement.AMENDMENT in types
@@ -188,9 +184,7 @@ class TestPlannerSecondaryRequirements:
         types = [r.type for r in plan.requirement_graph.requirements]
         assert EvidenceRequirement.CROSS_REFERENCE in types
         assert EvidenceRequirement.PENALTY in types
-        penalty_task = next(
-            t for t in plan.tasks if t.evidence_requirement is EvidenceRequirement.PENALTY
-        )
+        penalty_task = next(t for t in plan.tasks if t.evidence_requirement is EvidenceRequirement.PENALTY)
         assert penalty_task.dependency, "penalty resolves through the cross-reference"
 
     def test_permission_query_yields_definition_and_exception(self):
@@ -264,9 +258,7 @@ class TestSufficiencyRequirementStamp:
         verdicts = [assessor.assess_task(t, [chunk]) for t in plan.tasks]
         for verdict in verdicts:
             assert verdict.requirement_id
-        assert {v.requirement_id for v in verdicts} == set(
-            plan.requirement_graph.requirement_ids()
-        )
+        assert {v.requirement_id for v in verdicts} == set(plan.requirement_graph.requirement_ids())
 
 
 # --------------------------------------------------------------------------- #
@@ -288,9 +280,7 @@ class TestPerClaimVerification:
     def test_authority_is_per_claim_not_global(self):
         claims = [_claim("C1", ["a"]), _claim("C2", ["b"])]
         verifs = [_verdict(["a"]), _verdict(["b"])]
-        out = build_claim_verification(
-            claims, verifs, chunk_authority={"a": 1.0, "b": 0.5}
-        )
+        out = build_claim_verification(claims, verifs, chunk_authority={"a": 1.0, "b": 0.5})
         assert out[0].authority_score == 1.0
         assert out[0].status is ClaimVerificationStatus.SUPPORTED
         assert out[1].authority_score == 0.5
@@ -301,9 +291,7 @@ class TestPerClaimVerification:
         claims = [_claim("C1", ["a"])]
         verifs = [_verdict(["a"])]
         pairs = [{"chunk_a": "a", "chunk_b": "c", "kind": "numeric", "values": ["5", "10"]}]
-        out = build_claim_verification(
-            claims, verifs, chunk_authority={"a": 1.0, "c": 1.0}, contradictions=pairs
-        )
+        out = build_claim_verification(claims, verifs, chunk_authority={"a": 1.0, "c": 1.0}, contradictions=pairs)
         assert out[0].status is ClaimVerificationStatus.SUPPORTED
         assert out[0].contradictions == []
 
@@ -311,9 +299,7 @@ class TestPerClaimVerification:
         claims = [_claim("C3", ["a", "c"])]
         verifs = [_verdict(["a", "c"])]
         pairs = [{"chunk_a": "a", "chunk_b": "c", "kind": "numeric", "values": ["5", "10"]}]
-        out = build_claim_verification(
-            claims, verifs, chunk_authority={"a": 1.0, "c": 1.0}, contradictions=pairs
-        )
+        out = build_claim_verification(claims, verifs, chunk_authority={"a": 1.0, "c": 1.0}, contradictions=pairs)
         assert out[0].status is ClaimVerificationStatus.CONTRADICTED
         assert len(out[0].contradictions) == 1
 
@@ -327,18 +313,14 @@ class TestPerClaimVerification:
     def test_temporal_cap_on_repealed_evidence(self):
         claims = [_claim("C1", ["a"])]
         verifs = [_verdict(["a"])]
-        out = build_claim_verification(
-            claims, verifs, chunk_authority={"a": 1.0}, temporally_invalid_ids={"a"}
-        )
+        out = build_claim_verification(claims, verifs, chunk_authority={"a": 1.0}, temporally_invalid_ids={"a"})
         assert out[0].status is ClaimVerificationStatus.PARTIALLY_SUPPORTED
         assert out[0].temporal_valid is False
 
     def test_temporal_valid_when_evidence_clean(self):
         claims = [_claim("C1", ["a"])]
         verifs = [_verdict(["a"])]
-        out = build_claim_verification(
-            claims, verifs, chunk_authority={"a": 1.0}, temporally_invalid_ids={"z"}
-        )
+        out = build_claim_verification(claims, verifs, chunk_authority={"a": 1.0}, temporally_invalid_ids={"z"})
         assert out[0].temporal_valid is True
         assert out[0].status is ClaimVerificationStatus.SUPPORTED
 
@@ -389,12 +371,10 @@ class TestRequirementCoverage:
             {"id": "R1", "type": "penalty", "subject": "late filing"},
             {"id": "R2", "type": "provision", "subject": "late filing"},
         ]
-        graph = _graph(
-            [
-                ("r2", "provision", "late filing", True),
-                ("r1", "penalty", "late filing", True),
-            ]
-        )
+        graph = _graph([
+            ("r2", "provision", "late filing", True),
+            ("r1", "penalty", "late filing", True),
+        ])
         assert requirement_coverage(graph, gold) == 1.0
 
     def test_distinct_subjects_require_separate_predictions(self):
@@ -403,12 +383,10 @@ class TestRequirementCoverage:
             {"id": "R2", "type": "condition", "subject": "large food manufacturers"},
         ]
         # Only one side found — a same-type duplicate cannot satisfy both.
-        graph = _graph(
-            [
-                ("r1", "condition", "small food businesses", True),
-                ("r1", "condition", "small food businesses", True),
-            ]
-        )
+        graph = _graph([
+            ("r1", "condition", "small food businesses", True),
+            ("r1", "condition", "small food businesses", True),
+        ])
         assert requirement_coverage(graph, gold) == 0.5
 
     def test_type_mismatch_does_not_match(self):
@@ -449,12 +427,10 @@ class TestAtomicityAndEfficiency:
 
     def test_efficiency_penalizes_extra_requirements(self):
         gold = [{"id": "R1", "type": "provision", "subject": "s"}]
-        graph = _graph(
-            [
-                ("r1", "provision", "s", True),
-                ("r2", "scope", "unrelated scope", True),
-            ]
-        )
+        graph = _graph([
+            ("r1", "provision", "s", True),
+            ("r2", "scope", "unrelated scope", True),
+        ])
         assert decomposition_efficiency(graph, gold) == 0.5
 
 
@@ -464,13 +440,11 @@ class TestEvidenceCompleteness:
         assert evidence_completeness(graph, None) == 0.0
 
     def test_counts_only_sufficient_mandatory(self):
-        graph = _graph(
-            [
-                ("r1", "provision", "s", True),
-                ("r2", "penalty", "p", True),
-                ("r3", "scope", "x", False),
-            ]
-        )
+        graph = _graph([
+            ("r1", "provision", "s", True),
+            ("r2", "penalty", "p", True),
+            ("r3", "scope", "x", False),
+        ])
         assert evidence_completeness(graph, {"r1": True}) == 0.5
         assert evidence_completeness(graph, {"r1": True, "r2": True, "r3": True}) == 1.0
 

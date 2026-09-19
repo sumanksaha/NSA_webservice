@@ -1,4 +1,5 @@
 """Document, case file, and evidence models."""
+
 from __future__ import annotations
 
 import uuid

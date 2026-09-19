@@ -43,26 +43,24 @@ logger = logging.getLogger(__name__)
 _SAVED_DIR_NAME = "evidence"
 _MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-_ALLOWED_EXTENSIONS = frozenset(
-    {
-        ".pdf",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-        ".gif",
-        ".bmp",
-        ".tiff",
-        ".tif",
-        ".docx",
-        ".doc",
-        ".txt",
-        ".mp4",
-        ".mov",
-        ".avi",
-        ".mkv",
-    }
-)
+_ALLOWED_EXTENSIONS = frozenset({
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".gif",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".docx",
+    ".doc",
+    ".txt",
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".mkv",
+})
 
 # Extension -> suggested evidence type (overridable via the upload form).
 _EXT_TYPE_MAP = {

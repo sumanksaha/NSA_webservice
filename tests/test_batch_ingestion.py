@@ -23,9 +23,7 @@ from app.rag.ingestion import IngestionPipeline, ingest_corpus_dir
 from app.rag.qdrant_indexer import ChunkIngestionResult
 
 _SAMPLE_TEXT = (
-    "The Food Safety and Standards Act, 2006\n\n"
-    "Section 3\n\n"
-    "3(1)(a) The Food Authority shall ensure food safety.\n\n"
+    "The Food Safety and Standards Act, 2006\n\nSection 3\n\n3(1)(a) The Food Authority shall ensure food safety.\n\n"
 )
 
 

@@ -91,34 +91,29 @@ class CitationValidator:
 
             if chunk is None:
                 result.invalid.append(cit)
-                result.detail.append(
-                    {"chunk_id": cit.chunk_id, "status": "invalid",
-                     "score": _INVALID_CITATION_CONFIDENCE}
-                )
+                result.detail.append({
+                    "chunk_id": cit.chunk_id,
+                    "status": "invalid",
+                    "score": _INVALID_CITATION_CONFIDENCE,
+                })
                 score_sum += _INVALID_CITATION_CONFIDENCE
                 continue
 
             # Section-number consistency check.
-            if (
-                cit.section_number
-                and chunk.section_number
-                and cit.section_number != chunk.section_number
-            ):
+            if cit.section_number and chunk.section_number and cit.section_number != chunk.section_number:
                 result.section_mismatches.append((cit, chunk.section_number))
-                result.detail.append(
-                    {"chunk_id": cit.chunk_id, "status": "section_mismatch",
-                     "expected": chunk.section_number,
-                     "actual": cit.section_number,
-                     "score": _SECTION_MISMATCH_CONFIDENCE}
-                )
+                result.detail.append({
+                    "chunk_id": cit.chunk_id,
+                    "status": "section_mismatch",
+                    "expected": chunk.section_number,
+                    "actual": cit.section_number,
+                    "score": _SECTION_MISMATCH_CONFIDENCE,
+                })
                 score_sum += _SECTION_MISMATCH_CONFIDENCE
                 continue
 
             result.valid.append(cit)
-            result.detail.append(
-                {"chunk_id": cit.chunk_id, "status": "valid",
-                 "score": _VALID_CITATION_CONFIDENCE}
-            )
+            result.detail.append({"chunk_id": cit.chunk_id, "status": "valid", "score": _VALID_CITATION_CONFIDENCE})
             score_sum += _VALID_CITATION_CONFIDENCE
 
         result.score = round(score_sum / total, 4)

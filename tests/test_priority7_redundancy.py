@@ -137,7 +137,10 @@ class TestRestoreEngine:
 
         with (
             patch("app.services.backup_restorer.BackupRestorer._list_r2_csv_backups", return_value=["r2:e.csv"]),
-            patch("app.services.backup_restorer.BackupRestorer._download_r2_csv", return_value="module,base_id\nsample_repo,1"),
+            patch(
+                "app.services.backup_restorer.BackupRestorer._download_r2_csv",
+                return_value="module,base_id\nsample_repo,1",
+            ),
             patch("app.utils.sync._csv_to_records", return_value=[{"module": "sample_repo", "base_id": "1"}]),
             patch("app.services.backup_restorer.BackupRestorer._restore_from_records", return_value=4) as m_restore,
         ):

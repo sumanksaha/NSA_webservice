@@ -24,9 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # These four tests exercise torch's own loss functions directly and need
 # the optional torch stack installed.
-_requires_torch = pytest.mark.skipif(
-    importlib.util.find_spec("torch") is None, reason="torch not installed"
-)
+_requires_torch = pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch not installed")
 
 from evaluation.failure_taxonomy import (
     CATEGORIES,

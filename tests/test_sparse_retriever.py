@@ -208,26 +208,20 @@ class TestSparseRetrieverBM25:
 
     def test_bm25_path_forwards_filters(self):
         store = _FakeSparseStore(points=[_sparse_point()])
-        retriever = SparseRetriever(
-            _make_corpus(), store=store, embedder=_FakeSparseEmbedder()
-        )
+        retriever = SparseRetriever(_make_corpus(), store=store, embedder=_FakeSparseEmbedder())
         retriever.retrieve("q", filters={"document_type": "Act"})
         assert store.searched[0][2] == {"document_type": "Act"}
 
     def test_falls_back_to_rapidfuzz_when_collection_dense_only(self):
         store = _FakeSparseStore(sparse=False)
-        retriever = SparseRetriever(
-            _make_corpus(), store=store, embedder=_FakeSparseEmbedder()
-        )
+        retriever = SparseRetriever(_make_corpus(), store=store, embedder=_FakeSparseEmbedder())
         result = retriever.retrieve("adulteration")
         assert result.total >= 1  # rapidfuzz path over the corpus
         assert store.searched == []
 
     def test_falls_back_to_rapidfuzz_when_sparse_search_fails(self):
         store = _FakeSparseStore(fail=True)
-        retriever = SparseRetriever(
-            _make_corpus(), store=store, embedder=_FakeSparseEmbedder()
-        )
+        retriever = SparseRetriever(_make_corpus(), store=store, embedder=_FakeSparseEmbedder())
         result = retriever.retrieve("adulteration")
         assert result.total >= 1
         assert result.chunks[0].chunk_id == "chunk_1"

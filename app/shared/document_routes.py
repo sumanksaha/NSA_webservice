@@ -307,5 +307,3 @@ def register_document_routes(
         except Exception:
             current_app.logger.warning(f"{case_type} {case_id}: audit log write failed", exc_info=True)
         return jsonify({"message": "Case restored.", "is_archived": False}), 200
-
-

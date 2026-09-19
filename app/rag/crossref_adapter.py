@@ -119,10 +119,7 @@ class CrossRefAdapter:
 
     def structured_references(self, text: str) -> list[dict[str, object]]:
         """§5.2 ``LegalChunk.references`` JSON shape ``[{"target", "kind"}]``."""
-        return [
-            {"target": r.raw, "kind": r.kind}
-            for r in self.extract(text)
-        ]
+        return [{"target": r.raw, "kind": r.kind} for r in self.extract(text)]
 
     def enrich_chunk(self, chunk: Any) -> Any:
         """Set ``chunk.references`` from the chunk's own text; return the chunk.

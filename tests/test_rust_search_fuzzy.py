@@ -123,13 +123,13 @@ def test_field_score_empty_text_returns_zero():
 # ---------------------------------------------------------------------------
 
 EXPAND_CORPUS = [
-    ("Acme Foods Ltd", 0, 4),        # "Acme" → already a word
-    ("Acme Foods Ltd", 5, 9),         # "Food" → grows to "Foods"
-    ("heavy-metals", 0, 5),           # "heavy" → stays "heavy" (hyphen is not word char)
-    ("heavy-metals", 6, 12),          # "metals" → stays "metals"
-    ("XAcmezzzz Industrial", 0, 1),   # "X" → grows to "XAcmezzzz"
-    ("hello world", 0, 5),            # "hello" → already a word
-    ("hello_world test", 0, 5),       # "hello" → grows to "hello_world" (_ is word char)
+    ("Acme Foods Ltd", 0, 4),  # "Acme" → already a word
+    ("Acme Foods Ltd", 5, 9),  # "Food" → grows to "Foods"
+    ("heavy-metals", 0, 5),  # "heavy" → stays "heavy" (hyphen is not word char)
+    ("heavy-metals", 6, 12),  # "metals" → stays "metals"
+    ("XAcmezzzz Industrial", 0, 1),  # "X" → grows to "XAcmezzzz"
+    ("hello world", 0, 5),  # "hello" → already a word
+    ("hello_world test", 0, 5),  # "hello" → grows to "hello_world" (_ is word char)
 ]
 
 
@@ -288,6 +288,7 @@ def test_snippet_around_matches_empty_text():
 # Integration: snippet + highlight consistency
 # ---------------------------------------------------------------------------
 
+
 def test_snippet_contains_mark_tags_on_match():
     """When spans are found, the snippet should contain <mark> tags."""
     text = "Acme Foods Ltd"
@@ -304,6 +305,7 @@ def test_snippet_no_marks_when_no_word_match():
 # ---------------------------------------------------------------------------
 # Fuzzy threshold boundary
 # ---------------------------------------------------------------------------
+
 
 def test_fuzzy_threshold_boundary():
     """A term just above threshold should match; just below should not."""
@@ -324,6 +326,7 @@ def test_fuzzy_threshold_boundary():
 # ---------------------------------------------------------------------------
 # Multi-word query parity
 # ---------------------------------------------------------------------------
+
 
 def test_multi_word_query_parsing():
     """Query with multiple terms is split and each term matched independently."""

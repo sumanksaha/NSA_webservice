@@ -69,6 +69,7 @@ class ResilientRAGPipeline:
             self.pipeline_fn = pipeline_fn
         else:
             from app.rag.tasks import run_generation_pipeline
+
             self.pipeline_fn = run_generation_pipeline
 
         self.fallback_fn = fallback_fn or self._default_fallback
@@ -98,8 +99,7 @@ class ResilientRAGPipeline:
             return result
         except Exception as exc:
             self._on_failure()
-            logger.warning("Pipeline failed (%d/%d): %s",
-                           self._state.failure_count, self.failure_threshold, exc)
+            logger.warning("Pipeline failed (%d/%d): %s", self._state.failure_count, self.failure_threshold, exc)
             return self._safe_fallback(query, **kwargs)
 
     def circuit_state(self) -> dict[str, Any]:
@@ -144,8 +144,7 @@ class ResilientRAGPipeline:
         self._state.last_failure = time.monotonic()
         if self._state.failure_count >= self.failure_threshold:
             self._state.open = True
-            logger.warning("Circuit OPENED after %d consecutive failures",
-                           self._state.failure_count)
+            logger.warning("Circuit OPENED after %d consecutive failures", self._state.failure_count)
 
     def _safe_fallback(self, query: str, **kwargs: Any) -> dict[str, Any]:
         """Run the fallback, catching any errors."""

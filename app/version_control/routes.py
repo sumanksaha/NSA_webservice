@@ -95,15 +95,13 @@ def save_version():
             branch_name=data.get("branch_name") or None,
         )
 
-        return jsonify(
-            {
-                "status": "success",
-                "version_id": version.id,
-                "version_number": version.version_number,
-                "content_hash": version.content_hash,
-                "created_at": version.created_at.isoformat(),
-            }
-        )
+        return jsonify({
+            "status": "success",
+            "version_id": version.id,
+            "version_number": version.version_number,
+            "content_hash": version.content_hash,
+            "created_at": version.created_at.isoformat(),
+        })
 
     except VersionError as e:
         logger.warning(f"Version creation error: {e}")
@@ -216,18 +214,16 @@ def restore_version(
             change_summary=data.get("change_summary"),
         )
 
-        return jsonify(
-            {
-                "status": "success",
-                "restored_version": {
-                    "id": restored.id,
-                    "version_number": restored.version_number,
-                    "created_at": restored.created_at.isoformat(),
-                    "content_hash": restored.content_hash,
-                    "change_summary": restored.change_summary,
-                },
-            }
-        )
+        return jsonify({
+            "status": "success",
+            "restored_version": {
+                "id": restored.id,
+                "version_number": restored.version_number,
+                "created_at": restored.created_at.isoformat(),
+                "content_hash": restored.content_hash,
+                "change_summary": restored.change_summary,
+            },
+        })
 
     except VersionError as e:
         logger.warning(f"Version restore error: {e}")

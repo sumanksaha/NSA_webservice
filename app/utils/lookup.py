@@ -55,10 +55,7 @@ _KMC_LAST_REQUEST_TIME_PATH = DB_DIR / ".kmc_last_request_time"
 # KMC endpoint constants
 _KMC_PORTAL_BASE = "https://www.kmcgov.in/KMCPortal"
 _KMC_TRADE_LICENSE_JSP = f"{_KMC_PORTAL_BASE}/jsp/TradeLicenseInformation.jsp"
-_KMC_SEARCH_ACTION = (
-    f"{_KMC_PORTAL_BASE}/LicenseInformationAction.do"
-    "?passedParam=searchResult"
-)
+_KMC_SEARCH_ACTION = f"{_KMC_PORTAL_BASE}/LicenseInformationAction.do?passedParam=searchResult"
 
 # TLS cipher override — KMC's Sectigo cert works at SECLEVEL=1.
 _KMC_CIPHER_STRING = "DEFAULT@SECLEVEL=1"
@@ -402,10 +399,7 @@ def lookup_ce(
         except (KeyError, IndexError):
             return LookupResult(found=False, error="KMC response structure unexpected.")
 
-        fee_heads = [
-            {"section": r.get("sectionCode"), "amount": r.get("demandAmount")}
-            for r in rows
-        ]
+        fee_heads = [{"section": r.get("sectionCode"), "amount": r.get("demandAmount")} for r in rows]
         return LookupResult(
             found=True,
             error=None,

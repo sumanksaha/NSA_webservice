@@ -89,9 +89,7 @@ class RemoteRerankClient:
         except Exception as exc:
             local = self._get_local_encoder()
             if local is not None:
-                logger.warning(
-                    "RemoteRerankClient: remote rerank failed (%s) — falling back to local CE", exc
-                )
+                logger.warning("RemoteRerankClient: remote rerank failed (%s) — falling back to local CE", exc)
                 return local.predict(pairs)
             raise RuntimeError(f"Remote reranker unavailable and no local fallback: {exc}") from exc
 

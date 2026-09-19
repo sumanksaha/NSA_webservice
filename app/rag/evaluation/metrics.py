@@ -62,8 +62,6 @@ class SeparateConfidenceMetrics:
         )
 
 
-
-
 class CoverageMetrics:
     """Tracks requirement coverage across Evidence Tasks.
 
@@ -107,9 +105,7 @@ class CoverageMetrics:
         # tasks are present — plan-only calls are still meaningful).
         if retrieval_plan:
             self.total_requirements = len(retrieval_plan)
-            self.requirements_covered = sum(
-                1 for routes in retrieval_plan.values() if routes
-            )
+            self.requirements_covered = sum(1 for routes in retrieval_plan.values() if routes)
 
         if not tasks:
             return self
@@ -124,8 +120,7 @@ class CoverageMetrics:
             # metadata and ignored the actual question being asked.
             needles = content_tokens(task.question) or content_tokens(task.objective)
             has_evidence = any(
-                token_coverage(needles, chunk_text(c)) >= self.EVIDENCE_MATCH_THRESHOLD
-                for c in (chunks or [])
+                token_coverage(needles, chunk_text(c)) >= self.EVIDENCE_MATCH_THRESHOLD for c in (chunks or [])
             )
             if has_evidence:
                 self.tasks_with_evidence += 1
@@ -142,11 +137,7 @@ class CoverageMetrics:
     @property
     def requirement_coverage(self) -> float:
         """Fraction of retrieval requirements with routes."""
-        return (
-            round(self.requirements_covered / self.total_requirements, 4)
-            if self.total_requirements
-            else 0.0
-        )
+        return round(self.requirements_covered / self.total_requirements, 4) if self.total_requirements else 0.0
 
     def to_dict(self) -> dict[str, object]:
         return {

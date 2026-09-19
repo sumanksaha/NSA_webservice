@@ -97,9 +97,7 @@ class PromptTemplate:
     """Render grounded-QA prompts from a template registry."""
 
     def __init__(self, templates: dict[str, tuple[str, str]] | None = None) -> None:
-        self._templates: dict[str, tuple[str, str]] = (
-            dict(templates) if templates else dict(_TEMPLATES)
-        )
+        self._templates: dict[str, tuple[str, str]] = dict(templates) if templates else dict(_TEMPLATES)
 
     @property
     def available_actions(self) -> list[str]:
@@ -119,10 +117,7 @@ class PromptTemplate:
             A ``(system_prompt, user_prompt)`` tuple.
         """
         if action not in self._templates:
-            raise ValueError(
-                f"Unknown prompt action: {action!r}. "
-                f"Available: {list(self._templates.keys())}"
-            )
+            raise ValueError(f"Unknown prompt action: {action!r}. Available: {list(self._templates.keys())}")
         system_prompt, user_template = self._templates[action]
         vars_dict: dict[str, Any] = {"query": query, "context": context}
         if extra_vars:

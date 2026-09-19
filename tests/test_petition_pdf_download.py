@@ -223,9 +223,7 @@ class TestAdjudicationPetitionPdf:
         from app.extensions import db
 
         with client.application.app_context():
-            adj = _make_adjudication(
-                db, section_63="yes", ce_license_no="KMC-123", fssai_license=""
-            )
+            adj = _make_adjudication(db, section_63="yes", ce_license_no="KMC-123", fssai_license="")
             adj_id = adj.id
         try:
             resp = client.get(f"/adjudication/case/{adj_id}/pdf/petition")
@@ -239,9 +237,7 @@ class TestAdjudicationPetitionPdf:
         from app.extensions import db
 
         with client.application.app_context():
-            adj = _make_adjudication(
-                db, section_63="yes", ce_license_no="", fssai_license="12345678901234"
-            )
+            adj = _make_adjudication(db, section_63="yes", ce_license_no="", fssai_license="12345678901234")
             adj_id = adj.id
         try:
             resp = client.get(f"/adjudication/case/{adj_id}/pdf/petition")

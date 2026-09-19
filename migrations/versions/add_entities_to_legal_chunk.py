@@ -9,6 +9,7 @@ Revision ID: add_entities_to_legal_chunk
 Revises: add_legal_document_tables
 Create Date: 2026-08-09
 """
+
 from alembic import op
 import sqlalchemy as sa
 

@@ -17,6 +17,7 @@ Revision ID: fix_rbac_tables
 Revises: add_food_cell_do_intimation
 Create Date: 2026-08-06
 """
+
 from alembic import op
 import sqlalchemy as sa
 

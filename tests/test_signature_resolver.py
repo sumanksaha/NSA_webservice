@@ -42,6 +42,7 @@ def _make_valid_jpeg() -> bytes:
 # Test fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def sig_dir(tmp_path):
     """Create a temporary signature directory with a valid JPEG."""
@@ -55,19 +56,23 @@ def sig_dir(tmp_path):
 # get_signature_path
 # ---------------------------------------------------------------------------
 
+
 class TestGetSignaturePath:
     """get_signature_path() maps FSO name -> file path."""
 
     def test_returns_none_for_none_name(self):
         from app.food_cell.signature_resolver import get_signature_path
+
         assert get_signature_path(None) is None
 
     def test_returns_none_for_empty_name(self):
         from app.food_cell.signature_resolver import get_signature_path
+
         assert get_signature_path("") is None
 
     def test_returns_path_when_file_exists(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_path
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             result = get_signature_path("Suman Saha")
             assert result is not None
@@ -76,11 +81,13 @@ class TestGetSignaturePath:
 
     def test_returns_none_when_file_missing(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_path
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             assert get_signature_path("Unknown Officer") is None
 
     def test_name_lowered_and_spaces_removed(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_path
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             result = get_signature_path("Suman Saha")
             assert result is not None
@@ -91,16 +98,19 @@ class TestGetSignaturePath:
 # get_signature_data_uri
 # ---------------------------------------------------------------------------
 
+
 class TestGetSignatureDataUri:
     """get_signature_data_uri() returns base64-encoded data URI."""
 
     def test_returns_none_when_no_file(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_data_uri
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             assert get_signature_data_uri("Unknown Officer") is None
 
     def test_returns_data_uri_when_file_exists(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_data_uri
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             uri = get_signature_data_uri("Suman Saha")
             assert uri is not None
@@ -114,16 +124,19 @@ class TestGetSignatureDataUri:
 # get_signature_bytes
 # ---------------------------------------------------------------------------
 
+
 class TestGetSignatureBytes:
     """get_signature_bytes() returns raw bytes."""
 
     def test_returns_none_when_no_file(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_bytes
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             assert get_signature_bytes("Unknown Officer") is None
 
     def test_returns_bytes_when_file_exists(self, sig_dir):
         from app.food_cell.signature_resolver import get_signature_bytes
+
         with patch("app.food_cell.signature_resolver._SIGNATURE_DIR", sig_dir):
             result = get_signature_bytes("Suman Saha")
             assert result is not None
@@ -133,6 +146,7 @@ class TestGetSignatureBytes:
 # ---------------------------------------------------------------------------
 # Word converter integration
 # ---------------------------------------------------------------------------
+
 
 class TestSignatureInWordConverter:
     """Word converter auto-resolves signature when fso_name is provided."""
@@ -192,6 +206,7 @@ class TestSignatureInWordConverter:
 # ---------------------------------------------------------------------------
 # HTML template integration
 # ---------------------------------------------------------------------------
+
 
 class TestSignatureInHTMLTemplate:
     """HTML template includes signature image when signature_path is provided."""

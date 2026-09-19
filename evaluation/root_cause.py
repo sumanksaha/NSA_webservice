@@ -33,9 +33,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("eval.root_cause")
 
-_SECTION_MARKER_RE = re.compile(
-    r"(?:^|[\s(])(?:section|sec\.?|s\.?)\s*(\d{1,3})(?:[.)]|\b)", re.IGNORECASE
-)
+_SECTION_MARKER_RE = re.compile(r"(?:^|[\s(])(?:section|sec\.?|s\.?)\s*(\d{1,3})(?:[.)]|\b)", re.IGNORECASE)
 
 
 def main() -> int:
@@ -109,11 +107,7 @@ def _analyze() -> int:
                 kg_noise += 1
 
         gold_families = {u.family for u in units if u.family}
-        kg_families = {
-            fam
-            for p in d.get("kg_provisions", [])
-            for fam in _kg_families(p, family_map)
-        }
+        kg_families = {fam for p in d.get("kg_provisions", []) for fam in _kg_families(p, family_map)}
         wrong_family = bool(kg_families - gold_families) and bool(kg_families)
 
         from kg.queries import _classify_query_domain, _extract_concept_mentions
@@ -139,9 +133,7 @@ def _analyze() -> int:
         if wrong_family:
             labels.add("H7")
         if len(gold_families) >= 2:
-            covered_families = {
-                u.family for u in units if u.provision_id in e_units and u.family
-            }
+            covered_families = {u.family for u in units if u.provision_id in e_units and u.family}
             if len(covered_families) < 2:
                 labels.add("H10")
             if len(concepts) < 2:
@@ -197,9 +189,7 @@ def _analyze() -> int:
                 pl = payload_index.get(str(cid))
                 if pl is None:
                     continue
-                fam = family_map.family_s_for_act(
-                    pl.get("act_name") or pl.get("document_title") or ""
-                )
+                fam = family_map.family_s_for_act(pl.get("act_name") or pl.get("document_title") or "")
                 if u.family not in fam or u.section is None:
                     continue
                 # G6 fix (2026-08-17): ``subsection`` is a leading marker
@@ -233,11 +223,15 @@ def _analyze() -> int:
     kg_prov_total = sum(len(d.get("kg_provisions", [])) for d in raw["D_kg_retrieval"].values())
     noise_rate = noise_total / max(kg_prov_total, 1)
     concept_cov = sum(1 for r in rows if r["concepts_matched"] > 0) / n
-    domain_acc = sum(
-        1 for r in rows
-        if r["domain_predicted"] in {d.upper() for d in q_by_id[r["question_id"]].domains}
-        or (not r["domain_predicted"] and not q_by_id[r["question_id"]].domains)
-    ) / n
+    domain_acc = (
+        sum(
+            1
+            for r in rows
+            if r["domain_predicted"] in {d.upper() for d in q_by_id[r["question_id"]].domains}
+            or (not r["domain_predicted"] and not q_by_id[r["question_id"]].domains)
+        )
+        / n
+    )
     cross_q = [r for r in rows if r["gold_families"] >= 2]
     cross_ok = sum(1 for r in cross_q if "H10" not in r["labels"]) / max(len(cross_q), 1)
 
@@ -266,9 +260,7 @@ def _analyze() -> int:
         "neo4j": neo,
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUT_DIR / "hybrid_diagnosis.json").write_text(
-        json.dumps(diagnosis, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    (OUT_DIR / "hybrid_diagnosis.json").write_text(json.dumps(diagnosis, indent=2, sort_keys=True), encoding="utf-8")
     with open(OUT_DIR / "root_cause_failures.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()

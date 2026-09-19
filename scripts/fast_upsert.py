@@ -11,8 +11,22 @@ DB_URL_P = DB_URL.replace("postgresql://", "postgresql://") if DB_URL else None
 csv_dir = Path("/github/NSA_webservice/db")
 
 sources = [
-    {"label": "kmc_license", "csv": csv_dir / "kmc_license_issued.csv", "table": "fssai_licenses", "pk": "license_no", "csv_pk": "license_number", "cols": ["license_number", "company_name", "full_address", "expiry_date"]},
-    {"label": "kmc_registration", "csv": csv_dir / "kmc_registration_issued.csv", "table": "fssai_registrations", "pk": "registration_no", "csv_pk": "registration_number", "cols": ["registration_number", "company_name", "full_address", "expiry_date"]},
+    {
+        "label": "kmc_license",
+        "csv": csv_dir / "kmc_license_issued.csv",
+        "table": "fssai_licenses",
+        "pk": "license_no",
+        "csv_pk": "license_number",
+        "cols": ["license_number", "company_name", "full_address", "expiry_date"],
+    },
+    {
+        "label": "kmc_registration",
+        "csv": csv_dir / "kmc_registration_issued.csv",
+        "table": "fssai_registrations",
+        "pk": "registration_no",
+        "csv_pk": "registration_number",
+        "cols": ["registration_number", "company_name", "full_address", "expiry_date"],
+    },
 ]
 
 engine = create_engine(DB_URL, connect_args={"sslmode": "require", "connect_timeout": 15})
@@ -38,7 +52,9 @@ for s in sources:
     try:
         # Temp table
         cur.execute("DROP TABLE IF EXISTS tmp_kmc")
-        cur.execute("CREATE TEMP TABLE tmp_kmc (license_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)")
+        cur.execute(
+            "CREATE TEMP TABLE tmp_kmc (license_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)"
+        )
 
         # COPY CSV data into temp table using copy_expert (handles quoted fields)
         with open(csv_path, encoding="utf-8", errors="replace") as f:

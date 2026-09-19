@@ -79,9 +79,7 @@ def _maybe_field_score(query: str, text: str) -> float:
     return _field_score(query, text)
 
 
-def _maybe_snippet_around_matches(
-    query: str, text: str, width: int = 80, fuzzy_word_threshold: float = 60.0
-) -> str:
+def _maybe_snippet_around_matches(query: str, text: str, width: int = 80, fuzzy_word_threshold: float = 60.0) -> str:
     """Word-bounded <mark>-highlighted snippet. Uses Rust when available."""
     if _rust_snippet_around_matches is not None:
         try:
@@ -89,6 +87,7 @@ def _maybe_snippet_around_matches(
         except Exception:
             pass
     return _snippet_around_matches(query, text, width, fuzzy_word_threshold)
+
 
 _CREATE_FTS_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS " + _FTS_TABLE + " USING fts5(\n"

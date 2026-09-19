@@ -74,15 +74,13 @@ def refresh(case_id_or_adjudication_id: int):
         return jsonify({"error": "Case not found"}), 404
 
     count = engine.refresh(resolved)
-    return jsonify(
-        {
-            "status": "ok",
-            "case_type": resolved.case_type,
-            "persisted": count,
-            "message": (
-                f"Timeline regenerated ({count} events persisted)."
-                if resolved.case_type == "case_file"
-                else "Timeline regenerated (adjudication timelines are computed, not stored)."
-            ),
-        }
-    )
+    return jsonify({
+        "status": "ok",
+        "case_type": resolved.case_type,
+        "persisted": count,
+        "message": (
+            f"Timeline regenerated ({count} events persisted)."
+            if resolved.case_type == "case_file"
+            else "Timeline regenerated (adjudication timelines are computed, not stored)."
+        ),
+    })

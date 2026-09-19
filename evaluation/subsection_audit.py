@@ -74,17 +74,20 @@ def load_payloads(live: bool) -> list[dict]:
 
     app = create_app()
     with app.app_context():
-        collections = list(dict.fromkeys([
-            app.config.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
-            app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ]))
+        collections = list(
+            dict.fromkeys([
+                app.config.get("RAG_QDRANT_COLLECTION", "fssai_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_ENV", "env_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_COMMERCIAL", "commercial_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
+                app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
+            ])
+        )
         index = build_payload_index(
             lambda coll: QdrantStore(collection_name=coll),
-            collections, force=True,
+            collections,
+            force=True,
         )
         return list(index.values())
 
@@ -127,9 +130,7 @@ def audit(payloads: list[dict]) -> dict:
         for v, n in values.items():
             collisions[v] = collisions.get(v, 0) + n
     colliding_values = sorted(
-        (v for v, n in collisions.items() if sum(
-            1 for (s, _d), vals in value_by_section.items() if v in vals
-        ) >= 2),
+        (v for v, n in collisions.items() if sum(1 for (s, _d), vals in value_by_section.items() if v in vals) >= 2),
     )
     # distinctness: sections with >=2 chunks where every chunk shares a
     # single subsection value (G5 semantics — a 1-chunk section is trivially
@@ -188,26 +189,33 @@ def render(report: dict) -> str:
     lines = []
     lines.append(f"Subsection coverage audit  ({report['n_chunks']:,} chunks)")
     lines.append("=" * 72)
-    lines.append(f"  overall subsection coverage : {report['subsection_overall']:,}/{report['n_chunks']:,} "
-                 f"({report['pct_overall']}%)")
-    lines.append(f"  substantive (hl>=2)         : {report['substantive_with_subsection']:,}/"
-                 f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)")
-    lines.append(f"  hl1 header/boilerplate      : {report['hl1_with_subsection']:,}/{report['hl1_chunks']:,} "
-                 f"(semantically N/A)")
+    lines.append(
+        f"  overall subsection coverage : {report['subsection_overall']:,}/{report['n_chunks']:,} "
+        f"({report['pct_overall']}%)"
+    )
+    lines.append(
+        f"  substantive (hl>=2)         : {report['substantive_with_subsection']:,}/"
+        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)"
+    )
+    lines.append(
+        f"  hl1 header/boilerplate      : {report['hl1_with_subsection']:,}/{report['hl1_chunks']:,} (semantically N/A)"
+    )
     lines.append(f"  distinct subsection values  : {report['distinct_subsection_values']}")
-    lines.append(f"  cross-section collisions    : {report['cross_section_colliding_values']} values "
-                 f"appear in >=2 sections")
+    lines.append(
+        f"  cross-section collisions    : {report['cross_section_colliding_values']} values appear in >=2 sections"
+    )
     lines.append(f"  degenerate sections         : {report['degenerate_sections']} (all chunks share one value)")
     lines.append("")
     lines.append(f"{'domain':<12}{'chunks':>8}{'ss':>6}{'%':>7}{'subst':>8}{'subst_ss':>10}{'%':>7}")
     for d, row in report["by_domain"].items():
-        lines.append(f"{d:<12}{row['chunks']:>8}{row['with_subsection']:>6}{row['pct_overall']:>6.1f}%"
-                     f"{row['substantive_chunks']:>8}{row['substantive_with_subsection']:>10}"
-                     f"{row['pct_substantive']:>6.1f}%")
+        lines.append(
+            f"{d:<12}{row['chunks']:>8}{row['with_subsection']:>6}{row['pct_overall']:>6.1f}%"
+            f"{row['substantive_chunks']:>8}{row['substantive_with_subsection']:>10}"
+            f"{row['pct_substantive']:>6.1f}%"
+        )
     rec = report["clause_number_recovery"]
     lines.append("")
-    lines.append(f"dotted-clause recovery (clause_number): {rec['chunks_gaining']} chunks "
-                 f"{dict(rec['by_domain'])}")
+    lines.append(f"dotted-clause recovery (clause_number): {rec['chunks_gaining']} chunks {dict(rec['by_domain'])}")
     return "\n".join(lines)
 
 

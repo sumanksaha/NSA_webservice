@@ -111,13 +111,11 @@ class CitationAdapter:
                 or c.details.get("case_number")
                 or c.reference
             )
-            result.append(
-                {
-                    "section": section,
-                    "type": c.citation_type,
-                    "confidence": round(c.confidence, 4),
-                }
-            )
+            result.append({
+                "section": section,
+                "type": c.citation_type,
+                "confidence": round(c.confidence, 4),
+            })
         return result
 
     def enrich_chunk(self, chunk: Any) -> Any:

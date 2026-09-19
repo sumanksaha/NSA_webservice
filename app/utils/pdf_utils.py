@@ -44,9 +44,7 @@ def generate_pdf_from_html(html_content: str) -> tuple:
     return _engine().generate_from_html(html_content)
 
 
-def post_process_pdf_html(
-    html_content: str, case_id: int | None = None, adjudication_id: int | None = None
-) -> str:
+def post_process_pdf_html(html_content: str, case_id: int | None = None, adjudication_id: int | None = None) -> str:
     """Phase 6 + Phase 7 post-processing pass over rendered HTML.
 
     Delegates to :meth:`PDFAssemblyEngine.post_process`.

@@ -151,8 +151,7 @@ def load_archive(archive_path: str) -> dict[str, object]:
         actual = _archive_sha(points)
         if actual != expected:
             raise ValueError(
-                f"archive {archive_path!r} failed integrity check (sha256 mismatch — "
-                f"corrupted or truncated file)"
+                f"archive {archive_path!r} failed integrity check (sha256 mismatch — corrupted or truncated file)"
             )
     return archive
 

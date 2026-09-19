@@ -96,9 +96,24 @@ SEMANTIC_RULES: list[tuple[str, str, float, re.Pattern[str]]] = [
     ("PROHIBITS", "Prohibition", 0.8, re.compile(r"\bmust\s+not\b", re.IGNORECASE)),
     ("PROHIBITS", "Prohibition", 0.72, re.compile(r"\bprohibition\s+(?:against|of|on)\b", re.IGNORECASE)),
     # --- Offences + penalties (before generic duty so \"shall be punishable\" wins) ---
-    ("PRESCRIBES_PENALTY", "Penalty", 0.95, re.compile(r"(?:punishable|punished)\s*with\s*(?:imprisonment|fine|both)", re.IGNORECASE)),
-    ("PRESCRIBES_PENALTY", "Penalty", 0.9, re.compile(r"imprisonment\s*(?:for|of|which\s*may\s*extend)", re.IGNORECASE)),
-    ("PRESCRIBES_PENALTY", "Penalty", 0.85, re.compile(r"fine\s*(?:which\s*may\s*extend|not\s*exceeding)", re.IGNORECASE)),
+    (
+        "PRESCRIBES_PENALTY",
+        "Penalty",
+        0.95,
+        re.compile(r"(?:punishable|punished)\s*with\s*(?:imprisonment|fine|both)", re.IGNORECASE),
+    ),
+    (
+        "PRESCRIBES_PENALTY",
+        "Penalty",
+        0.9,
+        re.compile(r"imprisonment\s*(?:for|of|which\s*may\s*extend)", re.IGNORECASE),
+    ),
+    (
+        "PRESCRIBES_PENALTY",
+        "Penalty",
+        0.85,
+        re.compile(r"fine\s*(?:which\s*may\s*extend|not\s*exceeding)", re.IGNORECASE),
+    ),
     ("PRESCRIBES_PENALTY", "Penalty", 0.85, re.compile(r"penalty\s*(?:of|for)", re.IGNORECASE)),
     ("PRESCRIBES_PENALTY", "Penalty", 0.72, re.compile(_RUPEES_RULE_PATTERN, re.IGNORECASE)),
     ("CREATES_OFFENCE", "Offence", 0.9, re.compile(r"shall\s*be\s*guilty\s*of\s*an\s*offence", re.IGNORECASE)),
@@ -112,7 +127,12 @@ SEMANTIC_RULES: list[tuple[str, str, float, re.Pattern[str]]] = [
     ("GRANTS_POWER_TO", "Power", 0.8, re.compile(r"\bauthori[sz]ed\s+to\b", re.IGNORECASE)),
     ("GRANTS_POWER_TO", "Power", 0.6, re.compile(r"\bmay\b", re.IGNORECASE)),
     # --- Permissions ---
-    ("GRANTS_PERMISSION", "Permission", 0.8, re.compile(r"\bmay\s+be\s+(?:granted|permitted|allowed)\b", re.IGNORECASE)),
+    (
+        "GRANTS_PERMISSION",
+        "Permission",
+        0.8,
+        re.compile(r"\bmay\s+be\s+(?:granted|permitted|allowed)\b", re.IGNORECASE),
+    ),
     ("GRANTS_PERMISSION", "Permission", 0.75, re.compile(r"\bpermission\s+(?:may|shall)\s+be\b", re.IGNORECASE)),
     ("GRANTS_PERMISSION", "Permission", 0.7, re.compile(r"\blicen[cs]e\b", re.IGNORECASE)),
     # --- Duties / obligations ---
@@ -161,7 +181,9 @@ NOT_APPLICABLE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
     (
         "cross_reference_fragment",
-        re.compile(r"^(?:of|in|under|for|to|by|with|on|from|as|and|or|that|which|whose)\s|^\([A-Za-z]\)\s", re.IGNORECASE),
+        re.compile(
+            r"^(?:of|in|under|for|to|by|with|on|from|as|and|or|that|which|whose)\s|^\([A-Za-z]\)\s", re.IGNORECASE
+        ),
     ),
     # Financial-statement format rows (Companies Act Schedule III style:
     # "(Rupees in ......) Particulars Note No. Figures...") — a form/table
@@ -264,14 +286,12 @@ class LegalSemanticEnricher:
             start = max(0, m.start() - 60)
             end = min(len(text), m.end() + 80)
             evidence = re.sub(r"\s+", " ", text[start:end]).strip()
-            tags.append(
-                {
-                    "rel_type": rel_type,
-                    "concept_id": concept_id,
-                    "evidence": evidence,
-                    "confidence": confidence,
-                }
-            )
+            tags.append({
+                "rel_type": rel_type,
+                "concept_id": concept_id,
+                "evidence": evidence,
+                "confidence": confidence,
+            })
         return tags
 
     # ------------------------------------------------------------------ #
@@ -309,16 +329,14 @@ class LegalSemanticEnricher:
         )
         out: list[dict[str, Any]] = []
         for r in rows:
-            out.append(
-                {
-                    "provision_id": _unwrap(r.get("provision_id")),
-                    "provision_number": _unwrap(r.get("provision_number")),
-                    "title": _unwrap(r.get("title")) or "",
-                    "provision_text": _unwrap(r.get("provision_text")) or "",
-                    "legal_domain": _unwrap(r.get("legal_domain")) or "",
-                    "instrument_id": _unwrap(r.get("instrument_id")) or "",
-                }
-            )
+            out.append({
+                "provision_id": _unwrap(r.get("provision_id")),
+                "provision_number": _unwrap(r.get("provision_number")),
+                "title": _unwrap(r.get("title")) or "",
+                "provision_text": _unwrap(r.get("provision_text")) or "",
+                "legal_domain": _unwrap(r.get("legal_domain")) or "",
+                "instrument_id": _unwrap(r.get("instrument_id")) or "",
+            })
         return out
 
     def write_edges(self, rows: list[dict[str, Any]]) -> int:
@@ -419,12 +437,12 @@ class LegalSemanticEnricher:
                     "confidence": tag["confidence"],
                 }
                 rows.append(row)
-                summary["rel_type_totals"][tag["rel_type"]] = (
-                    summary["rel_type_totals"].get(tag["rel_type"], 0) + 1
-                )
+                summary["rel_type_totals"][tag["rel_type"]] = summary["rel_type_totals"].get(tag["rel_type"], 0) + 1
         summary["edges_planned"] = len(rows)
         for cr in class_rows:
-            summary["class_breakdown"][cr["semantic_class"]] = summary["class_breakdown"].get(cr["semantic_class"], 0) + 1
+            summary["class_breakdown"][cr["semantic_class"]] = (
+                summary["class_breakdown"].get(cr["semantic_class"], 0) + 1
+            )
 
         if not dry_run:
             summary["edges_written"] = self.write_edges(rows)

@@ -13,9 +13,51 @@ from rapidfuzz import fuzz
 
 #: Minimal stopword set for content-token extraction.  Deliberately small:
 #  domain words like "section" or "penalty" must survive tokenization.
-STOPWORDS = frozenset(
-    ["a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did", "do", "does", "for", "from", "had", "has", "have", "in", "is", "it", "its", "of", "on", "or", "should", "so", "that", "the", "this", "to", "under", "was", "were", "what", "which", "who", "whom", "whose", "will", "with", "would", "about"]
-)
+STOPWORDS = frozenset([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "can",
+    "could",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "had",
+    "has",
+    "have",
+    "in",
+    "is",
+    "it",
+    "its",
+    "of",
+    "on",
+    "or",
+    "should",
+    "so",
+    "that",
+    "the",
+    "this",
+    "to",
+    "under",
+    "was",
+    "were",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "whose",
+    "will",
+    "with",
+    "would",
+    "about",
+])
 
 _WORD_RE = re.compile(r"\w+")
 
@@ -37,9 +79,7 @@ def token_coverage(needles: list[str], haystack: str) -> float:
     if not needles:
         return 0.0
     lowered = (haystack or "").lower()
-    hits = sum(
-        1 for n in needles if fuzz.partial_ratio(n, lowered) >= TOKEN_MATCH_THRESHOLD
-    )
+    hits = sum(1 for n in needles if fuzz.partial_ratio(n, lowered) >= TOKEN_MATCH_THRESHOLD)
     return hits / len(needles)
 
 

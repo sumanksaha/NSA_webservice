@@ -172,45 +172,31 @@ class TestWordConverter:
     def test_empty_violations_fallback(self):
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
-        xml = _extract_text(
-            ImprovementNoticeWordConverter().build(_base_ctx(violations=[]))
-        )
+        xml = _extract_text(ImprovementNoticeWordConverter().build(_base_ctx(violations=[])))
         assert "No specific deviations were recorded" in xml
 
     def test_empty_actions_fallback(self):
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
-        xml = _extract_text(
-            ImprovementNoticeWordConverter().build(_base_ctx(actions=[]))
-        )
+        xml = _extract_text(ImprovementNoticeWordConverter().build(_base_ctx(actions=[])))
         assert "No specific remedial actions prescribed" in xml
 
     def test_no_compliance_deadline(self):
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
-        xml = _extract_text(
-            ImprovementNoticeWordConverter().build(
-                _base_ctx(compliance_deadline=None)
-            )
-        )
+        xml = _extract_text(ImprovementNoticeWordConverter().build(_base_ctx(compliance_deadline=None)))
         assert "on or before" not in xml
 
     def test_no_enclosures(self):
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
-        xml = _extract_text(
-            ImprovementNoticeWordConverter().build(_base_ctx(enclosures=[]))
-        )
+        xml = _extract_text(ImprovementNoticeWordConverter().build(_base_ctx(enclosures=[])))
         assert "Enclosures:" not in xml
 
     def test_no_reference(self):
         from app.food_cell.word_converter import ImprovementNoticeWordConverter
 
-        xml = _extract_text(
-            ImprovementNoticeWordConverter().build(
-                _base_ctx(improvement_notice_ref=None)
-            )
-        )
+        xml = _extract_text(ImprovementNoticeWordConverter().build(_base_ctx(improvement_notice_ref=None)))
         assert "SMP-2026-001" not in xml
 
     def test_minimal_context(self):
@@ -262,9 +248,7 @@ class TestWordRoute:
                 "license_display": "no",
             }
             insp_id = _make_inspection(client, **form)
-            resp = client.get(
-                f"/food-cell/improvement-notice/inspection/{insp_id}/docx"
-            )
+            resp = client.get(f"/food-cell/improvement-notice/inspection/{insp_id}/docx")
             assert resp.status_code == 200
             assert resp.data[:4] == b"PK\x03\x04"  # ZIP header (docx = zip)
             assert (
@@ -286,9 +270,7 @@ class TestWordRoute:
                 "license_display": "no",
             }
             insp_id = _make_inspection(client, **form)
-            resp = client.get(
-                f"/food-cell/improvement-notice/inspection/{insp_id}/docx"
-            )
+            resp = client.get(f"/food-cell/improvement-notice/inspection/{insp_id}/docx")
             assert resp.status_code == 200
             cd = resp.headers.get("Content-Disposition", "")
             assert f"Improvement_Notice_{insp_id}.docx" in cd
@@ -298,9 +280,7 @@ class TestWordRoute:
     def test_docx_404_for_missing_inspection(self):
         _app, client, ctx = self._setup()
         try:
-            resp = client.get(
-                "/food-cell/improvement-notice/inspection/99999/docx"
-            )
+            resp = client.get("/food-cell/improvement-notice/inspection/99999/docx")
             assert resp.status_code == 404
         finally:
             self._teardown(ctx)
@@ -313,9 +293,7 @@ class TestWordRoute:
         _app, client, ctx = self._setup()
         try:
             insp_id = _make_inspection(client)
-            resp = client.get(
-                f"/food-cell/improvement-notice/inspection/{insp_id}/docx"
-            )
+            resp = client.get(f"/food-cell/improvement-notice/inspection/{insp_id}/docx")
             assert resp.status_code == 200
             assert resp.data[:4] == b"PK\x03\x04"  # ZIP header (docx = zip)
         finally:

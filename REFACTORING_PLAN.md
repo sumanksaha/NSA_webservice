@@ -264,12 +264,24 @@ class PDFAssemblyEngine:
 
 ```python
 from app.pdf_assembly.engine import PDFAssemblyEngine
+
 _engine = PDFAssemblyEngine()
 
-def generate_pdf_from_html(html): return _engine.generate_from_html(html)
-def post_process_pdf_html(html, **kw): return _engine.post_process(html, **kw)
-def embed_photos_as_base64(urls): return _engine.embed_photos(urls)
-def renumber_html_lists(html): return _engine.post_process(html)  # delegates to CrossReference
+
+def generate_pdf_from_html(html):
+    return _engine.generate_from_html(html)
+
+
+def post_process_pdf_html(html, **kw):
+    return _engine.post_process(html, **kw)
+
+
+def embed_photos_as_base64(urls):
+    return _engine.embed_photos(urls)
+
+
+def renumber_html_lists(html):
+    return _engine.post_process(html)  # delegates to CrossReference
 ```
 
 **Adapters:**

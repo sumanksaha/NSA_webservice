@@ -11,6 +11,7 @@ Revises: add_rag_tables
 Create Date: 2026-08-08
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 

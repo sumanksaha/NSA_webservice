@@ -98,13 +98,11 @@ class TestGoldBenchmark:
 
     def test_duplicate_kinds_score_as_multiset(self):
         bench = DecompositionBenchmark()
-        bench.add_gold_entry(
-            {
-                "query": "q",
-                "gold_task_kinds": ["condition", "condition"],
-                "gold_dependencies": {"condition": []},
-            }
-        )
+        bench.add_gold_entry({
+            "query": "q",
+            "gold_task_kinds": ["condition", "condition"],
+            "gold_dependencies": {"condition": []},
+        })
         decomp = type("D", (), {})()
         decomp.tasks = [
             EvidenceTask(
@@ -125,13 +123,11 @@ class TestGoldBenchmark:
 
     def test_dependency_accuracy_jaccard(self):
         bench = DecompositionBenchmark()
-        bench.add_gold_entry(
-            {
-                "query": "q",
-                "gold_task_kinds": ["provision", "penalty"],
-                "gold_dependencies": {"provision": [], "penalty": ["provision"]},
-            }
-        )
+        bench.add_gold_entry({
+            "query": "q",
+            "gold_task_kinds": ["provision", "penalty"],
+            "gold_dependencies": {"provision": [], "penalty": ["provision"]},
+        })
         decomp = type("D", (), {})()
         decomp.tasks = [
             EvidenceTask(
@@ -191,7 +187,14 @@ class TestGoldBenchmark:
         assert report["exact_match_rate"] == 1.0
         assert report["under_decomposition_rate"] == 0.0
         assert report["over_decomposition_rate"] == 0.0
-        for cls in ("direct_lookup", "multi_requirement", "comparative", "nested_compound", "multi_hop", "fact_pattern"):
+        for cls in (
+            "direct_lookup",
+            "multi_requirement",
+            "comparative",
+            "nested_compound",
+            "multi_hop",
+            "fact_pattern",
+        ):
             assert report["per_query_class"][cls]["avg_recall"] == 1.0, cls
             assert report["per_query_class"][cls]["avg_f1"] == 1.0, cls
 

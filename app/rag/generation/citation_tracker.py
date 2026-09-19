@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 _BRACKET_CITATION_RE = re.compile(r"\[(\d+)\]")
 
 #: Regex for inline section references — e.g. "Section 55", "Section 3(1)(a)".
-_SECTION_REF_RE = re.compile(
-    r"\bSection\s+(\d+(?:\([a-zA-Z0-9]+\))*)", re.IGNORECASE
-)
+_SECTION_REF_RE = re.compile(r"\bSection\s+(\d+(?:\([a-zA-Z0-9]+\))*)", re.IGNORECASE)
 
 
 class CitationTracker:
@@ -77,14 +75,10 @@ class CitationTracker:
         seen_chunk_ids: set[str] = set()
 
         # Pass 1 — bracket citations [n]
-        citations.extend(
-            self._extract_bracket_citations(response_text, citation_map, seen_chunk_ids)
-        )
+        citations.extend(self._extract_bracket_citations(response_text, citation_map, seen_chunk_ids))
 
         # Pass 2 — inline section references
-        citations.extend(
-            self._extract_section_citations(response_text, chunks, seen_chunk_ids)
-        )
+        citations.extend(self._extract_section_citations(response_text, chunks, seen_chunk_ids))
 
         return citations
 
@@ -110,9 +104,7 @@ class CitationTracker:
                 continue
             seen.add(chunk.chunk_id)
 
-            snippet = CitationTracker._extract_snippet(
-                response_text, match.start(), match.end()
-            )
+            snippet = CitationTracker._extract_snippet(response_text, match.start(), match.end())
             confidence = CitationTracker._citation_confidence(chunk, snippet)
 
             results.append(
@@ -146,9 +138,7 @@ class CitationTracker:
                     if chunk.chunk_id in seen:
                         continue
                     seen.add(chunk.chunk_id)
-                    snippet = CitationTracker._extract_snippet(
-                        response_text, match.start(), match.end()
-                    )
+                    snippet = CitationTracker._extract_snippet(response_text, match.start(), match.end())
                     confidence = CitationTracker._citation_confidence(chunk, snippet)
                     results.append(
                         Citation(

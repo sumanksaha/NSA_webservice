@@ -118,31 +118,29 @@ def strip_html_to_text(html_content: str) -> str:
     from html.parser import HTMLParser
 
     class _TextExtractor(HTMLParser):
-        _BLOCK_TAGS = frozenset(
-            {
-                "p",
-                "div",
-                "li",
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "h5",
-                "h6",
-                "tr",
-                "br",
-                "blockquote",
-                "pre",
-                "section",
-                "header",
-                "footer",
-                "table",
-                "thead",
-                "tbody",
-                "ul",
-                "ol",
-            }
-        )
+        _BLOCK_TAGS = frozenset({
+            "p",
+            "div",
+            "li",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "tr",
+            "br",
+            "blockquote",
+            "pre",
+            "section",
+            "header",
+            "footer",
+            "table",
+            "thead",
+            "tbody",
+            "ul",
+            "ol",
+        })
 
         def __init__(self) -> None:
             super().__init__(convert_charrefs=True)

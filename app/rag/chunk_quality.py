@@ -104,9 +104,7 @@ class ChunkQualityValidator:
 
         # --- Structural rules -------------------------------------------------
         if not text.strip():
-            quality.issues.append(
-                {"severity": "error", "code": "empty_text", "message": "chunk text is empty"}
-            )
+            quality.issues.append({"severity": "error", "code": "empty_text", "message": "chunk text is empty"})
             quality.score = 0.0
             quality.grade = self.grade(quality.score)
             return quality
@@ -114,27 +112,35 @@ class ChunkQualityValidator:
         score = 0.7  # base for a non-empty chunk
 
         if not _value(chunk, "document_id", ""):
-            quality.issues.append(
-                {"severity": "error", "code": "missing_document_id", "message": "chunk has no document_id"}
-            )
+            quality.issues.append({
+                "severity": "error",
+                "code": "missing_document_id",
+                "message": "chunk has no document_id",
+            })
             score -= 0.3
 
         if not _value(chunk, "content_hash", ""):
-            quality.issues.append(
-                {"severity": "warning", "code": "missing_content_hash", "message": "chunk has no content_hash (dedup will not work)"}
-            )
+            quality.issues.append({
+                "severity": "warning",
+                "code": "missing_content_hash",
+                "message": "chunk has no content_hash (dedup will not work)",
+            })
             score -= 0.1
 
         char_count = len(text)
         if char_count < MIN_CHUNK_CHARS:
-            quality.issues.append(
-                {"severity": "warning", "code": "chunk_too_short", "message": f"chunk is {char_count} chars (< {MIN_CHUNK_CHARS})"}
-            )
+            quality.issues.append({
+                "severity": "warning",
+                "code": "chunk_too_short",
+                "message": f"chunk is {char_count} chars (< {MIN_CHUNK_CHARS})",
+            })
             score -= 0.1
         elif char_count > MAX_CHUNK_CHARS:
-            quality.issues.append(
-                {"severity": "warning", "code": "chunk_too_long", "message": f"chunk is {char_count} chars (> {MAX_CHUNK_CHARS})"}
-            )
+            quality.issues.append({
+                "severity": "warning",
+                "code": "chunk_too_long",
+                "message": f"chunk is {char_count} chars (> {MAX_CHUNK_CHARS})",
+            })
             score -= 0.1
 
         # --- Per-field confidence + cross-field consistency (R2) --------------

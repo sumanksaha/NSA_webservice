@@ -156,12 +156,10 @@ def upload():
         if existing is not None:
             stored_path.unlink(missing_ok=True)
             return (
-                jsonify(
-                    {
-                        "error": "Duplicate file — identical to annexure " + existing.caption,
-                        "duplicate_of": existing.id,
-                    }
-                ),
+                jsonify({
+                    "error": "Duplicate file — identical to annexure " + existing.caption,
+                    "duplicate_of": existing.id,
+                }),
                 409,
             )
 
@@ -202,15 +200,13 @@ def upload():
         )
 
         return (
-            jsonify(
-                {
-                    "status": "ok",
-                    "annexure_id": annexure.id,
-                    "caption": annexure.caption,
-                    "annexure_letter": letter,
-                    "page_count": page_count,
-                }
-            ),
+            jsonify({
+                "status": "ok",
+                "annexure_id": annexure.id,
+                "caption": annexure.caption,
+                "annexure_letter": letter,
+                "page_count": page_count,
+            }),
             201,
         )
     except Exception as exc:
@@ -282,12 +278,10 @@ def replace(annexure_id: str):
         if existing is not None:
             stored_path.unlink(missing_ok=True)
             return (
-                jsonify(
-                    {
-                        "error": "Duplicate file — identical to annexure " + existing.caption,
-                        "duplicate_of": existing.id,
-                    }
-                ),
+                jsonify({
+                    "error": "Duplicate file — identical to annexure " + existing.caption,
+                    "duplicate_of": existing.id,
+                }),
                 409,
             )
 
@@ -328,15 +322,13 @@ def replace(annexure_id: str):
         )
 
         return (
-            jsonify(
-                {
-                    "status": "ok",
-                    "annexure_id": annexure.id,
-                    "caption": annexure.caption,
-                    "annexure_letter": annexure.annexure_letter,
-                    "page_count": page_count,
-                }
-            ),
+            jsonify({
+                "status": "ok",
+                "annexure_id": annexure.id,
+                "caption": annexure.caption,
+                "annexure_letter": annexure.annexure_letter,
+                "page_count": page_count,
+            }),
             200,
         )
     except Exception as exc:
@@ -394,11 +386,9 @@ def reorder(annexure_id: str):
     ).first()
     if sibling is not None:
         return (
-            jsonify(
-                {
-                    "error": f"Annexure letter '{letter}' is already used by '{sibling.caption}' on this case.",
-                }
-            ),
+            jsonify({
+                "error": f"Annexure letter '{letter}' is already used by '{sibling.caption}' on this case.",
+            }),
             409,
         )
 

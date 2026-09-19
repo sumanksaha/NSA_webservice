@@ -51,7 +51,8 @@ def build_verified_record(sample_id: int) -> dict | None:
     }
 
     latest = (
-        db.session.query(OCRDocument)
+        db.session
+        .query(OCRDocument)
         .filter(OCRDocument.sample_id == sample_id, OCRDocument.status == "completed")
         .order_by(OCRDocument.created_at.desc())
         .first()
@@ -120,11 +121,7 @@ def draft_fbo_issue_for_sample(sample_id: int):
         return None
 
     existing = None
-    candidates = (
-        db.session.query(FboIssue)
-        .filter(FboIssue.source_type == "sample", FboIssue.state == "open")
-        .all()
-    )
+    candidates = db.session.query(FboIssue).filter(FboIssue.source_type == "sample", FboIssue.state == "open").all()
     for candidate in candidates:
         try:
             detail = json.loads(candidate.detail_json or "{}")

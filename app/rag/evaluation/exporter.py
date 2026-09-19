@@ -7,6 +7,7 @@ monitoring isn't configured — see RAG_IMPROVEMENTS.md 3.3).
 Usage in tasks.py:
     metrics.export(pipeline_latency_ms, retrieval_mrr, eval_metrics)
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 # --- Lazy Prometheus / OTel adapter (ponytail: stdlib first, optional import) ---
 try:
     from prometheus_client import Counter, Gauge, Histogram, generate_latest
+
     _HAS_PROMETHEUS = True
 except ImportError:
     _HAS_PROMETHEUS = False
@@ -59,8 +61,14 @@ def _ensure_metrics() -> None:
 
 def _ensure_score_gauges() -> None:
     """Create Gauge objects for each RAGAS metric name."""
-    metric_names = ("faithfulness", "answer_relevance", "context_precision",
-                    "context_recall", "citation_recall", "groundedness")
+    metric_names = (
+        "faithfulness",
+        "answer_relevance",
+        "context_precision",
+        "context_recall",
+        "citation_recall",
+        "groundedness",
+    )
     for name in metric_names:
         if name not in _score_gauges:
             _score_gauges[name] = Gauge(
@@ -71,8 +79,14 @@ def _ensure_score_gauges() -> None:
 
 def _ensure_eval_histograms() -> None:
     """Create Histogram objects for each RAGAS metric name (for distribution)."""
-    metric_names = ("faithfulness", "answer_relevance", "context_precision",
-                    "context_recall", "citation_recall", "groundedness")
+    metric_names = (
+        "faithfulness",
+        "answer_relevance",
+        "context_precision",
+        "context_recall",
+        "citation_recall",
+        "groundedness",
+    )
     for name in metric_names:
         if name not in _eval_histograms:
             _eval_histograms[name] = Histogram(

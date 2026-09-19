@@ -262,16 +262,10 @@ class TestExtractors:
         line-anchored pattern)."""
         ex = DocumentTypeExtractor()
         # Uppercase gazette-style heading -> Policy.
-        assert any(
-            r[0] == "Policy" for r in ex.extract("NATIONAL FOOD POLICY, 2023\n\nObjectives.")
-        )
+        assert any(r[0] == "Policy" for r in ex.extract("NATIONAL FOOD POLICY, 2023\n\nObjectives."))
         # Lowercase body text / title-case headings -> no Policy.
-        assert not any(
-            r[0] == "Policy" for r in ex.extract("evaluating policy on food safety.")
-        )
-        assert not any(
-            r[0] == "Policy" for r in ex.extract("National Food Policy, 2023\n\nObjectives.")
-        )
+        assert not any(r[0] == "Policy" for r in ex.extract("evaluating policy on food safety."))
+        assert not any(r[0] == "Policy" for r in ex.extract("National Food Policy, 2023\n\nObjectives."))
 
     def test_document_type_instrument_outranks_gazette(self):
         """§2.4.1 (2026-08-09): a gazette carrying a real instrument title line
@@ -321,8 +315,7 @@ class TestExtractors:
         a one-word lead-in, so it must NOT be read as an Act title."""
         ex = DocumentTypeExtractor()
         results = ex.extract(
-            "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the Food\n"
-            "Standards Act, 2006\n"
+            "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the Food\nStandards Act, 2006\n"
         )
         assert not any(r[0] == "Act" for r in results)
 

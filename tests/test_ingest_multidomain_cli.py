@@ -225,18 +225,14 @@ def test_cleaner_injection_wired(corpus, monkeypatch):
     assert isinstance(captured["cleaner"], md.DevanagariStrippingCleaner)
 
     captured.clear()
-    md.main(
-        ["--manifest", str(corpus / "manifest.json"), "--no-strip", "--out-dir", str(corpus / "out_c2")]
-    )
+    md.main(["--manifest", str(corpus / "manifest.json"), "--no-strip", "--out-dir", str(corpus / "out_c2")])
     assert captured["cleaner"] is None
 
 
 def test_reindex_removes_prior_points(corpus, monkeypatch):
     from app.rag.ingestion import IngestedDocumentResult
 
-    ok = IngestedDocumentResult(
-        document_id="", chunk_count=2, points_upserted=2, errors=[], latency_ms=5
-    )
+    ok = IngestedDocumentResult(document_id="", chunk_count=2, points_upserted=2, errors=[], latency_ms=5)
 
     removed: list[str] = []
 
@@ -256,9 +252,7 @@ def test_reindex_removes_prior_points(corpus, monkeypatch):
             return ok
 
     monkeypatch.setattr(md, "make_ingestion_pipeline", lambda **kw: FakePipeline())
-    code = md.main(
-        ["--manifest", str(corpus / "manifest.json"), "--reindex", "--out-dir", str(corpus / "out2")]
-    )
+    code = md.main(["--manifest", str(corpus / "manifest.json"), "--reindex", "--out-dir", str(corpus / "out2")])
     assert code == 0
     assert sorted(removed) == ["clean_doc", "hindi_doc"]
 

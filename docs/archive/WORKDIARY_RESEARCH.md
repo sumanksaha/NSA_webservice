@@ -160,6 +160,7 @@ Imports at `app/__init__.py:426,436`:
 
 ```python
 from app.food_cell import food_cell_bp
+
 ...
 from app.timeline import timeline_bp
 ```
@@ -217,19 +218,19 @@ so callers must handle `pdf_bytes is None`.
 This is the exact pattern to copy (string/HTML in, BytesIO PDF out):
 
 ```python
-    pdf_bytes, pdf_error = generate_pdf_from_html(pdf_html)          # line 161
-    if pdf_bytes is None:                                            # lines 162-164
-        current_app.logger.error("PDF generation failed for case %s: %s", case_id, pdf_error)
-        return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 500
+pdf_bytes, pdf_error = generate_pdf_from_html(pdf_html)  # line 161
+if pdf_bytes is None:  # lines 162-164
+    current_app.logger.error("PDF generation failed for case %s: %s", case_id, pdf_error)
+    return jsonify({"error": f"PDF generation failed: {pdf_error}"}), 500
 
-    # --- Return PDF as file download ---
-    pdf_filename = f"{resolved.case_number}_{doc_type}_{result.timestamp}.pdf"   # 167
-    return send_file(
-        io.BytesIO(pdf_bytes),
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=pdf_filename,
-    )                                                                # lines 168-173
+# --- Return PDF as file download ---
+pdf_filename = f"{resolved.case_number}_{doc_type}_{result.timestamp}.pdf"  # 167
+return send_file(
+    io.BytesIO(pdf_bytes),
+    mimetype="application/pdf",
+    as_attachment=True,
+    download_name=pdf_filename,
+)  # lines 168-173
 ```
 
 Imports: `send_file` from `flask` (routes.py:41), `io.BytesIO`,
@@ -269,12 +270,13 @@ def _setup_test_env():
 
     app = create_app()
     app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False          # CSRF off for POSTs
+    app.config["WTF_CSRF_ENABLED"] = False  # CSRF off for POSTs
 
     app_context = app.app_context()
     app_context.push()
 
-    db.drop_all(); db.create_all()
+    db.drop_all()
+    db.create_all()
 
     user = User(username="timelineuser", password_hash="pbkdf2:sha256$test$dummy")
     db.session.add(user)
@@ -283,13 +285,15 @@ def _setup_test_env():
 
     client = app.test_client()
     with client.session_transaction() as sess:
-        sess["_user_id"] = str(user.id)             # Flask-Login session login
+        sess["_user_id"] = str(user.id)  # Flask-Login session login
 
     return app, client, app_context
 
 
 def _teardown_test_env(app_context):
-    db.session.remove(); db.drop_all(); app_context.pop()
+    db.session.remove()
+    db.drop_all()
+    app_context.pop()
 ```
 
 (`tests/test_timeline.py:26-59`; identical shape at
@@ -311,13 +315,15 @@ anything except `"false"`).
 Real example — `app/shared/config.py:76-82`:
 
 ```python
-Setting(
-    "RAG_USE_AGENT_PIPELINE",
-    "use_agent_pipeline",
-    bool,
-    False,
-    help="LangGraph agent pipeline on POST /api/rag/query/agent (M3).",
-),
+(
+    Setting(
+        "RAG_USE_AGENT_PIPELINE",
+        "use_agent_pipeline",
+        bool,
+        False,
+        help="LangGraph agent pipeline on POST /api/rag/query/agent (M3).",
+    ),
+)
 ```
 
 One-line form also accepted:

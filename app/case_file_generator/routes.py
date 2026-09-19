@@ -329,7 +329,11 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.authorization_date = parse_date(form_data.get("authorization_date", ""))
     case_file.inspection_date = parse_date(form_data.get("inspection_date", ""))
     case_file.inspection_time = form_data.get("inspection_time", "")
-    sample_id_raw = (form_data.get("sample_id") or "").strip() if isinstance(form_data.get("sample_id"), str) else form_data.get("sample_id")
+    sample_id_raw = (
+        (form_data.get("sample_id") or "").strip()
+        if isinstance(form_data.get("sample_id"), str)
+        else form_data.get("sample_id")
+    )
     case_file.sample_id = _safe_int(sample_id_raw) if sample_id_raw not in (None, "") else None
     case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
     case_file.manufacturer_name = form_data.get("manufacturer_name", "")

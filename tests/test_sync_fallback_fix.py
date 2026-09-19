@@ -121,9 +121,12 @@ class TestCaseFileSyncFallback:
         }
 
         # Stub sync_row (sheets/airtable) and generate_case_file_pdf
-        with patch.object(cfr, "sync_row"), patch(
-            "app.case_file_generator.tasks.generate_case_file_pdf",
-            return_value=fake_pdf_result,
+        with (
+            patch.object(cfr, "sync_row"),
+            patch(
+                "app.case_file_generator.tasks.generate_case_file_pdf",
+                return_value=fake_pdf_result,
+            ),
         ):
             with app_client.session_transaction() as sess:
                 sess["_user_id"] = "1"
@@ -141,9 +144,12 @@ class TestCaseFileSyncFallback:
         from app.case_file_generator import routes as cfr
 
         # Stub sync_row to succeed, but generate_case_file_pdf to raise
-        with patch.object(cfr, "sync_row"), patch(
-            "app.case_file_generator.tasks.generate_case_file_pdf",
-            side_effect=RuntimeError("PDF assembly failed: WeasyPrint not available"),
+        with (
+            patch.object(cfr, "sync_row"),
+            patch(
+                "app.case_file_generator.tasks.generate_case_file_pdf",
+                side_effect=RuntimeError("PDF assembly failed: WeasyPrint not available"),
+            ),
         ):
             with app_client.session_transaction() as sess:
                 sess["_user_id"] = "1"

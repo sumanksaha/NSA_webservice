@@ -37,6 +37,7 @@ Usage:
 After an accepted retrain, re-freeze the baseline:
     python -m evaluation.ce_v2_eval --freeze-baseline
 """
+
 from __future__ import annotations
 
 import argparse
@@ -119,21 +120,39 @@ def compare(
         cur = _dig(eval_data, path)
         ref = _dig(b_eval, path)
         ok = cur is not None and ref is not None and float(cur) >= float(ref)
-        checks.append({"name": label, "current": cur, "reference": ref,
-                       "ok": bool(ok), "kind": "hard", "direction": ">="})
+        checks.append({
+            "name": label,
+            "current": cur,
+            "reference": ref,
+            "ok": bool(ok),
+            "kind": "hard",
+            "direction": ">=",
+        })
 
     for dom in HARD_DOMAINS:
         cur = next((d.get("v2") for d in eval_data.get("per_domain", []) if d.get("domain") == dom), None)
         ref = next((d.get("v2") for d in b_eval.get("per_domain", []) if d.get("domain") == dom), None)
         ok = cur is not None and ref is not None and float(cur) >= float(ref)
-        checks.append({"name": f"{dom} pairwise accuracy", "current": cur, "reference": ref,
-                       "ok": bool(ok), "kind": "hard", "direction": ">="})
+        checks.append({
+            "name": f"{dom} pairwise accuracy",
+            "current": cur,
+            "reference": ref,
+            "ok": bool(ok),
+            "kind": "hard",
+            "direction": ">=",
+        })
 
     for label, path, limit, direction in TARGET_METRICS:
         cur = _dig(err_data, path)
         ok = cur is not None and (float(cur) <= float(limit) if direction == "<=" else float(cur) >= float(limit))
-        checks.append({"name": label, "current": cur, "reference": limit,
-                       "ok": bool(ok), "kind": "target", "direction": direction})
+        checks.append({
+            "name": label,
+            "current": cur,
+            "reference": limit,
+            "ok": bool(ok),
+            "kind": "target",
+            "direction": direction,
+        })
 
     effective = [c for c in checks if c["kind"] == "hard" or strict_targets]
     passed = all(c["ok"] for c in effective)
@@ -194,8 +213,7 @@ def render_report(passed: bool, checks: list[dict[str, Any]], label: str, strict
         kind = "HARD" if c["kind"] == "hard" else "TGT"
         status = "PASS" if c["ok"] else "FAIL"
         lines.append(
-            f"{c['name']:<32} {_fmt(c['current']):>10} {_fmt(c['reference']):>10} "
-            f"{status + ' (' + kind + ')':>16}"
+            f"{c['name']:<32} {_fmt(c['current']):>10} {_fmt(c['reference']):>10} {status + ' (' + kind + ')':>16}"
         )
     lines.append("-" * 64)
     if strict:
@@ -211,23 +229,40 @@ def render_report(passed: bool, checks: list[dict[str, Any]], label: str, strict
 # --------------------------------------------------------------------------- #
 def main() -> int:
     parser = argparse.ArgumentParser(description="CE v2 regression gate")
-    parser.add_argument("--baseline", type=Path, default=BASELINE_FILE,
-                        help="Frozen baseline JSON (default: evaluation/ce_v2_baseline.json)")
-    parser.add_argument("--eval-json", type=Path, default=None,
-                        help="Skip the harness run and compare these eval JSONs instead (CI fixture mode)")
-    parser.add_argument("--error-json", type=Path, default=None,
-                        help="Skip the harness run and compare these error-analysis JSONs instead")
-    parser.add_argument("--model-v1", type=Path, default=None,
-                        help="Override the v1 (frozen control) model directory")
-    parser.add_argument("--model-v2", type=Path, default=None,
-                        help="Override the v2 (candidate) model directory")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=BASELINE_FILE,
+        help="Frozen baseline JSON (default: evaluation/ce_v2_baseline.json)",
+    )
+    parser.add_argument(
+        "--eval-json",
+        type=Path,
+        default=None,
+        help="Skip the harness run and compare these eval JSONs instead (CI fixture mode)",
+    )
+    parser.add_argument(
+        "--error-json",
+        type=Path,
+        default=None,
+        help="Skip the harness run and compare these error-analysis JSONs instead",
+    )
+    parser.add_argument("--model-v1", type=Path, default=None, help="Override the v1 (frozen control) model directory")
+    parser.add_argument("--model-v2", type=Path, default=None, help="Override the v2 (candidate) model directory")
     parser.add_argument("--label", default="run", help="Label for the report")
-    parser.add_argument("--strict-targets", action="store_true",
-                        help="Fail on the P1/P2 improvement targets (hierarchy <= 4, same-section <= 1)")
-    parser.add_argument("--skip-if-unavailable", action="store_true",
-                        help="Exit 0 (skip) when models or training data are absent (pre-commit on fresh checkouts)")
-    parser.add_argument("--force", action="store_true",
-                        help="Run even when nothing was retrained since the baseline freeze")
+    parser.add_argument(
+        "--strict-targets",
+        action="store_true",
+        help="Fail on the P1/P2 improvement targets (hierarchy <= 4, same-section <= 1)",
+    )
+    parser.add_argument(
+        "--skip-if-unavailable",
+        action="store_true",
+        help="Exit 0 (skip) when models or training data are absent (pre-commit on fresh checkouts)",
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Run even when nothing was retrained since the baseline freeze"
+    )
     args = parser.parse_args()
 
     from evaluation.ce_v2_eval import _MODEL_OVERRIDES
@@ -254,14 +289,18 @@ def main() -> int:
     # -------- full mode: run the harness, then compare --------
     if not (_models_available() and _data_available()):
         if args.skip_if_unavailable:
-            print("CE-v2 gate skipped: models or training data absent (fresh checkout?) - run it on the training machine.")
+            print(
+                "CE-v2 gate skipped: models or training data absent (fresh checkout?) - run it on the training machine."
+            )
             return 0
         print("error: models or training data missing (evaluation/out tree not present)")
         return 2
 
     if not args.force and not _retrained_since(baseline):
-        print(f"CE-v2 gate skipped: nothing retrained since baseline freeze ({baseline.get('frozen_at')}). "
-              "Use --force to re-check anyway.")
+        print(
+            f"CE-v2 gate skipped: nothing retrained since baseline freeze ({baseline.get('frozen_at')}). "
+            "Use --force to re-check anyway."
+        )
         return 0
 
     cmd = [sys.executable, "-m", "evaluation.ce_v2_eval"]

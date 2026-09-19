@@ -113,11 +113,7 @@ def _split_sections(raw) -> list[str]:
     """Split ``"55, 56"`` / ``"55 and 56"`` / ``["55"]`` into clean section ids."""
     if raw is None:
         return []
-    parts = (
-        raw
-        if isinstance(raw, (list, tuple))
-        else re.split(r"\band\b|[^0-9A-Z]+", str(raw), flags=re.IGNORECASE)
-    )
+    parts = raw if isinstance(raw, (list, tuple)) else re.split(r"\band\b|[^0-9A-Z]+", str(raw), flags=re.IGNORECASE)
     return [str(int(part)) for part in parts if part.strip().isdigit()]
 
 
@@ -142,9 +138,7 @@ class MandatorySectionsRule(BaseRule):
 
         if case_data.get("case_type") == "adjudication":
             selected = [
-                section
-                for section in ("55", "56", "58", "63", "64")
-                if _is_yes(fields.get(f"section_{section}"))
+                section for section in ("55", "56", "58", "63", "64") if _is_yes(fields.get(f"section_{section}"))
             ]
             if not selected:
                 results.append(
@@ -272,9 +266,7 @@ class StatutoryReferenceRule(BaseRule):
 
         if case_type == "adjudication":
             selected = {
-                section
-                for section in ("55", "56", "58", "63", "64")
-                if _is_yes(fields.get(f"section_{section}"))
+                section for section in ("55", "56", "58", "63", "64") if _is_yes(fields.get(f"section_{section}"))
             }
             suggested_info = case_data.get("suggested_sections") or {}
             suggested = set(suggested_info.get("sections") or [])
@@ -286,8 +278,7 @@ class StatutoryReferenceRule(BaseRule):
                     ValidationResult(
                         self.rule_id,
                         WARNING,
-                        f"Checklist evidence suggests Section {section}, but it is not "
-                        "selected on the form.",
+                        f"Checklist evidence suggests Section {section}, but it is not selected on the form.",
                         field_name=f"section_{section}",
                         suggestion=reasoning.get(section),
                     )
@@ -322,9 +313,7 @@ class StatutoryReferenceRule(BaseRule):
         all_cited = _split_sections(fields.get("applicable_sections"))
         if case_type == "adjudication":
             all_cited = [
-                section
-                for section in ("55", "56", "58", "63", "64")
-                if _is_yes(fields.get(f"section_{section}"))
+                section for section in ("55", "56", "58", "63", "64") if _is_yes(fields.get(f"section_{section}"))
             ]
         for section in sorted(set(all_cited)):
             if section not in SECTIONS:
@@ -356,9 +345,7 @@ class DuplicateEvidenceRule(BaseRule):
         results: list[ValidationResult] = []
         for digest, items in by_hash.items():
             if len(items) > 1:
-                names = ", ".join(
-                    str(i.get("filename") or i.get("caption") or i.get("id")) for i in items
-                )
+                names = ", ".join(str(i.get("filename") or i.get("caption") or i.get("id")) for i in items)
                 results.append(
                     ValidationResult(
                         self.rule_id,
@@ -394,11 +381,7 @@ class TimelineConsistencyRule(BaseRule):
                 ("analyst_report_date", "Analyst report"),
             ]
 
-        present = [
-            (field, label, dt)
-            for field, label in chain
-            if (dt := _as_datetime(fields.get(field))) is not None
-        ]
+        present = [(field, label, dt) for field, label in chain if (dt := _as_datetime(fields.get(field))) is not None]
 
         results: list[ValidationResult] = []
         if not present:
@@ -419,9 +402,7 @@ class TimelineConsistencyRule(BaseRule):
                 )
             )
 
-        for (_left_field, left_label, left_dt), (right_field, right_label, right_dt) in pairwise(
-            present
-        ):
+        for (_left_field, left_label, left_dt), (right_field, right_label, right_dt) in pairwise(present):
             if left_dt > right_dt:
                 results.append(
                     ValidationResult(
@@ -484,8 +465,7 @@ class DocumentCompletenessRule(BaseRule):
                     ValidationResult(
                         self.rule_id,
                         WARNING,
-                        f"Evidence '{item.get('filename') or item.get('id')}' is missing "
-                        "its content hash.",
+                        f"Evidence '{item.get('filename') or item.get('id')}' is missing its content hash.",
                         field_name="file_hash",
                         suggestion="Re-upload the file so a SHA-256 hash can be recorded.",
                     )

@@ -36,8 +36,17 @@ class TestLegalDocumentModel:
         inspector = sa_inspect(db.engine)
         assert "legal_document" in inspector.get_table_names()
         columns = {c["name"] for c in inspector.get_columns("legal_document")}
-        for col in ("id", "source_uri", "document_type", "file_hash", "status",
-                    "qdrant_collection", "chunk_count", "created_at", "updated_at"):
+        for col in (
+            "id",
+            "source_uri",
+            "document_type",
+            "file_hash",
+            "status",
+            "qdrant_collection",
+            "chunk_count",
+            "created_at",
+            "updated_at",
+        ):
             assert col in columns, f"legal_document missing column {col!r}"
 
     def test_insert_and_unique_file_hash(self, test_client):

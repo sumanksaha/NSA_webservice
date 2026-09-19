@@ -28,11 +28,11 @@ CACHE_DIR = OUT_DIR / "cache"
 # --------------------------------------------------------------------------- #
 # Retrieval parameters (kept constant across all arms — §5 of the protocol)
 # --------------------------------------------------------------------------- #
-TOP_K = 20                 # maximum retrieval depth used by every arm
-RERANK_CANDIDATE_K = 50    # candidate pool size before reranking (ARM F)
-RERANK_FINAL_K = 20        # final evidence depth after reranking
-HYBRID_RRF_K = 60.0        # production RRF constant (HybridRetriever default)
-SPARSE_THRESHOLD = 0.0     # BM25 path: no score threshold (rank-based fusion)
+TOP_K = 20  # maximum retrieval depth used by every arm
+RERANK_CANDIDATE_K = 50  # candidate pool size before reranking (ARM F)
+RERANK_FINAL_K = 20  # final evidence depth after reranking
+HYBRID_RRF_K = 60.0  # production RRF constant (HybridRetriever default)
+SPARSE_THRESHOLD = 0.0  # BM25 path: no score threshold (rank-based fusion)
 RETRIEVAL_KS = (1, 3, 5, 10, 20)  # K values reported for every arm
 
 # Gains used for nDCG (per evaluation_rubric_v1.0.md §1).
@@ -78,6 +78,7 @@ GEN_CONDITIONS = ["oracle", "retrieved", "retrieved_kg"]
 #: Context slots reserved for KG provisions in the retrieved_kg condition
 #: (mirrors ContextBuilder.max_chunks=10 minus the retrieved budget).
 KG_CONTEXT_SLOTS = 5
+
 
 # --------------------------------------------------------------------------- #
 # Config hash
@@ -145,7 +146,5 @@ def write_run_config() -> dict:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     snapshot = _collect_config_snapshot()
     snapshot["config_hash"] = config_hash()
-    (OUT_DIR / "run_config.json").write_text(
-        json.dumps(snapshot, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    (OUT_DIR / "run_config.json").write_text(json.dumps(snapshot, indent=2, sort_keys=True), encoding="utf-8")
     return snapshot

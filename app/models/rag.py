@@ -41,7 +41,9 @@ class RAGQueryLog(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     query = db.Column(db.Text, nullable=False)
-    query_type = db.Column(db.String(32), nullable=False)  # section_lookup | case_law | provision_search | general_qa | amendment_query
+    query_type = db.Column(
+        db.String(32), nullable=False
+    )  # section_lookup | case_law | provision_search | general_qa | amendment_query
     retrieved_chunk_ids = db.Column(db.JSON, default=list)  # list of Qdrant point IDs
     retrieval_scores = db.Column(db.JSON, default=list)  # per-chunk scores
     retrieval_latency_ms = db.Column(db.Integer, nullable=True)
@@ -178,7 +180,9 @@ class LegalChunk(db.Model):
     parent_id = db.Column(db.String(36), nullable=True, index=True)
     citations = db.Column(db.JSON, default=list)  # [{"section": "55", "type": "statutory"}]
     references = db.Column(db.JSON, default=list)  # [{"target": "Section 56", "kind": "paragraph"}]
-    entities = db.Column(db.JSON, default=list)  # [{"name": ..., "type": "person|organization|case|statute", "confidence": 0.85}] (§3.4)
+    entities = db.Column(
+        db.JSON, default=list
+    )  # [{"name": ..., "type": "person|organization|case|statute", "confidence": 0.85}] (§3.4)
     metadata_json = db.Column(db.JSON)  # Full Qdrant payload (read-only cache)
     content_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of chunk text
     qdrant_point_id = db.Column(db.String(64), nullable=True)  # Back-reference

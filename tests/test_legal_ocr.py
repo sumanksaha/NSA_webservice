@@ -24,9 +24,7 @@ import pytest
 from app.rag.ingestion import IngestionPipeline, make_ingestion_pipeline
 from app.rag.legal_ocr import LegalDocumentOCR
 
-_requires_easyocr = pytest.mark.skipif(
-    importlib.util.find_spec("easyocr") is None, reason="easyocr not installed"
-)
+_requires_easyocr = pytest.mark.skipif(importlib.util.find_spec("easyocr") is None, reason="easyocr not installed")
 
 
 class _FakePipeline:

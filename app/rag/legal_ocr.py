@@ -113,9 +113,7 @@ class LegalDocumentOCR:
         if not ocr_text or not ocr_text.strip():
             logger.warning("LegalDocumentOCR: OCR produced no text for %s", Path(pdf_path).name)
             return loaded_text, False
-        logger.info(
-            "LegalDocumentOCR: OCR applied to %s (%d chars)", Path(pdf_path).name, len(ocr_text)
-        )
+        logger.info("LegalDocumentOCR: OCR applied to %s (%d chars)", Path(pdf_path).name, len(ocr_text))
         return ocr_text, True
 
 

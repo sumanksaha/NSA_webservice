@@ -17,6 +17,7 @@ Revision ID: add_ocr_pipeline_models
 Revises: add_version_branch_columns
 Create Date: 2026-08-05
 """
+
 from alembic import op
 import sqlalchemy as sa
 

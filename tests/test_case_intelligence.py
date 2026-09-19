@@ -52,6 +52,7 @@ def _base_case_data(**overrides) -> dict:
 # Unit tests for intelligence calculation helpers
 # --------------------------------------------------------------------------- #
 
+
 def test_calculate_evidence_strength_empty_evidence():
     """Test evidence strength when no evidence is present."""
     case_data = _base_case_data(evidence=[])
@@ -61,23 +62,27 @@ def test_calculate_evidence_strength_empty_evidence():
 
 def test_calculate_evidence_strength_few_items():
     """Test evidence strength with few evidence items."""
-    case_data = _base_case_data(evidence=[
-        {"type": "annexure"},
-        {"type": "evidence"},
-    ])
+    case_data = _base_case_data(
+        evidence=[
+            {"type": "annexure"},
+            {"type": "evidence"},
+        ]
+    )
     result = _calculate_evidence_strength(case_data)
     assert result == EvidenceStrengthScore.WEAK
 
 
 def test_calculate_evidence_strength_many_items():
     """Test evidence strength with many evidence items."""
-    case_data = _base_case_data(evidence=[
-        {"type": "statutory_reference"},
-        {"type": "annexure"},
-        {"type": "evidence"},
-        {"type": "evidence"},
-        {"type": "evidence"},
-    ])
+    case_data = _base_case_data(
+        evidence=[
+            {"type": "statutory_reference"},
+            {"type": "annexure"},
+            {"type": "evidence"},
+            {"type": "evidence"},
+            {"type": "evidence"},
+        ]
+    )
     result = _calculate_evidence_strength(case_data)
     assert result == EvidenceStrengthScore.STRONG
 
@@ -91,22 +96,26 @@ def test_calculate_traceability_no_evidence():
 
 def test_calculate_traceability_single_type():
     """Test traceability with single evidence type."""
-    case_data = _base_case_data(evidence=[
-        {"type": "annexure"},
-        {"type": "annexure"},
-    ])
+    case_data = _base_case_data(
+        evidence=[
+            {"type": "annexure"},
+            {"type": "annexure"},
+        ]
+    )
     result = _calculate_traceability(case_data)
     assert result == 0.3
 
 
 def test_calculate_traceability_multiple_types():
     """Test traceability with multiple evidence types."""
-    case_data = _base_case_data(evidence=[
-        {"type": "statutory_reference"},
-        {"type": "annexure"},
-        {"type": "evidence"},
-        {"type": "annexure"},
-    ])
+    case_data = _base_case_data(
+        evidence=[
+            {"type": "statutory_reference"},
+            {"type": "annexure"},
+            {"type": "evidence"},
+            {"type": "annexure"},
+        ]
+    )
     result = _calculate_traceability(case_data)
     assert result == 0.9
 
@@ -115,7 +124,9 @@ def test_calculate_readiness_score_base():
     """Test base readiness score calculation."""
     case_data = _base_case_data()
     result = _calculate_readiness_score(case_data)
-    assert result == ReadinessScore.NEEDS_ATTENTION  # Base case has 100-15*0-5*0=100, but no evidence = weak = -10 = 90 -> Ready? Let me recalculate...
+    assert (
+        result == ReadinessScore.NEEDS_ATTENTION
+    )  # Base case has 100-15*0-5*0=100, but no evidence = weak = -10 = 90 -> Ready? Let me recalculate...
     # Actually, base has 100 score, evidence=empty -> weak -> -10 = 90, which is >=80 -> READY
     # Let me adjust test expectation
 
@@ -155,10 +166,10 @@ def test_calculate_intelligence_scores_valid_case():
     # This tests the helper functions directly rather than the full pipeline
     evidence_strength = _calculate_evidence_strength(case_data)
     assert evidence_strength == EvidenceStrengthScore.MODERATE
-    
+
     traceability = _calculate_traceability(case_data)
     assert traceability == 0.9  # 3 types -> 0.9
-    
+
     readiness = _calculate_readiness_score(case_data)
     # Base 100, evidence=moderate (+10) -> 110 -> capped to 100 -> READY
     assert readiness == ReadinessScore.READY
@@ -167,6 +178,7 @@ def test_calculate_intelligence_scores_valid_case():
 # --------------------------------------------------------------------------- #
 # HTTP endpoint tests
 # --------------------------------------------------------------------------- #
+
 
 def _make_case_file(db, **overrides):
     """Create a test CaseFile."""
@@ -239,12 +251,13 @@ def test_intelligence_scores_endpoint():
 
         # Add some test evidence
         from app.models import Evidence
+
         evidence = Evidence(
             case_id=case.id,
             evidence_type="annexure",
             filepath="/tmp/test_annexure.pdf",
             filename="test_annexure.pdf",
-            file_hash="abc123"
+            file_hash="abc123",
         )
         db.session.add(evidence)
         db.session.commit()
@@ -297,12 +310,13 @@ def test_intelligence_summary_endpoint():
 
         # Add test evidence
         from app.models import Evidence
+
         evidence = Evidence(
             case_id=case.id,
             evidence_type="annexure",
             filepath="/tmp/test_annexure.pdf",
             filename="test_annexure.pdf",
-            file_hash="abc123"
+            file_hash="abc123",
         )
         db.session.add(evidence)
         db.session.commit()
@@ -327,4 +341,5 @@ def test_intelligence_summary_endpoint():
 if __name__ == "__main__":
     # This allows running the tests directly for debugging
     import pytest
+
     pytest.main([__file__, "-v"])

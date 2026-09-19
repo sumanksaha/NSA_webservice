@@ -82,11 +82,13 @@ if success:
     db.session.commit()
 try:
     from app.services.airtable_sync import sync_to_airtable
+
     sync_to_airtable("sample_repo", row_dict, sample.id)
 except Exception as e:
     current_app.logger.warning(f"Sample: Airtable sync failed: {e}")
 try:
     from app.services.excel_sync import sync_to_excel
+
     sync_to_excel("sample_repo", row_dict)
 except Exception as e:
     current_app.logger.warning(f"Sample: Excel sync failed: {e}")
@@ -119,13 +121,17 @@ class SyncResult(TypedDict):
     airtable: bool
     excel: bool
 
+
 class SyncTarget(Protocol):
     """Protocol satisfied by sheets_sync, airtable_sync, excel_sync."""
+
     module_key: str
     worksheet_map: dict[str, str]
     column_map: dict[str, list[str]]
+
     def sync_row(self, module_key: str, row: dict, entity_id: int | None = None) -> bool: ...
     def export_to_r2(self) -> str | None: ...
+
 
 class SyncOrchestrator:
     """Single entry point: sync one row to all enabled targets.
@@ -133,6 +139,7 @@ class SyncOrchestrator:
     Replaces 7× duplicated try/except blocks with a single call:
         result = orchestrator.sync_row("sample_repo", row_dict, sample.id)
     """
+
     def sync_row(self, module_key: str, row: dict, entity_id: int | None = None) -> SyncResult: ...
     def backup_all(self) -> dict[str, bool]: ...
 ```
@@ -253,6 +260,7 @@ class CaseDataAssembler:
     Separated so tests can construct case_data directly without a DB,
     matching the 'plain dict' pattern from rules.py docstring.
     """
+
     def assemble(self, resolved: ResolvedCase) -> dict[str, Any]: ...
     def serialize_annexure(self, a) -> dict: ...
     def serialize_evidence(self, e) -> dict: ...
@@ -436,14 +444,19 @@ legal_identities: list[dict[str, Any]] = []
 ...
 from app.rag.retrieval.legal_identity import _legal_identity_enabled, parse_legal_identity
 from app.rag.retrieval.reference_graph import _reference_expansion_enabled
+
 if _legal_identity_enabled() and result.chunks:
     legal_identities = [parse_legal_identity(c).to_dict() for c in result.chunks]
 if _reference_expansion_enabled() and result.chunks:
-    try: ...
-    except Exception: ...
+    try:
+        ...
+    except Exception:
+        ...
 if cfg.evidence_selector and result.chunks:
-    try: ...
-    except Exception: ...
+    try:
+        ...
+    except Exception:
+        ...
 ```
 
 **Deletion test:** Delete the enrichment logic → 3 `if cfg.X:` blocks

@@ -53,6 +53,7 @@ def _gold_requirements(entry: dict[str, Any]) -> list[GoldRequirement]:
 # Requirement matching
 # ---------------------------------------------------------------------------
 
+
 def _count_matched_requirements(
     pred_graph: AnswerRequirementGraph,
     gold_reqs: list[GoldRequirement],
@@ -103,11 +104,7 @@ def _count_matched_requirements(
         if type_counts[gold_type] > 1:
             continue
         match_idx = next(
-            (
-                i
-                for i, pred in enumerate(pred_graph.requirements)
-                if i not in used and pred.type.value == gold_type
-            ),
+            (i for i, pred in enumerate(pred_graph.requirements) if i not in used and pred.type.value == gold_type),
             None,
         )
         if match_idx is not None:
@@ -146,6 +143,7 @@ def pred_req_type_matches(pred_req: AnswerRequirement, gold_req: GoldRequirement
 # Metric computations
 # ---------------------------------------------------------------------------
 
+
 def requirement_coverage(
     pred_graph: AnswerRequirementGraph,
     gold_reqs: list[GoldRequirement],
@@ -182,10 +180,7 @@ def atomicity_score(tasks: list[Any]) -> float:
         text = f"{question} {objective}".lower()
         # Heuristic: sentence-like splits with conjunctions suggest multiple claims
         parts = [p.strip() for p in text.replace("?", ".").split(".") if p.strip()]
-        conjunctive = any(
-            any(conj in p for conj in ("and", "or", "but", "also", "further"))
-            for p in parts
-        )
+        conjunctive = any(any(conj in p for conj in ("and", "or", "but", "also", "further")) for p in parts)
         if conjunctive and len(parts) >= 2:
             multi += 1
     return round(1.0 - multi / len(tasks), 4)
@@ -225,16 +220,14 @@ def evidence_completeness(
         return 1.0  # no mandatory requirements → nothing to fail
     if sufficiency_map is None:
         return 0.0  # conservative: no sufficiency data → nothing deemed sufficient
-    sufficient = sum(
-        1 for r in mandatory
-        if sufficiency_map.get(r.id, False) is True
-    )
+    sufficient = sum(1 for r in mandatory if sufficiency_map.get(r.id, False) is True)
     return round(sufficient / len(mandatory), 4)
 
 
 # ---------------------------------------------------------------------------
 # Prediction recording (requirement-level)
 # ---------------------------------------------------------------------------
+
 
 def record_requirement_prediction(
     benchmark_entry: QueryBenchmark,
@@ -265,15 +258,16 @@ def record_requirement_prediction(
 # Full requirement-level report
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RequirementLevelMetrics:
     """Requirement-level decomposition quality metrics for one query."""
 
     query: str
-    requirement_coverage: float       # RC
-    atomicity_score: float            # AS
-    decomposition_efficiency: float   # DE
-    evidence_completeness: float      # EC
+    requirement_coverage: float  # RC
+    atomicity_score: float  # AS
+    decomposition_efficiency: float  # DE
+    evidence_completeness: float  # EC
     mandatory_count: int
     predicted_count: int
     gold_count: int
@@ -341,10 +335,7 @@ def compute_requirement_level_metrics(
     ec = evidence_completeness(requirement_graph, sufficiency_map)
 
     # Count multi-claim tasks for transparency
-    multi = sum(
-        1 for t in tasks
-        if _is_multi_claim_task(t)
-    )
+    multi = sum(1 for t in tasks if _is_multi_claim_task(t))
 
     return RequirementLevelMetrics(
         query=entry.query,
@@ -367,15 +358,13 @@ def _is_multi_claim_task(task: Any) -> bool:
     parts = [p.strip() for p in text.replace("?", ".").split(".") if p.strip()]
     if len(parts) < 2:
         return False
-    return any(
-        any(conj in p for conj in ("and", "or", "but", "also", "further"))
-        for p in parts
-    )
+    return any(any(conj in p for conj in ("and", "or", "but", "also", "further")) for p in parts)
 
 
 # ---------------------------------------------------------------------------
 # Aggregate report across a benchmark
 # ---------------------------------------------------------------------------
+
 
 def requirement_level_report(
     benchmark: Any,  # DecompositionBenchmark

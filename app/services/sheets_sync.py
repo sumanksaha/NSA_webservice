@@ -145,7 +145,7 @@ SHEET_COLUMNS = {
         "compliance_deadline",
         "is_dismissed",
         "dismissed_by",
-                "adjudication_id",
+        "adjudication_id",
         "created_at",
         "synced_at",
     ],
@@ -280,10 +280,7 @@ def export_sheets_to_r2() -> str | None:
     if client is None:
         return None
 
-    spreadsheet_id = (
-        current_app.config.get("GSHEETS_SPREADSHEET_ID")
-        or current_app.config.get("SPREADSHEET_ID")
-    )
+    spreadsheet_id = current_app.config.get("GSHEETS_SPREADSHEET_ID") or current_app.config.get("SPREADSHEET_ID")
     if not spreadsheet_id:
         return None
 

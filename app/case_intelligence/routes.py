@@ -65,9 +65,7 @@ def get_intelligence_summary(case_id: int):
     return jsonify(summary)
 
 
-def _build_assessment(
-    evidence_strength: str, traceability: float, readiness: str
-) -> dict:
+def _build_assessment(evidence_strength: str, traceability: float, readiness: str) -> dict:
     """Build a human-readable assessment narrative."""
     assessment_parts = []
 

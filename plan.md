@@ -474,8 +474,8 @@ Primary:  PostgreSQL (Render)
 **2. Config Loading (`app/__init__.py::create_app`, ~line 187–191):**
 
 ```python
-app.config["AIRTABLE_API_KEY"]    = os.environ.get("AIRTABLE_API_KEY")
-app.config["AIRTABLE_BASE_ID"]    = os.environ.get("AIRTABLE_BASE_ID")
+app.config["AIRTABLE_API_KEY"] = os.environ.get("AIRTABLE_API_KEY")
+app.config["AIRTABLE_BASE_ID"] = os.environ.get("AIRTABLE_BASE_ID")
 app.config["ENABLE_AIRTABLE_SYNC"] = os.environ.get("ENABLE_AIRTABLE_SYNC", "false").lower() == "true"
 ```
 

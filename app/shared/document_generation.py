@@ -204,7 +204,9 @@ def link_inspection(adj: Any, from_inspection: str) -> None:
                 db.session.commit()
             except StaleDataError:
                 db.session.rollback()
-                current_app.logger.warning(f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}")
+                current_app.logger.warning(
+                    f"Adjudication {adj.id}: StaleDataError linking inspection {from_inspection}"
+                )
     except Exception as exc:
         current_app.logger.warning(f"Adjudication: Failed to link inspection {from_inspection}: {exc}")
         db.session.rollback()

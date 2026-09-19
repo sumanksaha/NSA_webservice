@@ -52,7 +52,7 @@ def _setup_test_env():
     now = datetime.now(UTC)
     for i in range(2):
         cf = CaseFile(
-            case_number=f"CF-2026-{i+1:03d}",
+            case_number=f"CF-2026-{i + 1:03d}",
             food_safety_officer_name="Officer Alpha",
             authorization_date=now,
             inspection_date=now,
@@ -71,15 +71,15 @@ def _setup_test_env():
             packet_count=2,
             mfg_date=now,
             expiry_date=now + timedelta(days=30),
-            sample_code=f"SC-2026-{i+1:03d}",
+            sample_code=f"SC-2026-{i + 1:03d}",
             sample_submission_date=now,
             Lab_Registration_No="LAB001",
             do_receipt_date=now,
             is_misbranded=False,
             is_substandard=True,
-            analyst_report_no=f"AR-{i+1}",
+            analyst_report_no=f"AR-{i + 1}",
             analyst_report_date=now,
-            directive_letter_no=f"DL-{i+1}",
+            directive_letter_no=f"DL-{i + 1}",
             directive_letter_date=now,
             retailer_report_receive_date=now,
             manufacturer_report_receive_date=now,
@@ -105,7 +105,7 @@ def _setup_test_env():
     # Seed 3 inspections (2 active, 1 dismissed)
     for i in range(3):
         ins = Inspection(
-            inspection_code=f"INS-2026-{i+1:03d}",
+            inspection_code=f"INS-2026-{i + 1:03d}",
             fso_name="Officer Alpha" if i < 2 else "Officer Beta",
             inspection_date=now - timedelta(days=i),
             compliance_deadline=now + timedelta(days=30),
@@ -116,8 +116,8 @@ def _setup_test_env():
     # Seed 4 samples (3 billed, 1 unbilled)
     for i in range(4):
         s = Sample(
-            sample_code=f"SMP-2026-{i+1:03d}",
-            sample_name=f"Sample {i+1}",
+            sample_code=f"SMP-2026-{i + 1:03d}",
+            sample_name=f"Sample {i + 1}",
             sample_type="Food",
             fso_name="Officer Alpha",
             collection_date=now - timedelta(days=i),
@@ -138,8 +138,8 @@ def _setup_test_env():
     # Seed 2 FBO issues
     for i in range(2):
         issue = FboIssue(
-            fbo_id=f"FBO-{i+1}",
-            fbo_name=f"Issue FBO {i+1}",
+            fbo_id=f"FBO-{i + 1}",
+            fbo_name=f"Issue FBO {i + 1}",
             source_type="inspection",
             state="open" if i == 0 else "closed",
             fso_name="Officer Alpha",

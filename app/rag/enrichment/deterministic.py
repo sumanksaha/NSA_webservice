@@ -40,27 +40,95 @@ FSS_ACT_NAME = "Food Safety and Standards Act, 2006"
 _FSS_ACT_FAMILY = {"act", "regulation", "rule", "notification", "circular", "order"}
 
 #: Common legal/English stopwords excluded from keyword extraction.
-_STOPWORDS = frozenset(
-    ["a", "an", "the", "and", "or", "of", "to", "in", "for", "on", "with", "shall", "may", "must", "not", "be", "is", "are", "was", "were", "as", "by", "from", "at", "this", "that", "these", "those", "any", "all", "each", "every", "such", "other", "than", "its", "his", "her", "their", "our", "your", "i", "we", "you", "he", "she", "it", "they", "them", "me", "us", "him", "her", "shall", "under", "over", "within", "into", "upon", "where", "when", "while", "which", "who", "whom", "whose", "provided", "subject", "accordance", "respect", "thereof", "therewith", "hereinbefore", "hereinafter", "notwithstanding", "pursuant", "aforesaid"]
-)
+_STOPWORDS = frozenset([
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "of",
+    "to",
+    "in",
+    "for",
+    "on",
+    "with",
+    "shall",
+    "may",
+    "must",
+    "not",
+    "be",
+    "is",
+    "are",
+    "was",
+    "were",
+    "as",
+    "by",
+    "from",
+    "at",
+    "this",
+    "that",
+    "these",
+    "those",
+    "any",
+    "all",
+    "each",
+    "every",
+    "such",
+    "other",
+    "than",
+    "its",
+    "his",
+    "her",
+    "their",
+    "our",
+    "your",
+    "i",
+    "we",
+    "you",
+    "he",
+    "she",
+    "it",
+    "they",
+    "them",
+    "me",
+    "us",
+    "him",
+    "her",
+    "shall",
+    "under",
+    "over",
+    "within",
+    "into",
+    "upon",
+    "where",
+    "when",
+    "while",
+    "which",
+    "who",
+    "whom",
+    "whose",
+    "provided",
+    "subject",
+    "accordance",
+    "respect",
+    "thereof",
+    "therewith",
+    "hereinbefore",
+    "hereinafter",
+    "notwithstanding",
+    "pursuant",
+    "aforesaid",
+])
 
 # --------------------------------------------------------------------------- #
 # Regexes (all case-insensitive; line-anchored for headers, unanchored for
 # references so body text can be scanned for candidates).
 # --------------------------------------------------------------------------- #
 
-_HEADER_SECTION_RE = re.compile(
-    r"^\s*(?:section|sec\.?|§)\s*(\d{1,4}[A-Za-z]?)\b\s*(?:[:\-—.]|\s*$)", re.IGNORECASE
-)
-_REF_SECTION_RE = re.compile(
-    r"\b(?:section|sec\.?|sub-section|subsection)\s*(\d{1,4}[A-Za-z]?)\b", re.IGNORECASE
-)
-_SCHEDULE_RE = re.compile(
-    r"\b(?:schedule|sch\.?)\s+(\d{1,3}|[ivxlcdm]+)\b", re.IGNORECASE
-)
-_ANNEXURE_RE = re.compile(
-    r"\b(?:annexure|annex)\s+([A-Z]?\d{1,3}|[a-z])\b", re.IGNORECASE
-)
+_HEADER_SECTION_RE = re.compile(r"^\s*(?:section|sec\.?|§)\s*(\d{1,4}[A-Za-z]?)\b\s*(?:[:\-—.]|\s*$)", re.IGNORECASE)
+_REF_SECTION_RE = re.compile(r"\b(?:section|sec\.?|sub-section|subsection)\s*(\d{1,4}[A-Za-z]?)\b", re.IGNORECASE)
+_SCHEDULE_RE = re.compile(r"\b(?:schedule|sch\.?)\s+(\d{1,3}|[ivxlcdm]+)\b", re.IGNORECASE)
+_ANNEXURE_RE = re.compile(r"\b(?:annexure|annex)\s+([A-Z]?\d{1,3}|[a-z])\b", re.IGNORECASE)
 _HEADWORD_RE = re.compile(r"\b[A-Z][A-Za-z]{2,}(?:\s+[A-Z][A-Za-z]{2,})?\b")
 _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 _KEYWORD_LOW_RE = re.compile(r"\b[a-z]{4,}\b")
@@ -77,9 +145,118 @@ _REF_CONTEXT_RE = re.compile(
 #: General legal terminology likely to appear in user queries (FSSAI terms
 #: kept as a subset — Phase 1 de-FSSAI: the keyword extractor now serves the
 #: multi-domain corpus).
-_LEGAL_TERMS = frozenset(
-    ["fbo", "food", "business", "operator", "fssai", "licence", "license", "improvement", "notice", "adjudication", "adjudicating", "officer", "penalty", "offence", "compliance", "recall", "seizure", "sample", "inspection", "authority", "commissioner", "designated", "officer", "food", "safety", "officer", "laboratory", "analysis", "report", "appeal", "tribunal", "registration", "standards", "packaging", "labelling", "import", "export", "advertisement", "claims", "misbranded", "unsafe", "food", "quality", "safety", "hygiene", "sanitation", "act", "section", "rule", "regulation", "rules", "regulations", "notification", "order", "amendment", "repeal", "supersede", "enforce", "enforcement", "liability", "damages", "compensation", "contract", "breach", "consideration", "partnership", "firm", "company", "director", "shareholder", "winding", "insolvency", "arbitration", "limitation", "plaintiff", "defendant", "suit", "decree", "injunction", "specific", "performance", "pollution", "environment", "waste", "plastic", "water", "air", "emission", "consent", "board", "corporation", "municipal", "municipality", "tenancy", "tenant", "landlord", "livestock", "animal", "cruelty", "slaughter", "quarantine", "disease", "veterinary", "consumer", "goods", "services", "warranty", "defect", "unfair", "trade"]
-)
+_LEGAL_TERMS = frozenset([
+    "fbo",
+    "food",
+    "business",
+    "operator",
+    "fssai",
+    "licence",
+    "license",
+    "improvement",
+    "notice",
+    "adjudication",
+    "adjudicating",
+    "officer",
+    "penalty",
+    "offence",
+    "compliance",
+    "recall",
+    "seizure",
+    "sample",
+    "inspection",
+    "authority",
+    "commissioner",
+    "designated",
+    "officer",
+    "food",
+    "safety",
+    "officer",
+    "laboratory",
+    "analysis",
+    "report",
+    "appeal",
+    "tribunal",
+    "registration",
+    "standards",
+    "packaging",
+    "labelling",
+    "import",
+    "export",
+    "advertisement",
+    "claims",
+    "misbranded",
+    "unsafe",
+    "food",
+    "quality",
+    "safety",
+    "hygiene",
+    "sanitation",
+    "act",
+    "section",
+    "rule",
+    "regulation",
+    "rules",
+    "regulations",
+    "notification",
+    "order",
+    "amendment",
+    "repeal",
+    "supersede",
+    "enforce",
+    "enforcement",
+    "liability",
+    "damages",
+    "compensation",
+    "contract",
+    "breach",
+    "consideration",
+    "partnership",
+    "firm",
+    "company",
+    "director",
+    "shareholder",
+    "winding",
+    "insolvency",
+    "arbitration",
+    "limitation",
+    "plaintiff",
+    "defendant",
+    "suit",
+    "decree",
+    "injunction",
+    "specific",
+    "performance",
+    "pollution",
+    "environment",
+    "waste",
+    "plastic",
+    "water",
+    "air",
+    "emission",
+    "consent",
+    "board",
+    "corporation",
+    "municipal",
+    "municipality",
+    "tenancy",
+    "tenant",
+    "landlord",
+    "livestock",
+    "animal",
+    "cruelty",
+    "slaughter",
+    "quarantine",
+    "disease",
+    "veterinary",
+    "consumer",
+    "goods",
+    "services",
+    "warranty",
+    "defect",
+    "unfair",
+    "trade",
+])
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -180,16 +357,14 @@ def extract_crossref_candidates(pl: dict) -> list[dict]:
         if key in seen:
             return
         seen.add(key)
-        candidates.append(
-            {
-                "target": f"Section {section}",
-                "section": str(section),
-                "relation": "REFERS_TO",
-                "resolved": False,
-                "source": "deterministic",
-                "evidence": evidence[:160],
-            }
-        )
+        candidates.append({
+            "target": f"Section {section}",
+            "section": str(section),
+            "relation": "REFERS_TO",
+            "resolved": False,
+            "source": "deterministic",
+            "evidence": evidence[:160],
+        })
 
     for cite in pl.get("citations") or []:
         if isinstance(cite, dict):
@@ -241,6 +416,7 @@ def resolve_cross_references(
          multiple Act chunks stay unresolved (true ambiguity).
     Zero targets => ``resolved: False`` with no ambiguity claim.
     """
+
     def _ids(items: list[Any]) -> list[tuple[str, int]]:
         out: list[tuple[str, int]] = []
         for item in items:
@@ -350,10 +526,7 @@ def _looks_like_fss_document(pl: dict) -> bool:
     is stamped with "Food Safety and Standards" titles, so this keeps the
     legacy default without mislabelling other domains' instruments.
     """
-    haystack = " ".join(
-        str(pl.get(key) or "")
-        for key in ("document_title", "document_id", "document_uri")
-    ).lower()
+    haystack = " ".join(str(pl.get(key) or "") for key in ("document_title", "document_id", "document_uri")).lower()
     return any(marker in haystack for marker in ("food safety", "fssai", "fss act"))
 
 
@@ -466,8 +639,8 @@ def build_deterministic_record(
         "cross_references": crossref_candidates,
         "applicability": [],
         "temporal_information": [
-            _val(str(dt), "existing_payload", 0.95) for dt in
-            (pl.get("effective_date"), pl.get("enactment_date"), pl.get("amended_date"))
+            _val(str(dt), "existing_payload", 0.95)
+            for dt in (pl.get("effective_date"), pl.get("enactment_date"), pl.get("amended_date"))
             if dt
         ],
         "retrieval_keywords": keywords,
@@ -568,9 +741,10 @@ def build_section_index(points: Iterable[dict]) -> dict[tuple[str, str], list[tu
         if not sec:
             continue
         key = (str(pl.get("document_id") or ""), str(sec))
-        index.setdefault(key, []).append(
-            (str(pl.get("chunk_id") or p.get("id") or ""), int(pl.get("chunk_index", 0) or 0))
-        )
+        index.setdefault(key, []).append((
+            str(pl.get("chunk_id") or p.get("id") or ""),
+            int(pl.get("chunk_index", 0) or 0),
+        ))
     return index
 
 

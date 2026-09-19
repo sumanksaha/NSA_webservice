@@ -107,7 +107,9 @@ def upgrade():
         )
     """)
     op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc ON versions(case_id, doc_type, version_number)")
-    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc ON versions(adjudication_id, doc_type, version_number)")
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc ON versions(adjudication_id, doc_type, version_number)"
+    )
     op.execute("CREATE INDEX IF NOT EXISTS idx_version_case_id ON versions(case_id)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_version_adjudication_id ON versions(adjudication_id)")
 

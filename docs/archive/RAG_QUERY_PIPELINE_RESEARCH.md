@@ -147,7 +147,8 @@ Server-side validation, in order (each failure → 400 unless noted):
 use_agent = _use_agent_pipeline() if requested_agent is None else requested_agent
 if not use_agent:
     from app.rag.routes import query
-    return query()          # identical behaviour to /api/rag/query
+
+    return query()  # identical behaviour to /api/rag/query
 ```
 
 The UI checkbox therefore wins over the deploy-time flag for that single request; when neither
@@ -176,9 +177,8 @@ Same 503/dict/query/top_k checks (286-299), then:
 
 ```python
 result = _get_query_breaker().run(
-    query=query_str, top_k=top_k,
-    collection_name=payload.get("collection_name"),
-    filters=payload.get("filters"))
+    query=query_str, top_k=top_k, collection_name=payload.get("collection_name"), filters=payload.get("filters")
+)
 ```
 (routes.py:301-312)
 

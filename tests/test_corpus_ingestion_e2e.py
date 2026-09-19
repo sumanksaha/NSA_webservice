@@ -140,10 +140,7 @@ class InMemoryQdrantClient:
             score = float(np.dot(qv, v) / (qnorm * (float(np.linalg.norm(v)) or 1.0)))
             scored.append((score, pid, payload))
         scored.sort(key=lambda t: t[0], reverse=True)
-        return [
-            SimpleNamespace(id=pid, score=score, payload=payload)
-            for score, pid, payload in scored[:limit]
-        ]
+        return [SimpleNamespace(id=pid, score=score, payload=payload) for score, pid, payload in scored[:limit]]
 
     def scroll(
         self,
@@ -181,7 +178,9 @@ class FakeEmbedder:
         return True
 
 
-def _make_pipeline(client: InMemoryQdrantClient, **pipeline_kwargs: Any) -> tuple[IngestionPipeline, QdrantStore, QdrantIndexer]:
+def _make_pipeline(
+    client: InMemoryQdrantClient, **pipeline_kwargs: Any
+) -> tuple[IngestionPipeline, QdrantStore, QdrantIndexer]:
     store = QdrantStore(client=client, collection_name="fssai_legal_768", vector_size=_DIM)
     indexer = QdrantIndexer(store=store, embedder=FakeEmbedder(), chunker=None)
     return IngestionPipeline(indexer=indexer, **pipeline_kwargs), store, indexer
@@ -262,18 +261,29 @@ class TestFullPipelineRoundTrip:
         assert result.ok
 
         required = {
-            "chunk_id", "document_id", "document_uri", "document_type", "authority",
-            "chunk_index", "chunk_text", "chunk_char_count", "is_current",
-            "hierarchy_level", "citations", "references", "confidence",
-            "created_at", "content_hash",
+            "chunk_id",
+            "document_id",
+            "document_uri",
+            "document_type",
+            "authority",
+            "chunk_index",
+            "chunk_text",
+            "chunk_char_count",
+            "is_current",
+            "hierarchy_level",
+            "citations",
+            "references",
+            "confidence",
+            "created_at",
+            "content_hash",
         }
         for point in _all_points(store):
             payload = point["payload"]
             assert required <= set(payload), f"missing §5.1 keys: {required - set(payload)}"
-            assert payload["document_type"] == "act"          # caller metadata wins
+            assert payload["document_type"] == "act"  # caller metadata wins
             assert payload["authority"] == "FSSAI"
             assert payload["document_uri"] == str(f)
-            assert len(payload["content_hash"]) == 64          # SHA-256 dedup stamp
+            assert len(payload["content_hash"]) == 64  # SHA-256 dedup stamp
             assert payload["chunk_index"] >= 0
             assert payload["chunk_char_count"] == len(payload["chunk_text"])
 

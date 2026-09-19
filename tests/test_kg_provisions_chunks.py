@@ -100,9 +100,7 @@ class _FakeQueries:
 
 
 def test_provisions_for_query_uses_concept_traversal():
-    q = _FakeQueries(
-        cross=[_prov("WBMO:SEC_3", "3", instrument="West Bengal Meat Order, 1965")]
-    )
+    q = _FakeQueries(cross=[_prov("WBMO:SEC_3", "3", instrument="West Bengal Meat Order, 1965")])
     out = provisions_for_query("What slaughterhouse rules apply?", q, limit=5)
     assert out and out[0]["provision_id"] == "WBMO:SEC_3"
     assert q.concept_calls >= 1
@@ -119,9 +117,7 @@ def test_provisions_for_query_falls_back_to_fulltext():
 
 
 def test_provisions_for_query_limit():
-    q = _FakeQueries(
-        cross=[_prov(f"P{i}", str(i)) for i in range(12)]
-    )
+    q = _FakeQueries(cross=[_prov(f"P{i}", str(i)) for i in range(12)])
     out = provisions_for_query("slaughter", q, limit=4)
     assert len(out) == 4
 

@@ -6,6 +6,7 @@ Tracks which local DB record maps to which Airtable record + base.
 Revision ID: add_airtable_base_map
 Revises: add_food_cell_do_intimation
 """
+
 from alembic import op
 import sqlalchemy as sa
 from datetime import datetime, timezone

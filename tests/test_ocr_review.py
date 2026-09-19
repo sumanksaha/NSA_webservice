@@ -178,6 +178,7 @@ class TestApplyFieldCorrections:
         with pytest.raises(LookupError):
             apply_field_corrections("missing-doc-id", {"title": "x"})
 
+
 class TestConflictRule:
     def test_conflict_opened_when_lab_report_disagrees(self, db_session):
         doc = _make_doc(fields={"manufacturer": "Acme Corp"})
@@ -250,9 +251,7 @@ class TestConflictResolution:
     def test_queue_lists_only_unresolved(self, db_session):
         doc = _make_doc()
         db.session.add(ConflictLog(ocr_document_id=doc.id, field_name="open_one", values_json="[]"))
-        db.session.add(
-            ConflictLog(ocr_document_id=doc.id, field_name="resolved_one", values_json="[]", resolved=True)
-        )
+        db.session.add(ConflictLog(ocr_document_id=doc.id, field_name="resolved_one", values_json="[]", resolved=True))
         db.session.commit()
 
         from app.ocr_extraction.service import open_conflicts

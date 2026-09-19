@@ -39,9 +39,7 @@ def _rust_normalize(text: str, apply_hyphens: bool = True) -> str | None:
     return _rust_normalize_text(text, apply_hyphens)
 
 
-def _rust_run_removers(
-    lines: list[str], config
-) -> tuple[list[str], list[RemovedItem]] | None:
+def _rust_run_removers(lines: list[str], config) -> tuple[list[str], list[RemovedItem]] | None:
     """Run the config-driven remover sequence through ``nsa_rust.run_removers``.
 
     Returns ``(kept_lines, removed_items)``, or ``None`` when the compiled
@@ -91,7 +89,6 @@ def _rust_remove_ocr_artifacts(text: str) -> tuple[str, list[RemovedItem]] | Non
     except Exception:
         removed = []
     return cleaned, removed
-
 
 
 class DocumentCleaner:

@@ -37,24 +37,41 @@ logger = logging.getLogger(__name__)
 #: PREMATURE_TAXONOMY by :meth:`ConceptLinker.plan`.
 CONCEPT_SYNONYMS: dict[str, tuple[str, ...]] = {
     "AnimalSlaughter": (
-        "animal slaughter", "slaughter of animals", "slaughter of cattle",
-        "slaughtering", "slaughter house", "slaughterhouse", "slaughter",
+        "animal slaughter",
+        "slaughter of animals",
+        "slaughter of cattle",
+        "slaughtering",
+        "slaughter house",
+        "slaughterhouse",
+        "slaughter",
     ),
     "AnimalWelfare": (
-        "animal welfare", "cruelty to animals", "cruelty against animals",
+        "animal welfare",
+        "cruelty to animals",
+        "cruelty against animals",
         "humane treatment of animals",
     ),
     "BUSINESS_CIVIL": (),  # domain-abstraction duplicate of BusinessCivil
     "BusinessCivil": (),  # domain-abstraction duplicate of BUSINESS_CIVIL
     "ConsentToOperate": (
-        "consent to establish", "consent to operate", "consent for the establishment",
-        "consent for establishment", "consent of the board", "consent of the state board",
-        "consent of the central board", "obtain consent", "granted consent",
-        "application for consent", "consent for the discharge",
+        "consent to establish",
+        "consent to operate",
+        "consent for the establishment",
+        "consent for establishment",
+        "consent of the board",
+        "consent of the state board",
+        "consent of the central board",
+        "obtain consent",
+        "granted consent",
+        "application for consent",
+        "consent for the discharge",
     ),
     "ConsumerProtection": (
-        "consumer protection", "protection of the interests of consumers",
-        "consumer", "consumers", "goods and services",
+        "consumer protection",
+        "protection of the interests of consumers",
+        "consumer",
+        "consumers",
+        "goods and services",
     ),
     "Contract": ("contract", "contracts", "breach of contract", "agreement", "promise"),
     "Effluent": ("effluent", "effluents", "trade effluent", "sewage", "waste water", "wastewater"),
@@ -69,8 +86,12 @@ CONCEPT_SYNONYMS: dict[str, tuple[str, ...]] = {
     "Sanitation": ("sanitation", "sanitary", "sanitation and"),
     "SolidWaste": ("solid waste", "solid wastes", "municipal solid waste", "waste disposal", "waste management"),
     "TradeLicence": (
-        "trade licence", "trade license", "trading licence", "trading license",
-        "licence for a trade", "license for a trade",
+        "trade licence",
+        "trade license",
+        "trading licence",
+        "trading license",
+        "licence for a trade",
+        "license for a trade",
     ),
     "Vehicles": ("vehicle", "vehicles", "motor vehicle", "conveyance", "carriage"),
 }
@@ -131,14 +152,12 @@ class ConceptLinker:
         out = []
         for r in rows:
             domains = r.get("domains") or []
-            out.append(
-                {
-                    "concept_id": _unwrap(r.get("concept_id")),
-                    "name": _unwrap(r.get("name")) or "",
-                    "domains": [str(d) for d in domains],
-                    "inbound": int(r.get("inbound") or 0),
-                }
-            )
+            out.append({
+                "concept_id": _unwrap(r.get("concept_id")),
+                "name": _unwrap(r.get("name")) or "",
+                "domains": [str(d) for d in domains],
+                "inbound": int(r.get("inbound") or 0),
+            })
         return out
 
     def load_provisions(self) -> list[dict[str, Any]]:
@@ -162,14 +181,12 @@ class ConceptLinker:
         out = []
         for r in rows:
             chunks = r.get("own_chunks") or []
-            out.append(
-                {
-                    "provision_id": _unwrap(r.get("provision_id")),
-                    "provision_text": _unwrap(r.get("provision_text")) or "",
-                    "legal_domain": _unwrap(r.get("legal_domain")) or "",
-                    "own_chunks": [str(x) for x in chunks],
-                }
-            )
+            out.append({
+                "provision_id": _unwrap(r.get("provision_id")),
+                "provision_text": _unwrap(r.get("provision_text")) or "",
+                "legal_domain": _unwrap(r.get("legal_domain")) or "",
+                "own_chunks": [str(x) for x in chunks],
+            })
         return out
 
     # ------------------------------------------------------------------ #
@@ -195,13 +212,11 @@ class ConceptLinker:
             start = max(0, m.start() - 60)
             end = min(len(text), m.end() + 80)
             evidence = re.sub(r"\s+", " ", text[start:end]).strip()
-            hits.append(
-                {
-                    "synonym": syn,
-                    "evidence": evidence,
-                    "confidence": 0.9 if i == 0 else 0.75,
-                }
-            )
+            hits.append({
+                "synonym": syn,
+                "evidence": evidence,
+                "confidence": 0.9 if i == 0 else 0.75,
+            })
             if len(hits) >= limit:
                 break
         return hits
@@ -242,9 +257,9 @@ class ConceptLinker:
         plan: dict[str, Any] = {
             "concepts_total": len(concepts),
             "isolated_before": 0,
-            "linked": {},       # concept_id -> {provision_count, provisions, evidence_source}
-            "premature": {},    # concept_id -> justification
-            "rows": [],         # flat edge rows
+            "linked": {},  # concept_id -> {provision_count, provisions, evidence_source}
+            "premature": {},  # concept_id -> justification
+            "rows": [],  # flat edge rows
         }
         for c in concepts:
             cid = c["concept_id"]
@@ -256,7 +271,9 @@ class ConceptLinker:
                 plan["premature"][cid] = f"no synonym set registered for {cid}"
                 continue
             if not synonyms:
-                plan["premature"][cid] = "domain-abstraction/duplicate concept — relationship to provisions is BELONGS_TO_DOMAIN, no textual grounding expected"
+                plan["premature"][cid] = (
+                    "domain-abstraction/duplicate concept — relationship to provisions is BELONGS_TO_DOMAIN, no textual grounding expected"
+                )
                 continue
 
             # L1: provision text + own chunks, domain-scoped
@@ -284,7 +301,8 @@ class ConceptLinker:
             if not matches:
                 plan["premature"][cid] = (
                     f"no textual grounding in corpus (synonyms scanned: {', '.join(synonyms[:6])}"
-                    + ("…" if len(synonyms) > 6 else "") + ")"
+                    + ("…" if len(synonyms) > 6 else "")
+                    + ")"
                 )
                 continue
             plan["linked"][cid] = {
@@ -295,14 +313,12 @@ class ConceptLinker:
             }
             for m in matches:
                 hit = m["hits"][0]
-                plan["rows"].append(
-                    {
-                        "provision_id": m["provision_id"],
-                        "concept_id": cid,
-                        "evidence": hit["evidence"],
-                        "confidence": hit["confidence"],
-                    }
-                )
+                plan["rows"].append({
+                    "provision_id": m["provision_id"],
+                    "concept_id": cid,
+                    "evidence": hit["evidence"],
+                    "confidence": hit["confidence"],
+                })
         plan["edges_planned"] = len(plan["rows"])
         return plan
 
@@ -360,9 +376,10 @@ class ConceptLinker:
         provs_by_doc: dict[str, list[dict[str, Any]]] = {}
         for r in prov_rows:
             doc = str(_unwrap(r.get("document_id")) or "")
-            provs_by_doc.setdefault(doc, []).append(
-                {"provision_id": _unwrap(r.get("provision_id")), "provision_number": _unwrap(r.get("provision_number")) or ""}
-            )
+            provs_by_doc.setdefault(doc, []).append({
+                "provision_id": _unwrap(r.get("provision_id")),
+                "provision_number": _unwrap(r.get("provision_number")) or "",
+            })
 
         matches: list[dict[str, Any]] = []
         for doc, entry in by_doc.items():
@@ -374,24 +391,20 @@ class ConceptLinker:
             for sec, frag in entry["section_hits"].items():
                 p = provision_by_number.get(sec)
                 if p:
-                    matches.append(
-                        {
-                            "provision_id": p["provision_id"],
-                            "hits": [{"synonym": sec, "evidence": frag, "confidence": 0.75}],
-                        }
-                    )
+                    matches.append({
+                        "provision_id": p["provision_id"],
+                        "hits": [{"synonym": sec, "evidence": frag, "confidence": 0.75}],
+                    })
             # No-section hits -> whole-instrument orders (<= 3 provisions)
             if entry["no_section_fragments"] and len(doc_provisions) <= 3:
                 frag = entry["no_section_fragments"][0]
                 for p in doc_provisions:
                     if p["provision_id"] in {m["provision_id"] for m in matches}:
                         continue
-                    matches.append(
-                        {
-                            "provision_id": p["provision_id"],
-                            "hits": [{"synonym": "document chunk", "evidence": frag, "confidence": 0.7}],
-                        }
-                    )
+                    matches.append({
+                        "provision_id": p["provision_id"],
+                        "hits": [{"synonym": "document chunk", "evidence": frag, "confidence": 0.7}],
+                    })
         return {"matches": matches, "documents_hit": len(by_doc)}
 
     def write_edges(self, rows: list[dict[str, Any]]) -> int:

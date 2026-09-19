@@ -135,27 +135,23 @@ def test_route_after_verify_retries_when_low_groundedness():
 def test_route_after_verify_claims_gate():
     """Phase 2: mostly-unverified claims → targeted_retry before rewrites."""
     state = initial_state("q")
-    state.update(
-        {
-            "groundedness": 0.95,
-            "retry_count": 0,
-            "claim_groundedness": 0.2,
-            "unverified_claims": ["invented assertion"],
-        }
-    )
+    state.update({
+        "groundedness": 0.95,
+        "retry_count": 0,
+        "claim_groundedness": 0.2,
+        "unverified_claims": ["invented assertion"],
+    })
     assert route_after_verify(state) == "targeted_retry"
 
 
 def test_route_after_verify_verified_claims_finalize():
     state = initial_state("q")
-    state.update(
-        {
-            "groundedness": 0.95,
-            "retry_count": 0,
-            "claim_groundedness": 1.0,
-            "unverified_claims": [],
-        }
-    )
+    state.update({
+        "groundedness": 0.95,
+        "retry_count": 0,
+        "claim_groundedness": 1.0,
+        "unverified_claims": [],
+    })
     assert route_after_verify(state) == "finalize"
 
 

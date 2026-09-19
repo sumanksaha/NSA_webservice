@@ -38,6 +38,7 @@ Usage:
     python -m evaluation.ce_v2_eval --freeze-baseline     # write the frozen
                                   # regression baseline (after error analysis)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -98,6 +99,7 @@ def _model_tag(path: Path) -> str:
 def _score_cache_path(model_key: str) -> Path:
     """Score-cache file for a model key, tagged by the model's identity."""
     return CACHE_DIR / f"ce_v2_scores_{model_key}_{_model_tag(_model_path(model_key))}.jsonl"
+
 
 MAX_LEN = 256
 BATCH = 64
@@ -393,18 +395,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="CE v2 regression harness (Step 0 rebuild)")
     parser.add_argument("--no-score", action="store_true", help="Reuse the on-disk score cache only")
     parser.add_argument("--force-score", action="store_true", help="Ignore + rebuild the score cache")
-    parser.add_argument("--candidate-pool", choices=["pairs", "mining"], default="pairs",
-                        help="Negative source for per-query ranking (default: pair records)")
-    parser.add_argument("--freeze-baseline", action="store_true",
-                        help="Write ce_v2_regression_baseline.json (requires the "
-                             "error-analysis JSON to exist)")
-    parser.add_argument("--ambiguous-qids", type=Path, default=None,
-                        help="Newline-separated list of ambiguous question ids "
-                             "(optional; the original label source is gone)")
-    parser.add_argument("--model-v1", type=Path, default=None,
-                        help="Override the v1 (frozen control) model directory")
-    parser.add_argument("--model-v2", type=Path, default=None,
-                        help="Override the v2 (candidate) model directory")
+    parser.add_argument(
+        "--candidate-pool",
+        choices=["pairs", "mining"],
+        default="pairs",
+        help="Negative source for per-query ranking (default: pair records)",
+    )
+    parser.add_argument(
+        "--freeze-baseline",
+        action="store_true",
+        help="Write ce_v2_regression_baseline.json (requires the error-analysis JSON to exist)",
+    )
+    parser.add_argument(
+        "--ambiguous-qids",
+        type=Path,
+        default=None,
+        help="Newline-separated list of ambiguous question ids (optional; the original label source is gone)",
+    )
+    parser.add_argument("--model-v1", type=Path, default=None, help="Override the v1 (frozen control) model directory")
+    parser.add_argument("--model-v2", type=Path, default=None, help="Override the v2 (candidate) model directory")
     args = parser.parse_args()
 
     for key, arg in (("v1", args.model_v1), ("v2", args.model_v2)):
@@ -431,7 +440,7 @@ def main() -> int:
                 path.unlink()
     scores: dict[str, dict[str, float]] = {}
     for key in MODELS:
-        scores[key] = ({} if args.no_score else score_pairs_cached(pairs, key))
+        scores[key] = {} if args.no_score else score_pairs_cached(pairs, key)
         if not scores[key]:
             scores[key] = score_pairs_cached(pairs, key, force=True)
 
@@ -458,10 +467,7 @@ def main() -> int:
     for qid in test_qids:
         q = questions.get(qid)
         query = q.question if q is not None else pairs_by_qid[qid][0]["query"]
-        per_q[qid] = {
-            key: ranking_metrics(qid, cands[qid], scores[key], query)
-            for key in MODELS
-        }
+        per_q[qid] = {key: ranking_metrics(qid, cands[qid], scores[key], query) for key in MODELS}
 
     # -------- breakdowns --------
     def _acc(plist: list[dict], key: str) -> float:
@@ -504,12 +510,9 @@ def main() -> int:
     has_ambiguous_source = bool(args.ambiguous_qids and args.ambiguous_qids.exists())
     if has_ambiguous_source:
         ambiguous_ids = {
-            ln.strip()
-            for ln in args.ambiguous_qids.read_text(encoding="utf-8").splitlines()
-            if ln.strip()
+            ln.strip() for ln in args.ambiguous_qids.read_text(encoding="utf-8").splitlines() if ln.strip()
         }
-        for label, ids in (("Ambiguous", ambiguous_ids),
-                           ("Straightforward", set(test_qids) - ambiguous_ids)):
+        for label, ids in (("Ambiguous", ambiguous_ids), ("Straightforward", set(test_qids) - ambiguous_ids)):
             plist = [p for p in pairs if p["question_id"] in ids]
             if plist:
                 v1, v2 = _acc(plist, "v1"), _acc(plist, "v2")
@@ -537,14 +540,16 @@ def main() -> int:
         "pairwise": pairwise,
         "ranking": agg,
         "bootstrap_ci": ci,
-        "per_domain": [{"domain": d, "pairs": n, "v1": v1, "v2": v2, "delta": dlt}
-                       for d, n, v1, v2, dlt in domain_rows],
-        "per_tier": [{"tier": t, "pairs": n, "v1": v1, "v2": v2, "delta": dlt}
-                     for t, n, v1, v2, dlt in tier_rows],
-        "per_difficulty": [{"difficulty": d, "pairs": n, "v1": v1, "v2": v2, "delta": dlt}
-                           for d, n, v1, v2, dlt in diff_rows],
-        "ambiguous": [{"label": lbl, "pairs": n, "v1": v1, "v2": v2, "delta": dlt}
-                      for lbl, n, v1, v2, dlt in ambiguous_rows],
+        "per_domain": [
+            {"domain": d, "pairs": n, "v1": v1, "v2": v2, "delta": dlt} for d, n, v1, v2, dlt in domain_rows
+        ],
+        "per_tier": [{"tier": t, "pairs": n, "v1": v1, "v2": v2, "delta": dlt} for t, n, v1, v2, dlt in tier_rows],
+        "per_difficulty": [
+            {"difficulty": d, "pairs": n, "v1": v1, "v2": v2, "delta": dlt} for d, n, v1, v2, dlt in diff_rows
+        ],
+        "ambiguous": [
+            {"label": lbl, "pairs": n, "v1": v1, "v2": v2, "delta": dlt} for lbl, n, v1, v2, dlt in ambiguous_rows
+        ],
         "notes": [
             "difficulty: normalized benchmark difficulty (original medium=1200/hard=1162 buckets unrecoverable)",
             "ambiguous: no per-question label source; bucket empty unless --ambiguous-qids is wired",
@@ -565,12 +570,16 @@ def main() -> int:
     print(f"{'Metric':<10} {'V1 (CE base)':>14} {'V2 (K500)':>12} {'Delta':>10}")
     print("-" * 50)
     for k in RANK_KS:
-        print(f"{'R@' + str(k):<10} {agg['v1']['r_at'][str(k)]:>14.4f} "
-              f"{agg['v2']['r_at'][str(k)]:>12.4f} "
-              f"{agg['v2']['r_at'][str(k)] - agg['v1']['r_at'][str(k)]:>+10.4f}")
+        print(
+            f"{'R@' + str(k):<10} {agg['v1']['r_at'][str(k)]:>14.4f} "
+            f"{agg['v2']['r_at'][str(k)]:>12.4f} "
+            f"{agg['v2']['r_at'][str(k)] - agg['v1']['r_at'][str(k)]:>+10.4f}"
+        )
     for metric, label in (("mrr", "MRR@10"), ("ndcg", "nDCG@10")):
-        print(f"{label:<10} {agg['v1'][metric]:>14.4f} {agg['v2'][metric]:>12.4f} "
-              f"{agg['v2'][metric] - agg['v1'][metric]:>+10.4f}")
+        print(
+            f"{label:<10} {agg['v1'][metric]:>14.4f} {agg['v2'][metric]:>12.4f} "
+            f"{agg['v2'][metric] - agg['v1'][metric]:>+10.4f}"
+        )
 
     print("\n=== Bootstrap CIs (95% over queries, 1000 resamples) ===")
     for metric, label in (("10", "R@10"), ("20", "R@20"), ("mrr", "MRR@10"), ("ndcg", "nDCG@10")):

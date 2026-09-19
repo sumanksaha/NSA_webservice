@@ -1046,10 +1046,12 @@ Two regex transforms:
 In `DocumentCaseManager.regenerate()` and `render_adjudication_document()`:
 
 ```python
-all_photos = Evidence.query.filter(
-    Evidence.evidence_type == "photo",
-    or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id)
-).order_by(Evidence.captured_at.asc()).all()
+all_photos = (
+    Evidence.query
+    .filter(Evidence.evidence_type == "photo", or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id))
+    .order_by(Evidence.captured_at.asc())
+    .all()
+)
 
 verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
 context["adjudication"] = {
@@ -1644,8 +1646,8 @@ fts_document (virtual table)
 DocumentLoaderFactory.load(file_path)  # dispatches to PDFLoader/DOCXLoader/TXTLoader
 
 # PDF generation
-engine = PDFAssemblyEngine()          # single shared instance
-engine.generate_from_html(html)       # delegates to WeasyPrint
+engine = PDFAssemblyEngine()  # single shared instance
+engine.generate_from_html(html)  # delegates to WeasyPrint
 ```
 
 ### 2. Config-Driven Pipeline
@@ -1664,7 +1666,7 @@ Cleaning, normalization, cross-reference detection, and TOC generation are all *
 
 ```python
 # These can be called from any context
-cleaned = DocumentCleaner().clean(raw_text)     # returns CleanedDocument
+cleaned = DocumentCleaner().clean(raw_text)  # returns CleanedDocument
 refs = CrossReferenceEngine().extract_references(text)  # returns list[CrossReference]
 entries = TocGeneratorEngine().extract_toc(html)  # returns list[TocEntry]
 ```
@@ -1683,10 +1685,12 @@ def _try_paddle(self, image):
     except ImportError:
         return "", 0.0
 
+
 # PDF generation
 def import_weasyprint():
     try:
         from weasyprint import HTML  # may lack system libs
+
         return HTML
     except (ImportError, OSError):
         return None  # graceful degradation
@@ -1712,8 +1716,8 @@ def import_weasyprint():
 `AuditLog` model (inspection.py):
 
 ```python
-prev_hash = SHA-256(previous_entry_content)
-curr_hash = SHA-256(current_entry_content + prev_hash)
+prev_hash = SHA - 256(previous_entry_content)
+curr_hash = SHA - 256(current_entry_content + prev_hash)
 ```
 
 Any tampering breaks the chain — subsequent entries' `prev_hash` no longer matches.

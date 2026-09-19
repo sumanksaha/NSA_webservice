@@ -246,11 +246,7 @@ def gold_in_corpus(
     """Resolve gold units to payload points (corpus-coverage check)."""
     result: dict[str, Any] = {"resolved_units": 0, "unresolved_units": 0, "unit_points": {}}
     for unit in units:
-        pts = [
-            pid
-            for pid, payload in payload_index.items()
-            if matches_gold(payload, unit, family_map)
-        ]
+        pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map)]
         if pts:
             result["resolved_units"] += 1
             result["unit_points"][unit.provision_id] = pts

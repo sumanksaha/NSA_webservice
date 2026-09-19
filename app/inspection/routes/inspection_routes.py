@@ -459,6 +459,7 @@ def premises_search():
     import os  # ponytail: local import, no new dependency
 
     from sqlalchemy import create_engine, text
+
     # Use env/config only; never commit secrets.
     supabase_url = current_app.config.get("SUPABASE_DB_URL") or os.environ.get("SUPABASE_DB_URL")
     query = (request.args.get("q") or request.form.get("q") or "").strip()
@@ -521,7 +522,11 @@ def premises_search():
         checklist = {
             "premises": selected,
             "items": CHECKLIST_FIELDS,
-            "source_tables": [r["_source_table"] for r in results if r.get("license_no") in selected or r.get("registration_no") in selected],
+            "source_tables": [
+                r["_source_table"]
+                for r in results
+                if r.get("license_no") in selected or r.get("registration_no") in selected
+            ],
         }
 
     return render_template(

@@ -31,7 +31,8 @@ def refresh_few_shot_examples_sync(limit: int = 50) -> dict:
     from app.models import OCRCorrection
 
     rows = (
-        db.session.query(OCRCorrection)
+        db.session
+        .query(OCRCorrection)
         .filter(OCRCorrection.field_name.notlike("lab:%"))
         .order_by(OCRCorrection.created_at.desc())
         .limit(limit)

@@ -107,9 +107,7 @@ class TestIngestCorpusTask:
     def test_run_ingest_corpus_delegates_and_returns_summary(self, monkeypatch, tmp_path):
         (tmp_path / "a.txt").write_text("doc a", encoding="utf-8")
         summary = {"total": 1, "indexed": 1, "duplicates": 0, "failed": 0, "results": []}
-        monkeypatch.setattr(
-            "app.rag.ingestion.ingest_corpus_dir", lambda corpus_dir, document: summary
-        )
+        monkeypatch.setattr("app.rag.ingestion.ingest_corpus_dir", lambda corpus_dir, document: summary)
         result = run_ingest_corpus(str(tmp_path), {"type": "act"})
         assert result == summary
 

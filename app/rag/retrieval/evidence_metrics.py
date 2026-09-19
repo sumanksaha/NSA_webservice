@@ -59,7 +59,8 @@ def evidence_set_recall(
     if not gold_set:
         # No gold provisions → vacuously perfect recall
         return EvidenceMetricResult(
-            "evidence_set_recall", 1.0,
+            "evidence_set_recall",
+            1.0,
             {"selected": list(selected_set), "gold": list(gold_set), "note": "empty gold set"},
         )
 
@@ -67,9 +68,14 @@ def evidence_set_recall(
     recall = len(intersect) / len(gold_set)
 
     return EvidenceMetricResult(
-        "evidence_set_recall", recall,
-        {"selected": sorted(selected_set), "gold": sorted(gold_set),
-         "intersection": sorted(intersect), "missing": sorted(gold_set - selected_set)},
+        "evidence_set_recall",
+        recall,
+        {
+            "selected": sorted(selected_set),
+            "gold": sorted(gold_set),
+            "intersection": sorted(intersect),
+            "missing": sorted(gold_set - selected_set),
+        },
     )
 
 
@@ -86,7 +92,8 @@ def evidence_set_precision(
 
     if not selected_set:
         return EvidenceMetricResult(
-            "evidence_set_precision", 0.0,
+            "evidence_set_precision",
+            0.0,
             {"note": "empty selected set"},
         )
 
@@ -94,7 +101,8 @@ def evidence_set_precision(
     precision = len(intersect) / len(selected_set)
 
     return EvidenceMetricResult(
-        "evidence_set_precision", precision,
+        "evidence_set_precision",
+        precision,
         {"intersection_size": len(intersect), "selected_size": len(selected_set)},
     )
 
@@ -110,7 +118,8 @@ def evidence_set_f1(
     f1 = 0.0 if prec.value + rec.value == 0 else 2 * prec.value * rec.value / (prec.value + rec.value)
 
     return EvidenceMetricResult(
-        "evidence_set_f1", f1,
+        "evidence_set_f1",
+        f1,
         {"precision": prec.value, "recall": rec.value},
     )
 
@@ -131,7 +140,8 @@ def evidence_coverage_at_k(
 
     if not gold_set:
         return EvidenceMetricResult(
-            "evidence_coverage_at_k", 1.0,
+            "evidence_coverage_at_k",
+            1.0,
             {"k": k, "note": "empty gold set"},
         )
 
@@ -139,7 +149,8 @@ def evidence_coverage_at_k(
     coverage = len(intersect) / len(gold_set)
 
     return EvidenceMetricResult(
-        "evidence_coverage_at_k", coverage,
+        "evidence_coverage_at_k",
+        coverage,
         {"k": k, "covered": sorted(intersect), "missing": sorted(gold_set - top_k_set)},
     )
 
@@ -270,9 +281,8 @@ if __name__ == "__main__":
     assert 0 < f1.value < 1, f1
 
     cov = evidence_coverage_at_k(["a", "b", "c", "d"], ["a", "c", "e"], k=3)
-    assert abs(cov.value - 2/3) < 0.001, cov
+    assert abs(cov.value - 2 / 3) < 0.001, cov
 
     # Empty gold → recall = 1.0
     r = evidence_set_recall(["a"], [])
     assert r.value == 1.0
-

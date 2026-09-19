@@ -130,8 +130,10 @@ class HTMLToAsciiDocConverter:
                 para_text = line[:-4].strip()
                 if para_text:
                     asciidoc_lines.append(para_text)
-            elif "<p>" not in line and "</p>" not in line and not any(
-                tag in line for tag in ["<table>", "<ul>", "<ol>", "<div>", "<span>"]
+            elif (
+                "<p>" not in line
+                and "</p>" not in line
+                and not any(tag in line for tag in ["<table>", "<ul>", "<ol>", "<div>", "<span>"])
             ):
                 # Regular text
                 ascii_line = re.sub(r"<[^>]+>", " ", line)

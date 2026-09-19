@@ -27,10 +27,7 @@ depends_on = None
 def upgrade():
     # --- new columns (nullable, so existing rows are untouched) ---
     op.execute("ALTER TABLE versions ADD COLUMN branch_name VARCHAR(100)")
-    op.execute(
-        "ALTER TABLE versions ADD COLUMN branch_of INTEGER "
-        "REFERENCES versions(id) ON DELETE SET NULL"
-    )
+    op.execute("ALTER TABLE versions ADD COLUMN branch_of INTEGER REFERENCES versions(id) ON DELETE SET NULL")
 
     # --- re-create unique indexes ---
     # Partial indexes: the mainline (branch_name IS NULL) keeps the original
@@ -69,10 +66,7 @@ def downgrade():
     op.execute("DROP INDEX IF EXISTS uq_version_case_doc_branch")
     op.execute("DROP INDEX IF EXISTS uq_version_adjudication_doc")
     op.execute("DROP INDEX IF EXISTS uq_version_case_doc")
-    op.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc "
-        "ON versions(case_id, doc_type, version_number)"
-    )
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc ON versions(case_id, doc_type, version_number)")
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc "
         "ON versions(adjudication_id, doc_type, version_number)"

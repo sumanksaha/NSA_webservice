@@ -53,9 +53,7 @@ class GroundednessScore:
             "claim_support_ratio": self.claim_support_ratio,
             "citation_validity_ratio": self.citation_validity_ratio,
             "claim_count": len(self.claim_verifications),
-            "verified_claim_count": sum(
-                1 for v in self.claim_verifications if v.verified
-            ),
+            "verified_claim_count": sum(1 for v in self.claim_verifications if v.verified),
             "detail": self.detail,
         }
 
@@ -74,9 +72,7 @@ class GroundednessScorer:
       (no citations is neutral, not penalised).
     """
 
-    def __init__(
-        self, claim_weight: float = _CLAIM_WEIGHT, citation_weight: float = _CITATION_WEIGHT
-    ) -> None:
+    def __init__(self, claim_weight: float = _CLAIM_WEIGHT, citation_weight: float = _CITATION_WEIGHT) -> None:
         self.claim_weight = claim_weight
         self.citation_weight = citation_weight
 
@@ -108,10 +104,7 @@ class GroundednessScorer:
         # Citation validity ratio.
         citation_ratio = citation_result.score if citation_result is not None and citation_result.detail else 1.0
 
-        score = (
-            self.claim_weight * claim_ratio
-            + self.citation_weight * citation_ratio
-        )
+        score = self.claim_weight * claim_ratio + self.citation_weight * citation_ratio
         score = round(min(1.0, max(0.0, score)), 4)
 
         return GroundednessScore(

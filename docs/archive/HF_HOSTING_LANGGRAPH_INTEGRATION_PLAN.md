@@ -195,7 +195,7 @@ Env vars (also mirrored in `app/__init__.py` + `.env.example`):
 if _reranker_endpoint():
     client = RemoteRerankClient(endpoint, token=_reranker_token(), timeout=_reranker_timeout())
     return EnsembleReranker(model_name=model_name, encoder=client, ce_head=..., ce_weight=...)
-return EnsembleReranker(model_name=model_name, ce_head=..., ce_weight=...)   # unchanged
+return EnsembleReranker(model_name=model_name, ce_head=..., ce_weight=...)  # unchanged
 ```
 
 Fallback chain (matches the existing graceful-degradation pattern):

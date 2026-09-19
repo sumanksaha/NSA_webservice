@@ -391,6 +391,7 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
             class BaseRule(ABC):
                 rule_id: str
                 description: str
+
                 @abstractmethod
                 def evaluate(self, case_data: dict) -> list[ValidationResult]: ...
             ```
@@ -446,9 +447,9 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
             id = db.Column(db.Integer, primary_key=True)
             case_id = db.Column(db.Integer, db.ForeignKey("case_file.id"), nullable=False, index=True)
             case_type = db.Column(db.String(32), default="case_file")
-            event_type = db.Column(db.String(64), nullable=False) # e.g. 'inspection', 'sampling', 'lab_report'
+            event_type = db.Column(db.String(64), nullable=False)  # e.g. 'inspection', 'sampling', 'lab_report'
             timestamp = db.Column(db.DateTime, nullable=False, index=True)
-            document_ref = db.Column(db.String(256), nullable=True) # Annexure or document link
+            document_ref = db.Column(db.String(256), nullable=True)  # Annexure or document link
             description = db.Column(db.Text, nullable=True)
             created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
         ```
@@ -519,14 +520,16 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
         class Role(db.Model):
             __tablename__ = "role"
             id = db.Column(db.Integer, primary_key=True)
-            name = db.Column(db.String(64), unique=True, nullable=False) # 'admin', 'inspector', 'adjudicator', 'viewer'
+            name = db.Column(db.String(64), unique=True, nullable=False)  # 'admin', 'inspector', 'adjudicator', 'viewer'
             description = db.Column(db.String(256))
+
 
         user_roles = db.Table(
             "user_roles",
             db.Column("user_id", db.Integer, db.ForeignKey("user.id"), primary_key=True),
             db.Column("role_id", db.Integer, db.ForeignKey("role.id"), primary_key=True),
         )
+
 
         class Comment(db.Model):
             __tablename__ = "comment"
@@ -535,7 +538,7 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
             case_type = db.Column(db.String(32), default="case_file")
             user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
             content = db.Column(db.Text, nullable=False)
-            section_id = db.Column(db.String(128), nullable=True) # Anchored document section
+            section_id = db.Column(db.String(128), nullable=True)  # Anchored document section
             created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
         ```
 
@@ -547,12 +550,14 @@ scaffold. Only `normalizers.rs` and `removers.rs` are fully implemented.
                 @wraps(f)
                 def decorated_function(*args, **kwargs):
                     if not current_user.is_authenticated:
-                        return redirect(url_for('auth.login'))
+                        return redirect(url_for("auth.login"))
                     user_role_names = [r.name for r in current_user.roles]
                     if not any(role in user_role_names for role in roles) and not current_user.is_admin:
                         abort(403)
                     return f(*args, **kwargs)
+
                 return decorated_function
+
             return decorator
         ```
 
@@ -1003,13 +1008,17 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
             def download_latest_csv(self) -> str | None: ...
             def supported_modules(self) -> set[str]: ...
 
+
         class _R2CsvTarget:
             """Shared R2/local CSV download + listing, parameterized by prefix."""
+
             def __init__(self, prefix: str): ...
             def download_latest_csv(self) -> str | None: ...
 
+
         class BackupRestorer:
             TARGETS = [_R2CsvTarget("airtable"), _R2CsvTarget("excel"), _R2CsvTarget("sheets")]
+
             def restore_if_empty(self) -> dict: ...
             def restore_from(self, target: BackupTarget) -> int: ...
         ```
@@ -1063,16 +1072,17 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
         """
         return BoundAuditLogger(entity_type=entity_type)
 
+
     class BoundAuditLogger:
         def log(self, entity_id, action, *, actor=None, **details) -> None:
             if actor is None:
                 actor = current_user.username if current_user.is_authenticated else "anonymous"
             try:
-                log_audit(entity_type=self._entity_type, entity_id=str(entity_id),
-                          action=action, actor=actor, details=details)
+                log_audit(
+                    entity_type=self._entity_type, entity_id=str(entity_id), action=action, actor=actor, details=details
+                )
             except Exception:
-                logger.warning("Audit log write failed for %s %s (%s); continuing.",
-                               self._entity_type, entity_id, action)
+                logger.warning("Audit log write failed for %s %s (%s); continuing.", self._entity_type, entity_id, action)
     ```
 
 2. In `annexure/routes.py` and `evidence/routes.py`: replace the 9-line `_log_audit` wrapper with `_audit = audit_logger("annexure")` (or `"evidence"`) + `_audit.log(...)`.
@@ -1583,8 +1593,10 @@ No regressions: test_route_collisions + test_storage = 53 passed, test_food_cell
     Create Date: 2026-08-05 12:00:00
 
     """
+
     from alembic import op
     import sqlalchemy as sa
+
 
     def upgrade():
         # roles table
@@ -1611,6 +1623,7 @@ No regressions: test_route_collisions + test_storage = 53 passed, test_food_cell
             sa.Column("section_id", sa.String(128)),
             sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
         )
+
 
     def downgrade():
         op.drop_table("comment")

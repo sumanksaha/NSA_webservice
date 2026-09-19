@@ -32,25 +32,17 @@ def verify_delete_protection() -> dict:
                 trigger_result = conn.execute(text(trigger_sql), {"table": table}).fetchone()
 
                 if trigger_result:
-                    results["details"].append({
-                        "table": table,
-                        "protected": True,
-                        "trigger": f"{table}_no_delete"
-                    })
+                    results["details"].append({"table": table, "protected": True, "trigger": f"{table}_no_delete"})
                 else:
                     results["protected"] = False
                     results["details"].append({
                         "table": table,
                         "protected": False,
-                        "error": "No delete protection trigger found"
+                        "error": "No delete protection trigger found",
                     })
         except Exception as e:
             results["protected"] = False
-            results["details"].append({
-                "table": table,
-                "protected": False,
-                "error": str(e)
-            })
+            results["details"].append({"table": table, "protected": False, "error": str(e)})
 
     return results
 

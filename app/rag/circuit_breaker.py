@@ -13,6 +13,7 @@ Usage:
         # Circuit open — skip KG call or use fallback
         logger.warning("KG circuit open for case_law domain")
 """
+
 from __future__ import annotations
 
 import threading
@@ -26,6 +27,7 @@ from app.shared.config import cfg
 
 class CircuitState(Enum):
     """Circuit breaker states."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -42,6 +44,7 @@ class CircuitBreaker:
         failure_count: Consecutive failures recorded.
         state: Current circuit state.
     """
+
     failure_threshold: int = 3
     timeout_seconds: int = 60
     last_failure: float = 0.0
@@ -105,9 +108,7 @@ class CircuitBreaker:
 
 
 # Global registry per query type
-_BREAKER_REGISTRY: dict[str, CircuitBreaker] = defaultdict(
-    lambda: CircuitBreaker()
-)
+_BREAKER_REGISTRY: dict[str, CircuitBreaker] = defaultdict(lambda: CircuitBreaker())
 
 
 def get_breaker(query_type: str) -> CircuitBreaker:

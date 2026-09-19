@@ -275,13 +275,11 @@ def export_markdown():
         return jsonify({"error": "No document content provided"}), 400
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    return jsonify(
-        {
-            "status": "ok",
-            "markdown": markdown,
-            "filename": f"document_{timestamp}.md",
-        }
-    )
+    return jsonify({
+        "status": "ok",
+        "markdown": markdown,
+        "filename": f"document_{timestamp}.md",
+    })
 
 
 @document_viewer_bp.route("/saved/<int:case_id>/<doc_type>", methods=["GET"])

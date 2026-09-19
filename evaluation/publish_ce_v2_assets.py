@@ -19,6 +19,7 @@ Usage:
     python -m evaluation.publish_ce_v2_assets                 # HF_TOKEN env
     python -m evaluation.publish_ce_v2_assets --repo sumanksaha/ce-v2-gate-assets
 """
+
 from __future__ import annotations
 
 import argparse
@@ -107,8 +108,7 @@ def _readme(manifest: dict[str, Any]) -> str:
     ]
     for f in manifest["files"]:
         lines.append(
-            f"| {f['filename']} | `{f['sha256'][:12]}...` | {f['size_bytes']:,} | "
-            f"`{f['source']}` | `{f['regen']}` |"
+            f"| {f['filename']} | `{f['sha256'][:12]}...` | {f['size_bytes']:,} | `{f['source']}` | `{f['regen']}` |"
         )
     lines += [
         "",

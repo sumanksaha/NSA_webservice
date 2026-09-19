@@ -1,4 +1,5 @@
 """Quick test upsert with limited rows."""
+
 import csv
 import os
 from pathlib import Path
@@ -7,9 +8,11 @@ from psycopg2.extras import execute_values
 from sqlalchemy import create_engine, text
 
 # Set DB URL
-os.environ['DATABASE_URL'] = 'postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres'
+os.environ["DATABASE_URL"] = (
+    "postgresql://postgres.ugvrmjqrumscccrhvcto:fyP4fLbREF8jzpVt@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
+)
 
-BASE_DIR = Path('/github/NSA_webservice')
+BASE_DIR = Path("/github/NSA_webservice")
 
 # Quick test with just first 10 rows from each CSV
 test_sources = [
@@ -29,10 +32,7 @@ test_sources = [
     },
 ]
 
-engine = create_engine(
-    os.environ['DATABASE_URL'],
-    connect_args={'sslmode': 'require', 'connect_timeout': 15}
-)
+engine = create_engine(os.environ["DATABASE_URL"], connect_args={"sslmode": "require", "connect_timeout": 15})
 
 # Test reading CSV
 with open(test_sources[0]["csv"], encoding="utf-8", errors="replace") as f:
@@ -57,13 +57,7 @@ try:
         all_values.append(tuple(vals))
 
     # Insert test data
-    execute_values(
-        cursor,
-        test_sources[0]["upsert_sql"],
-        all_values,
-        template=None,
-        page_size=10
-    )
+    execute_values(cursor, test_sources[0]["upsert_sql"], all_values, template=None, page_size=10)
 
     raw_conn.commit()
     print(f"Successfully inserted {len(all_values)} test rows")

@@ -56,18 +56,11 @@ def _get_token() -> str | None:
 
     tenant_id = current_app.config.get("MS_TENANT_ID") or _env("MS_TENANT_ID")
     client_id = current_app.config.get("MS_CLIENT_ID") or _env("MS_CLIENT_ID")
-    client_secret = (
-        current_app.config.get("MS_CLIENT_SECRET") or _env("MS_CLIENT_SECRET")
-    )
-    spreadsheet_id = (
-        current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
-    )
+    client_secret = current_app.config.get("MS_CLIENT_SECRET") or _env("MS_CLIENT_SECRET")
+    spreadsheet_id = current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
 
     if not all([tenant_id, client_id, client_secret, spreadsheet_id]):
-        logger.debug(
-            "Excel sync disabled: missing MS_TENANT_ID/MS_CLIENT_ID/"
-            "MS_CLIENT_SECRET/MS_SPREADSHEET_ID"
-        )
+        logger.debug("Excel sync disabled: missing MS_TENANT_ID/MS_CLIENT_ID/MS_CLIENT_SECRET/MS_SPREADSHEET_ID")
         return None
 
     try:
@@ -79,13 +72,9 @@ def _get_token() -> str | None:
             client_credential=client_secret,
             authority=authority,
         )
-        result = app.acquire_token_silent(
-            ["https://graph.microsoft.com/.default"], accounts=[]
-        )
+        result = app.acquire_token_silent(["https://graph.microsoft.com/.default"], accounts=[])
         if not result:
-            result = app.acquire_token_for_client(
-                scopes=["https://graph.microsoft.com/.default"]
-            )
+            result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
         if "access_token" not in result:
             logger.error(
                 "Excel sync: token request failed: %s",
@@ -117,9 +106,7 @@ def _get_graph_session():
     import requests
 
     session = requests.Session()
-    session.headers.update(
-        {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    )
+    session.headers.update({"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     return session
 
 
@@ -142,22 +129,18 @@ def _worksheet_name(module: str) -> str | None:
 
 def is_configured() -> bool:
     """Return True if all required Excel Online env vars are set."""
-    return all(
-        [
-            _env("MS_TENANT_ID"),
-            _env("MS_CLIENT_ID"),
-            _env("MS_CLIENT_SECRET"),
-            _env("MS_SPREADSHEET_ID"),
-        ]
-    )
+    return all([
+        _env("MS_TENANT_ID"),
+        _env("MS_CLIENT_ID"),
+        _env("MS_CLIENT_SECRET"),
+        _env("MS_SPREADSHEET_ID"),
+    ])
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def sync_to_excel(
-    module: str, row_dict: dict, db_record_id: int | None = None
-) -> bool:
+def sync_to_excel(module: str, row_dict: dict, db_record_id: int | None = None) -> bool:
     """Append a row to the Excel worksheet corresponding to *module*.
 
     Args:
@@ -172,9 +155,7 @@ def sync_to_excel(
     if not current_app.config.get("ENABLE_EXCEL_SYNC", False):
         return False
 
-    spreadsheet_id = (
-        current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
-    )
+    spreadsheet_id = current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
     if not spreadsheet_id:
         return False
 
@@ -199,17 +180,11 @@ def sync_to_excel(
     if cols:
         values = [_escape_formula(str(row_dict.get(c, "") or "")) for c in cols]
     else:
-        values = [
-            _escape_formula(str(v) if v is not None else "")
-            for v in row_dict.values()
-        ]
+        values = [_escape_formula(str(v) if v is not None else "") for v in row_dict.values()]
 
     # Graph API: append a row to a worksheet
     # POST /drive/items/{item-id}/workbook/worksheets('{sheet-name}')/rows
-    url = (
-        f"https://graph.microsoft.com/v1.0/me/drive/items/{spreadsheet_id}"
-        f"/workbook/worksheets('{ws_name}')/rows"
-    )
+    url = f"https://graph.microsoft.com/v1.0/me/drive/items/{spreadsheet_id}/workbook/worksheets('{ws_name}')/rows"
     payload = {"values": [values]}
 
     try:
@@ -260,9 +235,7 @@ def export_excel_to_r2() -> str | None:
 
     for module in modules:
         ws_name = _worksheet_name(module)
-        spreadsheet_id = (
-            current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
-        )
+        spreadsheet_id = current_app.config.get("MS_SPREADSHEET_ID") or _env("MS_SPREADSHEET_ID")
         # GET .../workbook/worksheets('{name}')/usedRange/$value
         url = (
             f"https://graph.microsoft.com/v1.0/me/drive/items/"

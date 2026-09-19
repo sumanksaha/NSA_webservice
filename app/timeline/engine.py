@@ -59,6 +59,7 @@ _EVENT_META: dict[str, tuple[str, str, str]] = {
     EVENT_EVIDENCE: ("Evidence", "fa-folder-open", "#455a64"),
 }
 
+
 @dataclass
 class TimelineEntry:
     """A single computed milestone for a case."""
@@ -109,9 +110,7 @@ class TimelineEngine:
 
         entries: list[TimelineEntry] = []
         if case.created_at:
-            entries.append(
-                TimelineEntry(EVENT_CASE_CREATED, case.created_at, "Case file opened")
-            )
+            entries.append(TimelineEntry(EVENT_CASE_CREATED, case.created_at, "Case file opened"))
         if case.inspection_date:
             entries.append(
                 TimelineEntry(
@@ -159,8 +158,7 @@ class TimelineEngine:
                 TimelineEntry(
                     EVENT_LAB_REPORT,
                     case.analyst_report_date,
-                    "Analyst report issued"
-                    + (f" — {case.analyst_report_no}" if case.analyst_report_no else ""),
+                    "Analyst report issued" + (f" — {case.analyst_report_no}" if case.analyst_report_no else ""),
                 )
             )
         if case.directive_letter_date:
@@ -168,14 +166,11 @@ class TimelineEngine:
                 TimelineEntry(
                     EVENT_NOTICE,
                     case.directive_letter_date,
-                    "Directive letter issued"
-                    + (f" — {case.directive_letter_no}" if case.directive_letter_no else ""),
+                    "Directive letter issued" + (f" — {case.directive_letter_no}" if case.directive_letter_no else ""),
                 )
             )
         if case.retailer_report_receive_date:
-            entries.append(
-                TimelineEntry(EVENT_REPLY, case.retailer_report_receive_date, "Retailer reply received")
-            )
+            entries.append(TimelineEntry(EVENT_REPLY, case.retailer_report_receive_date, "Retailer reply received"))
         if case.manufacturer_report_receive_date:
             entries.append(
                 TimelineEntry(EVENT_REPLY, case.manufacturer_report_receive_date, "Manufacturer reply received")
@@ -194,8 +189,7 @@ class TimelineEngine:
                 TimelineEntry(
                     EVENT_COMPLAINT,
                     adj.Complaint_date,
-                    "Complaint lodged"
-                    + (f" — {adj.fbo_name}" if adj.fbo_name else ""),
+                    "Complaint lodged" + (f" — {adj.fbo_name}" if adj.fbo_name else ""),
                 )
             )
         if adj.authorization_date:
@@ -227,8 +221,7 @@ class TimelineEngine:
                     TimelineEntry(
                         EVENT_INSPECTION,
                         inspection.inspection_date,
-                        f"Inspection {inspection.inspection_code} — "
-                        f"{inspection.fbo_name or adj.fbo_name or 'FBO'}",
+                        f"Inspection {inspection.inspection_code} — {inspection.fbo_name or adj.fbo_name or 'FBO'}",
                     )
                 )
             if inspection.compliance_deadline:

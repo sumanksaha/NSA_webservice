@@ -247,6 +247,7 @@ def inspection_detail(inspection_id):
     if inspection.checklist_json:
         try:
             import json
+
             checklist = json.loads(inspection.checklist_json)
         except (ValueError, TypeError):
             checklist = None

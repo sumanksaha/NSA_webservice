@@ -55,16 +55,14 @@ class _FakeChunk:
 class TestCitationAdapterMapping:
     def test_extract_maps_citation_fields(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(
-                        citation_type=CitationType.SECTION,
-                        normalized_text="Section 55",
-                        details={"section_reference": "55"},
-                        confidence=0.85,
-                    )
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(
+                    citation_type=CitationType.SECTION,
+                    normalized_text="Section 55",
+                    details={"section_reference": "55"},
+                    confidence=0.85,
+                )
+            ])
         )
         extracted = adapter.extract("Pursuant to Section 55 of the Act")
         assert len(extracted) == 1
@@ -77,16 +75,14 @@ class TestCitationAdapterMapping:
 
     def test_extract_dedupes_by_type_and_reference(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(normalized_text="Section 55"),
-                    _citation(normalized_text="Section 55"),  # duplicate
-                    _citation(
-                        citation_type=CitationType.STATUTORY,
-                        normalized_text="The Food Safety and Standards Act",
-                    ),
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(normalized_text="Section 55"),
+                _citation(normalized_text="Section 55"),  # duplicate
+                _citation(
+                    citation_type=CitationType.STATUTORY,
+                    normalized_text="The Food Safety and Standards Act",
+                ),
+            ])
         )
         extracted = adapter.extract("text")
         assert [c.reference for c in extracted] == [
@@ -96,19 +92,15 @@ class TestCitationAdapterMapping:
 
     def test_extract_skips_empty_references(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(normalized_text=""),
-                    _citation(normalized_text="Section 7"),
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(normalized_text=""),
+                _citation(normalized_text="Section 7"),
+            ])
         )
         assert [c.reference for c in adapter.extract("text")] == ["Section 7"]
 
     def test_to_dict_is_json_serializable(self):
-        adapter = CitationAdapter(
-            extractor=_FakeExtractor([_citation(normalized_text="Section 55")])
-        )
+        adapter = CitationAdapter(extractor=_FakeExtractor([_citation(normalized_text="Section 55")]))
         citation = adapter.extract("text")[0]
         json.loads(json.dumps(citation.to_dict()))
 
@@ -116,15 +108,13 @@ class TestCitationAdapterMapping:
 class TestPayloadCitations:
     def test_payload_citations_returns_reference_strings(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(normalized_text="Section 55"),
-                    _citation(
-                        citation_type=CitationType.STATUTORY,
-                        normalized_text="The Food Safety and Standards Act",
-                    ),
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(normalized_text="Section 55"),
+                _citation(
+                    citation_type=CitationType.STATUTORY,
+                    normalized_text="The Food Safety and Standards Act",
+                ),
+            ])
         )
         assert adapter.payload_citations("text") == [
             "Section 55",
@@ -135,27 +125,21 @@ class TestPayloadCitations:
 class TestStructuredCitations:
     def test_section_citation_uses_section_reference(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [_citation(normalized_text="Section 55", details={"section_reference": "55"})]
-            )
+            extractor=_FakeExtractor([_citation(normalized_text="Section 55", details={"section_reference": "55"})])
         )
         structured = adapter.structured_citations("text")
-        assert structured == [
-            {"section": "55", "type": "section", "confidence": 0.85}
-        ]
+        assert structured == [{"section": "55", "type": "section", "confidence": 0.85}]
 
     def test_statute_citation_uses_statute_name(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(
-                        citation_type=CitationType.STATUTORY,
-                        normalized_text="The Food Safety and Standards Act",
-                        details={"statute_name": "The Food Safety and Standards Act"},
-                        confidence=0.8,
-                    )
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(
+                    citation_type=CitationType.STATUTORY,
+                    normalized_text="The Food Safety and Standards Act",
+                    details={"statute_name": "The Food Safety and Standards Act"},
+                    confidence=0.8,
+                )
+            ])
         )
         structured = adapter.structured_citations("text")
         assert structured[0]["section"] == "The Food Safety and Standards Act"
@@ -163,16 +147,14 @@ class TestStructuredCitations:
 
     def test_case_citation_uses_case_number(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(
-                        citation_type=CitationType.SUPREME_COURT,
-                        normalized_text="2020 SC 123/456",
-                        details={"year": "2020", "case_number": "123"},
-                        confidence=0.95,
-                    )
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(
+                    citation_type=CitationType.SUPREME_COURT,
+                    normalized_text="2020 SC 123/456",
+                    details={"year": "2020", "case_number": "123"},
+                    confidence=0.95,
+                )
+            ])
         )
         structured = adapter.structured_citations("text")
         assert structured[0]["section"] == "123"
@@ -180,28 +162,26 @@ class TestStructuredCitations:
 
     def test_reference_fallback_for_other_citation_types(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [
-                    _citation(
-                        citation_type=CitationType.DATE_REFERENCE,
-                        normalized_text="01/01/2020 to 31/12/2025",
-                        details={"year": "2025", "date": "01/01/2020 to 31/12/2025"},
-                        confidence=0.75,
-                    ),
-                    _citation(
-                        citation_type=CitationType.CONSTITUTION,
-                        normalized_text="Constitution of India",
-                        details={"jurisdiction": "India"},
-                        confidence=0.85,
-                    ),
-                    _citation(
-                        citation_type=CitationType.REGISTRY,
-                        normalized_text="A 1234/2021",
-                        details={"year": "2021", "registry_reference": "A 1234/2021"},
-                        confidence=0.85,
-                    ),
-                ]
-            )
+            extractor=_FakeExtractor([
+                _citation(
+                    citation_type=CitationType.DATE_REFERENCE,
+                    normalized_text="01/01/2020 to 31/12/2025",
+                    details={"year": "2025", "date": "01/01/2020 to 31/12/2025"},
+                    confidence=0.75,
+                ),
+                _citation(
+                    citation_type=CitationType.CONSTITUTION,
+                    normalized_text="Constitution of India",
+                    details={"jurisdiction": "India"},
+                    confidence=0.85,
+                ),
+                _citation(
+                    citation_type=CitationType.REGISTRY,
+                    normalized_text="A 1234/2021",
+                    details={"year": "2021", "registry_reference": "A 1234/2021"},
+                    confidence=0.85,
+                ),
+            ])
         )
         structured = adapter.structured_citations("text")
         by_type = {s["type"]: s["section"] for s in structured}
@@ -213,9 +193,7 @@ class TestStructuredCitations:
 class TestEnrichChunk:
     def test_enrich_chunk_sets_citations_from_text(self):
         adapter = CitationAdapter(
-            extractor=_FakeExtractor(
-                [_citation(normalized_text="Section 55", details={"section_reference": "55"})]
-            )
+            extractor=_FakeExtractor([_citation(normalized_text="Section 55", details={"section_reference": "55"})])
         )
         chunk = _FakeChunk(chunk_text="Section 55 applies here")
         adapter.enrich_chunk(chunk)
@@ -256,9 +234,7 @@ class TestRealCitationEngine:
     def test_never_emits_of_the_act(self):
         """§2.3 regression: bare cross-references are not statute names."""
         adapter = CitationAdapter()
-        references = adapter.payload_citations(
-            "Pursuant to Section 3 of the Act, the FBO must register."
-        )
+        references = adapter.payload_citations("Pursuant to Section 3 of the Act, the FBO must register.")
         assert references == ["Section 3"]  # no statutory "of the Act" citation
 
     def test_extracts_supreme_court_citation(self):

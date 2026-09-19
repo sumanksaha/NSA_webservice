@@ -106,7 +106,9 @@ class TestRAGQueryLogModel:
 
     def test_content_hash_is_sha256(self, env):
         log = RAGQueryLog(
-            query="Section 55", query_type="section_lookup", content_hash="a" * 64,
+            query="Section 55",
+            query_type="section_lookup",
+            content_hash="a" * 64,
         )
         db.session.add(log)
         db.session.commit()
@@ -194,7 +196,11 @@ class TestRAGEvalDatasetModel:
         assert entry.difficulty == "medium"
 
     def test_query_by_active_index(self, env):
-        db.session.add(RAGEvalDataset(name="active1", query="q1", query_type="general_qa", expected_answer="a1", is_active=True))
-        db.session.add(RAGEvalDataset(name="inactive1", query="q2", query_type="general_qa", expected_answer="a2", is_active=False))
+        db.session.add(
+            RAGEvalDataset(name="active1", query="q1", query_type="general_qa", expected_answer="a1", is_active=True)
+        )
+        db.session.add(
+            RAGEvalDataset(name="inactive1", query="q2", query_type="general_qa", expected_answer="a2", is_active=False)
+        )
         db.session.commit()
         assert db.session.query(RAGEvalDataset).filter_by(is_active=True).count() == 1

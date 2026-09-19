@@ -34,8 +34,7 @@ CHECKLIST_RULES: dict[str, tuple[str, str]] = {
     ),
     "proper_covered_utensil": (
         "Improper Covering of Food",
-        "Food articles and utensils were found uncovered and exposed to dust, pests and "
-        "other contaminants.",
+        "Food articles and utensils were found uncovered and exposed to dust, pests and other contaminants.",
     ),
     "date_tag": (
         "Absence of Date Tagging",
@@ -54,8 +53,7 @@ CHECKLIST_RULES: dict[str, tuple[str, str]] = {
     ),
     "license_display": (
         "Improper License Display",
-        "The FSSAI license/registration was not displayed at a prominent place in the "
-        "food business premises.",
+        "The FSSAI license/registration was not displayed at a prominent place in the food business premises.",
     ),
     "Pest_report": (
         "Pest Control Report Missing",
@@ -95,12 +93,10 @@ REMEDIATION_ACTIONS: dict[str, str] = {
         "in a clean and hygienic condition at all times."
     ),
     "refrigerator_clean": (
-        "Clean and sanitise all refrigeration facilities and keep them in proper "
-        "working condition."
+        "Clean and sanitise all refrigeration facilities and keep them in proper working condition."
     ),
     "proper_attire": (
-        "Ensure all food handlers wear clean protective attire, including headgear "
-        "and footwear, while on duty."
+        "Ensure all food handlers wear clean protective attire, including headgear and footwear, while on duty."
     ),
     "proper_covered_utensil": (
         "Keep all food articles and utensils covered and protected from dust, pests "
@@ -111,16 +107,14 @@ REMEDIATION_ACTIONS: dict[str, str] = {
         "batch-wise traceability and stock-rotation records."
     ),
     "veg_nonveg_separation": (
-        "Store, handle and display vegetarian and non-vegetarian food articles "
-        "strictly separately from each other."
+        "Store, handle and display vegetarian and non-vegetarian food articles strictly separately from each other."
     ),
     "food_segregation": (
         "Segregate raw, cooked and ready-to-eat food articles at every stage of "
         "handling so as to eliminate cross-contamination."
     ),
     "license_display": (
-        "Display the FSSAI license/registration prominently at the entry of the "
-        "food business premises."
+        "Display the FSSAI license/registration prominently at the entry of the food business premises."
     ),
     "artificial_colour": (
         "Discontinue the use of artificial colours except as permitted under the "
@@ -136,8 +130,7 @@ REMEDIATION_ACTIONS: dict[str, str] = {
         "and preserve pest-management records for verification."
     ),
     "Water_report": (
-        "Use only potable water in food operations and preserve periodic "
-        "water-test reports for verification."
+        "Use only potable water in food operations and preserve periodic water-test reports for verification."
     ),
 }
 

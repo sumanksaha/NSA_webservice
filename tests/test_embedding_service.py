@@ -20,6 +20,7 @@ from app.rag.embedding_service import DEFAULT_EMBEDDING_MODEL, EmbeddingService
 
 def _make_mock_encoder(dim: int = 768):
     """Mock encoder: single-string -> flat vector, list -> matrix."""
+
     def encode(texts):
         items = texts if isinstance(texts, list) else [texts]
         return [[0.1] * dim for _ in items]

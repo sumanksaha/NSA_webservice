@@ -104,8 +104,7 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
     },
     {
         "query": (
-            "What are the penalties for late filing of annual return under the "
-            "FSS Act, and what exceptions exist?"
+            "What are the penalties for late filing of annual return under the FSS Act, and what exceptions exist?"
         ),
         "query_class": "multi_requirement",
         "domain": "food_safety",
@@ -128,10 +127,7 @@ GOLD_DECOMPOSITION: list[GoldEntry] = [
         "gold_mandatory": {"R1", "R2", "R3"},
     },
     {
-        "query": (
-            "Compare the licensing requirements for small food businesses and "
-            "large food manufacturers."
-        ),
+        "query": ("Compare the licensing requirements for small food businesses and large food manufacturers."),
         "query_class": "comparative",
         "domain": "food_safety",
         # A comparative query decomposes into one atomic task per side, with

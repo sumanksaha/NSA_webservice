@@ -272,6 +272,7 @@ def create_user():
             except ProvisioningError as exc:
                 flash(str(exc), "error")
                 from app.utils.fso_data import get_all_fso_names
+
                 return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
             if password != confirm:
@@ -279,12 +280,14 @@ def create_user():
                 db.session.commit()
                 flash("Passwords do not match.", "error")
                 from app.utils.fso_data import get_all_fso_names
+
                 return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
             # Save FSO email + Gmail SMTP defaults
             fso_email = (request.form.get("fso_email") or "").strip()
             if fso_email:
                 from app.models.inspection import FSO
+
                 fso_record = db.session.get(FSO, fso_name)
                 if fso_record:
                     fso_record.email = fso_email
@@ -301,23 +304,27 @@ def create_user():
         if not username or not password or not confirm:
             flash("All fields are required.", "error")
             from app.utils.fso_data import get_all_fso_names
+
             return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         if len(username) > 80:
             flash("Username must be 80 characters or fewer.", "error")
             from app.utils.fso_data import get_all_fso_names
+
             return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         existing = User.query.filter_by(username=username).first()
         if existing is not None:
             flash(f"Username '{username}' is already taken.", "error")
             from app.utils.fso_data import get_all_fso_names
+
             return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         error = _password_rule_error(password, confirm, label="New password")
         if error:
             flash(error, "error")
             from app.utils.fso_data import get_all_fso_names
+
             return render_template("auth/create_user.html", fso_names=get_all_fso_names())
 
         user = User(

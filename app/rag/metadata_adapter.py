@@ -26,9 +26,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 #: §5.1 document_type enum.
-VALID_DOCUMENT_TYPES = frozenset(
-    {"act", "rule", "regulation", "notification", "circular", "case_law"}
-)
+VALID_DOCUMENT_TYPES = frozenset({"act", "rule", "regulation", "notification", "circular", "case_law"})
 
 #: Map raw metadata document-type values onto the §5.1 enum.
 _DOC_TYPE_ALIASES = {
@@ -190,16 +188,33 @@ class MetadataAdapter:
             fields={
                 k: value(k)
                 for k in (
-                    "title", "version", "date", "authority", "gazette_number",
-                    "notification_number", "language", "jurisdiction", "state",
-                    "country", "document_type", "amendment_status", "effective_date",
+                    "title",
+                    "version",
+                    "date",
+                    "authority",
+                    "gazette_number",
+                    "notification_number",
+                    "language",
+                    "jurisdiction",
+                    "state",
+                    "country",
+                    "document_type",
+                    "amendment_status",
+                    "effective_date",
                 )
             },
             scores={
                 k: score(k)
                 for k in (
-                    "title", "version", "date", "authority", "jurisdiction",
-                    "state", "document_type", "amendment_status", "effective_date",
+                    "title",
+                    "version",
+                    "date",
+                    "authority",
+                    "jurisdiction",
+                    "state",
+                    "document_type",
+                    "amendment_status",
+                    "effective_date",
                 )
             },
         )

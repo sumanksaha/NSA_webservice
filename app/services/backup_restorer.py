@@ -238,8 +238,7 @@ class BackupRestorer:
         for table_name in db.metadata.tables:
             try:
                 count = (
-                    db.session.execute(db.text(f"SELECT COUNT(*) FROM {table_name}"))  # noqa: S608
-                    .scalar()
+                    db.session.execute(db.text(f"SELECT COUNT(*) FROM {table_name}")).scalar()  # noqa: S608
                     or 0
                 )
                 if count > 0:
@@ -256,6 +255,8 @@ _backup_restorer = BackupRestorer()
 restore_from = _backup_restorer.restore_from
 restore_if_empty = _backup_restorer.restore_if_empty
 auto_restore_if_empty = _backup_restorer.auto_restore_if_empty
+
+
 def restore_from_airtable_csv():
     return _backup_restorer.restore_from("airtable")
 
@@ -266,6 +267,7 @@ def restore_from_excel_csv():
 
 def restore_from_sheets_csv():
     return _backup_restorer.restore_from("sheets")
+
 
 # Pure-function re-exports kept for test compatibility.
 _csv_to_records = BackupRestorer._csv_to_records
