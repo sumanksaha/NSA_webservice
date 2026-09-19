@@ -14,6 +14,7 @@ Only writes a new JSON result file to evaluation/out/ceiling_v5/.
 Usage:
     python -u -m evaluation.eval_e2e_v2 2>&1
 """
+
 from __future__ import annotations
 
 import json
@@ -36,10 +37,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env", override=True)
 os.environ["RAG_USE_STUB_LLM"] = "false"
 
 import torch
+
 torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions, load_gold_registry
@@ -78,6 +81,7 @@ OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "e2e_eval_v2.jso
 # ---------------------------------------------------------------------------
 # Cached data loaders (no Flask app needed)
 # ---------------------------------------------------------------------------
+
 
 def load_payload_index() -> dict[str, dict]:
     cache_file = CACHE_DIR / "payload_index.jsonl"
@@ -122,12 +126,14 @@ def load_jsonl(path: Path) -> dict[str, dict]:
 # SSL workaround: subclass GroundedLLMClient to bypass corporate proxy cert
 # ---------------------------------------------------------------------------
 
+
 class _SSLBypassLLMClient(GroundedLLMClient):
     """GroundedLLMClient that disables SSL verification for httpx calls."""
 
     def _real_call(self, system_prompt, user_prompt, *, temperature, max_tokens, **extra):
         start = time.perf_counter()
         import httpx
+
         url = self._base_url.rstrip("/") + "/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -160,6 +166,7 @@ class _SSLBypassLLMClient(GroundedLLMClient):
                     usage = data.get("usage", {})
                     latency = time.perf_counter() - start
                     from app.rag.generation.llm_client import GroundedLLMResponse
+
                     return GroundedLLMResponse(
                         text=text,
                         model=self.model,
@@ -173,11 +180,12 @@ class _SSLBypassLLMClient(GroundedLLMClient):
             except Exception as exc:
                 last_exc = exc
                 if attempt < 2:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     break
         latency = time.perf_counter() - start
         from app.rag.generation.llm_client import GroundedLLMResponse
+
         return GroundedLLMResponse(
             error=f"LLM request failed after 3 attempts: {last_exc}",
             model=self.model,
@@ -205,12 +213,10 @@ def generate_answer(
 # Pool building + CE scoring
 # ---------------------------------------------------------------------------
 
+
 def score_pool(items: list[dict], query: str, ce) -> list[dict]:
     """Rerank a pool of candidate items with a CrossEncoder. Returns scored items."""
-    pairs = [
-        (query, str(it["payload"].get("chunk_text") or it["payload"].get("text") or ""))
-        for it in items
-    ]
+    pairs = [(query, str(it["payload"].get("chunk_text") or it["payload"].get("text") or "")) for it in items]
     if not pairs:
         return items
     scores = ce.predict(pairs, batch_size=CE_BATCH)
@@ -232,6 +238,7 @@ def get_rank_of(pool: list[dict], unit: Any, payload_index, family_map) -> int |
 # Metrics
 # ---------------------------------------------------------------------------
 
+
 def compute_question_metrics(
     rag_response: RAGResponse,
     question,
@@ -245,6 +252,7 @@ def compute_question_metrics(
     # --- Answer correctness (text overlap: Jaccard + coverage) ---
     def tokens(text: str) -> set[str]:
         return set(re.findall(r"[a-z0-9]+", text.lower()))
+
     ans_toks = tokens(answer)
     exp_toks = tokens(expected)
     if ans_toks and exp_toks:
@@ -304,6 +312,7 @@ def compute_question_metrics(
 # Failure classification
 # ---------------------------------------------------------------------------
 
+
 def classify_failure(
     question,
     pool: list[dict],
@@ -351,40 +360,65 @@ def classify_failure(
             "stage": 2,
             "stage_name": "Retrieval / candidate generation",
             "reason": "Gold provision not found in the union candidate pool",
-            **{"gold_in_pool": False, "gold_in_rrf": False, "gold_in_ce_top10": False,
-               "context_relevant_hit": context_hit, "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0},
+            **{
+                "gold_in_pool": False,
+                "gold_in_rrf": False,
+                "gold_in_ce_top10": False,
+                "context_relevant_hit": context_hit,
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
+            },
         }
     elif not gold_in_rrf:
         return {
             "stage": 3,
             "stage_name": "Fusion",
             "reason": "Gold provision in candidate pool but lost in RRF fusion (did not reach top-150)",
-            **{"gold_in_pool": True, "gold_in_rrf": False, "gold_in_ce_top10": False,
-               "context_relevant_hit": context_hit, "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0},
+            **{
+                "gold_in_pool": True,
+                "gold_in_rrf": False,
+                "gold_in_ce_top10": False,
+                "context_relevant_hit": context_hit,
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
+            },
         }
     elif not gold_in_ce_top10:
         return {
             "stage": 4,
             "stage_name": "CE reranking",
             "reason": "Gold provision in RRF top-150 but not in CE-reranked top-10",
-            **{"gold_in_pool": True, "gold_in_rrf": True, "gold_in_ce_top10": False,
-               "context_relevant_hit": context_hit, "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0},
+            **{
+                "gold_in_pool": True,
+                "gold_in_rrf": True,
+                "gold_in_ce_top10": False,
+                "context_relevant_hit": context_hit,
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
+            },
         }
     elif not answer_ok:
         return {
             "stage": 6,
             "stage_name": "LLM generation / reasoning",
             "reason": "Gold provision in context but answer does not match expected conclusion",
-            **{"gold_in_pool": True, "gold_in_rrf": True, "gold_in_ce_top10": True,
-               "context_relevant_hit": 1, "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0},
+            **{
+                "gold_in_pool": True,
+                "gold_in_rrf": True,
+                "gold_in_ce_top10": True,
+                "context_relevant_hit": 1,
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
+            },
         }
     else:
         return {
             "stage": 0,
             "stage_name": "No failure",
             "reason": "Gold provision in top-10 and answer matches expected conclusion",
-            **{"gold_in_pool": True, "gold_in_rrf": True, "gold_in_ce_top10": True,
-               "context_relevant_hit": 1, "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0},
+            **{
+                "gold_in_pool": True,
+                "gold_in_rrf": True,
+                "gold_in_ce_top10": True,
+                "context_relevant_hit": 1,
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
+            },
         }
 
 
@@ -397,6 +431,7 @@ def _gold_in_pool_by_unit(rel_units, pool, payload_index, family_map) -> bool:
                     return True
             else:
                 from evaluation.metrics import RankedItem as _RI, _kg_item_keys, item_covers
+
                 for family, section in _kg_item_keys(it.get("payload") or {}, family_map):
                     if item_covers(_RI(kind="kg", key=it["key"], family=family, section=section), unit):
                         return True
@@ -407,17 +442,27 @@ def _gold_in_pool_by_unit(rel_units, pool, payload_index, family_map) -> bool:
 # Retrieval metrics (per question)
 # ---------------------------------------------------------------------------
 
+
 def compute_retrieval_metrics(reranked: list[dict], question, payload_index, family_map) -> dict:
     rel = question.relevant_units()
     all_units = question.recall_units()
     n_rel = len(rel)
 
     if n_rel == 0:
-        return {"R@1": 0.0, "R@20": 0.0, "R@50": 0.0, "R@100": 0.0,
-                "MRR": 0.0, "NDCG@10": 0.0,
-                "recall_unit@1": 0.0, "recall_unit@20": 0.0,
-                "recall_unit@50": 0.0, "recall_unit@100": 0.0,
-                "n_gold": 0, "n_pool": len(reranked)}
+        return {
+            "R@1": 0.0,
+            "R@20": 0.0,
+            "R@50": 0.0,
+            "R@100": 0.0,
+            "MRR": 0.0,
+            "NDCG@10": 0.0,
+            "recall_unit@1": 0.0,
+            "recall_unit@20": 0.0,
+            "recall_unit@50": 0.0,
+            "recall_unit@100": 0.0,
+            "n_gold": 0,
+            "n_pool": len(reranked),
+        }
 
     # Rank of each relevant unit
     rel_ranks = []
@@ -429,6 +474,7 @@ def compute_retrieval_metrics(reranked: list[dict], question, payload_index, fam
     # Unit-level recall (fraction of relevant units found in top-K)
     def recall_unit(K):
         return len([r for r in rel_ranks if r <= K]) / n_rel
+
     # Any-hit recall
     def recall_any(K):
         return 1.0 if any(r <= K for r in rel_ranks) else 0.0
@@ -448,18 +494,25 @@ def compute_retrieval_metrics(reranked: list[dict], question, payload_index, fam
     ndcg = dcg / idcg
 
     return {
-        "R@1": recall_any(1), "R@20": recall_any(20),
-        "R@50": recall_any(50), "R@100": recall_any(100),
-        "recall_unit@1": recall_unit(1), "recall_unit@20": recall_unit(20),
-        "recall_unit@50": recall_unit(50), "recall_unit@100": recall_unit(100),
-        "MRR": mrr, "NDCG@10": ndcg,
-        "n_gold": n_rel, "n_pool": len(reranked),
+        "R@1": recall_any(1),
+        "R@20": recall_any(20),
+        "R@50": recall_any(50),
+        "R@100": recall_any(100),
+        "recall_unit@1": recall_unit(1),
+        "recall_unit@20": recall_unit(20),
+        "recall_unit@50": recall_unit(50),
+        "recall_unit@100": recall_unit(100),
+        "MRR": mrr,
+        "NDCG@10": ndcg,
+        "n_gold": n_rel,
+        "n_pool": len(reranked),
     }
 
 
 # ---------------------------------------------------------------------------
 # Main evaluation
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     print("=" * 80, flush=True)
@@ -497,7 +550,7 @@ def main() -> int:
         if is_compound:
             compound_count += 1
         q_type = qclassifier.classify(q.question)
-        qt_name = q_type.value if hasattr(q_type, 'value') else str(q_type)
+        qt_name = q_type.value if hasattr(q_type, "value") else str(q_type)
         query_types[qt_name] = query_types.get(qt_name, 0) + 1
 
         # Identifier detection
@@ -603,8 +656,18 @@ def main() -> int:
         if n == 0:
             continue
         m = {}
-        for key in ["R@1", "R@20", "R@50", "R@100", "MRR", "NDCG@10",
-                    "recall_unit@1", "recall_unit@20", "recall_unit@50", "recall_unit@100"]:
+        for key in [
+            "R@1",
+            "R@20",
+            "R@50",
+            "R@100",
+            "MRR",
+            "NDCG@10",
+            "recall_unit@1",
+            "recall_unit@20",
+            "recall_unit@50",
+            "recall_unit@100",
+        ]:
             m[key] = round(sum(r.get(key, 0) for r in rows) / n, 4)
         m["avg_n_gold"] = round(sum(r.get("n_gold", 0) for r in rows) / n, 2)
         m["n"] = n
@@ -629,6 +692,7 @@ def main() -> int:
                         break
                 else:
                     from evaluation.metrics import RankedItem as _RI, _kg_item_keys, item_covers
+
                     for fam, sec in _kg_item_keys(it.get("payload") or {}, family_map):
                         if item_covers(_RI(kind="kg", key=it["key"], family=fam, section=sec), unit):
                             gold_in_pool_count += 1
@@ -662,10 +726,12 @@ def main() -> int:
     # ---- 6. LLM answer generation ----
     print("\n[6/7] Running LLM answer generation (retrieved + gold context)...", flush=True)
     llm_results: dict[str, list[dict]] = {
-        "ce_v1": [], "ce_v2_K500": [],
+        "ce_v1": [],
+        "ce_v2_K500": [],
     }
     llm_oracle: dict[str, list[dict]] = {
-        "ce_v1": [], "ce_v2_K500": [],
+        "ce_v1": [],
+        "ce_v2_K500": [],
     }
 
     # Prepare tasks
@@ -684,7 +750,9 @@ def main() -> int:
                     chunk_id=it["key"],
                     score=it.get("ce_score", 0.0),
                     text=str(it["payload"].get("chunk_text") or it["payload"].get("text") or ""),
-                    section_number=str(it["payload"].get("section_number")) if it["payload"].get("section_number") else None,
+                    section_number=str(it["payload"].get("section_number"))
+                    if it["payload"].get("section_number")
+                    else None,
                     clause_number=None,
                     document_title=it["payload"].get("document_title", ""),
                     act_name=it["payload"].get("act_name", ""),
@@ -704,7 +772,9 @@ def main() -> int:
                     chunk_id=gc["chunk_id"],
                     score=1.0,
                     text=str(gc["payload"].get("chunk_text") or gc["payload"].get("text") or ""),
-                    section_number=str(gc["payload"].get("section_number")) if gc["payload"].get("section_number") else None,
+                    section_number=str(gc["payload"].get("section_number"))
+                    if gc["payload"].get("section_number")
+                    else None,
                     clause_number=None,
                     document_title=gc["payload"].get("document_title", ""),
                     act_name=gc["payload"].get("act_name", ""),
@@ -723,6 +793,7 @@ def main() -> int:
 
     # Semaphore for concurrency control
     from threading import Semaphore
+
     sem = Semaphore(MAX_LLM_CONCURRENCY)
 
     def run_task(task_args):
@@ -752,7 +823,9 @@ def main() -> int:
                 return result
             except Exception as e:
                 return {
-                    "question_id": qid, "model": mname, "mode": mode,
+                    "question_id": qid,
+                    "model": mname,
+                    "mode": mode,
                     "error": f"{type(e).__name__}: {e}",
                 }
 
@@ -768,16 +841,25 @@ def main() -> int:
                 data = all_q_data.get(qid, {})
                 gold_ids = data.get("gold_chunk_ids", set())
                 metrics = compute_question_metrics(
-                    type("R", (), {
-                        "answer": result["answer"],
-                        "citations": [Citation(**c) if isinstance(c, dict) else c for c in result.get("citations", [])],
-                        "groundedness_score": result.get("groundedness_score", 0.0),
-                        "hallucination_detected": result.get("hallucination_detected", False),
-                        "confidence": result.get("confidence", 0.0),
-                        "total_latency_ms": result.get("total_latency_ms", 0),
-                    })(),
+                    type(
+                        "R",
+                        (),
+                        {
+                            "answer": result["answer"],
+                            "citations": [
+                                Citation(**c) if isinstance(c, dict) else c for c in result.get("citations", [])
+                            ],
+                            "groundedness_score": result.get("groundedness_score", 0.0),
+                            "hallucination_detected": result.get("hallucination_detected", False),
+                            "confidence": result.get("confidence", 0.0),
+                            "total_latency_ms": result.get("total_latency_ms", 0),
+                        },
+                    )(),
                     questions[qid],
-                    [RetrievedChunk.from_dict({"chunk_id": cid, "score": 0, "text": ""}) for cid in result.get("context_chunk_ids", [])],
+                    [
+                        RetrievedChunk.from_dict({"chunk_id": cid, "score": 0, "text": ""})
+                        for cid in result.get("context_chunk_ids", [])
+                    ],
                     gold_ids,
                 )
                 result["metrics"] = metrics
@@ -823,8 +905,14 @@ def main() -> int:
             data = all_q_data[qid]
             metrics = llm_metrics_by_q.get(mname, {}).get(qid, {})
             failure = classify_failure(
-                q, data["pool"], data["rrf_top150"], data["ce_ranked"][mname],
-                data["gold_chunk_ids"], family_map, payload_index, metrics
+                q,
+                data["pool"],
+                data["rrf_top150"],
+                data["ce_ranked"][mname],
+                data["gold_chunk_ids"],
+                family_map,
+                payload_index,
+                metrics,
             )
             failure_classification[f"{mname}_{qid}"] = {
                 "question_id": qid,
@@ -855,28 +943,34 @@ def main() -> int:
             if n == 0:
                 continue
             m: dict[str, float] = {}
-            for key in ["answer_correctness", "answer_jaccard", "answer_coverage",
-                        "context_recall_at_10", "context_relevant_hit",
-                        "citation_recall", "citation_precision",
-                        "groundedness", "llm_latency_s", "answer_length",
-                        "n_citations", "n_context_chunks"]:
+            for key in [
+                "answer_correctness",
+                "answer_jaccard",
+                "answer_coverage",
+                "context_recall_at_10",
+                "context_relevant_hit",
+                "citation_recall",
+                "citation_precision",
+                "groundedness",
+                "llm_latency_s",
+                "answer_length",
+                "n_citations",
+                "n_context_chunks",
+            ]:
                 vals = [e["metrics"].get(key, 0) for e in valid]
                 m[key] = round(sum(vals) / n, 4)
             m["abstain_correct"] = sum(1 for e in valid if e["metrics"].get("abstain_correct"))
             m["n_abstain"] = sum(1 for e in valid if e["metrics"].get("abstain_correct"))
             if sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence) > 0:
                 m["abstain_accuracy"] = round(
-                    m["abstain_correct"] / sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence),
-                    4
+                    m["abstain_correct"] / sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence), 4
                 )
             m["n"] = n
             m["errors"] = sum(1 for e in entries if "error" in e)
             llm_agg[f"{mname}_{mode}"] = m
 
     # Max recoverable performance if each bottleneck were fixed
-    max_recoverable = compute_max_recoverable(
-        retrieval_agg, stage_summary, oracle_gap, llm_agg
-    )
+    max_recoverable = compute_max_recoverable(retrieval_agg, stage_summary, oracle_gap, llm_agg)
 
     # ---- Write results ----
     output = {
@@ -885,14 +979,17 @@ def main() -> int:
             "ce_models": {
                 "ce_v1": {"path": str(CE_V1), "description": "legal_ce_v1 fine-tuned on ~2,131 mined pairs"},
                 "ce_v2_K500": {
-                    "path": str(CE_V2), "description": "legal_ce_v2_K500 (18,756 pairs, 3 epochs, 1,292 steps)",
-                    "final_train_loss": 0.09919, "best_val_loss": 0.71813,
+                    "path": str(CE_V2),
+                    "description": "legal_ce_v2_K500 (18,756 pairs, 3 epochs, 1,292 steps)",
+                    "final_train_loss": 0.09919,
+                    "best_val_loss": 0.71813,
                 },
             },
             "llm": {
                 "model": os.environ.get("RAG_LLM_MODEL", "poolside/laguna-s-2.1:free"),
                 "provider": "OpenRouter (SSL verify=False for proxy workaround)",
-                "temperature": LLM_TEMP, "max_tokens": LLM_MAX_TOKENS,
+                "temperature": LLM_TEMP,
+                "max_tokens": LLM_MAX_TOKENS,
             },
             "context_top_k": CONTEXT_TOP_K,
             "pool_head": POOL_HEAD,
@@ -946,22 +1043,31 @@ def main() -> int:
     print("-" * 60, flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
         a = retrieval_agg.get(mname, {})
-        print(f"{mname:<16} {a.get('R@1', 0):>6.4f} {a.get('R@20', 0):>6.4f} {a.get('R@50', 0):>6.4f} "
-              f"{a.get('R@100', 0):>6.4f} {a.get('MRR', 0):>6.4f} {a.get('NDCG@10', 0):>8.4f}", flush=True)
+        print(
+            f"{mname:<16} {a.get('R@1', 0):>6.4f} {a.get('R@20', 0):>6.4f} {a.get('R@50', 0):>6.4f} "
+            f"{a.get('R@100', 0):>6.4f} {a.get('MRR', 0):>6.4f} {a.get('NDCG@10', 0):>8.4f}",
+            flush=True,
+        )
 
     print("\n--- LLM Generation (retrieved context) ---", flush=True)
     print(f"{'Model':<16} {'AnsCorrect':>11} {'CtxRec@10':>10} {'CiteRec':>8} {'Ground':>7} {'Latency':>7}", flush=True)
     print("-" * 60, flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
         m = llm_agg.get(f"{mname}_retrieved", {})
-        print(f"{mname:<16} {m.get('answer_correctness', 0):>11.4f} {m.get('context_recall_at_10', 0):>10.4f} "
-              f"{m.get('citation_recall', 0):>8.4f} {m.get('groundedness', 0):>7.4f} {m.get('llm_latency_s', 0):>7.2f}s", flush=True)
+        print(
+            f"{mname:<16} {m.get('answer_correctness', 0):>11.4f} {m.get('context_recall_at_10', 0):>10.4f} "
+            f"{m.get('citation_recall', 0):>8.4f} {m.get('groundedness', 0):>7.4f} {m.get('llm_latency_s', 0):>7.2f}s",
+            flush=True,
+        )
 
     print("\n--- LLM Generation (oracle / gold context) ---", flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
         m = llm_agg.get(f"{mname}_oracle", {})
-        print(f"{mname:<16} {m.get('answer_correctness', 0):>11.4f} {m.get('context_recall_at_10', 0):>10.4f} "
-              f"{m.get('citation_recall', 0):>8.4f} {m.get('groundedness', 0):>7.4f}", flush=True)
+        print(
+            f"{mname:<16} {m.get('answer_correctness', 0):>11.4f} {m.get('context_recall_at_10', 0):>10.4f} "
+            f"{m.get('citation_recall', 0):>8.4f} {m.get('groundedness', 0):>7.4f}",
+            flush=True,
+        )
 
     print("\n--- Failure Stage Distribution ---", flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
@@ -981,9 +1087,12 @@ def main() -> int:
     print("\n--- Oracle Gap ---", flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
         og = oracle_gap.get(mname, {})
-        print(f"  {mname}: context_recall@10={og.get('context_recall_at_10', 0):.4f}, "
-              f"gold_in_pool={og.get('gold_in_pool_rate', 0):.4f}, "
-              f"max_context_recall@10={og.get('max_context_recall_at_10', 1):.4f}", flush=True)
+        print(
+            f"  {mname}: context_recall@10={og.get('context_recall_at_10', 0):.4f}, "
+            f"gold_in_pool={og.get('gold_in_pool_rate', 0):.4f}, "
+            f"max_context_recall@10={og.get('max_context_recall_at_10', 1):.4f}",
+            flush=True,
+        )
 
     return 0
 
@@ -1008,7 +1117,9 @@ def compute_max_recoverable(
             "current_R@20": v2_recall,
             "if_retrieval_fixed": round(max_retrieval, 4),
             "if_ce_reranking_fixed": round(max_ce, 4),
-            "if_LLM_fixed": round(1.0, 4) if llm_agg.get(f"{mname}_retrieved", {}).get("answer_correctness", 0) < 1.0 else 1.0,
+            "if_LLM_fixed": round(1.0, 4)
+            if llm_agg.get(f"{mname}_retrieved", {}).get("answer_correctness", 0) < 1.0
+            else 1.0,
             "bottleneck_breakdown": sc,
         }
     return results

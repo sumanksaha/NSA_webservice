@@ -76,9 +76,7 @@ def test_log_cleanup_registered_by_default(monkeypatch):
     monkeypatch.setenv("ENABLE_SNAPSHOT_SCHEDULE", "false")
     calls = []
     results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
-    assert [(a, k) for a, k in calls] == [
-        (("cleanup_rag_query_logs",), {"schedule": "0 4 * * 0", "payload": {}})
-    ]
+    assert [(a, k) for a, k in calls] == [(("cleanup_rag_query_logs",), {"schedule": "0 4 * * 0", "payload": {}})]
     assert [r["job"] for r in results] == ["cleanup_rag_query_logs"]
 
 

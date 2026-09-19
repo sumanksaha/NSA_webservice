@@ -41,9 +41,11 @@ from typing import Any, Callable, Iterable, Iterator
 # --------------------------------------------------------------------------- #
 # Heuristic thresholds (documented in CHUNK_AUDIT.md; adjustable per run)
 # --------------------------------------------------------------------------- #
-SHORT_CHUNK_CHARS = 100          #: below this many chars => "short"
-LONG_CHUNK_CHARS = 3000          #: above this many chars => "long"
-SECTION_MARKER_RE = re.compile(r"\b(?:section|sec\.?|regulation|rule|clause|sch(?:edule)?\.?)\s+[A-Z]?\d{1,4}(?:[a-z]|[A-Z])?\b", re.IGNORECASE)
+SHORT_CHUNK_CHARS = 100  #: below this many chars => "short"
+LONG_CHUNK_CHARS = 3000  #: above this many chars => "long"
+SECTION_MARKER_RE = re.compile(
+    r"\b(?:section|sec\.?|regulation|rule|clause|sch(?:edule)?\.?)\s+[A-Z]?\d{1,4}(?:[a-z]|[A-Z])?\b", re.IGNORECASE
+)
 SENTENCE_END_RE = re.compile(r"[.!?)\"'»]|[:;]\s*$")
 #: Legal chunks routinely end in clause numbers / percentages / units (e.g.
 #: "...not exceed 3", "...per cent of value", "(2)", "10%") without terminal

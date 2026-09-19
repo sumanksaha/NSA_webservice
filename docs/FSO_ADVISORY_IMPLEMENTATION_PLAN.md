@@ -66,8 +66,13 @@ Rationale: `app/rag/advisor/` owns the math; `app/rag/agent/nodes/advisory.py` o
 * **One row** in `app/shared/config.py::_TABLE`:
 
 ```python
-Setting("FSO_ADVISOR_ENABLED", "fso_advisor_enabled", bool, False,
-        help="Attach deterministic FSO Act advisory (game-theory+Talebian) on the agent path.")
+Setting(
+    "FSO_ADVISOR_ENABLED",
+    "fso_advisor_enabled",
+    bool,
+    False,
+    help="Attach deterministic FSO Act advisory (game-theory+Talebian) on the agent path.",
+)
 ```
 
 * One line in `.env.example` (`FSO_ADVISOR_ENABLED=false`) — enforced by `tests/test_shared_config.py::test_env_example_keys_are_declared`.
@@ -82,12 +87,12 @@ Add to `app/rag/agent/state.py::RAGState`:
 
 ```python
 # --- FSO advisory (Phase: FSO strategic advisory) ---
-extracted_sections: list[str]        # derived from chunks, for telemetry only
-is_repeat_offender: bool             # input flag — previous convictions
-has_lab_report: bool                 # input flag — lab evidence available
-fso_act: dict[str, Any] | None       # selector output
+extracted_sections: list[str]  # derived from chunks, for telemetry only
+is_repeat_offender: bool  # input flag — previous convictions
+has_lab_report: bool  # input flag — lab evidence available
+fso_act: dict[str, Any] | None  # selector output
 advisory_abstain_reason: str | None  # "insufficient_statutory_grounding" | None
-fso_advisory_enabled: bool           # resolved per-request for audit
+fso_advisory_enabled: bool  # resolved per-request for audit
 ```
 
 Extend `initial_state()` defaults: `is_repeat_offender=False, has_lab_report=False, fso_act=None, advisory_abstain_reason=None`.
@@ -110,9 +115,11 @@ Implementation (inside `build_graph`):
 
 ```python
 def _resolve_fso_advisor(explicit): ...
+
+
 # after citation_quality node creation
 if _resolve_fso_advisor(fso_advisor):
-    builder.add_node("fso_advisory", lambda s,c=None: nodes.fso_advisory_node(s))
+    builder.add_node("fso_advisory", lambda s, c=None: nodes.fso_advisory_node(s))
     # rewire edges: citation_quality → fso_advisory → finalize (and DAG equivalents)
     # when HITL on: citation_quality → review → fso_advisory → finalize
 ```
@@ -128,6 +135,7 @@ Keep HITL ordering: `review` (human approval) still gates `finalize`; advisory r
 ```python
 _selector = DeterministicActSelector()  # singleton, stateless
 
+
 def fso_advisory_node(state) -> dict:
     extracted = _extract_sections(state)  # from chunks + response.citations
     result = _selector.select_act(
@@ -135,10 +143,12 @@ def fso_advisory_node(state) -> dict:
         has_prior_violations=bool(state.get("is_repeat_offender")),
         lab_report_available=bool(state.get("has_lab_report")),
     )
-    return {"extracted_sections": extracted,
-            "fso_act": result["fso_act"],
-            "advisory_abstain_reason": result["abstain_reason"],
-            "fso_advisory_enabled": True}
+    return {
+        "extracted_sections": extracted,
+        "fso_act": result["fso_act"],
+        "advisory_abstain_reason": result["abstain_reason"],
+        "fso_advisory_enabled": True,
+    }
 ```
 
 `_extract_sections` reads `state["chunks"]` + `state["evidence"].values()` (DAG) + `state["response"].get("citations")`, pulls `payload.section_number` / `legal_identity.section`, dedupes, filters through `FSSAI_PENALTY_SCHEDULE`.
@@ -203,7 +213,7 @@ Backward-compat: default `false`, so existing traffic unchanged; response field 
 `finalize_node` augmentation:
 
 ```python
-response["fso_act"] = state.get("fso_act")   # None or dict
+response["fso_act"] = state.get("fso_act")  # None or dict
 if state.get("advisory_abstain_reason"):
     response["advisory_abstain_reason"] = state["advisory_abstain_reason"]
 ```
@@ -223,16 +233,16 @@ if state.get("advisory_abstain_reason"):
 File: `tests/test_rag_agent_advisor.py` (new). All offline, no Qdrant/LLM/torch.
 
 ```python
-test_fail_closed_no_anchor            # [] → fso_act=None, abstain_reason="insufficient_statutory_grounding"
-test_substandard_without_lab           # ["51"], lab=False → SAMPLE_LAB_TEST anchored on §51
-test_unlicensed_operation              # ["63"] → PROSECUTION anchored on §63
-test_subsequent_offence_prior          # ["51","64"], prior=True → PROSECUTION anchored on §64 (max severity)
-test_improvement_notice_gate           # ["55"], lab=False → IMPROVEMENT_NOTICE (prior-notice rule)
-test_repeat_offender_escalates         # ["51"], prior=True → PROSECUTION
-test_unknown_section_ignored           # ["99"] → abstain
-test_mixed_known_unknown               # ["99","52"] → anchored on §52
+test_fail_closed_no_anchor  # [] → fso_act=None, abstain_reason="insufficient_statutory_grounding"
+test_substandard_without_lab  # ["51"], lab=False → SAMPLE_LAB_TEST anchored on §51
+test_unlicensed_operation  # ["63"] → PROSECUTION anchored on §63
+test_subsequent_offence_prior  # ["51","64"], prior=True → PROSECUTION anchored on §64 (max severity)
+test_improvement_notice_gate  # ["55"], lab=False → IMPROVEMENT_NOTICE (prior-notice rule)
+test_repeat_offender_escalates  # ["51"], prior=True → PROSECUTION
+test_unknown_section_ignored  # ["99"] → abstain
+test_mixed_known_unknown  # ["99","52"] → anchored on §52
 test_optionality_scores_are_deterministic
-test_graph_attaches_fso_act_when_enabled   # integration: run_agent with flag → response contains fso_act
+test_graph_attaches_fso_act_when_enabled  # integration: run_agent with flag → response contains fso_act
 test_graph_no_fso_act_when_disabled
 ```
 

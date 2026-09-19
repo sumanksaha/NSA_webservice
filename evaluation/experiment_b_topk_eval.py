@@ -45,6 +45,7 @@ Usage:
     python -u -m evaluation.experiment_b_topk_eval --phase all
     python -u -m evaluation.experiment_b_topk_eval --phase all --stub   # validate w/o real LLM
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,7 +73,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # evaluation implementation".  Importing it runs load_dotenv(override=True) and
 # sets RAG_USE_STUB_LLM=false at module scope.
 from evaluation.eval_e2e_v2 import (  # noqa: E402
-    load_payload_index, load_raw, load_jsonl, score_pool, _SSLBypassLLMClient,
+    load_payload_index,
+    load_raw,
+    load_jsonl,
+    score_pool,
+    _SSLBypassLLMClient,
 )
 from evaluation.benchmark import load_questions, load_gold_registry  # noqa: E402
 from evaluation.config import CACHE_DIR  # noqa: E402
@@ -86,10 +91,12 @@ from app.rag.retrieval.result import RetrievedChunk  # noqa: E402
 os.environ["RAG_USE_STUB_LLM"] = "false"  # re-assert after eval_e2e_v2 import
 
 import torch  # noqa: E402
+
 torch.set_num_threads(4)
 
 from sentence_transformers import CrossEncoder  # noqa: E402
 import matplotlib  # noqa: E402
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -99,12 +106,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 MODELS_DIR = PROJECT_ROOT / "evaluation" / "out" / "models"
 CE_MODEL = MODELS_DIR / "legal_ce_v2_K500"
 
-SLICE_DEPTH = 500            # dense@500 | sparse@500 | ident@500 (per arm)
-KG_SLICE = 500               # KG provisions slice depth
-RRF_K = 60.0                 # RRF constant
+SLICE_DEPTH = 500  # dense@500 | sparse@500 | ident@500 (per arm)
+KG_SLICE = 500  # KG provisions slice depth
+RRF_K = 60.0  # RRF constant
 RERANK_WEIGHTS = {"sec": 0.0, "act": 0.0, "exact": 0.0, "lex": 0.0}  # base RRF
 CE_BATCH = 64
-POOL_DEPTH = 150             # CE scored over RRF top-POOL_DEPTH -> cached CE ranking
+POOL_DEPTH = 150  # CE scored over RRF top-POOL_DEPTH -> cached CE ranking
 # (frozen Experiment A / eval_v2_checkpoint operating point; the spec's idealized
 #  "complete CE top-500 ranking" is non-limiting here because K<=100 is satisfied
 #  within head-150 and Q001-5 CE gold ranks reproduce Experiment A exactly.
@@ -207,9 +214,10 @@ def _load_gold_index(payload_index, family_map) -> tuple:
     by_section_s = {f: {s: sorted(c) for s, c in v.items()} for f, v in idx[0].items()}
     by_family_s = {f: sorted(c) for f, c in idx[1].items()}
     GOLD_INDEX_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    GOLD_INDEX_CACHE.write_text(json.dumps(
-        {"by_section": by_section_s, "by_family": by_family_s,
-         "n_points": len(payload_index)}, indent=2), encoding="utf-8")
+    GOLD_INDEX_CACHE.write_text(
+        json.dumps({"by_section": by_section_s, "by_family": by_family_s, "n_points": len(payload_index)}, indent=2),
+        encoding="utf-8",
+    )
     return idx
 
 
@@ -230,21 +238,27 @@ def build_ce_ranking(q, qid, dense, sparse, kg, ident, payload_index, family_map
     """
     if not (dense and sparse and kg):
         return None, None, None
-    pool = build_pool(dense, sparse, kg, payload_index, family_map,
-                      slice_depth=SLICE_DEPTH, kg_slice=KG_SLICE)
+    pool = build_pool(dense, sparse, kg, payload_index, family_map, slice_depth=SLICE_DEPTH, kg_slice=KG_SLICE)
     if not pool:
         return None, None, None
 
     kg_provision_keys = [str(p.get("provision_id") or "") for p in (kg or {}).get("kg_provisions", [])[:KG_SLICE]]
-    rrf = rrf_scores([_arm_keys(dense, SLICE_DEPTH), _arm_keys(sparse, SLICE_DEPTH),
-                      [{"key": k} for k in kg_provision_keys]])
+    rrf = rrf_scores([
+        _arm_keys(dense, SLICE_DEPTH),
+        _arm_keys(sparse, SLICE_DEPTH),
+        [{"key": k} for k in kg_provision_keys],
+    ])
 
     ident_rec = ident.get(qid) if ident else None
     if ident_rec:
         ids = [str(c) for c in ident_rec.get("chunk_ids", [])[:SLICE_DEPTH]]
         if ids:
-            rrf = rrf_scores([_arm_keys(dense, SLICE_DEPTH), _arm_keys(sparse, SLICE_DEPTH),
-                              [{"key": k} for k in kg_provision_keys], [{"key": c} for c in ids]])
+            rrf = rrf_scores([
+                _arm_keys(dense, SLICE_DEPTH),
+                _arm_keys(sparse, SLICE_DEPTH),
+                [{"key": k} for k in kg_provision_keys],
+                [{"key": c} for c in ids],
+            ])
 
     rrf_ranked = rerank(pool, q.question, family_map, rrf, RERANK_WEIGHTS)
     ce_ranked = score_pool(rrf_ranked[:POOL_DEPTH], q.question, ce)
@@ -283,8 +297,7 @@ def ce_topk_chunks(ce_ranked, k: int):
 
 def retrieve_chunks(chunk_items, payload_index: dict[str, dict]) -> list[RetrievedChunk]:
     return [
-        to_retrieved_chunk(it["key"], payload_index.get(it["key"], {}), it.get("ce_score", 0.0))
-        for it in chunk_items
+        to_retrieved_chunk(it["key"], payload_index.get(it["key"], {}), it.get("ce_score", 0.0)) for it in chunk_items
     ]
 
 
@@ -326,8 +339,9 @@ def abstain_check(answer: str) -> bool:
     return bool(_ABSTAIN_RE.search(answer))
 
 
-def compute_metrics(resp, built, question, ce_topk_chunk_ids, context_chunk_ids,
-                    gold_chunk_ids, gold_units, payload_index, family_map) -> dict[str, Any]:
+def compute_metrics(
+    resp, built, question, ce_topk_chunk_ids, context_chunk_ids, gold_chunk_ids, gold_units, payload_index, family_map
+) -> dict[str, Any]:
     """Primary LLM metrics (spec section 6) for one (question, K)."""
     answer = resp.answer or ""
     expected = question.acceptable_conclusion or ""
@@ -363,11 +377,11 @@ def compute_metrics(resp, built, question, ce_topk_chunk_ids, context_chunk_ids,
     else:
         abstain_correct = not abstained
 
-    evidence_texts = {cid: str((payload_index.get(cid) or {}).get("chunk_text") or "")
-                      for cid in ce_topk_chunk_ids}
+    evidence_texts = {cid: str((payload_index.get(cid) or {}).get("chunk_text") or "") for cid in ce_topk_chunk_ids}
     try:
-        g = grade_answer(question, answer, list(cited_chunk_ids),
-                         list(ce_topk_chunk_ids), evidence_texts, payload_index, family_map)
+        g = grade_answer(
+            question, answer, list(cited_chunk_ids), list(ce_topk_chunk_ids), evidence_texts, payload_index, family_map
+        )
         grader_score = int(g.get("score", 0))
     except Exception as exc:
         g = {"error": str(exc)}
@@ -415,8 +429,7 @@ def run_llm_pipeline(question, context_chunks, k, query_type, llm_client):
     cb = _ExpBContextBuilder(k)
     service = GroundedGenerationService(llm_client=llm_client, context_builder=cb)
     built = cb.build(question.question, context_chunks, query_type or "general_qa")
-    resp = service.generate(question.question, context_chunks,
-                            query_type=(query_type or "general_qa"))
+    resp = service.generate(question.question, context_chunks, query_type=(query_type or "general_qa"))
     return resp, built
 
 
@@ -430,8 +443,7 @@ def _make_client(use_stub: bool):
 
 def _load_ce_cache() -> dict:
     if not CE_RANKING_CACHE.exists():
-        raise FileNotFoundError(
-            f"CE ranking cache not found: {CE_RANKING_CACHE}. Run --phase build first.")
+        raise FileNotFoundError(f"CE ranking cache not found: {CE_RANKING_CACHE}. Run --phase build first.")
     return json.loads(CE_RANKING_CACHE.read_text())
 
 
@@ -474,7 +486,7 @@ def _retry(fn, label: str, retries: int = LLM_MAX_RETRIES):
         except Exception as exc:  # includes 429 / network / decode errors
             last = exc
             if attempt < retries - 1:
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
     raise RuntimeError(f"{label} failed after {retries} attempts: {last!r}")
 
 
@@ -510,9 +522,11 @@ def _build_config_meta() -> dict:
         "llm_max_tokens": 1024,
         "system_prompt": "grounded_qa (FSSAI default; FIXED for all questions)",
         "query_type": "general_qa (FIXED)",
-        "notes": ("Retrieval+RRF+CE run once over 150 questions; all K contexts derived from the "
-                  "cached CE ranking (spec section 22). 4-arm RRF with question-ident arm, base RRF "
-                  "(zero legal weights), CE head-500 scored."),
+        "notes": (
+            "Retrieval+RRF+CE run once over 150 questions; all K contexts derived from the "
+            "cached CE ranking (spec section 22). 4-arm RRF with question-ident arm, base RRF "
+            "(zero legal weights), CE head-500 scored."
+        ),
     }
 
 
@@ -533,8 +547,11 @@ def phase_build(dry: bool):
         if alt.exists():
             ident = load_jsonl(alt)
 
-    print(f"  payload_index={len(payload_index)} pts, questions={len(questions)}, "
-          f"registry={len(gold_registry)}, ident_cached={len(ident)}", flush=True)
+    print(
+        f"  payload_index={len(payload_index)} pts, questions={len(questions)}, "
+        f"registry={len(gold_registry)}, ident_cached={len(ident)}",
+        flush=True,
+    )
 
     ce = CrossEncoder(CE_MODEL.as_posix(), max_length=256)
     print(f"  CE model loaded: {CE_MODEL.name}", flush=True)
@@ -564,8 +581,7 @@ def phase_build(dry: bool):
         d, s, k_arm = dense.get(qid), sparse.get(qid), kg.get(qid)
         if not (d and s and k_arm):
             continue
-        pool, rrf_ranked, ce_ranked = build_ce_ranking(
-            q, qid, d, s, k_arm, ident, payload_index, family_map, ce)
+        pool, rrf_ranked, ce_ranked = build_ce_ranking(q, qid, d, s, k_arm, ident, payload_index, family_map, ce)
         if not ce_ranked:
             continue
 
@@ -578,9 +594,17 @@ def phase_build(dry: bool):
             retrieval_recall[kk].append(int(hit))
         head150 = ce_ranked[:150]
         for kk in K_VALUES:
-            head150_recall[kk].append(int(any(
-                (rank_of(head150, u, payload_index, family_map) is not None
-                 and rank_of(head150, u, payload_index, family_map) <= kk) for u in gold_units)))
+            head150_recall[kk].append(
+                int(
+                    any(
+                        (
+                            rank_of(head150, u, payload_index, family_map) is not None
+                            and rank_of(head150, u, payload_index, family_map) <= kk
+                        )
+                        for u in gold_units
+                    )
+                )
+            )
 
         ce_cache["questions"][qid] = {
             "question_id": qid,
@@ -594,8 +618,14 @@ def phase_build(dry: bool):
             "ce_head_size": len(ce_ranked),
             "ce_gold_rank": best_ce_rank,
             "gold_units": [
-                {"provision_id": u.provision_id, "family": u.family,
-                 "section": u.section, "role": u.role, "gain": u.gain, "act": u.act}
+                {
+                    "provision_id": u.provision_id,
+                    "family": u.family,
+                    "section": u.section,
+                    "role": u.role,
+                    "gain": u.gain,
+                    "act": u.act,
+                }
                 for u in gold_units
             ],
             "gold_unit_ids": [u.provision_id for u in gold_units],
@@ -605,7 +635,7 @@ def phase_build(dry: bool):
         }
         processed += 1
         if processed % 25 == 0 or processed == n:
-            print(f"  {processed}/{n} ce-scored (elapsed {time.perf_counter()-t0:.1f}s)", flush=True)
+            print(f"  {processed}/{n} ce-scored (elapsed {time.perf_counter() - t0:.1f}s)", flush=True)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     CE_RANKING_CACHE.write_text(json.dumps(ce_cache, indent=2), encoding="utf-8")
@@ -634,13 +664,19 @@ def _print_build_summary(ce_cache, retrieval_recall, head150_recall, processed):
     print("\n  Retrieval recall R@K (CE top-500 ranking, unit any-hit):", flush=True)
     for kk in K_VALUES:
         vals = retrieval_recall[kk]
-        print(f"    R@{kk}: {sum(vals)}/{len(vals)} = {sum(vals)/len(vals)*100:.1f}%" if vals
-              else f"    R@{kk}: n/a", flush=True)
+        print(
+            f"    R@{kk}: {sum(vals)}/{len(vals)} = {sum(vals) / len(vals) * 100:.1f}%" if vals else f"    R@{kk}: n/a",
+            flush=True,
+        )
     print("\n  CE head-150 R@K (Experiment A reference comparator):", flush=True)
     for kk in K_VALUES:
         vals = head150_recall[kk]
-        print(f"    head150 R@{kk}: {sum(vals)}/{len(vals)} = {sum(vals)/len(vals)*100:.1f}%" if vals
-              else f"    head150 R@{kk}: n/a", flush=True)
+        print(
+            f"    head150 R@{kk}: {sum(vals)}/{len(vals)} = {sum(vals) / len(vals) * 100:.1f}%"
+            if vals
+            else f"    head150 R@{kk}: n/a",
+            flush=True,
+        )
 
     kg_counts = Counter()
     for qd in ce_cache["questions"].values():
@@ -651,21 +687,31 @@ def _print_build_summary(ce_cache, retrieval_recall, head150_recall, processed):
 def _print_dry_context_math(ce_cache, questions, payload_index, family_map):
     """Validate K-contexts + oracle context sizes with NO LLM calls (spec section 5)."""
     print("\n  --- DRY: K-context accounting (section 5) ---", flush=True)
-    print(f"  {'K':>4} {'min_chunks':>10} {'avg_chunks':>10} {'max_chunks':>10} "
-          f"{'avg_kg':>7} {'avg_chars':>9} {'avg_tokens':>9}", flush=True)
+    print(
+        f"  {'K':>4} {'min_chunks':>10} {'avg_chunks':>10} {'max_chunks':>10} "
+        f"{'avg_kg':>7} {'avg_chars':>9} {'avg_tokens':>9}",
+        flush=True,
+    )
     for k in K_VALUES:
         counts, chars, toks, kgs = [], [], [], []
         for qid, qd in ce_cache["questions"].items():
-            ce = [{"key": ky, "kind": ki, "ce_score": sc} for ky, ki, sc in
-                  zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"])]
+            ce = [
+                {"key": ky, "kind": ki, "ce_score": sc}
+                for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"])
+            ]
             chunk_items, kg_items = ce_topk_chunks(ce, k)
             chunks = retrieve_chunks(chunk_items, payload_index)
             built = _ExpBContextBuilder(k).build(questions[qid].question, chunks, "general_qa")
-            counts.append(built.chunk_count); chars.append(len(built.context))
-            toks.append(built.total_tokens_estimate); kgs.append(len(kg_items))
+            counts.append(built.chunk_count)
+            chars.append(len(built.context))
+            toks.append(built.total_tokens_estimate)
+            kgs.append(len(kg_items))
         n = len(counts)
-        print(f"  {k:>4} {min(counts):>10} {sum(counts)/n:>10.1f} {max(counts):>10} "
-              f"{sum(kgs)/n:>7.1f} {sum(chars)/n:>9.0f} {sum(toks)/n:>9.0f}", flush=True)
+        print(
+            f"  {k:>4} {min(counts):>10} {sum(counts) / n:>10.1f} {max(counts):>10} "
+            f"{sum(kgs) / n:>7.1f} {sum(chars) / n:>9.0f} {sum(toks) / n:>9.0f}",
+            flush=True,
+        )
 
     print("\n  --- DRY: oracle context math ---", flush=True)
     print(f"  {'qid':>8} {'gold_chunks':>11} {'ctx_chunks':>10} {'ctx_chars':>10} {'ctx_tokens':>10}", flush=True)
@@ -678,8 +724,11 @@ def _print_dry_context_math(ce_cache, questions, payload_index, family_map):
         chunks = [to_retrieved_chunk(c, payload_index.get(c, {}), 1.0) for c in gids]
         chunks.sort(key=lambda c: (c.document_title, str(c.chunk_index)))
         built = _ExpBOracleBuilder(min(len(chunks), 200)).build(q.question, chunks, "general_qa")
-        print(f"  {qid:>8} {len(gids):>11} {built.chunk_count:>10} {len(built.context):>10} "
-              f"{built.total_tokens_estimate:>10}", flush=True)
+        print(
+            f"  {qid:>8} {len(gids):>11} {built.chunk_count:>10} {len(built.context):>10} "
+            f"{built.total_tokens_estimate:>10}",
+            flush=True,
+        )
     return 0
 
 
@@ -710,7 +759,7 @@ def _llm_call_with_retry(question, context_chunks, k, client):
             last_err = repr(exc)
             resp = None
         if attempt < LLM_MAX_RETRIES - 1:
-            time.sleep(3 * (2 ** attempt))  # 3, 6, 12, 24s
+            time.sleep(3 * (2**attempt))  # 3, 6, 12, 24s
     return resp, built, last_err
 
 
@@ -734,11 +783,16 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
 
     # Build a minimal error record (still carries the spec §5 context accounting).
     err_rec = {
-        "question_id": qid, "k": k, "error": None,
-        "requested_k": k, "ce_candidates": k,
-        "ce_chunk_count": len(chunk_items), "ce_kg_items": len(kg_items),
+        "question_id": qid,
+        "k": k,
+        "error": None,
+        "requested_k": k,
+        "ce_candidates": k,
+        "ce_chunk_count": len(chunk_items),
+        "ce_kg_items": len(kg_items),
         "ce_kg_discarded": len(kg_items),
-        "gold_present": bool(gold_present), "ce_gold_rank": ce_gold_rank,
+        "gold_present": bool(gold_present),
+        "ce_gold_rank": ce_gold_rank,
         "context_chunk_count": len(ce_topk_chunk_ids),
     }
 
@@ -754,12 +808,16 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
         return err_rec
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else ce_topk_chunk_ids
-    m = compute_metrics(resp, built, question, ce_topk_chunk_ids, context_ids,
-                        gold_chunk_ids, gold_units, payload_index, family_map)
+    m = compute_metrics(
+        resp, built, question, ce_topk_chunk_ids, context_ids, gold_chunk_ids, gold_units, payload_index, family_map
+    )
     m.update({
-        "question_id": qid, "k": k,
-        "requested_k": k, "ce_candidates": k,
-        "ce_chunk_count": len(chunk_items), "ce_kg_items": len(kg_items),
+        "question_id": qid,
+        "k": k,
+        "requested_k": k,
+        "ce_candidates": k,
+        "ce_chunk_count": len(chunk_items),
+        "ce_kg_items": len(kg_items),
         "ce_kg_discarded": len(kg_items),
         "context_ids": context_ids,
         "context_chunk_count": len(context_ids),
@@ -775,7 +833,7 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
 
 def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None):
     print("=" * 70, flush=True)
-    print(f"Phase LLM: K-curve (150 Q x {len(K_VALUES)} K = {150*len(K_VALUES)} calls)")
+    print(f"Phase LLM: K-curve (150 Q x {len(K_VALUES)} K = {150 * len(K_VALUES)} calls)")
     print("=" * 70, flush=True)
     ce_cache = _load_ce_cache()
     _attach_ce_ranked(ce_cache)
@@ -786,13 +844,16 @@ def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None)
 
     done = _load_set(LLM_CKPT, skip_errors=resume) if resume else set()
     total_expected = len(questions) * len(K_VALUES)
-    print(f"  cached CE: {len(ce_cache['questions'])} questions | "
-          f"checkpointed: {len(done)}/{total_expected} | stub={use_stub} | concurrency={concurrency}",
-          flush=True)
+    print(
+        f"  cached CE: {len(ce_cache['questions'])} questions | "
+        f"checkpointed: {len(done)}/{total_expected} | stub={use_stub} | concurrency={concurrency}",
+        flush=True,
+    )
 
     client = _make_client(use_stub)
-    tasks = [(qid, k) for qid in sorted(questions) for k in K_VALUES
-             if qid in ce_cache["questions"] and (qid, k) not in done]
+    tasks = [
+        (qid, k) for qid in sorted(questions) for k in K_VALUES if qid in ce_cache["questions"] and (qid, k) not in done
+    ]
     if limit:
         tasks = tasks[:limit]
     print(f"  {len(tasks)} LLM tasks ...", flush=True)
@@ -808,8 +869,17 @@ def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None)
     err_count = 0
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
         futures = {
-            ex.submit(_llm_task, qid, k, questions[qid], ce_cache["questions"][qid],
-                      payload_index, family_map, gold_index, client): (qid, k)
+            ex.submit(
+                _llm_task,
+                qid,
+                k,
+                questions[qid],
+                ce_cache["questions"][qid],
+                payload_index,
+                family_map,
+                gold_index,
+                client,
+            ): (qid, k)
             for qid, k in tasks
         }
         for fut in as_completed(futures):
@@ -825,10 +895,11 @@ def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None)
                     f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 completed += 1
                 if completed % 25 == 0 or completed == total:
-                    print(f"  [{completed}/{total}] {qid} K={k} "
-                          f"({time.perf_counter()-t0:.0f}s, {err_count} errors)", flush=True)
-    print(f"  LLM phase done: {completed}/{total} ({err_count} errors, "
-          f"{time.perf_counter()-t0:.0f}s)", flush=True)
+                    print(
+                        f"  [{completed}/{total}] {qid} K={k} ({time.perf_counter() - t0:.0f}s, {err_count} errors)",
+                        flush=True,
+                    )
+    print(f"  LLM phase done: {completed}/{total} ({err_count} errors, {time.perf_counter() - t0:.0f}s)", flush=True)
     return 0
 
 
@@ -856,13 +927,19 @@ def _oracle_task(qid, question, qd, payload_index, family_map, gold_index, clien
         return {"question_id": qid, "error": repr(exc), "k": None}
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else []
-    m = compute_metrics(resp, built, question, gold_ids, context_ids,
-                        set(gold_ids), gold_units, payload_index, family_map)
+    m = compute_metrics(
+        resp, built, question, gold_ids, context_ids, set(gold_ids), gold_units, payload_index, family_map
+    )
     m.update({
-        "question_id": qid, "oracle": True, "k": None,
-        "requested_k": None, "ce_candidates": len(gold_ids),
+        "question_id": qid,
+        "oracle": True,
+        "k": None,
+        "requested_k": None,
+        "ce_candidates": len(gold_ids),
         "oracle_gold_chunks_total": len(gold_ids),
-        "gold_present": True, "ce_gold_rank": None, "error": None,
+        "gold_present": True,
+        "ce_gold_rank": None,
+        "error": None,
     })
     if not (resp.answer or ""):
         m["error"] = m.get("error") or "empty answer"
@@ -881,12 +958,10 @@ def phase_oracle(use_stub: bool, concurrency: int, resume: bool, limit: int | No
 
     done = _load_set(ORACLE_CKPT, skip_errors=resume) if resume else set()
     total_expected = len(questions)
-    print(f"  checkpointed: {len(done)}/{total_expected} | stub={use_stub} | concurrency={concurrency}",
-          flush=True)
+    print(f"  checkpointed: {len(done)}/{total_expected} | stub={use_stub} | concurrency={concurrency}", flush=True)
 
     client = _make_client(use_stub)
-    tasks = [qid for qid in sorted(questions)
-             if qid in ce_cache["questions"] and (qid, None) not in done]
+    tasks = [qid for qid in sorted(questions) if qid in ce_cache["questions"] and (qid, None) not in done]
     if limit:
         tasks = tasks[:limit]
     print(f"  {len(tasks)} oracle tasks ...", flush=True)
@@ -901,8 +976,19 @@ def phase_oracle(use_stub: bool, concurrency: int, resume: bool, limit: int | No
     t0 = time.perf_counter()
     err_count = 0
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
-        futures = {ex.submit(_oracle_task, qid, questions[qid], ce_cache["questions"][qid],
-                             payload_index, family_map, gold_index, client): qid for qid in tasks}
+        futures = {
+            ex.submit(
+                _oracle_task,
+                qid,
+                questions[qid],
+                ce_cache["questions"][qid],
+                payload_index,
+                family_map,
+                gold_index,
+                client,
+            ): qid
+            for qid in tasks
+        }
         for fut in as_completed(futures):
             qid = futures[fut]
             try:
@@ -916,10 +1002,11 @@ def phase_oracle(use_stub: bool, concurrency: int, resume: bool, limit: int | No
                     f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 completed += 1
                 if completed % 25 == 0 or completed == total:
-                    print(f"  [{completed}/{total}] oracle {qid} "
-                          f"({time.perf_counter()-t0:.0f}s, {err_count} errors)", flush=True)
-    print(f"  Oracle phase done: {completed}/{total} ({err_count} errors, "
-          f"{time.perf_counter()-t0:.0f}s)", flush=True)
+                    print(
+                        f"  [{completed}/{total}] oracle {qid} ({time.perf_counter() - t0:.0f}s, {err_count} errors)",
+                        flush=True,
+                    )
+    print(f"  Oracle phase done: {completed}/{total} ({err_count} errors, {time.perf_counter() - t0:.0f}s)", flush=True)
     return 0
 
 
@@ -993,7 +1080,8 @@ def phase_analyze():
         if not recs:
             continue
         k_curve[k] = {
-            "n": len(recs), "n_error": len(errs),
+            "n": len(recs),
+            "n_error": len(errs),
             "answer_correctness": round(_mean([r["answer_correctness"] for r in recs]), 4),
             "answer_coverage": round(_mean([r["answer_coverage"] for r in recs]), 4),
             "answer_jaccard": round(_mean([r["answer_jaccard"] for r in recs]), 4),
@@ -1049,7 +1137,9 @@ def phase_analyze():
             "gold_absent_n": len(absent),
             "correct_given_present": round(_mean([1 if r["correct"] else 0 for r in present]), 4) if present else None,
             "correct_given_absent": round(_mean([1 if r["correct"] else 0 for r in absent]), 4) if absent else None,
-            "grader_correct_given_present": round(_mean([1 if r["grader_score"] >= 1 else 0 for r in present]), 4) if present else None,
+            "grader_correct_given_present": round(_mean([1 if r["grader_score"] >= 1 else 0 for r in present]), 4)
+            if present
+            else None,
         }
 
     # --- Oracle aggregates (section 10) ---
@@ -1062,7 +1152,12 @@ def phase_analyze():
         "grader_correct_rate": round(_mean([1 if r["grader_score"] >= 1 else 0 for r in ogood]), 4),
         "grader_mean_score": round(_mean([r["grader_score"] for r in ogood]), 3),
         "citation_recall": round(_mean([r["citation_recall"] for r in ogood]), 4),
-        "citation_precision": round(_mean([r["citation_precision"] for r in ogood], 4) if False else (_mean([r["citation_precision"] for r in ogood])), 4),
+        "citation_precision": round(
+            _mean([r["citation_precision"] for r in ogood], 4)
+            if False
+            else (_mean([r["citation_precision"] for r in ogood])),
+            4,
+        ),
         "groundedness": round(_mean([r["groundedness"] for r in ogood]), 4),
         "abstain_rate": round(_mean([1 if r["abstained"] else 0 for r in ogood]), 4),
         "avg_latency_ms": round(_mean([r["latency_ms"] for r in ogood]), 1),
@@ -1092,9 +1187,14 @@ def phase_analyze():
                     D += 1
                 else:
                     E += 1
-        failure[k] = {"A_retrieval_limit": A, "B_gold_present_wrong": B,
-                      "C_correct": C, "D_recoverable": D, "E_llm_limit": E,
-                      "total": len(recs_k)}
+        failure[k] = {
+            "A_retrieval_limit": A,
+            "B_gold_present_wrong": B,
+            "C_correct": C,
+            "D_recoverable": D,
+            "E_llm_limit": E,
+            "total": len(recs_k),
+        }
 
     # --- Noise analysis (section 13) ---
     noise = {}
@@ -1125,12 +1225,10 @@ def phase_analyze():
         else:
             if len(mon_examples) < 15:
                 mon_examples.append({"qid": qid, "curve": [round(c, 3) for c in curve]})
-    monotonic = {"fully_monotonic": mono, "non_monotonic": total_qs - mono,
-                 "total": total_qs, "examples": mon_examples}
+    monotonic = {"fully_monotonic": mono, "non_monotonic": total_qs - mono, "total": total_qs, "examples": mon_examples}
 
     # --- Transitions (section 18): per-question K-by-K correctness ---
-    transitions = {"total_transitions": 0, "correct_to_incorrect": 0, "incorrect_to_correct": 0,
-                   "examples": []}
+    transitions = {"total_transitions": 0, "correct_to_incorrect": 0, "incorrect_to_correct": 0, "examples": []}
     for qid in ce_cache["questions"]:
         prev = None
         for k in K_VALUES:
@@ -1158,8 +1256,7 @@ def phase_analyze():
     cond_a = {k: (k_curve[k]["answer_correctness"] if k in k_curve else None) for k in K_VALUES}
     cond_b = oracle_agg["answer_correctness"]
 
-    diag = _diagnostics(K_VALUES, k_curve, oracle_agg, r_at_k, conditional,
-                        failure, noise, eff_by_k, mon_examples)
+    diag = _diagnostics(K_VALUES, k_curve, oracle_agg, r_at_k, conditional, failure, noise, eff_by_k, mon_examples)
 
     aggregate = {
         "config": ce_cache["config"],
@@ -1175,9 +1272,11 @@ def phase_analyze():
         "noise_analysis": {str(k): noise[k] for k in K_VALUES},
         "monotonicity": monotonic,
         "transitions": transitions,
-        "context_efficiency": {"optimum_k": best_eff_k,
-                               "optimum_efficiency": round(best_eff, 4),
-                               "efficiency_by_k": eff_by_k},
+        "context_efficiency": {
+            "optimum_k": best_eff_k,
+            "optimum_efficiency": round(best_eff, 4),
+            "efficiency_by_k": eff_by_k,
+        },
         "condition_a_vs_b": {"condition_a_correctness_by_k": cond_a, "condition_b_oracle": cond_b},
         "diagnostics": diag,
         "llm_record_count": len(llm_recs),
@@ -1194,8 +1293,9 @@ def phase_analyze():
         for k in K_VALUES:
             r = llm_recs.get((qid, k))
             if r:
-                k_curve_q[str(k)] = {kk: vv for kk, vv in r.items()
-                                     if kk not in ("answer", "expected_conclusion", "grader")}
+                k_curve_q[str(k)] = {
+                    kk: vv for kk, vv in r.items() if kk not in ("answer", "expected_conclusion", "grader")
+                }
                 k_curve_q[str(k)]["correctness"] = r.get("answer_correctness", 0.0)
                 k_curve_q[str(k)]["correct"] = r.get("correct", False)
         or_rec = oracle_recs.get(qid, {})
@@ -1206,8 +1306,9 @@ def phase_analyze():
             "n_gold_units": qd["n_gold_units"],
             "ce_gold_rank": qd["ce_gold_rank"],
             "pool_size": qd["pool_size"],
-            "n_gold_chunks_total": len(gold_chunk_ids_for_units(
-                questions[qid].recall_units(), gold_index)) if qid in questions else 0,
+            "n_gold_chunks_total": len(gold_chunk_ids_for_units(questions[qid].recall_units(), gold_index))
+            if qid in questions
+            else 0,
             "k_curve": k_curve_q,
             "oracle": {k: vv for k, vv in or_rec.items() if k not in ("answer",)} if or_rec else None,
         }
@@ -1223,9 +1324,13 @@ def _diagnostics(ks, k_curve, oracle_agg, r_at_k, conditional, failure, noise, e
     k100 = k_curve.get(100, {}).get("answer_correctness", kmax)
 
     # Q1: does increasing context improve correctness?
-    q1 = {"q": "Does increasing CE-ranked context improve answer correctness?",
-          "answer": "yes" if kmax > k1 else "no",
-          "k1": round(k1, 4), "k100": round(k100, 4), "delta": round(kmax - k1, 4)}
+    q1 = {
+        "q": "Does increasing CE-ranked context improve answer correctness?",
+        "answer": "yes" if kmax > k1 else "no",
+        "k1": round(k1, 4),
+        "k100": round(k100, 4),
+        "delta": round(kmax - k1, 4),
+    }
 
     # Q2: plateau
     plateau_k = None
@@ -1234,29 +1339,42 @@ def _diagnostics(ks, k_curve, oracle_agg, r_at_k, conditional, failure, noise, e
         if abs(d) < 0.005:
             plateau_k = ks[i]
             break
-    q2 = {"q": "At what K does the correctness curve plateau?", "plateau_k": plateau_k,
-          "deltas": {ks[i]: round(k_curve[ks[i]]["answer_correctness"] - k_curve[ks[i - 1]]["answer_correctness"], 4)
-                     for i in range(1, len(ks))}}
+    q2 = {
+        "q": "At what K does the correctness curve plateau?",
+        "plateau_k": plateau_k,
+        "deltas": {
+            ks[i]: round(k_curve[ks[i]]["answer_correctness"] - k_curve[ks[i - 1]]["answer_correctness"], 4)
+            for i in range(1, len(ks))
+        },
+    }
 
     # Q3: noise overload (does more context ever HURT after the peak)?
     best_k = max(ks, key=lambda k: k_curve[k]["answer_correctness"])
     best_c = k_curve[best_k]["answer_correctness"]
     overload_k = None
-    for k in ks[ks.index(best_k) + 1:]:
+    for k in ks[ks.index(best_k) + 1 :]:
         if k_curve[k]["answer_correctness"] < best_c - 0.01:
             overload_k = k
             break
-    q3 = {"q": "Is there a K beyond which more context hurts (noise overload)?",
-          "overload": overload_k is not None, "overload_k": overload_k,
-          "best_k": best_k, "best_correctness": round(best_c, 4)}
+    q3 = {
+        "q": "Is there a K beyond which more context hurts (noise overload)?",
+        "overload": overload_k is not None,
+        "overload_k": overload_k,
+        "best_k": best_k,
+        "best_correctness": round(best_c, 4),
+    }
 
     # Q4: fraction of oracle-K1 gap closed at K=100
     gap = oracle_agg["answer_correctness"] - k1
     closed = (k100 - k1) / gap if gap > 0 else (1.0 if k100 >= oracle_agg["answer_correctness"] else 0.0)
-    q4 = {"q": "Fraction of (oracle - K1) correctness gap closed at K=100?",
-          "k1": round(k1, 4), "k100": round(k100, 4),
-          "oracle": round(oracle_agg["answer_correctness"], 4),
-          "gap": round(gap, 4), "fraction_closed": round(closed, 4)}
+    q4 = {
+        "q": "Fraction of (oracle - K1) correctness gap closed at K=100?",
+        "k1": round(k1, 4),
+        "k100": round(k100, 4),
+        "oracle": round(oracle_agg["answer_correctness"], 4),
+        "gap": round(gap, 4),
+        "fraction_closed": round(closed, 4),
+    }
 
     # Q5: dominant failure class at K=100
     f100 = failure.get(100) or failure.get(ks[-1])
@@ -1268,22 +1386,29 @@ def _diagnostics(ks, k_curve, oracle_agg, r_at_k, conditional, failure, noise, e
 
     # Q6: CE recall vs LLM reasoning
     r100 = r_at_k.get(100, 0.0)
-    inter = "oracle corrects a large gap (CE selection limit)" if oracle_agg["answer_correctness"] > k100 + 0.05 \
+    inter = (
+        "oracle corrects a large gap (CE selection limit)"
+        if oracle_agg["answer_correctness"] > k100 + 0.05
         else "oracle does NOT correct the gap (LLM reasoning/generation or evaluation limit)"
-    q6 = {"q": "Is the ceiling limited by CE recall or LLM reasoning?",
-          "r_at_100": r100, "k100_correctness": round(k100, 4),
-          "oracle_correctness": round(oracle_agg["answer_correctness"], 4),
-          "interpretation": inter}
+    )
+    q6 = {
+        "q": "Is the ceiling limited by CE recall or LLM reasoning?",
+        "r_at_100": r100,
+        "k100_correctness": round(k100, 4),
+        "oracle_correctness": round(oracle_agg["answer_correctness"], 4),
+        "interpretation": inter,
+    }
 
     # Q7: conditional accuracy
     cond100 = conditional.get(100) or conditional.get(ks[-1])
-    q7 = {"q": "Conditional accuracy: correct|gold_present vs correct|gold_absent?",
-          "conditional_at_k100": cond100}
+    q7 = {"q": "Conditional accuracy: correct|gold_present vs correct|gold_absent?", "conditional_at_k100": cond100}
 
     # Q8: context efficiency optimum
-    q8 = {"q": "Context efficiency (correctness per ~1K context tokens); optimum?",
-          "optimum_k": eff_by_k and max(eff_by_k, key=lambda k: eff_by_k[k]),
-          "efficiency_by_k": eff_by_k}
+    q8 = {
+        "q": "Context efficiency (correctness per ~1K context tokens); optimum?",
+        "optimum_k": eff_by_k and max(eff_by_k, key=lambda k: eff_by_k[k]),
+        "efficiency_by_k": eff_by_k,
+    }
 
     # Q9: noise at K=100
     q9 = {"q": "Noise composition at K=100?", "noise_at_k100": noise.get(100)}
@@ -1300,15 +1425,31 @@ def _diagnostics(ks, k_curve, oracle_agg, r_at_k, conditional, failure, noise, e
     q10 = {"q": "Where is the R@K retrieval-ceiling elbow?", "elbow_k": elbow, "r_at_k": r_at_k}
 
     # Q11: oracle ceiling
-    q11 = {"q": "Oracle ceiling vs K=100: retrieval or LLM limit?",
-           "oracle": round(oracle_agg["answer_correctness"], 4), "k100": round(k100, 4),
-           "gap": round(oracle_agg["answer_correctness"] - k100, 4),
-           "interpretation": ("large gap closed by gold evidence -> retrieval/CE selection limit"
-                              if oracle_agg["answer_correctness"] > k100 + 0.05
-                              else "oracle ~ K=100 -> LLM reasoning/generation or evaluation limit")}
+    q11 = {
+        "q": "Oracle ceiling vs K=100: retrieval or LLM limit?",
+        "oracle": round(oracle_agg["answer_correctness"], 4),
+        "k100": round(k100, 4),
+        "gap": round(oracle_agg["answer_correctness"] - k100, 4),
+        "interpretation": (
+            "large gap closed by gold evidence -> retrieval/CE selection limit"
+            if oracle_agg["answer_correctness"] > k100 + 0.05
+            else "oracle ~ K=100 -> LLM reasoning/generation or evaluation limit"
+        ),
+    }
 
-    return {"q1": q1, "q2": q2, "q3": q3, "q4": q4, "q5": q5, "q6": q6,
-            "q7": q7, "q8": q8, "q9": q9, "q10": q10, "q11": q11}
+    return {
+        "q1": q1,
+        "q2": q2,
+        "q3": q3,
+        "q4": q4,
+        "q5": q5,
+        "q6": q6,
+        "q7": q7,
+        "q8": q8,
+        "q9": q9,
+        "q10": q10,
+        "q11": q11,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1342,63 +1483,102 @@ def phase_plots():
     ax.plot(ks, _vals("answer_jaccard"), "^-:", label="Jaccard")
     o = agg["oracle"]
     ax.axhline(o["answer_correctness"], color="red", ls=":", label=f"Oracle ({o['answer_correctness']:.2f})")
-    ax.set_xscale("log"); ax.set_xticks(ks); ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
+    ax.set_xscale("log")
+    ax.set_xticks(ks)
+    ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
     ax.set_xlabel("K (CE-ranked candidates supplied to LLM)")
-    ax.set_ylabel("Score (0-1)"); ax.set_title("Answer Quality vs CE Top-K")
-    ax.legend(); ax.grid(True, alpha=0.3); fig.tight_layout()
-    fig.savefig(PLOT_DIR / "experiment_b_01_correctness_vs_k.png", dpi=130); plt.close(fig)
+    ax.set_ylabel("Score (0-1)")
+    ax.set_title("Answer Quality vs CE Top-K")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_01_correctness_vs_k.png", dpi=130)
+    plt.close(fig)
 
     # Plot 2: citations vs K
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, _vals("citation_recall"), "o-", label="Citation Recall (unit-based)")
     ax.plot(ks, _vals("citation_precision"), "s--", label="Citation Precision")
     ax.axhline(o["citation_recall"], color="red", ls=":", label=f"Oracle recall ({o['citation_recall']:.2f})")
-    ax.set_xscale("log"); ax.set_xticks(ks); ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
-    ax.set_xlabel("K"); ax.set_ylabel("Rate (0-1)"); ax.set_title("Citation Recall & Precision vs CE Top-K")
-    ax.legend(); ax.grid(True, alpha=0.3); fig.tight_layout()
-    fig.savefig(PLOT_DIR / "experiment_b_02_citations_vs_k.png", dpi=130); plt.close(fig)
+    ax.set_xscale("log")
+    ax.set_xticks(ks)
+    ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
+    ax.set_xlabel("K")
+    ax.set_ylabel("Rate (0-1)")
+    ax.set_title("Citation Recall & Precision vs CE Top-K")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_02_citations_vs_k.png", dpi=130)
+    plt.close(fig)
 
     # Plot 3: groundedness / abstention vs K
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, _vals("groundedness"), "o-", lw=2, label="Groundedness")
     ax.plot(ks, _vals("abstain_rate"), "s--", label="Abstain rate")
-    ax.set_xscale("log"); ax.set_xticks(ks); ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
-    ax.set_xlabel("K"); ax.set_ylabel("Rate (0-1)"); ax.set_title("Groundedness & Abstention vs CE Top-K")
-    ax.legend(); ax.grid(True, alpha=0.3); fig.tight_layout()
-    fig.savefig(PLOT_DIR / "experiment_b_03_groundedness_vs_k.png", dpi=130); plt.close(fig)
+    ax.set_xscale("log")
+    ax.set_xticks(ks)
+    ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
+    ax.set_xlabel("K")
+    ax.set_ylabel("Rate (0-1)")
+    ax.set_title("Groundedness & Abstention vs CE Top-K")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_03_groundedness_vs_k.png", dpi=130)
+    plt.close(fig)
 
     # Plot 4: requested K vs actual context chunks + context tokens
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, ks, "k--", alpha=0.4, label="requested K")
     ax.plot(ks, _vals("mean_context_chunks"), "o-", label="mean context chunks (actual)")
-    ax.set_xscale("log"); ax.set_xticks(ks); ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
-    ax.set_xlabel("K (requested CE top-K)"); ax.set_ylabel("Chunks in LLM context")
-    ax.set_title("Requested K vs Actual Context Chunks"); ax.legend(); ax.grid(True, alpha=0.3)
-    fig.tight_layout(); fig.savefig(PLOT_DIR / "experiment_b_04_context_size_vs_k.png", dpi=130); plt.close(fig)
+    ax.set_xscale("log")
+    ax.set_xticks(ks)
+    ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
+    ax.set_xlabel("K (requested CE top-K)")
+    ax.set_ylabel("Chunks in LLM context")
+    ax.set_title("Requested K vs Actual Context Chunks")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_04_context_size_vs_k.png", dpi=130)
+    plt.close(fig)
 
     # Plot 5: dual-axis R@K vs answer correctness
     fig, ax1 = plt.subplots(figsize=(9, 5.5))
     ax1.plot(ks, [ret[k] for k in ks], "o-", color="tab:blue", label="R@K (retrieval ceiling)")
-    ax1.set_xscale("log"); ax1.set_xticks(ks)
+    ax1.set_xscale("log")
+    ax1.set_xticks(ks)
     ax1.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
-    ax1.set_xlabel("K"); ax1.set_ylabel("R@K recall", color="tab:blue"); ax1.tick_params(axis="y", labelcolor="tab:blue")
+    ax1.set_xlabel("K")
+    ax1.set_ylabel("R@K recall", color="tab:blue")
+    ax1.tick_params(axis="y", labelcolor="tab:blue")
     ax2 = ax1.twinx()
     ax2.plot(ks, _vals("answer_correctness"), "s--", color="tab:orange", label="Answer Correctness")
-    ax2.set_ylabel("Answer Correctness", color="tab:orange"); ax2.tick_params(axis="y", labelcolor="tab:orange")
+    ax2.set_ylabel("Answer Correctness", color="tab:orange")
+    ax2.tick_params(axis="y", labelcolor="tab:orange")
     ax1.set_title("Retrieval Ceiling (R@K) vs Answer Correctness")
-    ax1.grid(True, alpha=0.3); fig.tight_layout()
-    fig.savefig(PLOT_DIR / "experiment_b_05_retrieval_vs_answer.png", dpi=130); plt.close(fig)
+    ax1.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_05_retrieval_vs_answer.png", dpi=130)
+    plt.close(fig)
 
     # Plot 6: latency vs K (mean/median/P95)
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, _vals("avg_latency_ms"), "o-", label="mean latency")
     ax.plot(ks, _vals("median_latency_ms"), "s--", label="median latency")
     ax.plot(ks, _vals("p95_latency_ms"), "^-:", label="P95 latency")
-    ax.set_xscale("log"); ax.set_xticks(ks)
+    ax.set_xscale("log")
+    ax.set_xticks(ks)
     ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
-    ax.set_xlabel("K"); ax.set_ylabel("Latency (ms)"); ax.set_title("LLM Latency vs CE Top-K")
-    ax.legend(); ax.grid(True, alpha=0.3); fig.tight_layout()
-    fig.savefig(PLOT_DIR / "experiment_b_06_latency_vs_k.png", dpi=130); plt.close(fig)
+    ax.set_xlabel("K")
+    ax.set_ylabel("Latency (ms)")
+    ax.set_title("LLM Latency vs CE Top-K")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(PLOT_DIR / "experiment_b_06_latency_vs_k.png", dpi=130)
+    plt.close(fig)
     print(f"  Wrote 6 plots -> {PLOT_DIR}", flush=True)
     return 0
 
@@ -1407,12 +1587,11 @@ def phase_plots():
 # Report (summary MD)
 # ---------------------------------------------------------------------------
 def _pct(x):
-    return f"{x*100:.1f}%" if isinstance(x, (int, float)) and not isinstance(x, bool) else str(x)
+    return f"{x * 100:.1f}%" if isinstance(x, (int, float)) and not isinstance(x, bool) else str(x)
 
 
 def _tbl(headers, rows):
-    out = ["| " + " | ".join(str(h) for h in headers) + " |",
-           "| " + " | ".join("---" for _ in headers) + " |"]
+    out = ["| " + " | ".join(str(h) for h in headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
     for r in rows:
         out.append("| " + " | ".join(str(x) for x in r) + " |")
     return out
@@ -1438,52 +1617,68 @@ def phase_report():
     A("")
     A("## 1. Executive Summary")
     A("")
-    k1 = kc[ks[0]]["answer_correctness"]; k100 = kc[ks[-1]]["answer_correctness"]
-    A(f"Holds CE v2_K500, retrieval, RRF, context assembly, prompts, and the LLM model fixed; "
-      f"varies only K (CE-ranked candidates supplied to the LLM) over all 150 questions, "
-      f"K ∈ {{{', '.join(map(str, ks))}}}, plus a gold-context oracle.")
+    k1 = kc[ks[0]]["answer_correctness"]
+    k100 = kc[ks[-1]]["answer_correctness"]
+    A(
+        f"Holds CE v2_K500, retrieval, RRF, context assembly, prompts, and the LLM model fixed; "
+        f"varies only K (CE-ranked candidates supplied to the LLM) over all 150 questions, "
+        f"K ∈ {{{', '.join(map(str, ks))}}}, plus a gold-context oracle."
+    )
     A("")
-    A(f"**Headline.** Token-overlap answer correctness rises from {k1*100:.1f}% (K=1) to "
-      f"{k100*100:.1f}% (K=100); the oracle reaches {o['answer_correctness']*100:.1f}%. "
-      f"Retrieval ceiling R@100 = {ret.get('100',0)*100:.1f}% (MRR@10={agg['mrr_at_10']}, "
-      f"NDCG@10={agg['ndcg_at_10']}). The diagnostic conclusion is: "
-      f"{diag['q6']['interpretation']}.")
+    A(
+        f"**Headline.** Token-overlap answer correctness rises from {k1 * 100:.1f}% (K=1) to "
+        f"{k100 * 100:.1f}% (K=100); the oracle reaches {o['answer_correctness'] * 100:.1f}%. "
+        f"Retrieval ceiling R@100 = {ret.get('100', 0) * 100:.1f}% (MRR@10={agg['mrr_at_10']}, "
+        f"NDCG@10={agg['ndcg_at_10']}). The diagnostic conclusion is: "
+        f"{diag['q6']['interpretation']}."
+    )
     A("")
     A("## 2. Objective & Experimental Design")
     A("")
-    A("Determine whether, *once CE v2 has ranked the evidence*, giving the LLM more of that "
-      "ranked evidence improves answer quality -- and isolate the cause if it does not.")
+    A(
+        "Determine whether, *once CE v2 has ranked the evidence*, giving the LLM more of that "
+        "ranked evidence improves answer quality -- and isolate the cause if it does not."
+    )
     A("")
     A("The only experimental variable is **K = number of CE-ranked candidates supplied to the LLM**.")
     A("")
-    A("NOT done (spec section 3): no CE retraining/weight modification; no change to retrieval arms, "
-      "RRF, benchmark, gold labels, LLM model, prompts, citation mechanism, sanitizer, or abstention logic.")
+    A(
+        "NOT done (spec section 3): no CE retraining/weight modification; no change to retrieval arms, "
+        "RRF, benchmark, gold labels, LLM model, prompts, citation mechanism, sanitizer, or abstention logic."
+    )
     A("")
     A("## 3. Benchmark")
-    A(f"150-question frozen legal RAG benchmark (benchmark_v1.0.jsonl). "
-      f"{agg['n_questions']} questions carry a CE ranking. Gold resolution uses Experiment A's "
-      f"corrected provision-level mapping via `matches_gold` / `rank_of` (NOT the prior E2E gold-ID "
-      f"implementation). Gold chunk IDs = all payload point IDs where `matches_gold(payload, unit)` "
-      f"is true (find_all_gold_chunk_ids semantics).")
+    A(
+        f"150-question frozen legal RAG benchmark (benchmark_v1.0.jsonl). "
+        f"{agg['n_questions']} questions carry a CE ranking. Gold resolution uses Experiment A's "
+        f"corrected provision-level mapping via `matches_gold` / `rank_of` (NOT the prior E2E gold-ID "
+        f"implementation). Gold chunk IDs = all payload point IDs where `matches_gold(payload, unit)` "
+        f"is true (find_all_gold_chunk_ids semantics)."
+    )
     A("")
     A("## 4. Fixed Pipeline & Configuration")
     A("")
     cfg = agg.get("config", {})
-    for row in _tbl(["Item", "Value"], [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)]
-                                         for k, v in cfg.items()]):
+    for row in _tbl(
+        ["Item", "Value"], [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)] for k, v in cfg.items()]
+    ):
         A(row)
     A("")
     A("## 5. Experimental K Values")
     A("")
-    A(f"K ∈ {{{', '.join(map(str, K_VALUES))}}}. CE scored over the RRF top-500 (complete CE top-K "
-      "ranking cached once; all K contexts derived from it).")
+    A(
+        f"K ∈ {{{', '.join(map(str, K_VALUES))}}}. CE scored over the RRF top-500 (complete CE top-K "
+        "ranking cached once; all K contexts derived from it)."
+    )
     A("")
     A("## 6. Primary LLM Metrics (per K)")
     A("")
     A("| Metric | Definition |")
     A("|---|---|")
-    A("| Answer correctness | token-overlap (jaccard+coverage)/2 over acceptable_conclusion "
-      "(mirrors eval_e2e_v2.compute_question_metrics) |")
+    A(
+        "| Answer correctness | token-overlap (jaccard+coverage)/2 over acceptable_conclusion "
+        "(mirrors eval_e2e_v2.compute_question_metrics) |"
+    )
     A("| Coverage | |answer ∩ conclusion| / |conclusion| |")
     A("| Jaccard | |answer ∩ conclusion| / |answer ∪ conclusion| |")
     A("| Citation recall | gold units covered by ≥1 cited chunk / total gold units (unit-based) |")
@@ -1495,82 +1690,133 @@ def phase_report():
     A("## 7. Primary Result Table")
     A("")
     for row in _tbl(
-        ["K", "Ans. Correctness", "Coverage", "Jaccard", "Cit. Recall", "Cit. Precision",
-         "Groundedness", "Avg Latency (ms)"],
-        [[k, f"{kc[k]['answer_correctness']*100:.1f}%", f"{kc[k]['answer_coverage']*100:.1f}%",
-          f"{kc[k]['answer_jaccard']*100:.1f}%", f"{kc[k]['citation_recall']*100:.1f}%",
-          f"{kc[k]['citation_precision']*100:.1f}%", f"{kc[k]['groundedness']*100:.1f}%",
-          f"{kc[k]['avg_latency_ms']:.0f}"] for k in ks]):
+        [
+            "K",
+            "Ans. Correctness",
+            "Coverage",
+            "Jaccard",
+            "Cit. Recall",
+            "Cit. Precision",
+            "Groundedness",
+            "Avg Latency (ms)",
+        ],
+        [
+            [
+                k,
+                f"{kc[k]['answer_correctness'] * 100:.1f}%",
+                f"{kc[k]['answer_coverage'] * 100:.1f}%",
+                f"{kc[k]['answer_jaccard'] * 100:.1f}%",
+                f"{kc[k]['citation_recall'] * 100:.1f}%",
+                f"{kc[k]['citation_precision'] * 100:.1f}%",
+                f"{kc[k]['groundedness'] * 100:.1f}%",
+                f"{kc[k]['avg_latency_ms']:.0f}",
+            ]
+            for k in ks
+        ],
+    ):
         A(row)
     A("")
-    A(f"Oracle: correctness={o['answer_correctness']*100:.1f}%, grader-correct="
-      f"{o['grader_correct_rate']*100:.1f}%, citation_recall={o['citation_recall']*100:.1f}%, "
-      f"groundedness={o['groundedness']*100:.1f}%.")
+    A(
+        f"Oracle: correctness={o['answer_correctness'] * 100:.1f}%, grader-correct="
+        f"{o['grader_correct_rate'] * 100:.1f}%, citation_recall={o['citation_recall'] * 100:.1f}%, "
+        f"groundedness={o['groundedness'] * 100:.1f}%."
+    )
     A("")
     A("## 8. Retrieval Recall by K")
     A("")
-    for row in _tbl(["K", "R@K (CE)", "R@K (head-150 reference)", "MRR@10", "NDCG@10"],
-                    [[k, f"{ret.get(str(k),0)*100:.1f}%", "", f"{agg['mrr_at_10']*100:.1f}%",
-                      f"{agg['ndcg_at_10']*100:.1f}%"] for k in ks]):
+    for row in _tbl(
+        ["K", "R@K (CE)", "R@K (head-150 reference)", "MRR@10", "NDCG@10"],
+        [
+            [
+                k,
+                f"{ret.get(str(k), 0) * 100:.1f}%",
+                "",
+                f"{agg['mrr_at_10'] * 100:.1f}%",
+                f"{agg['ndcg_at_10'] * 100:.1f}%",
+            ]
+            for k in ks
+        ],
+    ):
         A(row)
     A("")
     A("## 9. Conditional Accuracy (correct | gold present vs absent)")
     A("")
-    for row in _tbl(["K", "gold_present_n", "gold_absent_n", "correct|present", "correct|absent"],
-                    [[k, cond[k]["gold_present_n"], cond[k]["gold_absent_n"],
-                      _pct(cond[k]["correct_given_present"]) if cond[k]["correct_given_present"] is not None else "n/a",
-                      _pct(cond[k]["correct_given_absent"]) if cond[k]["correct_given_absent"] is not None else "n/a"]
-                     for k in ks]):
+    for row in _tbl(
+        ["K", "gold_present_n", "gold_absent_n", "correct|present", "correct|absent"],
+        [
+            [
+                k,
+                cond[k]["gold_present_n"],
+                cond[k]["gold_absent_n"],
+                _pct(cond[k]["correct_given_present"]) if cond[k]["correct_given_present"] is not None else "n/a",
+                _pct(cond[k]["correct_given_absent"]) if cond[k]["correct_given_absent"] is not None else "n/a",
+            ]
+            for k in ks
+        ],
+    ):
         A(row)
     A("")
     A("## 10. Oracle Analysis")
     A("")
-    for row in _tbl(["Metric", "Oracle"],
-                    [["Answer Correctness", f"{o['answer_correctness']*100:.1f}%"],
-                     ["Correct rate (>0.5)", f"{o['correct_rate']*100:.1f}%"],
-                     ["Grader correct (score>=1)", f"{o['grader_correct_rate']*100:.1f}%"],
-                     ["Citation Recall", f"{o['citation_recall']*100:.1f}%"],
-                     ["Citation Precision", f"{o['citation_precision']*100:.1f}%"],
-                     ["Groundedness", f"{o['groundedness']*100:.1f}%"],
-                     ["Abstain rate", f"{o['abstain_rate']*100:.1f}%"],
-                     ["Mean latency (ms)", f"{o['avg_latency_ms']:.0f}"],
-                     ["Mean context chunks", f"{o['mean_context_chunks']:.1f}"],
-                     ["Mean context tokens", f"{o['mean_context_tokens']:.0f}"],
-                     ["Mean context chars", f"{o['mean_context_chars']:.0f}"],
-                     ["Mean gold chunks fed", f"{o['mean_gold_chunks_total']:.1f}"]]):
+    for row in _tbl(
+        ["Metric", "Oracle"],
+        [
+            ["Answer Correctness", f"{o['answer_correctness'] * 100:.1f}%"],
+            ["Correct rate (>0.5)", f"{o['correct_rate'] * 100:.1f}%"],
+            ["Grader correct (score>=1)", f"{o['grader_correct_rate'] * 100:.1f}%"],
+            ["Citation Recall", f"{o['citation_recall'] * 100:.1f}%"],
+            ["Citation Precision", f"{o['citation_precision'] * 100:.1f}%"],
+            ["Groundedness", f"{o['groundedness'] * 100:.1f}%"],
+            ["Abstain rate", f"{o['abstain_rate'] * 100:.1f}%"],
+            ["Mean latency (ms)", f"{o['avg_latency_ms']:.0f}"],
+            ["Mean context chunks", f"{o['mean_context_chunks']:.1f}"],
+            ["Mean context tokens", f"{o['mean_context_tokens']:.0f}"],
+            ["Mean context chars", f"{o['mean_context_chars']:.0f}"],
+            ["Mean gold chunks fed", f"{o['mean_gold_chunks_total']:.1f}"],
+        ],
+    ):
         A(row)
     A("")
     A("## 11. Condition A (CE top-K) vs Condition B (Oracle)")
     A("")
     ca = agg["condition_a_vs_b"]["condition_a_correctness_by_k"]
-    for row in _tbl(["K", "Condition A (CE top-K)", "Condition B (oracle)"],
-                    [[k, f"{ca[str(k)]*100:.1f}%" if ca.get(str(k)) else "n/a",
-                      f"{o['answer_correctness']*100:.1f}%"] for k in ks]):
+    for row in _tbl(
+        ["K", "Condition A (CE top-K)", "Condition B (oracle)"],
+        [
+            [k, f"{ca[str(k)] * 100:.1f}%" if ca.get(str(k)) else "n/a", f"{o['answer_correctness'] * 100:.1f}%"]
+            for k in ks
+        ],
+    ):
         A(row)
     A("")
     A("## 12. Context Efficiency & Plateau")
     A("")
     eff = agg["context_efficiency"]
     eff_by_k = {int(k): v for k, v in eff["efficiency_by_k"].items()}
-    A(f"Correctness per ~1K context tokens peaks at K={eff['optimum_k']} "
-      f"(efficiency={eff['optimum_efficiency']:.4f}).")
+    A(f"Correctness per ~1K context tokens peaks at K={eff['optimum_k']} (efficiency={eff['optimum_efficiency']:.4f}).")
     A("")
-    for row in _tbl(["K", "Efficiency (correctness per ~1K context tokens)"],
-                    [[k, f"{eff_by_k[k]:.4f}"] for k in ks if k in eff_by_k]):
+    for row in _tbl(
+        ["K", "Efficiency (correctness per ~1K context tokens)"],
+        [[k, f"{eff_by_k[k]:.4f}"] for k in ks if k in eff_by_k],
+    ):
         A(row)
     A("")
     A("## 13. Noise Analysis (K=100)")
     nm = noise.get(100) or list(noise.values())[0]
     if nm:
-        A(f"Mean context chunks={nm['mean_total_context_chunks']}, gold-in-context="
-          f"{nm['mean_gold_chunks_in_context']} ({nm['frac_gold']*100:.1f}%), "
-          f"non-gold={nm['mean_non_gold_chunks']} ({nm['frac_non_gold']*100:.1f}%), "
-          f"KG={nm['mean_kg_items']} ({nm['frac_kg']*100:.1f}%).")
+        A(
+            f"Mean context chunks={nm['mean_total_context_chunks']}, gold-in-context="
+            f"{nm['mean_gold_chunks_in_context']} ({nm['frac_gold'] * 100:.1f}%), "
+            f"non-gold={nm['mean_non_gold_chunks']} ({nm['frac_non_gold'] * 100:.1f}%), "
+            f"KG={nm['mean_kg_items']} ({nm['frac_kg'] * 100:.1f}%)."
+        )
     A("")
     A("## 14. Monotonicity")
     mo = agg["monotonicity"]
-    A(f"Correctness non-decreasing in K for {mo['fully_monotonic']}/{mo['total']} questions "
-      f"({(mo['fully_monotonic']/max(mo['total'],1))*100:.1f}%).")
+    A(
+        f"Correctness non-decreasing in K for {mo['fully_monotonic']}/{mo['total']} questions "
+        f"({(mo['fully_monotonic'] / max(mo['total'], 1)) * 100:.1f}%)."
+    )
     if mo.get("examples"):
         A("")
         for ex in mo["examples"][:5]:
@@ -1578,16 +1824,19 @@ def phase_report():
     A("")
     A("## 15. Actual vs Requested K")
     A("")
-    for row in _tbl(["K (requested)", "=1 (actual chunk)", "(differs only if chars truncate)"],
-                    [] if False else [[k, f"{kc[k]['mean_context_chunks']:.1f}",
-                                       "yes (200K budget non-binding)"] for k in ks]):
+    for row in _tbl(
+        ["K (requested)", "=1 (actual chunk)", "(differs only if chars truncate)"],
+        [] if False else [[k, f"{kc[k]['mean_context_chunks']:.1f}", "yes (200K budget non-binding)"] for k in ks],
+    ):
         A(row)
     A("")
     A("## 16. Per-Question Results")
-    A(f"Per-question K-curves + oracle written to `{PER_QUESTION_JSON}`. "
-      f"Each record: correctness/coverage/jaccard, citation recall/precision, "
-      f"groundedness, abstention, latency, context tokens/chars, grader score (0/1/2), "
-      f"failure-relevant flags, and cited chunk IDs.")
+    A(
+        f"Per-question K-curves + oracle written to `{PER_QUESTION_JSON}`. "
+        f"Each record: correctness/coverage/jaccard, citation recall/precision, "
+        f"groundedness, abstention, latency, context tokens/chars, grader score (0/1/2), "
+        f"failure-relevant flags, and cited chunk IDs."
+    )
     A("")
     A("## 17. Plot Gallery")
     A("")
@@ -1601,60 +1850,87 @@ def phase_report():
     A("")
     A("## 18. Transitions (correct<->incorrect across consecutive K)")
     tr = agg["transitions"]
-    A(f"Total correctness transitions across consecutive K values: "
-      f"{tr['total_transitions']} "
-      f"(incl->excl: {tr['correct_to_incorrect']}, excl->incl: {tr['incorrect_to_correct']}).")
+    A(
+        f"Total correctness transitions across consecutive K values: "
+        f"{tr['total_transitions']} "
+        f"(incl->excl: {tr['correct_to_incorrect']}, excl->incl: {tr['incorrect_to_correct']})."
+    )
     A("")
     A("## 19. Failure Classification (A-E) at K=max(K)")
     fk = fail.get(ks[-1]) or list(fail.values())[0]
-    A(f"A(retrieval-limit, gold absent from CE top-K)={fk['A_retrieval_limit']}, "
-      f"B(gold present, wrong)={fk['B_gold_present_wrong']}, "
-      f"C(correct)={fk['C_correct']}, "
-      f"D(recoverable via oracle)={fk['D_recoverable']}, "
-      f"E(LLM/rec limit, oracle also wrong)={fk['E_llm_limit']}.")
+    A(
+        f"A(retrieval-limit, gold absent from CE top-K)={fk['A_retrieval_limit']}, "
+        f"B(gold present, wrong)={fk['B_gold_present_wrong']}, "
+        f"C(correct)={fk['C_correct']}, "
+        f"D(recoverable via oracle)={fk['D_recoverable']}, "
+        f"E(LLM/rec limit, oracle also wrong)={fk['E_llm_limit']}."
+    )
     A("")
     A("## 20 / 21. Diagnostic Questions & Answers")
     answers = {
-        "Q1": diag["q1"], "Q2": diag["q2"], "Q3": diag["q3"], "Q4": diag["q4"],
-        "Q5": diag["q5"], "Q6": diag["q6"], "Q7": diag["q7"], "Q8": diag["q8"],
-        "Q9": diag["q9"], "Q10": diag["q10"], "Q11": diag["q11"],
+        "Q1": diag["q1"],
+        "Q2": diag["q2"],
+        "Q3": diag["q3"],
+        "Q4": diag["q4"],
+        "Q5": diag["q5"],
+        "Q6": diag["q6"],
+        "Q7": diag["q7"],
+        "Q8": diag["q8"],
+        "Q9": diag["q9"],
+        "Q10": diag["q10"],
+        "Q11": diag["q11"],
     }
     for k_, v in answers.items():
         A(f"### {k_} {v['q']}")
         A(f"- **Measurement:** {json.dumps({kk: vv for kk, vv in v.items() if kk != 'q'}, default=str)}")
         A("")
     A("## 22. Caveats & Limitations")
-    A("- Token-overlap correctness is harsh (needs paraphrase of the exact "
-      "`acceptable_conclusion`); the protocol §13 grader (`grade_answer`, 0/1/2) is "
-      "reported alongside as a richer legal signal, but citation-dependent.")
-    A("- The FSSAI `grounded_qa` system prompt is fixed for all questions (including "
-      "non-FSSAI domains); prompt tuning between K is forbidden by the spec.")
-    A("- Citation metrics require the LLM to emit `[n]` / `Section N` markers; if it does "
-      "not, citation rates are ~0 and grader provision_correct becomes citation-dependent.")
-    A("- The answerability-rejection heuristic is disabled to isolate K (fixed config); "
-      "its real-world effect (truncating context to ~1.5 chunks) is a separate finding.")
-    A("- `poolside/laguna-s-2.1:free` free-tier OpenRouter model; latency/rates are "
-      "free-tier-limited.")
+    A(
+        "- Token-overlap correctness is harsh (needs paraphrase of the exact "
+        "`acceptable_conclusion`); the protocol §13 grader (`grade_answer`, 0/1/2) is "
+        "reported alongside as a richer legal signal, but citation-dependent."
+    )
+    A(
+        "- The FSSAI `grounded_qa` system prompt is fixed for all questions (including "
+        "non-FSSAI domains); prompt tuning between K is forbidden by the spec."
+    )
+    A(
+        "- Citation metrics require the LLM to emit `[n]` / `Section N` markers; if it does "
+        "not, citation rates are ~0 and grader provision_correct becomes citation-dependent."
+    )
+    A(
+        "- The answerability-rejection heuristic is disabled to isolate K (fixed config); "
+        "its real-world effect (truncating context to ~1.5 chunks) is a separate finding."
+    )
+    A("- `poolside/laguna-s-2.1:free` free-tier OpenRouter model; latency/rates are free-tier-limited.")
     A("")
     A("## 23. Recommended Next Experiment")
     A("")
     interp = diag["q6"]["interpretation"]
     if "retrieval" in interp or "CE selection" in interp:
-        A("The oracle corrects a meaningful portion of the gap -> the ceiling is retrieval/CE-selection "
-          "limited. **Next experiment:** tune CE reranker legal weights (sec/act/exact/lex) and/or "
-          "add a 2nd-stage reranker; re-run Experiment B at the new operating point.")
+        A(
+            "The oracle corrects a meaningful portion of the gap -> the ceiling is retrieval/CE-selection "
+            "limited. **Next experiment:** tune CE reranker legal weights (sec/act/exact/lex) and/or "
+            "add a 2nd-stage reranker; re-run Experiment B at the new operating point."
+        )
     elif "LLM" in interp:
-        A("The oracle does NOT correct the gap -> ceiling is LLM reasoning/generation. **Next experiment:** "
-          "query-type-aware prompts + domain-matched system prompts + longer context window; re-run B.")
+        A(
+            "The oracle does NOT correct the gap -> ceiling is LLM reasoning/generation. **Next experiment:** "
+            "query-type-aware prompts + domain-matched system prompts + longer context window; re-run B."
+        )
     else:
-        A("Mixed -- both contribute. **Next experiment (A):** CE legal-weight sweep; "
-          "(B): domain-aware prompts; re-run B under each.")
+        A(
+            "Mixed -- both contribute. **Next experiment (A):** CE legal-weight sweep; "
+            "(B): domain-aware prompts; re-run B under each."
+        )
     A("")
     A("---")
-    A(f"*Generated {time.strftime('%Y-%m-%d %H:%M:%S')} from "
-      f"`evaluation/experiment_b_topk_eval.py`. "
-      f"LLM calls={agg['llm_record_count'] + agg['oracle_record_count']} "
-      f"(K-curve={agg['llm_record_count']}, oracle={agg['oracle_record_count']}).*")
+    A(
+        f"*Generated {time.strftime('%Y-%m-%d %H:%M:%S')} from "
+        f"`evaluation/experiment_b_topk_eval.py`. "
+        f"LLM calls={agg['llm_record_count'] + agg['oracle_record_count']} "
+        f"(K-curve={agg['llm_record_count']}, oracle={agg['oracle_record_count']}).*"
+    )
 
     SUMMARY_MD.write_text("\n".join(L), encoding="utf-8")
     print(f"  Wrote summary -> {SUMMARY_MD}", flush=True)
@@ -1709,6 +1985,7 @@ def phase_validate():
         _print_dry_context_math(ce_cache, questions, payload_index, family_map)
     except Exception as exc:
         import traceback
+
         print(f"  [VALIDATE] _print_dry_context_math raised: {exc!r}", flush=True)
         traceback.print_exc()
     return 0
@@ -1716,15 +1993,19 @@ def phase_validate():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Experiment B -- CE Top-K -> LLM answer-quality curve")
-    ap.add_argument("--phase", default="all",
-                    choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"])
+    ap.add_argument(
+        "--phase", default="all", choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"]
+    )
     ap.add_argument("--dry", action="store_true", help="build in dry mode (no LLM, with verification + context math)")
     ap.add_argument("--stub", action="store_true", help="use stub LLM (validate pipeline, no real API calls)")
     ap.add_argument("--concurrency", type=int, default=LLM_CONCURRENCY)
     ap.add_argument("--resume", action="store_true", default=True, help="resume from checkpoint")
     ap.add_argument("--limit", type=int, default=None, help="limit LLM tasks (for testing)")
-    ap.add_argument("--validate", action="store_true",
-                    help="verify cached CE ranking: R@K + Q001-5 + K-context math + oracle math (no CE re-score, no LLM)")
+    ap.add_argument(
+        "--validate",
+        action="store_true",
+        help="verify cached CE ranking: R@K + Q001-5 + K-context math + oracle math (no CE re-score, no LLM)",
+    )
     args = ap.parse_args(argv)
 
     if args.validate:

@@ -24,9 +24,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 import torch
+
 torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
@@ -106,8 +108,8 @@ def score_pool(items: list[dict], query: str, ce) -> list[dict]:
 
 def compute_metrics(ranked_items: list[dict], question, payload_index, family_map) -> dict:
     """Compute R@1, R@20, R@50, R@100, MRR, NDCG@10 for a single reranked list."""
-    rel = question.relevant_units()       # primary + acceptable
-    all_units = question.recall_units()     # all gold (incl. supporting)
+    rel = question.relevant_units()  # primary + acceptable
+    all_units = question.recall_units()  # all gold (incl. supporting)
 
     # Find first-hit rank of each gold unit
     unit_ranks: dict[str, int | None] = {}
@@ -127,9 +129,18 @@ def compute_metrics(ranked_items: list[dict], question, payload_index, family_ma
     n_rel = len(rel)
     if n_rel == 0:
         return {
-            "R@1": 0.0, "R@20": 0.0, "R@50": 0.0, "R@100": 0.0,
-            "recall_unit@1": 0.0, "recall_unit@20": 0.0, "recall_unit@50": 0.0, "recall_unit@100": 0.0,
-            "MRR": 0.0, "NDCG@10": 0.0, "n_gold": 0, "n_pool": len(ranked_items),
+            "R@1": 0.0,
+            "R@20": 0.0,
+            "R@50": 0.0,
+            "R@100": 0.0,
+            "recall_unit@1": 0.0,
+            "recall_unit@20": 0.0,
+            "recall_unit@50": 0.0,
+            "recall_unit@100": 0.0,
+            "MRR": 0.0,
+            "NDCG@10": 0.0,
+            "n_gold": 0,
+            "n_pool": len(ranked_items),
         }
 
     # Unit-level Recall@K (fraction of relevant units found in top-K)
@@ -152,9 +163,8 @@ def compute_metrics(ranked_items: list[dict], question, payload_index, family_ma
         if r is not None and r <= 10:
             gain = 2.0 if unit.role == "primary" else 1.0
             gains_by_rank[r] = gains_by_rank.get(r, 0.0) + gain
-    ideal = sorted(
-        [(2.0 if u.role == "primary" else 1.0) for u in rel], reverse=True
-    )
+    ideal = sorted([(2.0 if u.role == "primary" else 1.0) for u in rel], reverse=True)
+
     def idcg(gs: list[float], k: int) -> float:
         return sum(gs[i] / math.log2(i + 2) for i in range(min(k, len(gs)))) or 1e-9
 
@@ -224,6 +234,7 @@ def main() -> int:
     # ---- Load CE models ----
     print("[3/5] Loading CrossEncoder models...", flush=True)
     from sentence_transformers import CrossEncoder
+
     ce_models = {
         "ce_v1_legal": CrossEncoder(CE_V1.as_posix(), max_length=256),
         "ce_v2_K500": CrossEncoder(CE_V2.as_posix(), max_length=256),
@@ -301,14 +312,18 @@ def main() -> int:
     print("-" * 70)
     for name in ce_models:
         a = agg[name]
-        print(f"{name:<20} {a['R@1']:>7.4f} {a['R@20']:>7.4f} {a['R@50']:>7.4f} {a['R@100']:>7.4f} {a['MRR']:>7.4f} {a['NDCG@10']:>8.4f}")
+        print(
+            f"{name:<20} {a['R@1']:>7.4f} {a['R@20']:>7.4f} {a['R@50']:>7.4f} {a['R@100']:>7.4f} {a['MRR']:>7.4f} {a['NDCG@10']:>8.4f}"
+        )
 
     print("\n--- Unit-level Recall@K (fraction of gold units in top-K) ---")
     print(f"{'Model':<20} {'R@1':>7} {'R@20':>7} {'R@50':>7} {'R@100':>7}")
     print("-" * 50)
     for name in ce_models:
         a = agg[name]
-        print(f"{name:<20} {a['recall_unit@1']:>7.4f} {a['recall_unit@20']:>7.4f} {a['recall_unit@50']:>7.4f} {a['recall_unit@100']:>7.4f}")
+        print(
+            f"{name:<20} {a['recall_unit@1']:>7.4f} {a['recall_unit@20']:>7.4f} {a['recall_unit@50']:>7.4f} {a['recall_unit@100']:>7.4f}"
+        )
 
     print("\n--- vs legal_ce_v1 baseline deltas (legal_ce_v2_K500) ---")
     a = agg["ce_v2_K500"]

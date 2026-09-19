@@ -1,14 +1,18 @@
 """Debug: Check gold chunk matching for first 30 questions with ce_v2."""
+
 import sys, os, json, warnings, time
+
 warnings.filterwarnings("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
-PROJECT_ROOT = r'C:\github\NSA_webservice'
+PROJECT_ROOT = r"C:\github\NSA_webservice"
 sys.path.insert(0, PROJECT_ROOT)
 from dotenv import load_dotenv
-load_dotenv(os.path.join(PROJECT_ROOT, '.env'), override=True)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"), override=True)
 os.environ["RAG_USE_STUB_LLM"] = "false"
 
 import torch
+
 torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
@@ -106,8 +110,10 @@ for qid in sorted(questions.keys())[:30]:
     if has_gold:
         gold_in_top10 += 1
 
-    print(f"{qid}: n_gold={len(gold_ids)}, gold_in_top10={has_gold}, "
-          f"n_chunk_top10={len(top10_chunk_keys)}, n_all_top10={len(top10_all_keys)}")
+    print(
+        f"{qid}: n_gold={len(gold_ids)}, gold_in_top10={has_gold}, "
+        f"n_chunk_top10={len(top10_chunk_keys)}, n_all_top10={len(top10_all_keys)}"
+    )
 
 print(f"\nSummary: checked={checked}, gold_found={gold_found}, gold_in_top10={gold_in_top10}")
-print(f"Rate: {gold_in_top10}/{checked} = {gold_in_top10/max(checked,1):.4f}")
+print(f"Rate: {gold_in_top10}/{checked} = {gold_in_top10 / max(checked, 1):.4f}")

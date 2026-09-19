@@ -27,9 +27,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 import torch
+
 torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
@@ -53,9 +55,17 @@ OUT_JSON = OUT_DIR / "experiment_a_gold_rank.json"
 OUT_MD = OUT_DIR / "experiment_a_gold_rank_report.md"
 
 BUCKETS = [
-    "1", "2-5", "6-10", "11-20", "21-50",
-    "51-100", "101-150", "151-200", "201-300",
-    "301-500", ">500 / missing",
+    "1",
+    "2-5",
+    "6-10",
+    "11-20",
+    "21-50",
+    "51-100",
+    "101-150",
+    "151-200",
+    "201-300",
+    "301-500",
+    ">500 / missing",
 ]
 
 
@@ -115,9 +125,7 @@ def score_pool_with_scores(items: list[dict], query: str, ce) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Gold resolution helpers
 # ---------------------------------------------------------------------------
-def find_all_gold_chunk_ids(
-    question, payload_index: dict[str, dict], family_map: FamilyMap
-) -> list[str]:
+def find_all_gold_chunk_ids(question, payload_index: dict[str, dict], family_map: FamilyMap) -> list[str]:
     """Find ALL payload chunk IDs that cover each gold unit (preserving all gold chunks)."""
     gold_chunk_ids: list[str] = []
     for unit in question.recall_units():
@@ -130,9 +138,7 @@ def find_all_gold_chunk_ids(
     return gold_chunk_ids
 
 
-def find_all_gold_with_ranks(
-    ranked_list: list[dict], question, payload_index, family_map
-) -> dict[str, dict]:
+def find_all_gold_with_ranks(ranked_list: list[dict], question, payload_index, family_map) -> dict[str, dict]:
     """Trace gold chunks through a ranked list. Returns per-gold-unit info."""
     info: dict[str, dict] = {}
     for unit in question.recall_units():
@@ -143,7 +149,7 @@ def find_all_gold_with_ranks(
             "section": unit.section,
             "role": unit.role,
             "gain": unit.gain,
-            "hits": [],          # list of (rank, key, score, text_snippet)
+            "hits": [],  # list of (rank, key, score, text_snippet)
         }
         for i, it in enumerate(ranked_list):
             if it["kind"] == "chunk":
@@ -236,6 +242,7 @@ def main() -> int:
     # ---- Load CE model ----
     print("[2/6] Loading CE v2_K500 model...", flush=True)
     from sentence_transformers import CrossEncoder
+
     ce = CrossEncoder(CE_V2.as_posix(), max_length=256)
     print("  Model loaded.", flush=True)
 
@@ -251,8 +258,7 @@ def main() -> int:
             continue
 
         # Build pool (same as eval_v2_checkpoint.py: slice_depth=500, kg_slice=500)
-        pool = build_pool(d, s, k, payload_index, family_map,
-                          slice_depth=SLICE_DEPTH, kg_slice=KG_SLICE)
+        pool = build_pool(d, s, k, payload_index, family_map, slice_depth=SLICE_DEPTH, kg_slice=KG_SLICE)
         if not pool:
             continue
 
@@ -273,8 +279,7 @@ def main() -> int:
             ])
 
         # RRF-ranked pool (pure RRF base, sec_act weights all 0)
-        rrf_ranked = rerank(pool, q.question, family_map, rrf,
-                            {"sec": 0.0, "act": 0.0, "exact": 0.0, "lex": 0.0})
+        rrf_ranked = rerank(pool, q.question, family_map, rrf, {"sec": 0.0, "act": 0.0, "exact": 0.0, "lex": 0.0})
 
         # CE-ranked pool (adds ce_score to items)
         ce_ranked = score_pool_with_scores(rrf_ranked[:POOL_HEAD], q.question, ce)
@@ -365,8 +370,12 @@ def main() -> int:
     def cumulative_recall(entries, stage_key, ks):
         results = {}
         for k in ks:
-            count = sum(1 for e in entries if e["stages"][stage_key]["best_gold_rank"] is not None
-                         and e["stages"][stage_key]["best_gold_rank"] <= k)
+            count = sum(
+                1
+                for e in entries
+                if e["stages"][stage_key]["best_gold_rank"] is not None
+                and e["stages"][stage_key]["best_gold_rank"] <= k
+            )
             results[k] = {"count": count, "total": len(entries), "pct": count / len(entries)}
         return results
 
@@ -425,14 +434,12 @@ def main() -> int:
     prev_v2 = prev_data["results"]["ce_v2_K500"]
 
     # Recompute R@1, R@20, R@50, R@100 from per_question for comparison
-    recomputed = {k: {"count": ce_recall[k]["count"], "total": len(per_question),
-                       "pct": round(ce_recall[k]["pct"], 4)} for k in [1, 20, 50, 100]}
-
-    consistency = {
-        "ce_v2_K500_previous": prev_v2,
-        "ce_v2_K500_recomputed": recomputed,
-        "discrepancy": {}
+    recomputed = {
+        k: {"count": ce_recall[k]["count"], "total": len(per_question), "pct": round(ce_recall[k]["pct"], 4)}
+        for k in [1, 20, 50, 100]
     }
+
+    consistency = {"ce_v2_K500_previous": prev_v2, "ce_v2_K500_recomputed": recomputed, "discrepancy": {}}
     for k in [1, 20, 50, 100]:
         prev_key = f"R@{k}"
         prev_val = prev_v2.get(prev_key, "")
@@ -546,7 +553,9 @@ def main() -> int:
     print("\n--- Consistency Check (CE v2_K500) ---")
     for k in [1, 20, 50, 100]:
         d = consistency["discrepancy"].get(f"R@{k}", {})
-        print(f"  R@{k}: prev={d.get('previous', '?')}, recomputed={d.get('recomputed', '?')}, diff={d.get('difference', '?')}")
+        print(
+            f"  R@{k}: prev={d.get('previous', '?')}, recomputed={d.get('recomputed', '?')}, diff={d.get('difference', '?')}"
+        )
 
     print("\n" + "=" * 70)
     print("DONE")
@@ -615,19 +624,27 @@ def write_markdown_report(output, path, prev_v2, consistency):
     fc = output["failure_classification"]
     lines.append("| Class | Description | Count | % |")
     lines.append("|---|---|---:|---:|")
-    lines.append(f"| A | Gold missing from candidate pool | {fc['A_gold_missing_pool']} | {fc['A_gold_missing_pool']/fc['total']*100:.1f}% |")
-    lines.append(f"| B | Gold present but lost during RRF/fusion | {fc['B_gold_lost_in_rrf']} | {fc['B_gold_lost_in_rrf']/fc['total']*100:.1f}% |")
-    lines.append(f"| C | Gold in CE input but ranked below top-10 | {fc['C_gold_below_top10']} | {fc['C_gold_below_top10']/fc['total']*100:.1f}% |")
-    lines.append(f"| D | Gold reaches CE top-10 | {fc['D_gold_in_top10']} | {fc['D_gold_in_top10']/fc['total']*100:.1f}% |")
+    lines.append(
+        f"| A | Gold missing from candidate pool | {fc['A_gold_missing_pool']} | {fc['A_gold_missing_pool'] / fc['total'] * 100:.1f}% |"
+    )
+    lines.append(
+        f"| B | Gold present but lost during RRF/fusion | {fc['B_gold_lost_in_rrf']} | {fc['B_gold_lost_in_rrf'] / fc['total'] * 100:.1f}% |"
+    )
+    lines.append(
+        f"| C | Gold in CE input but ranked below top-10 | {fc['C_gold_below_top10']} | {fc['C_gold_below_top10'] / fc['total'] * 100:.1f}% |"
+    )
+    lines.append(
+        f"| D | Gold reaches CE top-10 | {fc['D_gold_in_top10']} | {fc['D_gold_in_top10'] / fc['total'] * 100:.1f}% |"
+    )
     lines.append(f"| **Total** | | **{fc['total']}** | **100%** |")
     lines.append("")
 
     # 5. Critical boundary analysis (ranks 6-100)
     lines.append("## 5. Critical Boundary Analysis (CE ranks 6–100)\n")
     boundary_qs = [
-        e for e in output["per_question"]
-        if e["stages"]["ce"]["best_gold_rank"] is not None
-        and 6 <= e["stages"]["ce"]["best_gold_rank"] <= 100
+        e
+        for e in output["per_question"]
+        if e["stages"]["ce"]["best_gold_rank"] is not None and 6 <= e["stages"]["ce"]["best_gold_rank"] <= 100
     ]
     boundary_qs.sort(key=lambda e: e["stages"]["ce"]["best_gold_rank"])
     lines.append(f"Found **{len(boundary_qs)}** questions where gold is in CE ranks 6–100.\n")
@@ -638,7 +655,9 @@ def write_markdown_report(output, path, prev_v2, consistency):
         rrf_rank = e["stages"]["rrf"]["best_gold_rank"]
         gold_unit = e["gold_units"][0] if e["gold_units"] else {}
         ce_score = gold_unit.get("ce_score")
-        lines.append(f"| {e['question_id']} | {ce_rank} | {ce_score} | {rrf_rank} | {gold_unit.get('provision_id', '-')} | {', '.join(e['domains'])} |")
+        lines.append(
+            f"| {e['question_id']} | {ce_rank} | {ce_score} | {rrf_rank} | {gold_unit.get('provision_id', '-')} | {', '.join(e['domains'])} |"
+        )
     if len(boundary_qs) > 30:
         lines.append(f"\n*...and {len(boundary_qs) - 30} more*\n")
     lines.append("")
@@ -658,7 +677,9 @@ def write_markdown_report(output, path, prev_v2, consistency):
             r10_score = "N/A"
             lines.append(f"| {e['question_id']} | {ce_rank} | {gold_score_str} | {r1_score} | {r10_score} | - | - |")
     lines.append("")
-    lines.append("*Note: Rank-1 and Rank-10 CE scores require the full CE-ranked list. See per-question JSON for complete CE scores.*\n")
+    lines.append(
+        "*Note: Rank-1 and Rank-10 CE scores require the full CE-ranked list. See per-question JSON for complete CE scores.*\n"
+    )
 
     # 7. Score distribution analysis
     lines.append("## 7. CE Score Distribution Analysis\n")
@@ -692,7 +713,9 @@ def write_markdown_report(output, path, prev_v2, consistency):
             mean = sum(vals) / len(vals)
             med = sorted(vals)[len(vals) // 2]
             std = (sum((x - mean) ** 2 for x in vals) / len(vals)) ** 0.5
-            lines.append(f"| {b} | {len(vals)} | {mean:.6f} | {med:.6f} | {std:.6f} | {min(vals):.6f} | {max(vals):.6f} |")
+            lines.append(
+                f"| {b} | {len(vals)} | {mean:.6f} | {med:.6f} | {std:.6f} | {min(vals):.6f} | {max(vals):.6f} |"
+            )
         else:
             lines.append(f"| {b} | 0 | - | - | - | - | - |")
     lines.append("")
@@ -704,28 +727,44 @@ def write_markdown_report(output, path, prev_v2, consistency):
     for k in [1, 20, 50, 100]:
         d = consistency["discrepancy"].get(f"R@{k}", {})
         cause = d.get("likely_cause", "?")
-        lines.append(f"| R@{k} | {d.get('previous', '?')} | {d.get('recomputed', '?')} | {d.get('difference', '?')} | {cause} |")
+        lines.append(
+            f"| R@{k} | {d.get('previous', '?')} | {d.get('recomputed', '?')} | {d.get('difference', '?')} | {cause} |"
+        )
     lines.append("")
 
     # 9. Gold ID handling validation
     lines.append("## 9. Gold ID Handling Validation\n")
     lines.append("Tracing gold IDs from benchmark → payload index → candidate generation → RRF → CE:\n")
     # Check ID types
-    lines.append("- Gold IDs are benchmark provision IDs (e.g. `fssai:s16(1)`), resolved to corpus chunk UUIDs via `matches_gold()` payload matching.")
+    lines.append(
+        "- Gold IDs are benchmark provision IDs (e.g. `fssai:s16(1)`), resolved to corpus chunk UUIDs via `matches_gold()` payload matching."
+    )
     lines.append("- Candidate-generation chunk IDs are Qdrant point UUIDs (8-char hex strings).")
     lines.append("- RRF keys are string chunk IDs (no type coercion).")
-    lines.append("- CE does NOT use IDs — it scores (question_text, chunk_text) pairs, so ID type mismatches are not possible at this stage.")
+    lines.append(
+        "- CE does NOT use IDs — it scores (question_text, chunk_text) pairs, so ID type mismatches are not possible at this stage."
+    )
     lines.append("- Ranked list uses `it['key']` consistently as strings.\n")
     lines.append("**No ID type transformations detected.** All IDs are strings throughout the pipeline.\n")
 
     # 10. Summary
     lines.append("## 10. Key Findings\n")
-    lines.append(f"1. **Candidate generation recall:** {fc_count(output, 'A')} of 150 questions have gold missing from the pool.")
+    lines.append(
+        f"1. **Candidate generation recall:** {fc_count(output, 'A')} of 150 questions have gold missing from the pool."
+    )
     lines.append(f"2. **RRF loss:** {fc_count(output, 'B')} of 150 questions lose gold during RRF/fusion.")
-    lines.append(f"3. **CE top-10 gap:** {fc_count(output, 'C')} of 150 questions have gold in the CE input but ranked below top-10.")
-    lines.append(f"4. **CE success:** {fc_count(output, 'D')} of 150 questions ({(fc_count(output, 'D')/150*100):.1f}%) have gold in CE top-10.")
-    lines.append(f"5. **Cumulative CE recall:** R@1={cr['1']['pct']:.4f}, R@10={cr['10']['pct']:.4f}, R@20={cr['20']['pct']:.4f}, R@50={cr['50']['pct']:.4f}, R@100={cr['100']['pct']:.4f}")
-    lines.append(f"6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10.")
+    lines.append(
+        f"3. **CE top-10 gap:** {fc_count(output, 'C')} of 150 questions have gold in the CE input but ranked below top-10."
+    )
+    lines.append(
+        f"4. **CE success:** {fc_count(output, 'D')} of 150 questions ({(fc_count(output, 'D') / 150 * 100):.1f}%) have gold in CE top-10."
+    )
+    lines.append(
+        f"5. **Cumulative CE recall:** R@1={cr['1']['pct']:.4f}, R@10={cr['10']['pct']:.4f}, R@20={cr['20']['pct']:.4f}, R@50={cr['50']['pct']:.4f}, R@100={cr['100']['pct']:.4f}"
+    )
+    lines.append(
+        f"6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10."
+    )
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

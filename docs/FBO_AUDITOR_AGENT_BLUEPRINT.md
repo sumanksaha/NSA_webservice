@@ -212,15 +212,14 @@ class FBOAuditorAgent:
         evidence_text = ""
         if regulatory_evidence:
             evidence_text = "\n\nRelevant Regulatory Standards:\n" + "\n".join(
-                f"- {item.get('citation', '')}: {item.get('text', '')}"
-                for item in regulatory_evidence
+                f"- {item.get('citation', '')}: {item.get('text', '')}" for item in regulatory_evidence
             )
 
         user_prompt = f"""
 FBO Profile:
-- Business: {fbo_context.get('fbo_name', 'FBO')} ({fbo_context.get('business_type', 'General')})
-- Scale: {fbo_context.get('scale', 'Small/Medium')}
-- Compliance Window: {fbo_context.get('compliance_deadline_days', 15)} days
+- Business: {fbo_context.get("fbo_name", "FBO")} ({fbo_context.get("business_type", "General")})
+- Scale: {fbo_context.get("scale", "Small/Medium")}
+- Compliance Window: {fbo_context.get("compliance_deadline_days", 15)} days
 
 Observed Shortcomings:
 {json.dumps(shortcomings, indent=2)}

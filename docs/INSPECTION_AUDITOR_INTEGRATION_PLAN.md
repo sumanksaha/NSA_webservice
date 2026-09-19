@@ -141,6 +141,7 @@ Update `DODocumentRenderer.build_improvement_notice_context` to support the dyna
 # app/food_cell/renderer.py
 import json
 
+
 def build_improvement_notice_context(
     self,
     inspection: Any,
@@ -162,9 +163,7 @@ def build_improvement_notice_context(
         "fbo_name": getattr(inspection, "fbo_name", None),
         "fbo_address": getattr(inspection, "fbo_address", None),
         "inspection_date": (
-            inspection.inspection_date.strftime("%d/%m/%Y")
-            if getattr(inspection, "inspection_date", None)
-            else None
+            inspection.inspection_date.strftime("%d/%m/%Y") if getattr(inspection, "inspection_date", None) else None
         ),
         "fbo_fssai": getattr(inspection, "fssai_license", None),
         "fso_name": getattr(inspection, "fso_name", None),

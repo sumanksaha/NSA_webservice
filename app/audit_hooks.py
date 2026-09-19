@@ -33,13 +33,11 @@ from app.models import RecordAudit
 # ---------------------------------------------------------------------------
 # Sensitive / internal columns to exclude from change diffs
 # ---------------------------------------------------------------------------
-_EXCLUDED_COLUMNS = frozenset(
-    {
-        "synced_at",  # set automatically by sync, not user-driven
-        "pdf_task_id",  # Celery task tracking, not a meaningful record change
-        "pdf_generated_at",  # same as above
-    }
-)
+_EXCLUDED_COLUMNS = frozenset({
+    "synced_at",  # set automatically by sync, not user-driven
+    "pdf_task_id",  # Celery task tracking, not a meaningful record change
+    "pdf_generated_at",  # same as above
+})
 
 
 def _get_user_id():

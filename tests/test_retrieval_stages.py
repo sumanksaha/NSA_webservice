@@ -122,7 +122,9 @@ class TestApplyStagesEnabled:
             RetrievalStage("b", is_enabled=lambda: True, enrich=make_enrich("second"), output_key="o2"),
             RetrievalStage("c", is_enabled=lambda: True, enrich=make_enrich("third"), output_key="o3"),
         ]
-        apply_stages(QUERY, result, stages=fake_stages)
+        # Order is only defined sequentially: parallel mode makes no
+        # completion-order guarantee (ThreadPoolExecutor scheduling).
+        apply_stages(QUERY, result, stages=fake_stages, parallel=False)
         assert call_log == ["first", "second", "third"]
 
 

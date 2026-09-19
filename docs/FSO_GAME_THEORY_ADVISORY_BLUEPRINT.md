@@ -114,7 +114,9 @@ app/rag/advisor/
 ### 4.1 `app/rag/advisor/penalties.py`
 ```python
 """Statutory penalties and anchors under the Food Safety and Standards Act, 2006."""
+
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class StatutoryAnchor:
@@ -124,6 +126,7 @@ class StatutoryAnchor:
     imprisonment_months: int
     is_cognizable: bool
     requires_prior_notice: bool
+
 
 FSSAI_PENALTY_SCHEDULE: dict[str, StatutoryAnchor] = {
     "32": StatutoryAnchor("32", "Improvement Notice", 0, 0, False, False),
@@ -140,8 +143,10 @@ FSSAI_PENALTY_SCHEDULE: dict[str, StatutoryAnchor] = {
 ### 4.2 `app/rag/advisor/ladder.py`
 ```python
 """FSO statutory escalation ladder and action profiles."""
+
 from dataclasses import dataclass
 from enum import IntEnum
+
 
 class EscalationLevel(IntEnum):
     INSPECT_WARN = 1
@@ -150,19 +155,19 @@ class EscalationLevel(IntEnum):
     PENALTY_DIRECTION = 4
     PROSECUTION = 5
 
+
 @dataclass(frozen=True)
 class ActionProfile:
     level: EscalationLevel
     action_name: str
-    reversibility: float      # [0.0, 1.0]
+    reversibility: float  # [0.0, 1.0]
     information_yield: float  # [0.0, 1.0]
-    fso_cost: float           # Relative burden [1.0, 10.0]
-    deterrence_power: float   # Impact score [1.0, 10.0]
+    fso_cost: float  # Relative burden [1.0, 10.0]
+    deterrence_power: float  # Impact score [1.0, 10.0]
+
 
 ACTION_PROFILES: dict[EscalationLevel, ActionProfile] = {
-    EscalationLevel.INSPECT_WARN: ActionProfile(
-        EscalationLevel.INSPECT_WARN, "Inspect & Warn", 1.0, 0.2, 1.0, 1.0
-    ),
+    EscalationLevel.INSPECT_WARN: ActionProfile(EscalationLevel.INSPECT_WARN, "Inspect & Warn", 1.0, 0.2, 1.0, 1.0),
     EscalationLevel.SAMPLE_LAB_TEST: ActionProfile(
         EscalationLevel.SAMPLE_LAB_TEST, "Sample & Lab-Test", 0.9, 1.0, 3.0, 4.0
     ),
@@ -181,9 +186,11 @@ ACTION_PROFILES: dict[EscalationLevel, ActionProfile] = {
 ### 4.3 `app/rag/advisor/selector.py`
 ```python
 """Pure, deterministic Act-Selector implementing Minimax and Talebian Optionality."""
+
 from typing import Any
 from app.rag.advisor.ladder import ACTION_PROFILES, ActionProfile, EscalationLevel
 from app.rag.advisor.penalties import FSSAI_PENALTY_SCHEDULE, StatutoryAnchor
+
 
 class DeterministicActSelector:
     """Computes the optimal FSO Act purely over grounded evidence without LLMs."""
@@ -199,11 +206,7 @@ class DeterministicActSelector:
         lab_report_available: bool = False,
     ) -> dict[str, Any]:
         # 1. Fail-closed: require valid statutory anchors
-        anchors = [
-            FSSAI_PENALTY_SCHEDULE[sec]
-            for sec in retrieved_sections
-            if sec in FSSAI_PENALTY_SCHEDULE
-        ]
+        anchors = [FSSAI_PENALTY_SCHEDULE[sec] for sec in retrieved_sections if sec in FSSAI_PENALTY_SCHEDULE]
         if not anchors:
             return {
                 "fso_act": None,
@@ -211,10 +214,7 @@ class DeterministicActSelector:
             }
 
         # Select highest-severity statutory anchor
-        primary_anchor: StatutoryAnchor = max(
-            anchors,
-            key=lambda a: (a.imprisonment_months, a.max_fine_inr)
-        )
+        primary_anchor: StatutoryAnchor = max(anchors, key=lambda a: (a.imprisonment_months, a.max_fine_inr))
 
         # 2. Determine Minimum Deterrence Level required by law
         if primary_anchor.section in ("63", "64") or has_prior_violations:
@@ -291,6 +291,7 @@ from typing import Any
 from app.rag.advisor.selector import DeterministicActSelector
 
 _selector = DeterministicActSelector()
+
 
 def fso_advisory_node(state: dict[str, Any]) -> dict[str, Any]:
     """Pure deterministic node executing mathematical Act-selection."""

@@ -87,9 +87,7 @@ def test_interrupt_maps_202_with_durable(monkeypatch):
     class _FakeInterrupt:
         value = {"reason": "needs human review"}
 
-    monkeypatch.setattr(
-        graph_mod, "run_agent", lambda state, **kw: {"__interrupt__": [_FakeInterrupt()]}
-    )
+    monkeypatch.setattr(graph_mod, "run_agent", lambda state, **kw: {"__interrupt__": [_FakeInterrupt()]})
     status, body = run_agent_query(query="q", thread_id="tid-1", hitl=True, resume_hint="hint")
     assert status == 202
     assert body["status"] == "awaiting_review"

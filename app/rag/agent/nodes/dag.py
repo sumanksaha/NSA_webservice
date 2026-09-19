@@ -448,9 +448,7 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # Sufficient only when the rubric passes on enough tasks AND the
     # verification signals from any previous round are clean.
-    sufficient = (
-        bool(agg["sufficient"]) and coverage >= _COVERAGE_FLOOR and citation_ok and not hallucinated
-    )
+    sufficient = bool(agg["sufficient"]) and coverage >= _COVERAGE_FLOOR and citation_ok and not hallucinated
     # Abstain (the proposal's explicit path: "after the maximum retrieval
     # budget → ABSTAIN") when the retry budget is exhausted, the gate still
     # rejects the evidence, AND fewer than half the tasks found *any*
@@ -460,9 +458,9 @@ def evidence_sufficiency_node(state: dict[str, Any]) -> dict[str, Any]:
     # from what is covered (the rubric failures stay on state for the
     # caller).  Also abstain when there is nothing to synthesize from at
     # all (no tasks, no evidence).
-    abstain_required = (
-        budget_exhausted and not sufficient and total_tasks > 0 and coverage < _COVERAGE_FLOOR
-    ) or (total_tasks == 0 and not evidence)
+    abstain_required = (budget_exhausted and not sufficient and total_tasks > 0 and coverage < _COVERAGE_FLOOR) or (
+        total_tasks == 0 and not evidence
+    )
 
     # Aggregates for failure diagnosis (targeted_retry_node reads these).
     authority_values = [v["signals"]["authority"]["value"] for v in agg["verdicts"] if v.get("signals")]

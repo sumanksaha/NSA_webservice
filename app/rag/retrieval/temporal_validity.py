@@ -175,12 +175,8 @@ def is_valid(
             or getattr(chunk, "status", None)
             or getattr(chunk, "provision_status", None)
         )
-        effective_from = (
-            effective_from or fields.get("effective_from") or getattr(chunk, "effective_from", None)
-        )
-        effective_to = (
-            effective_to or fields.get("effective_to") or getattr(chunk, "effective_to", None)
-        )
+        effective_from = effective_from or fields.get("effective_from") or getattr(chunk, "effective_from", None)
+        effective_to = effective_to or fields.get("effective_to") or getattr(chunk, "effective_to", None)
 
     status_lower = (provision_status or "").lower().strip()
 

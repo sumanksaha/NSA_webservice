@@ -1,5 +1,7 @@
 """Quick test: CE scoring + LLM generation for one question."""
+
 import sys, os, json, warnings
+
 warnings.filterwarnings("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
 
@@ -7,10 +9,12 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, PROJECT_ROOT)
 
 from dotenv import load_dotenv
+
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"), override=True)
 os.environ["RAG_USE_STUB_LLM"] = "false"
 
 import torch
+
 torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
@@ -36,6 +40,8 @@ questions = {q.question_id: q for q in load_questions()}
 family_map = FamilyMap()
 
 raw_dir = PROJECT_ROOT + "/evaluation/out/ceiling_v5/raw"
+
+
 def load_raw(arm):
     recs = {}
     p = os.path.join(raw_dir, f"{arm}.jsonl")
@@ -47,6 +53,7 @@ def load_raw(arm):
                     r = json.loads(line)
                     recs[r["question_id"]] = r
     return recs
+
 
 ident = load_raw("v55_ident/sparse_identifier")
 # Try alt path
@@ -117,26 +124,31 @@ top10 = [it for it in ce_ranked[:10] if it["kind"] == "chunk"]
 print(f"\n  Top-10 chunks:", flush=True)
 for it in top10:
     p = it["payload"]
-    print(f"    key={it['key'][:40]}, ce_score={it['ce_score']:.4f}, "
-          f"section={p.get('section_number')}, act={p.get('act_name', '')[:40]}", flush=True)
+    print(
+        f"    key={it['key'][:40]}, ce_score={it['ce_score']:.4f}, "
+        f"section={p.get('section_number')}, act={p.get('act_name', '')[:40]}",
+        flush=True,
+    )
 
 # Convert to RetrievedChunk
 chunks = []
 for it in top10:
     p = it["payload"]
-    chunks.append(RetrievedChunk(
-        chunk_id=it["key"],
-        score=it["ce_score"],
-        text=str(p.get("chunk_text") or p.get("text") or ""),
-        section_number=str(p.get("section_number")) if p.get("section_number") else None,
-        document_title=p.get("document_title", ""),
-        act_name=p.get("act_name", ""),
-        document_type=p.get("document_type", ""),
-        authority=p.get("authority", ""),
-        chunk_index=p.get("chunk_index", 0),
-        hierarchy_level=p.get("hierarchy_level", 0),
-        parent_chunk_id=p.get("parent_chunk_id"),
-    ))
+    chunks.append(
+        RetrievedChunk(
+            chunk_id=it["key"],
+            score=it["ce_score"],
+            text=str(p.get("chunk_text") or p.get("text") or ""),
+            section_number=str(p.get("section_number")) if p.get("section_number") else None,
+            document_title=p.get("document_title", ""),
+            act_name=p.get("act_name", ""),
+            document_type=p.get("document_type", ""),
+            authority=p.get("authority", ""),
+            chunk_index=p.get("chunk_index", 0),
+            hierarchy_level=p.get("hierarchy_level", 0),
+            parent_chunk_id=p.get("parent_chunk_id"),
+        )
+    )
 
 # Find gold chunks
 gold_ids = set()
@@ -155,11 +167,13 @@ print("\n  Running LLM generation...", flush=True)
 qt = q.question_types[0] if q.question_types else "general_qa"
 print(f"  Query type: {qt}", flush=True)
 
+
 # Custom SSL-bypass LLM client
 class _SSLBypassLLMClient(GroundedLLMClient):
     def _real_call(self, system_prompt, user_prompt, *, temperature, max_tokens, **extra):
         start = time.perf_counter()
         import httpx
+
         url = self._base_url.rstrip("/") + "/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -192,22 +206,28 @@ class _SSLBypassLLMClient(GroundedLLMClient):
                     usage = data.get("usage", {})
                     latency = time.perf_counter() - start
                     from app.rag.generation.llm_client import GroundedLLMResponse
+
                     return GroundedLLMResponse(
-                        text=text, model=self.model,
-                        usage={"prompt_tokens": usage.get("prompt_tokens", 0),
-                               "completion_tokens": usage.get("completion_tokens", 0),
-                               "total_tokens": usage.get("total_tokens", 0)},
+                        text=text,
+                        model=self.model,
+                        usage={
+                            "prompt_tokens": usage.get("prompt_tokens", 0),
+                            "completion_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        },
                         latency=latency,
                     )
             except Exception as exc:
                 last_exc = exc
                 if attempt < 2:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 else:
                     break
         latency = time.perf_counter() - start
         from app.rag.generation.llm_client import GroundedLLMResponse
+
         return GroundedLLMResponse(error=f"LLM failed after 3 attempts: {last_exc}", model=self.model, latency=latency)
+
 
 llm_client = _SSLBypassLLMClient()
 print(f"  LLM mode: {'stub' if llm_client.use_stub else 'LIVE'}", flush=True)
@@ -230,15 +250,18 @@ gold_chunks = []
 for unit in q.relevant_units():
     for pid, payload in payload_index.items():
         if matches_gold(payload, unit, family_map):
-            gold_chunks.append(RetrievedChunk(
-                chunk_id=pid, score=1.0,
-                text=str(payload.get("chunk_text") or payload.get("text") or ""),
-                section_number=str(payload.get("section_number")) if payload.get("section_number") else None,
-                document_title=payload.get("document_title", ""),
-                act_name=payload.get("act_name", ""),
-                document_type=payload.get("document_type", ""),
-                authority=payload.get("authority", ""),
-            ))
+            gold_chunks.append(
+                RetrievedChunk(
+                    chunk_id=pid,
+                    score=1.0,
+                    text=str(payload.get("chunk_text") or payload.get("text") or ""),
+                    section_number=str(payload.get("section_number")) if payload.get("section_number") else None,
+                    document_title=payload.get("document_title", ""),
+                    act_name=payload.get("act_name", ""),
+                    document_type=payload.get("document_type", ""),
+                    authority=payload.get("authority", ""),
+                )
+            )
             break
 
 print(f"\n  Oracle context: {len(gold_chunks)} gold chunks", flush=True)
