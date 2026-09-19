@@ -77,6 +77,87 @@ class TestLLMModeVisibility:
 
 
 # ---------------------------------------------------------------------- #
+# Remote-inference wiring visibility (2026-09-19)
+# ---------------------------------------------------------------------- #
+
+
+class TestRemoteInferenceWiringVisibility:
+    """``/api/rag/health`` must reveal whether the CE / embedder call Modal.
+
+    The endpoints are dashboard-only env vars on Render (absent from
+    render.yaml), and the pipeline degrades silently when they are missing,
+    so this is the only login-free way to prove production is wired.
+    """
+
+    @staticmethod
+    def _wire_modal(app) -> None:
+        app.config["RAG_RERANKER_ENDPOINT"] = "https://ws--rerank.modal.run"
+        app.config["RAG_RERANKER_MODE"] = "tei"
+        app.config["RAG_RERANKER_TIMEOUT"] = 60.0
+        app.config["RAG_RERANKER_REMOTE_FALLBACK"] = False
+        app.config["RAG_EMBED_ENDPOINT"] = "https://ws--embed.modal.run"
+        app.config["RAG_EMBED_REMOTE_FALLBACK"] = False
+
+    def test_health_reports_local_source_when_no_endpoints(self, app_env):
+        app, client = app_env
+        app.config["RAG_RERANKER_ENDPOINT"] = ""
+        app.config["RAG_EMBED_ENDPOINT"] = ""
+        data = client.get("/api/rag/health").get_json()
+        for seam in ("reranker", "embedder"):
+            assert data[seam]["source"] == "local"
+            assert data[seam]["provider"] is None
+            assert data[seam]["endpoint"] is None  # authenticated client
+
+    def test_health_reports_remote_source_with_full_detail_when_authenticated(self, app_env):
+        app, client = app_env  # ``client`` is pre-authenticated
+        self._wire_modal(app)
+        data = client.get("/api/rag/health").get_json()
+
+        rr = data["reranker"]
+        assert rr["source"] == "remote"
+        assert rr["provider"] == "modal"
+        assert rr["endpoint"] == "https://ws--rerank.modal.run"
+        assert rr["mode"] == "tei"
+        assert rr["timeout"] == 60.0
+        assert rr["remote_fallback"] is False
+        assert isinstance(rr["model"], str)
+        assert isinstance(rr["ensemble"], bool)
+
+        em = data["embedder"]
+        assert em["source"] == "remote"
+        assert em["provider"] == "modal"
+        assert em["endpoint"] == "https://ws--embed.modal.run"
+        assert em["remote_fallback"] is False
+        assert isinstance(em["model"], str) and em["model"]
+        assert isinstance(em["qdrant_bm25"], bool)
+
+    def test_health_hides_urls_and_paths_from_anonymous_callers(self, app_env):
+        """Modal web endpoints have no auth of their own — a public health
+        page must prove the wiring without advertising the URLs."""
+        app, _ = app_env
+        self._wire_modal(app)
+        anon = app.test_client()  # no session
+        resp = anon.get("/api/rag/health")
+        assert resp.status_code == 200  # still public
+        data = resp.get_json()
+        for seam in ("reranker", "embedder"):
+            assert data[seam]["source"] == "remote"
+            assert data[seam]["provider"] == "modal"
+            assert "endpoint" not in data[seam]
+            assert "model" not in data[seam]
+        assert "modal.run" not in resp.get_data(as_text=True)
+
+    def test_health_never_echoes_tokens(self, app_env):
+        app, client = app_env
+        self._wire_modal(app)
+        app.config["RAG_RERANKER_TOKEN"] = "secret-rr"
+        app.config["RAG_EMBED_TOKEN"] = "secret-em"
+        body = client.get("/api/rag/health").get_data(as_text=True)
+        assert "secret-rr" not in body
+        assert "secret-em" not in body
+
+
+# ---------------------------------------------------------------------- #
 # Gap #5 — HITL durability signal
 # ---------------------------------------------------------------------- #
 

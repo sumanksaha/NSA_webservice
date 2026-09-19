@@ -212,8 +212,12 @@ class DenseRetriever:
 
         start = time.monotonic()
         try:
-            encoder = self._get_encoder()
-            if encoder is None:
+            # Only demand the local torch encoder when no remote embedder is
+            # configured.  Building it unconditionally (pre-2026-09-19) meant
+            # that on Render — where sentence-transformers is not installed —
+            # this raised ImportError and dense search silently returned zero
+            # chunks even though RAG_EMBED_ENDPOINT pointed at Modal.
+            if self._get_remote_embedder() is None and self._get_encoder() is None:
                 return SearchResult(
                     query=query,
                     query_type="",

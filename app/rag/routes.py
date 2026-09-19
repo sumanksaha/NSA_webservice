@@ -57,6 +57,39 @@ def _get_query_breaker():
     return _query_breaker
 
 
+def _remote_wiring_info(endpoint: str, *, timeout: float, remote_fallback: bool, detail: dict) -> dict:
+    """Describe one remote-inference seam (CE or embedder) for ``/health``.
+
+    ``source`` is ``"remote"`` when ``endpoint`` is non-empty.  ``provider``
+    is derived from the host (``"modal"`` for ``*.modal.run``) so anonymous
+    monitors can prove the wiring, while the raw ``endpoint`` URL and the
+    local ``detail`` (model names / paths) are only included for
+    authenticated callers ? the Modal web endpoints carry no auth of their
+    own, so a public health page must not advertise them.
+    """
+    from urllib.parse import urlparse
+
+    from flask_login import current_user
+
+    host = urlparse(endpoint).netloc if endpoint else ""
+    if not endpoint:
+        provider = None
+    elif host.endswith(".modal.run"):
+        provider = "modal"
+    else:
+        provider = "other"
+    info: dict = {
+        "source": "remote" if endpoint else "local",
+        "provider": provider,
+        "timeout": timeout,
+        "remote_fallback": bool(remote_fallback),
+    }
+    if getattr(current_user, "is_authenticated", False):
+        info["endpoint"] = endpoint or None
+        info.update(detail)
+    return info
+
+
 @rag_bp.route("/health")
 def health():
     """RAG pipeline health probe (public ? no auth required).
@@ -70,6 +103,12 @@ def health():
     * ``agent_hitl`` / ``agent_checkpointer`` / ``agent_hitl_durable`` ?
       HITL durability: the default in-memory checkpointer loses paused
       threads on restart (gap #5).
+    * ``reranker`` / ``embedder`` ? remote-inference wiring (2026-09-19):
+      ``source`` is ``"remote"`` when the endpoint env var is set, else
+      ``"local"`` (which on Render means silent degradation ? no torch).
+      Endpoint URLs / local paths are included only for authenticated
+      callers; anonymous probes get ``provider`` (e.g. ``"modal"``).  Tokens
+      are never echoed.
     """
     llm_info: dict = {"mode": "unknown", "model": None}
     try:
@@ -92,12 +131,30 @@ def health():
     except Exception as exc:  # pragma: no cover - langgraph optional
         logger.debug("health: checkpointer durability probe failed: %s", exc)
 
+    reranker_info = _remote_wiring_info(
+        cfg.reranker_endpoint,
+        timeout=cfg.reranker_timeout,
+        remote_fallback=cfg.remote_rerank_fallback,
+        detail={"model": cfg.reranker_model},
+    )
+    reranker_info["mode"] = cfg.reranker_mode
+    reranker_info["ensemble"] = bool(cfg.ensemble_rerank)
+    embedder_info = _remote_wiring_info(
+        cfg.embed_endpoint,
+        timeout=cfg.embed_timeout,
+        remote_fallback=cfg.embed_remote_fallback,
+        detail={"model": cfg.embedding_model},
+    )
+    embedder_info["qdrant_bm25"] = bool(cfg.qdrant_bm25)
+
     return jsonify({
         "status": "ok",
         "phase": "5",
         "phase_name": "ingestion_api",
         "llm": llm_info,
         **hitl_info,
+        "reranker": reranker_info,
+        "embedder": embedder_info,
     })
 
 
