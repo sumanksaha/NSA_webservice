@@ -281,6 +281,44 @@ class TestServiceActions:
 # --------------------------------------------------------------------------- #
 
 
+class TestCompleteJson:
+    """complete_json sends a custom system prompt and returns parsed JSON."""
+
+    def test_returns_parsed_dict(self, svc_enabled):
+        """Valid JSON object response parses to a dict."""
+        svc = svc_enabled
+        mock_resp = _mock_httpx_response('{"plan_id": "CAPA-1", "phases": []}')
+
+        with mock.patch("httpx.Client.post", return_value=mock_resp):
+            out = svc.complete_json("You are an auditor.", "Generate a plan.")
+            assert out == {"plan_id": "CAPA-1", "phases": []}
+
+    def test_invalid_json_raises(self, svc_enabled):
+        """Non-JSON content raises ValueError (fail-closed for callers)."""
+        svc = svc_enabled
+        mock_resp = _mock_httpx_response("not json at all")
+
+        with mock.patch("httpx.Client.post", return_value=mock_resp):
+            with pytest.raises(ValueError, match="valid JSON"):
+                svc.complete_json("sys", "user")
+
+    def test_non_dict_json_raises(self, svc_enabled):
+        """A JSON array is not a valid plan object."""
+        svc = svc_enabled
+        mock_resp = _mock_httpx_response('["a", "b"]')
+
+        with mock.patch("httpx.Client.post", return_value=mock_resp):
+            with pytest.raises(ValueError, match="JSON object"):
+                svc.complete_json("sys", "user")
+
+    def test_disabled_raises(self, svc_enabled):
+        """Disabled service raises RuntimeError via _request."""
+        svc = svc_enabled
+        svc._api_key = ""
+        with pytest.raises(RuntimeError):
+            svc.complete_json("sys", "user")
+
+
 class TestServiceErrors:
     """Service should raise meaningful errors on misconfigured or failed requests."""
 

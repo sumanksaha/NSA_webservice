@@ -23,6 +23,7 @@ Typical usage::
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -143,6 +144,15 @@ class DODocumentRenderer:
         fso_name = getattr(inspection, "fso_name", None)
         sig_path = get_signature_path(fso_name)
 
+        # Auditor CAPA plan (Annexure A): persisted JSON, parsed best-effort.
+        # Malformed / absent JSON renders no annexure — never fail the notice.
+        auditor_plan = None
+        if getattr(inspection, "auditor_plan_json", None):
+            try:
+                auditor_plan = json.loads(inspection.auditor_plan_json)
+            except (ValueError, TypeError):
+                auditor_plan = None
+
         return {
             "fbo_name": getattr(inspection, "fbo_name", None),
             "fbo_address": getattr(inspection, "fbo_address", None),
@@ -157,6 +167,7 @@ class DODocumentRenderer:
             "improvement_notice_ref": getattr(inspection, "inspection_code", None),
             "violations": violations or [],
             "actions": actions or [],
+            "auditor_plan": auditor_plan,
             "compliance_deadline": compliance_deadline,
             "enclosures": enclosures or [],
             "signature_path": str(sig_path) if sig_path else None,

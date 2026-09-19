@@ -274,6 +274,13 @@ explicit game-theoretic and Talebian principles (not free-form opinion).
   FSO should not select an Act whose enforcement cost or reversal risk is borne
   by consumers/the public rather than the FBO; an Adversary that can pass
   hidden costs onto the public distorts the game and is disfavoured.
+- **Auditor CAPA plan** — the phased Corrective and Preventive Action workflow
+  (`Immediate 0-48h → Corrective 3-8d → Preventive 9-14d` + verification
+  dossier) that `FBOAuditorAgent` (`app/auditor/`) synthesizes from checklist
+  `violations` grounded via RAG. Persisted on `Inspection.auditor_plan_json`;
+  rendered as Annexure A of the §32 Improvement Notice; verified via
+  `verify_closure` → the **Corrective Measures Implemented** terminal state
+  (`is_dismissed` + `dossier_verified`). Gated by `AUDITOR_AI_ENABLED`.
 - **FSO advisory gates** — the two deterministic graph nodes running
   `DeterministicActSelector` (`app/rag/advisor/`): `fso_advisory_hint`
   (pre-generation candidate, internal only) and `fso_advisory`

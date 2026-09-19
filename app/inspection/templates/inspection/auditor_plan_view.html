@@ -1,0 +1,72 @@
+{% extends "inspection/base_inspection.html" %} {% block title %}Auditor CAPA Plan{% endblock %} {% block
+content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-clipboard-check"></i> Auditor CAPA Plan</h2>
+        <p class="form-hint">
+            Corrective and Preventive Action workflow for {{ inspection.fbo_name or "the FBO" }}
+            (Ref: {{ inspection.inspection_code }}{% if plan.plan_id %}, Plan: {{ plan.plan_id }}{% endif %}).
+        </p>
+    </div>
+
+    {% if plan.executive_summary %}
+    <p>{{ plan.executive_summary }}</p>
+    {% endif %}
+
+    {% if plan.root_cause_analysis %}
+    <h3>Root Cause Analysis</h3>
+    <ul>
+        {% for rca in plan.root_cause_analysis %}
+        <li>
+            <strong>{{ rca.shortcoming }}</strong> — {{ rca.probable_root_cause }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% for phase in plan.remediation_phases or [] %}
+    <div class="card mb-3">
+        <div class="card-header bg-light"><strong>{{ phase.phase }}</strong></div>
+        <div class="card-body p-2">
+            <table class="table table-bordered table-sm mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th style="width: 8%;">Step</th>
+                        <th style="width: 52%;">Task</th>
+                        <th style="width: 20%;">Standard / Rule</th>
+                        <th style="width: 20%;">Responsible</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for action in phase.actions or [] %}
+                    <tr>
+                        <td class="text-center">{{ action.step_number }}</td>
+                        <td>{{ action.task }}</td>
+                        <td><code>{{ action.regulatory_ref }}</code></td>
+                        <td>{{ action.responsible_role }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if plan.dossier_checklist_for_fso %}
+    <div class="alert alert-secondary mt-3">
+        <h6>Verification Dossier for FSO Re-inspection:</h6>
+        <ul class="mb-0">
+            {% for item in plan.dossier_checklist_for_fso %}
+            <li>[ ] {{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('inspection.verify_closure', inspection_id=inspection.id) }}">
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-check"></i> Verify Dossier &amp; Close (Corrective Measures Implemented)
+        </button>
+    </form>
+</div>
+{% endblock %}

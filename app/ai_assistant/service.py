@@ -291,7 +291,38 @@ class AIAssistantService:
         # Default to the project's sole model (OpenRouter free tier)
         return "poolside/laguna-s-2.1:free"
 
-    def _request(self, prompt: str, max_tokens: int) -> tuple[str, int]:
+    def complete_json(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_tokens: int = 2048,
+        temperature: float = 0.2,
+    ) -> dict[str, Any]:
+        """Complete with a caller-owned system prompt; return parsed JSON object.
+
+        Used by agents (e.g. the FBO auditor) that need structured output
+        under their own persona. Raises ``ValueError`` when the provider
+        does not return a JSON object (fail-closed — callers must not render
+        unparsed prose as fact); ``RuntimeError`` propagates when disabled.
+        """
+        raw, _ = self._request(user_prompt, max_tokens, system_prompt=system_prompt, temperature=temperature)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as err:
+            raise ValueError("AI did not return valid JSON") from err
+        if not isinstance(data, dict):
+            raise ValueError("AI did not return a JSON object")
+        return data
+
+    def _request(
+        self,
+        prompt: str,
+        max_tokens: int,
+        *,
+        system_prompt: str | None = None,
+        temperature: float = 0.1,
+    ) -> tuple[str, int]:
         """Send a chat completion request and return (content, tokens_used).
 
         Retries with exponential backoff on 429/503 (3 attempts).
@@ -308,11 +339,11 @@ class AIAssistantService:
         body: dict[str, Any] = {
             "model": model,
             "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt or _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             "max_tokens": max_tokens,
-            "temperature": 0.1,
+            "temperature": temperature,
         }
 
         last_exc: Exception | None = None

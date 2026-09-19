@@ -238,11 +238,39 @@ class TestImprovementNoticeRendererContext:
         from app.food_cell.renderer import DODocumentRenderer
 
         with app.app_context():
-            ctx = DODocumentRenderer().build_improvement_notice_context(
-                self._make_model(), is_inspection_report=True
-            )
+            ctx = DODocumentRenderer().build_improvement_notice_context(self._make_model(), is_inspection_report=True)
 
         assert ctx["is_inspection_report"] is True
+
+    def test_auditor_plan_absent_by_default(self, app):
+        from app.food_cell.renderer import DODocumentRenderer
+
+        with app.app_context():
+            ctx = DODocumentRenderer().build_improvement_notice_context(self._make_model())
+
+        assert ctx["auditor_plan"] is None
+
+    def test_auditor_plan_parsed_from_inspection(self, app):
+        import json
+
+        from app.food_cell.renderer import DODocumentRenderer
+
+        model = self._make_model()
+        model.auditor_plan_json = json.dumps({"plan_id": "CAPA-1", "remediation_phases": []})
+        with app.app_context():
+            ctx = DODocumentRenderer().build_improvement_notice_context(model)
+
+        assert ctx["auditor_plan"] == {"plan_id": "CAPA-1", "remediation_phases": []}
+
+    def test_auditor_plan_malformed_json_is_none(self, app):
+        from app.food_cell.renderer import DODocumentRenderer
+
+        model = self._make_model()
+        model.auditor_plan_json = "{not-json"
+        with app.app_context():
+            ctx = DODocumentRenderer().build_improvement_notice_context(model)
+
+        assert ctx["auditor_plan"] is None
 
 
 # --------------------------------------------------------------------------- #
@@ -307,6 +335,40 @@ class TestImprovementNoticeTemplate:
     def test_ref_badge_shows_inspection_code(self, app):
         html = self._render(app)
         assert "INSP-2026-0001" in html
+
+    # -- Annexure A: auditor CAPA plan ------------------------------------ #
+
+    def _plan(self):
+        return {
+            "plan_id": "CAPA-2026-0919-01",
+            "remediation_phases": [
+                {
+                    "phase": "Phase 1: Immediate Containment (Days 0-2)",
+                    "actions": [
+                        {
+                            "step_number": 1,
+                            "task": "Calibrate dairy refrigeration unit to 3°C.",
+                            "responsible_role": "Kitchen Supervisor",
+                            "regulatory_ref": "Schedule 4, Part II, Sec 2.1",
+                        }
+                    ],
+                }
+            ],
+            "dossier_checklist_for_fso": ["7-day temperature log chart for dairy storage"],
+        }
+
+    def test_annexure_absent_without_plan(self, app):
+        html = self._render(app)
+        assert "ANNEXURE A" not in html
+
+    def test_annexure_renders_phases_and_dossier(self, app):
+        html = self._render(app, auditor_plan=self._plan())
+        assert "ANNEXURE A" in html
+        assert "Phase 1: Immediate Containment" in html
+        assert "Calibrate dairy refrigeration unit" in html
+        assert "Schedule 4, Part II, Sec 2.1" in html
+        assert "Kitchen Supervisor" in html
+        assert "7-day temperature log chart" in html
 
     # -- inspection details + findings ------------------------------------ #
 
@@ -437,10 +499,7 @@ class TestImprovementNoticeRoutes:
         resp = client.get(_notice_url(inspection, "docx"))
         assert resp.status_code == 200
         assert resp.data[:4] == b"PK\x03\x04"  # ZIP header (docx = zip)
-        assert (
-            resp.headers["Content-Type"]
-            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        assert resp.headers["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     def test_docx_correct_filename(self, inspection, client):
         resp = client.get(_notice_url(inspection, "docx"))

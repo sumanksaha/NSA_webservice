@@ -492,6 +492,15 @@ _TABLE: tuple[Setting, ...] = (
         False,
         help="Attach deterministic FSO Act advisory (game-theory+Talebian) on the agent path.",
     ),
+    # --- FBO compliance auditor (FBO_AUDITOR_AGENT_BLUEPRINT) ------------------
+    Setting(
+        "AUDITOR_AI_ENABLED",
+        "auditor_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help="Kill switch for the FBO auditor CAPA agent (LLM spend). 503 when off.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

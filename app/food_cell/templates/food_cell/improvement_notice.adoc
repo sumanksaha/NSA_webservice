@@ -30,3 +30,26 @@ toc::
 
 *List 2: Document Components*
 1. {{ enc }}
+
+{% if auditor_plan %}
+== ANNEXURE A: CORRECTIVE AND PREVENTIVE ACTION (CAPA) WORKFLOW
+
+Prescribed remediation roadmap for {{ fbo_name }} (Ref: {{ improvement_notice_ref }})
+
+{% for phase in auditor_plan.remediation_phases or [] %}
+=== {{ phase.phase }}
+
+|===
+| Step | Prescribed Corrective Directive / SOP | Standard / Rule | Responsible
+{% for action in phase.actions or [] %}
+| {{ action.step_number }} | {{ action.task }} | {{ action.regulatory_ref }} | {{ action.responsible_role }}
+{% endfor %}
+|===
+
+{% endfor %}
+*Mandatory Verification Dossier for Notice Compliance:*
+
+{% for item in auditor_plan.dossier_checklist_for_fso or [] %}
+* [ ] {{ item }}
+{% endfor %}
+{% endif %}

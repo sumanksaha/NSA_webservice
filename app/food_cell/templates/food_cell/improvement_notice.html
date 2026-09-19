@@ -360,6 +360,54 @@
                 </span>
             </div>
 
+            <!-- Annexure A: Auditor CAPA Workflow (present only when a plan was generated) -->
+            {% if auditor_plan %}
+            <div style="page-break-before: always;"></div>
+            <div class="annexure-header mt-4">
+                <h4>ANNEXURE A: CORRECTIVE AND PREVENTIVE ACTION (CAPA) WORKFLOW</h4>
+                <p class="text-muted">
+                    Prescribed remediation roadmap for {{ fbo_name }} (Ref: {{ improvement_notice_ref }})
+                </p>
+            </div>
+
+            {% for phase in auditor_plan.remediation_phases or [] %}
+            <div class="card mb-3">
+                <div class="card-header bg-light"><strong>{{ phase.phase }}</strong></div>
+                <div class="card-body p-2">
+                    <table class="table table-bordered table-sm mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width: 8%;">Step</th>
+                                <th style="width: 52%;">Prescribed Corrective Directive / SOP</th>
+                                <th style="width: 20%;">Standard / Rule</th>
+                                <th style="width: 20%;">Responsible</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for action in phase.actions or [] %}
+                            <tr>
+                                <td class="text-center">{{ action.step_number }}</td>
+                                <td>{{ action.task }}</td>
+                                <td><code>{{ action.regulatory_ref }}</code></td>
+                                <td>{{ action.responsible_role }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="alert alert-secondary mt-3">
+                <h6>Mandatory Verification Dossier for Notice Compliance:</h6>
+                <ul class="mb-0">
+                    {% for item in auditor_plan.dossier_checklist_for_fso or [] %}
+                    <li>[ ] {{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
             <!-- Inline browser actions (hidden in PDF) -->
             {% block actions %}{% endblock %}
         </div>

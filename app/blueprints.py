@@ -19,6 +19,7 @@ def register_blueprints(app: Flask) -> None:
     from app.adjudication.routes import adjudication_bp
     from app.annexure import annexure_bp
     from app.audit import audit_bp
+    from app.auditor import auditor_bp
     from app.auth.routes import auth_bp
     from app.bill_generator.routes import bill_generator_bp
     from app.billing.routes import billing_bp
@@ -40,6 +41,7 @@ def register_blueprints(app: Flask) -> None:
     from app.version_control import version_control_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(auditor_bp, url_prefix="/auditor")
     app.register_blueprint(case_file_generator_bp, url_prefix="/case_file_generator")
     app.register_blueprint(adjudication_bp, url_prefix="/adjudication")
     from app.document_viewer import document_viewer_bp
