@@ -198,6 +198,14 @@ class TestHitlDurabilitySignal:
         assert data["agent_checkpointer"] == "memory"
         assert data["agent_hitl_durable"] is False
 
+    def test_health_exposes_fso_advisory_flag(self, app_env):
+        app, client = app_env
+        data = client.get("/api/rag/health").get_json()
+        assert data["fso_advisory"] == {"enabled": False}  # default off
+        app.config["FSO_ADVISOR_ENABLED"] = True
+        data = client.get("/api/rag/health").get_json()
+        assert data["fso_advisory"] == {"enabled": True}
+
     def test_202_payload_flags_non_durable_memory(self, app_env, monkeypatch):
         app, client = app_env
         app.config["RAG_USE_AGENT_PIPELINE"] = True

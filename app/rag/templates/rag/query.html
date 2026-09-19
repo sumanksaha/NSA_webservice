@@ -110,6 +110,19 @@
         <label for="ragUseAgent">Use agent pipeline</label>
       </div>
 
+      <div class="rag-toggle-group">
+        <input type="checkbox" id="ragFsoAdvisory" name="fso_advisory" disabled
+               title="Requires the agent pipeline (deterministic game-theory + Talebian Act)">
+        <label for="ragFsoAdvisory">FSO advisory (game-theory + Talebian)</label>
+      </div>
+
+      <div class="rag-toggle-group" id="ragFsoOptions" style="display: none; margin-left: 1rem;">
+        <input type="checkbox" id="ragRepeatOffender" name="is_repeat_offender">
+        <label for="ragRepeatOffender">Repeat offender</label>
+        <input type="checkbox" id="ragHasLabReport" name="has_lab_report" style="margin-left: 0.75rem;">
+        <label for="ragHasLabReport">Lab report on hand</label>
+      </div>
+
       <button id="ragSubmitBtn" type="button" class="rag-submit-btn">
         <i class="fa-solid fa-paper-plane"></i> Ask
       </button>

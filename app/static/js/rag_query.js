@@ -168,6 +168,41 @@
                     : "") +
                 "</div>";
         }
+        var advisoryHtml = "";
+        if (data.fso_act) {
+            var act = data.fso_act;
+            var actCitations = act.citations || [];
+            var actCitHtml = "";
+            if (actCitations.length) {
+                actCitHtml =
+                    '<div class="rag-citation-confidence">citations: ' +
+                    esc(actCitations.join(", ")) +
+                    "</div>";
+            }
+            advisoryHtml =
+                '<div class="rag-answer-card rag-advisory-card" style="margin-top:0.75rem;border-color:#bfdbfe;">' +
+                '<div class="rag-answer-meta"><span class="rag-gauge">FSO advisory (deterministic)</span></div>' +
+                '<div class="rag-answer-text"><strong>' +
+                esc(act.action || "(no action)") +
+                "</strong></div>" +
+                '<div style="font-size:0.85rem;margin-bottom:0.5rem;">' +
+                esc(act.statutory_anchor || "") +
+                "</div>" +
+                '<div style="font-size:0.8rem;color:var(--text-muted,#6b7280);">' +
+                truncate(act.game_theory_basis || "", 300) +
+                "<br>" +
+                truncate(act.talebian_basis || "", 300) +
+                "</div>" +
+                actCitHtml +
+                "</div>";
+        } else if (data.advisory_abstain_reason) {
+            advisoryHtml =
+                '<div class="rag-answer-card" style="margin-top:0.75rem;border-color:#fde68a;background:#fffbeb;">' +
+                '<div style="font-size:0.85rem;color:#92400e;">' +
+                "\u26a0 <strong>No FSO advisory</strong> \u2014 " +
+                esc(data.advisory_abstain_reason) +
+                "</div></div>";
+        }
         var stubHtml = "";
         if (data.llm_model && String(data.llm_model).indexOf("stub") === 0) {
             stubHtml =
@@ -200,6 +235,7 @@
             verificationHtml +
             citationHtml +
             agentHtml +
+            advisoryHtml +
             chunkHtml +
             "</div>";
         resultsEl.innerHTML = html;
@@ -234,7 +270,39 @@
         if (useAgent) {
             payload.use_agent = useAgent.checked;
         }
+        // FSO advisory is agent-only: flags travel only when the agent
+        // pipeline is on; offender/lab travel only when advisory is on.
+        var advisory = document.getElementById("ragFsoAdvisory");
+        if (useAgent && useAgent.checked && advisory && !advisory.disabled) {
+            payload.fso_advisory = advisory.checked;
+            if (advisory.checked) {
+                var repeat = document.getElementById("ragRepeatOffender");
+                var lab = document.getElementById("ragHasLabReport");
+                payload.is_repeat_offender = !!(repeat && repeat.checked);
+                payload.has_lab_report = !!(lab && lab.checked);
+            }
+        }
         return { payload: payload, query: query };
+    }
+    function syncAdvisoryControls() {
+        var useAgent = document.getElementById("ragUseAgent");
+        var advisory = document.getElementById("ragFsoAdvisory");
+        var options = document.getElementById("ragFsoOptions");
+        if (!useAgent || !advisory) return;
+        advisory.disabled = !useAgent.checked;
+        if (!useAgent.checked) {
+            advisory.checked = false;
+        }
+        var show = advisory.checked && !advisory.disabled;
+        if (options) {
+            options.style.display = show ? "flex" : "none";
+        }
+        if (!show) {
+            var repeat = document.getElementById("ragRepeatOffender");
+            var lab = document.getElementById("ragHasLabReport");
+            if (repeat) repeat.checked = false;
+            if (lab) lab.checked = false;
+        }
     }
     function validateQuery(query) {
         if (!query) return "Please enter a legal question.";
@@ -447,8 +515,13 @@
             var approveBtn = document.getElementById("ragApproveBtn");
             var rejectBtn = document.getElementById("ragRejectBtn");
             var queryInput = document.getElementById("ragQuery");
+            var useAgentBox = document.getElementById("ragUseAgent");
+            var advisoryBox = document.getElementById("ragFsoAdvisory");
             if (!submitBtn) return;
             submitBtn.addEventListener("click", submitQuery);
+            if (useAgentBox) useAgentBox.addEventListener("change", syncAdvisoryControls);
+            if (advisoryBox) advisoryBox.addEventListener("change", syncAdvisoryControls);
+            syncAdvisoryControls();
             renderHistory();
             if (approveBtn)
                 approveBtn.addEventListener("click", function () {

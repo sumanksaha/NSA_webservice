@@ -235,6 +235,37 @@ class TestRAGQueryFormElements:
         finally:
             ctx.pop()
 
+    def test_fso_advisory_checkbox_present_and_gated(self):
+        """The FSO advisory checkbox + sub-options render; advisory starts disabled."""
+        _app, client, ctx = _setup_test_env()
+        try:
+            resp = client.get("/api/rag/")
+            html = resp.data.decode()
+            assert "ragFsoAdvisory" in html
+            assert "ragRepeatOffender" in html
+            assert "ragHasLabReport" in html
+            assert "ragFsoOptions" in html
+            # Gated on the agent pipeline: advisory starts disabled (the
+            # live sync lives in rag_query.js::syncAdvisoryControls).
+            fso_tag = html.split('id="ragFsoAdvisory"')[1].split(">")[0]
+            assert "disabled" in fso_tag
+        finally:
+            ctx.pop()
+
+    def test_fso_options_hidden_until_advisory(self):
+        """Offender/lab row is display:none until the advisory box is checked."""
+        _app, client, ctx = _setup_test_env()
+        try:
+            resp = client.get("/api/rag/")
+            html = resp.data.decode()
+            options_tag = (
+                html.split('id="ragFsoOptions"')[0].split("<div")[-1]
+                + html.split('id="ragFsoOptions"')[1].split(">")[0]
+            )
+            assert "display: none" in options_tag or "display:none" in options_tag
+        finally:
+            ctx.pop()
+
     def test_query_textarea_has_placeholder(self):
         """The query textarea has the expected placeholder text."""
         _app, client, ctx = _setup_test_env()
@@ -266,7 +297,7 @@ class TestRAGQueryFlow:
         try:
             resp = client.get("/static/js/rag_query.js")
             js = resp.data.decode()
-            assert '/api/rag/query/agent"' in js or '/api/rag/query/agent\'' in js
+            assert '/api/rag/query/agent"' in js or "/api/rag/query/agent'" in js
         finally:
             ctx.pop()
 
@@ -332,6 +363,31 @@ class TestRAGQueryFlow:
             assert "ragApproveBtn" in js
             assert "ragRejectBtn" in js
             assert "approved" in js
+        finally:
+            ctx.pop()
+
+    def test_js_posts_fso_advisory_flags(self):
+        """The JS sends fso_advisory + offender/lab flags with agent queries."""
+        _app, client, ctx = _setup_test_env()
+        try:
+            resp = client.get("/static/js/rag_query.js")
+            js = resp.data.decode()
+            assert "fso_advisory" in js
+            assert "is_repeat_offender" in js
+            assert "has_lab_report" in js
+            assert "ragFsoAdvisory" in js
+        finally:
+            ctx.pop()
+
+    def test_js_renders_fso_act_card(self):
+        """The JS renders the deterministic advisory card + abstain notice."""
+        _app, client, ctx = _setup_test_env()
+        try:
+            resp = client.get("/static/js/rag_query.js")
+            js = resp.data.decode()
+            assert "fso_act" in js
+            assert "statutory_anchor" in js
+            assert "advisory_abstain_reason" in js
         finally:
             ctx.pop()
 

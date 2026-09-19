@@ -62,6 +62,11 @@ class QueryAgentRequest(BaseModel):
     collection_name: str | None = Field(default=None, description="Qdrant collection override.")
     filters: dict[str, Any] | None = Field(default=None, description="Metadata filters.")
     thread_id: str | None = Field(default=None, description="Resume a paused HITL run (M5).")
+    fso_advisory: bool | None = Field(
+        default=None, description="Per-request override of FSO_ADVISOR_ENABLED (ADR-0003)."
+    )
+    is_repeat_offender: bool = Field(default=False, description="Repeat-offender flag for the FSO selector.")
+    has_lab_report: bool = Field(default=False, description="Lab-report flag for the FSO selector.")
 
 
 class AgentResumeRequest(BaseModel):
@@ -74,6 +79,7 @@ class AgentResumeRequest(BaseModel):
 
     thread_id: str = Field(default="", description="Thread id from the 202 awaiting_review response.")
     approved: bool = Field(default=True, description="Human decision: approve finalize, reject to retry.")
+    fso_advisory: bool | None = Field(default=None, description="Re-pin the FSO advisory topology for the resumed run.")
 
 
 # --------------------------------------------------------------------------- #
@@ -262,6 +268,9 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONRes
 
     from app.rag.agent.service import run_agent_query
 
+    # Per-request override wins; otherwise the live FSO_ADVISOR_ENABLED env
+    # flag (get_flag reads os.environ directly — see app/api/deps.py).
+    fso_advisor = req.fso_advisory if req.fso_advisory is not None else get_flag("FSO_ADVISOR_ENABLED")
     status, body = run_agent_query(
         query=req.query,
         top_k=req.top_k,
@@ -270,6 +279,9 @@ async def v2_rag_query_agent(req: QueryAgentRequest) -> dict[str, Any] | JSONRes
         thread_id=req.thread_id if use_hitl else None,
         hitl=use_hitl,
         resume_hint="POST /api/v2/rag/query/agent/resume with {thread_id, approved}.",
+        fso_advisor=fso_advisor,
+        is_repeat_offender=req.is_repeat_offender,
+        has_lab_report=req.has_lab_report,
     )
     if status == 200:
         return body
@@ -285,6 +297,7 @@ async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any] |
         thread_id=req.thread_id,
         approved=req.approved,
         hitl=get_flag("RAG_AGENT_HITL"),
+        fso_advisor=req.fso_advisory,
     )
     if status == 200:
         return body

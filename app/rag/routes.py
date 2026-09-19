@@ -153,6 +153,7 @@ def health():
         "phase_name": "ingestion_api",
         "llm": llm_info,
         **hitl_info,
+        "fso_advisory": {"enabled": bool(cfg.fso_advisor_enabled)},
         "reranker": reranker_info,
         "embedder": embedder_info,
     })

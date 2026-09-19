@@ -295,6 +295,78 @@ class TestAsgiAgentRoute:
         assert resp.status_code == 202
         assert resp.json()["status"] == "awaiting_review"
 
+    def test_agent_forwards_fso_advisory_fields(self, asgi_app, monkeypatch):
+        """v2 agent route forwards advisory flags to the shared service core."""
+        import app.rag.agent.service as service
+
+        captured: dict = {}
+
+        def fake_run_agent_query(**kwargs):
+            captured.update(kwargs)
+            return 200, {"answer": "agent answer"}
+
+        monkeypatch.setenv("RAG_USE_AGENT_PIPELINE", "true")
+        monkeypatch.setattr(service, "run_agent_query", fake_run_agent_query)
+        c = TestClient(asgi_app.app)
+        resp = c.post(
+            "/api/v2/rag/query/agent",
+            json={
+                "query": "penalty",
+                "fso_advisory": True,
+                "is_repeat_offender": True,
+                "has_lab_report": False,
+            },
+        )
+        assert resp.status_code == 200
+        assert captured["fso_advisor"] is True
+        assert captured["is_repeat_offender"] is True
+        assert captured["has_lab_report"] is False
+
+    def test_agent_advisory_defaults_to_env_flag(self, asgi_app, monkeypatch):
+        """No body override → service gets None (live FSO_ADVISOR_ENABLED)."""
+        import app.rag.agent.service as service
+
+        captured: dict = {}
+
+        def fake_run_agent_query(**kwargs):
+            captured.update(kwargs)
+            return 200, {"answer": "agent answer"}
+
+        monkeypatch.setenv("RAG_USE_AGENT_PIPELINE", "true")
+        monkeypatch.setenv("FSO_ADVISOR_ENABLED", "true")
+        monkeypatch.setattr(service, "run_agent_query", fake_run_agent_query)
+        c = TestClient(asgi_app.app)
+        resp = c.post("/api/v2/rag/query/agent", json={"query": "penalty"})
+        assert resp.status_code == 200
+        assert captured["fso_advisor"] is True
+
+    def test_agent_rejects_non_bool_fso_advisory(self, client):
+        """Non-coercible fso_advisory → 422 from pydantic (transport-owned)."""
+        resp = client.post(
+            "/api/v2/rag/query/agent",
+            json={"query": "penalty", "fso_advisory": ["yes"]},
+        )
+        assert resp.status_code == 422
+
+    def test_resume_forwards_fso_advisory(self, client, monkeypatch):
+        """v2 resume forwards fso_advisory so HITL resume keeps the topology."""
+        import app.rag.agent.service as service
+
+        captured: dict = {}
+
+        def fake_resume_agent_query(**kwargs):
+            captured.update(kwargs)
+            return 200, {"answer": "resumed with advisory"}
+
+        monkeypatch.setenv("RAG_AGENT_HITL", "true")
+        monkeypatch.setattr(service, "resume_agent_query", fake_resume_agent_query)
+        resp = client.post(
+            "/api/v2/rag/query/agent/resume",
+            json={"thread_id": "tid-1", "approved": True, "fso_advisory": True},
+        )
+        assert resp.status_code == 200
+        assert captured["fso_advisor"] is True
+
     def test_resume_blank_thread_id_400(self, client, monkeypatch):
         """Blank thread_id → 400 (mirrors the Flask validation)."""
         monkeypatch.setenv("RAG_AGENT_HITL", "true")
