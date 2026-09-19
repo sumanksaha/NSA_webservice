@@ -47,7 +47,9 @@ class TargetedRetryPlanner:
         elif strategy == "definition_search":
             return self._target_definition(query)
         elif strategy == "kg_traversal":
-            return self._target_kg(query)
+            return self._target_kg(query, context=context)
+        elif strategy == "kg_reasoning":
+            return self._target_kg_reasoning(query, context=context)
         elif strategy == "temporal_retrieval":
             return self._target_temporal(query)
         elif strategy == "authority_retrieval":
@@ -78,6 +80,10 @@ class TargetedRetryPlanner:
             RetrievalFailure.MISSING_DEFINITION: "definition_search",
             RetrievalFailure.MISSING_CROSS_REF: "kg_traversal",
             RetrievalFailure.TEMPORAL_CONFLICT: "temporal_retrieval",
+            RetrievalFailure.KG_TRAVERSAL_FAILED: "kg_traversal",
+            RetrievalFailure.KG_LINEAGE_GAP: "kg_traversal",
+            RetrievalFailure.KG_CONFLICT_UNRESOLVED: "kg_reasoning",
+            RetrievalFailure.KG_ENTITY_UNRESOLVED: "kg_reasoning",
             RetrievalFailure.INSUFFICIENT_AUTHORITY: "authority_retrieval",
             RetrievalFailure.INSUFFICIENT_CASE_LAW: "case_law_retrieval",
             RetrievalFailure.UNSUPPORTED_FACT_INFERENCE: "dense_expansion",
@@ -106,9 +112,60 @@ class TargetedRetryPlanner:
         # Add definition focus
         return f"{query} (definition)"
 
-    def _target_kg(self, query: str) -> str:
-        # Trigger KG traversal
-        return f"{query} (kg)"
+    def _target_kg(self, query: str, context: dict | None = None) -> str:
+        """KG-based targeted query: expand via KG relationships.
+
+        Extracts Section/provision identifiers and appends the KG
+        relationship hints the retriever's KG arm understands
+        (cross-reference, exception, authority), plus any KG paths
+        already stored in context (from ``kg_reason_node``).
+        """
+        import re as _re
+
+        sections = _re.findall(r"[Ss]ection\s+(\d+[A-Za-z]?)", query or "")
+        hints = ["HAS_CROSS_REFERENCES", "HAS_EXCEPTION", "GRANTS_POWER_TO"]
+        kg_paths = (context or {}).get("kg_paths") or []
+        path_hint = ""
+        if kg_paths:
+            first_item = kg_paths[0]
+            if isinstance(first_item, str):
+                first = first_item
+            elif isinstance(first_item, dict):
+                steps = first_item.get("steps", [""])
+                first = steps[0] if steps else ""
+            else:
+                # ReasoningPath object (direct reasoner caller, not kg_reason_node dicts).
+                steps = getattr(first_item, "steps", [""])
+                first = steps[0] if steps else ""
+            path_hint = f" related:{first}" if first else ""
+        if sections:
+            return f"{query} Section {' Section '.join(sections)} ({' '.join(hints)}){path_hint}"
+        return f"{query} ({' '.join(hints)}){path_hint}"
+
+    def build_kg_queries(self, query: str, failures: list | None = None, context: dict | None = None) -> list[str]:
+        """Multiple KG-targeted variants for iterative retrieval rounds.
+
+        ``failures`` selects the hint set: lineage gaps favour amendment
+        edges, conflict failures favour authority edges; default covers all.
+        """
+        failures = [str(f) for f in (failures or [])]
+        if any("lineage" in f for f in failures):
+            hints = ["AMENDED_BY", "SUPERSEDED_BY"]
+        elif any("conflict" in f for f in failures):
+            hints = ["GRANTS_POWER_TO", "HAS_AUTHORITY"]
+        else:
+            hints = ["HAS_CROSS_REFERENCES", "HAS_EXCEPTION", "GRANTS_POWER_TO"]
+        base = self._target_kg(query, context=context)
+        return [
+            base,
+            f"{query} ({' '.join(hints[:1])})",
+            f"{query} ({' '.join(hints[1:])})",
+        ]
+
+    def _target_kg_reasoning(self, query: str, context: dict | None = None) -> str:
+        """KG-reasoning query: route through the KG reasoner capabilities."""
+        capability = (context or {}).get("kg_capability", "actionable_answer")
+        return f"{self._target_kg(query, context)} [{capability}]"
 
     def _target_authority(self, query: str) -> str:
         # Focus on authority-related chunks

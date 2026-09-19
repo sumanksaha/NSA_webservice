@@ -37,17 +37,17 @@ QUERY = "what is Section 55?"
 class TestStageDefinition:
     def test_stages_are_ordered_list_of_retrieval_stage(self):
         assert isinstance(POST_RETRIEVAL_STAGES, list)
-        assert len(POST_RETRIEVAL_STAGES) == 3
+        assert len(POST_RETRIEVAL_STAGES) == 4
         assert all(isinstance(s, RetrievalStage) for s in POST_RETRIEVAL_STAGES)
 
     def test_stage_names_are_deterministic(self):
         names = [s.name for s in POST_RETRIEVAL_STAGES]
-        assert names == ["legal_identity", "reference_expansion", "evidence_selector"]
+        assert names == ["legal_identity", "reference_expansion", "evidence_selector", "evidence_plan"]
 
     def test_output_keys_match_original_contract(self):
-        """The registry output keys must match the original return-dict keys."""
+        """The registry output keys must match the pipeline return-dict keys."""
         keys = [s.output_key for s in POST_RETRIEVAL_STAGES]
-        assert keys == ["legal_identities", "expanded_candidates", "evidence_set"]
+        assert keys == ["legal_identities", "expanded_candidates", "evidence_set", "retrieval_plan"]
 
 
 class TestApplyStagesNoChunks:
@@ -59,6 +59,7 @@ class TestApplyStagesNoChunks:
             "legal_identities": [],
             "expanded_candidates": [],
             "evidence_set": None,
+            "retrieval_plan": {},
         }
 
 

@@ -33,6 +33,11 @@ class RetrievalFailure(StrEnum):
     TEMPORAL_INVALIDITY = "temporal_invalidity"
     CONFLICTING_AUTHORITIES = "conflicting_authorities"
     ABSTAIN_REQUIRED = "abstain_required"
+    # 2.11 KG-specific failure types
+    KG_TRAVERSAL_FAILED = "kg_traversal_failed"
+    KG_CONFLICT_UNRESOLVED = "kg_conflict_unresolved"
+    KG_LINEAGE_GAP = "kg_lineage_gap"
+    KG_ENTITY_UNRESOLVED = "kg_entity_unresolved"
 
 
 # Recovery mapping: failure → retrieval strategy
@@ -57,6 +62,11 @@ _RECOVERY_MAP: dict[str, str] = {
     RetrievalFailure.TEMPORAL_INVALIDITY: "temporal_retrieval",
     RetrievalFailure.CONFLICTING_AUTHORITIES: "hierarchy_graph",
     RetrievalFailure.ABSTAIN_REQUIRED: "abstain",
+    # 2.11 KG-specific recovery
+    RetrievalFailure.KG_TRAVERSAL_FAILED: "kg_traversal",
+    RetrievalFailure.KG_CONFLICT_UNRESOLVED: "kg_reasoning",
+    RetrievalFailure.KG_LINEAGE_GAP: "kg_traversal",
+    RetrievalFailure.KG_ENTITY_UNRESOLVED: "kg_reasoning",
 }
 
 
@@ -94,6 +104,15 @@ class FailureClassifier:
         # P2: conflicting authorities
         if verification_result.get("conflicting_authorities", False):
             failures.append(RetrievalFailure.CONFLICTING_AUTHORITIES)
+        # 2.11 KG-specific signals (set by kg_reason_node / verifier)
+        if verification_result.get("kg_traversal_failed", False):
+            failures.append(RetrievalFailure.KG_TRAVERSAL_FAILED)
+        if verification_result.get("kg_conflict_unresolved", False):
+            failures.append(RetrievalFailure.KG_CONFLICT_UNRESOLVED)
+        if verification_result.get("kg_lineage_gap", False):
+            failures.append(RetrievalFailure.KG_LINEAGE_GAP)
+        if verification_result.get("kg_entity_unresolved", False):
+            failures.append(RetrievalFailure.KG_ENTITY_UNRESOLVED)
         # P2: abstention if evidence is critically insufficient
         if (
             verification_result.get("budget_exhausted", False)

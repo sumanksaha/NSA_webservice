@@ -249,7 +249,11 @@ class TestSparseRetrieverServerBm25:
 
 class _TextHybridStore(_Bm25Store):
     def hybrid_search(self, dense_vector, sparse_vector, top_k=10, filters=None):
-        raise AssertionError("vector hybrid must not be called in server_bm25 mode")
+        # Functional double: non-server mode must call the vector-fusion path
+        # (prod only falls back on ConnectionError/RuntimeError, so raising
+        # here would escape the handler — see test_non_server_bm25_keeps_vector_fusion).
+        self.vector_calls.append((dense_vector, sparse_vector, top_k, filters))
+        return [_point("c1", 0.99)]
 
     def hybrid_search_text(self, dense_vector, text, top_k=10, filters=None):
         self.text_calls.append((dense_vector, text, top_k, filters))

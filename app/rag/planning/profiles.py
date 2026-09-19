@@ -44,6 +44,19 @@ class QueryProfile:
     # KG reasoning
     kg_reasoning_enabled: bool = True
     kg_max_depth: int = 2
+    # Phase 3 step 5: per-requirement reranking weight overrides.
+    # Maps EvidenceRequirement value → {legal_identity, legal_ranker, ce_reranker}.
+    # Falls back to the global ``rerank_weights`` when a type is absent.
+    per_requirement_rerank_profiles: dict[str, dict[str, float]] = field(default_factory=dict)
+
+    def rerank_weights_for(self, requirement_type: str | None) -> dict[str, float]:
+        """Return effective rerank weights for an answer-requirement type."""
+        if requirement_type and requirement_type in self.per_requirement_rerank_profiles:
+            merged = dict(self.rerank_weights)
+            merged.update(self.per_requirement_rerank_profiles[requirement_type])
+            return merged
+        return dict(self.rerank_weights)
+
     # Coverage optimization
     coverage_target: float = 0.8
     coverage_timeout: int = 60
@@ -69,6 +82,22 @@ class QueryProfile:
                 "compliance_assessment": 0.7,
                 "identification": 0.8,
             }
+        if not self.per_requirement_rerank_profiles:
+            # Phase 3 step 5 defaults per §13 retrieval-strategy table.
+            # Only auto-fill for profiles using the default global weights;
+            # a profile with custom globals (e.g. `legal` 0.5/0.4/0.1) keeps
+            # its bias — otherwise per-type defaults would silently replace it.
+            _default_globals = {"legal_identity": 0.4, "legal_ranker": 0.4, "ce_reranker": 0.2}
+            if self.rerank_weights == _default_globals:
+                self.per_requirement_rerank_profiles = {
+                    "definition": {"legal_identity": 0.6, "legal_ranker": 0.3, "ce_reranker": 0.1},
+                    "provision": {"legal_identity": 0.5, "legal_ranker": 0.4, "ce_reranker": 0.1},
+                    "penalty": {"legal_identity": 0.45, "legal_ranker": 0.45, "ce_reranker": 0.1},
+                    "exception": {"legal_identity": 0.3, "legal_ranker": 0.4, "ce_reranker": 0.3},
+                    "cross_reference": {"legal_identity": 0.5, "legal_ranker": 0.3, "ce_reranker": 0.2},
+                    "authority": {"legal_identity": 0.3, "legal_ranker": 0.4, "ce_reranker": 0.3},
+                    "temporal": {"legal_identity": 0.3, "legal_ranker": 0.4, "ce_reranker": 0.3},
+                }
 
 
 @dataclass

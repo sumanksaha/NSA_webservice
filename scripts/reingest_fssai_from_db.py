@@ -117,7 +117,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
             FROM legal_document ORDER BY created_at
             """
         ):
-            docs.append({k: r[k] for k in r})
+            docs.append(dict(r))
         for r in con.execute(
             """
             SELECT id, document_id, document_type, section_number, chunk_index,
@@ -127,7 +127,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
             FROM legal_chunk ORDER BY document_id, chunk_index
             """
         ):
-            chunks.setdefault(r["document_id"], []).append({k: r[k] for k in r})
+            chunks.setdefault(r["document_id"], []).append(dict(r))
     finally:
         con.close()
     return docs, chunks

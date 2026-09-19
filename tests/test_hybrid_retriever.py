@@ -143,7 +143,7 @@ class TestHybridRetrieverReranker:
         )
 
         class StubReranker:
-            def rerank(self, query, chunks, top_k=None):
+            def rerank(self, query, chunks, top_k=None, query_type=None):
                 return list(reversed(chunks))
 
         hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=StubReranker())
@@ -160,7 +160,7 @@ class TestHybridRetrieverReranker:
         )
 
         class FailingReranker:
-            def rerank(self, query, chunks, top_k=None):
+            def rerank(self, query, chunks, top_k=None, query_type=None):
                 raise RuntimeError("reranker crashed")
 
         hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=FailingReranker())

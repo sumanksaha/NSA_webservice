@@ -271,6 +271,8 @@ class EnsembleReranker:
         chunks: list[RetrievedChunk],
         top_k: int | None = None,
         query_type: str | None = None,
+        requirement_type: str | None = None,
+        query_profile: str | None = None,
     ) -> list[RetrievedChunk]:
         """Re-rank ``chunks`` with sec_act features primary + CE head bonus.
 
@@ -281,6 +283,11 @@ class EnsembleReranker:
         prohibition queries regress with hierarchy boosting (hierarchy=0),
         authority queries need a larger CE head, cross-reference queries
         rely on identifier recovery.
+
+        Phase 3 step 5: *requirement_type* (an ``EvidenceRequirement`` value)
+        blends the active :class:`QueryProfile` per-requirement rerank
+        weights into the CE weight — e.g. definition queries lean lexical,
+        concept queries lean dense — without changing the measured grid.
         """
         if not chunks:
             return []
@@ -306,6 +313,23 @@ class EnsembleReranker:
                 ce_head = cfg.ce_head
                 ce_weight = cfg.ce_weight
                 skip_ce = cfg.skip_ce
+            except Exception:
+                pass
+
+        if requirement_type is not None:
+            # Applied after the query_type override so blending is not dead
+            # when both are passed.
+            try:
+                from app.rag.planning.profiles import ProfileManager
+
+                profile_name = query_profile or "standard"
+                try:
+                    profile = ProfileManager().get_query_profile(profile_name)
+                except ValueError:
+                    profile = ProfileManager().get_query_profile("standard")
+                weights = profile.rerank_weights_for(requirement_type)
+                # Blend: CE share of the profile scales the CE bonus.
+                ce_weight = ce_weight * (weights.get("ce_reranker", 0.2) / 0.2)
             except Exception:
                 pass
 
