@@ -242,6 +242,39 @@ author-only), and order items **least-time-first** (effort buckets `quick` /
 evidence: its hit-rate (implemented vs. planned) feeds back into future plan
 generation and the feature's kill criterion.
 
+### FSO strategic advisory (game-theory + Talebian)
+
+This group belongs to the FSO-advisor lens: a recommendation over *how an FSO
+should act*, derived over a grounded legal analysis and resolved through
+explicit game-theoretic and Talebian principles (not free-form opinion).
+
+- **Adversary (analysis subject)** — the grounded RAG result under analysis
+  (the answer + citations + retrieved chunks representing the legal/evidential
+  state of a food-safety dispute). It is the *input* to the advisory, not its
+  output. Distinct from an `Act`.
+- **Act** — one recommended behavioural move an FSO can take in a dispute. An
+  Act carries: the action (e.g. *inspect & warn*, *issue Improvement Notice*,
+  *show-cause / penalty direction*, *prosecute*), its statutory anchor (a cited
+  FSS Act section), and a justification split into game-theoretic and Talebian
+  bases, plus grounding citations. The advisory emits the single best Act per
+  analysis.
+- **FSO escalation ladder** — the ordered set of FSO statutory acts available
+  under the FSS Act, roughly least-to-most irreversible: inspect & warn →
+  sample & lab-test → Improvement Notice §32 → show-cause / penalty direction
+  §55 → prosecution. The order is partly fixed by law (cheaper acts precede
+  costlier ones) and partly by reversibility (irreversible acts sit at the top).
+- **Optionality** (Talebian lens) — the property of an Act that makes it
+  *convex to volatility*: low downside, uncapped upside under evidence
+  discovery. The Talebian decision filter is "prefer the reversible Act whose
+  option value (reversibility × upside-under-uncertainty) is highest; escalate
+  to irreversible Acts only when the grounded penalty schedule demands it."
+  Measured as a per-Act score that breaks ties among game-theoretically
+  admissible Acts.
+- **Skin-in-the-game** (Talebian / institutional lens) — the principle that the
+  FSO should not select an Act whose enforcement cost or reversal risk is borne
+  by consumers/the public rather than the FBO; an Adversary that can pass
+  hidden costs onto the public distorts the game and is disfavoured.
+
 (Existing domain language lives in AGENTS.md §1 — CaseFile vs Adjudication,
 Canonical Key Contract, hash-chained audit, optimistic concurrency. Add new
 named concepts here as they crystallize.)

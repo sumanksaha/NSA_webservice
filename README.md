@@ -526,6 +526,20 @@ pytest tests/test_route_collisions.py -v
 
 ### Render (Current)
 
+> **⚠️ Pin the Python version (required).** Render's native Python environment
+> **ignores `runtime.txt`** (that is a Heroku convention) and floats with
+> Render's *current default image* unless `PYTHON_VERSION` is set. When Render
+> bumped its default to 3.14, builds started failing with:
+> `Package 'nsa-webservice' requires a different Python: 3.14.3 not in '<3.15,>=3.12'`.
+>
+> **Fix/prevention:** set the env var `PYTHON_VERSION=3.12.9` on every
+> Render web service (Dashboard → Service → Environment), or verify the
+> deployed runtime with `python --version` in the build log.
+>
+> Supported range: `pyproject.toml` declares `requires-python = ">=3.12,<3.15"`
+> (3.14 is verified by the `py314-boot` CI job), but **pinning is still
+> strongly recommended** so a future Render image bump cannot surprise you.
+
 The project includes a `render.yaml` blueprint for one-click deployment on Render.
 
 ```bash
@@ -553,6 +567,7 @@ gunicorn --bind 0.0.0.0:10000 app:app
 
 | Variable                  | Required            | Description                                   |
 | ------------------------- | ------------------- | --------------------------------------------- |
+| `PYTHON_VERSION`          | Yes (Render)        | Pin the runtime (e.g. `3.12.9`) — Render ignores `runtime.txt` |
 | `DATABASE_URL`            | Yes                 | PostgreSQL connection string                  |
 | `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)               |
 | `REDIS_URL`               | QStash status store | Redis connection string                       |

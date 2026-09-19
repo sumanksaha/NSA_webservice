@@ -7,7 +7,7 @@ name = "nsa-webservice"
 version = "0.8.0"
 description = "Government-grade Legal Intelligence Platform for Food Safety Officer adjudication, inspection tracking, sample management, and legal document generation."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 license = { file = "LICENSE" }
 authors = [{ name = "Suman Saha", email = "github@sumansaha.com" }]
 keywords = [
@@ -26,6 +26,8 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Office/Business :: Workflow",
   "Topic :: Security",
@@ -100,7 +102,15 @@ embeddings = [
   "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
   "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
 ]
-all = ["ocr", "embeddings"]
+# NOTE: expanded to the union of the ocr + embeddings extras. PEP 621 treats
+# bare names in an extra (e.g. "ocr") as *package* requirements, not as
+# references to sibling extras, which breaks `pip install .[all]` / `uv lock`.
+all = [
+  "easyocr>=1.7.0",                # from [ocr]
+  "opencv-python-headless>=4.9.0", # from [ocr]
+  "sentence-transformers>=3.0.0",  # from [embeddings]
+  "fastembed>=0.4.0",              # from [embeddings]
+]
 dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",

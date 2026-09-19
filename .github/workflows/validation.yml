@@ -16,6 +16,7 @@
 #   5. security    — Bandit security scan + pip-audit vulnerability check
 #   6. docs        — Documentation structure validation
 #   7. js-test     — ESLint, Prettier, and Node unit tests for static JS
+#   9. py314-boot  — Python 3.14 boot smoke test (Render default-image guard)
 # =============================================================================
 
 name: Repository Validation
@@ -421,3 +422,58 @@ jobs:
             - name: Run JS unit tests
               run: |
                   npm run test:js
+
+    # ---------------------------------------------------------------------------
+    # Job 9: Python 3.14 boot smoke test (Render default-image guard)
+    # ---------------------------------------------------------------------------
+    # Render's native Python env ignores runtime.txt and floats with its
+    # default image unless PYTHON_VERSION is set — a bump there surfaces as
+    # "Package 'nsa-webservice' requires a different Python" at build time.
+    # pyproject.toml allows >=3.12,<3.15, so the newest in-range interpreter
+    # must be able to install the full dependency set and boot the app.
+    # ---------------------------------------------------------------------------
+    py314-boot:
+        name: Python 3.14 Boot Smoke Test
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Set up Python 3.14
+              uses: actions/setup-python@v7
+              with:
+                  python-version: "3.14"
+                  cache: "pip"
+                  cache-dependency-path: |
+                      requirements.txt
+                      requirements-dev.txt
+
+            - name: Install system dependencies (Linux)
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq libgobject-2.0-0 libpango-1.0-0 \
+                    libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
+                    libcairo2 libfontconfig1 2>/dev/null || true
+
+            - name: Install Python dependencies
+              run: |
+                  python -m pip install --upgrade pip setuptools wheel
+                  pip install -r requirements.txt
+
+            - name: Boot app under Python 3.14 and probe /health
+              run: |
+                  python -c "import sys; assert sys.version_info[:2] == (3, 14), sys.version"
+                  DATABASE_URL="sqlite:///${{ github.workspace }}/_smoke314.db" \
+                  SECRET_KEY="ci-smoke-314-key" SKIP_FSO_STARTUP_SYNC=1 \
+                  python -c "
+                  from app import create_app
+                  app = create_app()
+                  client = app.test_client()
+                  resp = client.get('/health')
+                  assert resp.status_code == 200, (resp.status_code, resp.data[:200])
+                  print('BOOT+HEALTH OK under', __import__('sys').version)
+                  "
+              env:
+                  PYTHONPATH: ${{ github.workspace }}
+                  DISABLE_PDF_GENERATION: "true"

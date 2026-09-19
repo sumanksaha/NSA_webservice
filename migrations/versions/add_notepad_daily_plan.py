@@ -1,6 +1,6 @@
 """add daily_plans table for the Notepad Daily Plan feature
 
-Revision ID: add_daily_plan_table
+Revision ID: add_notepad_daily_plan
 Revises: add_inspection_checklist_notice
 Create Date: 2026-08-27
 
@@ -11,7 +11,7 @@ portfolio_rationale. Dev environments create tables via db.create_all().
 import sqlalchemy as sa
 from alembic import op
 
-revision = "add_daily_plan_table"
+revision = "add_notepad_daily_plan"
 down_revision = "add_notepad_tables"
 branch_labels = None
 depends_on = None

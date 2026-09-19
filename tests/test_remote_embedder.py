@@ -224,3 +224,48 @@ class TestDenseRetrieverRemoteWiring:
         dr._remote_embed = RemoteEmbedClient("https://embed.example", transport=_transport(handler))
         assert dr.embed_query("q") == [0.0, 1.0]  # flat vector for one text
         assert handler.requests[0].url.path == "/embed"
+
+    def test_search_uses_remote_when_local_torch_absent(self, monkeypatch):
+        """Render regression (2026-09-19): ``search()`` must not demand the
+        local SentenceTransformer when a remote endpoint is configured.
+
+        Production has no sentence-transformers installed; the old
+        unconditional ``_get_encoder()`` pre-check raised ImportError and
+        dense search silently returned zero chunks even though
+        RAG_EMBED_ENDPOINT pointed at Modal.
+        """
+        from unittest.mock import MagicMock
+
+        import app.rag.qdrant_client as qc
+
+        handler = _json_handler(payload={"vectors": _vectors(1, dim=2)})
+        dr = DenseRetriever(collection_name="c", client=MagicMock())
+        dr._remote_embed = RemoteEmbedClient("https://embed.example", transport=_transport(handler))
+        dr._has_sparse = False
+
+        def _no_torch(self):
+            raise ImportError("No module named 'sentence_transformers'")
+
+        monkeypatch.setattr(DenseRetriever, "_get_encoder", _no_torch)
+        point = {"id": "c1", "score": 0.9, "payload": {"chunk_text": "Section 50", "section_number": "50"}}
+        monkeypatch.setattr(qc, "dense_search", lambda *a, **kw: [point])
+
+        result = dr.search("penalty", top_k=5)
+        assert result.error is None
+        assert [c.chunk_id for c in result.chunks] == ["c1"]
+        assert len(handler.requests) == 1  # the remote embedder was used
+
+    def test_search_reports_missing_torch_when_no_remote(self, monkeypatch):
+        """Without an endpoint the local-encoder requirement still applies."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.delenv("RAG_EMBED_ENDPOINT", raising=False)
+        dr = DenseRetriever(collection_name="c", client=MagicMock())
+
+        def _no_torch(self):
+            raise ImportError("No module named 'sentence_transformers'")
+
+        monkeypatch.setattr(DenseRetriever, "_get_encoder", _no_torch)
+        result = dr.search("penalty", top_k=5)
+        assert result.chunks == []
+        assert result.error and "sentence_transformers" in result.error

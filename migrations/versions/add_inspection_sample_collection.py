@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "add_inspection_sample_collection"
-down_revision = "add_daily_plan_table"
+down_revision = "add_notepad_daily_plan"
 branch_labels = None
 depends_on = None
 
@@ -29,9 +29,7 @@ def upgrade() -> None:
     with op.batch_alter_table("inspection", schema=None) as batch_op:
         batch_op.add_column(sa.Column("sample_collected", sa.Boolean(), nullable=True))
         batch_op.add_column(sa.Column("sample_code", sa.String(length=100), nullable=True))
-        batch_op.create_index(
-            "idx_inspection_sample_code", ["sample_code"], unique=False
-        )
+        batch_op.create_index("idx_inspection_sample_code", ["sample_code"], unique=False)
 
 
 def downgrade() -> None:

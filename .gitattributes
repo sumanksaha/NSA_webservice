@@ -1,6 +1,11 @@
 # .gitattributes - Enterprise Line Ending Configuration
 # For Python/FastAPI projects deployed on Linux
 # Generated: 2026
+#
+# NOTE: text rules deliberately do NOT set -diff.  Suppressing the diff
+# driver makes git treat ordinary text files as binary (no diffs, no
+# inline conflict markers on merge), which breaks reviews and conflict
+# resolution.  Only real binaries (below) and Git LFS files set -diff.
 # =============================================================================
 # DEFAULT: Use LF for all text files (Linux-standard)
 # =============================================================================
@@ -10,91 +15,89 @@
 # Must be LF for Python to work correctly on Linux deployment
 # =============================================================================
 *.py text eol=lf diff=python
-*.pyc text eol=lf -diff
-*.pyo text eol=lf -diff
-*.pyd text eol=lf -diff
 # =============================================================================
 # SHELL SCRIPTS - CRITICAL: Always LF
 # Shell scripts must have LF for Linux/macOS compatibility
 # =============================================================================
-*.sh text eol=lf -diff
-*.bash text eol=lf -diff
-*.zsh text eol=lf -diff
-*.fish text eol=lf -diff
-*.csh text eol=lf -diff
-*.ksh text eol=lf -diff
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+*.csh text eol=lf
+*.ksh text eol=lf
 # =============================================================================
 # WINDOWS BATCH FILES - Keep CRLF
 # Windows-specific files that require CRLF to function
 # =============================================================================
-*.bat text eol=crlf -diff
-*.cmd text eol=crlf -diff
+*.bat text eol=crlf
+*.cmd text eol=crlf
 # =============================================================================
 # POWERSHELL SCRIPTS - Windows-native, allow native line endings
 # =============================================================================
-*.ps1 text eol=crlf -diff
-*.psm1 text eol=crlf -diff
-*.psd1 text eol=crlf -diff
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
 # =============================================================================
 # CONFIGURATION FILES - LF
 # =============================================================================
-*.json text eol=lf -diff
-*.jsonc text eol=lf -diff
-*.yaml text eol=lf -diff
-*.yml text eol=lf -diff
-*.toml text eol=lf -diff
-*.ini text eol=lf -diff
-*.cfg text eol=lf -diff
-*.conf text eol=lf -diff
-*.config text eol=lf -diff
+*.json text eol=lf
+*.jsonc text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+*.config text eol=lf
 # =============================================================================
 # MARKUP AND WEB FILES - LF
 # =============================================================================
-*.md text eol=lf -diff
-*.markdown text eol=lf -diff
-*.html text eol=lf -diff
-*.htm text eol=lf -diff
-*.css text eol=lf -diff
-*.scss text eol=lf -diff
-*.sass text eol=lf -diff
-*.less text eol=lf -diff
-*.js text eol=lf -diff
-*.jsx text eol=lf -diff
-*.ts text eol=lf -diff
-*.tsx text eol=lf -diff
-*.vue text eol=lf -diff
-*.xml text eol=lf -diff
-*.svg text eol=lf -diff
+*.md text eol=lf
+*.markdown text eol=lf
+*.html text eol=lf
+*.htm text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.sass text eol=lf
+*.less text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.vue text eol=lf
+*.xml text eol=lf
+*.svg text eol=lf
 # =============================================================================
 # DATA AND DATABASE FILES - LF
 # =============================================================================
-*.sql text eol=lf -diff
-*.csv text eol=lf -diff
-*.tsv text eol=lf -diff
+*.sql text eol=lf
+*.csv text eol=lf
+*.tsv text eol=lf
 # =============================================================================
 # DOCUMENTATION - LF
 # =============================================================================
-*.txt text eol=lf -diff
-*.rst text eol=lf -diff
-*.tex text eol=lf -diff
+*.txt text eol=lf
+*.rst text eol=lf
+*.tex text eol=lf
 # =============================================================================
 # BUILD AND CI FILES - LF
 # =============================================================================
-*.xml text eol=lf -diff
-Dockerfile text eol=lf -diff
-docker-compose.yml text eol=lf -diff
-docker-compose.yaml text eol=lf -diff
-Makefile text eol=lf -diff
-Rakefile text eol=lf -diff
-Jenkinsfile text eol=lf -diff
-*.gradle text eol=lf -diff
+*.xml text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+docker-compose.yaml text eol=lf
+Makefile text eol=lf
+Rakefile text eol=lf
+Jenkinsfile text eol=lf
+*.gradle text eol=lf
 # =============================================================================
 # LICENSE AND LEGAL - LF
 # =============================================================================
-LICENSE text eol=lf -diff
-COPYING text eol=lf -diff
+LICENSE text eol=lf
+COPYING text eol=lf
 # =============================================================================
 # BINARY FILES - Never modify line endings
+# The `binary` macro = -diff -merge -text, which is what we want here.
 # =============================================================================
 *.png binary
 *.jpg binary
@@ -113,6 +116,7 @@ COPYING text eol=lf -diff
 *.dylib binary
 *.pyc binary
 *.pyo binary
+*.pyd binary
 *.db binary
 *.sqlite binary
 *.sqlite3 binary
