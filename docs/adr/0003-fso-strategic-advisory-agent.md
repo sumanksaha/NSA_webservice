@@ -1,6 +1,7 @@
 # ADR-0003: FSO strategic advisory agent (game-theory + Talebian)
 
-- **Status:** Proposed
+- **Status:** Accepted (V1 implemented 2026-09-19: deterministic selector +
+  both-gates graph wiring; LLM justification prose deferred)
 - **Date:** 2026-09-19
 - **Context:** RAG subsystem (`app/rag/`), agent graph in `app/rag/agent/`
 - **Deciders:** Architecture review (grill-with-docs: grilling + domain-modeling rounds 1–2)

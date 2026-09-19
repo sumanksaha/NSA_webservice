@@ -274,6 +274,14 @@ explicit game-theoretic and Talebian principles (not free-form opinion).
   FSO should not select an Act whose enforcement cost or reversal risk is borne
   by consumers/the public rather than the FBO; an Adversary that can pass
   hidden costs onto the public distorts the game and is disfavoured.
+- **FSO advisory gates** — the two deterministic graph nodes running
+  `DeterministicActSelector` (`app/rag/advisor/`): `fso_advisory_hint`
+  (pre-generation candidate, internal only) and `fso_advisory`
+  (post-verification authoritative Act, fail-closed with
+  `advisory_abstain_reason = "insufficient_statutory_grounding"`).
+  Gated by `FSO_ADVISOR_ENABLED` (default off); per-request override
+  `fso_advisory` + `is_repeat_offender` / `has_lab_report` flags on
+  `POST /api/rag/query/agent`. The LLM never picks the Act.
 
 (Existing domain language lives in AGENTS.md §1 — CaseFile vs Adjudication,
 Canonical Key Contract, hash-chained audit, optimistic concurrency. Add new

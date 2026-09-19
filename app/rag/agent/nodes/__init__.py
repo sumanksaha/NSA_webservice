@@ -27,10 +27,15 @@ working unchanged.
 
 from __future__ import annotations
 
+from app.rag.agent.nodes.advisory import (
+    extract_sections,
+    fso_advisory_hint_node,
+    fso_advisory_node,
+)
 from app.rag.agent.nodes.claims import _verify_claims
 from app.rag.agent.nodes.common import (
-    GROUNDEDNESS_THRESHOLD,
     _BUDGET_DEFAULTS,
+    GROUNDEDNESS_THRESHOLD,
     _caller_app,
     _consume_budget,
     _enrich_audit_entry,
@@ -93,7 +98,10 @@ __all__ = [
     "evidence_sufficiency_node",
     "execute_task_node",
     "expand_query_node",
+    "extract_sections",
     "finalize_node",
+    "fso_advisory_hint_node",
+    "fso_advisory_node",
     "generate_node",
     "kg_reason_node",
     "logger",

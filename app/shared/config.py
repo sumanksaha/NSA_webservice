@@ -484,6 +484,14 @@ _TABLE: tuple[Setting, ...] = (
         opt_in=False,
         help="Kill switch for Notepad AI evaluation (LLM spend). 503 when off.",
     ),
+    # --- FSO strategic advisory (game-theory + Talebian, ADR-0003) ------------
+    Setting(
+        "FSO_ADVISOR_ENABLED",
+        "fso_advisor_enabled",
+        bool,
+        False,
+        help="Attach deterministic FSO Act advisory (game-theory+Talebian) on the agent path.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

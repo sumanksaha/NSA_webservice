@@ -111,21 +111,32 @@ def run_agent_query(
     thread_id: str | None = None,
     hitl: bool = False,
     resume_hint: str | None = None,
+    fso_advisor: bool | None = None,
+    is_repeat_offender: bool = False,
+    has_lab_report: bool = False,
 ) -> tuple[int, dict[str, Any]]:
     """Run one agent query; return ``(status_code, payload)``.
 
     ``(200, RAGResponse-dict)`` on completion, ``(202, awaiting_review)``
     on an M5 pause, ``(400, ...)`` on validation failure, ``(503, ...)``
     when langgraph is missing, ``(500, ...)`` on unexpected failure.
+
+    ``fso_advisor`` pins the FSO advisory topology (``None`` = live
+    ``FSO_ADVISOR_ENABLED``); ``is_repeat_offender`` / ``has_lab_report``
+    feed the deterministic selector (never inferred from text).
     """
     if not query or not isinstance(query, str) or not query.strip():
         return 400, {"error": "query must be a non-empty string."}
     if not isinstance(top_k, int) or top_k < 1:
         return 400, {"error": "top_k must be a positive integer."}
-    if hitl and thread_id is not None and (
-        not isinstance(thread_id, str) or not thread_id.strip()
-    ):
+    if hitl and thread_id is not None and (not isinstance(thread_id, str) or not thread_id.strip()):
         return 400, {"error": "thread_id must be a non-empty string."}
+    if fso_advisor is not None and not isinstance(fso_advisor, bool):
+        return 400, {"error": "fso_advisory must be a boolean."}
+    if not isinstance(is_repeat_offender, bool):
+        return 400, {"error": "is_repeat_offender must be a boolean."}
+    if not isinstance(has_lab_report, bool):
+        return 400, {"error": "has_lab_report must be a boolean."}
 
     try:
         from app.rag.agent.graph import run_agent
@@ -137,7 +148,9 @@ def run_agent_query(
             collection_name=collection_name,
             filters=filters,
         )
-        result = run_agent(state, thread_id=thread_id, hitl=hitl)
+        state["is_repeat_offender"] = is_repeat_offender
+        state["has_lab_report"] = has_lab_report
+        result = run_agent(state, thread_id=thread_id, hitl=hitl, fso_advisor=fso_advisor)
     except ImportError as exc:
         # langgraph not installed — surface as 503 like the disabled case.
         logger.warning("run_agent_query: %s", exc)
@@ -149,9 +162,7 @@ def run_agent_query(
     # M5 human-in-the-loop: the graph paused at the review interrupt.
     if hitl and "__interrupt__" in result:
         durable = _warn_hitl_durability()
-        return 202, awaiting_review_payload(
-            thread_id, _interrupt_review(result), durable, hint=resume_hint
-        )
+        return 202, awaiting_review_payload(thread_id, _interrupt_review(result), durable, hint=resume_hint)
 
     # Completed run — the ``RAGResponse``-schema dict.
     return 200, _completed_payload(result)
@@ -162,12 +173,16 @@ def resume_agent_query(
     thread_id: Any | None,
     approved: Any = True,
     hitl: bool = False,
+    fso_advisor: bool | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """Resume a paused M5 run; return ``(status_code, payload)``.
 
     ``(200, RAGResponse-dict)`` on completion, ``(202, awaiting_review)``
     if the graph pauses again, ``(400, ...)`` on validation failure or when
     HITL is disabled, ``(500, ...)`` on unexpected failure.
+
+    ``fso_advisor`` re-pins the advisory topology for the resumed run
+    (mirrors the per-request override on the initial query).
     """
     if not hitl:
         return 400, {"error": "RAG_AGENT_HITL is false — no review flow to resume."}
@@ -175,6 +190,8 @@ def resume_agent_query(
         return 400, {"error": "thread_id must be a non-empty string."}
     if not isinstance(approved, bool):
         return 400, {"error": "approved must be a boolean."}
+    if fso_advisor is not None and not isinstance(fso_advisor, bool):
+        return 400, {"error": "fso_advisory must be a boolean."}
 
     try:
         from app.rag.agent.graph import resume_agent
@@ -182,7 +199,10 @@ def resume_agent_query(
         # NOTE: hitl defaults to True (the only resume path is the M5 review
         # gate); it is intentionally not passed so test doubles with a
         # ``(thread_id, approved)`` signature keep working.
-        result = resume_agent(thread_id, approved=approved)
+        kwargs: dict[str, Any] = {}
+        if fso_advisor is not None:
+            kwargs["fso_advisor"] = fso_advisor
+        result = resume_agent(thread_id, approved=approved, **kwargs)
     except ValueError as exc:
         logger.warning("resume_agent_query: %s", exc)
         return 400, {"error": str(exc)}

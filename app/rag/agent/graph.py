@@ -140,6 +140,20 @@ def _route_after_budget(state: RAGState) -> str:
     return "execute_task"
 
 
+def _route_after_hint(state: RAGState) -> str:
+    """Route after the shared FSO pre-generation hint node.
+
+    The hint node is on both paths (linear retrieve → hint; DAG
+    execute_task → hint) but each run belongs to exactly one path — a static
+    edge to both successors would fan out to both (concurrent ``audit_trail``
+    writes). The DAG path carries ``task_order``; the linear path does not
+    (mirrors :func:`_route_after_retry`).
+    """
+    if state.get("task_order"):
+        return "evidence_sufficiency"
+    return "generate"
+
+
 def _route_after_retry(state: RAGState) -> str:
     """Phase 1: return targeted retries to the path that needed them.
 
@@ -385,10 +399,25 @@ def _resolve_evidence_selector(explicit: bool | None) -> bool:
         return False
 
 
+def _resolve_fso_advisor(explicit: bool | None) -> bool:
+    """Resolve the ``fso_advisor`` topology flag (ADR-0003).
+
+    Same contract as :func:`_resolve_evidence_selector`: explicit bool pins
+    the topology, ``None`` reads live ``FSO_ADVISOR_ENABLED`` (default off).
+    """
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        return bool(cfg.fso_advisor_enabled)
+    except Exception:
+        return False
+
+
 def build_graph(
     hitl: bool = False,
     checkpointer: Any | None = None,
     evidence_selector: bool | None = None,
+    fso_advisor: bool | None = None,
 ) -> Any:
     """Build and compile the agent ``StateGraph``.
 
@@ -402,6 +431,12 @@ def build_graph(
             ``retrieve`` and ``generate``.  ``None`` (default) reads the
             live ``ENABLE_EVIDENCE_SELECTOR`` config; pass an explicit bool
             to pin the topology regardless of config.
+        fso_advisor: Insert the deterministic FSO advisory gates (ADR-0003):
+            a pre-generation ``fso_advisory_hint`` (retrieval → hint →
+            generate; DAG: execute_task → hint → evidence_sufficiency) and
+            a post-verification ``fso_advisory`` directly before
+            ``finalize`` on every terminal path.  ``None`` reads the live
+            ``FSO_ADVISOR_ENABLED`` config (default off).
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
     """
@@ -444,6 +479,11 @@ def build_graph(
     # P2: Evidence sufficiency gate + abstention
     builder.add_node("evidence_sufficiency", lambda state, cfg=None: nodes.evidence_sufficiency_node(state))
     builder.add_node("abstain", lambda state, cfg=None: nodes.abstain_node(state))
+    # FSO advisory gates (ADR-0003, deterministic — no LLM, sub-millisecond).
+    fso_on = _resolve_fso_advisor(fso_advisor)
+    if fso_on:
+        builder.add_node("fso_advisory_hint", lambda state, cfg=None: nodes.fso_advisory_hint_node(state))
+        builder.add_node("fso_advisory", lambda state, cfg=None: nodes.fso_advisory_node(state))
 
     builder.add_edge(START, "classify")
     builder.add_edge("classify", "plan")
@@ -466,7 +506,18 @@ def build_graph(
         _route_after_budget,
         {"execute_task": "execute_task", "abstain": "abstain"},
     )
-    builder.add_edge("execute_task", "evidence_sufficiency")
+    if fso_on:
+        # Pre-generation hint sees per-task evidence before the gate. The
+        # hint is shared by both paths, so its successor is routed
+        # conditionally (static edges to both would fan out concurrently).
+        builder.add_edge("execute_task", "fso_advisory_hint")
+        builder.add_conditional_edges(
+            "fso_advisory_hint",
+            _route_after_hint,
+            {"evidence_sufficiency": "evidence_sufficiency", "generate": "generate"},
+        )
+    else:
+        builder.add_edge("execute_task", "evidence_sufficiency")
     builder.add_conditional_edges(
         "evidence_sufficiency",
         _route_after_evidence,
@@ -477,16 +528,30 @@ def build_graph(
     # Optional evidence node between retrieve and generate (feature-flagged).
     # The flag is resolved per build (see _resolve_evidence_selector), never
     # frozen at import — see _get_graph for the request-path cache.
-    if _resolve_evidence_selector(evidence_selector):
+    # The FSO pre-generation hint (when on) sits directly before generate so
+    # it sees the final linear retrieval output.
+    evidence_on = _resolve_evidence_selector(evidence_selector)
+    if evidence_on:
         builder.add_node("evidence", nodes.evidence_node)
         builder.add_edge("retrieve", "evidence")
-        builder.add_edge("evidence", "generate")
+        if fso_on:
+            builder.add_edge("evidence", "fso_advisory_hint")
+        else:
+            builder.add_edge("evidence", "generate")
+    elif fso_on:
+        builder.add_edge("retrieve", "fso_advisory_hint")
     else:
         builder.add_edge("retrieve", "generate")
 
     builder.add_edge("generate", "verify")
     builder.add_edge("verify", "citation_quality")
 
+    # Post-verification FSO advisory (when on) sits directly before finalize
+    # on every terminal path: the citation/verify signals exist by then, and
+    # (HITL) the human has already approved the answer the Act attaches to.
+    final_step = "fso_advisory" if fso_on else "finalize"
+    if fso_on:
+        builder.add_edge("fso_advisory", "finalize")
     if hitl:
         # M5: human-in-the-loop gate.  review interrupts; approved → finalize,
         # rejected → expand_query (re-generate with a rewritten query).
@@ -498,18 +563,21 @@ def build_graph(
         builder.add_conditional_edges(
             "review",
             route_after_review,
-            {"expand_query": "expand_query", "finalize": "finalize"},
+            {"expand_query": "expand_query", "finalize": final_step},
         )
     else:
         # Multi-signal threshold: verify → citation_quality → retry/finalize
         builder.add_conditional_edges(
             "citation_quality",
             route_after_verify,
-            {"targeted_retry": "targeted_retry", "expand_query": "expand_query", "finalize": "finalize"},
+            {"targeted_retry": "targeted_retry", "expand_query": "expand_query", "finalize": final_step},
         )
 
     # P2: abstain terminal path
-    builder.add_edge("abstain", "finalize")
+    if fso_on:
+        builder.add_edge("abstain", "fso_advisory")
+    else:
+        builder.add_edge("abstain", "finalize")
 
     # Phase 1: retries return to the path that raised them — the DAG path
     # re-enters plan_tasks (no-op re-read) → budget_gate → execute_task,
@@ -526,35 +594,38 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-#: Request-path graph cache, keyed by ``(hitl, evidence_selector)``.
-#: The compiled topology depends on both flags, so both are part of the key:
-#: flipping ``ENABLE_EVIDENCE_SELECTOR`` at runtime compiles (at most) one
-#: additional graph instead of serving a stale topology — no restart needed.
-#: Graphs carrying a checkpointer are never cached here (the saver identity
-#: can change across calls); they are built fresh per call as before.
-_graph_cache: dict[tuple[bool, bool], Any] = {}
+#: Request-path graph cache, keyed by ``(hitl, evidence_selector, fso_advisor)``.
+#: The compiled topology depends on all three flags, so all are part of the
+#: key: flipping ``ENABLE_EVIDENCE_SELECTOR`` or ``FSO_ADVISOR_ENABLED`` at
+#: runtime compiles (at most) one additional graph instead of serving a stale
+#: topology — no restart needed.  Graphs carrying a checkpointer are never
+#: cached here (the saver identity can change across calls); they are built
+#: fresh per call as before.
+_graph_cache: dict[tuple[bool, bool, bool], Any] = {}
 _graph_cache_lock = threading.Lock()
 
 
 def _get_graph(
     hitl: bool = False,
     evidence_selector: bool | None = None,
+    fso_advisor: bool | None = None,
     checkpointer: Any | None = None,
 ) -> Any:
     """Return the compiled graph for this request's flag combination.
 
-    ``evidence_selector=None`` resolves the live config on every call, so
-    the served topology always matches the current flags.  Raises
-    ``ImportError`` (with the install hint) when langgraph is missing.
+    ``evidence_selector=None`` / ``fso_advisor=None`` resolve the live config
+    on every call, so the served topology always matches the current flags.
+    Raises ``ImportError`` (with the install hint) when langgraph is missing.
     """
     resolved = _resolve_evidence_selector(evidence_selector)
+    resolved_fso = _resolve_fso_advisor(fso_advisor)
     if checkpointer is not None:
-        return build_graph(hitl=hitl, checkpointer=checkpointer, evidence_selector=resolved)
-    key = (bool(hitl), resolved)
+        return build_graph(hitl=hitl, checkpointer=checkpointer, evidence_selector=resolved, fso_advisor=resolved_fso)
+    key = (bool(hitl), resolved, resolved_fso)
     with _graph_cache_lock:
         graph = _graph_cache.get(key)
         if graph is None:
-            graph = build_graph(hitl=hitl, evidence_selector=resolved)
+            graph = build_graph(hitl=hitl, evidence_selector=resolved, fso_advisor=resolved_fso)
             _graph_cache[key] = graph
         return graph
 
@@ -584,6 +655,7 @@ def run_agent(
     thread_id: str | None = None,
     hitl: bool = False,
     checkpointer: Any | None = None,
+    fso_advisor: bool | None = None,
 ) -> dict[str, Any]:
     """Invoke the agent graph on an initial state.
 
@@ -595,6 +667,8 @@ def run_agent(
             ``RAG_AGENT_CHECKPOINTER`` config (memory default).
         hitl: Use the M5 human-in-the-loop variant (review interrupt).
         checkpointer: Optional explicit checkpointer (bypasses config).
+        fso_advisor: Pin the FSO advisory topology (``None`` = live
+            ``FSO_ADVISOR_ENABLED`` config).
 
     Returns:
         The ``RAGResponse``-schema dict on completion (unwrapped from the
@@ -606,19 +680,20 @@ def run_agent(
         should detect it and surface the review request.
 
     The graph comes from the flag-aware ``_get_graph`` cache, so the live
-    ``ENABLE_EVIDENCE_SELECTOR`` value is honoured on every call.
+    ``ENABLE_EVIDENCE_SELECTOR`` / ``FSO_ADVISOR_ENABLED`` values are
+    honoured on every call.
     """
     if thread_id:
         # Rebuild with a checkpointer so resume works across requests.
         cp = checkpointer if checkpointer is not None else _build_checkpointer()
-        graph = _get_graph(hitl, checkpointer=cp)
+        graph = _get_graph(hitl, fso_advisor=fso_advisor, checkpointer=cp)
         result = graph.invoke(
             state,
             config={"configurable": {"thread_id": thread_id}},
         )
     else:
         # Raises ImportError with the install hint when langgraph is missing.
-        graph = _get_graph(hitl)
+        graph = _get_graph(hitl, fso_advisor=fso_advisor)
         result = graph.invoke(state)
 
     # Contract (M3): a completed run returns the ``RAGResponse``-schema
@@ -635,19 +710,24 @@ def resume_agent(
     approved: bool = True,
     hitl: bool = True,
     checkpointer: Any | None = None,
+    fso_advisor: bool | None = None,
 ) -> dict[str, Any]:
     """Resume a paused M5 run by thread id.
 
     Re-invokes the graph under the same thread id with a
     ``Command(resume=...)`` carrying the human decision.  Returns the final
     state (``response`` set) or the next ``__interrupt__`` if it pauses again.
+
+    ``fso_advisor`` pins the advisory topology so a per-request
+    ``fso_advisory:true`` run that paused at ``review`` resumes on the same
+    topology (``None`` = live ``FSO_ADVISOR_ENABLED``).
     """
     from langgraph.types import Command
 
     cp = checkpointer if checkpointer is not None else _build_checkpointer()
     if cp is None:
         raise ValueError("Resume requires a checkpointer (RAG_AGENT_CHECKPOINTER=memory|postgres).")
-    graph = _get_graph(hitl, checkpointer=cp)
+    graph = _get_graph(hitl, fso_advisor=fso_advisor, checkpointer=cp)
     return graph.invoke(
         Command(resume={"approved": approved}),
         config={"configurable": {"thread_id": thread_id}},

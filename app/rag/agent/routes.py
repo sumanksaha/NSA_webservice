@@ -56,12 +56,15 @@ def query_agent():
     ``top_k`` (default 10), ``collection_name``, ``filters`` — plus an
     optional ``use_agent`` boolean that overrides the
     ``RAG_USE_AGENT_PIPELINE`` config flag for this single request (the
-    UI's "Use agent pipeline" checkbox).
+    UI's "Use agent pipeline" checkbox), and the FSO advisory fields
+    (ADR-0003): optional ``fso_advisory`` boolean (per-request override of
+    ``FSO_ADVISOR_ENABLED``), ``is_repeat_offender`` and ``has_lab_report``
+    booleans (default false) feeding the deterministic selector.
 
     Response JSON: a ``RAGResponse``-schema dict (identical shape to the
     legacy route) with an extra ``pipeline: "agent"`` marker and an
     ``agent`` block (``retry_count``, ``expanded_query``, ``audit_trail``)
-    when the graph runs.
+    when the graph runs — plus ``fso_act`` (dict or null) when advisory ran.
     """
     if not _rag_enabled():
         return jsonify({"error": "RAG is disabled."}), 503
@@ -84,6 +87,16 @@ def query_agent():
 
         return query()
 
+    requested_advisory = payload.get("fso_advisory")
+    if requested_advisory is not None and not isinstance(requested_advisory, bool):
+        return jsonify({"error": "fso_advisory must be a boolean."}), 400
+    is_repeat_offender = payload.get("is_repeat_offender", False)
+    if not isinstance(is_repeat_offender, bool):
+        return jsonify({"error": "is_repeat_offender must be a boolean."}), 400
+    has_lab_report = payload.get("has_lab_report", False)
+    if not isinstance(has_lab_report, bool):
+        return jsonify({"error": "has_lab_report must be a boolean."}), 400
+
     # Agent path — validation, error mapping and the 202 shape live in the
     # shared service core (single contract with the FastAPI gateway).
     status, body = run_agent_query(
@@ -94,6 +107,9 @@ def query_agent():
         thread_id=payload.get("thread_id") if _use_hitl() else None,
         hitl=_use_hitl(),
         resume_hint="POST /api/rag/query/agent/resume with {thread_id, approved}.",
+        fso_advisor=requested_advisory,
+        is_repeat_offender=is_repeat_offender,
+        has_lab_report=has_lab_report,
     )
     return jsonify(body), status
 
@@ -116,10 +132,15 @@ def query_agent_resume():
     if not isinstance(payload, dict):
         return jsonify({"error": "Request body must be a JSON object."}), 400
 
+    requested_advisory = payload.get("fso_advisory")
+    if requested_advisory is not None and not isinstance(requested_advisory, bool):
+        return jsonify({"error": "fso_advisory must be a boolean."}), 400
+
     status, body = resume_agent_query(
         thread_id=payload.get("thread_id"),
         approved=payload.get("approved", True),
         hitl=_use_hitl(),
+        fso_advisor=requested_advisory,
     )
     return jsonify(body), status
 

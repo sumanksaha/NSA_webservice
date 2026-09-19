@@ -137,6 +137,20 @@ class RAGState(TypedDict, total=False):
     citation_quality_ok: bool
     missing_citations: list[str]
 
+    # --- FSO strategic advisory (ADR-0003, deterministic game-theory+Talebian) ---
+    # Input flags (per-request, default False): repeat-offender status and
+    # lab-report availability.  Never inferred from retrieved text.
+    is_repeat_offender: bool
+    has_lab_report: bool
+    # Grounded § sections derived from chunks/citations (telemetry only).
+    extracted_sections: list[str]
+    # Pre-generation candidate (hint for generate/synthesize context; never
+    # surfaced to the client) vs post-verification authoritative Act.
+    fso_hint: dict[str, Any] | None
+    fso_act: dict[str, Any] | None
+    advisory_abstain_reason: str | None
+    fso_advisory_enabled: bool
+
 
 def initial_state(
     query: str,
@@ -211,4 +225,11 @@ def initial_state(
         "audit_trail": [],
         "citation_quality_ok": True,
         "missing_citations": [],
+        "is_repeat_offender": False,
+        "has_lab_report": False,
+        "extracted_sections": [],
+        "fso_hint": None,
+        "fso_act": None,
+        "advisory_abstain_reason": None,
+        "fso_advisory_enabled": False,
     }

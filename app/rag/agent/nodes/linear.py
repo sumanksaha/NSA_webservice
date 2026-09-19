@@ -485,6 +485,13 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     response.setdefault("retrieved_chunks", state.get("chunks", []))
     if state.get("abstained"):
         response.setdefault("abstained", True)
+    # FSO advisory (ADR-0003): additive fields only — never mutate answer /
+    # citations / groundedness.  Present (dict or None) when the advisory
+    # nodes ran; absent otherwise (flag off / legacy states).
+    if state.get("fso_advisory_enabled") or state.get("fso_act") is not None:
+        response["fso_act"] = state.get("fso_act")
+    if state.get("advisory_abstain_reason"):
+        response["advisory_abstain_reason"] = state["advisory_abstain_reason"]
     response["pipeline"] = "agent"
     response["agent"] = {
         "retry_count": state.get("retry_count", 0),
