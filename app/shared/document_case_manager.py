@@ -140,7 +140,8 @@ class DocumentCaseManager:
         return lookup.get_case_by_number(self.model, case_number)
 
     def list_cases(self) -> list[dict]:
-        cases = self.model.query.order_by(self.model.created_at.desc()).all()
+        model: Any = self.model
+        cases = model.query.order_by(model.created_at.desc()).all()
         return [self._case_summary(c) for c in cases]
 
     # ------------------------------------------------------------------ #

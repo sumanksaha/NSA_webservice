@@ -82,7 +82,7 @@ class GenerationLogger:
             The updated ``RAGQueryLog`` row, or ``None`` on failure.
         """
         try:
-            log_entry = db.session.get(RAGQueryLog, query_log_id)
+            log_entry: RAGQueryLog | None = db.session.get(RAGQueryLog, query_log_id)
             if log_entry is None:
                 logger.warning("RAGQueryLog not found: %s", query_log_id)
                 return None

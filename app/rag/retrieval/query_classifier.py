@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class QueryType(StrEnum):
     CROSS_REFERENCE = "cross_reference"
     CASE_LAW = "case_law"
     MULTI_HOP = "multi_hop"
+    AUTHORITY = "authority"
     FACT_PATTERN = "fact_pattern"
     COMPLIANCE_ASSESSMENT = "compliance_assessment"
     # Legacy compatibility
@@ -331,10 +332,17 @@ class JurisdictionQueryParser:
         return {}
 
 
+class _SubQueryParser(Protocol):
+    """Structural type for the section/authority/case-law/jurisdiction parsers."""
+
+    @staticmethod
+    def parse(query: str) -> dict[str, Any]: ...
+
+
 class QueryParser:
     """Dispatch query parsing to the appropriate sub-parser based on QueryType."""
 
-    _PARSERS: ClassVar[dict[QueryType, type]] = {
+    _PARSERS: ClassVar[dict[QueryType, type[_SubQueryParser]]] = {
         QueryType.SECTION_LOOKUP: SectionQueryParser,
         QueryType.AMENDMENT_QUERY: SectionQueryParser,
         QueryType.PROVISION_SEARCH: AuthorityQueryParser,

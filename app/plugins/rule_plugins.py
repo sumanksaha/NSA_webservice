@@ -40,7 +40,7 @@ class FSSAIRuleSuggesterPlugin(RuleProvider):
         """
         from app.utils.suggester import suggest_sections  # lazy
 
-        result = suggest_sections(case_data)
+        result: Any = suggest_sections(case_data)
         # Ensure consistent return shape
         if isinstance(result, dict):
             return {

@@ -19,7 +19,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from app.rag.entity_extractor import _plain_entity_names
 
@@ -157,7 +157,8 @@ class Chunk:
             embedding_model: Embedding model name stamped on the payload.
         """
         doc = document or {}
-        text = paragraph.get("text", "")
+        text_raw = paragraph.get("text", "")
+        text = text_raw if isinstance(text_raw, str) else str(text_raw or "")
         section = paragraph.get("section")
         # L4 fallback (2026-08-13): when the engine did not surface a section,
         # stamp from any-position, act-range-validated headers in the chunk
@@ -165,24 +166,28 @@ class Chunk:
         # section stays authoritative when present; ``sections_covered`` is
         # always recorded so multi-section chunks resolve against any covered
         # section.
-        act_name = doc.get("act_name") or ""
+        act_name_raw = doc.get("act_name") or ""
+        act_name = act_name_raw if isinstance(act_name_raw, str) else str(act_name_raw)
         covered = _l4_section_headers(text, act_name)
         if not section and covered:
             section = covered[0]
+        citations_raw = cast(list[Any], paragraph.get("citations") or [])
+        references_raw = cast(list[Any], doc.get("references") or [])
+        confidence_raw = cast(dict[Any, Any], paragraph.get("confidence_scores") or {})
         return cls(
             chunk_id=str(uuid.uuid4()),
             document_id=str(doc.get("document_id") or uuid.uuid4()),
             chunk_index=chunk_index,
             chunk_text=text,
             chunk_char_count=len(text),
-            word_count=int(paragraph.get("word_count", 0)),
-            document_uri=doc.get("document_uri", ""),
-            document_title=doc.get("title") or doc.get("document_title") or "",
-            document_type=paragraph.get("document_type") or doc.get("type") or "unknown",
-            authority=doc.get("authority", ""),
-            jurisdiction=doc.get("jurisdiction", ""),
-            state=doc.get("state", ""),
-            act_name=doc.get("act_name") or "",
+            word_count=int(cast(int, paragraph.get("word_count", 0))),
+            document_uri=cast(str, doc.get("document_uri", "")),
+            document_title=cast(str, doc.get("title") or doc.get("document_title") or ""),
+            document_type=cast(str, paragraph.get("document_type") or doc.get("type") or "unknown"),
+            authority=cast(str, doc.get("authority", "")),
+            jurisdiction=cast(str, doc.get("jurisdiction", "")),
+            state=cast(str, doc.get("state", "")),
+            act_name=cast(str, doc.get("act_name") or ""),
             effective_date=_as_iso(doc.get("effective_date")),
             enactment_date=_as_iso(doc.get("enactment_date")),
             amended_date=_as_iso(doc.get("amended_date")),
@@ -192,12 +197,12 @@ class Chunk:
             section_title=_extract_section_title(text),
             subsection=_extract_subsection_markers(text),
             clause_number=_extract_clause_number(text),
-            hierarchy_level=int(paragraph.get("hierarchy_depth", 0) or 0),
+            hierarchy_level=int(cast(int, paragraph.get("hierarchy_depth", 0) or 0)),
             parent_chunk_id=parent_chunk_id,
-            citations=[c.get("reference", "") for c in (paragraph.get("citations") or []) if c.get("reference")],
-            references=list(doc.get("references") or []),
+            citations=[c.get("reference", "") for c in citations_raw if c.get("reference")],
+            references=list(references_raw),
             entities=_plain_entity_names(doc.get("entities") or []),
-            confidence=float((paragraph.get("confidence_scores") or {}).get("overall", 0.0) or 0.0),
+            confidence=float(confidence_raw.get("overall", 0.0) or 0.0),
             created_at=datetime.now(UTC).isoformat(),
             embedding_model=embedding_model,
         )
@@ -256,7 +261,7 @@ class Chunker:
         try:
             from flask import current_app
 
-            return current_app.config.get("RAG_EMBEDDING_MODEL", "")
+            return str(current_app.config.get("RAG_EMBEDDING_MODEL", "") or "")
         except Exception:
             return ""
 
@@ -319,7 +324,7 @@ def _as_iso(value: Any) -> str | None:
     if value is None or value == "":
         return None
     if hasattr(value, "isoformat"):
-        return value.isoformat()
+        return str(value.isoformat())
     return str(value)
 
 

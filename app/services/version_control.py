@@ -16,6 +16,7 @@ import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from flask import current_app
 
@@ -179,11 +180,12 @@ class VersionService:
 
     def get_version(self, case_id: int | None, adjudication_id: int | None, version_id: int) -> Version | None:
         """Get a specific version by ID."""
-        return Version.query.filter_by(
+        version: Version | None = Version.query.filter_by(
             id=version_id,
             case_id=case_id,
             adjudication_id=adjudication_id,
         ).first()
+        return version
 
     def get_case_versions(
         self,
@@ -204,7 +206,8 @@ class VersionService:
         elif adjudication_id:
             query = query.filter_by(adjudication_id=adjudication_id)
 
-        return query.order_by(Version.version_number.desc()).all()
+        versions: list[Version] = query.order_by(Version.version_number.desc()).all()
+        return versions
 
     def get_branches(
         self,
@@ -507,7 +510,7 @@ class VersionService:
 
         Returns mainline versions grouped by doc_type plus the branch roots.
         """
-        result = {"petition": [], "permission": [], "branches": []}
+        result: dict[str, list[Any]] = {"petition": [], "permission": [], "branches": []}
 
         for doc_type in _VALID_DOC_TYPES:
             versions = self.get_case_versions(case_id, adjudication_id, doc_type)

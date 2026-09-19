@@ -36,7 +36,8 @@ def _rust_normalize(text: str, apply_hyphens: bool = True) -> str | None:
         from nsa_rust import normalize_text as _rust_normalize_text
     except ImportError:  # pragma: no cover - depends on build environment
         return None
-    return _rust_normalize_text(text, apply_hyphens)
+    normalized: str | None = _rust_normalize_text(text, apply_hyphens)
+    return normalized
 
 
 def _rust_run_removers(lines: list[str], config) -> tuple[list[str], list[RemovedItem]] | None:

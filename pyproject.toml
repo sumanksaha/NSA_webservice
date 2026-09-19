@@ -241,6 +241,28 @@ ignore = [
 "scripts/backfill_document_title.py" = ["T201"]
 "scripts/strip_reg_section_noise.py" = ["T201"]
 "evaluation/fetch_ce_v2_gate_assets.py" = ["T201"]
+# Experiment A/B + eval-v2 consoles (Modal CE session): stdout tables ARE
+# the report output (mirrored to results files), so print is deliberate here.
+"evaluation/eval_e2e_v2.py" = ["T201", "S501"]
+"evaluation/eval_identifier_classifier.py" = ["T201"]
+"evaluation/eval_v2_checkpoint.py" = ["T201"]
+"evaluation/experiment_a_gold_rank.py" = ["T201"]
+"evaluation/experiment_b_topk_eval.py" = ["T201"]
+# Root-level experiment/debug consoles from the same session: print is the
+# interface (results inspected inline, not logged).
+"check_gold_mapping.py" = ["T201"]
+"check_gold_payload.py" = ["T201"]
+"check_llm.py" = ["T201"]
+"debug_gold.py" = ["T201"]
+"debug_gold2.py" = ["T201"]
+"read_results.py" = ["T201"]
+"read_results2.py" = ["T201"]
+"read_results3.py" = ["T201"]
+# Local experiment harnesses: endpoint cert policy is owned by deployment
+# (these scripts target localhost/staging with self-signed certs); the
+# shipped security posture is gated by the bandit job scanning app/.
+"test_e2e.py" = ["S501"]
+"test_llm_direct.py" = ["S501"]
 "benchmark/*" = ["N802", "B007", "B023", "E741"]
 "migrations/versions/*" = ["E402", "F401", "I001", "S110", "SIM105"]
 "app/__init__.py" = ["E402", "F401", "S105"]

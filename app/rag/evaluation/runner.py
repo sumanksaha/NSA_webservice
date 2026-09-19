@@ -18,6 +18,7 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
+from typing import Any, cast
 
 from app.rag.evaluation.metrics import CoverageMetrics, EvalScore
 from app.rag.evaluation.ragas_metrics import (
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 #: Type alias for the pipeline function: query -> result dict.
 PipelineFn = Callable[
     [str],
-    dict[str, object],
+    dict[str, Any],
 ]
 
 
@@ -70,7 +71,7 @@ class EvalRunner:
         expected_citations: list[str] | None = None,
         query_type: str = "general_qa",
         top_k: int = 10,
-    ) -> dict[str, object]:
+    ) -> dict[str, Any]:
         """Evaluate a single query through the full pipeline.
 
         Runs the pipeline callable, then scores the response with the
@@ -88,9 +89,9 @@ class EvalRunner:
         pipeline_result = self.pipeline_fn(query)
         pipeline_latency_ms = int((time.perf_counter() - start) * 1000)
 
-        answer = pipeline_result.get("answer", "")
-        raw_chunks = pipeline_result.get("retrieved_chunks", [])
-        cited_ids = pipeline_result.get("cited_chunk_ids", [])
+        answer: Any = pipeline_result.get("answer", "")
+        raw_chunks: Any = pipeline_result.get("retrieved_chunks", [])
+        cited_ids: Any = pipeline_result.get("cited_chunk_ids", [])
 
         chunks: list[RetrievedChunk] = []
         for raw in raw_chunks:
@@ -110,16 +111,19 @@ class EvalRunner:
         mrr = self._compute_mrr(expected_citations or [], chunks)
 
         # RAGAS-style reference metrics (Phase 4) — deterministic, no LLM.
+        # The metric interface accepts RetrievedChunk | dict (invariant list);
+        # cast the homogeneous chunk list once (type-level only, no copy).
+        metric_chunks = cast(list[RetrievedChunk | dict[Any, Any]], chunks)
         metric_scores: dict[str, EvalScore] = {
-            "faithfulness": FaithfulnessMetric().compute(answer, chunks, query=query),
+            "faithfulness": FaithfulnessMetric().compute(answer, metric_chunks, query=query),
             "answer_relevance": AnswerRelevanceMetric().compute(answer, query, expected_answer),
-            "context_precision": ContextPrecisionMetric().compute(query, chunks),
-            "context_recall": ContextRecallMetric().compute(expected_citations or [], chunks),
-            "citation_recall": CitationRecallMetric().compute(cited_ids or [], chunks),
-            "groundedness": GroundednessMetric().compute(answer, chunks),
+            "context_precision": ContextPrecisionMetric().compute(query, metric_chunks),
+            "context_recall": ContextRecallMetric().compute(expected_citations or [], metric_chunks),
+            "citation_recall": CitationRecallMetric().compute(cited_ids or [], metric_chunks),
+            "groundedness": GroundednessMetric().compute(answer, metric_chunks),
         }
 
-        result: dict[str, object] = {
+        result: dict[str, Any] = {
             "query": query,
             "query_type": query_type,
             "answer": answer,
@@ -136,10 +140,10 @@ class EvalRunner:
 
     def evaluate_batch(
         self,
-        dataset_entries: list,
+        dataset_entries: list[Any],
         eval_run_id: str | None = None,
         persist: bool = True,
-    ) -> dict[str, object]:
+    ) -> dict[str, Any]:
         """Run :meth:`evaluate_one` over a list of dataset entries.
 
         Args:
@@ -154,7 +158,7 @@ class EvalRunner:
             aggregate summary statistics (latency_avg_ms, mrr_avg).
         """
         eval_run_id = eval_run_id or str(uuid.uuid4())
-        results: list[dict[str, object]] = []
+        results: list[dict[str, Any]] = []
 
         for entry in dataset_entries:
             if isinstance(entry, dict):
@@ -170,7 +174,7 @@ class EvalRunner:
 
             try:
                 result = self.evaluate_one(
-                    query=query,
+                    query=cast(str, query),
                     expected_answer=expected_answer,
                     expected_citations=expected_citations,
                     query_type=query_type,
@@ -180,7 +184,7 @@ class EvalRunner:
                 if persist:
                     self.storage.save_result(
                         eval_run_id=eval_run_id,
-                        query=query,
+                        query=cast(str, query),
                         expected_answer=expected_answer,
                         expected_citations=expected_citations,
                         actual_answer=result.get("answer", ""),
@@ -219,10 +223,10 @@ class EvalRunner:
     @staticmethod
     def _summarize(
         eval_run_id: str,
-        results: list[dict[str, object]],
-    ) -> dict[str, object]:
+        results: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Aggregate per-query results into summary statistics."""
-        summary: dict[str, object] = {
+        summary: dict[str, Any] = {
             "eval_run_id": eval_run_id,
             "total": len(results),
             "errors": sum(1 for r in results if "error" in r),
@@ -236,23 +240,32 @@ class EvalRunner:
             "citation_recall",
             "groundedness",
         ):
-            vals = [
-                r["metrics"][name]
-                for r in results
-                if isinstance(r.get("metrics"), dict) and isinstance(r["metrics"].get(name), (int, float))
-            ]
+            vals: list[float] = []
+            for r in results:
+                metrics = r.get("metrics")
+                if isinstance(metrics, dict):
+                    value = metrics.get(name)
+                    if isinstance(value, (int, float)):
+                        vals.append(float(value))
             summary[f"{name}_avg"] = round(sum(vals) / len(vals), 4) if vals else None
-        passed = sum(
-            1
-            for r in results
-            if isinstance(r.get("metrics"), dict)
-            and r["metrics"]
-            and all(isinstance(v, (int, float)) and v >= 0.5 for v in r["metrics"].values())
-        )
+        passed = 0
+        for r in results:
+            metrics = r.get("metrics")
+            if isinstance(metrics, dict) and metrics:
+                metric_values = list(metrics.values())
+                if metric_values and all(isinstance(v, (int, float)) and float(v) >= 0.5 for v in metric_values):
+                    passed += 1
         summary["passed"] = passed
-        mrrs = [r.get("retrieval_mrr", 0.0) for r in results if isinstance(r.get("retrieval_mrr"), (int, float))]
+        mrrs: list[float] = []
+        for r in results:
+            mrr_value = r.get("retrieval_mrr", 0.0)
+            if isinstance(mrr_value, (int, float)):
+                mrrs.append(float(mrr_value))
         summary["mrr_avg"] = round(sum(mrrs) / len(mrrs), 4) if mrrs else 0.0
-        summary["latency_avg_ms"] = (
-            round(sum(r.get("latency_ms", 0) for r in results) / len(results), 2) if results else 0
-        )
+        latencies: list[float] = []
+        for r in results:
+            latency_value = r.get("latency_ms", 0)
+            if isinstance(latency_value, (int, float)):
+                latencies.append(float(latency_value))
+        summary["latency_avg_ms"] = round(sum(latencies) / len(latencies), 2) if latencies else 0
         return {"eval_run_id": eval_run_id, "results": results, "summary": summary}

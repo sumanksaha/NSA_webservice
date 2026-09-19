@@ -45,7 +45,7 @@ class EmbeddingService:
         """Resolve the model name, reading from config lazily."""
         if self._model_name:
             return self._model_name
-        return cfg.embedding_model
+        return str(cfg.embedding_model)
 
     @property
     def vector_size(self) -> int:
@@ -75,7 +75,7 @@ class EmbeddingService:
         if self._encoder is not None:
             return self._encoder
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
+            from sentence_transformers import SentenceTransformer
         except ImportError:
             logger.warning(
                 "EmbeddingService: sentence-transformers not installed; embeddings unavailable. "
@@ -107,23 +107,24 @@ class EmbeddingService:
     def embed_text(self, text: str) -> list[float]:
         """Embed a single text into a dense vector (list of floats)."""
         encoder = self._require_encoder()
-        vector = encoder.encode(text)
-        vector = vector.tolist() if hasattr(vector, "tolist") else list(vector)
+        raw_vector: Any = encoder.encode(text)
+        vector: list[Any] = raw_vector.tolist() if hasattr(raw_vector, "tolist") else list(raw_vector)
         # sentence-transformers may return a (1, dim) array for a single
         # string — normalize the single-row case to a flat dim-length vector.
         # (A multi-row (n, dim) result would indicate a broken encoder and is
         # not a supported input here; rows > 1 are left untouched.)
         if len(vector) == 1 and isinstance(vector[0], list):
             vector = vector[0]
-        return vector
+        return [float(v) for v in vector]
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts in one encoder call."""
         encoder = self._require_encoder()
-        vectors = encoder.encode(list(texts))
-        if hasattr(vectors, "tolist"):
-            return vectors.tolist()
-        return [list(v) for v in vectors]
+        raw_vectors: Any = encoder.encode(list(texts))
+        if hasattr(raw_vectors, "tolist"):
+            materialised: Any = raw_vectors.tolist()
+            return [[float(v) for v in row] for row in materialised]
+        return [[float(v) for v in row] for row in raw_vectors]
 
     def embed_chunks(self, chunks: list[Any]) -> list[list[float]]:
         """Embed a list of :class:`app.rag.chunker.Chunk` objects (or strings).
@@ -135,7 +136,7 @@ class EmbeddingService:
         if not chunks:
             return []
         if isinstance(chunks[0], str):
-            return self.embed_batch(chunks)  # type: ignore[arg-type]
+            return self.embed_batch(chunks)
         return self.embed_batch([c.chunk_text for c in chunks])
 
     def validate_vector_size(self, expected: int | None = None) -> bool:

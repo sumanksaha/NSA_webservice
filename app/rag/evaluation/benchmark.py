@@ -139,6 +139,7 @@ class DecompositionBenchmark:
                 gold_mandatory=set(entry.get("gold_mandatory") or []),
             )
         )
+        return self.queries[-1]
 
     @classmethod
     def from_gold_dataset(cls, entries: list[GoldEntry] | None = None) -> DecompositionBenchmark:

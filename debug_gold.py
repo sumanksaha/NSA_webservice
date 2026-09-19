@@ -1,4 +1,6 @@
-import json, sys, os, re
+import json
+import os
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 
@@ -11,13 +13,13 @@ import torch
 
 torch.set_num_threads(4)
 
+from sentence_transformers import CrossEncoder
+
 from evaluation.benchmark import load_questions
 from evaluation.config import CACHE_DIR
+from evaluation.eval_e2e_v2 import score_pool
+from evaluation.rerank_legal import build_pool, rerank, rrf_scores
 from evaluation.resolution import FamilyMap, matches_gold
-from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
-from evaluation.eval_e2e_v2 import score_pool, to_retrieved_chunk
-from app.rag.retrieval.result import RetrievedChunk
-from sentence_transformers import CrossEncoder
 
 # Load data
 payload_index = {}

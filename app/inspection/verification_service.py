@@ -1,6 +1,6 @@
 """Verification service using adapters for external services."""
 
-from typing import Any
+from typing import Any, cast
 
 from .verification.geocoding_adapter import NominatimGeocoder
 from .verification.ip_adapter import IpGeolocationAdapter, region_match
@@ -14,7 +14,8 @@ _license_adapter = LicenseLookupAdapter()
 def _guarded(label: str, call, fallback: dict[str, Any]) -> dict[str, Any]:
     """Run an external-service *call*, degrading to *fallback* on any error."""
     try:
-        return call()
+        result: dict[str, Any] = call()
+        return result
     except Exception as exc:
         try:
             from flask import current_app
@@ -75,7 +76,7 @@ def verify_photo_location(
         lookup_res = _license_adapter.lookup(fbo.license_number, source="fssai")
         result["license_valid"] = (
             getattr(lookup_res, "found", False)
-            or (getattr(lookup_res, "__getitem__", None) and lookup_res.get("found"))
+            or (getattr(lookup_res, "__getitem__", None) and cast(Any, lookup_res).get("found"))
             or False
         )
 

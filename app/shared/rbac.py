@@ -94,7 +94,8 @@ def blueprint_allowed(user, blueprint_name: str | None) -> bool:
 
 def landing_endpoint(user) -> str:
     """URL a user is sent to after login / when a blocked route bounces them."""
-    return url_for("case_file_generator.index")
+    endpoint: str = url_for("case_file_generator.index")
+    return endpoint
 
 
 def scoped_officer_name(user) -> str | None:
@@ -128,7 +129,8 @@ def case_visible_to_user(user, case_type: str, case_id: int) -> bool:
     if scope is None:
         return True
     officer = case.food_safety_officer_name if case_type == "case_file" else case.food_safety_officer
-    return officer == scope
+    visible: bool = officer == scope
+    return visible
 
 
 def ensure_roles() -> None:

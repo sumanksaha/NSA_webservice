@@ -111,7 +111,7 @@ class ThreeStageReranker:
 
     def _score_legal_identity(self, chunks: list[RetrievedChunk], query: str) -> list[float]:
         """Score exact legal identity matches (act + section)."""
-        from app.rag.retrieval.query_classifier import QueryClassifier
+        from app.rag.retrieval.query_classifier import QueryClassifier, QueryType
 
         classifier = QueryClassifier()
         query_type = classifier.classify(query)
@@ -119,17 +119,18 @@ class ThreeStageReranker:
         scores = []
         for chunk in chunks:
             score = 0.0
-            metadata = chunk.metadata or {}
+            act = chunk.act_name or ""
+            section = chunk.section_number or ""
 
             # Exact act match
             if query_type in [
-                QueryClassifier.QueryType.SECTION_LOOKUP,
-                QueryClassifier.QueryType.IDENTIFICATION,
-                QueryClassifier.QueryType.PENALTY,
-                QueryClassifier.QueryType.AUTHORITY,
+                QueryType.SECTION_LOOKUP,
+                QueryType.IDENTIFICATION,
+                QueryType.PENALTY,
+                QueryType.AUTHORITY,
             ]:
-                act_match = metadata.get("act", "").lower() in query.lower()
-                section_match = str(metadata.get("section", "")) in query
+                act_match = bool(act) and act.lower() in query.lower()
+                section_match = bool(section) and section in query
                 if act_match and section_match:
                     score = 1.0
                 elif act_match or section_match:
@@ -143,10 +144,7 @@ class ThreeStageReranker:
         scores = []
         for chunk in chunks:
             score = 0.0
-            metadata = chunk.metadata or {}
-
-            # Section proximity: closer to referenced sections score higher
-            section_num = metadata.get("section")
+            section_num = chunk.section_number or ""
             if section_num and section_num.isdigit():
                 # Simple heuristic: lower section numbers often more fundamental
                 # In practice, this would be query-dependent
@@ -157,7 +155,7 @@ class ThreeStageReranker:
                     pass
 
             # Authority hierarchy: higher authorities score higher
-            authority = metadata.get("authority", "").lower()
+            authority = (chunk.authority or "").lower()
             if "supreme court" in authority:
                 score += 1.0
             elif "high court" in authority:
@@ -184,7 +182,8 @@ class ThreeStageReranker:
             if len(scores) > 0:
                 scores = np.array(scores)
                 scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
-            return scores.tolist()
+            normalised: list[float] = scores.tolist()
+            return normalised
         except Exception:
             return [0.5] * len(chunks)  # fallback on error
 
@@ -194,12 +193,11 @@ class ThreeStageReranker:
         selected_sections = set()
         for idx in ce_indices[:3]:  # top 3 CE chunks
             if idx < len(chunks):
-                section = chunks[idx].metadata.get("section", "")
-                selected_sections.add(section)
+                selected_sections.add(chunks[idx].section_number or "")
 
         scores = []
         for chunk in chunks:
-            section = chunk.metadata.get("section", "")
+            section = chunk.section_number or ""
             # Penalty increases with similarity to selected sections
             if section in selected_sections:
                 scores.append(1.0)  # high penalty for duplicate section

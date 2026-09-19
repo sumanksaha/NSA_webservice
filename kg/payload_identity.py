@@ -181,6 +181,7 @@ class QdrantPayloadStamper:
             if not recs:
                 break
             for rec in recs:
+                payload: dict[str, Any]
                 if isinstance(rec, dict):
                     payload = dict(rec.get("payload") or rec)
                     rec_id = rec.get("id")
@@ -210,7 +211,7 @@ class QdrantPayloadStamper:
         summary: dict[str, Any] = {"collections": {}, "total_points": 0, "points_to_update": 0}
         for coll in sorted(collections):
             points = self._scroll_points(coll, limit=limit)
-            stats = {
+            stats: dict[str, Any] = {
                 "points": len(points),
                 "with_instrument": 0,
                 "with_provision": 0,

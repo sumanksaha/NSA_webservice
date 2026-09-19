@@ -67,10 +67,10 @@ class SparseEmbeddingService:
             # fastembed >= 0.8 renamed TextSparseEmbedding -> SparseTextEmbedding
             # (observed 2026-08-09 on fastembed 0.8.0); both names share the
             # ``Qdrant/bm25`` model and the same {indices, values} output.
-            from fastembed import SparseTextEmbedding as _SparseCls  # type: ignore[import-untyped]
+            from fastembed import SparseTextEmbedding as _SparseCls
         except ImportError:
             try:
-                from fastembed import TextSparseEmbedding as _SparseCls  # type: ignore[import-untyped]
+                from fastembed import TextSparseEmbedding as _SparseCls
             except ImportError:
                 logger.warning(
                     "SparseEmbeddingService: fastembed not installed; sparse (BM25) "
@@ -133,12 +133,12 @@ class SparseEmbeddingService:
         embedder = self._require_embedder()
         return [self._to_json_safe(sparse) for sparse in embedder.embed(list(texts))]
 
-    def embed_chunks(self, chunks: list[object]) -> list[dict[str, list]]:
+    def embed_chunks(self, chunks: list[Any]) -> list[dict[str, list]]:
         """Embed a list of :class:`app.rag.chunker.Chunk` objects (or strings)."""
         if not chunks:
             return []
         if isinstance(chunks[0], str):
-            return self.embed_batch(chunks)  # type: ignore[arg-type]
+            return self.embed_batch(chunks)
         return self.embed_batch([c.chunk_text for c in chunks])
 
 

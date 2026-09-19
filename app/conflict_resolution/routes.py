@@ -12,7 +12,8 @@ from app.ocr_extraction.service import open_conflicts, resolve_conflict
 
 def _parse_values(raw: str) -> list[dict]:
     try:
-        return json.loads(raw or "[]")
+        values: list[dict] = json.loads(raw or "[]")
+        return values
     except (TypeError, ValueError):
         return []
 

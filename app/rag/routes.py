@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 def _rag_enabled() -> bool:
     """Whether the RAG module is enabled (``RAG_ENABLED`` config)."""
-    return cfg.rag_enabled
+    enabled: bool = cfg.rag_enabled
+    return enabled
 
 
 # Circuit-breaker wrapper for the legacy query route ? module-level so the

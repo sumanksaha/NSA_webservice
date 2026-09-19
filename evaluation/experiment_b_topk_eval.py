@@ -72,33 +72,33 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # SSL-bypass LLM client) from eval_e2e_v2.py -- THE "existing corrected
 # evaluation implementation".  Importing it runs load_dotenv(override=True) and
 # sets RAG_USE_STUB_LLM=false at module scope.
-from evaluation.eval_e2e_v2 import (  # noqa: E402
+from evaluation.eval_e2e_v2 import (
     load_payload_index,
     load_raw,
     load_jsonl,
     score_pool,
     _SSLBypassLLMClient,
 )
-from evaluation.benchmark import load_questions, load_gold_registry  # noqa: E402
-from evaluation.config import CACHE_DIR  # noqa: E402
-from evaluation.resolution import FamilyMap, matches_gold, payload_to_keys  # noqa: E402
-from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of  # noqa: E402
-from evaluation.grading import grade_answer  # noqa: E402
-from app.rag.generation.context_builder import ContextBuilder  # noqa: E402
-from app.rag.generation.grounded_service import GroundedGenerationService  # noqa: E402
-from app.rag.retrieval.result import RetrievedChunk  # noqa: E402
+from evaluation.benchmark import load_questions, load_gold_registry
+from evaluation.config import CACHE_DIR
+from evaluation.resolution import FamilyMap, matches_gold, payload_to_keys
+from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
+from evaluation.grading import grade_answer
+from app.rag.generation.context_builder import ContextBuilder
+from app.rag.generation.grounded_service import GroundedGenerationService
+from app.rag.retrieval.result import RetrievedChunk
 
 os.environ["RAG_USE_STUB_LLM"] = "false"  # re-assert after eval_e2e_v2 import
 
-import torch  # noqa: E402
+import torch
 
 torch.set_num_threads(4)
 
-from sentence_transformers import CrossEncoder  # noqa: E402
-import matplotlib  # noqa: E402
+from sentence_transformers import CrossEncoder
+import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
 # Frozen pipeline configuration (mirrors Experiment A / eval_v2_checkpoint)
@@ -451,7 +451,7 @@ def _attach_ce_ranked(ce_cache: dict):
     for qd in ce_cache["questions"].values():
         qd["_ce_ranked"] = [
             {"key": ky, "kind": ki, "ce_score": sc}
-            for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"])
+            for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"], strict=False)
         ]
 
 
@@ -570,7 +570,7 @@ def phase_build(dry: bool):
         print(f"  [verify] {qid}: brute={len(brute)} indexed={len(idxd)} -> {ok}", flush=True)
 
     ce_cache = {"config": _build_config_meta(), "questions": {}}
-    ks_all = K_VALUES + [150, 200, 300, 500]
+    ks_all = [*K_VALUES, 150, 200, 300, 500]
     retrieval_recall = {k: [] for k in ks_all}
     head150_recall = {k: [] for k in K_VALUES}
 
@@ -581,7 +581,7 @@ def phase_build(dry: bool):
         d, s, k_arm = dense.get(qid), sparse.get(qid), kg.get(qid)
         if not (d and s and k_arm):
             continue
-        pool, rrf_ranked, ce_ranked = build_ce_ranking(q, qid, d, s, k_arm, ident, payload_index, family_map, ce)
+        pool, _rrf_ranked, ce_ranked = build_ce_ranking(q, qid, d, s, k_arm, ident, payload_index, family_map, ce)
         if not ce_ranked:
             continue
 
@@ -697,7 +697,7 @@ def _print_dry_context_math(ce_cache, questions, payload_index, family_map):
         for qid, qd in ce_cache["questions"].items():
             ce = [
                 {"key": ky, "kind": ki, "ce_score": sc}
-                for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"])
+                for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"], strict=False)
             ]
             chunk_items, kg_items = ce_topk_chunks(ce, k)
             chunks = retrieve_chunks(chunk_items, payload_index)
@@ -766,7 +766,7 @@ def _llm_call_with_retry(question, context_chunks, k, client):
 def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, client):
     ce_ranked = qd.get("_ce_ranked") or [
         {"key": ky, "kind": ki, "ce_score": sc}
-        for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"])
+        for ky, ki, sc in zip(qd["ce_ranked_keys"], qd["ce_ranked_kinds"], qd["ce_ranked_scores"], strict=False)
     ]
     chunk_items, kg_items = ce_topk_chunks(ce_ranked, k)
     ce_topk_chunk_ids = [it["key"] for it in chunk_items]
@@ -1021,7 +1021,7 @@ def _pctl(xs, p):
     if not xs:
         return 0.0
     s = sorted(xs)
-    idx = int(math.ceil(p / 100.0 * len(s))) - 1
+    idx = math.ceil(p / 100.0 * len(s)) - 1
     return s[max(0, min(idx, len(s) - 1))]
 
 
@@ -1109,7 +1109,7 @@ def phase_analyze():
     # --- R@K retrieval recall (section 8) + MRR/NDCG@10 ---
     r_at_k = {}
     mrr10, ndcg10 = [], []
-    for k in K_VALUES + [150, 200, 300, 500]:
+    for k in [*K_VALUES, 150, 200, 300, 500]:
         r_at_k[k] = 0.0
     total_qs = 0
     for qid, qd in ce_cache["questions"].items():
@@ -1802,7 +1802,7 @@ def phase_report():
         A(row)
     A("")
     A("## 13. Noise Analysis (K=100)")
-    nm = noise.get(100) or list(noise.values())[0]
+    nm = noise.get(100) or next(iter(noise.values()), None)
     if nm:
         A(
             f"Mean context chunks={nm['mean_total_context_chunks']}, gold-in-context="
@@ -1820,7 +1820,7 @@ def phase_report():
     if mo.get("examples"):
         A("")
         for ex in mo["examples"][:5]:
-            A(f"- {ex['qid']}: " + ", ".join(f"K{k}={v}" for k, v in zip(ks, ex["curve"])))
+            A(f"- {ex['qid']}: " + ", ".join(f"K{k}={v}" for k, v in zip(ks, ex["curve"], strict=False)))
     A("")
     A("## 15. Actual vs Requested K")
     A("")
@@ -1857,7 +1857,7 @@ def phase_report():
     )
     A("")
     A("## 19. Failure Classification (A-E) at K=max(K)")
-    fk = fail.get(ks[-1]) or list(fail.values())[0]
+    fk = fail.get(ks[-1]) or list(fail.values())[0]  # noqa: RUF015 — empty input must crash loudly, not render a partial report
     A(
         f"A(retrieval-limit, gold absent from CE top-K)={fk['A_retrieval_limit']}, "
         f"B(gold present, wrong)={fk['B_gold_present_wrong']}, "
@@ -1968,7 +1968,7 @@ def phase_validate():
     gold_index = _load_gold_index(payload_index, family_map)
     _attach_ce_ranked(ce_cache)
 
-    ks_all = K_VALUES + [150, 200, 300, 500]
+    ks_all = [*K_VALUES, 150, 200, 300, 500]
     retrieval_recall = {k: [] for k in ks_all}
     head150_recall = {k: [] for k in K_VALUES}
 

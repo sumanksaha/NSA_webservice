@@ -1,4 +1,5 @@
-import sys, os, ssl
+import os
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 
@@ -7,8 +8,8 @@ from dotenv import load_dotenv
 load_dotenv(r"C:\github\NSA_webservice/.env", override=True)
 os.environ["RAG_USE_STUB_LLM"] = "false"
 
+
 import httpx
-import json
 
 api_key = os.environ.get("OPENROUTER_API_KEY", "")
 model = os.environ.get("RAG_LLM_MODEL", "poolside/laguna-s-2.1:free")

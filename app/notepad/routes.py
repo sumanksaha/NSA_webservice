@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
@@ -36,7 +37,7 @@ _EFFORT_BUCKETS = ("quick", "medium", "long")
 _PLAN_PAYLOAD_KEYS = ("items", "ranking", "portfolio_rationale")
 
 
-def _validate_plan_payload(payload: dict, offered_ids: set[int]) -> str | None:
+def _validate_plan_payload(payload: Any, offered_ids: set[int]) -> str | None:
     """Light validation; returns an error message or None."""
     if not isinstance(payload, dict):
         return "AI returned a non-object plan."

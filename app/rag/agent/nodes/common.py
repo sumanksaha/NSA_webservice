@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "GROUNDEDNESS_THRESHOLD",
-    "_COVERAGE_FLOOR",
     "_BUDGET_DEFAULTS",
+    "_COVERAGE_FLOOR",
     "_caller_app",
     "_consume_budget",
     "_enrich_audit_entry",

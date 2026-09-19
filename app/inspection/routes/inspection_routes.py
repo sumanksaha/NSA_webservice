@@ -286,7 +286,8 @@ def _parse_checklist(raw: str | None) -> dict | None:
     if not raw:
         return None
     try:
-        return json.loads(raw)
+        parsed: dict | None = json.loads(raw)
+        return parsed
     except (ValueError, TypeError):
         return None
 

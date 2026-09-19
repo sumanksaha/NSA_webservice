@@ -132,7 +132,7 @@ class RemoteEmbedClient:
         if not self.local_model:
             return None
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
+            from sentence_transformers import SentenceTransformer
 
             # Bound torch threads before the model is built (RAG_TORCH_THREADS)
             # so the fallback does not peg every core on a laptop.
@@ -150,5 +150,6 @@ class RemoteEmbedClient:
         """Embed with a local encoder, normalizing the return shape."""
         vectors = encoder.encode(list(texts))
         if hasattr(vectors, "tolist"):
-            return vectors.tolist()
+            local_vectors: list[list[float]] = vectors.tolist()
+            return local_vectors
         return [list(v) for v in vectors]

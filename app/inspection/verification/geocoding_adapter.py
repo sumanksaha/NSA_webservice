@@ -1,6 +1,7 @@
 """Rate-limited Nominatim geocoding adapter with retry/caching."""
 
 import time
+from typing import Any
 
 import requests
 
@@ -17,7 +18,7 @@ class NominatimGeocoder:
         """Reverse geocode to get locality from lat/lng."""
         self._enforce_rate_limit()
         url = "https://nominatim.openstreetmap.org/reverse"
-        params = {"lat": lat, "lon": lng, "format": "json"}
+        params: dict[str, Any] = {"lat": lat, "lon": lng, "format": "json"}
         headers = {"User-Agent": "NSA_webservice/1.0"}
         try:
             response = requests.get(url, params=params, headers=headers, timeout=5)

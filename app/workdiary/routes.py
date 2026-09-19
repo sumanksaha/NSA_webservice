@@ -77,17 +77,21 @@ def _url_for_filters(endpoint: str, filters: dict[str, str | None]) -> str:
     from flask import url_for
 
     clean = {k: v for k, v in filters.items() if v}
-    return url_for(endpoint, **clean)
+    url: str = url_for(endpoint, **clean)
+    return url
 
 
 def _pdf_filename(filters: dict[str, str | None]) -> str:
     parts = ["workdiary"]
-    if filters.get("fso_name"):
-        parts.append(re.sub(r"[^A-Za-z0-9_-]+", "_", filters["fso_name"]))
-    if filters.get("date_from"):
-        parts.append(filters["date_from"])
-    if filters.get("date_to"):
-        parts.append(filters["date_to"])
+    fso_name = filters.get("fso_name")
+    if fso_name:
+        parts.append(re.sub(r"[^A-Za-z0-9_-]+", "_", fso_name))
+    date_from = filters.get("date_from")
+    if date_from:
+        parts.append(date_from)
+    date_to = filters.get("date_to")
+    if date_to:
+        parts.append(date_to)
     return "_".join(parts) + ".pdf"
 
 

@@ -1,4 +1,5 @@
-import sys, json
+import json
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 
@@ -18,7 +19,7 @@ with open(r"C:\github\NSA_webservice/evaluation/out/cache/payload_index.jsonl", 
             break
 
 # Now check how matches_gold resolves these
-from evaluation.resolution import FamilyMap, matches_gold, payload_to_keys
+from evaluation.resolution import FamilyMap, matches_gold
 
 family_map = FamilyMap()
 print(f"\nFamilyMap loaded: {len(family_map._by_family) if hasattr(family_map, '_by_family') else 'unknown'} families")

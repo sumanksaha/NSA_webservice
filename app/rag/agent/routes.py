@@ -29,12 +29,14 @@ from app.shared.config import cfg
 
 def _rag_enabled() -> bool:
     """Whether the RAG module is enabled (``RAG_ENABLED`` config)."""
-    return cfg.rag_enabled
+    enabled: bool = cfg.rag_enabled
+    return enabled
 
 
 def _use_agent_pipeline() -> bool:
     """Whether the agent route runs the LangGraph graph (default false)."""
-    return cfg.use_agent_pipeline
+    use_agent: bool = cfg.use_agent_pipeline
+    return use_agent
 
 
 def _use_hitl() -> bool:
@@ -45,7 +47,8 @@ def _use_hitl() -> bool:
     review interrupt and returns 202 with a thread_id for
     ``POST /api/rag/query/agent/resume``.
     """
-    return cfg.agent_hitl
+    hitl: bool = cfg.agent_hitl
+    return hitl
 
 
 @rag_bp.route("/query/agent", methods=["POST"])

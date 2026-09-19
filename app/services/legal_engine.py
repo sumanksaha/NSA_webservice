@@ -31,7 +31,7 @@ def get_legal_engine() -> Any:
         ImportError: If the legal paragraph detection engine package is not
             installed.
     """
-    from legal_paragraph_detection_engine import LegalParagraphEngine  # type: ignore[import-untyped]
+    from legal_paragraph_detection_engine import LegalParagraphEngine
 
     return LegalParagraphEngine
 

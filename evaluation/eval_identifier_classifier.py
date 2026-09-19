@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluation.benchmark import load_questions
-from app.rag.retrieval.identifier import identifier_query, detect_act, detect_section
+from app.rag.retrieval.identifier import identifier_query
 
 OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "identifier_classifier_eval.json"
 
@@ -194,7 +194,7 @@ def main() -> int:
     from collections import Counter
 
     form_counts = Counter(q["detected_form"] for q in per_q)
-    print(f"\n  Detection form distribution:")
+    print("\n  Detection form distribution:")
     for form in ["act+section", "act", "section", "none"]:
         count = form_counts.get(form, 0)
         print(f"    {form}: {count}/{total} ({count / total * 100:.1f}%)")
@@ -214,7 +214,7 @@ def main() -> int:
                 f"  {diff}: {len(diff_qs)} questions, {gold_both} have gold act+section, {both_correct} correctly detected ({both_correct / gold_both * 100:.1f}%)"
             )
 
-    print(f"\n--- MISSED QUESTIONS (gold has act+section, classifier missed at least one) ---")
+    print("\n--- MISSED QUESTIONS (gold has act+section, classifier missed at least one) ---")
     print(
         f"  Count: {len(missed_both)}/{gold_has_both} ({len(missed_both) / max(gold_has_both, 1) * 100:.1f}% miss rate)"
     )

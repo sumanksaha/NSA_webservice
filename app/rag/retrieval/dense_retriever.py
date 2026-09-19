@@ -59,7 +59,8 @@ class DenseRetriever:
         """Resolve the embedding model, reading from config lazily."""
         if self._embedding_model is not None:
             return self._embedding_model
-        return cfg.embedding_model
+        model: str = cfg.embedding_model
+        return model
 
     # ------------------------------------------------------------------ #
     # Lazy dependency accessors
@@ -70,7 +71,7 @@ class DenseRetriever:
         if self._client is not None:
             return self._client
         from flask import current_app
-        from qdrant_client import QdrantClient  # type: ignore[import-untyped]
+        from qdrant_client import QdrantClient
 
         url = current_app.config.get("RAG_QDRANT_URL", "")
         if not url:
@@ -84,7 +85,7 @@ class DenseRetriever:
         """Return a SentenceTransformer, importing sentence-transformers lazily."""
         if self._encoder is not None:
             return self._encoder
-        from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
+        from sentence_transformers import SentenceTransformer
 
         self._encoder = SentenceTransformer(self.embedding_model)
         return self._encoder
@@ -128,12 +129,14 @@ class DenseRetriever:
         """
         remote = self._get_remote_embedder()
         if remote is not None:
-            return remote.embed([text])[0]
+            remote_vectors: list[list[float]] = remote.embed([text])
+            return remote_vectors[0]
         encoder = self._get_encoder()
         if encoder is None:
             raise RuntimeError("sentence-transformers is not installed; cannot embed query.")
         vec = encoder.encode(text)
-        return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+        query_vector: list[float] = vec.tolist() if hasattr(vec, "tolist") else list(vec)
+        return query_vector
 
     def _get_remote_embedder(self) -> Any | None:
         """Return a cached :class:`RemoteEmbedClient` when ``RAG_EMBED_ENDPOINT``

@@ -117,7 +117,8 @@ class SyncLog(db.Model):
     def errors(self) -> list[str]:
         if self.errors_json:
             try:
-                return _json.loads(self.errors_json)
+                errors: list[str] = _json.loads(self.errors_json)
+                return errors
             except (ValueError, TypeError):
                 return []
         return []

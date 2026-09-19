@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -60,11 +60,11 @@ class OCREngine:
         self._preprocessor = preprocessor or ImagePreprocessor()
 
         # Lazy-loaded engines
-        self._paddle = None
-        self._paddle_lang = None
-        self._gpu_available = None
-        self._easyocr = None
-        self._easyocr_langs = None
+        self._paddle: Any = None
+        self._paddle_lang: Any = None
+        self._gpu_available: bool | None = None
+        self._easyocr: Any = None
+        self._easyocr_langs: list[str] | None = None
         # Guards the shared EasyOCR Reader: batch workers (``OCRBatchProcessor``
         # ThreadPoolExecutor) call ``recognize`` concurrently, and the lazy
         # init is not atomic — the lock prevents double construction (double
@@ -120,7 +120,7 @@ class OCREngine:
         (Paddle / Tesseract) is tried.
         """
         try:
-            import easyocr  # type: ignore[import-untyped]
+            import easyocr
         except ImportError:
             logger.debug("easyocr not installed — skipping")
             return "", 0.0
@@ -162,7 +162,7 @@ class OCREngine:
 
     def _to_easyocr_langs(self) -> list[str]:
         """Map configured languages to EasyOCR codes (en/hi/bn supported)."""
-        codes = []
+        codes: list[str] = []
         for lang in self._languages:
             lang_lower = lang.strip().lower()
             if lang_lower == "english":
@@ -172,8 +172,12 @@ class OCREngine:
             elif lang_lower in ("bengali", "bn"):
                 codes.append("bn")
         # Deduplicate, preserve order; English is a sensible fallback.
-        seen = set()
-        ordered = [c for c in codes if not (c in seen or seen.add(c))]
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for code in codes:
+            if code not in seen:
+                seen.add(code)
+                ordered.append(code)
         return ordered or ["en"]
 
     # ------------------------------------------------------------------

@@ -447,9 +447,11 @@ class TimelineEngine:
 
             kind, _, ref_id = document_ref.partition(":")
             if kind == "annexure":
-                return url_for("annexure.download", annexure_id=ref_id)
+                url: str | None = url_for("annexure.download", annexure_id=ref_id)
+                return url
             if kind == "evidence":
-                return url_for("evidence.download", evidence_id=ref_id)
+                url = url_for("evidence.download", evidence_id=ref_id)
+                return url
         except Exception:
             logger.warning("Could not build document URL for %s", document_ref)
         return None

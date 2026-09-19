@@ -37,7 +37,7 @@ print(f"pool_size_avg: {oa.get('pool_size_avg')}")
 
 # Check a few per-question LLM results
 print("\n=== Sample LLM Results (first 5 per model/mode) ===")
-for mname in ("ce_v1", "ce_v2_K500"):
+for _mname in ("ce_v1", "ce_v2_K500"):
     retrieved = data["llm_generation"].get("aggregate", {})
     # Check if per-question results are in the file
     # They might not be stored directly

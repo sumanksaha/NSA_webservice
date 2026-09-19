@@ -1,4 +1,5 @@
-import sys, os, json
+import os
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 
@@ -9,7 +10,7 @@ load_dotenv(r"C:\github\NSA_webservice/.env", override=True)
 # Override stub mode to use the real API
 os.environ["RAG_USE_STUB_LLM"] = "false"
 
-from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
+from app.rag.generation.llm_client import GroundedLLMClient
 
 client = GroundedLLMClient()
 mode = "stub" if client.use_stub else "live"
@@ -24,7 +25,7 @@ if not client.use_stub:
             user_prompt="What is the capital of France? Give a one-sentence answer.",
         )
         if resp.success:
-            print(f"TEST API CALL: SUCCESS")
+            print("TEST API CALL: SUCCESS")
             print(f"Model: {resp.model}")
             print(f"Latency: {resp.latency:.2f}s")
             print(f"Usage: {resp.usage}")

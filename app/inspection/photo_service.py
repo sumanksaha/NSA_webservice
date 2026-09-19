@@ -188,7 +188,7 @@ class InspectionPhotoService:
                     raise ValueError("Photo evidence not applicable for this violation type")
         return inspection
 
-    def _resolve_photo_coordinates(self, file_obj) -> tuple[float | None, float | None, float | None, str]:
+    def _resolve_photo_coordinates(self, file_obj) -> tuple[float, float, float, str]:
         """Extract EXIF GPS, apply the form > EXIF > 0.0 fallback, validate the
         capture timestamp.  Requires a request context."""
         from flask import request

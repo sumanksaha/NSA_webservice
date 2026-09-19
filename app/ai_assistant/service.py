@@ -84,10 +84,10 @@ class AIAssistantService:
     def __init__(self, provider: str | None = None) -> None:
         from flask import current_app
 
-        self._provider = provider or current_app.config.get("AI_ASSISTANT_PROVIDER")
-        self._api_key = current_app.config.get("AI_ASSISTANT_API_KEY")
-        self._base_url = current_app.config.get("AI_ASSISTANT_BASE_URL")
-        self._model = current_app.config.get("AI_ASSISTANT_MODEL")
+        self._provider: str | None = provider or current_app.config.get("AI_ASSISTANT_PROVIDER")
+        self._api_key: str | None = current_app.config.get("AI_ASSISTANT_API_KEY")
+        self._base_url: str | None = current_app.config.get("AI_ASSISTANT_BASE_URL")
+        self._model: str | None = current_app.config.get("AI_ASSISTANT_MODEL")
         self._tokens_used = 0
 
     # ------------------------------------------------------------------ #
@@ -132,7 +132,8 @@ class AIAssistantService:
         prompt = _CONTRADICTIONS_PROMPT + "\n\nDocument text:\n" + text
         result, _ = self._request(prompt, max_tokens=1024)
         try:
-            return json.loads(result)
+            contradictions: list[str] = json.loads(result)
+            return contradictions
         except (json.JSONDecodeError, TypeError):
             # If the LLM doesn't return valid JSON, fall back to a single-item
             # list with the raw response so the caller always gets a list.
@@ -143,7 +144,8 @@ class AIAssistantService:
         prompt = _ANNEXURES_PROMPT + "\n\nDocument text:\n" + text
         result, _ = self._request(prompt, max_tokens=1024)
         try:
-            return json.loads(result)
+            annexures: list[str] = json.loads(result)
+            return annexures
         except (json.JSONDecodeError, TypeError):
             return [result] if result.strip() else []
 

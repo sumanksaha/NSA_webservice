@@ -42,7 +42,7 @@ def render_editor(model: type, case_type: str, bp_name: str, case_id: int) -> st
     )
 
     render_fn = render_case_file_document if case_type == "case_file" else render_adjudication_document
-    return render_template(
+    html: str = render_template(
         "document_viewer/editor.html",
         case_number=case.case_number,
         case_id=case.id,
@@ -52,6 +52,7 @@ def render_editor(model: type, case_type: str, bp_name: str, case_id: int) -> st
         report_url=url_for(f"{bp_name}.xref_report", case_id=case_id),
         toc_url=url_for(f"{bp_name}.toc_report", case_id=case_id),
     )
+    return html
 
 
 def xref_report(model: type, case_type: str, bp_name: str, case_id: int, doc_type: str = "petition") -> str:
@@ -61,7 +62,7 @@ def xref_report(model: type, case_type: str, bp_name: str, case_id: int, doc_typ
         return ""
     annotated_html = _render_document(case_type, case_id, doc_type)
     report = _generate_xref_report(case_type, annotated_html, case_id)
-    return render_template(
+    html: str = render_template(
         "xref_report.html",
         case_number=lookup.get_case_number(case),
         fbo_name=lookup.get_fbo_name(case_type, case),
@@ -72,6 +73,7 @@ def xref_report(model: type, case_type: str, bp_name: str, case_id: int, doc_typ
         report_url=url_for(f"{bp_name}.xref_report", case_id=case_id),
         renumber_url=url_for(f"{bp_name}.renumber_annexures", case_id=case_id),
     )
+    return html
 
 
 def toc_report(model: type, case_type: str, bp_name: str, case_id: int, doc_type: str = "petition") -> str:
@@ -85,7 +87,7 @@ def toc_report(model: type, case_type: str, bp_name: str, case_id: int, doc_type
 
     toc_data = generate_toc_data(annotated_html)
     toc_html = TocGeneratorEngine().build_toc_html(TocGeneratorEngine().extract_toc(annotated_html))
-    return render_template(
+    html: str = render_template(
         "toc_report.html",
         case_number=lookup.get_case_number(case),
         fbo_name=lookup.get_fbo_name(case_type, case),
@@ -96,6 +98,7 @@ def toc_report(model: type, case_type: str, bp_name: str, case_id: int, doc_type
         annotated_html=annotated_html,
         toc_url=url_for(f"{bp_name}.toc_report", case_id=case_id),
     )
+    return html
 
 
 def renumber_annexures(case_type: str, case_id: int) -> dict:

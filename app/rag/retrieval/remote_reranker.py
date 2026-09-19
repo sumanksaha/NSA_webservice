@@ -90,7 +90,8 @@ class RemoteRerankClient:
             local = self._get_local_encoder()
             if local is not None:
                 logger.warning("RemoteRerankClient: remote rerank failed (%s) — falling back to local CE", exc)
-                return local.predict(pairs)
+                fallback_scores: list[float] = local.predict(pairs)
+                return fallback_scores
             raise RuntimeError(f"Remote reranker unavailable and no local fallback: {exc}") from exc
 
     # ------------------------------------------------------------------ #
@@ -208,7 +209,7 @@ class RemoteRerankClient:
         if not self.local_model:
             return None
         try:
-            from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
+            from sentence_transformers import CrossEncoder
 
             # Bound torch threads before the model is built (RAG_TORCH_THREADS)
             # so the fallback does not peg every core on a laptop.

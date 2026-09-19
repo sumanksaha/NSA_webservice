@@ -23,7 +23,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from app.extensions import db
 from app.models import Adjudication, Bill, CaseFile, Inspection, Sample
@@ -372,7 +372,10 @@ class SupabaseSyncService:
 
     def _get_state(self, table_name: str, local_id: int) -> SyncState | None:
         """Return the ``SyncState`` row for a record, or ``None``."""
-        return db.session.query(SyncState).filter_by(table_name=table_name, local_id=local_id).first()
+        state: SyncState | None = (
+            db.session.query(SyncState).filter_by(table_name=table_name, local_id=local_id).first()
+        )
+        return state
 
     def _get_or_create_state(self, table_name: str, local_id: int) -> SyncState:
         """Return the ``SyncState`` row, creating it if needed."""
@@ -389,7 +392,7 @@ class SupabaseSyncService:
 
         local_ids_stmt = select(SyncState.local_id).where(SyncState.table_name == table_name)
         # Records with no SyncState row -> never synced -> dirty.
-        never_synced = db.session.query(model).filter(~model.id.in_(local_ids_stmt)).all()
+        never_synced = db.session.query(model).filter(~cast(Any, model).id.in_(local_ids_stmt)).all()
         # Records with a SyncState row but stale (updated since last sync).
         stale: list[Any] = []
         for state in (
@@ -398,18 +401,20 @@ class SupabaseSyncService:
             record = db.session.get(model, state.local_id)
             if record is not None:
                 stale.append(record)
-        return never_synced + stale
+        dirty: list[Any] = never_synced + stale
+        return dirty
 
     def _count_dirty(self, model: type, table_name: str) -> int:
         """Count dirty (unsynced) records for a model — for the dashboard."""
         from sqlalchemy import select
 
         local_ids_stmt = select(SyncState.local_id).where(SyncState.table_name == table_name)
-        never_synced = db.session.query(model).filter(~model.id.in_(local_ids_stmt)).count()
+        never_synced = db.session.query(model).filter(~cast(Any, model).id.in_(local_ids_stmt)).count()
         stale = (
             db.session.query(SyncState).filter_by(table_name=table_name).filter(SyncState.synced_at.is_(None)).count()
         )
-        return never_synced + stale
+        total: int = never_synced + stale
+        return total
 
     def _remote_version(self, client: Any, table_name: str, local_id: int) -> int | None:
         """Return the ``sync_version`` Supabase has for this local row."""
@@ -485,14 +490,15 @@ class SupabaseSyncService:
         if not raw:
             return None
         try:
-            return json.loads(raw)
+            snapshot: dict[str, Any] | None = json.loads(raw)
+            return snapshot
         except (ValueError, TypeError):
             return None
 
     def _model_to_payload(self, record: Any, model: type) -> dict[str, Any]:
         """Convert a SQLAlchemy model instance to a Supabase upsert payload."""
         payload: dict[str, Any] = {}
-        for col in model.__table__.columns:
+        for col in cast(Any, model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS:
                 continue
             val = getattr(record, col.name, None)
@@ -512,7 +518,7 @@ class SupabaseSyncService:
             db.session.add(existing)
             db.session.flush()
 
-        for col in model.__table__.columns:
+        for col in cast(Any, model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS or col.name == "id":
                 continue
             if col.name not in row:
@@ -534,7 +540,7 @@ class SupabaseSyncService:
     def _insert_remote_row(self, model: type, table_name: str, row: dict[str, Any]) -> None:
         """Insert a brand-new remote row as a local model instance."""
         instance = model()
-        for col in model.__table__.columns:
+        for col in cast(Any, model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS or col.name == "id":
                 continue
             if col.name not in row:

@@ -18,7 +18,6 @@ Output:  evaluation/out/ceiling_v5/experiment_a_gold_rank.json
 from __future__ import annotations
 
 import json
-import math
 import sys
 from pathlib import Path
 from collections import Counter
@@ -36,8 +35,8 @@ torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
 from evaluation.config import CACHE_DIR
-from evaluation.resolution import FamilyMap, matches_gold, build_payload_index
-from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
+from evaluation.resolution import FamilyMap, matches_gold
+from evaluation.rerank_legal import build_pool, rerank, rrf_scores
 from evaluation.metrics import RankedItem, _kg_item_keys, item_covers
 
 # ---------------------------------------------------------------------------
@@ -578,11 +577,11 @@ def load_jsonl_cached(path):
 def write_markdown_report(output, path, prev_v2, consistency):
     lines = []
     lines.append("# Experiment A — Gold Rank Distribution Diagnostic\n")
-    lines.append(f"**Model:** legal_ce_v2_K500  ")
-    lines.append(f"**Benchmark:** 150 frozen questions (benchmark_v1.0.jsonl)  ")
-    lines.append(f"**Pool:** dense@500 ∪ sparse@500 ∪ KG@500 ∪ question-ident@500, head-150 by base RRF  ")
-    lines.append(f"**RRF k:** 60.0, sec_act weights: all 0 (pure RRF base)  ")
-    lines.append(f"**CE:** CrossEncoder, max_len=256, batch=64, top-150 scored\n")
+    lines.append("**Model:** legal_ce_v2_K500  ")
+    lines.append("**Benchmark:** 150 frozen questions (benchmark_v1.0.jsonl)  ")
+    lines.append("**Pool:** dense@500 ∪ sparse@500 ∪ KG@500 ∪ question-ident@500, head-150 by base RRF  ")
+    lines.append("**RRF k:** 60.0, sec_act weights: all 0 (pure RRF base)  ")
+    lines.append("**CE:** CrossEncoder, max_len=256, batch=64, top-150 scored\n")
 
     # 1. Diagnostic table
     lines.append("## 1. Gold Rank Bucket Distribution\n")
@@ -763,7 +762,7 @@ def write_markdown_report(output, path, prev_v2, consistency):
         f"5. **Cumulative CE recall:** R@1={cr['1']['pct']:.4f}, R@10={cr['10']['pct']:.4f}, R@20={cr['20']['pct']:.4f}, R@50={cr['50']['pct']:.4f}, R@100={cr['100']['pct']:.4f}"
     )
     lines.append(
-        f"6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10."
+        "6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10."
     )
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

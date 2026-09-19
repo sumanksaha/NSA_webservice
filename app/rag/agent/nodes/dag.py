@@ -336,12 +336,18 @@ def execute_task_node(state: dict[str, Any]) -> dict[str, Any]:
         wave_state = {**state, "evidence": evidence}
         caller_app = _caller_app()
 
-        def _run_one(tid: str, ws: dict[str, Any]) -> tuple[str, list, dict[str, Any]]:
+        def _run_one(
+            tid: str,
+            ws: dict[str, Any],
+            _caller_app: Any = caller_app,
+        ) -> tuple[str, list, dict[str, Any]]:
             # Fresh app context per worker: the executor threads start
             # context-free, and retrieval reads Pattern-A config / db
-            # through ``current_app``.
-            if caller_app is not None:
-                with caller_app.app_context():
+            # through ``current_app``. The app is bound as a default arg
+            # (not closed over) so late binding across waves can't leak a
+            # future iteration's value into running workers.
+            if _caller_app is not None:
+                with _caller_app.app_context():
                     return (tid, *_run_task_retrieval(tid, parsed[tid], ws))
             return (tid, *_run_task_retrieval(tid, parsed[tid], ws))
 

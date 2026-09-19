@@ -29,6 +29,7 @@ import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -120,6 +121,7 @@ class PDFAssemblyEngine:
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
+        self.config: dict[str, Any] = {}
         self._setup_environment_config()
         self._import_qrcode_if_available()
 
@@ -368,12 +370,12 @@ class PDFAssemblyEngine:
             permission_html = self._apply_complete_post_processing(permission_html, case_id, case_data)
 
             petition_pdf, petition_error = self.generate_from_html(petition_html)
-            if petition_error:
+            if petition_error or petition_pdf is None:
                 self.logger.error("Petition PDF generation failed: %s", petition_error)
                 return None
 
             permission_pdf, permission_error = self.generate_from_html(permission_html)
-            if permission_error:
+            if permission_error or permission_pdf is None:
                 self.logger.error("Permission Letter PDF generation failed: %s", permission_error)
                 return None
 
@@ -403,7 +405,7 @@ class PDFAssemblyEngine:
                 annexure_id = annexure.get("id")
                 annexure_html = self._create_annexure_page_html(annexure)
                 annexure_pdf, error = self.generate_from_html(annexure_html)
-                if error:
+                if error or annexure_pdf is None:
                     self.logger.warning("Annexure %s PDF generation failed: %s", annexure_id, error)
                     continue
                 annexure_pdfs.append(annexure_pdf)
@@ -679,8 +681,8 @@ class PDFAssemblyEngine:
         img = qr.make_image(fill_color="black", back_color="white")
         img_byte_arr = self._BytesIO()
         img.save(img_byte_arr, format="PNG")
-        img_byte_arr = img_byte_arr.getvalue()
-        return self._b64.b64encode(img_byte_arr).decode()
+        img_bytes = img_byte_arr.getvalue()
+        return self._b64.b64encode(img_bytes).decode()
 
     def _prepare_header_footer_template_data(self, case_data: dict) -> dict[str, str]:
         return {
@@ -717,13 +719,14 @@ class PDFAssemblyEngine:
         from flask import render_template
 
         now = datetime.now(UTC)
-        return render_template(
+        html: str = render_template(
             "pdf_assembly/index_page.html",
             case_id=case_id,
             case_data=case_data,
             now_date=now.strftime("%Y-%m-%d"),
             now_datetime=now.strftime("%Y-%m-%d %H:%M:%S"),
         )
+        return html
 
     def _create_annexure_page_html(self, annexure: dict) -> str:
         """Create HTML for a standalone annexure page.
@@ -734,7 +737,7 @@ class PDFAssemblyEngine:
 
         annexure_id = annexure.get("id", 0)
         annexure_letter = chr(64 + (annexure_id % 26)) if annexure_id <= 26 else str(annexure_id)
-        return render_template(
+        html: str = render_template(
             "pdf_assembly/annexure_page.html",
             annexure=annexure,
             annexure_id=annexure_id,
@@ -743,6 +746,7 @@ class PDFAssemblyEngine:
             annexure_type=annexure.get("type", "Document"),
             content=annexure.get("content", ""),
         )
+        return html
 
     def _create_evidence_photo_page(self, image_data: str, image_url: str) -> bytes:
         """Create PDF page for a single evidence photo.
@@ -759,7 +763,7 @@ class PDFAssemblyEngine:
                 image_url=image_url,
             )
             pdf_bytes, error = self.generate_from_html(photo_html)
-            if error:
+            if error or pdf_bytes is None:
                 self.logger.warning("Failed to generate evidence photo PDF: %s", error)
                 return b""
             return pdf_bytes

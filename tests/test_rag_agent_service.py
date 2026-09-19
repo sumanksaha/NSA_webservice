@@ -8,6 +8,8 @@ doubles use either shape).  A double-unwrap here once turned every real
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from app.rag.agent.service import resume_agent_query, run_agent_query
@@ -85,7 +87,7 @@ def test_interrupt_maps_202_with_durable(monkeypatch):
     import app.rag.agent.graph as graph_mod
 
     class _FakeInterrupt:
-        value = {"reason": "needs human review"}
+        value: ClassVar[dict] = {"reason": "needs human review"}
 
     monkeypatch.setattr(graph_mod, "run_agent", lambda state, **kw: {"__interrupt__": [_FakeInterrupt()]})
     status, body = run_agent_query(query="q", thread_id="tid-1", hitl=True, resume_hint="hint")

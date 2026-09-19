@@ -137,7 +137,8 @@ class BackupRestorer:
 
             r2 = _get_r2_client()
             resp = r2.get_object(Bucket=_get_bucket(), Key=key)
-            return resp["Body"].read().decode("utf-8")
+            text: str = resp["Body"].read().decode("utf-8")
+            return text
         except Exception:
             p = Path(key)
             if p.exists():
@@ -193,7 +194,7 @@ class BackupRestorer:
         return total
 
     def _restore_module(self, module: str, rows: list[dict]) -> int:
-        model_map = {
+        model_map: dict[str, Any] = {
             "non_sample": Adjudication,
             "sample": CaseFile,
             "billing": Bill,

@@ -57,7 +57,8 @@ class BackupTarget:
         import importlib
 
         module = importlib.import_module(self.module_name)
-        return getattr(module, self.func_name)()
+        result: str | None = getattr(module, self.func_name)()
+        return result
 
 
 #: The target registry — Sheets (primary), Airtable + Excel (redundant CSV

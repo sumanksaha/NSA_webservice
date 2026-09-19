@@ -103,8 +103,8 @@ def test_checkpointer_postgres_degrades_gracefully(monkeypatch):
 
 def _patch_postgres_fakes(monkeypatch):
     """Swap psycopg.connect/PostgresSaver for fakes; return call counters."""
-    import psycopg
     import langgraph.checkpoint.postgres as pg_mod
+    import psycopg
 
     calls = {"connect": 0, "setup": 0, "kwargs": []}
     conns = []

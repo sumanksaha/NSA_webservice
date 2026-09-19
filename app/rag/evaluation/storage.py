@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from typing import cast
 
 from app.extensions import db
 from app.models.rag import RAGEvalDataset, RAGEvalResult
@@ -112,7 +113,7 @@ class EvalStorage:
                 entry.expected_citations = expected_citations or []
                 entry.difficulty = difficulty
             db.session.commit()
-            return entry
+            return cast("RAGEvalDataset | None", entry)
         except Exception as exc:
             logger.warning("EvalStorage.save_dataset_entry failed: %s", exc)
             db.session.rollback()
@@ -123,16 +124,17 @@ class EvalStorage:
         q = db.session.query(RAGEvalDataset).filter_by(is_active=True)
         if name:
             q = q.filter_by(name=name)
-        return q.order_by(RAGEvalDataset.created_at.desc()).all()
+        return cast("list[RAGEvalDataset]", q.order_by(RAGEvalDataset.created_at.desc()).all())
 
     def list_results(self, eval_run_id: str) -> list[RAGEvalResult]:
         """List all result rows for an evaluation run."""
-        return (
+        return cast(
+            "list[RAGEvalResult]",
             db.session
             .query(RAGEvalResult)
             .filter_by(eval_run_id=eval_run_id)
             .order_by(RAGEvalResult.created_at.asc())
-            .all()
+            .all(),
         )
 
     # ------------------------------------------------------------------ #

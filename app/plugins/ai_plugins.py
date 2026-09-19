@@ -62,7 +62,8 @@ class OpenRouterAIPlugin(AIProvider):
 
     def is_enabled(self) -> bool:
         """Return True when the AI assistant is configured (provider + API key)."""
-        return self._service().is_enabled()
+        enabled: bool = self._service().is_enabled()
+        return enabled
 
     def generate(self, prompt: str, **kwargs: Any) -> str:
         """Dispatch to the AI assistant service.
@@ -92,12 +93,14 @@ class OpenRouterAIPlugin(AIProvider):
                     "suggest_annexures": "suggest_missing_annexures",
                 }.get(action, "summarize_text"),
             )(kwargs.get("content", prompt))
-            return result
+            text: str = result
+            return text
 
         # Fallback: send prompt directly (delegates to service.generate or similar)
         content = kwargs.get("content", prompt)
         # Use summarize as the default action for raw prompts
-        return service.summarize_text(content)
+        summary: str = service.summarize_text(content)
+        return summary
 
     def __getattr__(self, name: str) -> Any:
         """Proxy attribute access to the underlying AIAssistantService.

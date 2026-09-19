@@ -1,6 +1,9 @@
 """Quick test: CE scoring + LLM generation for one question."""
 
-import sys, os, json, warnings
+import json
+import os
+import sys
+import warnings
 
 warnings.filterwarnings("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
@@ -17,15 +20,17 @@ import torch
 
 torch.set_num_threads(4)
 
+import time
+
+from sentence_transformers import CrossEncoder
+
+from app.rag.generation.grounded_service import GroundedGenerationService
+from app.rag.generation.llm_client import GroundedLLMClient
+from app.rag.retrieval.result import RetrievedChunk
 from evaluation.benchmark import load_questions
 from evaluation.config import CACHE_DIR
+from evaluation.rerank_legal import build_pool, rerank, rrf_scores
 from evaluation.resolution import FamilyMap, matches_gold
-from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
-from app.rag.generation.llm_client import GroundedLLMClient
-from app.rag.generation.grounded_service import GroundedGenerationService
-from app.rag.retrieval.result import RetrievedChunk
-from sentence_transformers import CrossEncoder
-import time
 
 # Load data
 payload_index = {}
@@ -111,7 +116,7 @@ print(f"  Top-150: {len(rrf_top150)} items", flush=True)
 ce_v2 = CrossEncoder(os.path.join(PROJECT_ROOT, "evaluation/out/models/legal_ce_v2_K500"), max_length=256)
 pairs = [(q.question, str(it["payload"].get("chunk_text") or it["payload"].get("text") or "")) for it in rrf_top150]
 scores = ce_v2.predict(pairs, batch_size=64)
-scored = sorted(zip(scores, rrf_top150), key=lambda x: float(x[0]), reverse=True)
+scored = sorted(zip(scores, rrf_top150, strict=False), key=lambda x: float(x[0]), reverse=True)
 ce_ranked = []
 for s, it in scored:
     item = dict(it)
@@ -121,7 +126,7 @@ print(f"  CE reranked {len(ce_ranked)} items", flush=True)
 
 # Top 10 chunks
 top10 = [it for it in ce_ranked[:10] if it["kind"] == "chunk"]
-print(f"\n  Top-10 chunks:", flush=True)
+print("\n  Top-10 chunks:", flush=True)
 for it in top10:
     p = it["payload"]
     print(
@@ -235,7 +240,7 @@ print(f"  LLM mode: {'stub' if llm_client.use_stub else 'LIVE'}", flush=True)
 service = GroundedGenerationService(llm_client=llm_client)
 response = service.generate(q.question, chunks, query_type=qt)
 
-print(f"\n  LLM Response:", flush=True)
+print("\n  LLM Response:", flush=True)
 print(f"  Success: {response.answer != ''}", flush=True)
 print(f"  Answer: {response.answer[:300]}", flush=True)
 print(f"  Citations: {len(response.citations)}", flush=True)

@@ -227,7 +227,8 @@ def review_node(state: RAGState) -> dict[str, Any]:
 
 def _checkpointer_kind() -> str:
     """Resolve ``RAG_AGENT_CHECKPOINTER`` via the shared config seam."""
-    return cfg.agent_checkpointer.lower()
+    kind: str = cfg.agent_checkpointer
+    return kind.lower()
 
 
 def checkpointer_is_durable() -> bool:
@@ -355,7 +356,7 @@ def _build_checkpointer(kind: str | None = None) -> Any | None:
 
                 conn = psycopg.connect(dsn, autocommit=True, prepare_threshold=0, row_factory=dict_row)
                 try:
-                    saver = PostgresSaver(conn)  # type: ignore[arg-type]
+                    saver = PostgresSaver(conn)
                     if dsn not in _postgres_setup_done:
                         saver.setup()  # idempotent CREATE TABLE IF NOT EXISTS
                         _postgres_setup_done.add(dsn)
@@ -687,7 +688,7 @@ def run_agent(
         # Rebuild with a checkpointer so resume works across requests.
         cp = checkpointer if checkpointer is not None else _build_checkpointer()
         graph = _get_graph(hitl, fso_advisor=fso_advisor, checkpointer=cp)
-        result = graph.invoke(
+        result: dict[str, Any] = graph.invoke(
             state,
             config={"configurable": {"thread_id": thread_id}},
         )
@@ -701,7 +702,8 @@ def run_agent(
     # so the caller can surface the review request.
     if "__interrupt__" in result:
         return result
-    return result.get("response") or {}
+    response: dict[str, Any] = result.get("response") or {}
+    return response
 
 
 def resume_agent(
@@ -728,10 +730,11 @@ def resume_agent(
     if cp is None:
         raise ValueError("Resume requires a checkpointer (RAG_AGENT_CHECKPOINTER=memory|postgres).")
     graph = _get_graph(hitl, fso_advisor=fso_advisor, checkpointer=cp)
-    return graph.invoke(
+    result: dict[str, Any] = graph.invoke(
         Command(resume={"approved": approved}),
         config={"configurable": {"thread_id": thread_id}},
     )
+    return result
 
 
 # Re-export for tests / convenience.

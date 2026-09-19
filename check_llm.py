@@ -1,4 +1,5 @@
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 

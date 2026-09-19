@@ -983,3 +983,30 @@ def test_task_results_carry_token_cost(monkeypatch):
     )
     out = execute_task_node(state)
     assert out["task_results"]["T1"]["token_cost"] > 0
+
+
+# ---------------------------------------------------------------------- #
+# multi_hop_retrieve_node (cross-reference mining repair)
+# ---------------------------------------------------------------------- #
+
+
+def test_multi_hop_mines_section_for_followup(monkeypatch):
+    """Regression: the node imported a non-existent ReferenceExtractor class,
+    so every cross_reference/case_law query silently skipped the second pass."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {
+            "chunks": [{"chunk_id": "c1", "text": "subject to section 18 of the Act"}],
+            "query_type": "cross_reference",
+        }
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(_make_state(query="penalty provisions", query_type="cross_reference", top_k=5))
+    assert len(calls) == 2  # first pass + mined follow-up
+    assert calls[1] == "penalty provisions AND section 18"
+    assert out["audit_trail"][-1]["node"] == "multi_hop_retrieve"

@@ -157,7 +157,7 @@ class EvidenceVerifier:
 
         # 2. Textual overlap via rapidfuzz.
         best_score, best_chunk = self._best_text_match(claim.text, chunks)
-        if best_score >= self.similarity_threshold:
+        if best_chunk is not None and best_score >= self.similarity_threshold:
             return EvidenceVerification(
                 verified=True,
                 confidence=_TEXT_MATCH_CONFIDENCE * (best_score / 100.0),
@@ -249,7 +249,7 @@ class EvidenceVerifier:
         if len(chunks) < 2:
             return []
         conflicts: list[Contradiction] = []
-        seen_pairs: set[tuple[str, str]] = set()
+        seen_pairs: set[tuple[str, ...]] = set()
         for i in range(len(chunks)):
             for j in range(i + 1, len(chunks)):
                 a, b = chunks[i], chunks[j]

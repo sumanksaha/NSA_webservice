@@ -125,8 +125,8 @@ class KnowledgeGraphEngine:
                 "error": "Case not found",
             }
 
-        record = resolved.record
-        table_name = resolved.record.__tablename__
+        record: Any = resolved.record
+        table_name = record.__tablename__
         nodes: list[KGNode] = []
         edges: list[KGEdge] = []
 
@@ -377,7 +377,7 @@ class KnowledgeGraphEngine:
             id_map: dict[str, int] = {}
             for node in nodes:
                 meta_json = json.dumps(node.metadata) if node.metadata else None
-                entity = Entity(  # type: ignore[call-arg]
+                entity = Entity(
                     entity_type=node.type,
                     name=node.label,
                     source_table=node.source_table or source_table,
@@ -395,7 +395,7 @@ class KnowledgeGraphEngine:
                 if src is None or tgt is None:
                     continue
                 db.session.add(
-                    Relationship(  # type: ignore[call-arg]
+                    Relationship(
                         source_id=src,
                         target_id=tgt,
                         relationship_type=edge.type,

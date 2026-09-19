@@ -59,10 +59,10 @@ def _case_status_counts() -> list[dict]:
     )
     # Merge into a single series
     months: dict[str, dict[str, int]] = {}
-    for month, case_n in case_counts:  # type: ignore[misc]
+    for month, case_n in case_counts:
         months.setdefault(month, {"case_files": 0, "adjudications": 0})
         months[month]["case_files"] = int(case_n)
-    for month, adj_n in adj_counts:  # type: ignore[misc]
+    for month, adj_n in adj_counts:
         months.setdefault(month, {"case_files": 0, "adjudications": 0})
         months[month]["adjudications"] = int(adj_n)
     return [

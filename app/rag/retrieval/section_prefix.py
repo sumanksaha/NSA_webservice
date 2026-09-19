@@ -39,7 +39,8 @@ def ce_section_prefix_enabled() -> bool:
 
     Resolved through the shared config seam (Pattern A).
     """
-    return cfg.ce_section_prefix
+    enabled: bool = cfg.ce_section_prefix
+    return enabled
 
 
 def prefix_passage(

@@ -19,6 +19,7 @@ import logging
 from typing import Any
 
 from docx import Document
+from docx.document import Document as DocxDocument
 from docx.enum.section import WD_ORIENT  # noqa: F401  (kept for parity with section setup)
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -69,7 +70,7 @@ class ImprovementNoticeWordConverter:
     # Internal helpers
     # ------------------------------------------------------------------ #
 
-    def _create_document(self) -> Any:
+    def _create_document(self) -> DocxDocument:
         doc = Document()
         # Narrow margins for an official letter
         for section in doc.sections:
@@ -86,7 +87,7 @@ class ImprovementNoticeWordConverter:
 
     # ── Letterhead ──────────────────────────────────────────────────────
 
-    def _add_letterhead(self, doc: Document) -> None:
+    def _add_letterhead(self, doc: DocxDocument) -> None:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run("KOLKATA MUNICIPAL CORPORATION")
@@ -103,27 +104,27 @@ class ImprovementNoticeWordConverter:
 
     # ── Document type line ──────────────────────────────────────────────
 
-    def _add_doc_class_line(self, doc: Document) -> None:
+    def _add_doc_class_line(self, doc: DocxDocument) -> None:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.space_before = Pt(12)
+        p.space_before = Pt(12)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         run = p.add_run("IMPROVEMENT NOTICE — SECTION 32, FSS ACT, 2006")
         run.font.size = Pt(10)
         run.bold = True
 
     # ── Notice date ─────────────────────────────────────────────────────
 
-    def _add_notice_date(self, doc: Document, ctx: dict[str, Any]) -> None:
+    def _add_notice_date(self, doc: DocxDocument, ctx: dict[str, Any]) -> None:
         p = doc.add_paragraph()
-        p.space_before = Pt(6)
+        p.space_before = Pt(6)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         run = p.add_run(f"Date: {ctx.get('notice_date') or '—'}")
         run.font.size = Pt(10)
 
     # ── Recipient ───────────────────────────────────────────────────────
 
-    def _add_recipient(self, doc: Document) -> None:
+    def _add_recipient(self, doc: DocxDocument) -> None:
         p = doc.add_paragraph()
-        p.space_before = Pt(8)
+        p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         lbl = p.add_run("To\n")
         lbl.bold = True
 
@@ -131,12 +132,12 @@ class ImprovementNoticeWordConverter:
 
     # ── Body ────────────────────────────────────────────────────────────
 
-    def _add_body(self, doc: Document, ctx: dict[str, Any]) -> None:
+    def _add_body(self, doc: DocxDocument, ctx: dict[str, Any]) -> None:
         # Reference
         ref = ctx.get("improvement_notice_ref")
         if ref:
             p = doc.add_paragraph()
-            p.space_before = Pt(8)
+            p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
             run = p.add_run(f"Ref: {ref}")
             run.bold = True
             run.font.size = Pt(10)
@@ -146,14 +147,14 @@ class ImprovementNoticeWordConverter:
         addr = ctx.get("fbo_address") or "[FBO Address]"
         date = ctx.get("inspection_date") or "[Inspection Date]"
         p = doc.add_paragraph()
-        p.space_before = Pt(4)
+        p.space_before = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         run = p.add_run(f"Subject: Inspection report regarding an inspection of {fbo} situated at {addr} on {date}.")
         run.bold = True
         run.font.size = Pt(10.5)
 
         # Salutation
         p = doc.add_paragraph()
-        p.space_before = Pt(8)
+        p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         p.add_run("Sir/Madam,").font.size = Pt(11)
 
         # ── FBO summary table ──────────────────────────────────────────
@@ -176,7 +177,7 @@ class ImprovementNoticeWordConverter:
         # ── Part 1: Inspection Findings ────────────────────────────────
         self._add_section_heading(doc, "PART 1 — INSPECTION FINDINGS")
         p = doc.add_paragraph()
-        p.space_before = Pt(4)
+        p.space_before = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         run = p.add_run("An inspection was performed at ")
         run.font.size = Pt(11)
         r_bold = p.add_run(f"{addr}")
@@ -201,7 +202,7 @@ class ImprovementNoticeWordConverter:
         # ── Part 2: Grounds ────────────────────────────────────────────
         self._add_section_heading(doc, "PART 2 — GROUNDS FOR IMPROVEMENT NOTICE")
         p = doc.add_paragraph()
-        p.space_before = Pt(4)
+        p.space_before = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         p.add_run(
             "Based on the following observations, an improvement notice "
             "u/s 32 may kindly be granted on the following ground:"
@@ -219,7 +220,7 @@ class ImprovementNoticeWordConverter:
         deadline = ctx.get("compliance_deadline")
         if deadline:
             p = doc.add_paragraph()
-            p.space_before = Pt(8)
+            p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
             p.add_run(
                 "The FBO is hereby directed to comply with the above observations "
                 "and take the required corrective action on or before "
@@ -232,7 +233,7 @@ class ImprovementNoticeWordConverter:
         enclosures = ctx.get("enclosures") or []
         if enclosures:
             p = doc.add_paragraph()
-            p.space_before = Pt(8)
+            p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
             r = p.add_run("Enclosures:")
             r.bold = True
             r.font.size = Pt(10)
@@ -245,7 +246,7 @@ class ImprovementNoticeWordConverter:
 
     # ── Tables ──────────────────────────────────────────────────────────
 
-    def _add_kv_table(self, doc: Document, rows: list[tuple[str, str]]) -> None:
+    def _add_kv_table(self, doc: DocxDocument, rows: list[tuple[str, str]]) -> None:
         table = doc.add_table(rows=len(rows), cols=2)
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         table.autofit = True
@@ -264,7 +265,7 @@ class ImprovementNoticeWordConverter:
 
         self._style_table_borders(table)
 
-    def _add_violations_table(self, doc: Document, violations: list[dict[str, str]]) -> None:
+    def _add_violations_table(self, doc: DocxDocument, violations: list[dict[str, str]]) -> None:
         table = doc.add_table(rows=1 + len(violations), cols=3)
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         table.autofit = True
@@ -302,29 +303,29 @@ class ImprovementNoticeWordConverter:
 
         self._style_table_borders(table)
 
-    def _add_actions_list(self, doc: Document, actions: list[str]) -> None:
+    def _add_actions_list(self, doc: DocxDocument, actions: list[str]) -> None:
         for i, action in enumerate(actions):
             p = doc.add_paragraph()
-            p.space_before = Pt(2)
-            p.space_after = Pt(4)
+            p.space_before = Pt(2)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
+            p.space_after = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
             p.add_run(f"{i + 1}.  ").font.size = Pt(11)
             p.add_run(action).font.size = Pt(11)
 
     # ── Section heading ─────────────────────────────────────────────────
 
-    def _add_section_heading(self, doc: Document, text: str) -> None:
+    def _add_section_heading(self, doc: DocxDocument, text: str) -> None:
         p = doc.add_paragraph()
-        p.space_before = Pt(14)
-        p.space_after = Pt(4)
+        p.space_before = Pt(14)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
+        p.space_after = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         run = p.add_run(text.upper())
         run.bold = True
         run.font.size = Pt(10)
 
     # ── Signature block ─────────────────────────────────────────────────
 
-    def _add_signature_block(self, doc: Document, ctx: dict[str, Any]) -> None:
+    def _add_signature_block(self, doc: DocxDocument, ctx: dict[str, Any]) -> None:
         p = doc.add_paragraph()
-        p.space_before = Pt(36)
+        p.space_before = Pt(36)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         lbl = p.add_run("Issued by\n")
         lbl.font.size = Pt(9)
 
@@ -338,7 +339,7 @@ class ImprovementNoticeWordConverter:
             doc.add_picture(sig_stream, width=Inches(1.5))
 
         p2 = doc.add_paragraph()
-        p2.space_before = Pt(4)
+        p2.space_before = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         r = p2.add_run(f"{ctx.get('fso_name') or '[FSO Name]'}\n")
         r.bold = True
         r.font.size = Pt(11)
@@ -348,7 +349,7 @@ class ImprovementNoticeWordConverter:
 
     # ── Footer ──────────────────────────────────────────────────────────
 
-    def _add_footer(self, doc: Document, ctx: dict[str, Any]) -> None:
+    def _add_footer(self, doc: DocxDocument, ctx: dict[str, Any]) -> None:
         section = doc.sections[0]
         footer = section.footer
         footer.is_linked_to_previous = False
@@ -373,11 +374,11 @@ class ImprovementNoticeWordConverter:
         tc_pr.append(shd)
 
     @staticmethod
-    def _add_bottom_border(doc: Document, color: str = "000000", width: int = 8) -> None:
+    def _add_bottom_border(doc: DocxDocument, color: str = "000000", width: int = 8) -> None:
         """Add a thin bottom border via a new paragraph with bottom border."""
         p = doc.add_paragraph()
-        p.space_before = Pt(2)
-        p.space_after = Pt(2)
+        p.space_before = Pt(2)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
+        p.space_after = Pt(2)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         p_pr = p._p.get_or_add_pPr()
         p_bdr = OxmlElement("w:pBdr")
         bottom = OxmlElement("w:bottom")

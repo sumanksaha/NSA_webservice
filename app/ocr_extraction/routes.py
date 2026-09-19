@@ -139,7 +139,8 @@ def bulk_upload():
             target = stable_dir / f"{uuid.uuid4().hex}_{Path(member_name).name}"
         with open(pdf_path, "rb") as src, open(target, "wb") as dst:
             dst.write(src.read())
-        return target
+        staged: Path = target
+        return staged
 
     # Processing stays INSIDE the temp-dir lifetime: extracted member PDFs
     # must exist on disk while being hashed and staged.
@@ -230,4 +231,5 @@ def _hash_already_extracted(file_hash: str) -> bool:
 
     from app.models import OCRDocument
 
-    return db.session.query(exists().where(OCRDocument.file_hash == file_hash)).scalar()
+    present: bool = db.session.query(exists().where(OCRDocument.file_hash == file_hash)).scalar()
+    return present

@@ -101,7 +101,8 @@ class AuditLogger:
         """Current user's username, or ``"anonymous"`` outside a request."""
         try:
             if current_user.is_authenticated and current_user.is_active:
-                return current_user.username
+                username: str = current_user.username
+                return username
         except Exception:
             # No request context (Celery task, shell, ...) — flask-login's
             # current_user raises or is anonymous there.

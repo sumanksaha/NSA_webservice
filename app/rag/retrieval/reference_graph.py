@@ -270,7 +270,8 @@ def _reference_expansion_enabled() -> bool:
     Default is **off** per spec — the current production baseline must remain
     unchanged.
     """
-    return cfg.reference_expansion
+    enabled: bool = cfg.reference_expansion
+    return enabled
 
 
 def expand_references(
@@ -312,10 +313,11 @@ def expand_references(
         next_frontier: list[str] = []
         for current in frontier:
             for edge in graph.neighbors(current):
-                if edge.target_document in visited:
+                target = edge.target_document
+                if target is None or target in visited:
                     continue
-                visited.add(edge.target_document)
-                next_frontier.append(edge.target_document)
+                visited.add(target)
+                next_frontier.append(target)
                 edge.depth = d
                 results.append(edge)
         frontier = next_frontier

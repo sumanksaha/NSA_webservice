@@ -33,9 +33,8 @@ torch.set_num_threads(4)
 
 from evaluation.benchmark import load_questions
 from evaluation.config import CACHE_DIR
-from evaluation.resolution import FamilyMap, matches_gold, build_payload_index
+from evaluation.resolution import FamilyMap
 from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
-from evaluation.ceiling_config import DEPTHS
 
 # ---------------------------------------------------------------------------
 # Model paths
@@ -144,13 +143,13 @@ def compute_metrics(ranked_items: list[dict], question, payload_index, family_ma
         }
 
     # Unit-level Recall@K (fraction of relevant units found in top-K)
-    def recall_unit(K: int) -> float:
-        hits = sum(1 for r in rel_ranks if r is not None and r <= K)
+    def recall_unit(k: int) -> float:
+        hits = sum(1 for r in rel_ranks if r is not None and r <= k)
         return hits / n_rel
 
     # Any-hit Recall@K (at least one relevant unit in top-K)
-    def recall_any(K: int) -> float:
-        return 1.0 if any(r is not None and r <= K for r in rel_ranks) else 0.0
+    def recall_any(k: int) -> float:
+        return 1.0 if any(r is not None and r <= k for r in rel_ranks) else 0.0
 
     # MRR (1/rank of first relevant hit)
     min_rank = min((r for r in rel_ranks if r is not None), default=None)

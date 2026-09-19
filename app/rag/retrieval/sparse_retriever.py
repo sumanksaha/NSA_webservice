@@ -106,7 +106,8 @@ class SparseRetriever:
             return 0.0
         if _rust_field_score is not None:
             try:
-                return _rust_field_score(query, text)
+                rust_score: float = _rust_field_score(query, text)
+                return rust_score
             except Exception:
                 pass
         return max(

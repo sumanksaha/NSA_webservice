@@ -43,7 +43,8 @@ def _db():
 def load_payload(ocr_doc) -> dict:
     """Parse ``extracted_json`` into a dict (empty dict on corrupt JSON)."""
     try:
-        return json.loads(ocr_doc.extracted_json or "{}")
+        payload: dict = json.loads(ocr_doc.extracted_json or "{}")
+        return payload
     except (TypeError, ValueError):
         return {}
 
@@ -171,13 +172,14 @@ def open_conflicts() -> list:
     """All unresolved conflicts, oldest first (queue order)."""
     from app.models import ConflictLog
 
-    return (
+    rows: list = (
         _db()
         .session.query(ConflictLog)
         .filter(ConflictLog.resolved.is_(False))
         .order_by(ConflictLog.created_at.asc())
         .all()
     )
+    return rows
 
 
 # --------------------------------------------------------------------------- #

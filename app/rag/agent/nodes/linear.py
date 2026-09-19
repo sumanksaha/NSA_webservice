@@ -314,7 +314,12 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
     failures.extend(FailureClassifier().classify(verification_result))
     # Dedupe while preserving order.
     seen: set[str] = set()
-    failures = [f for f in failures if not (f in seen or seen.add(f))]
+    deduped: list[str] = []
+    for failure in failures:
+        if failure not in seen:
+            seen.add(failure)
+            deduped.append(failure)
+    failures = deduped
     if not failures:
         return {
             "targeted_query": None,
@@ -332,7 +337,8 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
     query_type = state.get("query_type", "general")
     target = planner.target_query(
         query=state.get("query", ""),
-        failures=failures,
+        # str/StrEnum equivalence: RetrievalFailure members ARE str, so mapping.get matches by value.
+        failures=failures,  # type: ignore[arg-type]
         query_type=query_type,
         context={
             "collection_name": state.get("collection_name"),
@@ -646,15 +652,26 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # Multi-hop: only for complex cross-reference / case-law queries.
     # Extract cross-references from retrieved chunks and build a follow-up.
+    # (Uses the extract_references function — the same seam the DAG path
+    # mines via _cross_reference_queries.)
     if query_type in ("cross_reference", "case_law") and chunks:
         try:
-            from app.rag.retrieval.reference_extractor import ReferenceExtractor
+            from app.rag.retrieval.reference_extractor import extract_references
 
-            refs = ReferenceExtractor().extract_references(chunks)
-            # Build refined query from first cross-reference found.
+            refs = []
+            for chunk in chunks:
+                if not isinstance(chunk, dict):
+                    continue
+                text = str(chunk.get("text") or "")
+                if text:
+                    refs.extend(extract_references(text))
+            # Build refined query from the first section-bearing
+            # cross-reference (bare relation keywords carry no section).
             if refs:
-                first_ref = refs[0]
-                refined = f"{query} AND {first_ref.get('text', '')}"
+                first_ref = next((r for r in refs if getattr(r, "section", "")), refs[0])
+                section = getattr(first_ref, "section", "") or ""
+                raw = getattr(first_ref, "raw", "") or ""
+                refined = f"{query} AND section {section}" if section else f"{query} AND {raw}"
                 # Second retrieval pass — merge results.
                 result2 = run_retrieval_pipeline(
                     query=refined,

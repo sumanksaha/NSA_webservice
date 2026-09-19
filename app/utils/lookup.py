@@ -121,7 +121,8 @@ def repair_kmc_json(raw_text: str) -> dict | None:
         raw_text,
     )
     try:
-        return json.loads(fixed_text)
+        parsed: dict | None = json.loads(fixed_text)
+        return parsed
     except json.JSONDecodeError as e:
         logger.error("KMC JSON repair failed: %s", e)
         return None

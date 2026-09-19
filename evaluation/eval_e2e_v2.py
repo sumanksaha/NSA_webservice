@@ -21,7 +21,6 @@ import json
 import math
 import os
 import re
-import ssl
 import sys
 import time
 import warnings
@@ -430,10 +429,10 @@ def _gold_in_pool_by_unit(rel_units, pool, payload_index, family_map) -> bool:
                 if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map):
                     return True
             else:
-                from evaluation.metrics import RankedItem as _RI, _kg_item_keys, item_covers
+                from evaluation.metrics import RankedItem, _kg_item_keys, item_covers
 
                 for family, section in _kg_item_keys(it.get("payload") or {}, family_map):
-                    if item_covers(_RI(kind="kg", key=it["key"], family=family, section=section), unit):
+                    if item_covers(RankedItem(kind="kg", key=it["key"], family=family, section=section), unit):
                         return True
     return False
 
@@ -472,12 +471,12 @@ def compute_retrieval_metrics(reranked: list[dict], question, payload_index, fam
             rel_ranks.append(r)
 
     # Unit-level recall (fraction of relevant units found in top-K)
-    def recall_unit(K):
-        return len([r for r in rel_ranks if r <= K]) / n_rel
+    def recall_unit(k):
+        return len([r for r in rel_ranks if r <= k]) / n_rel
 
     # Any-hit recall
-    def recall_any(K):
-        return 1.0 if any(r <= K for r in rel_ranks) else 0.0
+    def recall_any(k):
+        return 1.0 if any(r <= k for r in rel_ranks) else 0.0
 
     mrr = 1.0 / min(rel_ranks) if rel_ranks else 0.0
 
@@ -554,7 +553,7 @@ def main() -> int:
         query_types[qt_name] = query_types.get(qt_name, 0) + 1
 
         # Identifier detection
-        ident_query, ident_meta = identifier_query(q.question)
+        _ident_query, ident_meta = identifier_query(q.question)
 
         decomp_results.append({
             "question_id": q.question_id,
@@ -691,10 +690,10 @@ def main() -> int:
                         gold_in_pool_count += 1
                         break
                 else:
-                    from evaluation.metrics import RankedItem as _RI, _kg_item_keys, item_covers
+                    from evaluation.metrics import RankedItem, _kg_item_keys, item_covers
 
                     for fam, sec in _kg_item_keys(it.get("payload") or {}, family_map):
-                        if item_covers(_RI(kind="kg", key=it["key"], family=fam, section=sec), unit):
+                        if item_covers(RankedItem(kind="kg", key=it["key"], family=fam, section=sec), unit):
                             gold_in_pool_count += 1
                             break
             else:
@@ -1205,10 +1204,12 @@ def build_improvement_ranking(
     })
 
     # Sort by impact
-    sort_key = lambda r: (
-        -(r.get("measured_failure_pct") or 0) * (1 if r["priority"] in ("CRITICAL", "HIGH") else 0.5)
-        - (r.get("relative_improvement") or 0) * 0.3
-    )
+    def sort_key(r):
+        return (
+            -(r.get("measured_failure_pct") or 0) * (1 if r["priority"] in ("CRITICAL", "HIGH") else 0.5)
+            - (r.get("relative_improvement") or 0) * 0.3
+        )
+
     ranking.sort(key=sort_key, reverse=True)
 
     return ranking

@@ -55,7 +55,7 @@ ACT_SECTION_RANGES: dict[str, tuple[int, int]] = {
 FSS_ACT_SECTIONS: frozenset[str] = frozenset(str(n) for n in range(1, 105))
 
 
-def _normalise(name: str) -> str:
+def _normalise(name: str | None) -> str:
     """Lowercase, strip leading articles, collapse non-alphanumerics."""
     text = re.sub(r"^(?:the|an|a)\s+", "", str(name or "").strip(), flags=re.IGNORECASE)
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()

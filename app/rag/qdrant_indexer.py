@@ -27,7 +27,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from app.rag.chunker import Chunk, Chunker
 from app.rag.embedding_service import EmbeddingService
@@ -115,7 +115,7 @@ class QdrantIndexer:
         sparse_embedder: SparseEmbeddingService | None = None,
         collection_name: str | None = None,
     ) -> None:
-        self._store = store or QdrantStore(collection_name=collection_name)
+        self._store: Any = store or QdrantStore(collection_name=collection_name)
         self._embedder = embedder or EmbeddingService()
         self._chunker = chunker or Chunker()
         self._sparse_embedder = sparse_embedder
@@ -131,7 +131,7 @@ class QdrantIndexer:
 
     def ping(self) -> bool:
         """Health probe through the underlying store."""
-        return self._store.ping()
+        return cast(bool, self._store.ping())
 
     @property
     def sparse_enabled(self) -> bool:
@@ -155,7 +155,7 @@ class QdrantIndexer:
                 create_payload_indexes=create_payload_indexes,
                 sparse_enabled=self.sparse_enabled,
             )
-        return self._store.ensure_collection(create_payload_indexes=create_payload_indexes)
+        return cast(bool, self._store.ensure_collection(create_payload_indexes=create_payload_indexes))
 
     # ------------------------------------------------------------------ #
     # Ingestion
@@ -246,11 +246,11 @@ class QdrantIndexer:
 
     def remove_chunks(self, point_ids: list[str]) -> int:
         """Delete points by chunk/point id."""
-        return self._store.delete_points(point_ids=list(point_ids))
+        return cast(int, self._store.delete_points(point_ids=list(point_ids)))
 
     def remove_document(self, document_id: str) -> int:
         """Delete every point belonging to a document."""
-        return self._store.delete_points(document_id=document_id)
+        return cast(int, self._store.delete_points(document_id=document_id))
 
     # ------------------------------------------------------------------ #
     # Internals
@@ -439,7 +439,7 @@ def _chunk_payload(obj: Any) -> dict[str, Any] | None:
     return payload
 
 
-def _on_after_flush(session, _flush_context):
+def _on_after_flush(session: Any, _flush_context: Any) -> None:
     """Auto-sync changed registered rows to Qdrant after each flush.
 
     Follows ``app/search/indexer.py::_on_after_flush``: early-returns when

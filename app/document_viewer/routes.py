@@ -32,6 +32,7 @@ import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from flask import (
@@ -89,7 +90,7 @@ def autosave_document(case_id: int):
 
     result = _save_coordinator.save(
         case_id=case_id,
-        case_type=resolved.case_type,
+        case_type=cast(str, resolved.case_type),
         doc_type=doc_type,
         html_content=html_content,
         delta_content=delta_content,
@@ -143,7 +144,7 @@ def save_document(case_id: int):
     # --- Save edited HTML (+ optional Delta) to instance folder + versioning + audit ---
     result = _save_coordinator.save(
         case_id=case_id,
-        case_type=resolved.case_type,
+        case_type=cast(str, resolved.case_type),
         doc_type=doc_type,
         html_content=html_content,
         delta_content=delta_content,

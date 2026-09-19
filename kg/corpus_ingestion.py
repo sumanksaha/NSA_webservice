@@ -286,7 +286,7 @@ def _normalise(text: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(text).strip().lower()).strip()
 
 
-def _slug_id(text: str, prefix: str = "") -> str:
+def _slug_id(text: str | None, prefix: str = "") -> str:
     """Deterministic uppercase ID from a title (for instruments without an ID map)."""
     slug = re.sub(r"[^A-Z0-9]+", "_", str(text or "").upper()).strip("_")
     slug = re.sub(r"_+", "_", slug)
@@ -1043,8 +1043,8 @@ class KGCorpusIngestionEngine:
 
         # Qdrant chunks keyed by document_id (multi-domain + any FSS points)
         qdrant_by_doc: dict[str, list[dict[str, Any]]] = {}
-        for _coll, docs in self.load_qdrant_chunks().items():
-            for doc_id, pts in docs.items():
+        for _coll, coll_chunks in self.load_qdrant_chunks().items():
+            for doc_id, pts in coll_chunks.items():
                 qdrant_by_doc.setdefault(doc_id, []).extend(pts)
 
         # Stub provisions (repealed/parent acts)
@@ -1224,16 +1224,17 @@ class KGCorpusIngestionEngine:
 def json_load(path: Path) -> dict[str, Any]:
     """Load a JSON file (kept as a module function so it is easy to stub)."""
     import json
+    from typing import cast
 
     with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+        return cast("dict[str, Any]", json.load(fh))
 
 
 def _iso(value: Any) -> str | None:
     if value is None:
         return None
     if hasattr(value, "isoformat"):
-        return value.isoformat()
+        return str(value.isoformat())
     return str(value)
 
 

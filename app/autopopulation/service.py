@@ -171,13 +171,14 @@ def draft_fbo_issue_for_sample(sample_id: int):
 def _lab_parameters(sample_id: int) -> list:
     from app.models import LabTestParameter
 
-    return (
+    rows: list = (
         _db()
         .session.query(LabTestParameter)
         .filter(LabTestParameter.sample_id == sample_id)
         .order_by(LabTestParameter.parameter_name.asc())
         .all()
     )
+    return rows
 
 
 def _db():

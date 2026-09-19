@@ -71,6 +71,8 @@ class LegalIdentity:
     status: str | None = None
     source_document: str | None = None
     version: str | None = None
+    # Document type as stamped on the chunk (Act / Rule / Schedule / ...).
+    document_type: str | None = None
     # Raw section string as it appears (e.g. "31(2)(a)")
     raw_section: str | None = None
 
@@ -253,7 +255,8 @@ def chunk_identity(chunk: Any) -> LegalIdentity:
 
 def _legal_identity_enabled() -> bool:
     """Check if legal identity parsing is enabled (shared config seam)."""
-    return cfg.legal_identity
+    enabled: bool = cfg.legal_identity
+    return enabled
 
 
 # --------------------------------------------------------------------------- #

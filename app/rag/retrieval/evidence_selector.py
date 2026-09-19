@@ -451,4 +451,5 @@ def select_evidence_set(
 
 def _evidence_selector_enabled() -> bool:
     """Check if evidence-set selection is enabled (shared config seam)."""
-    return cfg.evidence_selector
+    enabled: bool = cfg.evidence_selector
+    return enabled

@@ -73,20 +73,24 @@ def _maybe_field_score(query: str, text: str) -> float:
     """Best fuzzy similarity (0–100). Uses Rust when available, else Python."""
     if _rust_field_score is not None:
         try:
-            return _rust_field_score(query, text)
+            score: float = _rust_field_score(query, text)
+            return score
         except Exception:
             pass
-    return _field_score(query, text)
+    fallback: float = _field_score(query, text)
+    return fallback
 
 
 def _maybe_snippet_around_matches(query: str, text: str, width: int = 80, fuzzy_word_threshold: float = 60.0) -> str:
     """Word-bounded <mark>-highlighted snippet. Uses Rust when available."""
     if _rust_snippet_around_matches is not None:
         try:
-            return _rust_snippet_around_matches(query, text, width, fuzzy_word_threshold)
+            snippet: str = _rust_snippet_around_matches(query, text, width, fuzzy_word_threshold)
+            return snippet
         except Exception:
             pass
-    return _snippet_around_matches(query, text, width, fuzzy_word_threshold)
+    fallback: str = _snippet_around_matches(query, text, width, fuzzy_word_threshold)
+    return fallback
 
 
 _CREATE_FTS_SQL = (

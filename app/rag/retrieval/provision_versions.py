@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from app.rag.retrieval.legal_hierarchy import section_base
 
@@ -325,7 +325,9 @@ def is_current_version(
         family = next(iter(families.values()), None)
     if family is None or not family.versions:
         return None
-    return family.is_current(getattr(chunk, "chunk_id", None) or getattr(chunk, "document_id", None))
+    document_id = getattr(chunk, "chunk_id", None) or getattr(chunk, "document_id", None)
+    # cast() is type-only (returns the value unchanged); the id stays unvalidated as before.
+    return family.is_current(cast(str, document_id))
 
 
 # --------------------------------------------------------------------------- #

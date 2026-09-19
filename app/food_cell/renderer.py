@@ -63,7 +63,8 @@ class DODocumentRenderer:
 
     def render_html(self, sample: Any) -> str:
         """Render the DO intimation HTML template for *sample*."""
-        return render_template("food_cell/do_intimation.html", sample=sample)
+        html: str = render_template("food_cell/do_intimation.html", sample=sample)
+        return html
 
     # ------------------------------------------------------------------ #
     # PDF rendering (shared by DO Intimation and Improvement Notice)
@@ -197,7 +198,8 @@ class DODocumentRenderer:
             enclosures,
             is_inspection_report=is_inspection_report,
         )
-        return render_template("food_cell/improvement_notice.html", **context)
+        html: str = render_template("food_cell/improvement_notice.html", **context)
+        return html
 
     def store(self, intimation: Any, sample: Any, html: str, pdf_path: str) -> None:
         """Persist HTML and PDF paths on the *intimation* record."""

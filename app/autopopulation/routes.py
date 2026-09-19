@@ -57,4 +57,5 @@ def _was_created(issue, sample_id: int) -> bool:
         return False
     # A freshly drafted issue has exactly this detail shape; an existing one
     # is indistinguishable — report "drafted" when the id was just allocated.
-    return detail.get("sample_id") == sample_id
+    matches: bool = detail.get("sample_id") == sample_id
+    return matches

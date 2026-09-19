@@ -58,7 +58,8 @@ class WeasyPrintPDFPlugin(PDFProvider):
         pdf_bytes, error = engine.generate_from_html(html_content)
         if pdf_bytes is None:
             raise RuntimeError(error or "PDF generation failed")
-        return pdf_bytes
+        data: bytes = pdf_bytes
+        return data
 
     def render_pdf_safe(self, html_content: str, **kwargs: Any) -> tuple[bytes | None, str | None]:
         """Render HTML to PDF, returning (pdf_bytes, error) instead of raising.

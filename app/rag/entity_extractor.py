@@ -470,7 +470,8 @@ def _plain_entity_names(value: Any) -> list[str]:
         if isinstance(item, str):
             name = item
         elif isinstance(item, dict):
-            name = item.get("name")
+            raw_name: Any = item.get("name")
+            name = raw_name if isinstance(raw_name, str) else ""
         else:
             continue
         if isinstance(name, str) and name.strip():

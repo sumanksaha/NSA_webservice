@@ -17,8 +17,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.rag.evidence_task import AnswerContract, EvidenceTask
-
 # --------------------------------------------------------------------------- #
 # Thresholds — canonical values live in app.rag.agent.thresholds (single
 # tuning point for every routing/gating constant).  The names below are
@@ -29,6 +27,7 @@ from app.rag.agent.thresholds import (
     SUFFICIENCY_SIGNAL_THRESHOLDS,
     SUFFICIENT_TASK_RATIO,
 )
+from app.rag.evidence_task import AnswerContract, EvidenceTask
 
 #: Signal thresholds — a signal passes at >= its threshold.
 THRESHOLDS: dict[str, float] = SUFFICIENCY_SIGNAL_THRESHOLDS
@@ -172,7 +171,8 @@ def as_retrieved_chunks(chunks: list[dict[str, Any]]) -> list[Any]:
             out.append(c)
             continue
         if not isinstance(c, dict):
-            continue
+            # Defensive: lenient conversion also accepts RetrievedChunk entries at runtime.
+            continue  # type: ignore[unreachable]
         try:
             out.append(
                 RetrievedChunk(
@@ -343,7 +343,8 @@ class SufficiencyAssessor:
         specific = 0
         for c in chunks:
             if not isinstance(c, dict):
-                continue
+                # Defensive: lenient rubric skips non-dict entries at runtime.
+                continue  # type: ignore[unreachable]
             if (
                 c.get("section_number")
                 or _EFFECTIVE_RE.search(str(c.get("text") or ""))

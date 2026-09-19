@@ -1,9 +1,10 @@
-import sys, json
+import json
+import sys
 
 sys.path.insert(0, r"C:\github\NSA_webservice")
 from evaluation.benchmark import load_questions
-from evaluation.resolution import FamilyMap, matches_gold
 from evaluation.config import CACHE_DIR
+from evaluation.resolution import FamilyMap, matches_gold
 
 payload_index = {}
 with open(CACHE_DIR / "payload_index.jsonl", encoding="utf-8") as f:

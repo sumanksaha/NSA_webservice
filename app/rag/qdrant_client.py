@@ -198,8 +198,9 @@ def sparse_search(
     Returns:
         List of ScoredPoint-like objects.
     """
+    models: Any = None
     try:
-        from qdrant_client import http as _http  # type: ignore[import-untyped]
+        from qdrant_client import http as _http
 
         models = _http.models
     except ImportError:
@@ -309,7 +310,7 @@ class QdrantStore:
         if self._client is not None:
             return self._client
         try:
-            from qdrant_client import QdrantClient  # type: ignore[import-untyped]
+            from qdrant_client import QdrantClient
         except ImportError:
             logger.warning("QdrantStore: qdrant-client not installed; vector store unavailable.")
             return None
@@ -340,7 +341,7 @@ class QdrantStore:
         """Return the ``qdrant_client.http.models`` module (or ``None``)."""
         if self._models is None:
             try:
-                from qdrant_client import http as _http  # type: ignore[import-untyped]
+                from qdrant_client import http as _http
 
                 self._models = _http.models
             except ImportError:

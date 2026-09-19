@@ -131,12 +131,13 @@ def run_agent_query(
         return 400, {"error": "top_k must be a positive integer."}
     if hitl and thread_id is not None and (not isinstance(thread_id, str) or not thread_id.strip()):
         return 400, {"error": "thread_id must be a non-empty string."}
+    # Defensive: transports forward untyped JSON values, so these guards are reachable at runtime.
     if fso_advisor is not None and not isinstance(fso_advisor, bool):
-        return 400, {"error": "fso_advisory must be a boolean."}
+        return 400, {"error": "fso_advisory must be a boolean."}  # type: ignore[unreachable]
     if not isinstance(is_repeat_offender, bool):
-        return 400, {"error": "is_repeat_offender must be a boolean."}
+        return 400, {"error": "is_repeat_offender must be a boolean."}  # type: ignore[unreachable]
     if not isinstance(has_lab_report, bool):
-        return 400, {"error": "has_lab_report must be a boolean."}
+        return 400, {"error": "has_lab_report must be a boolean."}  # type: ignore[unreachable]
 
     try:
         from app.rag.agent.graph import run_agent
@@ -190,8 +191,9 @@ def resume_agent_query(
         return 400, {"error": "thread_id must be a non-empty string."}
     if not isinstance(approved, bool):
         return 400, {"error": "approved must be a boolean."}
+    # Defensive: transports forward untyped JSON values, so this guard is reachable at runtime.
     if fso_advisor is not None and not isinstance(fso_advisor, bool):
-        return 400, {"error": "fso_advisory must be a boolean."}
+        return 400, {"error": "fso_advisory must be a boolean."}  # type: ignore[unreachable]
 
     try:
         from app.rag.agent.graph import resume_agent

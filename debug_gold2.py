@@ -1,6 +1,9 @@
 """Debug: Check gold chunk matching for first 30 questions with ce_v2."""
 
-import sys, os, json, warnings, time
+import json
+import os
+import sys
+import warnings
 
 warnings.filterwarnings("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
@@ -15,11 +18,12 @@ import torch
 
 torch.set_num_threads(4)
 
+from sentence_transformers import CrossEncoder
+
 from evaluation.benchmark import load_questions
 from evaluation.config import CACHE_DIR
+from evaluation.rerank_legal import build_pool, rerank, rrf_scores
 from evaluation.resolution import FamilyMap, matches_gold
-from evaluation.rerank_legal import build_pool, rerank, rrf_scores, rank_of
-from sentence_transformers import CrossEncoder
 
 
 def load_jsonl(path):
@@ -85,7 +89,7 @@ for qid in sorted(questions.keys())[:30]:
 
     pairs = [(q.question, str(it["payload"].get("chunk_text") or it["payload"].get("text") or "")) for it in rrf_top150]
     scores = ce_v2.predict(pairs, batch_size=64)
-    scored = sorted(zip(scores, rrf_top150), key=lambda x: float(x[0]), reverse=True)
+    scored = sorted(zip(scores, rrf_top150, strict=False), key=lambda x: float(x[0]), reverse=True)
     ce_ranked = []
     for sc, it in scored:
         item = dict(it)

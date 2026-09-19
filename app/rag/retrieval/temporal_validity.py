@@ -151,7 +151,9 @@ def is_valid(
         query_date = _today_iso()
     qd = _parse_date(query_date)
     if qd is None:
-        qd = _parse_date(_today_iso())
+        # _today_iso() always parses (ISO today); the `or` only narrows the
+        # type for mypy — no reachable behaviour change.
+        qd = _parse_date(_today_iso()) or date.today()
 
     query_date_str = query_date.isoformat() if isinstance(query_date, (date, datetime)) else str(query_date)
 

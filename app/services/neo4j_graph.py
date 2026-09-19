@@ -191,17 +191,13 @@ def setup_constraints_and_indexes() -> dict[str, Any]:
 
     try:
         for cypher in _CONSTRAINTS_CYPHER:
-            result = driver.execute_query(  # type: ignore[call-arg]
-                cypher, database_=database
-            )
+            result = driver.execute_query(cypher, database_=database)
             # execute_query returns summary with count of constraints added
             if hasattr(result, "summary"):
                 created_constraints += result.summary.counters.constraints_added or 0
 
         for cypher in _INDEXES_CYPHER:
-            result = driver.execute_query(  # type: ignore[call-arg]
-                cypher, database_=database
-            )
+            result = driver.execute_query(cypher, database_=database)
             if hasattr(result, "summary"):
                 created_indexes += result.summary.counters.indexes_added or 0
     finally:
@@ -262,7 +258,7 @@ def push_to_neo4j(
         # sync can never delete the legal KG.  Idempotent on re-push.
         driver.execute_query(
             _CASE_GRAPH_CLEAR_CYPHER,
-            database_=database,  # type: ignore[call-arg]
+            database_=database,
         )
 
         if use_apoc:
@@ -279,7 +275,7 @@ def push_to_neo4j(
                     }) YIELD node
                     RETURN count(*) AS created
                     """,
-                    parameters_={"nodes": payload["nodes"]},  # type: ignore[call-arg]
+                    parameters_={"nodes": payload["nodes"]},
                     database_=database,
                 )
             except Exception as exc:
@@ -299,7 +295,7 @@ def push_to_neo4j(
                     created_at: timestamp()
                 })
                 """,
-                parameters_={"nodes": payload["nodes"]},  # type: ignore[call-arg]
+                parameters_={"nodes": payload["nodes"]},
                 database_=database,
             )
 
@@ -316,7 +312,7 @@ def push_to_neo4j(
                     }, tgt) YIELD rel
                     RETURN count(*) AS created
                     """,
-                    parameters_={"edges": payload["edges"]},  # type: ignore[call-arg]
+                    parameters_={"edges": payload["edges"]},
                     database_=database,
                 )
             except Exception as exc:
@@ -333,7 +329,7 @@ def push_to_neo4j(
                 MERGE (src)-[r:RELATIONSHIP {type: e.type}]->(tgt)
                 SET r.weight = e.weight
                 """,
-                parameters_={"edges": payload["edges"]},  # type: ignore[call-arg]
+                parameters_={"edges": payload["edges"]},
                 database_=database,
             )
 
@@ -356,7 +352,7 @@ def query_neo4j(cypher: str, params: dict | None = None) -> list[dict]:
     driver = _get_driver()
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
     try:
-        result = driver.execute_query(  # type: ignore[call-arg]
+        result = driver.execute_query(
             cypher,
             parameters_=params or {},
             database_=database,

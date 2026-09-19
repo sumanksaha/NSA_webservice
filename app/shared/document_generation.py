@@ -27,7 +27,7 @@ from app.utils.qstash_client import make_dedup_key, publish_task
 logger = logging.getLogger(__name__)
 
 
-def build_photos_context(case_id: int, context: dict) -> dict:
+def build_photos_context(case_id: int, context: dict) -> dict | tuple[Any, int]:
     """Fetch photos and embed as base64 for template rendering."""
     all_photos = (
         Evidence.query
@@ -275,7 +275,8 @@ def generate_adjudication_pdfs(adj: Any, form_data: dict, prepare_context_fn) ->
                 500,
             )
 
-    return build_zip_response(outputs, adj.id, "adjudication")
+    response: tuple[dict, int] = build_zip_response(outputs, adj.id, "adjudication")
+    return response
 
 
 def generate_case(

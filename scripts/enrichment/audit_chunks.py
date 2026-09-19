@@ -35,8 +35,9 @@ import hashlib
 import json
 import re
 import sys
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Heuristic thresholds (documented in CHUNK_AUDIT.md; adjustable per run)
@@ -97,15 +98,6 @@ def _classify_severity(metric: str) -> str:
         "duplicate_content",
         "unusually_short_chunks",
     }
-    low = {
-        "unusually_long_chunks",
-        "incomplete_sentence_chunks",
-        "multi_provision_chunks",
-        "chunks_with_section_metadata",
-        "chunks_with_citations",
-        "chunks_with_references",
-        "chunks_with_entities",
-    }
     if metric in critical:
         return "CRITICAL"
     if metric in high:
@@ -131,9 +123,7 @@ def _is_complete_sentence(text: str) -> bool:
     if re.search(r"[—\-–:]\s*$", stripped):
         return True
     # Trailing numeric / unit / percentage (common in legal lists & schedules)
-    if _TRAILING_NUMERIC_RE.search(stripped):
-        return True
-    return False
+    return bool(_TRAILING_NUMERIC_RE.search(stripped))
 
 
 def audit_points(points: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -332,13 +322,11 @@ def audit_points(points: Iterable[dict[str, Any]]) -> dict[str, Any]:
             },
             "rechunk_only_if": (
                 "Zero empty chunks, zero duplicate chunk IDs and complete required "
-                "payload keys are observed; the only redundancy is {dup_content} "
+                f"payload keys are observed; the only redundancy is {dup_content} "
                 "normalized-content groups (likely repeated standard clauses), and "
-                "{missing_section} chunks lack section metadata. Neither is a "
+                f"{missing_section} chunks lack section metadata. Neither is a "
                 "chunk-boundary defect: re-chunking the corpus is NOT recommended "
-                "without retrieval evidence of material damage.".format(
-                    dup_content=dup_content, missing_section=missing_section
-                )
+                "without retrieval evidence of material damage."
             ),
         },
     }
@@ -438,8 +426,8 @@ def render_markdown(report: dict[str, Any], source_label: str) -> str:
         "",
         "## Summary",
         "",
-        f"| Metric | Value |",
-        f"| --- | ---: |",
+        "| Metric | Value |",
+        "| --- | ---: |",
         f"| Total chunks | {s['total_chunks']} |",
         f"| Unique chunk IDs | {s['unique_chunk_ids']} |",
         f"| Unique documents | {s['unique_documents']} |",

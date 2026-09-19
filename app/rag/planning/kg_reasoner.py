@@ -185,12 +185,15 @@ class KGReasoner:
     """Traverse the legal KG to generate evidence-based reasoning paths."""
 
     def __init__(self, expander: KGContextExpander | None = None) -> None:
+        # Declared Optional: the except branch keeps the (possibly None) arg,
+        # so the `is None` guard in reason_from_provision is reachable.
+        self.expander: KGContextExpander | None
         try:
             from kg.hybrid import KGContextExpander as _Expander
 
             self.expander = expander or _Expander()
         except Exception:
-            self.expander = expander  # type: ignore[assignment]
+            self.expander = expander
 
     # -- core traversal -------------------------------------------------- #
     def reason_from_provision(

@@ -55,7 +55,6 @@ class RAGState(TypedDict, total=False):
     evidence_set: dict[str, Any] | None
     # --- P1 EvidenceTask DAG ---
     evidence: dict[str, list]  # task_id -> list of evidence chunks
-    claims: list[dict]  # list of claim dicts
     final_answer: str | None  # final synthesized answer
     quality: dict  # quality metrics
     plan: Any | None  # structured plan (from QueryPlanner)

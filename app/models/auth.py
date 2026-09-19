@@ -150,7 +150,7 @@ class AirtableBaseMap(db.Model):
 # request — crash with `relation "user_roles" does not exist`. Lazy loading
 # keeps auth resilient and avoids a join on every request; Phase 18 RBAC is not
 # wired up yet, so nothing accesses user.roles today.
-User.roles = db.relationship(  # type: ignore[attr-defined]
+User.roles = db.relationship(
     "Role",
     secondary="user_roles",
     backref="users",

@@ -21,7 +21,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.shared.config import cfg
 
@@ -339,7 +339,8 @@ class IngestionPipeline:
 
     def _quality_summary(self, chunks: list[Any]) -> dict[str, Any]:
         """Aggregate per-chunk quality verdicts into a JSON-safe summary."""
-        verdicts = [self._quality_validator.validate_chunk(c) for c in chunks]
+        validator = cast(Any, self._quality_validator)
+        verdicts = [validator.validate_chunk(c) for c in chunks]
         ok = sum(1 for v in verdicts if v.ok)
         return {
             "checked": len(verdicts),
@@ -349,10 +350,12 @@ class IngestionPipeline:
         }
 
     def _clean_text(self, text: str) -> str:
-        cleaned = self.cleaner.clean(text)
+        cleaned: Any = self.cleaner.clean(text)
         # DocumentCleaner returns CleanedDocument(.clean_text); fakes may
         # return a plain string.
-        return cleaned.clean_text if hasattr(cleaned, "clean_text") else str(cleaned)
+        if hasattr(cleaned, "clean_text"):
+            return str(cleaned.clean_text)
+        return str(cleaned)
 
 
 def _full_enrichment_enabled() -> bool:
@@ -362,7 +365,7 @@ def _full_enrichment_enabled() -> bool:
     ``create_app``); the env var is read directly outside one, so Celery /
     QStash / plain-function callers honour the flag too.
     """
-    return cfg.full_enrichment
+    return bool(cfg.full_enrichment)
 
 
 def make_ingestion_pipeline(

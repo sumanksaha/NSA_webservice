@@ -47,7 +47,7 @@ class Reranker:
         if self._encoder is not None:
             return self._encoder
         try:
-            from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
+            from sentence_transformers import CrossEncoder
 
             # Bound torch threads before the model is built (RAG_TORCH_THREADS)
             # so a rerank call does not peg every core on a laptop.
@@ -252,7 +252,7 @@ class EnsembleReranker:
         if self._encoder is not None:
             return self._encoder
         try:
-            from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
+            from sentence_transformers import CrossEncoder
 
             # Bound torch threads before the model is built (RAG_TORCH_THREADS)
             # so the CE head does not peg every core on a laptop.
