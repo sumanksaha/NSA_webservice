@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
 > Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
+### Added (2026-09-20)
+
+- **FSO strategic advisory reframe (ADR-0006)**: the statutory floor is now a hard legal admissibility *constraint* and Act selection maximizes a computed robust score (zero-sum FSO×FBO maximin + ω·optionality) over admissible acts; new `app/rag/advisor/game.py` payoff model with computed, non-degenerate FBO best responses (defects weak acts, contests prosecution); `fso_act` payload gains `fbo_best_response` / `maximin_value` / `binding_constraint` / `admissible_acts` while every ADR-0003 field and all blueprint §6 spec Acts stay unchanged (`tests/test_rag_advisor_game.py`, 19 tests).
+
 ### Added (2026-09-13)
 
 - **Validated petition-PDF download** (`GET /case/<id>/pdf/petition` on both case-file and adjudication blueprints): serves a single petition PDF only after every required field validates (400 + `missing_fields` otherwise), scans rendered HTML for unresolved Jinja, uniform JSON 404s; list rows now carry Timeline / Validate / Word Petition / Word Permission / Petition PDF buttons (`tests/test_petition_pdf_download.py`, 10 tests).
