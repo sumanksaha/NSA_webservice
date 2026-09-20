@@ -31,6 +31,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.rag.agent.nodes.auditor import audit_argument
+from app.rag.generation.reasoning_path import reasoning_user_content, revision_context, should_revise
 from app.rag.generation.structured_reasoner import StructuredReasoner
 
 CONDITIONS = ("A_direct", "B_structured", "C_structured_audit")
@@ -90,11 +91,7 @@ def _answer_from_argument(question: str, argument: dict[str, Any], context: str,
     """
     from app.rag.generation.prompt_template import GROUND_QA_SYSTEM_PROMPT
 
-    user = (
-        f"Question: {question}\n\nStructured reasoning:\n{json.dumps(argument)}\n\n"
-        f"Evidence context:\n{context}\n\nFinal answer (cite sources with [n] markers; "
-        "qualify conclusions the reasoning marks unknown):"
-    )
+    user = reasoning_user_content(question, json.dumps(argument), context)
     response = llm.call(GROUND_QA_SYSTEM_PROMPT, user)
     return response.text or ""
 
@@ -126,12 +123,9 @@ def run_condition(
         if condition == "C_structured_audit":
             audit = audit_argument(argument, evidence_texts)
             audits.append(audit.model_dump())
-            while audit.status == "FAIL" and revision_count < max_revisions:
+            while should_revise(audit, revision_count, max_revisions):
                 revision_count += 1
-                notes = "\n".join(
-                    f"- {d.defect_type}: {d.explanation} => {d.required_correction}" for d in audit.defects
-                )
-                argument = reasoner.reason(question, f"{context}\n\nCorrection required:\n{notes}")
+                argument = reasoner.reason(question, revision_context(context, audit.defects))
                 audit = audit_argument(argument, evidence_texts)
                 audits.append(audit.model_dump())
             record["audits"] = audits

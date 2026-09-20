@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.rag.generation.reasoning_path import audit_failed, revision_context
 from app.rag.generation.structured_reasoner import StructuredLegalArgument, StructuredReasoner
 
 logger = logging.getLogger(__name__)
@@ -63,13 +64,9 @@ def structured_reasoner_node(state: dict[str, Any]) -> dict[str, Any]:
 
     audit = state.get("audit_result") or {}
     revision_count = int(state.get("revision_count", 0) or 0)
-    if audit.get("status") == "FAIL":
-        notes = "; ".join(
-            f"{d.get('defect_type')}: {d.get('required_correction')}"
-            for d in audit.get("defects", [])
-            if isinstance(d, dict)
-        )
-        context = f"{context}\n\nCorrection required:\n{notes}"
+    if audit_failed(audit):
+        defects = audit.get("defects", []) if isinstance(audit, dict) else getattr(audit, "defects", [])
+        context = revision_context(context, defects)
         revision_count += 1
 
     try:

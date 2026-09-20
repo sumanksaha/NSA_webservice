@@ -166,11 +166,9 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     if structured_used:
         import json as _json
 
-        query = (
-            f"{query}\n\nStructured legal reasoning:\n{_json.dumps(argument)}"
-            "\n\nFinal answer (cite sources with [n] markers; "
-            "qualify conclusions the reasoning marks unknown):"
-        )
+        from app.rag.generation.reasoning_path import reasoning_user_content
+
+        query = reasoning_user_content(query, _json.dumps(argument))
     result = run_generation_pipeline(
         query=query,
         chunks=state.get("chunks"),

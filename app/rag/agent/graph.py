@@ -117,11 +117,15 @@ def route_after_audit(state: RAGState) -> str:
 
     FAIL with revision budget left → back to ``structured_reasoner`` for
     one capped correction pass; otherwise (PASS, exhausted budget, or no
-    audit at all) → ``generate``.
+    audit at all) → ``generate``.  The policy lives in
+    ``reasoning_path.should_revise`` — this router only translates it.
     """
-    audit = state.get("audit_result") or {}
-    if audit.get("status") == "FAIL" and int(state.get("revision_count", 0) or 0) < int(
-        state.get("max_revisions", 1) or 0
+    from app.rag.generation.reasoning_path import should_revise
+
+    if should_revise(
+        state.get("audit_result"),
+        state.get("revision_count", 0),
+        state.get("max_revisions", 1),
     ):
         return "structured_reasoner"
     return "generate"

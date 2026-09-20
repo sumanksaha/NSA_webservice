@@ -183,7 +183,7 @@ class TestGenerateConsumesArgument:
         }
         out = generate_node(state)
         assert out["answer"] == "A."
-        assert "Structured legal reasoning" in captured["query"]
+        assert "Structured reasoning" in captured["query"]
         assert "A licence is required." in captured["query"]
 
     def test_query_unchanged_without_argument(self, monkeypatch):
@@ -211,7 +211,7 @@ class TestGenerateConsumesArgument:
             "query_type": "general",
             "structured_argument": {"issue": "Licence?", "uncertainties": ["reasoning unavailable"]},
         })
-        assert "Structured legal reasoning" in captured["query"]
+        assert "Structured reasoning" in captured["query"]
 
 
 class TestReasoningPathInvoke:
@@ -250,7 +250,7 @@ class TestReasoningPathInvoke:
         assert result["audit_result"]["status"] == "PASS"
         assert result["revision_count"] == 0
         assert result["answer"] == "Penalty applies."
-        assert "Structured legal reasoning" in fake_generate.captured
+        assert "Structured reasoning" in fake_generate.captured
 
     def test_invoke_fail_revises_once_then_generates(self, monkeypatch):
         from app.rag.agent.state import initial_state
