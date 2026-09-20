@@ -25,26 +25,15 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.rag.retrieval.legal_hierarchy import parse_section_chain
 from app.shared.config import cfg
 
 # --------------------------------------------------------------------------- #
 # Section / sub-structure parsing
 # --------------------------------------------------------------------------- #
 
-#: Matches a section reference with optional subsection/clause chains.
-#: Captures: section number, optional "(sub)" groups.
-_SECTION_FULL_RE = re.compile(
-    r"(?:section|sec\.|s\.|u/s)\s*(\d{1,4})"
-    r"((?:\s*\(\s*\w+[^()]*\))*)\s*",
-    re.IGNORECASE,
-)
-
-#: Matches the full canonical act::section::subsection chain from a text
-#: snippet (e.g. "FSS Act, 2006, Section 31(2)(a)").
-_FULL_REF_RE = re.compile(
-    r"(.*?)\s*,\s*(?:Section\s+(\d+)((?:\s*\([^()]+\))*))",
-    re.IGNORECASE,
-)
+#: Leading section keyword in a section_number field ("Section 31(2)" → "31(2)").
+_LEADING_SECTION_KW_RE = re.compile(r"^\s*(?:section|sec\.|s\.|u/s)\s+", re.IGNORECASE)
 
 
 @dataclass
@@ -134,11 +123,6 @@ class LegalIdentity:
 # --------------------------------------------------------------------------- #
 
 
-def _parse_subsection_chain(s: str) -> list[str]:
-    """Parse ``"(2)(a)(iii)"`` → ``["2", "a", "iii"]``."""
-    return re.findall(r"\(([^()]+)\)", s)
-
-
 def _resolve_act_alias(act_name: str | None, document_title: str | None) -> str | None:
     """Resolve the canonical Act from act_name or document_title.
 
@@ -175,44 +159,21 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     identity.act = _resolve_act_alias(act_name or None, document_title or None)
     identity.act_alias = act_name if act_name and act_name != identity.act else None
 
-    # Section parsing from chunk's section_number field, falling back to text
+    # Section parsing from chunk's section_number field, falling back to text.
+    # Chain splitting has one home — ``legal_hierarchy.parse_section_chain``
+    # — so base/subsection/clause can never disagree with the hierarchy view.
+    # A leading section keyword ("Section 31(2)") is stripped first; the
+    # field is a section ref by construction, so no keyword check is needed.
     section_number = getattr(chunk, "section_number", None) or ""
     identity.raw_section = section_number if section_number else None
 
-    # Try to parse section from the section_number field first
-    q_sec, _ = (None, None)
-    try:
-        from app.rag.retrieval.identifier import detect_section
-
-        q_sec, _ = detect_section(section_number) if section_number else (None, None)
-    except Exception:
-        pass
-
-    if q_sec:
-        identity.section = q_sec
-        # Parse subsections from the raw section string
-        if section_number:
-            subs = _parse_subsection_chain(section_number)
-            if subs:
-                if len(subs) == 1:
-                    identity.subsection = subs
-                else:
-                    identity.subsection = subs[:1]
-                    identity.clause = subs[1:]
-    else:
-        # Fall back to text-level parsing of section_number as text
-        text = section_number or ""
-        m = re.match(r"(\d{1,4})", text)
-        if m:
-            identity.section = m.group(1)
-            identity.raw_section = section_number
-            subs = _parse_subsection_chain(text)
-            if subs:
-                if len(subs) == 1:
-                    identity.subsection = subs
-                else:
-                    identity.subsection = subs[:1]
-                    identity.clause = subs[1:]
+    bare = _LEADING_SECTION_KW_RE.sub("", section_number)
+    chain = parse_section_chain(bare)
+    if chain:
+        identity.section = chain[0]
+        if len(chain) > 1:
+            identity.subsection = chain[1:2]
+            identity.clause = chain[2:]
 
     # Document-type inference (Rule, Schedule, Chapter)
     doc_type = getattr(chunk, "document_type", None) or ""

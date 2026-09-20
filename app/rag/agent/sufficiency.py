@@ -13,6 +13,7 @@ The gate (:func:`app.rag.agent.nodes.evidence_sufficiency_node`) consumes
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -28,6 +29,8 @@ from app.rag.agent.thresholds import (
     SUFFICIENT_TASK_RATIO,
 )
 from app.rag.evidence_task import AnswerContract, EvidenceTask
+
+logger = logging.getLogger(__name__)
 
 #: Signal thresholds — a signal passes at >= its threshold.
 THRESHOLDS: dict[str, float] = SUFFICIENCY_SIGNAL_THRESHOLDS
@@ -64,7 +67,7 @@ _DOCUMENT_TYPE_AUTHORITY: dict[str, float] = {
     "blog": 0.2,
 }
 
-#: Authority-name hints (mirrors the three_stage_reranker hierarchy).
+#: Authority-name hints for the authority signal scorer.
 _AUTHORITY_NAME_WEIGHTS: list[tuple[str, float]] = [
     ("supreme court", 1.0),
     ("high court", 0.7),
@@ -96,23 +99,37 @@ def chunk_authority_score(chunk: dict[str, Any]) -> float:
 
 
 def chunk_temporally_invalid(chunk: dict[str, Any]) -> bool:
-    """True when a chunk's text marks it repealed/superseded/omitted.
+    """True when a chunk's provision is no longer in force.
 
-    Scope-free per-chunk check (no task temporal scope needed): repeal
-    language means the text describes a provision no longer in force.
+    Scope-free per-chunk check (no task temporal scope needed). Delegates
+    to the temporal-validity seam — payload verdict first (status /
+    effective dates), amendment-chain text verdict second — so payload
+    repeals the text never mentions are caught too. The graph leg stays
+    off: per-chunk Neo4j round-trips don't belong in the agent path.
     Effective-date-vs-scope conflicts need the task's scope and stay in
     :func:`_temporal_conflicts`.
     """
-    return bool(REPEALED_RE.search(str(chunk.get("text") or "")))
+    from app.rag.retrieval.temporal_validity import VALIDITY_INVALID, is_valid
+
+    try:
+        return (
+            is_valid(
+                str(chunk.get("chunk_id") or "") or None,
+                chunk=chunk,
+                allow_graph=False,
+            ).status
+            == VALIDITY_INVALID
+        )
+    except Exception as exc:
+        # Fail open (not invalid) but loudly: silent validity hides seam breakage.
+        logger.warning("chunk_temporally_invalid: validity check failed (%s)", exc)
+        return False
 
 
 # --------------------------------------------------------------------------- #
 # Temporal validity
 # --------------------------------------------------------------------------- #
 
-#: Phrases that mark a chunk as temporally superseded/restricted.
-REPEALED_RE = re.compile(r"\b(repealed|superseded|omitted|substituted by)\b", re.IGNORECASE)
-_AMENDED_RE = re.compile(r"\bamended\b", re.IGNORECASE)
 #: Effectiveness phrases ("with effect from", "w.e.f.", "effective ... 2021").
 _EFFECTIVE_RE = re.compile(
     r"\b(?:with effect from|w\.?e\.?f\.?|effective(?:\s+from)?)\s*:?\s*"
@@ -127,8 +144,8 @@ def _temporal_conflicts(chunks: list[dict[str, Any]], task: Any) -> list[str]:
     """Chunk ids of evidence that conflicts with the task's temporal scope.
 
     Rules (deterministic):
-    - repeal/supersede/omit language in a chunk is a conflict (the text
-      describes a provision no longer in force); plain "amended" is not;
+    - a provision no longer in force (per the temporal-validity seam) is a
+      conflict; plain "amended" is not;
     - an explicit effective date ("w.e.f. 2021") that contradicts the
       task's temporal-scope year is a conflict.
     """
@@ -140,7 +157,7 @@ def _temporal_conflicts(chunks: list[dict[str, Any]], task: Any) -> list[str]:
     for chunk in chunks:
         text = str(chunk.get("text") or "")
         cid = str(chunk.get("chunk_id") or "")
-        if REPEALED_RE.search(text):
+        if chunk_temporally_invalid(chunk):
             conflicts.append(cid)
             continue
         m = _EFFECTIVE_RE.search(text)

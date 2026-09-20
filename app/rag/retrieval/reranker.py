@@ -293,6 +293,16 @@ class EnsembleReranker:
             return []
 
         from app.rag.retrieval.legal_query_classifier import get_config
+        from app.rag.retrieval.query_understanding import understand
+
+        # One crossing of the query-understanding seam supplies the entity
+        # and profile views; the explicit query_type override keeps its
+        # historical get_config path unchanged. Guarded: a seam throw must
+        # degrade to identifier-blind reranking, never fail the hot path.
+        try:
+            understood = understand(query)
+        except Exception:
+            understood = None
 
         w_sec = self._W_SEC
         w_act = self._W_ACT
@@ -320,23 +330,17 @@ class EnsembleReranker:
             # Applied after the query_type override so blending is not dead
             # when both are passed.
             try:
-                from app.rag.planning.profiles import ProfileManager
-
-                profile_name = query_profile or "standard"
-                try:
-                    profile = ProfileManager().get_query_profile(profile_name)
-                except ValueError:
-                    profile = ProfileManager().get_query_profile("standard")
-                weights = profile.rerank_weights_for(requirement_type)
+                weights = understood.profile_weights(requirement_type, query_profile)
                 # Blend: CE share of the profile scales the CE bonus.
                 ce_weight = ce_weight * (weights.get("ce_reranker", 0.2) / 0.2)
             except Exception:
                 pass
 
-        from app.rag.retrieval.identifier import detect_act, detect_section
-
-        q_sec, _sub = detect_section(query)
-        q_act = detect_act(query)
+        if understood is not None:
+            q_sec, _sub = understood.section, understood.subsection
+            q_act = understood.act
+        else:
+            q_sec, _sub, q_act = None, None, None
 
         # 1. sec_act + hierarchy features per chunk (exact = sec AND act match)
         primary = []

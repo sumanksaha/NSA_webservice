@@ -46,7 +46,8 @@ class ValidityResult:
         effective_from: When the provision became effective (if known).
         effective_to: When the provision was repealed/superseded (if known).
         reason: Human-readable explanation of the determination.
-        source: "payload" if from chunk payload, "graph" if from Neo4j.
+        source: "payload" if from chunk payload, "text" if from the
+            amendment chain in the provision text, "graph" if from Neo4j.
     """
 
     document_id: str | None
@@ -127,6 +128,7 @@ def is_valid(
     effective_from: str | None = None,
     effective_to: str | None = None,
     allow_graph: bool = True,
+    text: str | None = None,
 ) -> ValidityResult:
     """Determine whether a provision was valid at ``query_date``.
 
@@ -142,6 +144,9 @@ def is_valid(
         effective_from: Override for effective_from date.
         effective_to: Override for effective_to date.
         allow_graph: Whether to consult Neo4j for additional metadata.
+        text: Optional provision text. When the payload carries no verdict,
+            the amendment/repeal chain is extracted from the text instead —
+            one seam for payload verdicts and text verdicts alike.
 
     Returns:
         ``ValidityResult`` with status ``valid`` / ``invalid`` / ``unknown``.
@@ -160,6 +165,7 @@ def is_valid(
     # Resolve payload fields from chunk if provided.  Precedence per field:
     # explicit argument > chunk mapping (dict / to_dict payload, where
     # Qdrant/Neo4j metadata actually lives) > object attribute.
+    chunk_text: str | None = text
     if chunk is not None:
         if isinstance(chunk, dict):
             fields: dict[str, Any] = chunk
@@ -179,6 +185,9 @@ def is_valid(
         )
         effective_from = effective_from or fields.get("effective_from") or getattr(chunk, "effective_from", None)
         effective_to = effective_to or fields.get("effective_to") or getattr(chunk, "effective_to", None)
+        if chunk_text is None:
+            raw_text = fields.get("text", getattr(chunk, "text", None))
+            chunk_text = str(raw_text) if raw_text else None
 
     status_lower = (provision_status or "").lower().strip()
 
@@ -257,6 +266,25 @@ def is_valid(
                 reason=f"Query date {qd} is after effective_to {et}.",
                 source="payload",
             )
+
+    # --- Text chain (corpus-local): payload is silent, text may speak ---
+    # A non-empty chain resolving valid (re-enactment) is evidence, not
+    # fabrication; an empty chain keeps the base unknown and falls through.
+    if chunk_text:
+        chain = extract_amendment_chain(chunk_text)
+        if chain:
+            chain_state = resolve_temporal_state(document_id, query_date_str, chain, VALIDITY_UNKNOWN)
+            if chain_state in (VALIDITY_VALID, VALIDITY_INVALID):
+                return ValidityResult(
+                    document_id=document_id,
+                    query_date=query_date_str,
+                    status=chain_state,
+                    provision_status=provision_status,
+                    effective_from=effective_from,
+                    effective_to=effective_to,
+                    reason="Provision text carries a terminal repeal/supersede/omit/re-enact event.",
+                    source="text",
+                )
 
     # --- Try Neo4j enrichment (best-effort) ---
     if allow_graph:
@@ -352,7 +380,7 @@ def temporal_validity_score(document_id: str | None, query_date: str | None = No
 import re as _re
 
 _AMEND_RE = _re.compile(
-    r"(amended|amendment|substituted|inserted|repealed|re-enacted|superseded)"
+    r"(amended|amendment|substituted|inserted|repealed|re-enacted|superseded|omitted|omission)"
     r"[^.]{0,120}?(?:by\s+)?([A-Z][A-Za-z ]{2,80}?(?:Act|Regulation|Rules?|Amendment)[^.]{0,80}?\d{4})?",
     _re.IGNORECASE,
 )
@@ -362,7 +390,7 @@ _AMEND_RE = _re.compile(
 class AmendmentEvent:
     """One amendment/repeal event in a provision's lineage."""
 
-    kind: str  # amended | substituted | inserted | repealed | re-enacted | superseded
+    kind: str  # amended | substituted | inserted | repealed | re-enacted | superseded | omitted
     instrument: str | None = None  # amending Act/Regulation, if named
     raw: str = ""
 
@@ -376,8 +404,9 @@ def extract_amendment_chain(text: str) -> list[AmendmentEvent]:
     events: list[AmendmentEvent] = []
     for m in _AMEND_RE.finditer(text or ""):
         raw_kind = m.group(1).lower()
-        # Normalise: "amendment" → "amended", "re-enact" variants → "re-enacted".
-        kind = {"amendment": "amended"}.get(raw_kind, raw_kind)
+        # Normalise: "amendment" → "amended", "re-enact" variants → "re-enacted",
+        # "omission" → "omitted".
+        kind = {"amendment": "amended", "omission": "omitted"}.get(raw_kind, raw_kind)
         if kind in ("re-enact", "reenacted", "reenact"):
             kind = "re-enacted"
         events.append(
@@ -404,7 +433,10 @@ def resolve_temporal_state(
     _ = (provision_id, query_date)  # reserved for future per-event dating
     if not chain:
         return base_status if base_status in _VALIDITY_VALUES else VALIDITY_UNKNOWN
-    terminal = [e.kind for e in chain if e.kind in ("repealed", "superseded", "re-enacted")]
+    # Terminal kinds end the prior text's force: repeal/supersede/omit, and
+    # substitution (the old text is replaced — preserves the historical
+    # sufficiency verdict on "substituted by" language).
+    terminal = [e.kind for e in chain if e.kind in ("repealed", "superseded", "re-enacted", "omitted", "substituted")]
     if terminal:
         return VALIDITY_VALID if terminal[-1] == "re-enacted" else VALIDITY_INVALID
     return base_status if base_status in _VALIDITY_VALUES else VALIDITY_UNKNOWN

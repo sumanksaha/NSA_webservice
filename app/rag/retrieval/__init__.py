@@ -64,6 +64,7 @@ from app.rag.retrieval.query_classifier import (
     QueryType,
     SectionQueryParser,
 )
+from app.rag.retrieval.query_understanding import QueryUnderstanding, understand
 from app.rag.retrieval.reference_extractor import (
     CONFIDENCE_HIGH,
     CONFIDENCE_LOW,
@@ -116,6 +117,7 @@ __all__ = [
     "QueryClassifier",
     "QueryParser",
     "QueryType",
+    "QueryUnderstanding",
     "Reference",
     "ReferenceEdge",
     "ReferenceGraph",
@@ -159,4 +161,5 @@ __all__ = [
     "sibling",
     "subsection_relationship",
     "temporal_validity_score",
+    "understand",
 ]

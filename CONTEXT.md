@@ -112,48 +112,97 @@ that replaces the ad-hoc `requests.get()` calls in `browser_use.py`. Owns:
 - **locality**: all licence-provider-specific behaviour (endpoint, query
   shape, error mapping) is isolated from callers.
 
-### `PhotoProcessor` — the image processing seam (D7)
+### `InspectionPhotoService` — the photo evidence seam (D7, collapsed 2026-09-20)
 
-**Module:** `app/inspection/services/photo_processor.py`. The deep module
-that replaces the ad-hoc image handling in `browser_use.py`. Owns:
+**Module:** `app/inspection/photo_service.py`. The single deep module behind
+the photo routes (`app/inspection/routes/photo_routes.py`). Owns:
 
-- the **canonical image rule**: validation, EXIF extraction, coordinate
-  fallback, and temp-file creation through one interface
-  `process(file, form_data) -> ProcessedPhoto`;
-- **leverage**: callers get a structured `ProcessedPhoto` result without
-  knowing about Pillow, UUIDs, or temp directories;
-- **locality**: all image-specific behaviour (validation rules, EXIF parsing,
-  coordinate fallback) is isolated from callers.
-
-### `EvidenceStore` — the persistence seam (D7)
-
-**Module:** `app/inspection/services/evidence_store.py`. The deep module
-that replaces the ad-hoc Evidence row creation in `browser_use.py`. Owns:
-
-- the **canonical persistence rule**: Evidence record creation, stamping
-  updates, deletion, and listing through one interface
-  `save(processed_photo) -> Evidence`;
-- **leverage**: callers get a single persistence seam without knowing about
-  SQLAlchemy session details;
-- **locality**: all Evidence-specific behaviour (fields, lifecycle, audit
-  logging) is isolated from callers.
-
-### `OCRDispatcher` — the OCR seam (D7)
-
-**Module:** `app/inspection/services/ocr_dispatcher.py`. The deep module
-that replaces the ad-hoc OCR dispatch in `browser_use.py`. Owns:
-
-- the **canonical OCR rule**: task dispatch with deduplication through one
-  interface `dispatch(filepath) -> dict`;
-- **leverage**: callers get a structured result (`task_id`, `result`, `mode`)
-  without knowing about the background task queue;
-- **locality**: all OCR-specific behaviour (queue naming, dedup key,
-  timeout handling) is isolated from callers.
+- the **canonical photo rule**: validation, EXIF extraction, coordinate
+  fallback, Evidence persistence, geo-verification + stamping, adjudication
+  R2/B2 upload, and OCR dispatch through one interface
+  (`upload_evidence`, `upload_adjudication_photo`, `delete`,
+  `list_for_inspection`, `list_adjudication`);
+- **leverage**: callers get inspection + adjudication photo handling without
+  knowing about Pillow, stamping, storage backends, or the task queue;
+- **locality**: all photo-specific behaviour lives in one module; the
+  `PhotoProcessor` / `EvidenceStore` / `OCRDispatcher` split drafted under
+  ADR-0004 was deleted 2026-09-20 — it never gained a caller (the route
+  seam instantiated it dead) and lacked the adjudication-upload and
+  verify-and-stamp stages, so the deletion test passed on it.
 
 ### Declaration table
 
 The tuple of `Setting` rows inside `app/shared/config.py`. Single source of
 truth for the config surface; doubles as living documentation.
+
+### `QueryUnderstanding` — the query understanding seam
+
+**Module:** `app/rag/retrieval/query_understanding.py`. The single deep
+module behind "what does the query ask". Owns:
+
+- the **canonical parse rule**: one `understand(query)` pass computing every
+  view — the legacy `QueryType`, the 13-type legal view with confidence,
+  act/section/subsection/authority/citation/court/jurisdiction entities,
+  the `QueryParser` filter dispatch, and the identifier-arm query;
+- the **rerank views**: `rerank_config` (resolved `QueryTypeConfig`) and
+  `profile_weights(requirement_type, profile_name)` — the only lookup site
+  for what the reranker used to resolve inline per call;
+- **leverage**: `classify_node`, the legacy `tasks` pipeline, and the
+  ensemble reranker read one value instead of each owning detector copies;
+  the planner shares the act/section detectors;
+- **locality**: precedence ("which parse wins") is decided in exactly one
+  place.
+
+Boundary: decomposition-owned contracts (`Intent`, `ComplexityLevel`,
+raw-text jurisdiction/temporal scope, requirement extraction) stay in
+`QueryPlanner` — they serve task construction and are pinned by the
+requirement benchmark.
+
+### `Provision currency` — the temporal validity seam
+
+**Module:** `app/rag/retrieval/temporal_validity.py`. The single deep module
+behind "is this chunk current at date D". Owns:
+
+- the **canonical currency rule**: `is_valid()` consults payload verdicts
+  first (status / effective dates), the amendment/repeal chain in the
+  provision text second (`omitted` included, repeal-then-reenact ordering
+  honoured), Neo4j last, and never fabricates (`unknown` otherwise);
+- the **chain vocabulary**: `extract_amendment_chain` /
+  `resolve_temporal_state` as the only repeal-language readers — the
+  sufficiency text regex is deleted, not duplicated;
+- **leverage**: sufficiency (`chunk_temporally_invalid`,
+  `_temporal_conflicts`) and the claims path read payload-aware verdicts
+  through the seam instead of each owning text patterns;
+- **locality**: section-chain splitting has one home,
+  `legal_hierarchy.parse_section_chain` — the selector and identity forks
+  are deleted, and currency agreement (`is_valid` ≡ version family ≡
+  sufficiency verdicts) is pinned by `tests/test_provision_currency.py`.
+
+Boundary: version-family grouping (`provision_versions`) stays advisory and
+test-pinned for the Phase 3 reranker work; the reranker `temporal_validity_score`
+feature stays opt-in (never auto-applied).
+
+### `Retry recovery` — the failure→retry seam
+
+**Module:** `app/rag/planning/failure_classifier.py` (taxonomy +
+`_RECOVERY_MAP` + `recovery_strategy`) with `TargetedRetryPlanner`
+(`app/rag/planning/targeted_retry.py`) as its single consumer, wired by
+`targeted_retry_node`. Owns:
+
+- the **canonical recovery rule**: one map, failure → strategy, accepting
+  taxonomy members, values, and the UPPERCASE rubric names the sufficiency
+  gate emits (the name form previously missed every map and degraded all
+  rubric-sourced retries to dense expansion);
+- **leverage**: the planner's stale mirror map is deleted — P2/KG failures
+  now route to their real strategies instead of the default; `abstain`
+  returns the query unchanged (abstention is the router's job);
+- **locality**: full-taxonomy routing is pinned by
+  `tests/test_retry_recovery.py`, so a new failure code without a strategy
+  fails loudly instead of drifting to a default.
+
+Deleted as zero-caller orphans in the same pass: `confidence_controller`
+(tier function nobody called), `ThreeStageReranker` (weaker parallel
+ranker), `build_kg_queries` (variant builder nobody called).
 
 ### Pattern A
 

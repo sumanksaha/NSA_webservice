@@ -82,7 +82,7 @@ All 12 items (2.1–2.11) implemented:
 - **2.1 Query Planning Layer** – `query_planner.py` + `plan_node` (graph wired between `classify` and `retrieve`)
 - **2.2 Finer Query Classification** – `query_classifier.py` (18+ QueryType types)
 - **2.3 Adaptive Retrieval Strategy** – `adaptive_retrieval.py`
-- **2.4 Three-Stage Reranking** – `three_stage_reranker.py`
+- **2.4 Three-Stage Reranking** – ~~`three_stage_reranker.py`~~ (removed 2026-09-20: zero callers; superseded by `EnsembleReranker`)
 - **2.5 Evidence Coverage Optimizer** – `evidence_optimizer.py`
 - **2.6 Targeted Retry** – `targeted_retry.py` + `targeted_retry_node` (failure-aware retrieval targeting)
 - **2.7 Retrieval Failure Classifier** – `failure_classifier.py` (taxonomy + classification)

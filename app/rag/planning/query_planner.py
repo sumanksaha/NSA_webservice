@@ -271,22 +271,24 @@ def _extract_intent(query: str) -> Intent:
 
 
 def _extract_entities(query: str) -> dict[str, str]:
-    """Extract entities and their types from the query."""
+    """Extract entities and their types from the query.
+
+    Act/section detection is shared with the query-understanding seam
+    (``identifier`` vocabulary) instead of planner-local patterns, so a
+    detector fix propagates to decomposition too. Jurisdiction keeps the
+    planner-local contract (raw matched text for requirement conditions).
+    """
     entities: dict[str, str] = {}
 
-    # Act detection
-    act_match = re.search(
-        r"(Food Safety and Standards Act|FSS Act|FSSAI Act|FSSA)",
-        query,
-        re.IGNORECASE,
-    )
-    if act_match:
-        entities["instrument"] = act_match.group(1)
+    # Act detection (canonical name from the shared identifier vocabulary)
+    act = detect_act(query)
+    if act:
+        entities["instrument"] = act
 
-    # Section detection
-    section_match = re.search(r"\bsection\s+(\d{1,4})", query, re.IGNORECASE)
-    if section_match:
-        entities["section"] = section_match.group(1)
+    # Section detection (shared detector: section/sec./s./u/s forms)
+    section, _subsection = detect_section(query)
+    if section:
+        entities["section"] = section
 
     # Jurisdiction detection
     jur_match = _JURISDICTION_PATTERNS.search(query)

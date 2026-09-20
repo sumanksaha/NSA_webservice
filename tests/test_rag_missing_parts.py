@@ -1,7 +1,6 @@
 """Integration: plan_node → kg_reason_node → targeted_retry flow + Step-5 units."""
 
 from app.rag.agent.nodes import kg_reason_node, plan_node, targeted_retry_node
-from app.rag.planning.confidence_controller import evidence_confidence
 from app.rag.planning.kg_reasoner import generate_cypher, reason_from_query
 from app.rag.planning.profiles import ProfileManager
 from app.rag.retrieval.temporal_validity import extract_amendment_chain, resolve_temporal_state
@@ -51,13 +50,6 @@ def test_per_requirement_rerank_profiles():
     std = pm.get_query_profile("standard")
     assert std.rerank_weights_for("definition")["legal_identity"] >= 0.5
     assert std.rerank_weights_for("unknown_type") == std.rerank_weights
-
-
-def test_confidence_controller():
-    assert evidence_confidence(0.9, 0.8, True, False, 0.9) == "HIGH"
-    assert evidence_confidence(0.5, 0.5, True, False, 0.5) == "MEDIUM"
-    assert evidence_confidence(0.1, 0.1, True, False, 0.1) == "LOW"
-    assert evidence_confidence(0.9, 0.9, True, True, 0.9) == "MEDIUM"
 
 
 def test_amendment_chain():

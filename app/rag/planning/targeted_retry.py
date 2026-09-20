@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.rag.planning.failure_classifier import FailureClassifier
+
 if TYPE_CHECKING:
     from app.rag.planning.failure_classifier import RetrievalFailure
 
@@ -34,7 +36,7 @@ class TargetedRetryPlanner:
             return query
 
         failure = failures[0]
-        strategy = self._recovery_strategy(failure, query_type, context)
+        strategy = FailureClassifier().recovery_strategy(failure)
 
         if strategy == "identifier_search":
             return self._target_identifier(query)
@@ -56,39 +58,14 @@ class TargetedRetryPlanner:
             return self._target_authority(query)
         elif strategy == "case_law_retrieval":
             return self._target_case_law(query)
-        elif strategy == "dense_expansion":
+        elif strategy in ("dense_expansion", "expand_query", "semantic_expansion"):
             return self._target_dense(query)
+        elif strategy == "abstain":
+            # No rewrite: abstention is the router's job (abstain_node).
+            # A rewritten query would only disguise a retry that must not run.
+            return query
         else:
             return self._generic_expand(query)
-
-    def _recovery_strategy(
-        self,
-        failure: RetrievalFailure,
-        query_type: str,
-        context: dict,
-    ) -> str:
-        """Map failure to recovery strategy."""
-        from app.rag.planning.failure_classifier import RetrievalFailure
-
-        # Simple mapping: failure to strategy (mirrors failure_classifier)
-        mapping = {
-            RetrievalFailure.MISSING_PROVISION: "identifier_search",
-            RetrievalFailure.WRONG_PROVISION: "collection_reroute",
-            RetrievalFailure.WRONG_ACT: "identifier_search",
-            RetrievalFailure.WRONG_JURISDICTION: "temporal_filter",
-            RetrievalFailure.MISSING_EXCEPTION: "hierarchy_graph",
-            RetrievalFailure.MISSING_DEFINITION: "definition_search",
-            RetrievalFailure.MISSING_CROSS_REF: "kg_traversal",
-            RetrievalFailure.TEMPORAL_CONFLICT: "temporal_retrieval",
-            RetrievalFailure.KG_TRAVERSAL_FAILED: "kg_traversal",
-            RetrievalFailure.KG_LINEAGE_GAP: "kg_traversal",
-            RetrievalFailure.KG_CONFLICT_UNRESOLVED: "kg_reasoning",
-            RetrievalFailure.KG_ENTITY_UNRESOLVED: "kg_reasoning",
-            RetrievalFailure.INSUFFICIENT_AUTHORITY: "authority_retrieval",
-            RetrievalFailure.INSUFFICIENT_CASE_LAW: "case_law_retrieval",
-            RetrievalFailure.UNSUPPORTED_FACT_INFERENCE: "dense_expansion",
-        }
-        return mapping.get(failure, "dense_expansion")
 
     # Target generation methods
     def _target_identifier(self, query: str) -> str:
@@ -141,26 +118,6 @@ class TargetedRetryPlanner:
         if sections:
             return f"{query} Section {' Section '.join(sections)} ({' '.join(hints)}){path_hint}"
         return f"{query} ({' '.join(hints)}){path_hint}"
-
-    def build_kg_queries(self, query: str, failures: list | None = None, context: dict | None = None) -> list[str]:
-        """Multiple KG-targeted variants for iterative retrieval rounds.
-
-        ``failures`` selects the hint set: lineage gaps favour amendment
-        edges, conflict failures favour authority edges; default covers all.
-        """
-        failures = [str(f) for f in (failures or [])]
-        if any("lineage" in f for f in failures):
-            hints = ["AMENDED_BY", "SUPERSEDED_BY"]
-        elif any("conflict" in f for f in failures):
-            hints = ["GRANTS_POWER_TO", "HAS_AUTHORITY"]
-        else:
-            hints = ["HAS_CROSS_REFERENCES", "HAS_EXCEPTION", "GRANTS_POWER_TO"]
-        base = self._target_kg(query, context=context)
-        return [
-            base,
-            f"{query} ({' '.join(hints[:1])})",
-            f"{query} ({' '.join(hints[1:])})",
-        ]
 
     def _target_kg_reasoning(self, query: str, context: dict | None = None) -> str:
         """KG-reasoning query: route through the KG reasoner capabilities."""

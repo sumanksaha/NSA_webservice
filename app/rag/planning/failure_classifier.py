@@ -121,5 +121,20 @@ class FailureClassifier:
             failures.append(RetrievalFailure.ABSTAIN_REQUIRED)
         return failures or [RetrievalFailure.MISSING_PROVISION]
 
-    def recovery_strategy(self, failure: str) -> str:
-        return _RECOVERY_MAP.get(failure, "dense_expansion")
+    def recovery_strategy(self, failure: str | RetrievalFailure) -> str:
+        """Return the retrieval strategy for a failure code.
+
+        Single home for failure → strategy: the planner's historical mirror
+        map is deleted, not duplicated. Accepts a taxonomy member, a
+        taxonomy value (``"evidence_contradiction"``), or a rubric code
+        name (``"EVIDENCE_CONTRADICTION"`` as emitted by the sufficiency
+        gate) — the name form previously missed every map and degraded all
+        rubric-sourced retries to dense expansion.
+        """
+        if isinstance(failure, RetrievalFailure):
+            return _RECOVERY_MAP.get(failure, "dense_expansion")
+        text = str(failure or "")
+        for member in RetrievalFailure:
+            if text == member.value or text == member.name:
+                return _RECOVERY_MAP.get(member, "dense_expansion")
+        return _RECOVERY_MAP.get(text, "dense_expansion")

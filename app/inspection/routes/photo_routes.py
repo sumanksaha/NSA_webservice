@@ -1,7 +1,9 @@
-"""Photo evidence routes — thin HTTP adapters for the inspection service layer.
+"""Photo evidence routes — thin HTTP adapters for the inspection photo module.
 
-All business logic lives in the deep services:
-``PhotoProcessor`` (EXIF + coordinates), ``EvidenceStore`` (DB + audit), ``OCRDispatcher`` (OCR task dispatch).  These handlers parse the request, delegate to the services, and return JSON.
+All business logic lives in ``InspectionPhotoService``
+(``app/inspection/photo_service.py``): validation, EXIF + coordinates,
+Evidence persistence, stamping, and OCR dispatch. These handlers parse
+the request, delegate to the module, and return JSON.
 """
 
 from flask import jsonify, request
@@ -9,14 +11,8 @@ from flask import jsonify, request
 from app.extensions import db
 from app.inspection import inspection_bp
 from app.inspection.photo_service import InspectionPhotoService
-from app.inspection.services.evidence_store import EvidenceStore
-from app.inspection.services.ocr_dispatcher import OCRDispatcher
-from app.inspection.services.photo_processor import PhotoProcessor
 
 _photo_service = InspectionPhotoService()
-_processor = PhotoProcessor()
-_store = EvidenceStore()
-_ocr = OCRDispatcher()
 
 
 @inspection_bp.route("/<int:inspection_id>/photo-evidence", methods=["GET"])

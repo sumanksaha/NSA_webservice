@@ -215,7 +215,7 @@ Query + Chunks (or run retrieval first)
 | KG Reasoner          | `app/rag/planning/kg_reasoner.py`          | KG-based reasoning                                       |
 | Profiles             | `app/rag/planning/profiles.py`             | Named query profiles                                     |
 | Targeted Retry       | `app/rag/planning/targeted_retry.py`       | Failure-aware retry query generation                     |
-| Three-Stage Reranker | `app/rag/planning/three_stage_reranker.py` | Multi-stage reranking                                    |
+| Three-Stage Reranker | ~~`app/rag/planning/three_stage_reranker.py`~~ (removed 2026-09-20: zero callers; `EnsembleReranker` is the live ranker) | Multi-stage reranking |
 | Adaptive Retrieval   | `app/rag/planning/adaptive_retrieval.py`   | Adaptive retrieval parameters                            |
 
 **Query Planner architecture:**
@@ -239,7 +239,7 @@ Minimum Sufficient Task Decomposer → Evidence DAG
 - `app/rag/planning/failure_classifier.py` — failure classification (V2 plan item 16)
 - `app/rag/planning/evidence_optimizer.py` — evidence optimization
 - `app/rag/planning/adaptive_retrieval.py` — adaptive retrieval parameters
-- `app/rag/planning/three_stage_reranker.py` — multi-stage reranking
+- ~~`app/rag/planning/three_stage_reranker.py` — multi-stage reranking~~ (removed 2026-09-20: zero callers)
 - `app/rag/planning/profiles.py` — named query profiles
 - `app/rag/planning/kg_reasoner.py` — KG-based reasoning
 

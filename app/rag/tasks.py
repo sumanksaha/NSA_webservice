@@ -190,27 +190,17 @@ def _retrieval_understand_query(
       (+13.3pp candidate-pool ceiling; 100% after the section-stamp backfill).
       Best-effort: no identifiers -> no arm.
     """
-    from app.rag.retrieval import QueryClassifier, QueryParser
+    from app.rag.retrieval import understand
 
-    classifier = QueryClassifier()
-    query_type = classifier.classify(query)
-    parser = QueryParser()
-    parsed = parser.parse(query, query_type)
+    understood = understand(query)
+    query_type = understood.query_type
     # Merge parsed filters with caller-provided filters
-    merged_filters = {**(parsed or {}), **(filters or {})}
+    merged_filters = {**(understood.parsed_filters or {}), **(filters or {})}
 
-    legal_qt = None
-    if cfg.legal_query_typing:
-        from app.rag.retrieval.legal_query_classifier import classify_legal_query
+    legal_qt = understood.legal_type if cfg.legal_query_typing else None
 
-        legal_qt = classify_legal_query(query)
-
-    identifier = None
-    identifier_query = None
-    if cfg.identifier_route:
-        from app.rag.retrieval.identifier import identifier_query as build_ident
-
-        identifier_query, identifier = build_ident(query)
+    identifier = understood.identifier_meta if cfg.identifier_route else None
+    identifier_query = understood.identifier_query if cfg.identifier_route else None
 
     return query_type, legal_qt, identifier, identifier_query, merged_filters
 

@@ -46,17 +46,18 @@ __all__ = [
 def classify_node(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the query into a legal query type.
 
-    Wraps :class:`QueryClassifier`; a failure degrades to ``"general"``
-    so the graph never stalls on classification.
+    Reads the legacy view off the shared query-understanding seam; a
+    failure degrades to ``"general"`` so the graph never stalls on
+    classification.
     """
     start = time.monotonic()
     query = state.get("query") or ""
     query_type = "general"
     detail: dict[str, Any] = {"fallback": False}
     try:
-        from app.rag.retrieval import QueryClassifier
+        from app.rag.retrieval import understand
 
-        query_type = QueryClassifier().classify(query).value
+        query_type = understand(query).query_type.value
     except Exception as exc:
         logger.warning("classify_node: classification failed (%s)", exc)
         detail = {"fallback": True, "error": str(exc)}
@@ -337,7 +338,8 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
     query_type = state.get("query_type", "general")
     target = planner.target_query(
         query=state.get("query", ""),
-        # str/StrEnum equivalence: RetrievalFailure members ARE str, so mapping.get matches by value.
+        # Codes arrive as taxonomy values (classifier) or UPPERCASE rubric
+        # names (sufficiency gate); the recovery seam normalizes both.
         failures=failures,  # type: ignore[arg-type]
         query_type=query_type,
         context={

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.rag.retrieval.legal_hierarchy import (
+    parse_section_chain,
     section_base,
 )
 from app.shared.config import cfg
@@ -170,7 +171,7 @@ def _detect_evidence_type(chunk: Any, query_section: str | None) -> str:
 
     # Subsection of the primary section
     if query_section and section_number:
-        chain = parse_chain(section_number)
+        chain = parse_section_chain(section_number)
         if len(chain) > 1:
             return EVIDENCE_SUBSECTION
 
@@ -202,31 +203,6 @@ def _get_query_section(query: str) -> str | None:
 def re_search_section_ref(text: str) -> bool:
     """Check if text contains a cross-reference to another section."""
     return bool(re.search(r"(?:section|sec\.|s\.|u/s)\s+\d", text, re.IGNORECASE))
-
-
-def parse_chain(section: str | None) -> list[str]:
-    """Parse a section string into its chain components."""
-    if not section:
-        return []
-    return section_base_chain(section)
-
-
-def section_base_chain(section: str | None) -> list[str]:
-    """Parse ``"31(2)(a)"`` → ``["31", "2", "a"]``."""
-    if not section:
-        return []
-    import re as _re
-
-    base = _re.match(r"\s*(\d{1,4})", str(section))
-    if not base:
-        return []
-    chain = [base.group(1)]
-    rest = str(section)[base.end() :]
-    for m in _re.finditer(r"\(([^()]*)\)", rest):
-        val = m.group(1).strip()
-        if val:
-            chain.append(val)
-    return chain
 
 
 # --------------------------------------------------------------------------- #
