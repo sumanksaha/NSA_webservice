@@ -31,6 +31,7 @@ from app.rag.agent.nodes.advisory import (
     extract_sections,
     fso_advisory_node,
 )
+from app.rag.agent.nodes.auditor import AuditDefect, AuditResult, audit_argument, auditor_node
 from app.rag.agent.nodes.claims import _verify_claims
 from app.rag.agent.nodes.common import (
     _BUDGET_DEFAULTS,
@@ -77,6 +78,8 @@ __all__ = [
     "GROUNDEDNESS_THRESHOLD",
     "_BUDGET_DEFAULTS",
     "_CROSS_REF_LIMIT",
+    "AuditDefect",
+    "AuditResult",
     "_caller_app",
     "_consume_budget",
     "_cross_reference_queries",
@@ -90,6 +93,8 @@ __all__ = [
     "_task_token_cost",
     "_verify_claims",
     "abstain_node",
+    "audit_argument",
+    "auditor_node",
     "budget_gate_node",
     "citation_quality_node",
     "classify_node",

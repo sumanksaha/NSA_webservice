@@ -248,6 +248,9 @@ ignore = [
 "evaluation/eval_v2_checkpoint.py" = ["T201"]
 "evaluation/experiment_a_gold_rank.py" = ["T201"]
 "evaluation/experiment_b_topk_eval.py" = ["T201"]
+"evaluation/experiment_c_oracle_eval.py" = ["T201"]
+"evaluation/experiment_d_reasoning.py" = ["T201"]
+"evaluation/quantify_answer_failures.py" = ["T201"]
 # Root-level experiment/debug consoles from the same session: print is the
 # interface (results inspected inline, not logged).
 "check_gold_mapping.py" = ["T201"]
