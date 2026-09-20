@@ -298,6 +298,14 @@ class TestEvidenceExpansion:
         assert len(expanded.items) <= 2
         assert scores == sorted(scores, reverse=True)
 
+    def test_expansion_never_shrinks_input_and_reports_kept_delta(self):
+        from app.rag.retrieval.evidence_selector import expand_evidence_units
+
+        es = select_evidence_set("Section 31 licence food", [self._operative()], max_size=2)
+        expanded = expand_evidence_units(es, [self._operative()], max_size=1)
+        assert len(expanded.items) >= len(es.items)
+        assert f"{len(expanded.items) - len(es.items)}" in expanded.selection_rationale
+
     def test_expansion_adds_missing_definition(self):
         from app.rag.retrieval.evidence_selector import EVIDENCE_DEFINITION, expand_evidence_units
 

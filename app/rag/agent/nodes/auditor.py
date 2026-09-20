@@ -69,7 +69,7 @@ class AuditResultDict(TypedDict, total=False):
     AuditResult | None`` instead of bare ``dict``/``Any``.
     """
 
-    status: str
+    status: Literal["PASS", "FAIL"]
     defects: list[dict[str, Any]]
 
 

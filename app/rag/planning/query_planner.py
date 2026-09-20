@@ -996,13 +996,11 @@ def _question_for_requirement(req: Requirement, query: str) -> str:
     section = next((e for e in entities if _SECTION_LIKE_RE.match(e)), None)
     if section and section not in base_question:
         qualifiers.append(f"Section {section}")
-    instrument = next((e for e in entities if e != section and e != req.jurisdiction), None)
-    if (
-        instrument
-        and instrument not in base_question
-        and instrument not in subject
-        and detect_act(instrument)
-    ):
+    instrument = next(
+        (e for e in entities if e != section and e != req.jurisdiction and detect_act(e)),
+        None,
+    )
+    if instrument and instrument not in base_question and instrument not in subject:
         qualifiers.append(f"under {instrument}")
     if qualifiers:
         base_question += " (" + ", ".join(qualifiers) + ")"

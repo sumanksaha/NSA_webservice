@@ -123,21 +123,16 @@ class ContextBuilder:
 
         for idx, chunk in enumerate(selected, start=1):
             header = self._format_header(chunk)
-            entry = (
-                f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
-                f"{chunk.text}\n</document>"
-            )
+            entry = self._format_entry(idx, header, chunk.text)
             entry_len = len(entry) + _CHUNK_OVERHEAD_CHARS
 
             if total_chars + entry_len > self.max_context_chars:
                 remaining = self.max_context_chars - total_chars
                 if remaining > 200:
-                    max_text = remaining - len(header) - 50
+                    overhead = len(self._format_entry(idx, header, ""))
+                    max_text = remaining - overhead
                     truncated_text = chunk.text[: max(0, max_text)]
-                    entry = (
-                        f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
-                        f"{truncated_text}\n</document>"
-                    )
+                    entry = self._format_entry(idx, header, truncated_text)
                     context_parts.append(entry)
                     total_chars += len(entry)
                     truncated = True
@@ -239,6 +234,14 @@ class ContextBuilder:
         if meta:
             header += f" ({', '.join(meta)})"
         return header
+
+    @staticmethod
+    def _format_entry(idx: int, header: str, text: str) -> str:
+        """One per-source entry (research §3.1 document/source tags)."""
+        return (
+            f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
+            f"{text}\n</document>"
+        )
 
     @staticmethod
     def _citation_entry(idx: int, chunk: RetrievedChunk) -> dict[str, Any]:

@@ -76,6 +76,10 @@ class TestContextBuilder:
         assert built.context.count("</document>") == 3
         assert "<source>" in built.context and "</source>" in built.context
 
+    def test_truncation_respects_char_budget_with_tags(self):
+        built = ContextBuilder(max_context_chars=600, max_chunks=10).build("query", _make_chunks(3))
+        assert len(built.context) <= 600
+
     def test_truncation_when_exceeding_max_chars(self):
         built = ContextBuilder(max_context_chars=100, max_chunks=50).build("q", _make_chunks(20))
         assert built.truncated

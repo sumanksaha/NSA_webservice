@@ -42,9 +42,6 @@ __all__ = [
     "should_revise",
 ]
 
-#: Anything the revision policy accepts as an audit verdict.  Type-only
-#: import (auditor lives under ``agent.nodes``; a runtime import here
-#: would cycle through the nodes package ``__init__``).
 def _status(audit: AuditLike) -> str:
     if audit is None:
         return ""
@@ -58,12 +55,12 @@ def audit_failed(audit: AuditLike) -> bool:
     return _status(audit) == "FAIL"
 
 
-def should_revise(audit: AuditLike, revision_count: int, max_revisions: int = 1) -> bool:
+def should_revise(audit: AuditLike, revision_count: int, max_revisions: int = 2) -> bool:
     """Revision policy: FAIL with budget left → revise, else generate.
 
     Single home of the ``max_revisions`` contract previously enforced by
     agreement between the graph node, the audit router, and the
-    Experiment D harness.
+    Experiment D harness.  Default cap 2 matches the roadmap §32.3 sketch.
     """
     try:
         count = int(revision_count)
@@ -72,7 +69,7 @@ def should_revise(audit: AuditLike, revision_count: int, max_revisions: int = 1)
     try:
         cap = int(max_revisions)
     except (TypeError, ValueError):
-        cap = 1
+        cap = 2
     return audit_failed(audit) and count < cap
 
 

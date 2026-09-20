@@ -649,18 +649,19 @@ def expand_evidence_units(
     for chunk, evidence_type in additions[: max(0, max_expansion)]:
         items.append(_as_item(chunk, evidence_type, items))
         present_units.add(_unit(chunk))
-    added = len(items) - len(evidence.items)
 
     # Roadmap §7 compactness: additions re-score into the set — sort by
-    # the shared ranking formula and cap at max_size.
+    # the shared ranking formula and cap at max_size, never shrinking the
+    # input set.  The rationale reports the kept post-cap delta.
     items.sort(key=_evidence_score, reverse=True)
-    items = items[: max(0, max_size)]
+    items = items[: max(max(0, max_size), len(evidence.items))]
 
     return EvidenceSet(
         query=evidence.query,
         items=items,
         total_pool=len(candidates),
-        selection_rationale=evidence.selection_rationale + f" Expansion added {added} units.",
+        selection_rationale=evidence.selection_rationale
+        + f" Expansion added {len(items) - len(evidence.items)} units.",
     )
 
 

@@ -51,6 +51,15 @@ class TestEntityEnrichedSubqueries:
         q = _question_for_requirement(req, "What penalty applies to late filing?")
         assert q == "Which provision governs penalty?"
 
+    def test_act_found_among_non_act_entities(self):
+        # Scan for the first detector-backed Act — don't stop at a topic.
+        req = _req(
+            subject="licence",
+            entities=["late filing", "Food Safety and Standards Act, 2006"],
+        )
+        q = _question_for_requirement(req, "Is a licence needed?")
+        assert "under Food Safety and Standards Act, 2006" in q
+
     def test_no_entities_keeps_base_template(self):
         q = _question_for_requirement(_req(), "Is a licence needed?")
         assert q == "Which provision governs food business licence?"

@@ -100,3 +100,10 @@ class TestAuditModelInput:
 
         assert should_revise(AuditResult(status="FAIL"), 0, 1) is True
         assert audit_failed(AuditResult(status="PASS")) is False
+
+
+class TestDefaultCapMatchesRoadmapSketch:
+    def test_default_cap_is_two(self):
+        # Roadmap §32.3 sketch: int(state.get("max_revisions", 2)).
+        assert should_revise(_fail_audit(), 1) is True
+        assert should_revise(_fail_audit(), 2) is False
