@@ -414,3 +414,61 @@ def test_verify_closure_marks_corrective_measures():
         assert isinstance(inspection.dismissed_at, datetime)
     finally:
         ctx.pop()
+
+
+def test_detail_page_shows_generate_button_without_plan():
+    from app.extensions import db
+    from app.models import Inspection
+
+    _app, client, ctx = _setup_test_env()
+    try:
+        inspection = _make_inspection(db, Inspection, {"Pest_report": "no"})
+        resp = client.get(f"/inspection/{inspection.id}/detail")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert 'id="auditorGenerateBtn"' in body
+        assert 'id="auditorVerifyBtn"' not in body
+    finally:
+        ctx.pop()
+
+
+def test_detail_page_shows_view_and_verify_with_plan():
+    import json
+
+    from app.extensions import db
+    from app.models import Inspection
+
+    _app, client, ctx = _setup_test_env()
+    try:
+        inspection = _make_inspection(db, Inspection, {"Pest_report": "no"})
+        inspection.auditor_plan_json = json.dumps({"plan_id": "CAPA-UI"})
+        db.session.commit()
+        resp = client.get(f"/inspection/{inspection.id}/detail")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert f"/inspection/{inspection.id}/auditor-plan" in body
+        assert f"/inspection/{inspection.id}/verify-closure" in body
+        assert "Verify Closure" in body
+        assert 'id="auditorGenerateBtn"' not in body
+    finally:
+        ctx.pop()
+
+
+def test_open_issues_shows_plan_link_and_verify_button():
+    import json
+
+    from app.extensions import db
+    from app.models import Inspection
+
+    _app, client, ctx = _setup_test_env()
+    try:
+        inspection = _make_inspection(db, Inspection, {"Pest_report": "no"})
+        inspection.auditor_plan_json = json.dumps({"plan_id": "CAPA-UI"})
+        db.session.commit()
+        resp = client.get("/inspection/open")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert f"/inspection/{inspection.id}/auditor-plan" in body
+        assert f"/inspection/{inspection.id}/verify-closure" in body
+    finally:
+        ctx.pop()

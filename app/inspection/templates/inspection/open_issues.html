@@ -122,6 +122,30 @@ content %}
                             >
                                 <i class="fa-solid fa-edit"></i>
                             </a>
+                            {% if inspection.auditor_plan_json %}
+                            <a
+                                href="{{ url_for('inspection.view_auditor_plan', inspection_id=inspection.id) }}"
+                                class="btn btn-secondary btn-sm"
+                                title="View CAPA plan"
+                            >
+                                <i class="fa-solid fa-clipboard-check"></i>
+                            </a>
+                            <form
+                                method="post"
+                                action="{{ url_for('inspection.verify_closure', inspection_id=inspection.id) }}"
+                                onsubmit="return confirm('Mark corrective measures implemented (auditor dossier verified)?');"
+                                style="display: inline"
+                            >
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button
+                                    type="submit"
+                                    class="btn btn-secondary btn-sm"
+                                    title="Verify closure (corrective measures implemented)"
+                                >
+                                    <i class="fa-solid fa-check-double"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

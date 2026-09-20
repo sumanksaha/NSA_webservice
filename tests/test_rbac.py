@@ -237,6 +237,12 @@ class TestRoleGate:
         client = self._fso_client(app)
         assert client.get("/adjudication/").status_code == 200
 
+    def test_fso_reaches_rag_and_advisor_ui(self, env):
+        """FSO role includes the rag blueprint (Legal RAG + FSO advisory)."""
+        app = env
+        client = self._fso_client(app)
+        assert client.get("/api/rag/").status_code == 200
+
     def test_admin_bypasses_gate(self, env):
         app = env
         client = self._admin_client(app)

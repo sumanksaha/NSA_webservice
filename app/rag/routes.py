@@ -23,6 +23,25 @@ from flask import jsonify, render_template, request
 from app.rag import rag_bp
 from app.shared.config import cfg
 
+
+def _admin_only():
+    """403 unless the caller is an admin.
+
+    Ingestion and eval reach the server filesystem and heavy compute —
+    broader than the FSO query role, so they stay admin-only even though
+    the blueprint is FSO-reachable. Honors the ``DISABLE_RBAC`` testing
+    seam exactly like the global role gate.
+    """
+    from flask import current_app
+    from flask_login import current_user
+
+    if current_app.config.get("DISABLE_RBAC"):
+        return None
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Admin access required."}), 403
+    return None
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -212,6 +231,10 @@ def ingest():
     if not _rag_enabled():
         return jsonify({"error": "RAG is disabled."}), 503
 
+    denied = _admin_only()
+    if denied is not None:
+        return denied
+
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"error": "Request body must be a JSON object."}), 400
@@ -255,6 +278,10 @@ def ingest_corpus():
     """
     if not _rag_enabled():
         return jsonify({"error": "RAG is disabled."}), 503
+
+    denied = _admin_only()
+    if denied is not None:
+        return denied
 
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -391,6 +418,10 @@ def eval_batch():
     """
     if not _rag_enabled():
         return jsonify({"error": "RAG is disabled."}), 503
+
+    denied = _admin_only()
+    if denied is not None:
+        return denied
 
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):

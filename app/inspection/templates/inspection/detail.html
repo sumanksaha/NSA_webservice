@@ -480,6 +480,52 @@ inspection.inspection_code }}{% endblock %} {% block content %}
             <i class="fa-solid fa-file-word"></i> Download Notice (Word)
         </a>
     </div>
+
+    <!-- FBO Auditor (CAPA) Section -->
+    {% if not inspection.is_dismissed or inspection.auditor_plan_json %}
+    <div class="section-header">
+        <h3><i class="fa-solid fa-clipboard-check"></i> FBO Auditor (CAPA Plan)</h3>
+        {% if inspection.auditor_plan_json %}
+        <span class="status-badge status-badge--success">
+            <i class="fa-solid fa-circle-check"></i> Plan Generated
+        </span>
+        {% else %}
+        <span class="status-badge status-badge--warning">
+            <i class="fa-solid fa-clock"></i> No Plan Yet
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="btn-group" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem">
+        {% if inspection.auditor_plan_json %}
+        <a
+            href="{{ url_for('inspection.view_auditor_plan', inspection_id=inspection.id) }}"
+            class="btn btn-secondary"
+        >
+            <i class="fa-solid fa-eye"></i> View CAPA Plan
+        </a>
+        {% endif %}
+        {% if not inspection.is_dismissed %}
+        {% if inspection.auditor_plan_json %}
+        <form
+            method="post"
+            action="{{ url_for('inspection.verify_closure', inspection_id=inspection.id) }}"
+            onsubmit="return confirm('Mark corrective measures implemented (auditor dossier verified)?');"
+            style="display: inline"
+        >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check-double"></i> Verify Closure
+            </button>
+        </form>
+        {% else %}
+        <button type="button" class="btn btn-primary" id="auditorGenerateBtn">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate CAPA Plan
+        </button>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
     {% endif %}
 
     <!-- Improvement Notice Editor Modal -->
@@ -1226,5 +1272,46 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 saveBtn.disabled = false;
             });
         });
+
+        // FBO Auditor (CAPA) generation — CSRF token from the base layout meta tag.
+        function auditorCsrfToken() {
+            var el = document.querySelector('meta[name="csrf-token"]');
+            return el ? el.getAttribute("content") : "";
+        }
+        var auditorGenerateBtn = document.getElementById("auditorGenerateBtn");
+        if (auditorGenerateBtn) {
+            auditorGenerateBtn.addEventListener("click", function() {
+                if (!confirm("Generate the CAPA remediation plan from this inspection's violations?")) return;
+                auditorGenerateBtn.disabled = true;
+                var body = new FormData();
+                body.append("csrf_token", auditorCsrfToken());
+                fetch("{{ url_for('inspection.generate_auditor_plan', inspection_id=inspection.id) }}", {
+                    method: "POST",
+                    body: body
+                })
+                    .then(function(r) {
+                        return r.json().catch(function() { return {}; }).then(function(d) {
+                            return {ok: r.ok, data: d};
+                        });
+                    })
+                    .then(function(result) {
+                        if (result.ok) {
+                            if (result.data.status === "no_violations") {
+                                alert("No violations recorded — no CAPA plan needed.");
+                                auditorGenerateBtn.disabled = false;
+                            } else {
+                                window.location.reload();
+                            }
+                        } else {
+                            alert("Error: " + (result.data.error || "CAPA generation failed"));
+                            auditorGenerateBtn.disabled = false;
+                        }
+                    })
+                    .catch(function(err) {
+                        alert("Error: " + err.message);
+                        auditorGenerateBtn.disabled = false;
+                    });
+            });
+        }
 </script>
 {% endblock %}

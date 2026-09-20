@@ -267,3 +267,62 @@ class _FakePipeline:
 
     def __init__(self):
         self.classifier = None
+
+
+class TestHeavyRouteAdminGuard:
+    """ingest / ingest-corpus / eval stay admin-only now the rag blueprint is FSO-reachable."""
+
+    def _setup_rbac_env(self):
+        from app import create_app
+        from app.extensions import db
+        from app.models import FSO, Role, User
+
+        app = create_app()
+        app.config["TESTING"] = True
+        app.config["WTF_CSRF_ENABLED"] = False
+        app.config["DISABLE_RBAC"] = False
+
+        ctx = app.app_context()
+        ctx.push()
+        db.drop_all()
+        db.create_all()
+        fso_role = Role(name="fso")
+        plain = User(username="plainfso", password_hash="pbkdf2:sha256$test$dummy")
+        plain.roles.append(fso_role)
+        admin = User(username="boss", password_hash="pbkdf2:sha256$test$dummy", is_admin=True)
+        db.session.add_all([plain, admin])
+        db.session.add(FSO(fso_name="Test Officer"))
+        db.session.commit()
+
+        def client_for(user):
+            client = app.test_client()
+            with client.session_transaction() as sess:
+                sess["_user_id"] = str(user.id)
+            return client
+
+        return app, client_for(plain), client_for(admin), ctx
+
+    def test_non_admin_blocked_from_heavy_routes(self):
+        _app, plain, _admin, ctx = self._setup_rbac_env()
+        try:
+            assert plain.post("/api/rag/ingest", json={"text": "x"}).status_code == 403
+            assert plain.post("/api/rag/ingest/corpus", json={"corpus_dir": "/c"}).status_code == 403
+            assert plain.post("/api/rag/eval", json={"dataset": []}).status_code == 403
+        finally:
+            ctx.pop()
+
+    def test_admin_passes_guard_to_validation(self):
+        _app, _plain, admin, ctx = self._setup_rbac_env()
+        try:
+            # Guard passes; payload validation (400) proves it.
+            assert admin.post("/api/rag/ingest", json={}).status_code == 400
+            assert admin.post("/api/rag/eval", json={"dataset": []}).status_code in (200, 400, 500)
+        finally:
+            ctx.pop()
+
+    def test_fso_query_routes_stay_open(self):
+        _app, plain, _admin, ctx = self._setup_rbac_env()
+        try:
+            assert plain.get("/api/rag/").status_code == 200
+        finally:
+            ctx.pop()
