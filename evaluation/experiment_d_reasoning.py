@@ -76,9 +76,10 @@ class _CountingLLM:
 
 
 def _direct_answer(question: str, context: str, llm: Any) -> str:
-    from app.rag.generation.prompt_template import GROUND_QA_SYSTEM_PROMPT
+    from app.rag.generation.prompt_template import PromptTemplate
 
-    response = llm.call(GROUND_QA_SYSTEM_PROMPT, f"Question: {question}\n\nContext:\n{context}")
+    system, user = PromptTemplate().render_default(question, context)
+    response = llm.call(system, user)
     return response.text or ""
 
 

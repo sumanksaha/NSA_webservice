@@ -62,7 +62,7 @@ def structured_reasoner_node(state: dict[str, Any]) -> dict[str, Any]:
     query = str(state.get("query", "") or "")
     context, units = _evidence_context(chunks)
 
-    audit = state.get("audit_result") or {}
+    audit: Any = state.get("audit_result")
     revision_count = int(state.get("revision_count", 0) or 0)
     if audit_failed(audit):
         defects = audit.get("defects", []) if isinstance(audit, dict) else getattr(audit, "defects", [])

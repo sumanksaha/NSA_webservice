@@ -988,20 +988,22 @@ def _question_for_requirement(req: Requirement, query: str) -> str:
     )
 
     # Qualify with resolved identifiers so the subquery is self-contained
-    # for retrieval (research rec B).  Section-like entity tokens are
-    # sections; the remaining non-jurisdiction entity is the instrument.
+    # for retrieval (research rec B: section + Act only).  Section-like
+    # entity tokens are sections; the instrument slot takes only
+    # shared-detector Act names (never topics/persons).
     qualifiers: list[str] = []
     entities = [str(e) for e in (req.entities or [])]
     section = next((e for e in entities if _SECTION_LIKE_RE.match(e)), None)
     if section and section not in base_question:
         qualifiers.append(f"Section {section}")
     instrument = next((e for e in entities if e != section and e != req.jurisdiction), None)
-    if instrument and instrument not in base_question and instrument not in subject:
+    if (
+        instrument
+        and instrument not in base_question
+        and instrument not in subject
+        and detect_act(instrument)
+    ):
         qualifiers.append(f"under {instrument}")
-    if req.jurisdiction and req.jurisdiction not in base_question:
-        qualifiers.append(f"in {req.jurisdiction}")
-    if req.temporal_scope and req.temporal_scope not in base_question:
-        qualifiers.append(f"({req.temporal_scope})")
     if qualifiers:
         base_question += " (" + ", ".join(qualifiers) + ")"
 

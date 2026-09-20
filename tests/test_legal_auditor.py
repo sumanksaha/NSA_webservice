@@ -100,3 +100,23 @@ class TestAuditorDefects:
         arg = _argument(applicable_provisions=[], supporting_citations=[])
         result = audit_argument(arg, {})
         assert any(d.defect_type == "incomplete_scope" for d in result.defects)
+
+
+class TestMarkerSyncWithTaxonomy:
+    """Auditor marker regexes must stay a subset of the §22 taxonomy lists.
+
+    The two modules intentionally don't import each other (app/ must never
+    import evaluation/), so this test fails loudly on sync drift instead.
+    """
+
+    def test_auditor_markers_covered_by_taxonomy(self):
+        from app.rag.agent.nodes.auditor import _DEFINITION_RE, _EXCEPTION_RE
+        from evaluation.answer_error_taxonomy import (
+            _DEFINITION_PATTERNS,
+            _EXCEPTION_PATTERNS,
+        )
+
+        for alt in _EXCEPTION_RE.pattern.split("|"):
+            assert alt in _EXCEPTION_PATTERNS, alt
+        for alt in _DEFINITION_RE.pattern.split("|"):
+            assert alt in _DEFINITION_PATTERNS, alt

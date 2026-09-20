@@ -22,7 +22,17 @@ Deterministic, no LLM.  Accepts ``AuditResult`` models or their
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.rag.agent.nodes.auditor import AuditResult, AuditResultDict
+
+    #: Anything the revision policy accepts as an audit verdict.
+    #: Type-only import (auditor lives under ``agent.nodes``; a runtime
+    #: import here would cycle through the nodes package ``__init__``).
+    AuditLike = AuditResultDict | AuditResult | None
+else:
+    AuditLike = Any
 
 __all__ = [
     "audit_failed",
@@ -32,8 +42,10 @@ __all__ = [
     "should_revise",
 ]
 
-
-def _status(audit: Any) -> str:
+#: Anything the revision policy accepts as an audit verdict.  Type-only
+#: import (auditor lives under ``agent.nodes``; a runtime import here
+#: would cycle through the nodes package ``__init__``).
+def _status(audit: AuditLike) -> str:
     if audit is None:
         return ""
     if isinstance(audit, Mapping):
@@ -41,12 +53,12 @@ def _status(audit: Any) -> str:
     return str(getattr(audit, "status", "") or "")
 
 
-def audit_failed(audit: Any) -> bool:
+def audit_failed(audit: AuditLike) -> bool:
     """Whether ``audit`` is a FAIL verdict (missing audit never fails)."""
     return _status(audit) == "FAIL"
 
 
-def should_revise(audit: Any, revision_count: int, max_revisions: int = 1) -> bool:
+def should_revise(audit: AuditLike, revision_count: int, max_revisions: int = 1) -> bool:
     """Revision policy: FAIL with budget left → revise, else generate.
 
     Single home of the ``max_revisions`` contract previously enforced by

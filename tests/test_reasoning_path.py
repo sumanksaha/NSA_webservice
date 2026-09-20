@@ -92,3 +92,11 @@ class TestReasoningUserContent:
         out = reasoning_user_content("Q?", '{"issue": "x"}')
         assert "Q?" in out and '{"issue": "x"}' in out
         assert "Evidence context" not in out
+
+
+class TestAuditModelInput:
+    def test_accepts_audit_result_model(self):
+        from app.rag.agent.nodes.auditor import AuditResult
+
+        assert should_revise(AuditResult(status="FAIL"), 0, 1) is True
+        assert audit_failed(AuditResult(status="PASS")) is False

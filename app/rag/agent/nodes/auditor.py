@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Collection, Mapping
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -59,6 +59,18 @@ class AuditResult(BaseModel):
     status: Literal["PASS", "FAIL"]
     defects: list[AuditDefect] = Field(default_factory=list)
     revised_argument: dict[str, Any] | None = None
+
+
+class AuditResultDict(TypedDict, total=False):
+    """JSON-serializable audit verdict for state/checkpoint seams.
+
+    The graph state and checkpointer carry ``model_dump()`` dicts (never
+    models), so callers across the seam take ``AuditResultDict |
+    AuditResult | None`` instead of bare ``dict``/``Any``.
+    """
+
+    status: str
+    defects: list[dict[str, Any]]
 
 
 def audit_argument(

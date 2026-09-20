@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from app.rag.agent.nodes.auditor import AuditResultDict
+
 
 class AuditEntry(TypedDict, total=False):
     """One step in the agent's execution trail."""
@@ -130,8 +132,8 @@ class RAGState(TypedDict, total=False):
     # StructuredLegalArgument); the auditor critiques it and generate
     # renders the final answer from it when present.
     structured_argument: dict[str, Any] | None
-    # Latest AuditResult dict from auditor_node (status + defects).
-    audit_result: dict[str, Any] | None
+    # Latest audit verdict from auditor_node (AuditResult model_dump form).
+    audit_result: AuditResultDict | None
     # Controlled-revision accounting (route_after_audit caps at max_revisions).
     revision_count: int
     max_revisions: int

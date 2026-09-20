@@ -36,6 +36,7 @@ import logging
 import os
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any  # ponytail: TypedDict unused — precise per-node types overkill for single-impl graph
 
 from app.rag.agent.state import RAGState
@@ -125,7 +126,7 @@ def route_after_audit(state: RAGState) -> str:
     if should_revise(
         state.get("audit_result"),
         state.get("revision_count", 0),
-        state.get("max_revisions", 1),
+        state.get("max_revisions", 2),
     ):
         return "structured_reasoner"
     return "generate"
@@ -645,7 +646,22 @@ def build_graph(
 #: topology — no restart needed.  Graphs carrying a checkpointer are never
 #: cached here (the saver identity can change across calls); they are built
 #: fresh per call as before.
-_graph_cache: dict[tuple[bool, bool, bool, bool, bool], Any] = {}
+@dataclass(frozen=True)
+class TopologyFlags:
+    """Bundle of the five topology flags that key the compiled-graph cache.
+
+    One type instead of a bare 5-tuple so call sites can't silently
+    misorder the flags.
+    """
+
+    hitl: bool = False
+    evidence_selector: bool = False
+    fso_advisor: bool = False
+    structured_reasoner: bool = False
+    legal_auditor: bool = False
+
+
+_graph_cache: dict[TopologyFlags, Any] = {}
 _graph_cache_lock = threading.Lock()
 
 
@@ -676,7 +692,13 @@ def _get_graph(
             structured_reasoner=resolved_reasoning,
             legal_auditor=resolved_auditor,
         )
-    key = (bool(hitl), resolved, resolved_fso, resolved_reasoning, resolved_auditor)
+    key = TopologyFlags(
+        hitl=bool(hitl),
+        evidence_selector=resolved,
+        fso_advisor=resolved_fso,
+        structured_reasoner=resolved_reasoning,
+        legal_auditor=resolved_auditor,
+    )
     with _graph_cache_lock:
         graph = _graph_cache.get(key)
         if graph is None:

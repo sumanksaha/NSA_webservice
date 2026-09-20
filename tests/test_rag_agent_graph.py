@@ -503,3 +503,13 @@ def test_agent_dag_flow_gets_moderate_tier_budget(monkeypatch):
     assert routing["budget"]["consumed_tasks"] == 2
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
     assert "execute_task" in nodes_run
+
+
+def test_graph_cache_keyed_by_topology_flags():
+    """The 5-flag cache key is a TopologyFlags bundle, not a bare tuple."""
+    from app.rag.agent.graph import TopologyFlags, _get_graph, _graph_cache, _reset_graph_cache
+
+    _reset_graph_cache()
+    _get_graph()
+    assert _graph_cache
+    assert all(isinstance(k, TopologyFlags) for k in _graph_cache)

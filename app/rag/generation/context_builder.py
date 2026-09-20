@@ -123,7 +123,10 @@ class ContextBuilder:
 
         for idx, chunk in enumerate(selected, start=1):
             header = self._format_header(chunk)
-            entry = f"[Source {idx}] {header}\n{chunk.text}"
+            entry = (
+                f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
+                f"{chunk.text}\n</document>"
+            )
             entry_len = len(entry) + _CHUNK_OVERHEAD_CHARS
 
             if total_chars + entry_len > self.max_context_chars:
@@ -131,7 +134,10 @@ class ContextBuilder:
                 if remaining > 200:
                     max_text = remaining - len(header) - 50
                     truncated_text = chunk.text[: max(0, max_text)]
-                    entry = f"[Source {idx}] {header}\n{truncated_text}"
+                    entry = (
+                        f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
+                        f"{truncated_text}\n</document>"
+                    )
                     context_parts.append(entry)
                     total_chars += len(entry)
                     truncated = True

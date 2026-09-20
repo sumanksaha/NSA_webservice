@@ -62,12 +62,14 @@ class ScriptedLLM:
         self._texts = list(texts)
         self.calls = 0
         self.systems: list[str] = []
+        self.users: list[str] = []
 
     def call(self, system_prompt: str, user_prompt: str, **_: object) -> object:
         from app.rag.generation.llm_client import GroundedLLMResponse
 
         self.calls += 1
         self.systems.append(system_prompt)
+        self.users.append(user_prompt)
         return GroundedLLMResponse(text=self._texts.pop(0), model="fake")
 
 
@@ -100,6 +102,15 @@ def test_final_answer_shares_system_prompt_across_conditions():
     run_condition("Q?", CONTEXT, EVIDENCE_TEXTS, llm_b, "B_structured")
     assert llm_a.systems == [GROUND_QA_SYSTEM_PROMPT]
     assert llm_b.systems[-1] == GROUND_QA_SYSTEM_PROMPT
+
+
+def test_condition_a_uses_grounded_qa_user_contract():
+    """Roadmap §21: condition A keeps the citation/prompt contract — same
+    grounded_qa user shape (tagged context, question last) as production."""
+    llm = ScriptedLLM(["Answer [1]."])
+    run_condition("Q?", CONTEXT, EVIDENCE_TEXTS, llm, "A_direct")
+    assert "<legal_context>" in llm.users[0]
+    assert llm.users[0].rindex("Q?") > llm.users[0].index("</legal_context>")
 
 
 def test_condition_c_clean_argument_no_revision():

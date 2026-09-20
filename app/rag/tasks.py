@@ -54,6 +54,26 @@ def _retrieval_cache_enabled() -> bool:
     return _default_cache.max_size > 0 and cfg.retrieval_cache
 
 
+def _decomposition_queries(query: str) -> list[str]:
+    """Planner-gated sub-queries (research rec C).
+
+    The planner is the single decomposition authority: SIMPLE queries
+    run as-is (deterministic fast path, no fan-out); anything else
+    delegates to ``SubQueryDecomposer``.  Never raises — planner failure
+    falls back to the decomposer.
+    """
+    try:
+        from app.rag.planning.query_planner import ComplexityLevel, QueryPlanner
+
+        if QueryPlanner().plan(query).complexity == ComplexityLevel.SIMPLE:
+            return [query]
+    except Exception as exc:
+        logger.warning("_decomposition_queries planner fallback: %s", exc)
+    from app.rag.retrieval.subquery_decomposer import SubQueryDecomposer
+
+    return SubQueryDecomposer().decompose(query)
+
+
 def clear_retrieval_cache() -> None:
     """Drop every cached retrieval result (admin re-ingest, tests)."""
     _default_cache.clear()
@@ -482,7 +502,6 @@ def _generate_resolve_evidence(
     query_type)``.
     """
     from app.rag.retrieval.result import RetrievedChunk
-    from app.rag.retrieval.subquery_decomposer import SubQueryDecomposer
 
     def _as_chunk(raw: Any) -> RetrievedChunk | None:
         if isinstance(raw, RetrievedChunk):
@@ -492,8 +511,8 @@ def _generate_resolve_evidence(
         return None
 
     if chunks is None:
-        # 1.3: Decompose compound queries into sub-queries
-        sub_queries = SubQueryDecomposer().decompose(query)
+        # 1.3: Decompose compound queries into sub-queries (planner-gated).
+        sub_queries = _decomposition_queries(query)
         is_compound = len(sub_queries) > 1
 
         if is_compound:

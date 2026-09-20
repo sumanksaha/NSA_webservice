@@ -135,6 +135,11 @@ class TestRouteAfterAudit:
     def test_missing_audit_goes_to_generate(self):
         assert route_after_audit({}) == "generate"
 
+    def test_missing_max_revisions_uses_roadmap_fallback(self):
+        # Roadmap §32.3 sketch: int(state.get("max_revisions", 2)).
+        state = {"audit_result": {"status": "FAIL", "defects": [{}]}, "revision_count": 1}
+        assert route_after_audit(state) == "structured_reasoner"
+
 
 class TestReasoningTopology:
     def test_nodes_present_when_flags_on(self, monkeypatch):

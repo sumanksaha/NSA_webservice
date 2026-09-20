@@ -351,6 +351,21 @@ _EVIDENCE_TYPE_PRIORITY = {
 }
 
 
+def _evidence_score(item: EvidenceItem) -> float:
+    """Ranking score shared by selection and expansion (roadmap §7).
+
+    CE score × 0.6 + type priority × 0.02 + complementarity × 0.2 −
+    redundancy × 0.3 — one formula so expanded units re-score into the
+    set instead of appending past it.
+    """
+    return (
+        item.confidence * 0.6
+        + _EVIDENCE_TYPE_PRIORITY.get(item.evidence_type, 5) * 0.02
+        + item.complementarity * 0.2
+        - item.redundancy * 0.3
+    )
+
+
 def select_evidence_set(
     query: str,
     ranked_chunks: list[Any],
@@ -432,15 +447,6 @@ def select_evidence_set(
             seen_units.add(unit)
             representatives.append(item)
 
-    # Score: CE score * 0.6 + type_priority * 0.2 + complementarity * 0.2 - redundancy * 0.1
-    def _score(item: EvidenceItem) -> float:
-        return (
-            item.confidence * 0.6
-            + _EVIDENCE_TYPE_PRIORITY.get(item.evidence_type, 5) * 0.02
-            + item.complementarity * 0.2
-            - item.redundancy * 0.3
-        )
-
     # Greedy selection: pick highest-scoring non-redundant items, prioritizing
     # diversity of evidence types
     selected: list[EvidenceItem] = []
@@ -456,7 +462,7 @@ def select_evidence_set(
 
     while len(selected) < max_size and remaining:
         # Sort remaining by score descending
-        remaining.sort(key=_score, reverse=True)
+        remaining.sort(key=_evidence_score, reverse=True)
         best = remaining.pop(0)
 
         # Skip if it's a duplicate (redundancy > 0.9) of something already selected
@@ -551,6 +557,7 @@ def expand_evidence_units(
     *,
     reference_lookup: Callable[[str], list[Any]] | None = None,
     max_expansion: int = 3,
+    max_size: int = 5,
 ) -> EvidenceSet:
     """Expand an evidence set with missing definitions/exceptions/cross-refs.
 
@@ -642,13 +649,18 @@ def expand_evidence_units(
     for chunk, evidence_type in additions[: max(0, max_expansion)]:
         items.append(_as_item(chunk, evidence_type, items))
         present_units.add(_unit(chunk))
+    added = len(items) - len(evidence.items)
+
+    # Roadmap §7 compactness: additions re-score into the set — sort by
+    # the shared ranking formula and cap at max_size.
+    items.sort(key=_evidence_score, reverse=True)
+    items = items[: max(0, max_size)]
 
     return EvidenceSet(
         query=evidence.query,
         items=items,
         total_pool=len(candidates),
-        selection_rationale=evidence.selection_rationale
-        + f" Expansion added {len(items) - len(evidence.items)} units.",
+        selection_rationale=evidence.selection_rationale + f" Expansion added {added} units.",
     )
 
 

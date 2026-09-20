@@ -125,3 +125,17 @@ class TestIngestCorpusTask:
         assert calls["document"] == {"type": "act"}
         assert result["indexed"] == 1
         assert ingest_corpus_task.__name__ == "ingest_corpus_task"
+
+
+class TestDecompositionGate:
+    """Research rec C: SubQueryDecomposer gated behind the planner."""
+
+    def test_simple_query_skips_decomposer(self):
+        from app.rag.tasks import _decomposition_queries
+
+        assert _decomposition_queries("Is a licence needed?") == ["Is a licence needed?"]
+
+    def test_compound_query_still_decomposes(self):
+        from app.rag.tasks import _decomposition_queries
+
+        assert len(_decomposition_queries("What do Section 33 and Section 38 require?")) > 1

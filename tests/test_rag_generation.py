@@ -69,6 +69,13 @@ class TestContextBuilder:
         assert built.context == ""
         assert built.chunk_count == 0
 
+    def test_sources_wrapped_in_document_tags(self):
+        # Research §3.1: per-source <document index> + <source> tags.
+        built = ContextBuilder(max_chunks=10).build("query", _make_chunks(3))
+        assert '<document index="1">' in built.context
+        assert built.context.count("</document>") == 3
+        assert "<source>" in built.context and "</source>" in built.context
+
     def test_truncation_when_exceeding_max_chars(self):
         built = ContextBuilder(max_context_chars=100, max_chunks=50).build("q", _make_chunks(20))
         assert built.truncated

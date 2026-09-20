@@ -269,6 +269,35 @@ class TestEvidenceExpansion:
             score=0.9,
         )
 
+    def test_expansion_rescores_and_caps_at_max_size(self):
+        # Roadmap §7: compact coherent context — additions re-score into
+        # the set and the set never exceeds max_size.
+        from app.rag.retrieval.evidence_selector import expand_evidence_units
+
+        low = FakeChunk(
+            chunk_id="low",
+            text="Section 31 licence fee schedule for food businesses.",
+            section_number="31",
+            act_name="FSS Act",
+            score=0.5,
+        )
+        pool = [
+            self._operative(),
+            low,
+            FakeChunk(
+                chunk_id="d",
+                text="'Food' means any article used as food.",
+                section_number="3",
+                act_name="FSS Act",
+                score=0.7,
+            ),
+        ]
+        es = select_evidence_set("Section 31 licence food", [self._operative(), low], max_size=2)
+        expanded = expand_evidence_units(es, pool, max_size=2)
+        scores = [it.confidence for it in expanded.items]
+        assert len(expanded.items) <= 2
+        assert scores == sorted(scores, reverse=True)
+
     def test_expansion_adds_missing_definition(self):
         from app.rag.retrieval.evidence_selector import EVIDENCE_DEFINITION, expand_evidence_units
 
