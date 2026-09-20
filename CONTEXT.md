@@ -330,14 +330,27 @@ explicit game-theoretic and Talebian principles (not free-form opinion).
   rendered as Annexure A of the §32 Improvement Notice; verified via
   `verify_closure` → the **Corrective Measures Implemented** terminal state
   (`is_dismissed` + `dossier_verified`). Gated by `AUDITOR_AI_ENABLED`.
-- **FSO advisory gates** — the two deterministic graph nodes running
-  `DeterministicActSelector` (`app/rag/advisor/`): `fso_advisory_hint`
-  (pre-generation candidate, internal only) and `fso_advisory`
+- **FSO advisory gate** — the single deterministic graph node running
+  `DeterministicActSelector` (`app/rag/advisor/`): `fso_advisory`
   (post-verification authoritative Act, fail-closed with
   `advisory_abstain_reason = "insufficient_statutory_grounding"`).
+  The pre-generation hint node is deleted (nothing ever read it).
   Gated by `FSO_ADVISOR_ENABLED` (default off); per-request override
   `fso_advisory` + `is_repeat_offender` / `has_lab_report` flags on
   `POST /api/rag/query/agent`. The LLM never picks the Act.
+- **Act selection rule** — a minimax floor over the evidence, not an
+  argmax: §§63/64 or repeat offences → prosecution; zero-schedule
+  anchors (§32, the notice procedure itself) → Improvement Notice (never
+  a penalty act off a section that authorizes none); prior-notice
+  sections without lab evidence → Improvement Notice; §§51/52 without
+  lab → sample & lab-test; otherwise penalty direction. The floor act is
+  provably the optionality argmax among admissible acts
+  (`test_floor_act_is_the_optionality_argmax` fails if payoff retuning
+  breaks the ordering).
+- **Advisory confidence** — calibrated from converging evidence, not a
+  constant: 0.7 base (single grounded anchor) + 0.1 per additional
+  anchor (cap +0.2) + 0.1 with lab evidence, capped at 1.0. Prior
+  violations speak to severity, not evidence, and don't raise it.
 
 (Existing domain language lives in AGENTS.md §1 — CaseFile vs Adjudication,
 Canonical Key Contract, hash-chained audit, optimistic concurrency. Add new

@@ -39,6 +39,21 @@ class DeterministicActSelector:
             self.lambda_fragility * (1.0 - profile.reversibility)
         )
 
+    @staticmethod
+    def confidence_score(n_anchors: int, lab_report_available: bool) -> float:
+        """Calibrated confidence from converging evidence.
+
+        Base 0.7 (single grounded anchor — the rule is deterministic but the
+        grounding is thin) + 0.1 per additional distinct anchor (cap +0.2) +
+        0.1 with a statutory lab report on hand. Prior violations are
+        excluded by design: they speak to severity, not to this violation's
+        evidence. Capped at 1.0, rounded to two decimals.
+        """
+        score = 0.7 + 0.1 * min(max(n_anchors - 1, 0), 2)
+        if lab_report_available:
+            score += 0.1
+        return round(min(score, 1.0), 2)
+
     def select_act(
         self,
         retrieved_sections: list[str] | tuple[str, ...] | None,
@@ -69,6 +84,11 @@ class DeterministicActSelector:
 
         if primary_anchor.section in ("63", "64") or has_prior_violations:
             min_level = EscalationLevel.PROSECUTION
+        elif primary_anchor.max_fine_inr == 0 and primary_anchor.imprisonment_months == 0:
+            # Zero-schedule anchor (today: §32, the notice procedure itself):
+            # the only grounded move is the notice — never a penalty act off
+            # a section that authorizes no penalty.
+            min_level = EscalationLevel.IMPROVEMENT_NOTICE
         elif primary_anchor.requires_prior_notice and not lab_report_available:
             min_level = EscalationLevel.IMPROVEMENT_NOTICE
         elif not lab_report_available and primary_anchor.section in ("51", "52"):
@@ -76,26 +96,16 @@ class DeterministicActSelector:
         else:
             min_level = EscalationLevel.PENALTY_DIRECTION
 
-        # Talebian filter (ADR-0003 + blueprint §2.D): among admissible Acts
-        # (level >= min_level, the minimax floor), pick the highest
-        # optionality score; escalate to irreversible Acts only when the
-        # grounded penalty schedule demands it (via min_level). Note the
-        # blueprint's U + ω·Opt argmax is NOT used: with the tuned payoffs
-        # it would pick Improvement Notice over Sample & Lab-Test for §51,
-        # contradicting the §6 spec (max-convexity first). Net utility is
-        # still reported in the game-theoretic basis for audit.
-        best_act: ActionProfile | None = None
-        best_opt_score = float("-inf")
-        for level, profile in ACTION_PROFILES.items():
-            if level < min_level:
-                continue
-            opt_score = self.optionality_score(profile)
-            if opt_score > best_opt_score:
-                best_opt_score = opt_score
-                best_act = profile
-
-        if best_act is None:  # defensive: admissible set unexpectedly empty
-            return {"fso_act": None, "abstain_reason": ABSTAIN_REASON}
+        # Minimax floor (legal procedure over the evidence): the floor act is
+        # provably the optionality argmax among admissible acts — pinned by
+        # test_floor_act_is_the_optionality_argmax, which fails loudly if
+        # payoff retuning ever breaks the ordering. The blueprint's U + ω·Opt
+        # argmax is NOT used: with the tuned payoffs it would pick
+        # Improvement Notice over Sample & Lab-Test for §51, contradicting
+        # the §6 spec (max-convexity first). Net utility is still reported
+        # in the game-theoretic basis for audit.
+        best_act: ActionProfile = ACTION_PROFILES[min_level]
+        best_opt_score = self.optionality_score(best_act)
 
         return {
             "fso_act": {
@@ -104,7 +114,7 @@ class DeterministicActSelector:
                 "statutory_anchor": f"Section {primary_anchor.section} ({primary_anchor.title})",
                 "game_theory_basis": game_theory_basis(best_act, primary_anchor),
                 "talebian_basis": talebian_basis(best_act, best_opt_score),
-                "confidence": 1.0,
+                "confidence": self.confidence_score(len(anchors), lab_report_available),
                 "citations": [f"Section {primary_anchor.section}"],
             },
             "abstain_reason": None,

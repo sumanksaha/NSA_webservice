@@ -29,7 +29,6 @@ from __future__ import annotations
 
 from app.rag.agent.nodes.advisory import (
     extract_sections,
-    fso_advisory_hint_node,
     fso_advisory_node,
 )
 from app.rag.agent.nodes.claims import _verify_claims
@@ -100,7 +99,6 @@ __all__ = [
     "expand_query_node",
     "extract_sections",
     "finalize_node",
-    "fso_advisory_hint_node",
     "fso_advisory_node",
     "generate_node",
     "kg_reason_node",

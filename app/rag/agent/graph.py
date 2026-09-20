@@ -140,20 +140,6 @@ def _route_after_budget(state: RAGState) -> str:
     return "execute_task"
 
 
-def _route_after_hint(state: RAGState) -> str:
-    """Route after the shared FSO pre-generation hint node.
-
-    The hint node is on both paths (linear retrieve → hint; DAG
-    execute_task → hint) but each run belongs to exactly one path — a static
-    edge to both successors would fan out to both (concurrent ``audit_trail``
-    writes). The DAG path carries ``task_order``; the linear path does not
-    (mirrors :func:`_route_after_retry`).
-    """
-    if state.get("task_order"):
-        return "evidence_sufficiency"
-    return "generate"
-
-
 def _route_after_retry(state: RAGState) -> str:
     """Phase 1: return targeted retries to the path that needed them.
 
@@ -432,11 +418,9 @@ def build_graph(
             ``retrieve`` and ``generate``.  ``None`` (default) reads the
             live ``ENABLE_EVIDENCE_SELECTOR`` config; pass an explicit bool
             to pin the topology regardless of config.
-        fso_advisor: Insert the deterministic FSO advisory gates (ADR-0003):
-            a pre-generation ``fso_advisory_hint`` (retrieval → hint →
-            generate; DAG: execute_task → hint → evidence_sufficiency) and
+        fso_advisor: Insert the deterministic FSO advisory gate (ADR-0003):
             a post-verification ``fso_advisory`` directly before
-            ``finalize`` on every terminal path.  ``None`` reads the live
+            ``finalize`` on every terminal path. ``None`` reads the live
             ``FSO_ADVISOR_ENABLED`` config (default off).
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
@@ -480,10 +464,9 @@ def build_graph(
     # P2: Evidence sufficiency gate + abstention
     builder.add_node("evidence_sufficiency", lambda state, cfg=None: nodes.evidence_sufficiency_node(state))
     builder.add_node("abstain", lambda state, cfg=None: nodes.abstain_node(state))
-    # FSO advisory gates (ADR-0003, deterministic — no LLM, sub-millisecond).
+    # FSO advisory gate (ADR-0003, deterministic — no LLM, sub-millisecond).
     fso_on = _resolve_fso_advisor(fso_advisor)
     if fso_on:
-        builder.add_node("fso_advisory_hint", lambda state, cfg=None: nodes.fso_advisory_hint_node(state))
         builder.add_node("fso_advisory", lambda state, cfg=None: nodes.fso_advisory_node(state))
 
     builder.add_edge(START, "classify")
@@ -507,18 +490,7 @@ def build_graph(
         _route_after_budget,
         {"execute_task": "execute_task", "abstain": "abstain"},
     )
-    if fso_on:
-        # Pre-generation hint sees per-task evidence before the gate. The
-        # hint is shared by both paths, so its successor is routed
-        # conditionally (static edges to both would fan out concurrently).
-        builder.add_edge("execute_task", "fso_advisory_hint")
-        builder.add_conditional_edges(
-            "fso_advisory_hint",
-            _route_after_hint,
-            {"evidence_sufficiency": "evidence_sufficiency", "generate": "generate"},
-        )
-    else:
-        builder.add_edge("execute_task", "evidence_sufficiency")
+    builder.add_edge("execute_task", "evidence_sufficiency")
     builder.add_conditional_edges(
         "evidence_sufficiency",
         _route_after_evidence,
@@ -529,18 +501,11 @@ def build_graph(
     # Optional evidence node between retrieve and generate (feature-flagged).
     # The flag is resolved per build (see _resolve_evidence_selector), never
     # frozen at import — see _get_graph for the request-path cache.
-    # The FSO pre-generation hint (when on) sits directly before generate so
-    # it sees the final linear retrieval output.
     evidence_on = _resolve_evidence_selector(evidence_selector)
     if evidence_on:
         builder.add_node("evidence", nodes.evidence_node)
         builder.add_edge("retrieve", "evidence")
-        if fso_on:
-            builder.add_edge("evidence", "fso_advisory_hint")
-        else:
-            builder.add_edge("evidence", "generate")
-    elif fso_on:
-        builder.add_edge("retrieve", "fso_advisory_hint")
+        builder.add_edge("evidence", "generate")
     else:
         builder.add_edge("retrieve", "generate")
 

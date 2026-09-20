@@ -143,9 +143,7 @@ class RAGState(TypedDict, total=False):
     has_lab_report: bool
     # Grounded § sections derived from chunks/citations (telemetry only).
     extracted_sections: list[str]
-    # Pre-generation candidate (hint for generate/synthesize context; never
-    # surfaced to the client) vs post-verification authoritative Act.
-    fso_hint: dict[str, Any] | None
+    # Post-verification authoritative Act (client-surfaced via finalize).
     fso_act: dict[str, Any] | None
     advisory_abstain_reason: str | None
     fso_advisory_enabled: bool
@@ -227,7 +225,6 @@ def initial_state(
         "is_repeat_offender": False,
         "has_lab_report": False,
         "extracted_sections": [],
-        "fso_hint": None,
         "fso_act": None,
         "advisory_abstain_reason": None,
         "fso_advisory_enabled": False,

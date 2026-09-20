@@ -66,12 +66,34 @@ def test_repeat_offender_escalates_substandard():
     assert out["fso_act"]["escalation_level"] == "PROSECUTION"
 
 
+def test_zero_schedule_anchor_floors_at_improvement_notice():
+    # §32 carries no penalty schedule — the only grounded section is the
+    # notice procedure itself, so the Act is the notice, never a penalty.
+    out = _selector().select_act(retrieved_sections=["32"])
+    assert out["abstain_reason"] is None
+    assert out["fso_act"]["escalation_level"] == "IMPROVEMENT_NOTICE"
+    assert "Section 32" in out["fso_act"]["statutory_anchor"]
+
+
 def test_selection_is_deterministic():
     sel = _selector()
     first = sel.select_act(retrieved_sections=["51", "55"])
     second = sel.select_act(retrieved_sections=["51", "55"])
     assert first == second
-    assert first["fso_act"]["confidence"] == 1.0
+    # Two converging anchors: base 0.7 + 0.1 agreement bonus.
+    assert first["fso_act"]["confidence"] == 0.8
+
+
+def test_confidence_scales_with_evidence():
+    sel = _selector()
+    thin = sel.select_act(retrieved_sections=["51"])["fso_act"]["confidence"]
+    assert thin == 0.7
+    with_lab = sel.select_act(retrieved_sections=["51"], lab_report_available=True)["fso_act"]["confidence"]
+    assert with_lab == 0.8
+    converging = sel.select_act(retrieved_sections=["51", "52", "55"], lab_report_available=True)["fso_act"][
+        "confidence"
+    ]
+    assert converging == 1.0
 
 
 def test_optionality_index_spot_values():
@@ -84,6 +106,30 @@ def test_optionality_index_spot_values():
     assert sel.optionality_score(sample) == pytest.approx(0.85)
     prosecution = ACTION_PROFILES[EscalationLevel.PROSECUTION]
     assert sel.optionality_score(prosecution) == pytest.approx(-0.5)
+
+
+def test_floor_act_is_the_optionality_argmax():
+    """The floor table and the optionality argmax provably coincide.
+
+    For every admissible floor, the floor act has the highest optionality
+    score — so selecting the floor act directly is exactly the argmax, not
+    a shortcut. Fails loudly if payoff retuning ever breaks the ordering.
+    """
+    from app.rag.advisor.ladder import ACTION_PROFILES, EscalationLevel
+
+    sel = _selector()
+    # Only SAMPLE..PROSECUTION are reachable floors (INSPECT_WARN is the
+    # ladder's bottom rung but no evidence pattern floors at it).
+    reachable = [
+        EscalationLevel.SAMPLE_LAB_TEST,
+        EscalationLevel.IMPROVEMENT_NOTICE,
+        EscalationLevel.PENALTY_DIRECTION,
+        EscalationLevel.PROSECUTION,
+    ]
+    for floor in reachable:
+        admissible = {lvl: prof for lvl, prof in ACTION_PROFILES.items() if lvl >= floor}
+        argmax = max(admissible.values(), key=sel.optionality_score)
+        assert argmax.level == floor
 
 
 def test_payload_carries_both_bases_and_citation():
@@ -145,20 +191,8 @@ def test_extract_sections_accepts_dag_evidence_chunks():
 
 
 # ---------------------------------------------------------------------------
-# Hint (pre) vs authoritative (post) nodes
+# Authoritative (post-verification) node
 # ---------------------------------------------------------------------------
-
-
-def test_hint_node_never_abstains_payload_shape():
-    from app.rag.agent.nodes import fso_advisory_hint_node
-    from app.rag.agent.state import initial_state
-
-    state = initial_state("q")
-    state.update({"chunks": _chunks()})
-    out = fso_advisory_hint_node(state)  # type: ignore[arg-type]
-    assert out["fso_hint"]["escalation_level"] == "SAMPLE_LAB_TEST"
-    assert "fso_act" not in out
-    assert out["audit_trail"][-1]["node"] == "fso_advisory_hint"
 
 
 def test_post_node_abstains_on_empty_evidence():
@@ -246,25 +280,24 @@ def _patch_grounded_pipeline(monkeypatch):
     )
 
 
-def test_graph_topology_contains_both_gates_when_on():
+def test_graph_topology_contains_gate_when_on():
     from app.rag.agent.graph import build_graph
 
     graph = build_graph(fso_advisor=True)
     nodes = set(graph.get_graph().nodes.keys())
-    assert "fso_advisory_hint" in nodes
     assert "fso_advisory" in nodes
+    assert "fso_advisory_hint" not in nodes
 
 
-def test_graph_topology_omits_gates_when_off():
+def test_graph_topology_omits_gate_when_off():
     from app.rag.agent.graph import build_graph
 
     graph = build_graph(fso_advisor=False)
     nodes = set(graph.get_graph().nodes.keys())
-    assert "fso_advisory_hint" not in nodes
     assert "fso_advisory" not in nodes
 
 
-def test_end_to_end_attaches_act_and_hint_order(monkeypatch):
+def test_end_to_end_attaches_act(monkeypatch):
     from app.rag.agent.graph import run_agent
     from app.rag.agent.state import initial_state
 
@@ -272,18 +305,15 @@ def test_end_to_end_attaches_act_and_hint_order(monkeypatch):
     result = run_agent(initial_state("penalty for selling substandard food"), fso_advisor=True)
     assert result["fso_act"]["escalation_level"] == "SAMPLE_LAB_TEST"
     assert "Section 51" in result["fso_act"]["statutory_anchor"]
-    assert "fso_hint" not in result  # hint is internal only
     assert result["answer"] == "Section 51 prescribes the penalty."
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
-    assert "fso_advisory_hint" in nodes_run
     assert "fso_advisory" in nodes_run
-    # Hint runs pre-generation; authoritative Act runs post-verification.
-    assert nodes_run.index("fso_advisory_hint") < nodes_run.index("generate")
+    # Authoritative Act runs post-verification.
     assert nodes_run.index("fso_advisory") > nodes_run.index("citation_quality")
 
 
-def test_end_to_end_dag_path_hint_before_gate(monkeypatch):
-    """DAG queries route hint execute_task → hint → evidence_sufficiency."""
+def test_end_to_end_dag_path_gate_after_quality(monkeypatch):
+    """DAG queries route execute_task → evidence_sufficiency (no hint hop)."""
     import app.rag.tasks as tasks
     from app.rag.agent.graph import run_agent
     from app.rag.agent.state import initial_state
@@ -323,16 +353,14 @@ def test_end_to_end_dag_path_hint_before_gate(monkeypatch):
     assert result["fso_act"]["escalation_level"] == "SAMPLE_LAB_TEST"
     assert "Section 52" in result["fso_act"]["statutory_anchor"]
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
-    assert nodes_run.index("fso_advisory_hint") == nodes_run.index("execute_task") + 1
-    assert nodes_run.index("evidence_sufficiency") == nodes_run.index("fso_advisory_hint") + 1
+    assert nodes_run.index("evidence_sufficiency") == nodes_run.index("execute_task") + 1
     assert nodes_run.index("fso_advisory") > nodes_run.index("citation_quality")
 
 
-def test_route_after_hint_reads_task_order():
-    from app.rag.agent.graph import _route_after_hint
+def test_no_hint_routing_helper():
+    from app.rag.agent import graph
 
-    assert _route_after_hint({"task_order": ["T1"]}) == "evidence_sufficiency"
-    assert _route_after_hint({}) == "generate"
+    assert not hasattr(graph, "_route_after_hint")
 
 
 # ---------------------------------------------------------------------------

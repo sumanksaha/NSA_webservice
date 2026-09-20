@@ -1,15 +1,13 @@
-"""FSO advisory nodes — thin adapters over the deterministic selector (ADR-0003).
+"""FSO advisory node — thin adapter over the deterministic selector (ADR-0003).
 
-Two invocations of the same :class:`DeterministicActSelector`:
+Single invocation of :class:`DeterministicActSelector`, post-verification:
+authoritative Act from *verified* sections (citations filtered to the
+retrieved set); fail-closed on missing grounding. Surfaced via
+``finalize_node``.
 
-* ``fso_advisory_hint_node`` (pre-generation): candidate Act from raw
-  retrieval sections; stored as ``fso_hint`` for generate/synthesize
-  context only — never surfaced to the client.
-* ``fso_advisory_node`` (post-verification): authoritative Act from
-  *verified* sections (citations filtered to the retrieved set);
-  fail-closed on missing grounding. Surfaced via ``finalize_node``.
-
-Both are pure and synchronous (no LLM, no network); sub-millisecond.
+Pure and synchronous (no LLM, no network); sub-millisecond. The former
+pre-generation hint node is deleted (nothing ever read its output —
+see ADR-0003 grilling notes); the authoritative node is the only gate.
 """
 
 from __future__ import annotations
@@ -22,12 +20,13 @@ from typing import Any
 from app.rag.advisor.penalties import FSSAI_PENALTY_SCHEDULE
 from app.rag.advisor.selector import DeterministicActSelector
 from app.rag.agent.nodes.common import _ms
+from app.rag.retrieval.identifier import detect_section
+from app.rag.retrieval.legal_hierarchy import parse_section_chain
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "extract_sections",
-    "fso_advisory_hint_node",
     "fso_advisory_node",
 ]
 
@@ -38,7 +37,14 @@ _selector = DeterministicActSelector()
 
 
 def _section_from_value(value: Any) -> str | None:
-    """Normalize one section-ish value to bare digits, else None."""
+    """Normalize one section-ish value to bare digits, else None.
+
+    Shared detectors do the work — chain split first (bare ``"31(2)(a)"``
+    forms), identifier match second (prefixed ``"Section 55"`` forms).
+    Deliberately narrower than the old local digit-search: a digit run
+    that is neither leading nor keyword-anchored (``"(2)"``, ``"rule 5"``)
+    no longer fabricates a section number.
+    """
     if value is None:
         return None
     if isinstance(value, dict):
@@ -46,10 +52,15 @@ def _section_from_value(value: Any) -> str | None:
         value = value.get("section", value.get("section_number"))
         if value is None:
             return None
-    m = re.search(r"\d{1,4}", str(value))
-    if not m:
+    text = str(value)
+    chain = parse_section_chain(text)
+    if chain:
+        return chain[0]
+    try:
+        section, _subsection = detect_section(text)
+    except Exception:
         return None
-    return re.match(r"\d{1,4}", m.group(0)).group(0)  # type: ignore[union-attr]
+    return section
 
 
 def _chunk_section(chunk: dict[str, Any]) -> str | None:
@@ -133,35 +144,6 @@ def _advisory_flags(state: dict[str, Any]) -> dict[str, bool]:
     return {
         "has_prior": bool(state.get("is_repeat_offender", False)),
         "has_lab": bool(state.get("has_lab_report", False)),
-    }
-
-
-def fso_advisory_hint_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Pre-generation candidate Act (internal hint, never client-surfaced)."""
-    start = time.monotonic()
-    flags = _advisory_flags(state)
-    extracted = extract_sections(_gather_chunks(state), verified_only=False)
-    result = _selector.select_act(
-        retrieved_sections=extracted,
-        has_prior_violations=flags["has_prior"],
-        lab_report_available=flags["has_lab"],
-    )
-    return {
-        "extracted_sections": extracted,
-        "fso_hint": result["fso_act"],
-        "fso_advisory_enabled": True,
-        "audit_trail": [
-            *(state.get("audit_trail") or []),
-            {
-                "node": "fso_advisory_hint",
-                "latency_ms": _ms(start),
-                "detail": {
-                    "sections": extracted,
-                    "hint": (result["fso_act"] or {}).get("escalation_level"),
-                    "abstained": result["fso_act"] is None,
-                },
-            },
-        ],
     }
 
 

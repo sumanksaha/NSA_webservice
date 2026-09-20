@@ -326,7 +326,7 @@ class EnsembleReranker:
             except Exception:
                 pass
 
-        if requirement_type is not None:
+        if requirement_type is not None and understood is not None:
             # Applied after the query_type override so blending is not dead
             # when both are passed.
             try:
