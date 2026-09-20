@@ -112,6 +112,21 @@ def route_after_review(state: RAGState) -> str:
     return "expand_query"
 
 
+def route_after_audit(state: RAGState) -> str:
+    """Conditional edge after the legal auditor (roadmap §32.3).
+
+    FAIL with revision budget left → back to ``structured_reasoner`` for
+    one capped correction pass; otherwise (PASS, exhausted budget, or no
+    audit at all) → ``generate``.
+    """
+    audit = state.get("audit_result") or {}
+    if audit.get("status") == "FAIL" and int(state.get("revision_count", 0) or 0) < int(
+        state.get("max_revisions", 1) or 0
+    ):
+        return "structured_reasoner"
+    return "generate"
+
+
 def _route_after_evidence(state: RAGState) -> str:
     """P2: Route after the evidence_sufficiency gate.
 
@@ -400,11 +415,41 @@ def _resolve_fso_advisor(explicit: bool | None) -> bool:
         return False
 
 
+def _resolve_structured_reasoner(explicit: bool | None) -> bool:
+    """Resolve the ``structured_reasoner`` topology flag (roadmap Phase 3).
+
+    Same contract: explicit bool pins, ``None`` reads live
+    ``ENABLE_STRUCTURED_REASONER`` (default off).
+    """
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        return bool(cfg.structured_reasoner)
+    except Exception:
+        return False
+
+
+def _resolve_legal_auditor(explicit: bool | None) -> bool:
+    """Resolve the ``legal_auditor`` topology flag (roadmap Phase 3).
+
+    Same contract: explicit bool pins, ``None`` reads live
+    ``ENABLE_LEGAL_AUDITOR`` (default off).
+    """
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        return bool(cfg.legal_auditor)
+    except Exception:
+        return False
+
+
 def build_graph(
     hitl: bool = False,
     checkpointer: Any | None = None,
     evidence_selector: bool | None = None,
     fso_advisor: bool | None = None,
+    structured_reasoner: bool | None = None,
+    legal_auditor: bool | None = None,
 ) -> Any:
     """Build and compile the agent ``StateGraph``.
 
@@ -422,6 +467,14 @@ def build_graph(
             a post-verification ``fso_advisory`` directly before
             ``finalize`` on every terminal path. ``None`` reads the live
             ``FSO_ADVISOR_ENABLED`` config (default off).
+        structured_reasoner: Insert the Phase 3 reasoning path
+            (``structured_reasoner`` → [``auditor``] → ``generate``) after
+            retrieval.  ``None`` reads live ``ENABLE_STRUCTURED_REASONER``
+            (default off).
+        legal_auditor: Insert the ``auditor`` gate with the capped
+            revise loop on the reasoning path.  ``None`` reads live
+            ``ENABLE_LEGAL_AUDITOR`` (default off).  Without the reasoner
+            flag this flag has no effect.
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
     """
@@ -505,6 +558,27 @@ def build_graph(
     if evidence_on:
         builder.add_node("evidence", nodes.evidence_node)
         builder.add_edge("retrieve", "evidence")
+
+    # Phase 3 reasoning path (roadmap §32.1): structured argument IR with an
+    # optional deterministic audit + capped revise loop, flag-gated and
+    # default off.  It rewires the linear retrieve → generate hop only —
+    # exactly one outgoing edge per node, no fan-out.
+    reasoning_on = _resolve_structured_reasoner(structured_reasoner)
+    auditor_on = reasoning_on and _resolve_legal_auditor(legal_auditor)
+    if reasoning_on:
+        builder.add_node("structured_reasoner", lambda state, cfg=None: nodes.structured_reasoner_node(state))
+        builder.add_edge("evidence" if evidence_on else "retrieve", "structured_reasoner")
+        if auditor_on:
+            builder.add_node("auditor", lambda state, cfg=None: nodes.auditor_node(state))
+            builder.add_edge("structured_reasoner", "auditor")
+            builder.add_conditional_edges(
+                "auditor",
+                route_after_audit,
+                {"structured_reasoner": "structured_reasoner", "generate": "generate"},
+            )
+        else:
+            builder.add_edge("structured_reasoner", "generate")
+    elif evidence_on:
         builder.add_edge("evidence", "generate")
     else:
         builder.add_edge("retrieve", "generate")
@@ -567,7 +641,7 @@ def build_graph(
 #: topology — no restart needed.  Graphs carrying a checkpointer are never
 #: cached here (the saver identity can change across calls); they are built
 #: fresh per call as before.
-_graph_cache: dict[tuple[bool, bool, bool], Any] = {}
+_graph_cache: dict[tuple[bool, bool, bool, bool, bool], Any] = {}
 _graph_cache_lock = threading.Lock()
 
 
@@ -576,6 +650,8 @@ def _get_graph(
     evidence_selector: bool | None = None,
     fso_advisor: bool | None = None,
     checkpointer: Any | None = None,
+    structured_reasoner: bool | None = None,
+    legal_auditor: bool | None = None,
 ) -> Any:
     """Return the compiled graph for this request's flag combination.
 
@@ -585,13 +661,28 @@ def _get_graph(
     """
     resolved = _resolve_evidence_selector(evidence_selector)
     resolved_fso = _resolve_fso_advisor(fso_advisor)
+    resolved_reasoning = _resolve_structured_reasoner(structured_reasoner)
+    resolved_auditor = _resolve_legal_auditor(legal_auditor)
     if checkpointer is not None:
-        return build_graph(hitl=hitl, checkpointer=checkpointer, evidence_selector=resolved, fso_advisor=resolved_fso)
-    key = (bool(hitl), resolved, resolved_fso)
+        return build_graph(
+            hitl=hitl,
+            checkpointer=checkpointer,
+            evidence_selector=resolved,
+            fso_advisor=resolved_fso,
+            structured_reasoner=resolved_reasoning,
+            legal_auditor=resolved_auditor,
+        )
+    key = (bool(hitl), resolved, resolved_fso, resolved_reasoning, resolved_auditor)
     with _graph_cache_lock:
         graph = _graph_cache.get(key)
         if graph is None:
-            graph = build_graph(hitl=hitl, evidence_selector=resolved, fso_advisor=resolved_fso)
+            graph = build_graph(
+                hitl=hitl,
+                evidence_selector=resolved,
+                fso_advisor=resolved_fso,
+                structured_reasoner=resolved_reasoning,
+                legal_auditor=resolved_auditor,
+            )
             _graph_cache[key] = graph
         return graph
 

@@ -154,8 +154,25 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
     from app.rag.tasks import run_generation_pipeline
 
+    query = _query_for_retrieval(state)
+    # Phase 3: when the structured path ran, render the final answer from
+    # the audited argument — same pipeline, only the prompt input differs
+    # (roadmap §21 isolates the reasoning architecture, not the prompt).
+    # Any well-formed argument flows through (including fallback skeletons —
+    # their uncertainties qualify the answer); only a missing argument
+    # keeps plain generation.
+    argument = state.get("structured_argument")
+    structured_used = isinstance(argument, dict) and bool(argument.get("issue"))
+    if structured_used:
+        import json as _json
+
+        query = (
+            f"{query}\n\nStructured legal reasoning:\n{_json.dumps(argument)}"
+            "\n\nFinal answer (cite sources with [n] markers; "
+            "qualify conclusions the reasoning marks unknown):"
+        )
     result = run_generation_pipeline(
-        query=_query_for_retrieval(state),
+        query=query,
         chunks=state.get("chunks"),
         query_type=state.get("query_type", ""),
         top_k=state.get("top_k", 10),
@@ -192,6 +209,7 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
                         "hallucination_detected": result.get("hallucination_detected", False),
                         "answer_length": len(result.get("answer", "")),
                         "claims": len(claim_report["claims"]) if claim_report else 0,
+                        "structured_reasoning": structured_used,
                     },
                 },
                 token_cost=token_cost,

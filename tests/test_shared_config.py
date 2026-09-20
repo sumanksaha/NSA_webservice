@@ -203,3 +203,9 @@ def test_table_attrs_are_unique_and_valid():
     for s in cfg.table():
         assert s.type in (bool, int, float, str)
         assert isinstance(s, Setting)
+
+
+def test_structured_reasoning_flags_default_off():
+    """Phase 3: structured reasoner + legal auditor are opt-in (default off)."""
+    assert cfg.structured_reasoner is False
+    assert cfg.legal_auditor is False

@@ -183,5 +183,7 @@ def auditor_node(state: dict[str, Any]) -> dict[str, Any]:
         return {}
     evidence_items = state.get("legal_unit_evidence") or []
     evidence = {str(item.get("id", i)): str(item.get("text", "")) for i, item in enumerate(evidence_items)}
-    result = audit_argument(raw_argument, evidence)
+    # Citations may use chunk ids or canonical unit ids (ACT::SEC) — accept both.
+    known = set(evidence) | {str(item.get("unit", "")) for item in evidence_items} - {""}
+    result = audit_argument(raw_argument, evidence, known_provisions=known)
     return {"audit_result": result.model_dump()}

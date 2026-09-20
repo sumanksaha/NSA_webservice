@@ -135,6 +135,20 @@ _TABLE: tuple[Setting, ...] = (
         help="Evidence-set selection over top-K (opt-in A/B lever).",
     ),
     Setting(
+        "ENABLE_STRUCTURED_REASONER",
+        "structured_reasoner",
+        bool,
+        False,
+        help="Structured legal-reasoning IR before answer generation (roadmap Phase 3, opt-in).",
+    ),
+    Setting(
+        "ENABLE_LEGAL_AUDITOR",
+        "legal_auditor",
+        bool,
+        False,
+        help="Deterministic legal-auditor gate with capped revision loop (roadmap Phase 3, opt-in).",
+    ),
+    Setting(
         "ENABLE_REFERENCE_EXPANSION",
         "reference_expansion",
         bool,

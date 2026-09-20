@@ -125,6 +125,19 @@ class RAGState(TypedDict, total=False):
     # this into a node name; kept for telemetry on the response payload.
     routing_decision: dict[str, Any] | None
 
+    # --- Structured legal reasoning (roadmap Phase 3, §32.3) ---
+    # Intermediate IR from structured_reasoner_node (dict form of
+    # StructuredLegalArgument); the auditor critiques it and generate
+    # renders the final answer from it when present.
+    structured_argument: dict[str, Any] | None
+    # Latest AuditResult dict from auditor_node (status + defects).
+    audit_result: dict[str, Any] | None
+    # Controlled-revision accounting (route_after_audit caps at max_revisions).
+    revision_count: int
+    max_revisions: int
+    # Legal-unit evidence feeding the reasoner ([{id, text}] dicts).
+    legal_unit_evidence: list[dict[str, Any]]
+
     # --- Audit ---
     audit_trail: list[AuditEntry]
 
@@ -228,4 +241,9 @@ def initial_state(
         "fso_act": None,
         "advisory_abstain_reason": None,
         "fso_advisory_enabled": False,
+        "structured_argument": None,
+        "audit_result": None,
+        "revision_count": 0,
+        "max_revisions": 1,
+        "legal_unit_evidence": [],
     }

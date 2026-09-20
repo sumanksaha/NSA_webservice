@@ -73,6 +73,7 @@ from app.rag.agent.nodes.linear import (
     targeted_retry_node,
     verify_node,
 )
+from app.rag.agent.nodes.reasoning import structured_reasoner_node
 
 __all__ = [
     "GROUNDEDNESS_THRESHOLD",
@@ -113,6 +114,7 @@ __all__ = [
     "plan_tasks_node",
     "reason_node",
     "retrieve_node",
+    "structured_reasoner_node",
     "synthesize_node",
     "targeted_retry_node",
     "verify_node",
