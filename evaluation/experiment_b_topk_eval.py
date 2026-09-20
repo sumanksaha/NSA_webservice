@@ -465,16 +465,17 @@ def _load_set(path: Path, value_keys=("question_id", "k"), skip_errors: bool = F
     """
     done = set()
     if path.exists():
-        for line in path:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            if skip_errors and rec.get("error"):
-                continue
-            k = rec.get("k")
-            key = (rec["question_id"], int(k)) if k is not None else (rec["question_id"], None)
-            done.add(key)
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                if skip_errors and rec.get("error"):
+                    continue
+                k = rec.get("k")
+                key = (rec["question_id"], int(k)) if k is not None else (rec["question_id"], None)
+                done.add(key)
     return done
 
 
@@ -1036,24 +1037,26 @@ def _ki(d: dict):
 def _load_llm_records() -> dict[tuple, dict]:
     recs = {}
     if LLM_CKPT.exists():
-        for line in LLM_CKPT:
-            line = line.strip()
-            if not line:
-                continue
-            r = json.loads(line)
-            recs[(r["question_id"], int(r["k"]))] = r
+        with LLM_CKPT.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                r = json.loads(line)
+                recs[(r["question_id"], int(r["k"]))] = r
     return recs
 
 
 def _load_oracle_records() -> dict[str, dict]:
     recs = {}
     if ORACLE_CKPT.exists():
-        for line in ORACLE_CKPT:
-            line = line.strip()
-            if not line:
-                continue
-            r = json.loads(line)
-            recs[r["question_id"]] = r
+        with ORACLE_CKPT.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                r = json.loads(line)
+                recs[r["question_id"]] = r
     return recs
 
 
@@ -1480,7 +1483,7 @@ def phase_plots():
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, _vals("answer_correctness"), "o-", lw=2, label="Answer Correctness")
     ax.plot(ks, _vals("answer_coverage"), "s--", label="Coverage")
-    ax.plot(ks, _vals("answer_jaccard"), "^-:", label="Jaccard")
+    ax.plot(ks, _vals("answer_jaccard"), "^:", label="Jaccard")
     o = agg["oracle"]
     ax.axhline(o["answer_correctness"], color="red", ls=":", label=f"Oracle ({o['answer_correctness']:.2f})")
     ax.set_xscale("log")
@@ -1567,7 +1570,7 @@ def phase_plots():
     fig, ax = plt.subplots(figsize=(9, 5.5))
     ax.plot(ks, _vals("avg_latency_ms"), "o-", label="mean latency")
     ax.plot(ks, _vals("median_latency_ms"), "s--", label="median latency")
-    ax.plot(ks, _vals("p95_latency_ms"), "^-:", label="P95 latency")
+    ax.plot(ks, _vals("p95_latency_ms"), "^:", label="P95 latency")
     ax.set_xscale("log")
     ax.set_xticks(ks)
     ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: str(int(v))))
