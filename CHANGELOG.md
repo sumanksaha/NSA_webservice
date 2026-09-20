@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added (2026-09-20)
 
 - **FSO strategic advisory reframe (ADR-0006)**: the statutory floor is now a hard legal admissibility *constraint* and Act selection maximizes a computed robust score (zero-sum FSO×FBO maximin + ω·optionality) over admissible acts; new `app/rag/advisor/game.py` payoff model with computed, non-degenerate FBO best responses (defects weak acts, contests prosecution); `fso_act` payload gains `fbo_best_response` / `maximin_value` / `binding_constraint` / `admissible_acts` while every ADR-0003 field and all blueprint §6 spec Acts stay unchanged (`tests/test_rag_advisor_game.py`, 19 tests).
+- **FSO sequential escalation game (ADR-0007)**: extensive-form game over the ladder solved by backward induction — the FSO may close or escalate directly to any higher subgame (`escalate = δ·max_{k>ℓ}V(k) − cost − resp_cost`), FBO best response anticipates escalation, repeat offenders deflate the threat (`δ = 0.3` vs `1.0`, reported as `continuation_discount`); shipped tables collapse to the simultaneous game so all spec Acts hold (`tests/test_rag_advisor_sequential.py`, 13 tests).
+- **FSO calibratable confidence (ADR-0008)**: `HeuristicConfidence` (`heuristic_v1`) reproduces the V1 formula exactly with `confidence_param_set` provenance; `IsotonicConfidence` PAVA table is a drop-in `ConfidenceFn`; new offline harness `app/rag/evaluation/advisor_metrics.py` (Brier / ECE / reliability bins / abstention rate); outcome-learning loop deferred (`tests/test_advisor_confidence.py`, 15 tests).
 
 ### Added (2026-09-13)
 

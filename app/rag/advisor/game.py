@@ -34,10 +34,15 @@ from app.rag.advisor.ladder import ACTION_PROFILES, ActionProfile, EscalationLev
 __all__ = [
     "FSO_RESPONSE_COST",
     "RETENTION",
+    "DELTA_FIRST_TIME",
+    "DELTA_REPEAT",
     "FboStrategy",
+    "continuation_discount",
+    "escalation_subgame_values",
     "fbo_best_response",
     "fso_payoff",
     "fso_payoff_matrix",
+    "sequential_stage_values",
 ]
 
 
@@ -107,4 +112,101 @@ def fso_payoff_matrix() -> dict[EscalationLevel, dict[FboStrategy, float]]:
     return {
         level: {strategy: fso_payoff(profile, strategy) for strategy in FboStrategy}
         for level, profile in ACTION_PROFILES.items()
+    }
+
+
+# ---------------------------------------------------------------------------
+# Extensive-form escalation game (ADR-0007)
+# ---------------------------------------------------------------------------
+
+#: Repeated-game continuation discount (ADR-0007). The FSO–FBO relationship
+#: repeats; the escalation threat behind every low rung is only worth what a
+#: future encounter will actually deliver. A first-time FBO weighs future
+#: statutory consequences fully (δ = 1.0 — the ladder's option value is
+#: intact). A *convicted* FBO has revealed that defiance is sustainable:
+#: the escalation threat loses credibility (δ = 0.3), so only the immediate
+#: statutory effect of the current act counts. The statutory floor still
+#: escalates repeat offences by law (§64); δ explains *why* that is also
+#: strategically sound — it is reported in the payload, not assumed.
+DELTA_FIRST_TIME = 1.0
+DELTA_REPEAT = 0.3
+
+
+def continuation_discount(has_prior_violations: bool) -> float:
+    """Map the FBO's offence history to the continuation discount δ."""
+    return DELTA_REPEAT if has_prior_violations else DELTA_FIRST_TIME
+
+
+def sequential_stage_values(
+    *,
+    retention: dict[EscalationLevel, dict[FboStrategy, float]] | None = None,
+    response_cost: dict[EscalationLevel, dict[FboStrategy, float]] | None = None,
+    profiles: dict[EscalationLevel, ActionProfile] | None = None,
+    discount: float = DELTA_FIRST_TIME,
+) -> dict[EscalationLevel, dict[FboStrategy, float]]:
+    """Solve the escalation game by backward induction (top rung down).
+
+    The tree: the FSO plays act ``a_ℓ`` → the FBO responds ``s`` → on a
+    non-complying response the FSO may **close** (bank ``U(a_ℓ, s)``) or
+    **escalate** directly to any higher rung's subgame (the statutory
+    floor permits skipping — e.g. repeat offences jump straight to
+    prosecution). Escalating keeps the costs already sunk (``cost`` +
+    ``response_cost``) and discards the partial deterrence of the
+    abandoned rung — the higher act re-achieves the statutory outcome on
+    its own — so the continuation value is the best higher subgame:
+
+        escalate(ℓ, s) = δ · max_{k>ℓ} V(k) − cost(ℓ) − response_cost(ℓ, s)
+
+    δ is the repeated-game continuation discount (see above). Each stage
+    row holds ``W(a_ℓ, s) = max(U(a_ℓ, s), escalate)`` — the FBO's best
+    response at ``a_ℓ`` is ``argmin_s W`` *anticipating* escalation, and
+    ``V(ℓ) = min_s W`` is the subgame value the selector scores. Ties
+    resolve to the earliest strategy in declaration order.
+
+    All tables are injectable so tests can exercise the option mechanics
+    with synthetic payoffs; defaults are the shipped seam.
+    """
+    retention = retention if retention is not None else RETENTION
+    response_cost = response_cost if response_cost is not None else FSO_RESPONSE_COST
+    profiles = profiles if profiles is not None else ACTION_PROFILES
+
+    rows: dict[EscalationLevel, dict[FboStrategy, float]] = {}
+    best_future: float | None = None  # max_{k>ℓ} V(k); None at the absorbing top rung
+    for level in sorted(profiles, reverse=True):
+        profile = profiles[level]
+        row: dict[FboStrategy, float] = {
+            strategy: (
+                retention[level][strategy] * profile.deterrence_power
+                - profile.fso_cost
+                - response_cost[level][strategy]
+            )
+            for strategy in FboStrategy
+        }
+        if best_future is not None:
+            for strategy in (FboStrategy.CONTEST, FboStrategy.DEFECT):
+                escalate = discount * best_future - profile.fso_cost - response_cost[level][strategy]
+                if escalate > row[strategy]:
+                    row[strategy] = escalate
+        rows[level] = row
+        subgame_value = min(row.values())
+        best_future = subgame_value if best_future is None else max(best_future, subgame_value)
+    return rows
+
+
+def escalation_subgame_values(
+    *,
+    retention: dict[EscalationLevel, dict[FboStrategy, float]] | None = None,
+    response_cost: dict[EscalationLevel, dict[FboStrategy, float]] | None = None,
+    profiles: dict[EscalationLevel, ActionProfile] | None = None,
+    discount: float = DELTA_FIRST_TIME,
+) -> dict[EscalationLevel, float]:
+    """Per-rung subgame value ``V(ℓ) = min_s W(a_ℓ, s)`` (see above)."""
+    return {
+        level: min(row.values())
+        for level, row in sequential_stage_values(
+            retention=retention,
+            response_cost=response_cost,
+            profiles=profiles,
+            discount=discount,
+        ).items()
     }
