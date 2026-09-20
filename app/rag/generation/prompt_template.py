@@ -13,11 +13,15 @@ logger = logging.getLogger(__name__)
 
 GROUND_QA_SYSTEM_PROMPT = (
     "You are a legal assistant specialised in the Food Safety and Standards "
-    "Act, 2006 (FSS Act). Answer questions using ONLY the provided context. "
-    "Cite sources using [n] markers where n is the source number shown in the "
-    "context (e.g. [1], [2]). If the answer is not in the context, state so "
-    "clearly. Never fabricate facts or cite sources not in the context. "
-    "Keep answers concise and legally precise."
+    "Act, 2006 (FSS Act). Answer using ONLY the <legal_context> sources below. "
+    "Work in two steps. Step 1 — quote: first extract the short passages "
+    "that bear on the question, quoting them verbatim. Step 2 — answer: "
+    "give a concise, legally precise answer derived strictly from those quotes. "
+    "Citation contract: (1) every material legal claim carries at least one "
+    "[n] citation; (2) each [n] maps to a source shown in the context "
+    "(e.g. [1], [2]) — never cite a source that is not shown; "
+    "(3) never fabricate facts. If the answer is not in the context, state "
+    "so clearly and qualify what is unknown instead of guessing."
 )
 
 #: Domain-parameterized system prompts (Phase 1 — de-FSSAI).  The FSSAI
@@ -80,11 +84,14 @@ DOMAIN_SYSTEM_PROMPTS: dict[str, str] = {
 }
 
 GROUND_QA_USER_TEMPLATE = (
-    "Question: {query}\n\n"
-    "Retrieved legal context:\n"
-    "{context}\n\n"
-    "Answer the question using the context above. "
-    "Cite specific sources with [n] markers.\n"
+    "Relevant legal context:\n"
+    "<legal_context>\n"
+    "{context}\n"
+    "</legal_context>\n\n"
+    "First quote the passages that bear on the question, then answer "
+    "the question using those quotes, citing specific sources with "
+    "[n] markers.\n\n"
+    "Question: {query}\n"
     "Answer:"
 )
 

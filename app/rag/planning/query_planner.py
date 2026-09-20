@@ -949,12 +949,18 @@ def _objective_for_requirement(req: Requirement) -> str:
     return type_to_objective.get(req.evidence_type, "identify_evidence")
 
 
+#: Section-like entity token ("51", "31(2)(a)") vs instrument names.
+_SECTION_LIKE_RE = re.compile(r"^\d{1,4}[a-z]?(?:\(\w+\))*$")
+
+
 def _question_for_requirement(req: Requirement, query: str) -> str:
     """Generate a question for a requirement based on the query.
 
     This is the retrieval question for the requirement - the subquery the
     reviewer's architecture wants to derive *from* the requirement, not the
-    other way around.
+    other way around.  Already-extracted entities (instrument, section),
+    jurisdiction and temporal scope qualify the base template so retrieval
+    sees the same identifiers the planner resolved (research rec B).
     """
     evidence_type = req.evidence_type
     subject = req.subject
@@ -980,6 +986,24 @@ def _question_for_requirement(req: Requirement, query: str) -> str:
         evidence_type,
         f"Determine evidence for {subject}",
     )
+
+    # Qualify with resolved identifiers so the subquery is self-contained
+    # for retrieval (research rec B).  Section-like entity tokens are
+    # sections; the remaining non-jurisdiction entity is the instrument.
+    qualifiers: list[str] = []
+    entities = [str(e) for e in (req.entities or [])]
+    section = next((e for e in entities if _SECTION_LIKE_RE.match(e)), None)
+    if section and section not in base_question:
+        qualifiers.append(f"Section {section}")
+    instrument = next((e for e in entities if e != section and e != req.jurisdiction), None)
+    if instrument and instrument not in base_question and instrument not in subject:
+        qualifiers.append(f"under {instrument}")
+    if req.jurisdiction and req.jurisdiction not in base_question:
+        qualifiers.append(f"in {req.jurisdiction}")
+    if req.temporal_scope and req.temporal_scope not in base_question:
+        qualifiers.append(f"({req.temporal_scope})")
+    if qualifiers:
+        base_question += " (" + ", ".join(qualifiers) + ")"
 
     # Add negation clause if applicable
     if req.negation:

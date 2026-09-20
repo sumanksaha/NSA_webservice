@@ -126,6 +126,23 @@ class TestPromptTemplate:
         _sys_p, usr_p = tpl.render("grounded_qa", query="q", context="c", extra_vars={"foo": "bar"})
         assert "q" in usr_p
 
+    def test_grounded_qa_tags_context_and_asks_last(self):
+        # Research rec A: XML-tagged context, question ordered last.
+        _sys_p, usr_p = PromptTemplate().render_default("my query", "my context")
+        assert "<legal_context>" in usr_p and "</legal_context>" in usr_p
+        assert usr_p.rindex("my query") > usr_p.index("</legal_context>")
+
+    def test_grounded_qa_quote_first_instruction(self):
+        # Research rec A: extract relevant quotes before answering.
+        sys_p, _usr_p = PromptTemplate().render_default("my query", "my context")
+        assert "quot" in sys_p.lower()
+
+    def test_grounded_qa_citation_contract(self):
+        # 3-part contract: cite every material claim, [n] ↔ context sources only.
+        sys_p, _usr_p = PromptTemplate().render_default("my query", "my context")
+        assert "[n]" in sys_p
+        assert "not in the context" in sys_p
+
 
 class TestGroundedLLMClient:
     def test_stub_success(self):
