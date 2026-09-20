@@ -35,6 +35,63 @@ from app.shared.config import cfg
 #: Leading section keyword in a section_number field ("Section 31(2)" → "31(2)").
 _LEADING_SECTION_KW_RE = re.compile(r"^\s*(?:section|sec\.|s\.|u/s)\s+", re.IGNORECASE)
 
+#: Cross-reference mentions inside provision text ("subject to Section 32").
+_CROSS_REF_RE = re.compile(r"(?:section|sec\.|s\.|u/s)\s+(\d{1,4}[a-z]?)", re.IGNORECASE)
+
+#: Rule / Schedule mentions ("under Rule 5", "Schedule 2") — kept distinct
+#: from section numbers so section-family logic never confuses them.
+_RULE_REF_RE = re.compile(r"\brule\s+(\d{1,4}[a-z]?)", re.IGNORECASE)
+_SCHEDULE_REF_RE = re.compile(r"\bschedule\s+([a-z0-9\-]+)", re.IGNORECASE)
+
+#: Provision-type detectors in priority order (roadmap §6).  First match wins —
+#: provisos/exceptions override the operative rule they qualify, and "shall not"
+#: must beat bare "shall".  Short markers are word-boundary regexes so plain
+#: prose ("exceptional", "maybe") never counts as operative language.
+#: Keyword lists stay local: sibling seams (evidence_selector,
+#: answer_error_taxonomy) check context-vs-answer on both sides, while this
+#: module classifies a single chunk.
+_PROVISION_TYPE_RULES: tuple[tuple[str, tuple[Any, ...]], ...] = (
+    (
+        "exception",
+        (
+            "provided that",
+            "provided further",
+            "notwithstanding",
+            re.compile(r"\bexcept\b"),
+            "save as",
+            "proviso",
+            "does not apply",
+            "shall not apply",
+            "exempt",
+        ),
+    ),
+    ("definition", ('"means"', "'means'", "definition", "for the purposes of", "shall have the meaning")),
+    ("penalty", ("penalty", "fine", "imprisonment", "punishment", "imprison")),
+    ("prohibition", (re.compile(r"\bshall not\b"), "no person shall", "prohibited", "prohibition")),
+    ("permission", (re.compile(r"\bmay\b"),)),
+    ("obligation", (re.compile(r"\bshall\b"),)),
+    ("procedure", ("procedure", "appeal", "hearing", "tribunal")),
+    ("authority", ("authority", "power to")),
+    ("scope", ("applies to", "extends to", "scope")),
+    ("condition", ("on condition that", "conditional upon", "subject to the condition")),
+)
+
+_EXCEPTION_PATTERNS: tuple[Any, ...] = (
+    "provided that",
+    "notwithstanding",
+    re.compile(r"\bexcept\b"),
+    "subject to",
+    re.compile(r"\bunless\b"),
+    "proviso",
+    "exempt",
+)
+_DEFINITION_MARKERS = ('"means"', "'means'", "definition", "for the purposes of", "shall have the meaning")
+
+#: Quoted term followed by bare "means" ('Food' means ...) — the classic
+#: statutory definition shape.  Kept as a regex (not a substring) so plain
+#: prose like "this means the result" does not count as a definition.
+_QUOTED_MEANS_RE = re.compile(r"""['"][^'"]{1,60}['"]\s+means\b""")
+
 
 @dataclass
 class LegalIdentity:
@@ -64,6 +121,23 @@ class LegalIdentity:
     document_type: str | None = None
     # Raw section string as it appears (e.g. "31(2)(a)")
     raw_section: str | None = None
+    # --- Phase 2 legal-unit enrichment (roadmap §6) ---
+    # Provision type vocabulary: definition / obligation / prohibition /
+    # permission / exception (incl. proviso and exemption) / condition /
+    # procedure / authority / penalty / scope.  None when the text is generic.
+    provision_type: str | None = None
+    # Canonical id of the parent unit ("ACT::31(2)" for "ACT::31(2)(a)").
+    parent_unit: str | None = None
+    # Child canonical ids — empty at single-chunk parse time; the
+    # corpus-wide grouping layer populates these.
+    child_units: list[str] = field(default_factory=list)
+    # Section numbers cross-referenced by the provision text (e.g. ["32"]),
+    # plus Rule / Schedule mentions as "Rule 5" / "Schedule 2".
+    cross_references: list[str] = field(default_factory=list)
+    # Marker flags (word-boundary matched, never fabricated).
+    has_definition: bool = False
+    has_exception: bool = False
+    has_cross_reference: bool = False
 
     def canonical_id(self) -> str:
         """Build a canonical identifier from available fields.
@@ -115,7 +189,42 @@ class LegalIdentity:
             "version": self.version,
             "raw_section": self.raw_section,
             "canonical_id": self.canonical_id(),
+            "provision_type": self.provision_type,
+            "parent_unit": self.parent_unit,
+            "child_units": list(self.child_units),
+            "cross_references": list(self.cross_references),
+            "has_definition": self.has_definition,
+            "has_exception": self.has_exception,
+            "has_cross_reference": self.has_cross_reference,
         }
+
+
+def _marker_hit(marker: Any, lowered: str, raw: str) -> bool:
+    if isinstance(marker, re.Pattern):
+        return marker.search(raw.lower()) is not None
+    return marker in lowered
+
+
+def detect_provision_type(text: str) -> str | None:
+    """Classify a provision by its operative language (first rule wins)."""
+    low = (text or "").lower()
+    for provision_type, markers in _PROVISION_TYPE_RULES:
+        if any(_marker_hit(m, low, text or "") for m in markers):
+            return provision_type
+    if _QUOTED_MEANS_RE.search(text or ""):
+        return "definition"
+    return None
+
+
+def _parent_canonical_id(act: str | None, chain: list[str]) -> str | None:
+    """Canonical id of the parent unit, or None at the top rung."""
+    if len(chain) < 2:
+        return None
+    parent_chain = chain[:-1]
+    section = parent_chain[0]
+    for part in parent_chain[1:]:
+        section += f"({part})"
+    return f"{act}::{section}" if act else section
 
 
 # --------------------------------------------------------------------------- #
@@ -199,6 +308,24 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     identity.authority = authority if authority else None
     identity.source_document = document_title if document_title else None
     identity.document_type = doc_type if doc_type else None
+
+    # --- Phase 2 enrichment: hierarchy links + operative signals ---
+    identity.parent_unit = _parent_canonical_id(identity.act, chain)
+    chunk_text = getattr(chunk, "text", "") or ""
+    if isinstance(chunk, dict):
+        chunk_text = chunk.get("text", "") or ""
+    identity.provision_type = detect_provision_type(chunk_text)
+    low_text = chunk_text.lower()
+    identity.has_exception = any(_marker_hit(m, low_text, chunk_text) for m in _EXCEPTION_PATTERNS)
+    identity.has_definition = any(m in low_text for m in _DEFINITION_MARKERS) or bool(
+        _QUOTED_MEANS_RE.search(chunk_text)
+    )
+    identity.cross_references = sorted(
+        set(_CROSS_REF_RE.findall(chunk_text))
+        | {f"Rule {r}" for r in _RULE_REF_RE.findall(chunk_text)}
+        | {f"Schedule {s}" for s in _SCHEDULE_REF_RE.findall(chunk_text)}
+    )
+    identity.has_cross_reference = bool(identity.cross_references)
 
     return identity
 

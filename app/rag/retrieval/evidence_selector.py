@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +24,7 @@ from app.rag.retrieval.legal_hierarchy import (
     parse_section_chain,
     section_base,
 )
+from app.rag.retrieval.legal_identity import detect_provision_type, parse_legal_identity
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -206,6 +208,59 @@ def re_search_section_ref(text: str) -> bool:
 
 
 # --------------------------------------------------------------------------- #
+# Legal-unit grouping (Phase 2, roadmap §6–§7)
+# --------------------------------------------------------------------------- #
+
+
+def _chunk_score(chunk: Any) -> float:
+    score = getattr(chunk, "score", None)
+    if score is None and isinstance(chunk, dict):
+        score = chunk.get("score")
+    try:
+        return float(score or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _chunk_id(chunk: Any) -> str | None:
+    chunk_id = getattr(chunk, "chunk_id", None)
+    if chunk_id is None and isinstance(chunk, dict):
+        chunk_id = chunk.get("chunk_id")
+    return str(chunk_id) if chunk_id is not None else None
+
+
+def canonical_unit_id(chunk: Any) -> str:
+    """Canonical legal-unit id for a chunk (never fabricated).
+
+    Different payload UUIDs representing the same gold legal unit (Exp A
+    lesson) share one id.  Chunks with no parseable identity fall back to
+    their chunk_id so they are never merged.
+    """
+    try:
+        canonical = parse_legal_identity(chunk).canonical_id()
+    except Exception:
+        canonical = "UNKNOWN"
+    if not canonical or canonical == "UNKNOWN":
+        return f"chunk:{_chunk_id(chunk)}"
+    return canonical
+
+
+def group_chunks_by_unit(ranked_chunks: list[Any]) -> dict[str, list[Any]]:
+    """Group ranked chunks by canonical legal-unit id.
+
+    Best score first within each group; groups ordered by their best
+    member's score.  The selector reasons over unit representatives, not
+    payload UUIDs.
+    """
+    groups: dict[str, list[Any]] = {}
+    for chunk in ranked_chunks:
+        groups.setdefault(canonical_unit_id(chunk), []).append(chunk)
+    for members in groups.values():
+        members.sort(key=_chunk_score, reverse=True)
+    return dict(sorted(groups.items(), key=lambda kv: _chunk_score(kv[1][0]), reverse=True))
+
+
+# --------------------------------------------------------------------------- #
 # Redundancy and complementarity scoring
 # --------------------------------------------------------------------------- #
 
@@ -327,6 +382,7 @@ def select_evidence_set(
 
     query_section = _get_query_section(query)
     items: list[EvidenceItem] = []
+    units: list[str] = []
 
     for _i, chunk in enumerate(ranked_chunks):
         text = getattr(chunk, "text", "") or ""
@@ -340,15 +396,19 @@ def select_evidence_set(
         )
 
         evidence_type = _detect_evidence_type(chunk, query_section)
-        confidence = float(getattr(chunk, "score", 0.0) or 0.0)
+        confidence = _chunk_score(chunk)
+        unit = canonical_unit_id(chunk)
+        units.append(unit)
 
         item = EvidenceItem(
             chunk=chunk,
             evidence_type=evidence_type,
             confidence=confidence,
-            legal_identity=f"{act_name}::{section_number}"
-            if act_name and section_number
-            else (act_name or section_number or ""),
+            legal_identity=unit
+            if not unit.startswith("chunk:")
+            else (
+                f"{act_name}::{section_number}" if act_name and section_number else (act_name or section_number or "")
+            ),
             section_number=section_number,
             act_name=act_name,
             text_snippet=text[:500],
@@ -356,6 +416,21 @@ def select_evidence_set(
         item.redundancy = _compute_redundancy(item, items)
         item.complementarity = _compute_complementarity(item, items)
         items.append(item)
+
+    # Phase 2: one representative per canonical unit (best score first —
+    # items are in ranked order).  Same-unit payloads are explicit
+    # EVIDENCE_DUPLICATE backfill, never silent diversity members.
+    seen_units: set[str] = set()
+    representatives: list[EvidenceItem] = []
+    duplicates: list[EvidenceItem] = []
+    for item, unit in zip(items, units, strict=True):
+        if unit in seen_units:
+            item.evidence_type = EVIDENCE_DUPLICATE
+            item.redundancy = 1.0
+            duplicates.append(item)
+        else:
+            seen_units.add(unit)
+            representatives.append(item)
 
     # Score: CE score * 0.6 + type_priority * 0.2 + complementarity * 0.2 - redundancy * 0.1
     def _score(item: EvidenceItem) -> float:
@@ -369,7 +444,7 @@ def select_evidence_set(
     # Greedy selection: pick highest-scoring non-redundant items, prioritizing
     # diversity of evidence types
     selected: list[EvidenceItem] = []
-    remaining = list(items)
+    remaining = list(representatives)
 
     # Always pick the primary provision first if available
     primary_items = [it for it in remaining if it.evidence_type == EVIDENCE_PRIMARY]
@@ -396,9 +471,10 @@ def select_evidence_set(
 
         selected.append(best)
 
-    # Ensure minimum size
-    if len(selected) < min_size and items:
-        for item in items:
+    # Ensure minimum size: leftover representatives first, then explicit
+    # same-unit duplicates (typed EVIDENCE_DUPLICATE above).
+    if len(selected) < min_size:
+        for item in representatives + duplicates:
             if item not in selected:
                 selected.append(item)
                 if len(selected) >= min_size:
@@ -408,7 +484,8 @@ def select_evidence_set(
 
     rationale = (
         f"Selected {len(selected)} evidence items from "
-        f"{len(ranked_chunks)} ranked chunks. "
+        f"{len(ranked_chunks)} ranked chunks "
+        f"({len(representatives)} distinct legal units). "
         f"Types: {[it.evidence_type for it in selected]}"
     )
 
@@ -417,6 +494,161 @@ def select_evidence_set(
         items=selected,
         total_pool=len(ranked_chunks),
         selection_rationale=rationale,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Definition / exception / cross-reference expansion (Phase 2, roadmap §7)
+# --------------------------------------------------------------------------- #
+
+#: Quoted defined term: 'Food' means ... / "Food" means ...
+_DEFINED_TERM_RE = re.compile(r"""['"]([^'"]{2,40})['"]\s+means\b""", re.IGNORECASE)
+
+
+def _chunk_text(chunk: Any) -> str:
+    text = getattr(chunk, "text", "") or ""
+    if isinstance(chunk, dict):
+        text = chunk.get("text", "") or ""
+    return text
+
+
+def _defined_term(chunk: Any) -> str | None:
+    match = _DEFINED_TERM_RE.search(_chunk_text(chunk))
+    return match.group(1).lower() if match else None
+
+
+def _mentions_section(text: str, section: str | None) -> bool:
+    if not section:
+        return False
+    return re.search(rf"(?:section|sec\.|s\.|u/s)\s+{re.escape(section)}\b", text, re.IGNORECASE) is not None
+
+
+def _as_item(chunk: Any, evidence_type: str, existing: list[EvidenceItem]) -> EvidenceItem:
+    try:
+        ident = parse_legal_identity(chunk)
+        unit = ident.canonical_id()
+        section_number = ident.section
+        act_name = ident.act
+    except Exception:
+        unit, section_number, act_name = "", None, None
+    item = EvidenceItem(
+        chunk=chunk,
+        evidence_type=evidence_type,
+        confidence=_chunk_score(chunk),
+        legal_identity=unit,
+        section_number=section_number,
+        act_name=act_name,
+        text_snippet=_chunk_text(chunk)[:500],
+    )
+    item.redundancy = _compute_redundancy(item, existing)
+    item.complementarity = _compute_complementarity(item, existing)
+    return item
+
+
+def expand_evidence_units(
+    evidence: EvidenceSet,
+    pool: list[Any] | None = None,
+    *,
+    reference_lookup: Callable[[str], list[Any]] | None = None,
+    max_expansion: int = 3,
+) -> EvidenceSet:
+    """Expand an evidence set with missing definitions/exceptions/cross-refs.
+
+    Roadmap §7 flow: after unit grouping, pull in the provisions the set
+    *depends on* — definitions of used terms, exceptions qualifying the
+    rules, and cross-referenced sections — from the CE reservoir (``pool``)
+    plus an optional ``reference_lookup`` (the KG seam: unit id → related
+    chunks; ``KGReasoner`` plugs in here once Neo4j is wired).
+
+    Gaps are filled in definition → exception → cross-reference order,
+    capped at ``max_expansion`` additions.  Units already in the set are
+    never re-added.      Returns a new ``EvidenceSet``; the input is unchanged.
+    """
+    candidates: list[Any] = list(pool) if pool is not None else [it.chunk for it in evidence.items]
+    if reference_lookup is not None:
+        for item in evidence.items:
+            try:
+                extra = reference_lookup(item.legal_identity) or []
+            except Exception:
+                extra = []
+            candidates.extend(extra)
+
+    present_units = {canonical_unit_id(it.chunk) for it in evidence.items}
+    present_types = {it.evidence_type for it in evidence.items}
+    present_type_by_unit: dict[str, set[str]] = {}
+    for it in evidence.items:
+        present_type_by_unit.setdefault(canonical_unit_id(it.chunk), set()).add(it.evidence_type)
+    set_texts = " ".join(_chunk_text(it.chunk).lower() for it in evidence.items)
+    set_sections = {section_base(it.section_number or "") for it in evidence.items if it.section_number}
+
+    def _unit(chunk: Any) -> str:
+        return canonical_unit_id(chunk)
+
+    def _take(predicate: Callable[[Any], bool], wanted: str) -> list[Any]:
+        # A gap is (unit, provision-type): a same-section proviso chunk is
+        # new coverage even though its unit is already present.
+        found: list[Any] = []
+        for chunk in candidates:
+            unit = _unit(chunk)
+            if wanted in present_type_by_unit.get(unit, set()):
+                continue
+            if any(_unit(c) == unit for c in found):
+                continue
+            if predicate(chunk):
+                found.append(chunk)
+        return found
+
+    additions: list[tuple[Any, str]] = []
+
+    # 1. Definitions of terms the set actually uses (word-boundary matched).
+    if EVIDENCE_DEFINITION not in present_types:
+        for chunk in _take(lambda c: detect_provision_type(_chunk_text(c)) == "definition", EVIDENCE_DEFINITION):
+            term = _defined_term(chunk)
+            if term and re.search(rf"\b{re.escape(term)}\b", set_texts):
+                additions.append((chunk, EVIDENCE_DEFINITION))
+
+    # 2. Exceptions qualifying the set's rules (same section family or cited).
+    if EVIDENCE_EXCEPTION not in present_types:
+        for chunk in _take(lambda c: detect_provision_type(_chunk_text(c)) == "exception", EVIDENCE_EXCEPTION):
+            try:
+                section = parse_legal_identity(chunk).section
+            except Exception:
+                section = None
+            text = _chunk_text(chunk)
+            if (section and section_base(section) in set_sections) or any(
+                _mentions_section(text, s) for s in set_sections
+            ):
+                additions.append((chunk, EVIDENCE_EXCEPTION))
+
+    # 3. Cross-referenced sections named by the set.
+    wanted_refs: list[str] = []
+    for item in evidence.items:
+        try:
+            wanted_refs.extend(parse_legal_identity(item.chunk).cross_references)
+        except Exception:
+            continue
+    for ref in dict.fromkeys(wanted_refs):
+        for chunk in candidates:
+            try:
+                section = parse_legal_identity(chunk).section
+            except Exception:
+                continue
+            if section and section_base(section) == ref and _unit(chunk) not in present_units:
+                if not any(_unit(c) == _unit(chunk) for c, _ in additions):
+                    additions.append((chunk, EVIDENCE_CROSS_REFERENCE))
+                break
+
+    items = list(evidence.items)
+    for chunk, evidence_type in additions[: max(0, max_expansion)]:
+        items.append(_as_item(chunk, evidence_type, items))
+        present_units.add(_unit(chunk))
+
+    return EvidenceSet(
+        query=evidence.query,
+        items=items,
+        total_pool=len(candidates),
+        selection_rationale=evidence.selection_rationale
+        + f" Expansion added {len(items) - len(evidence.items)} units.",
     )
 
 

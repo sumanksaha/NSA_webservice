@@ -203,3 +203,143 @@ class TestEvidenceMetrics:
         assert 0 <= batch.avg_recall <= 1.0
         assert 0 <= batch.avg_precision <= 1.0
         assert 0 <= batch.avg_f1 <= 1.0
+
+
+class TestUnitGrouping:
+    """Phase 2 (roadmap §7): group by canonical legal unit, prune UUID-alias duplicates."""
+
+    def _alias_chunks(self) -> list[FakeChunk]:
+        return [
+            FakeChunk(
+                chunk_id="a",
+                text="Section 31 licence requirement alpha wording here.",
+                section_number="31",
+                act_name="FSS Act",
+                score=0.9,
+            ),
+            FakeChunk(
+                chunk_id="b",
+                text="Section 31 licence requirement beta variant wording here.",
+                section_number="31",
+                act_name="Food Safety and Standards Act, 2006",
+                score=0.85,
+            ),
+            FakeChunk(
+                chunk_id="c",
+                text="Section 32 procedure for inspections.",
+                section_number="32",
+                act_name="FSS Act",
+                score=0.8,
+            ),
+        ]
+
+    def test_group_chunks_by_unit_collapses_aliases(self):
+        from app.rag.retrieval.evidence_selector import group_chunks_by_unit
+
+        groups = group_chunks_by_unit(self._alias_chunks())
+        assert len(groups) == 2
+        pair = next(members for members in groups.values() if len(members) == 2)
+        assert [c.chunk_id for c in pair] == ["a", "b"]  # best score first
+
+    def test_selector_prefers_distinct_units(self):
+        es = select_evidence_set("Section 31 licence", self._alias_chunks(), max_size=2)
+        assert sorted(it.section_number for it in es.items) == ["31", "32"]
+
+    def test_backfill_marks_duplicates_explicitly(self):
+        from app.rag.retrieval.evidence_selector import EVIDENCE_DUPLICATE
+
+        chunks = [
+            FakeChunk(chunk_id="c1", text="Section 31 penalty fine alpha.", section_number="31", score=0.9),
+            FakeChunk(chunk_id="c2", text="Section 31 penalty fine beta.", section_number="31", score=0.8),
+        ]
+        es = select_evidence_set("Section 31 penalty", chunks, min_size=2, max_size=5)
+        assert len(es.items) == 2  # min_size preserved
+        assert es.items[1].evidence_type == EVIDENCE_DUPLICATE
+
+
+class TestEvidenceExpansion:
+    """Phase 2 (roadmap §7): definition / exception / cross-ref expansion."""
+
+    def _operative(self) -> FakeChunk:
+        return FakeChunk(
+            chunk_id="op",
+            text="Section 31 requires a licence for food businesses.",
+            section_number="31",
+            act_name="FSS Act",
+            score=0.9,
+        )
+
+    def test_expansion_adds_missing_definition(self):
+        from app.rag.retrieval.evidence_selector import EVIDENCE_DEFINITION, expand_evidence_units
+
+        pool = [
+            self._operative(),
+            FakeChunk(
+                chunk_id="d",
+                text="'Food' means any article used as food for human consumption.",
+                section_number="3",
+                act_name="FSS Act",
+                score=0.7,
+            ),
+        ]
+        es = select_evidence_set("Section 31 licence", [self._operative()], max_size=2)
+        expanded = expand_evidence_units(es, pool)
+        assert any(it.evidence_type == EVIDENCE_DEFINITION for it in expanded.items)
+
+    def test_expansion_adds_missing_exception(self):
+        from app.rag.retrieval.evidence_selector import EVIDENCE_EXCEPTION, expand_evidence_units
+
+        pool = [
+            self._operative(),
+            FakeChunk(
+                chunk_id="e",
+                text="Provided that petty retailers shall be exempt from Section 31.",
+                section_number="31",
+                act_name="FSS Act",
+                score=0.7,
+            ),
+        ]
+        es = select_evidence_set("Section 31 licence", [self._operative()], max_size=2)
+        expanded = expand_evidence_units(es, pool)
+        assert any(it.evidence_type == EVIDENCE_EXCEPTION for it in expanded.items)
+
+    def test_expansion_skips_gaps_already_covered(self):
+        from app.rag.retrieval.evidence_selector import expand_evidence_units
+
+        pool = [self._operative()]
+        es = select_evidence_set("Section 31 licence", [self._operative()], max_size=2)
+        expanded = expand_evidence_units(es, pool)
+        assert len(expanded.items) == len(es.items)
+
+    def test_expansion_uses_lookup_seam(self):
+        from app.rag.retrieval.evidence_selector import EVIDENCE_CROSS_REFERENCE, expand_evidence_units
+
+        xref = FakeChunk(
+            chunk_id="x",
+            text="Section 32 procedure for inspections and sampling.",
+            section_number="32",
+            act_name="FSS Act",
+            score=0.6,
+        )
+        operative = FakeChunk(
+            chunk_id="op",
+            text="Section 31 requires a licence, subject to Section 32 procedure.",
+            section_number="31",
+            act_name="FSS Act",
+            score=0.9,
+        )
+        es = select_evidence_set("Section 31 licence", [operative], max_size=2)
+        expanded = expand_evidence_units(es, [operative], reference_lookup=lambda _unit: [xref])
+        assert any(it.evidence_type == EVIDENCE_CROSS_REFERENCE for it in expanded.items)
+
+    def test_expansion_respects_cap(self):
+        from app.rag.retrieval.evidence_selector import expand_evidence_units
+
+        pool = [
+            self._operative(),
+            FakeChunk(chunk_id="d", text="'Food' means an article.", section_number="3", score=0.7),
+            FakeChunk(chunk_id="e", text="Provided that petty shops are exempt.", section_number="31", score=0.65),
+        ]
+        es = select_evidence_set("Section 31 licence", [self._operative()], max_size=2)
+        expanded = expand_evidence_units(es, pool, max_expansion=1)
+        assert len(expanded.items) == len(es.items) + 1

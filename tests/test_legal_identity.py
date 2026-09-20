@@ -192,3 +192,104 @@ class TestLegalHierarchy:
     def test_hierarchy_proximity_unrelated(self):
         assert hierarchy_proximity("31", "99") == 0.0
         assert hierarchy_proximity(None, None) == 0.0
+
+
+class TestLegalUnitEnrichment:
+    """Phase 2 (roadmap §6): provision type, hierarchy links, legal markers."""
+
+    def test_provision_type_penalty(self):
+        chunk = FakeChunk(
+            text="Whoever contravenes shall be liable to penalty of fine up to ten lakh rupees.",
+            section_number="51",
+            act_name="Food Safety and Standards Act, 2006",
+        )
+        assert parse_legal_identity(chunk).provision_type == "penalty"
+
+    def test_provision_type_definition(self):
+        chunk = FakeChunk(
+            text='"Food" means any article used as food for human consumption.',
+            section_number="3",
+            act_name="Food Safety and Standards Act, 2006",
+        )
+        assert parse_legal_identity(chunk).provision_type == "definition"
+
+    def test_provision_type_exception(self):
+        chunk = FakeChunk(
+            text="Provided that petty retailers shall be exempt from this requirement.",
+            section_number="31",
+            act_name="Food Safety and Standards Act, 2006",
+        )
+        assert parse_legal_identity(chunk).provision_type == "exception"
+
+    def test_provision_type_none_when_generic(self):
+        chunk = FakeChunk(text="Some generic text.", section_number="31", act_name="FSS Act")
+        assert parse_legal_identity(chunk).provision_type is None
+
+    def test_parent_child_chain(self):
+        chunk = FakeChunk(text="t", section_number="31(2)(a)", act_name="FSS Act")
+        ident = parse_legal_identity(chunk)
+        # Canonical act name (alias resolved) — stability across aliases is the point.
+        assert ident.parent_unit == "Food Safety and Standards Act, 2006::31(2)"
+        assert ident.child_units == []
+
+    def test_top_level_has_no_parent(self):
+        chunk = FakeChunk(text="t", section_number="31", act_name="FSS Act")
+        assert parse_legal_identity(chunk).parent_unit is None
+
+    def test_markers_detected(self):
+        chunk = FakeChunk(
+            text="Section 31 applies subject to Section 32. 'Food' means as defined.",
+            section_number="31",
+            act_name="FSS Act",
+        )
+        ident = parse_legal_identity(chunk)
+        assert ident.has_exception is True
+        assert ident.has_definition is True
+        assert ident.has_cross_reference is True
+
+    def test_markers_absent(self):
+        chunk = FakeChunk(text="Plain operative text.", section_number="31", act_name="FSS Act")
+        ident = parse_legal_identity(chunk)
+        assert ident.has_exception is False
+        assert ident.has_definition is False
+        assert ident.has_cross_reference is False
+
+    def test_to_dict_carries_new_fields(self):
+        chunk = FakeChunk(text="t", section_number="31(2)", act_name="FSS Act")
+        d = parse_legal_identity(chunk).to_dict()
+        for key in (
+            "provision_type",
+            "parent_unit",
+            "child_units",
+            "cross_references",
+            "has_definition",
+            "has_exception",
+            "has_cross_reference",
+        ):
+            assert key in d
+
+    def test_plain_prose_is_not_exception_or_permission(self):
+        chunk = FakeChunk(
+            text="In exceptional cases the officer maybe visits the premises.",
+            section_number="31",
+            act_name="FSS Act",
+        )
+        ident = parse_legal_identity(chunk)
+        assert ident.provision_type is None
+        assert ident.has_exception is False
+
+    def test_condition_type(self):
+        chunk = FakeChunk(
+            text="The licence is granted on condition that hygiene is maintained.",
+            section_number="31",
+            act_name="FSS Act",
+        )
+        assert parse_legal_identity(chunk).provision_type == "condition"
+
+    def test_rule_and_schedule_refs_captured(self):
+        chunk = FakeChunk(
+            text="Comply with Rule 5 and Schedule 2 labelling requirements.",
+            section_number="31",
+            act_name="FSS Act",
+        )
+        assert parse_legal_identity(chunk).cross_references == ["Rule 5", "Schedule 2"]
