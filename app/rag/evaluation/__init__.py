@@ -22,7 +22,6 @@ from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
 from app.rag.evaluation.metrics import (
     CoverageMetrics,
     EvalScore,
-    SeparateConfidenceMetrics,
 )
 from app.rag.evaluation.ragas_metrics import (
     AnswerRelevanceMetric,
@@ -52,5 +51,4 @@ __all__ = [
     "FaithfulnessMetric",
     "GroundednessMetric",
     "QueryBenchmark",
-    "SeparateConfidenceMetrics",
 ]
