@@ -127,12 +127,66 @@ def _lookup_field(form_data: dict, field: str):
     return value
 
 
+def _is_retailer_cum_manufacturer(form_data: dict) -> bool:
+    """Is the case a Retailer-cum-Manufacturer loose food (no separate
+    manufacturer, no batch/mfg/expiry)?"""
+    return str(form_data.get("retailer_cum_manufacturer", "")).strip().lower() in (
+        "on", "true", "1", "yes",
+    )
+
+
 def validate_case_file_form(form_data: dict) -> dict[str, str]:
+    rcm = _is_retailer_cum_manufacturer(form_data)
     errors: dict[str, str] = {}
+
+    # --- Required fields ---
+    # Standard required fields for all cases.
+    standard_required = tuple(
+        field
+        for field, label in _REQUIRED_FIELDS.items()
+        if field
+        not in (
+            "manufacturer_fssai",
+            "manufacturer_name",
+            "manufacturer_fbo_name",
+            "manufacturer_address",
+            "batch_no",
+            "mfg_date",
+            "expiry_date",
+            "manufacturer_report_receive_date",
+        )
+    )
     for field, label in _REQUIRED_FIELDS.items():
+        if field not in standard_required:
+            continue
         value = _lookup_field(form_data, field)
         if value is None or (isinstance(value, str) and not value.strip()):
             errors[field] = f"{label} is required."
+
+    # RCM cases: manufacturer identity is the retailer, and loose foods
+    # have no batch/mfg/expiry dates. The missing manufacturer/batch/mfg/expiry
+    # fields are therefore acceptable; manufacturer_report_receive_date is
+    # also absent because no separate manufacturer is served the report.
+    if not rcm:
+        for field in (
+            "manufacturer_fssai",
+            "manufacturer_name",
+            "manufacturer_fbo_name",
+            "manufacturer_address",
+            "batch_no",
+            "mfg_date",
+            "expiry_date",
+            "manufacturer_report_receive_date",
+        ):
+            label = _REQUIRED_FIELDS.get(field, field)
+            if field == "mfg_date" or field == "expiry_date":
+                value = form_data.get(field, "").strip()
+                if not value:
+                    errors[field] = f"{label} is required."
+                continue
+            value = _lookup_field(form_data, field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors[field] = f"{label} is required."
 
     # --- Numeric validations ---
     packet_count = form_data.get("packet_count", "")
@@ -172,6 +226,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
             parsed_dates[field] = dt
 
     # --- Date ordering validation ---
+    # Only enforced when both dates are provided (e.g. non-RCM packaged food).
     if (
         "mfg_date" in parsed_dates
         and "expiry_date" in parsed_dates
@@ -242,8 +297,10 @@ def process_form_data(form_data):
     manufacturer_fssai = case_data.get("manufacturer_fssai", "").strip()
     retailer_fssai = case_data.get("retailer_fssai", "").strip()
     same_entity = derive_same_entity(manufacturer_fssai, retailer_fssai)
-    case_data["same_entity"] = same_entity
-    case_data[DERIVED_SAME_ENTITY] = same_entity
+    _rcm = _is_retailer_cum_manufacturer(case_data)
+    case_data["retailer_cum_manufacturer"] = _rcm
+    case_data["same_entity"] = same_entity or _rcm
+    case_data[DERIVED_SAME_ENTITY] = same_entity or _rcm
 
     for field in date_fields:
         if field in case_data:
@@ -335,20 +392,31 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
         else form_data.get("sample_id")
     )
     case_file.sample_id = _safe_int(sample_id_raw) if sample_id_raw not in (None, "") else None
-    case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
-    case_file.manufacturer_name = form_data.get("manufacturer_name", "")
-    case_file.manufacturer_fbo_name = form_data.get("manufacturer_fbo_name", "")
-    case_file.manufacturer_address = form_data.get("manufacturer_address", "")
-    case_file.retailer_fssai = form_data.get("retailer_fssai", "")
-    case_file.retailer_name = form_data.get("retailer_name", "")
-    case_file.retailer_fbo_name = form_data.get("retailer_fbo_name", "")
-    case_file.retailer_address = form_data.get("retailer_address", "")
+    case_file.retailer_cum_manufacturer = _is_retailer_cum_manufacturer(form_data)
     case_file.product_name = form_data.get("product_name", "")
-    case_file.batch_no = form_data.get("batch_no", "")
-    case_file.sample_quantity = form_data.get("sample_quantity", "")
-    case_file.packet_count = _safe_int(form_data.get("packet_count"), case_file.packet_count)
-    case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
-    case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
+
+    if case_file.retailer_cum_manufacturer:
+        # Retailer-cum-Manufacturer loose food: the retailer is the sole FBO
+        # and the food carries no batch / mfg / expiry numbers at all.
+        case_file.batch_no = ""
+        case_file.mfg_date = None
+        case_file.expiry_date = None
+        case_file.manufacturer_fssai = ""
+        case_file.manufacturer_name = ""
+        case_file.manufacturer_fbo_name = ""
+        case_file.manufacturer_address = ""
+        case_file.manufacturer_report_receive_date = None
+    else:
+        case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
+        case_file.manufacturer_name = form_data.get("manufacturer_name", "")
+        case_file.manufacturer_fbo_name = form_data.get("manufacturer_fbo_name", "")
+        case_file.manufacturer_address = form_data.get("manufacturer_address", "")
+        case_file.batch_no = form_data.get("batch_no", "")
+        case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
+        case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
+        case_file.manufacturer_report_receive_date = parse_date(
+            form_data.get("manufacturer_report_receive_date", "")
+        )
     case_file.other_food_articles = form_data.get("other_food_articles", "")
     case_file.total_cost = form_data.get("total_cost", "")
     case_file.cost_in_words = form_data.get("cost_in_words", "")
@@ -580,6 +648,7 @@ def generate_case_file_route():
             400,
         )
 
+    _rcm = _is_retailer_cum_manufacturer(form_data)
     case_file_record = CaseFile(
         case_number=form_data.get("case_number", ""),
         food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
@@ -587,20 +656,13 @@ def generate_case_file_route():
         inspection_date=parse_date(form_data.get("inspection_date", "")),
         inspection_time=form_data.get("inspection_time", ""),
         sample_id=_safe_int(form_data["sample_id"]) if form_data.get("sample_id") else None,
-        manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
-        manufacturer_name=form_data.get("manufacturer_name", ""),
-        manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
-        manufacturer_address=form_data.get("manufacturer_address", ""),
-        retailer_fssai=form_data.get("retailer_fssai", ""),
-        retailer_name=form_data.get("retailer_name", ""),
-        retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
-        retailer_address=form_data.get("retailer_address", ""),
+        retailer_cum_manufacturer=_rcm,
         product_name=form_data.get("product_name", ""),
-        batch_no=form_data.get("batch_no", ""),
+        batch_no=(form_data.get("batch_no", "")) if not _rcm else "",
         sample_quantity=form_data.get("sample_quantity", ""),
         packet_count=_safe_int(form_data.get("packet_count"), 4),
-        mfg_date=parse_date(form_data.get("mfg_date", "")),
-        expiry_date=parse_date(form_data.get("expiry_date", "")),
+        mfg_date=(parse_date(form_data.get("mfg_date", ""))) if not _rcm else None,
+        expiry_date=(parse_date(form_data.get("expiry_date", ""))) if not _rcm else None,
         other_food_articles=form_data.get("other_food_articles", ""),
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
@@ -615,11 +677,18 @@ def generate_case_file_route():
         directive_letter_no=form_data.get("directive_letter_no", ""),
         directive_letter_date=parse_date(form_data.get("directive_letter_date", "")),
         retailer_report_receive_date=parse_date(form_data.get("retailer_report_receive_date", "")),
-        manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
+        manufacturer_report_receive_date=(
+            parse_date(form_data.get("manufacturer_report_receive_date", ""))
+        ) if not _rcm else None,
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
+    if _rcm:
+        case_file_record.manufacturer_fssai = ""
+        case_file_record.manufacturer_name = ""
+        case_file_record.manufacturer_fbo_name = ""
+        case_file_record.manufacturer_address = ""
 
     db.session.add(case_file_record)
     try:

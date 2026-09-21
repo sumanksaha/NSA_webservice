@@ -103,7 +103,7 @@
             </div>
 
             <div class="column">
-                {% if same_entity %}
+                {% if same_entity or retailer_cum_manufacturer %}
                 <div class="entry">
                     <div><strong>{{ retailer_name }}</strong></div>
                     <div><strong>Retailer-cum-Manufacturer</strong></div>
@@ -178,11 +178,15 @@
                 </li>
                 <li>
                     That in presence of the Sample witnesses, the FSO / Complainant purchased about
-                    {{ sample_quantity }} of {{ product_name }} ({{ packet_count }} packets, {{
-                    batch_no }}, {{ mfg_date }}, {{ expiry_date }} ) (hereinafter referred to as the
-                    “sample”), manufactured by {{ manufacturer_fbo_name }}, {{ manufacturer_address
+                    {{ sample_quantity }} of {{ product_name }}
+                    {% if not retailer_cum_manufacturer %}({{ packet_count }} packets, {{
+                    batch_no }}, {{ mfg_date }}, {{ expiry_date }}){% endif %} (hereinafter
+                    referred to as the “sample”){% if not retailer_cum_manufacturer %},
+                    manufactured by {{ manufacturer_fbo_name }}, {{ manufacturer_address
                     }}, manufacturer Lic No - {{ manufacturer_fssai }}, (herein referred to as the
-                    “manufacturer”), from the food business premises of {{ retailer_fbo_name }},
+                    “manufacturer”), from{% else %}, which was prepared and sold by
+                    {{ retailer_fbo_name }}, {{ retailer_address }}, Lic No - {{ retailer_fssai }},
+                    from{% endif %} the food business premises of {{ retailer_fbo_name }},
                     where it was kept and exhibited for sale for human consumption and the retailer
                     received a total amounting to Rs. {{ total_cost }} ({{ cost_in_words }}) from
                     the complainant toward a sale proceed against which retailer issued a valid cash
@@ -239,13 +243,15 @@
                 <li>
                     That one copy of aforesaid Food Analyst report along with a forwarding letter of
                     Designated Officer vide No {{ directive_letter_no }} Dated {{
-                    directive_letter_date }} has been served upon {% if same_entity %} {{
-                    retailer_name }} on {{ retailer_report_receive_date }} {% else %} {{
-                    retailer_name }} on {{ retailer_report_receive_date }} and to {{
-                    manufacturer_name }} on {{ manufacturer_report_receive_date }} {% endif %} by
-                    the complainant and the receipt of the same has been duly acknowledged. FSO also
-                    asked the manufacturer to prefer an appeal before Designated Officer against the
-                    finding of Food Analyst but the manufacturer did not prefer an appeal against
+                    directive_letter_date }} has been served upon {% if same_entity %}
+                    {{ retailer_name }} on {{ retailer_report_receive_date }}
+                    {% elif not retailer_cum_manufacturer %}
+                    {{ retailer_name }} on {{ retailer_report_receive_date }} and to {{
+                    manufacturer_name }} on {{ manufacturer_report_receive_date }}
+                    {% else %} {{ retailer_name }} on {{ retailer_report_receive_date }} {% endif %}
+                    by the complainant and the receipt of the same has been duly acknowledged. FSO
+                    also asked the manufacturer to prefer an appeal before Designated Officer against
+                    the finding of Food Analyst but the manufacturer did not prefer an appeal against
                     the report of Food Analyst.
                 </li>
                 <li>

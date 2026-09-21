@@ -242,85 +242,93 @@
         <div class="section-header">
             <h3><i class="fa-solid fa-bowl-food"></i> Product & Sample Details</h3>
         </div>
-        <div class="form-row form-row--4">
+        <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="product_name" class="form-label">Product Name</label>
-                <input
-                    type="text"
-                    id="product_name"
-                    name="product_name"
-                    class="form-input"
-                    required
-                    placeholder="e.g., Taaja Jalpan Nilgiri Chanachur"
-                />
-            </div>
-            <div class="form-group">
-                <label for="batch_no" class="form-label">Batch Number</label>
-                <input
-                    type="text"
-                    id="batch_no"
-                    name="batch_no"
-                    class="form-input"
-                    required
-                    placeholder="e.g., IFF"
-                />
-            </div>
-            <div class="form-group">
-                <label for="sample_quantity" class="form-label">Sample Quantity</label>
-                <input
-                    type="text"
-                    id="sample_quantity"
-                    name="sample_quantity"
-                    class="form-input"
-                    required
-                    placeholder="e.g., 1000g"
-                />
-            </div>
-            <div class="form-group">
-                <label for="packet_count" class="form-label">Packet Count</label>
-                <input
-                    type="number"
-                    id="packet_count"
-                    name="packet_count"
-                    class="form-input"
-                    required
-                    placeholder="e.g., 4"
-                />
+                <label for="retailer_cum_manufacturer" class="form-checkbox-label">
+                    <input type="checkbox" id="retailer_cum_manufacturer" name="retailer_cum_manufacturer" />
+                    <span>Retailer-cum-Manufacturer — prepared & sold by the retailer (loose food;
+                    no batch no / mfg date / expiry date)</span>
+                </label>
             </div>
         </div>
+        <div id="rcm_details_wrap" style="display: none;">
+            <div class="form-row form-row--4">
+                <div class="form-group">
+                    <label for="product_name" class="form-label">Product Name</label>
+                    <input
+                        type="text"
+                        id="product_name"
+                        name="product_name"
+                        class="form-input"
+                        required
+                        placeholder="e.g., Singara"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="batch_no" class="form-label">Batch Number</label>
+                    <input
+                        type="text"
+                        id="batch_no"
+                        name="batch_no"
+                        class="form-input"
+                        placeholder="N/A for loose food"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="sample_quantity" class="form-label">Sample Quantity</label>
+                    <input
+                        type="text"
+                        id="sample_quantity"
+                        name="sample_quantity"
+                        class="form-input"
+                        required
+                        placeholder="e.g., 1000g"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="packet_count" class="form-label">Packet Count</label>
+                    <input
+                        type="number"
+                        id="packet_count"
+                        name="packet_count"
+                        class="form-input"
+                        required
+                        placeholder="e.g., 4"
+                    />
+                </div>
+            </div>
 
-        <div class="form-row form-row--4">
-            <div class="form-group">
-                <label for="mfg_date" class="form-label">Date of Manufacturing</label>
-                <input type="date" id="mfg_date" name="mfg_date" class="form-input" required />
-            </div>
-            <div class="form-group">
-                <label for="expiry_date" class="form-label">Date of Expiry</label>
-                <input
-                    type="date"
-                    id="expiry_date"
-                    name="expiry_date"
-                    class="form-input"
-                    required
-                />
-            </div>
-            <div class="form-group">
-                <label for="total_cost" class="form-label">Total Cost (Rs.)</label>
-                <input
-                    type="text"
-                    id="total_cost"
-                    name="total_cost"
-                    class="form-input"
-                    required
-                    placeholder="e.g., 500"
-                />
-            </div>
-            <div class="form-group">
-                <label for="cost_in_words" class="form-label">Cost in Words</label>
-                <input
-                    type="text"
-                    id="cost_in_words"
-                    name="cost_in_words"
+            <div class="form-row form-row--4">
+                <div class="form-group">
+                    <label for="mfg_date" class="form-label">Date of Manufacturing</label>
+                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label for="expiry_date" class="form-label">Date of Expiry</label>
+                    <input
+                        type="date"
+                        id="expiry_date"
+                        name="expiry_date"
+                        class="form-input"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="total_cost" class="form-label">Total Cost (Rs.)</label>
+                    <input
+                        type="text"
+                        id="total_cost"
+                        name="total_cost"
+                        class="form-input"
+                        required
+                        placeholder="e.g., 500"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="cost_in_words" class="form-label">Cost in Words</label>
+                    <input
+                        type="text"
+                        id="cost_in_words"
+                        name="cost_in_words"
                     class="form-input"
                     placeholder="Auto-derived from Total Cost if left empty"
                 />
@@ -804,6 +812,66 @@
             infoDiv.className = "info-box info-box--error";
         }
     }
+
+    // Retailer-cum-Manufacturer checkbox: when checked, the food has no separate
+    // manufacturer and carries no batch / mfg / expiry (loose food).
+    (function () {
+        var rcmCb = document.getElementById("retailer_cum_manufacturer");
+        if (!rcmCb) return;
+        var hidden = function (el) {
+            el.parentElement.style.display = "none";
+            el.required = false;
+        };
+        var shown = function (el) {
+            el.parentElement.style.display = "";
+            el.required = true;
+        };
+        rcmCb.addEventListener("change", function () {
+            var rcm = rcmCb.checked;
+            ["product_name", "batch_no"].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                if (rcm) {
+                    hidden(el);
+                    el.value = "";
+                } else {
+                    shown(el);
+                    el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
+                }
+            });
+            if (!rcm) {
+                var pop = document.getElementById("product_name").parentElement;
+                if (pop) pop.style.display = "";
+                document.getElementById("batch_no").placeholder = "e.g., IFF";
+            }
+            ["sample_quantity", "packet_count"].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.required = !rcm;
+            });
+            var mfgFg = document.getElementById("manufacturer_fssai").parentElement;
+            if (rcm) {
+                mfgFg.style.display = "none";
+                document.getElementById("manufacturer_info").style.display = "none";
+            } else {
+                mfgFg.style.display = "";
+                document.getElementById("manufacturer_info").style.display = "none";
+            }
+            ["manufacturer_name", "manufacturer_fbo_name", "manufacturer_address",
+             "manufacturer_report_receive_date", "mfg_date", "expiry_date"
+            ].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) hidden(el);
+            });
+            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
+            // for non-RCM restore, pulse visible the rcm_details_wrap product group inside
+            if (!rcm) {
+                document.getElementById("product_name").parentElement.style.display = "";
+                document.getElementById("batch_no").parentElement.style.display = "";
+            }
+            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
+        });
+        if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+    })();
 
     // Load sample codes on page load
     document.addEventListener("DOMContentLoaded", loadSampleCodes);

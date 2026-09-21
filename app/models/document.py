@@ -39,15 +39,19 @@ class CaseFile(db.Model):
     retailer_fssai = db.Column(db.String(50), nullable=False)
     retailer_name = db.Column(db.String(200), nullable=False)
     retailer_fbo_name = db.Column(db.String(200), nullable=False)
-    retailer_address = db.Column(db.Text, nullable=False)
+    retailer_address = db.Column(db.Text, nullable=False)    # RCM (Retailer-cum-Manufacturer) loose foods: prepared and sold by the
+    # retailer — no separate manufacturer, no batch/mfg/expiry details.
+    retailer_cum_manufacturer = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.text("0")
+    )
 
     # Product details
     product_name = db.Column(db.String(200), nullable=False)
-    batch_no = db.Column(db.String(100), nullable=False)
+    batch_no = db.Column(db.String(100), nullable=True)
     sample_quantity = db.Column(db.String(100), nullable=False)
     packet_count = db.Column(db.Integer, nullable=False)
-    mfg_date = db.Column(db.DateTime, nullable=False)
-    expiry_date = db.Column(db.DateTime, nullable=False)
+    mfg_date = db.Column(db.DateTime, nullable=True)
+    expiry_date = db.Column(db.DateTime, nullable=True)
     other_food_articles = db.Column(db.String(500))
     total_cost = db.Column(db.String(50))
     cost_in_words = db.Column(db.String(200))
@@ -66,8 +70,7 @@ class CaseFile(db.Model):
     directive_letter_no = db.Column(db.String(100), nullable=False)
     directive_letter_date = db.Column(db.DateTime, nullable=False)
     retailer_report_receive_date = db.Column(db.DateTime, nullable=False)
-    manufacturer_report_receive_date = db.Column(db.DateTime, nullable=False)
-
+    manufacturer_report_receive_date = db.Column(db.DateTime, nullable=True)
     applicable_regulation = db.Column(db.String(200))
     applicable_clause = db.Column(db.String(200))
     sample_name = db.Column(db.String(200))

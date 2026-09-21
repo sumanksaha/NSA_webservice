@@ -62,19 +62,19 @@
             </div>
             <div class="form-group">
                 <label for="manufacturer_name" class="form-label">Manufacturer Name</label>
-                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" value="{{ form.manufacturer_name or '' }}" required />
+                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" value="{{ form.manufacturer_name or '' }}" />
             </div>
         </div>
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="manufacturer_fbo_name" class="form-label">Manufacturer FBO Name</label>
-                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" value="{{ form.manufacturer_fbo_name or '' }}" required />
+                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" value="{{ form.manufacturer_fbo_name or '' }}" />
             </div>
         </div>
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="manufacturer_address" class="form-label">Manufacturer Address</label>
-                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea" required>{{ form.manufacturer_address or '' }}</textarea>
+                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea">{{ form.manufacturer_address or '' }}</textarea>
             </div>
         </div>
 
@@ -103,32 +103,43 @@
         </div>
 
         <div class="section-header"><h3>Product &amp; Sample Details</h3></div>
-        <div class="form-row form-row--3">
+        <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="product_name" class="form-label">Product Name</label>
-                <input type="text" id="product_name" name="product_name" class="form-input" value="{{ form.product_name or '' }}" required />
-            </div>
-            <div class="form-group">
-                <label for="batch_no" class="form-label">Batch Number</label>
-                <input type="text" id="batch_no" name="batch_no" class="form-input" value="{{ form.batch_no or '' }}" required />
-            </div>
-            <div class="form-group">
-                <label for="sample_quantity" class="form-label">Sample Quantity</label>
-                <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" value="{{ form.sample_quantity or '' }}" required />
+                <label for="retailer_cum_manufacturer" class="form-checkbox-label">
+                    <input type="checkbox" id="retailer_cum_manufacturer" name="retailer_cum_manufacturer" {% if form.retailer_cum_manufacturer %}checked{% endif %} />
+                    <span>Retailer-cum-Manufacturer — prepared & sold by the retailer (loose food;
+                    no batch no / mfg date / expiry date)</span>
+                </label>
             </div>
         </div>
-        <div class="form-row form-row--3">
-            <div class="form-group">
-                <label for="packet_count" class="form-label">Packet Count</label>
-                <input type="number" id="packet_count" name="packet_count" class="form-input" value="{{ form.packet_count or '' }}" required />
+        <div id="rcm_details_wrap" style="display: none;">
+            <div class="form-row form-row--3">
+                <div class="form-group">
+                    <label for="product_name" class="form-label">Product Name</label>
+                    <input type="text" id="product_name" name="product_name" class="form-input" value="{{ form.product_name or '' }}" required />
+                </div>
+                <div class="form-group">
+                    <label for="batch_no" class="form-label">Batch Number</label>
+                    <input type="text" id="batch_no" name="batch_no" class="form-input" placeholder="N/A for loose food" value="{{ form.batch_no or '' }}" />
+                </div>
+                <div class="form-group">
+                    <label for="sample_quantity" class="form-label">Sample Quantity</label>
+                    <input type="text" id="sample_quantity" name="sample_quantity" class="form-input" value="{{ form.sample_quantity or '' }}" required />
+                </div>
             </div>
-            <div class="form-group">
-                <label for="mfg_date" class="form-label">Date of Manufacturing</label>
-                <input type="date" id="mfg_date" name="mfg_date" class="form-input" value="{{ form.mfg_date or '' }}" required />
-            </div>
-            <div class="form-group">
-                <label for="expiry_date" class="form-label">Date of Expiry</label>
-                <input type="date" id="expiry_date" name="expiry_date" class="form-input" value="{{ form.expiry_date or '' }}" required />
+            <div class="form-row form-row--3">
+                <div class="form-group">
+                    <label for="packet_count" class="form-label">Packet Count</label>
+                    <input type="number" id="packet_count" name="packet_count" class="form-input" value="{{ form.packet_count or '' }}" required />
+                </div>
+                <div class="form-group">
+                    <label for="mfg_date" class="form-label">Date of Manufacturing</label>
+                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" value="{{ form.mfg_date or '' }}" />
+                </div>
+                <div class="form-group">
+                    <label for="expiry_date" class="form-label">Date of Expiry</label>
+                    <input type="date" id="expiry_date" name="expiry_date" class="form-input" value="{{ form.expiry_date or '' }}" />
+                </div>
             </div>
         </div>
         <div class="form-row form-row--3">
@@ -210,7 +221,50 @@
             </div>
             <div class="form-group">
                 <label for="manufacturer_report_receive_date" class="form-label">Manufacturer Report Receive Date</label>
-                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" value="{{ form.manufacturer_report_receive_date or '' }}" required />
+                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" value="{{ form.manufacturer_report_receive_date or '' }}" />
+            </div>
+        </div>
+        <script>
+            (function () {
+                var rcmCb = document.getElementById("retailer_cum_manufacturer");
+                if (!rcmCb) return;
+                var hidden = function (el) {
+                    el.parentElement.style.display = "none";
+                    el.required = false;
+                };
+                var shown = function (el) {
+                    el.parentElement.style.display = "";
+                    el.required = true;
+                };
+                rcmCb.addEventListener("change", function () {
+                    var rcm = rcmCb.checked;
+                    ["product_name", "batch_no"].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        if (rcm) {
+                            hidden(el);
+                            el.value = "";
+                        } else {
+                            shown(el);
+                            el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
+                        }
+                    });
+                    ["sample_quantity", "packet_count"].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) el.required = !rcm;
+                    });
+                    ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
+                     "manufacturer_address", "manufacturer_report_receive_date", "mfg_date",
+                     "expiry_date"
+                    ].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) hidden(el);
+                    });
+                    document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
+                });
+                if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+            })();
+        \</script\>
             </div>
         </div>
         <div class="form-row form-row--2">
@@ -317,5 +371,45 @@
             )
         );
     }
+
+    // Retailer-cum-Manufacturer checkbox: loose foods have no separate
+    // manufacturer and carry no batch / mfg / expiry.
+    (function () {
+        var rcmCb = document.getElementById("retailer_cum_manufacturer");
+        if (!rcmCb) return;
+        var hidden = function (el) {
+            var group = el.parentElement.parentElement;
+            if (group && group.tagName === "DIV") group.style.display = "none";
+            el.required = false;
+            if (rcmCb.checked) el.value = "";
+        };
+        rcmCb.addEventListener("change", function () {
+            var rcm = rcmCb.checked;
+            ["product_name", "batch_no"].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                if (rcm) {
+                    hidden(el);
+                    el.value = "";
+                } else {
+                    shown(el);
+                    el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
+                }
+            });
+            ["sample_quantity", "packet_count"].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.required = !rcm;
+            });
+            ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
+             "manufacturer_address", "manufacturer_report_receive_date", "mfg_date",
+             "expiry_date"
+            ].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) hidden(el);
+            });
+            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
+        });
+        if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+    })();
 </script>
 {% endblock %}
