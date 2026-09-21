@@ -29,6 +29,7 @@ from app.shared.case_keys import (
     DERIVED_SECTIONS_DISPLAY,
     DERIVED_VIOLATIONS,
 )
+from app.shared.authorization_gate import authorization_gate_response as _authorization_gate_response
 from app.shared.context_derivers import (
     derive_applicable_sections_from_case_file,
     derive_same_entity,
@@ -135,17 +136,64 @@ def _is_retailer_cum_manufacturer(form_data: dict) -> bool:
     )
 
 
+def _generation_embargo_response(retailer_receive, manufacturer_receive):
+    """Return a 403 JSON response if the 30-day appeal window still blocks
+    petition/permission generation, else None.
+
+    The embargo runs from max(retailer, manufacturer report-handover date);
+    files may be generated on/after handover + 30 days.
+    """
+    from app.timeline.engine import generation_gate
+
+    gate = generation_gate(retailer_receive, manufacturer_receive)
+    if not gate["blocked"]:
+        return None
+    earliest = gate["earliest"]
+    handover = gate["handover"]
+    earliest_str = format_date_indian(earliest) if earliest else "—"
+    handover_str = format_date_indian(handover) if handover else "—"
+    return (
+        jsonify({
+            "error": (
+                "Permission/petition files cannot be generated until "
+                f"{earliest_str} (30 days after report handover on {handover_str})."
+            ),
+            "earliest_allowed_date": earliest.isoformat() if earliest else None,
+            "handover_date": handover.isoformat() if handover else None,
+        }),
+        403,
+    )
+
+
+def _generation_gate_info(retailer_receive, manufacturer_receive) -> dict:
+    """Non-blocking gate info for preview responses (warn, don't refuse)."""
+    from app.timeline.engine import generation_gate
+
+    gate = generation_gate(retailer_receive, manufacturer_receive)
+    earliest = gate["earliest"]
+    handover = gate["handover"]
+    return {
+        "generation_blocked": gate["blocked"],
+        "generation_allowed_from": earliest.isoformat() if earliest else None,
+        "handover_date": handover.isoformat() if handover else None,
+    }
+
+
 def validate_case_file_form(form_data: dict) -> dict[str, str]:
     rcm = _is_retailer_cum_manufacturer(form_data)
     errors: dict[str, str] = {}
 
     # --- Required fields ---
     # Standard required fields for all cases.
+    # ``authorization_date`` is intentionally excluded: it is issued by the
+    # Designated Officer when the permission file is submitted, i.e. after
+    # first data entry.  It stays editable and gates petition generation.
     standard_required = tuple(
         field
         for field, label in _REQUIRED_FIELDS.items()
         if field
         not in (
+            "authorization_date",
             "manufacturer_fssai",
             "manufacturer_name",
             "manufacturer_fbo_name",
@@ -486,8 +534,20 @@ def _process_case_file_form(form_data):
 
 
 def _regenerate_case_file(case_id):
-    """Regenerate both Petition and Permission Letter from an existing case."""
+    """Regenerate both Petition and Permission Letter from an existing case.
+
+    Deliberately NOT gated on authorization: the permission file must be
+    obtainable before authorization is issued.  When unauthorized, the
+    bundled petition artifact is a pre-authorization draft — petition-only
+    downloads stay 403 until the date is recorded.
+    """
     case_file = CaseFile.query.get_or_404(case_id)
+    blocked = _generation_embargo_response(
+        case_file.retailer_report_receive_date,
+        case_file.manufacturer_report_receive_date,
+    )
+    if blocked is not None:
+        return blocked
     form_data = case_file_to_dict(case_file)
     case_data = process_form_data(form_data)
 
@@ -508,6 +568,7 @@ def _regenerate_case_file(case_id):
                 "message": "Case file PDF regeneration queued",
                 "case_file_id": case_file.id,
                 "task_id": dispatched["message_id"],
+                "authorization_issued": bool(case_file.authorization_date),
             }),
             202,
         )
@@ -523,6 +584,7 @@ def _regenerate_case_file(case_id):
             "message": "Case file PDF regenerated",
             "case_file_id": case_file.id,
             "pdf_result": result,
+            "authorization_issued": bool(case_file.authorization_date),
         }),
         200,
     )
@@ -617,11 +679,19 @@ def preview_case_file_route():
     petition_html = post_process_pdf_html(petition_html)
     permission_html = post_process_pdf_html(permission_html)
 
-    return jsonify({
+    response = {
         "petition_html": petition_html,
         "permission_html": permission_html,
         "case_number": case_data.get("case_number", ""),
-    })
+        "authorization_issued": bool(parse_date(form_data.get("authorization_date", ""))),
+    }
+    response.update(
+        _generation_gate_info(
+            form_data.get("retailer_report_receive_date", ""),
+            form_data.get("manufacturer_report_receive_date", ""),
+        )
+    )
+    return jsonify(response)
 
 
 @case_file_generator_bp.route("/generate_case_file", methods=["POST"])
@@ -648,6 +718,11 @@ def generate_case_file_route():
             400,
         )
 
+    # The 30-day appeal embargo blocks file generation, NOT data entry: the
+    # record is always persisted below; PDF generation is deferred when the
+    # handover dates are still inside the window.
+    from app.timeline.engine import generation_gate
+
     _rcm = _is_retailer_cum_manufacturer(form_data)
     case_file_record = CaseFile(
         case_number=form_data.get("case_number", ""),
@@ -657,6 +732,14 @@ def generate_case_file_route():
         inspection_time=form_data.get("inspection_time", ""),
         sample_id=_safe_int(form_data["sample_id"]) if form_data.get("sample_id") else None,
         retailer_cum_manufacturer=_rcm,
+        manufacturer_fssai=(form_data.get("manufacturer_fssai", "")) if not _rcm else "",
+        manufacturer_name=(form_data.get("manufacturer_name", "")) if not _rcm else "",
+        manufacturer_fbo_name=(form_data.get("manufacturer_fbo_name", "")) if not _rcm else "",
+        manufacturer_address=(form_data.get("manufacturer_address", "")) if not _rcm else "",
+        retailer_fssai=form_data.get("retailer_fssai", ""),
+        retailer_name=form_data.get("retailer_name", ""),
+        retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
+        retailer_address=form_data.get("retailer_address", ""),
         product_name=form_data.get("product_name", ""),
         batch_no=(form_data.get("batch_no", "")) if not _rcm else "",
         sample_quantity=form_data.get("sample_quantity", ""),
@@ -684,11 +767,6 @@ def generate_case_file_route():
         applicable_clause=form_data.get("applicable_clause", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
-    if _rcm:
-        case_file_record.manufacturer_fssai = ""
-        case_file_record.manufacturer_name = ""
-        case_file_record.manufacturer_fbo_name = ""
-        case_file_record.manufacturer_address = ""
 
     db.session.add(case_file_record)
     try:
@@ -715,7 +793,35 @@ def generate_case_file_route():
         return jsonify({"error": f"Case file sync failed: {e}"}), 500
 
     case_data = process_form_data(form_data)
-    # Synchronous PDF generation (QStash/Celery removed)
+
+    gate = generation_gate(
+        case_file_record.retailer_report_receive_date,
+        case_file_record.manufacturer_report_receive_date,
+    )
+    if gate["blocked"]:
+        earliest = gate["earliest"]
+        handover = gate["handover"]
+        earliest_str = format_date_indian(earliest) if earliest else "—"
+        return (
+            jsonify({
+                "message": (
+                    "Case file saved; PDF generation deferred until "
+                    f"{earliest_str} (30-day appeal window after report handover)."
+                ),
+                "case_file_id": case_file_record.id,
+                "pdf_deferred": True,
+                "earliest_allowed_date": earliest.isoformat() if earliest else None,
+                "handover_date": handover.isoformat() if handover else None,
+                "authorization_issued": bool(case_file_record.authorization_date),
+            }),
+            201,
+        )
+
+    # Synchronous PDF generation (QStash/Celery removed).
+    # NOTE: creation is deliberately NOT gated on authorization — first data
+    # entry precedes it.  When unauthorized, the bundled petition artifact is
+    # a pre-authorization draft; petition-only downloads stay 403 until the
+    # date is recorded.
     from app.case_file_generator.tasks import generate_case_file_pdf
 
     try:
@@ -729,6 +835,8 @@ def generate_case_file_route():
             "message": "Case file created; PDF generated synchronously",
             "case_file_id": case_file_record.id,
             "pdf_result": pdf_result,
+            "pdf_deferred": False,
+            "authorization_issued": bool(case_file_record.authorization_date),
         }),
         200,
     )
@@ -869,6 +977,16 @@ def download_petition_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
+    blocked = _generation_embargo_response(
+        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    )
+    if blocked is not None:
+        return blocked
+
+    authorized = _authorization_gate_response(case.authorization_date)
+    if authorized is not None:
+        return authorized
+
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
     docx_bytes = render_docx("petition", case_data)
@@ -891,6 +1009,12 @@ def download_permission_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
+    blocked = _generation_embargo_response(
+        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    )
+    if blocked is not None:
+        return blocked
+
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
     docx_bytes = render_docx("permission", case_data)
@@ -912,6 +1036,16 @@ def download_both_docx(case_id: int):
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
+
+    blocked = _generation_embargo_response(
+        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    )
+    if blocked is not None:
+        return blocked
+
+    authorized = _authorization_gate_response(case.authorization_date)
+    if authorized is not None:
+        return authorized
 
     import io as _io
     import zipfile
@@ -959,6 +1093,16 @@ def download_petition_pdf(case_id: int):
     case = db.session.get(CaseFile, case_id)
     if case is None:
         return jsonify({"error": "Case not found"}), 404
+
+    blocked = _generation_embargo_response(
+        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    )
+    if blocked is not None:
+        return blocked
+
+    authorized = _authorization_gate_response(case.authorization_date)
+    if authorized is not None:
+        return authorized
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
@@ -1012,6 +1156,17 @@ def copy_letter(case_id: int, doc_type: str):
 
     if doc_type not in ("petition", "permission"):
         return jsonify({"error": "Invalid doc_type"}), 400
+
+    blocked = _generation_embargo_response(
+        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    )
+    if blocked is not None:
+        return blocked
+
+    if doc_type == "petition":
+        authorized = _authorization_gate_response(case.authorization_date)
+        if authorized is not None:
+            return authorized
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)

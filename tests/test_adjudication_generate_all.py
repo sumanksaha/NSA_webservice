@@ -7,7 +7,8 @@ stage helpers (2026-09-12 review):
 1. Happy path: 200, a ZIP attachment, adjudication row persisted.
 2. Sync failure → 500 with an error payload.
 3. ``include_flagged=true`` without ``flag_override_reason`` → 400.
-4. Non-pre-authorization without ``authorization_date`` → 400.
+4. Non-pre-authorization without ``authorization_date`` → 403 (petition gated
+   until authorization is issued).
 5. ``pre_authorization=yes`` → Permission_Letter.pdf naming path.
 
 External I/O is stubbed (sync_row, PDF generation) — the route's own logic
@@ -112,8 +113,8 @@ class TestGenerateAllContract:
         monkeypatch.setattr("app.adjudication.routes.sync_row", mock.Mock())
         data = dict(VALID_FORM, authorization_date="")
         resp = client.post("/adjudication/generate_all", data=data)
-        assert resp.status_code == 400
-        assert "authorization_date" in resp.get_json()["error"]
+        assert resp.status_code == 403
+        assert "authorization" in resp.get_json()["error"].lower()
 
     def test_pre_authorization_yields_permission_letter(self, client, monkeypatch):
         _login(client)

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 
@@ -41,6 +41,16 @@ EVENT_AUTHORIZATION = "authorization"
 EVENT_COMPLIANCE = "compliance"
 EVENT_ANNEXURE = "annexure"
 EVENT_EVIDENCE = "evidence"
+EVENT_PETITION_DEADLINE = "petition_deadline"
+EVENT_GENERATION_ALLOWED = "generation_allowed"
+
+#: Legal deadlines (in days) driving the computed Gantt milestones.
+#: - Petition must be filed within 365 days of the analyst (sample) report.
+#: - Permission/petition files cannot be generated within 30 days of the
+#:   report handover (max of retailer/manufacturer receive dates) — the
+#:   30-day appeal window under S.46(4).
+PETITION_LIMIT_DAYS = 365
+APPEAL_EMBARGO_DAYS = 30
 
 #: Human-readable label, FontAwesome icon, and CSS color per event type.
 _EVENT_META: dict[str, tuple[str, str, str]] = {
@@ -57,7 +67,87 @@ _EVENT_META: dict[str, tuple[str, str, str]] = {
     EVENT_COMPLIANCE: ("Compliance deadline", "fa-calendar-check", "#b3261e"),
     EVENT_ANNEXURE: ("Annexure", "fa-paperclip", "#455a64"),
     EVENT_EVIDENCE: ("Evidence", "fa-folder-open", "#455a64"),
+    EVENT_PETITION_DEADLINE: ("Petition filing deadline", "fa-scale-balanced", "#b3261e"),
+    EVENT_GENERATION_ALLOWED: ("Permission/petition allowed from", "fa-lock-open", "#0b6e4f"),
 }
+
+
+# --------------------------------------------------------------------------- #
+# Legal-deadline helpers (shared with the case-file generation gate)
+# --------------------------------------------------------------------------- #
+
+
+def _coerce_dt(value) -> datetime | None:
+    """Coerce a date/datetime/ISO string to a datetime (None if unparseable)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if hasattr(value, "year") and not isinstance(value, str):
+        from datetime import datetime as _dt
+
+        return _dt.combine(value, _dt.min.time())
+    try:
+        from app.utils.filters import parse_date as _parse
+
+        return _parse(value)
+    except Exception:
+        return None
+
+
+def petition_deadline_for(analyst_report_date) -> datetime | None:
+    """Return analyst_report_date + 365 days (None when no report date)."""
+    base = _coerce_dt(analyst_report_date)
+    if base is None:
+        return None
+    return base + timedelta(days=PETITION_LIMIT_DAYS)
+
+
+def handover_max_date(retailer_receive_date, manufacturer_receive_date) -> datetime | None:
+    """Return the later of the two report-handover dates (None if neither)."""
+    candidates = [
+        _coerce_dt(retailer_receive_date),
+        _coerce_dt(manufacturer_receive_date),
+    ]
+    valid = [d for d in candidates if d is not None]
+    if not valid:
+        return None
+    try:
+        return max(valid)
+    except TypeError:
+        # Mixed naive/aware datetimes — compare by date part as a fallback.
+        return max(valid, key=lambda d: d.date() if hasattr(d, "date") else d)
+
+
+def generation_allowed_from(retailer_receive_date, manufacturer_receive_date) -> datetime | None:
+    """Return handover_max + 30 days (None when no handover date)."""
+    base = handover_max_date(retailer_receive_date, manufacturer_receive_date)
+    if base is None:
+        return None
+    return base + timedelta(days=APPEAL_EMBARGO_DAYS)
+
+
+def generation_gate(
+    retailer_receive_date, manufacturer_receive_date, now: datetime | None = None
+) -> dict:
+    """Evaluate the 30-day appeal-window gate for petition/permission files.
+
+    Returns ``{"blocked", "earliest", "handover", "today"}`` where
+    ``blocked`` is True when *now* (default: today UTC) falls before
+    ``earliest`` (handover_max + 30 days).  Date-part comparison is used
+    so naive/aware mixes never crash; generation is allowed on the
+    30th day itself.
+    """
+    handover = handover_max_date(retailer_receive_date, manufacturer_receive_date)
+    earliest = generation_allowed_from(retailer_receive_date, manufacturer_receive_date)
+    today = now if now is not None else datetime.now(UTC)
+    blocked = False
+    if earliest is not None:
+        try:
+            blocked = today.date() < earliest.date()
+        except Exception:
+            blocked = today < earliest
+    return {"blocked": blocked, "earliest": earliest, "handover": handover, "today": today}
 
 
 @dataclass
@@ -169,11 +259,60 @@ class TimelineEngine:
                     "Directive letter issued" + (f" — {case.directive_letter_no}" if case.directive_letter_no else ""),
                 )
             )
+        if getattr(case, "authorization_date", None):
+            entries.append(
+                TimelineEntry(
+                    EVENT_AUTHORIZATION,
+                    case.authorization_date,
+                    "Authorization issued by the Designated Officer",
+                )
+            )
         if case.retailer_report_receive_date:
             entries.append(TimelineEntry(EVENT_REPLY, case.retailer_report_receive_date, "Retailer reply received"))
         if case.manufacturer_report_receive_date:
             entries.append(
                 TimelineEntry(EVENT_REPLY, case.manufacturer_report_receive_date, "Manufacturer reply received")
+            )
+        entries.extend(self._deadline_entries(case))
+        return entries
+
+    def _deadline_entries(self, case) -> list[TimelineEntry]:
+        """Computed legal-deadline milestones for a CaseFile.
+
+        - Petition filing deadline: analyst_report_date + 365 days.
+        - Permission/petition earliest date: max(handover dates) + 30 days.
+        """
+        entries: list[TimelineEntry] = []
+        analyst_date = getattr(case, "analyst_report_date", None)
+        deadline = petition_deadline_for(analyst_date)
+        if deadline is not None:
+            base = _coerce_dt(analyst_date)
+            base_str = base.strftime("%d-%m-%Y") if base else ""
+            entries.append(
+                TimelineEntry(
+                    EVENT_PETITION_DEADLINE,
+                    deadline,
+                    f"Petition must be filed by {deadline.strftime('%d-%m-%Y')} "
+                    f"(365 days from analyst report {base_str})".strip(),
+                )
+            )
+        earliest = generation_allowed_from(
+            getattr(case, "retailer_report_receive_date", None),
+            getattr(case, "manufacturer_report_receive_date", None),
+        )
+        if earliest is not None:
+            handover = handover_max_date(
+                getattr(case, "retailer_report_receive_date", None),
+                getattr(case, "manufacturer_report_receive_date", None),
+            )
+            handover_str = handover.strftime("%d-%m-%Y") if handover else ""
+            entries.append(
+                TimelineEntry(
+                    EVENT_GENERATION_ALLOWED,
+                    earliest,
+                    f"Permission/petition may be generated on/after {earliest.strftime('%d-%m-%Y')} "
+                    f"(30 days after report handover {handover_str})".strip(),
+                )
             )
         return entries
 
@@ -416,8 +555,85 @@ class TimelineEngine:
             "persisted_count": persisted,
             "generated_at": datetime.now(UTC).isoformat(),
             "events": [self._serialize(e) for e in entries],
-            "warnings": self.validate_sequence(entries),
+            "warnings": self._deadline_warnings(resolved.record, self.validate_sequence(entries)),
+            "deadlines": self._deadline_payload(resolved.record),
         }
+
+    def _deadline_payload(self, record) -> dict:
+        """Serialize the computed legal deadlines for the frontend Gantt.
+
+        Always present (values null when the source dates are missing) so
+        the UI can render a deadline strip without scanning events.
+        """
+        now = datetime.now(UTC)
+        analyst_date = getattr(record, "analyst_report_date", None) if record is not None else None
+        retailer_date = getattr(record, "retailer_report_receive_date", None) if record is not None else None
+        manufacturer_date = (
+            getattr(record, "manufacturer_report_receive_date", None) if record is not None else None
+        )
+        authorization_date = getattr(record, "authorization_date", None) if record is not None else None
+        deadline = petition_deadline_for(analyst_date)
+        gate = generation_gate(retailer_date, manufacturer_date, now=now)
+        earliest = gate["earliest"]
+        handover = gate["handover"]
+        petition_overdue = False
+        if deadline is not None:
+            try:
+                petition_overdue = now.date() > deadline.date()
+            except Exception:
+                petition_overdue = now > deadline
+        return {
+            "petition_deadline": deadline.isoformat() if deadline else None,
+            "petition_deadline_date": deadline.strftime("%Y-%m-%d") if deadline else None,
+            "petition_limit_days": PETITION_LIMIT_DAYS,
+            "petition_overdue": petition_overdue,
+            "handover_max": handover.isoformat() if handover else None,
+            "handover_max_date": handover.strftime("%Y-%m-%d") if handover else None,
+            "generation_allowed_from": earliest.isoformat() if earliest else None,
+            "generation_allowed_from_date": earliest.strftime("%Y-%m-%d") if earliest else None,
+            "embargo_days": APPEAL_EMBARGO_DAYS,
+            "generation_blocked": gate["blocked"],
+            "authorization_issued": authorization_date is not None,
+            "authorization_date": authorization_date.isoformat() if authorization_date else None,
+            "is_pre_authorization": str(getattr(record, "pre_authorization", "no") or "no").strip().lower() == "yes",
+        }
+
+    def _deadline_warnings(self, record, warnings: list[dict]) -> list[dict]:
+        """Append deadline/embargo/authorization notices to the sequence warnings."""
+        if record is not None and hasattr(record, "analyst_report_date"):
+            payload = self._deadline_payload(record)
+            if payload["generation_blocked"] and payload["generation_allowed_from_date"]:
+                warnings.append({
+                    "message": (
+                        "Permission/petition files cannot be generated until "
+                        f"{payload['generation_allowed_from_date']} "
+                        f"(30 days after report handover on {payload['handover_max_date'] or '—'})."
+                    ),
+                    "left": "reply",
+                    "right": EVENT_GENERATION_ALLOWED,
+                })
+            if payload["petition_deadline_date"] and payload["petition_overdue"]:
+                warnings.append({
+                    "message": (
+                        "Petition filing deadline has passed "
+                        f"({payload['petition_deadline_date']}, 365 days from the analyst report)."
+                    ),
+                    "left": EVENT_LAB_REPORT,
+                    "right": EVENT_PETITION_DEADLINE,
+                })
+        if record is not None and hasattr(record, "authorization_date"):
+            # Pre-authorization adjudications have no petition — never warn.
+            is_pre_auth = str(getattr(record, "pre_authorization", "no")).strip().lower() == "yes"
+            if not is_pre_auth and not getattr(record, "authorization_date", None):
+                warnings.append({
+                    "message": (
+                        "Authorization pending — the petition cannot be generated until "
+                        "the Designated Officer issues authorization (on permission submission)."
+                    ),
+                    "left": EVENT_NOTICE,
+                    "right": EVENT_AUTHORIZATION,
+                })
+        return warnings
 
     def _serialize(self, entry: TimelineEntry) -> dict:
         """Serialize a single entry for the JSON API / frontend."""

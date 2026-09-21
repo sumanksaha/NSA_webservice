@@ -627,3 +627,121 @@ class TestTimelineRoutes:
             assert "kind=adjudication" in html
         finally:
             _teardown_test_env(ctx)
+
+
+# --------------------------------------------------------------------------- #
+# Legal deadlines (365-day petition limit + 30-day appeal embargo)
+# --------------------------------------------------------------------------- #
+
+
+class TestLegalDeadlines:
+    def test_petition_deadline_is_report_plus_365(self):
+        from app.timeline.engine import petition_deadline_for
+
+        assert petition_deadline_for(_dt(1, 2)) == _dt(1, 2, year=2027)
+        assert petition_deadline_for(None) is None
+
+    def test_handover_max_and_allowed_from(self):
+        from app.timeline.engine import generation_allowed_from, handover_max_date
+
+        assert handover_max_date(_dt(20, 2), _dt(22, 2)) == _dt(22, 2)
+        assert generation_allowed_from(_dt(20, 2), _dt(22, 2)) == _dt(24, 3)
+        # RCM case — retailer handover alone drives the embargo.
+        assert generation_allowed_from(_dt(20, 2), None) == _dt(22, 3)
+        assert handover_max_date(None, None) is None
+        assert generation_allowed_from(None, None) is None
+
+    def test_generation_gate_blocks_within_30_days(self):
+        from app.timeline.engine import generation_gate
+
+        gate = generation_gate(_dt(20, 2), _dt(22, 2), now=_dt(1, 3))
+        assert gate["blocked"] is True
+        assert gate["earliest"] == _dt(24, 3)
+
+        gate = generation_gate(_dt(20, 2), _dt(22, 2), now=_dt(24, 3))
+        assert gate["blocked"] is False  # allowed on the 30th day itself
+
+        gate = generation_gate(None, None, now=_dt(1, 3))
+        assert gate["blocked"] is False
+
+    def test_deadline_events_in_gantt_extraction(self):
+        from app.extensions import db
+        from app.timeline.engine import TimelineEngine
+
+        _app, _client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db)
+            entries = TimelineEngine().extract(case)
+            by_type = {e.event_type: e for e in entries}
+
+            def _naive(dt):
+                return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+            assert _naive(by_type["petition_deadline"].timestamp) == _naive(_dt(1, 2, year=2027))
+            assert _naive(by_type["generation_allowed"].timestamp) == _naive(_dt(24, 3))
+            stamps = [e.timestamp for e in entries]
+            assert stamps == sorted(stamps)
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_payload_deadlines_and_embargo_warning(self):
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            # Handover within the last 30 days → embargo still active today.
+            case = _make_case_file(
+                db,
+                retailer_report_receive_date=_dt(1, 9),
+                manufacturer_report_receive_date=_dt(5, 9),
+            )
+            data = client.get(f"/timeline/api/case/{case.id}?kind=case_file").get_json()
+            deadlines = data["deadlines"]
+            assert deadlines["petition_deadline_date"] == "2027-02-01"
+            assert deadlines["generation_allowed_from_date"] == "2026-10-05"
+            assert deadlines["handover_max_date"] == "2026-09-05"
+            assert deadlines["generation_blocked"] is True
+            # Handover was recent relative to today → embargo warning present.
+            assert any("cannot be generated" in w["message"] for w in data["warnings"])
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_overdue_petition_warning(self):
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db, analyst_report_date=_dt(1, 1, year=2020))
+            data = client.get(f"/timeline/api/case/{case.id}?kind=case_file").get_json()
+            assert data["deadlines"]["petition_overdue"] is True
+            assert any("deadline has passed" in w["message"] for w in data["warnings"])
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_authorization_event_present_when_issued(self):
+        from app.extensions import db
+        from app.timeline.engine import TimelineEngine
+
+        _app, _client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db)
+            entries = TimelineEngine().extract(case)
+            auth = [e for e in entries if e.event_type == "authorization"]
+            assert len(auth) == 1
+            assert auth[0].timestamp is not None
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_authorization_pending_warning_when_missing(self):
+        from app.extensions import db
+
+        _app, client, ctx = _setup_test_env()
+        try:
+            case = _make_case_file(db, authorization_date=None)
+            data = client.get(f"/timeline/api/case/{case.id}?kind=case_file").get_json()
+            assert data["deadlines"]["authorization_issued"] is False
+            assert data["deadlines"]["authorization_date"] is None
+            assert any("Authorization pending" in w["message"] for w in data["warnings"])
+            assert not any(e["event_type"] == "authorization" for e in data["events"])
+        finally:
+            _teardown_test_env(ctx)

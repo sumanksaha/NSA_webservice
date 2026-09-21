@@ -305,7 +305,7 @@ block extra_css %}
                 />
             </div>
             <div class="form-group" id="authorization_date_field">
-                <label for="authorization_date" class="form-label">Authorization Date</label>
+                <label for="authorization_date" class="form-label">Authorization Date <span class="form-hint">(issued on permission submission — may be added later)</span></label>
                 <input
                     type="date"
                     name="authorization_date"
@@ -632,8 +632,10 @@ block extra_css %}
         const isPreAuth = preAuthToggle.checked;
         authDateField.style.display = isPreAuth ? "none" : "";
         const authDateInput = authDateField.querySelector('[name="authorization_date"]');
+        // Optional at entry: authorization is issued on permission
+        // submission and recorded on the case afterwards.
         if (authDateInput) {
-            authDateInput.required = !isPreAuth;
+            authDateInput.required = false;
             if (isPreAuth) authDateInput.value = "";
         }
     }

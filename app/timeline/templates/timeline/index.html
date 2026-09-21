@@ -159,6 +159,37 @@
     .tl-loading, .tl-error { padding: 40px; text-align: center; color: var(--tl-muted); font-size: 0.9rem; }
     .tl-error { color: var(--tl-red); }
 
+    /* ---- Deadlines ---- */
+    .tl-deadlines { display: none; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .tl-deadlines.show { display: grid; }
+    .tl-deadline {
+        background: var(--tl-card); border: 1px solid var(--tl-line); border-left: 5px solid var(--tl-navy);
+        border-radius: var(--tl-radius); padding: 12px 16px; box-shadow: var(--tl-shadow); font-size: 0.83rem;
+    }
+    .tl-deadline .k { font-size: 0.72rem; color: var(--tl-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .tl-deadline .v { font-size: 1.02rem; font-weight: 700; color: var(--tl-ink); margin-top: 2px; }
+    .tl-deadline .s { color: var(--tl-muted); margin-top: 2px; line-height: 1.45; }
+    .tl-deadline.is-danger { border-left-color: var(--tl-red); }
+    .tl-deadline.is-danger .v { color: var(--tl-red); }
+    .tl-deadline.is-ok { border-left-color: var(--tl-green); }
+    .tl-deadline.is-warn { border-left-color: var(--tl-amber); }
+
+    /* ---- Timeline deadline nodes ---- */
+    .tl-node.is-deadline .tl-label { color: var(--tl-red); }
+    .tl-node.is-embargo .tl-label { color: var(--tl-green); }
+
+    /* ---- Gantt deadline bars ---- */
+    .tl-gantt-bar.is-deadline {
+        background: transparent; color: var(--tl-red);
+        border: 2px dashed var(--tl-red); box-shadow: none;
+        height: 26px; top: 9px;
+    }
+    .tl-gantt-bar.is-embargo {
+        background: transparent; color: var(--tl-green);
+        border: 2px dashed var(--tl-green); box-shadow: none;
+        height: 26px; top: 9px;
+    }
+
     /* ---- Mobile ---- */
     @media (max-width: 767px) {
         .tl-timeline::before { left: 17px; }
@@ -205,6 +236,24 @@
     <div class="tl-stat"><div class="v" id="stSpan">0</div><div class="k">Days span</div></div>
     <div class="tl-stat"><div class="v" id="stDocs">0</div><div class="k">Linked documents</div></div>
     <div class="tl-stat"><div class="v" id="stWarns">0</div><div class="k">Sequence warnings</div></div>
+</div>
+
+<div class="tl-deadlines" id="tlDeadlines">
+    <div class="tl-deadline" id="dlPetition">
+        <div class="k">Petition filing deadline · 365 days from analyst report</div>
+        <div class="v" id="dlPetitionDate">—</div>
+        <div class="s" id="dlPetitionSub"></div>
+    </div>
+    <div class="tl-deadline" id="dlEmbargo">
+        <div class="k">Permission / petition earliest · 30 days after handover</div>
+        <div class="v" id="dlEmbargoDate">—</div>
+        <div class="s" id="dlEmbargoSub"></div>
+    </div>
+    <div class="tl-deadline" id="dlAuth">
+        <div class="k">Authorization · issued on permission submission</div>
+        <div class="v" id="dlAuthDate">—</div>
+        <div class="s" id="dlAuthSub"></div>
+    </div>
 </div>
 
 <div class="tl-card">
@@ -260,6 +309,8 @@
         events.forEach(function (ev, idx) {
             var node = document.createElement("div");
             node.className = "tl-node";
+            if (ev.event_type === "petition_deadline") node.className += " is-deadline";
+            if (ev.event_type === "generation_allowed") node.className += " is-embargo";
             node.style.setProperty("--node-color", ev.color || "#0b3d91");
 
             var marker = document.createElement("div");
@@ -312,6 +363,10 @@
 
         var start = new Date(events[0].timestamp);
         var end = new Date(events[events.length - 1].timestamp);
+        // Keep "today" inside the visible range so deadline overruns stay visible.
+        var now = new Date();
+        if (now < start) start = now;
+        if (now > end) end = now;
         var totalMs = Math.max(1, end - start);
 
         // Month columns for the axis.
@@ -344,8 +399,7 @@
             track.appendChild(line);
         });
 
-        // "Today" marker.
-        var now = new Date();
+        // "Today" marker (now already clamped into range above).
         if (now >= start && now <= end) {
             var nowLine = document.createElement("div");
             nowLine.className = "tl-gantt-now";
@@ -355,12 +409,15 @@
         }
 
         // Bars — single day = 1.6% width minimum so tiny ranges stay visible.
+        // Deadline milestones render as dashed outline bars.
         events.forEach(function (ev) {
             var t = new Date(ev.timestamp);
             var left = ((t - start) / totalMs) * 100;
             var width = Math.max(1.6, (24 * 3600 * 1000) / totalMs * 100);
             var bar = document.createElement("div");
             bar.className = "tl-gantt-bar";
+            if (ev.event_type === "petition_deadline") bar.className += " is-deadline";
+            if (ev.event_type === "generation_allowed") bar.className += " is-embargo";
             bar.style.setProperty("--node-color", ev.color || "#0b3d91");
             bar.style.left = left + "%";
             bar.style.width = width + "%";
@@ -399,6 +456,78 @@
             legend.appendChild(item);
         });
         container.appendChild(legend);
+    }
+
+    // ---- Deadlines ---------------------------------------------------------
+    function daysUntil(iso) {
+        if (!iso) return null;
+        var ms = new Date(iso) - new Date();
+        return Math.ceil(ms / 86400000);
+    }
+
+    function renderDeadlines(d) {
+        var box = document.getElementById("tlDeadlines");
+        if (!d) { box.classList.remove("show"); return; }
+        // Pre-authorization adjudications have no petition track — the auth
+        // card does not apply to them.
+        var authApplies = !d.is_pre_authorization;
+        var authPending = authApplies && d.authorization_issued === false;
+        var hasAny = d.petition_deadline_date || d.generation_allowed_from_date
+            || d.authorization_date || authPending;
+        box.classList.toggle("show", !!hasAny);
+        if (!hasAny) return;
+
+        var pet = document.getElementById("dlPetition");
+        var petDate = document.getElementById("dlPetitionDate");
+        var petSub = document.getElementById("dlPetitionSub");
+        petDate.textContent = d.petition_deadline_date ? fmtDate(d.petition_deadline) : "—";
+        if (d.petition_deadline_date) {
+            var left = daysUntil(d.petition_deadline);
+            petSub.textContent = d.petition_overdue
+                ? "Overdue — petition should already have been filed."
+                : (left === 0 ? "Due today." : "Due in " + left + " day" + (left === 1 ? "" : "s") + ".");
+            pet.className = "tl-deadline " + (d.petition_overdue ? "is-danger" : "is-warn");
+        } else {
+            petSub.textContent = "Needs an analyst report date.";
+            pet.className = "tl-deadline";
+        }
+
+        var emb = document.getElementById("dlEmbargo");
+        var embDate = document.getElementById("dlEmbargoDate");
+        var embSub = document.getElementById("dlEmbargoSub");
+        embDate.textContent = d.generation_allowed_from_date ? fmtDate(d.generation_allowed_from) : "—";
+        if (d.generation_allowed_from_date) {
+            if (d.generation_blocked) {
+                var wait = daysUntil(d.generation_allowed_from);
+                embSub.textContent = "Blocked — permission/petition files cannot be generated yet"
+                    + (wait !== null && wait > 0 ? " (in " + wait + " day" + (wait === 1 ? "" : "s") + ")." : ".")
+                    + (d.handover_max_date ? " Handover: " + d.handover_max_date + "." : "");
+            } else {
+                embSub.textContent = "Appeal window elapsed — files may be generated."
+                    + (d.handover_max_date ? " Handover: " + d.handover_max_date + "." : "");
+            }
+            emb.className = "tl-deadline " + (d.generation_blocked ? "is-warn" : "is-ok");
+        } else {
+            embSub.textContent = "Needs a report handover (receive) date.";
+            emb.className = "tl-deadline";
+        }
+
+        var auth = document.getElementById("dlAuth");
+        var authDate = document.getElementById("dlAuthDate");
+        var authSub = document.getElementById("dlAuthSub");
+        if (!authApplies) {
+            auth.style.display = "none";
+        } else if (d.authorization_date) {
+            auth.style.display = "";
+            authDate.textContent = fmtDate(d.authorization_date);
+            authSub.textContent = "Issued — petition records this date.";
+            auth.className = "tl-deadline is-ok";
+        } else {
+            auth.style.display = "";
+            authDate.textContent = "Pending";
+            authSub.textContent = "Petition cannot be generated until authorization is issued.";
+            auth.className = "tl-deadline is-warn";
+        }
     }
 
     // ---- Refresh -----------------------------------------------------------
@@ -468,6 +597,7 @@
 
                 renderTimeline(events, document.getElementById("tlTimeline"));
                 renderGantt(events, document.getElementById("tlGantt"));
+                renderDeadlines(data.deadlines);
             })
             .catch(function (err) {
                 showError("Failed to load the timeline: " + err.message);

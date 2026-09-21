@@ -22,7 +22,9 @@ class CaseFile(db.Model):
     }
     case_number = db.Column(db.String(100), nullable=False)
     food_safety_officer_name = db.Column(db.String(100), nullable=False)
-    authorization_date = db.Column(db.DateTime, nullable=False)
+    # Issued later by the Designated Officer when the permission file is
+    # submitted — optional at first data entry, recorded on the petition.
+    authorization_date = db.Column(db.DateTime, nullable=True)
     inspection_date = db.Column(db.DateTime, nullable=False)
     inspection_time = db.Column(db.String(100), nullable=False)
 

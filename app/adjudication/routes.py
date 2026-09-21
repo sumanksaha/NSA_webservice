@@ -50,6 +50,7 @@ from app.shared.context_derivers import (
     derive_violations,
 )
 from app.shared.document_case_manager import DocumentCaseManager
+from app.shared.authorization_gate import authorization_gate_response as _authorization_gate_response
 from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
@@ -279,10 +280,10 @@ def validate_adjudication_form(form_data: dict) -> dict[str, str]:
             label = _ADJUDICATION_REQUIRED_FIELDS.get(field, field.replace("_", " ").title())
             errors[field] = f"{label} must be a valid date."
 
-    # authorization_date is required when NOT pre-authorization
-    is_pre_authorization = str(form_data.get("pre_authorization", "no")).strip().lower() == "yes"
-    if not is_pre_authorization and not form_data.get("authorization_date", "").strip():
-        errors["authorization_date"] = "Authorization Date is required for non-pre-authorization cases."
+    # authorization_date is NOT required at entry: like the sample track, it
+    # is issued by the Designated Officer when the permission file is
+    # submitted (after first data entry), stays editable, and gates petition
+    # generation.  Format is still validated when a value is given.
 
     return errors
 
@@ -579,8 +580,9 @@ def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
-        if not form_data.get("authorization_date"):
-            return jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
+        gated = _authorization_gate_response(form_data.get("authorization_date"))
+        if gated is not None:
+            return gated
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -663,6 +665,7 @@ def preview_adjudication_route():
         "petition_html": petition_html,
         "permission_html": permission_html,
         "case_number": form_data.get("case_number", ""),
+        "authorization_issued": bool((form_data.get("authorization_date") or "").strip()),
     })
 
 
@@ -851,12 +854,9 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
-        if not form_data.get("authorization_date"):
-            abort(
-                make_response(
-                    jsonify({"error": "authorization_date is required for non-pre-authorization cases."}), 400
-                )
-            )
+        gated = _authorization_gate_response(form_data.get("authorization_date"))
+        if gated is not None:
+            abort(make_response(*gated))
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -945,6 +945,14 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     }
 
     if doc_type == "petition":
+        if str(adj.pre_authorization or "no").strip().lower() == "yes":
+            return (
+                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                400,
+            )
+        gated = _authorization_gate_response(adj.authorization_date)
+        if gated is not None:
+            return gated
         docx_bytes = render_adoc_to_docx("template_nonsample_petition.adoc", context)
         download_name = f"Adjudication_Petition_{adj.case_number or case_id}.docx"
         return send_file(
@@ -963,6 +971,14 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     elif doc_type == "zip":
+        if str(adj.pre_authorization or "no").strip().lower() == "yes":
+            return (
+                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                400,
+            )
+        gated = _authorization_gate_response(adj.authorization_date)
+        if gated is not None:
+            return gated
         petition_docx = render_adoc_to_docx("template_nonsample_petition.adoc", context)
         permission_docx = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
         label = adj.case_number or str(case_id)
@@ -1016,6 +1032,10 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
             jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
             400,
         )
+
+    gated = _authorization_gate_response(adj.authorization_date)
+    if gated is not None:
+        return gated
 
     required = dict(_ADJUDICATION_PETITION_REQUIRED)
     # Template renders the trade-license branch when the FBO is unlicensed
@@ -1098,6 +1118,16 @@ def copy_letter(case_id: int, doc_type: str):
 
     if doc_type not in ("petition", "permission"):
         return jsonify({"error": "Invalid doc_type"}), 400
+
+    if doc_type == "petition":
+        if str(adj.pre_authorization or "no").strip().lower() == "yes":
+            return (
+                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                400,
+            )
+        gated = _authorization_gate_response(adj.authorization_date)
+        if gated is not None:
+            return gated
 
     form_data = adjudication_to_dict(adj)
     context = _prepare_adjudication_context(form_data)
