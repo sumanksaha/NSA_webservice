@@ -724,7 +724,7 @@
 
     // Unified FSSAI lookup for manufacturer and retailer
     async function lookupFssai(type) {
-        const fssaiInput = document.getElementById(`${type}_fssai_license`);
+        const fssaiInput = document.getElementById(`${type}_fssai`);
         const licenseNo = fssaiInput.value.trim();
         const infoDiv = document.getElementById(`${type}_info`);
 
