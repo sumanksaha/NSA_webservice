@@ -32,7 +32,9 @@ else
     # flask db upgrade is idempotent — safe to run on every container start.
     # Uses FLASK_APP=app:create_app (app.py at project root → create_app factory).
     # Fail-loud: a broken migration prevents the container from serving traffic.
-    flask db upgrade
+    # SKIP_SCHEMA_CHECK=1 is scoped to this repair run: the boot-time schema
+    # check must not block the migration that repairs the drift.
+    SKIP_SCHEMA_CHECK=1 flask db upgrade
     echo "[entrypoint] Migrations complete."
 fi
 

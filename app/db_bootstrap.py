@@ -8,8 +8,10 @@ possibly-fresh or partially-migrated database usable at boot:
 1. Fallback ``db.create_all()`` when core tables are missing.
 2. Alembic ``stamp head`` on a truly fresh database.
 3. Schema self-heal for mid-chain migrations Alembic can never replay.
-4. FTS5 search virtual table creation (SQLite no-op on PostgreSQL).
-5. Default admin account seed on first boot.
+4. Fail-loud required-columns check (tables exist but a migration's
+   columns never applied — ``flask db upgrade`` is a no-op at head).
+5. FTS5 search virtual table creation (SQLite no-op on PostgreSQL).
+6. Default admin account seed on first boot.
 
 Behaviour is intentionally identical to the previous inline block — this is
 a move, not a rewrite.
@@ -23,6 +25,95 @@ from pathlib import Path
 from flask import Flask
 
 from app.extensions import db
+
+
+#: Tables whose mapped columns must exist on disk, not just on the model.
+#: Expected columns are derived from model metadata (never hardcoded), so
+#: both failure modes fail loud at boot instead of 500ing every read with
+#: ``ProgrammingError`` f405 (``UndefinedColumn``):
+#: (a) a migration never applied to a DB stamped at head (``flask db
+#: upgrade`` is a silent no-op there), and (b) a model change shipped
+#: without any migration (e.g. ``retailer_cum_manufacturer``, which broke
+#: ``GET /case_file_generator/`` on every pre-existing database while
+#: fresh ``create_all`` databases worked). Genuinely missing *tables* are
+#: owned by ``create_all``/self-heal above and are skipped here.
+def _required_table_models() -> dict[str, type]:
+    from app import models
+
+    return {
+        "case_files": models.CaseFile,
+        "adjudications": models.Adjudication,
+        "inspection": models.Inspection,
+    }
+
+
+#: Manual remediation (idempotent PostgreSQL) for the drift seen in the
+#: wild: archive columns (``add_archive_columns_to_cases``), auditor
+#: columns (``add_auditor_plan_to_inspection``), and the migration-less
+#: ``retailer_cum_manufacturer`` (``add_retailer_cum_manufacturer`` covers
+#: it going forward). Prefer ``flask db upgrade``; use this when the
+#: version table is already at/above the revision that should have applied.
+_MANUAL_REPAIR_SQL_PG = """\
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITHOUT TIME ZONE;
+CREATE INDEX IF NOT EXISTS idx_case_files_is_archived ON case_files (is_archived);
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS retailer_cum_manufacturer BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITHOUT TIME ZONE;
+CREATE INDEX IF NOT EXISTS idx_adjudications_is_archived ON adjudications (is_archived);
+ALTER TABLE inspection ADD COLUMN IF NOT EXISTS auditor_plan_json TEXT;
+ALTER TABLE inspection ADD COLUMN IF NOT EXISTS dossier_verified BOOLEAN NOT NULL DEFAULT FALSE;"""
+
+#: Same repair for local SQLite (no ``IF NOT EXISTS`` support on
+#: ``ADD COLUMN`` there — remove any line for a column already present).
+_MANUAL_REPAIR_SQL_SQLITE = """\
+ALTER TABLE case_files ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE case_files ADD COLUMN archived_at DATETIME;
+ALTER TABLE case_files ADD COLUMN retailer_cum_manufacturer BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE adjudications ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE adjudications ADD COLUMN archived_at DATETIME;
+ALTER TABLE inspection ADD COLUMN auditor_plan_json TEXT;
+ALTER TABLE inspection ADD COLUMN dossier_verified BOOLEAN NOT NULL DEFAULT 0;"""
+
+
+def _verify_required_columns(app: Flask, engine) -> None:
+    """Refuse to boot when a present table lacks model-mapped columns.
+
+    Raises ``RuntimeError`` naming the table/columns and how to repair.
+    Skip with ``SKIP_SCHEMA_CHECK=1`` (mirrors ``SKIP_DB_MIGRATION``).
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    if os.environ.get("SKIP_SCHEMA_CHECK") == "1":
+        app.logger.warning("SKIP_SCHEMA_CHECK=1 — skipping required-columns schema check")
+        return
+    inspector = sa_inspect(engine)
+    tables = set(inspector.get_table_names())
+    missing: dict[str, list[str]] = {}
+    for table, model in _required_table_models().items():
+        if table not in tables:
+            continue
+        expected = [col.name for col in model.__table__.columns]
+        present = {col["name"] for col in inspector.get_columns(table)}
+        absent = [col for col in expected if col not in present]
+        if absent:
+            missing[table] = absent
+    if not missing:
+        return
+    detail = "; ".join(f"{table} missing {', '.join(cols)}" for table, cols in sorted(missing.items()))
+    app.logger.error(
+        "Schema check failed: %s. A migration never applied to this "
+        "database, or the model changed without one (and `flask db upgrade` "
+        "is a no-op once stamped at/above the revision).",
+        detail,
+    )
+    manual_sql = _MANUAL_REPAIR_SQL_PG if engine.dialect.name != "sqlite" else _MANUAL_REPAIR_SQL_SQLITE
+    raise RuntimeError(
+        f"Database schema is missing required columns: {detail}. "
+        "Repair with `SKIP_SCHEMA_CHECK=1 flask db upgrade` (the env var lets "
+        "the pre-upgrade app boot far enough to run the migration), or apply "
+        f"the columns manually: {manual_sql}"
+    )
 
 
 def bootstrap_database(app: Flask) -> None:
@@ -93,6 +184,10 @@ def bootstrap_database(app: Flask) -> None:
                             )
             except Exception as exc:
                 app.logger.warning("Schema self-heal skipped: %s", exc)
+
+        # Fail loud on tables that exist but lack migration-owned columns
+        # (upgrade-at-head can never repair them — see module docstring).
+        _verify_required_columns(app, engine)
 
         # Create FTS5 search virtual table on SQLite (no-op on PostgreSQL).
         # This runs unconditionally so the table exists even on a pre-existing

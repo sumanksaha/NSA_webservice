@@ -39,8 +39,8 @@ services:
       # preDeployCommand requires a paid instance plan; on free tier it is
       # ignored, so startCommand retains an idempotent `flask db upgrade`
       # boot-time fallback — migrations always run on at least one path.
-      preDeployCommand: FLASK_APP=app:create_app flask db upgrade
-      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
+      preDeployCommand: SKIP_SCHEMA_CHECK=1 FLASK_APP=app:create_app flask db upgrade  # SKIP_SCHEMA_CHECK: the repair run must boot against a drifted schema
+      startCommand: SKIP_SCHEMA_CHECK=1 FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000  # SKIP_SCHEMA_CHECK scoped to the repair run only
       envVars:
           - key: DATABASE_URL
             fromDatabase:
@@ -145,8 +145,8 @@ services:
       buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium && apt-get update && apt-get install -y libgobject-2.0-0 libpango-1.0-0 libpangoft2-1.0.0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libfontconfig1 && bash scripts/install_pandoc.sh /usr/local/bin
       # G3: pre-deploy migrations — same pattern as production (with the
       # same idempotent boot-time fallback for free-tier plans)
-      preDeployCommand: FLASK_APP=app:create_app flask db upgrade
-      startCommand: FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000
+      preDeployCommand: SKIP_SCHEMA_CHECK=1 FLASK_APP=app:create_app flask db upgrade  # SKIP_SCHEMA_CHECK: the repair run must boot against a drifted schema
+      startCommand: SKIP_SCHEMA_CHECK=1 FLASK_APP=app:create_app flask db upgrade && uvicorn asgi:app --host 0.0.0.0 --port 10000  # SKIP_SCHEMA_CHECK scoped to the repair run only
       envVars:
           - key: DATABASE_URL
             fromDatabase:
