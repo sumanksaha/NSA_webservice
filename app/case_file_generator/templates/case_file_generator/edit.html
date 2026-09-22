@@ -62,19 +62,19 @@
             </div>
             <div class="form-group">
                 <label for="manufacturer_name" class="form-label">Manufacturer Name</label>
-                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" value="{{ form.manufacturer_name or '' }}" />
+                <input type="text" id="manufacturer_name" name="manufacturer_name" class="form-input" value="{{ form.manufacturer_name or '' }}" required />
             </div>
         </div>
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="manufacturer_fbo_name" class="form-label">Manufacturer FBO Name</label>
-                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" value="{{ form.manufacturer_fbo_name or '' }}" />
+                <input type="text" id="manufacturer_fbo_name" name="manufacturer_fbo_name" class="form-input" value="{{ form.manufacturer_fbo_name or '' }}" required />
             </div>
         </div>
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="manufacturer_address" class="form-label">Manufacturer Address</label>
-                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea">{{ form.manufacturer_address or '' }}</textarea>
+                <textarea id="manufacturer_address" name="manufacturer_address" class="form-textarea" required>{{ form.manufacturer_address or '' }}</textarea>
             </div>
         </div>
 
@@ -112,7 +112,7 @@
                 </label>
             </div>
         </div>
-        <div id="rcm_details_wrap" style="display: none;">
+        <div id="rcm_details_wrap">
             <div class="form-row form-row--3">
                 <div class="form-group">
                     <label for="product_name" class="form-label">Product Name</label>
@@ -120,7 +120,7 @@
                 </div>
                 <div class="form-group">
                     <label for="batch_no" class="form-label">Batch Number</label>
-                    <input type="text" id="batch_no" name="batch_no" class="form-input" placeholder="N/A for loose food" value="{{ form.batch_no or '' }}" />
+                    <input type="text" id="batch_no" name="batch_no" class="form-input" placeholder="N/A for loose food" value="{{ form.batch_no or '' }}" required />
                 </div>
                 <div class="form-group">
                     <label for="sample_quantity" class="form-label">Sample Quantity</label>
@@ -134,11 +134,11 @@
                 </div>
                 <div class="form-group">
                     <label for="mfg_date" class="form-label">Date of Manufacturing</label>
-                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" value="{{ form.mfg_date or '' }}" />
+                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" value="{{ form.mfg_date or '' }}" required />
                 </div>
                 <div class="form-group">
                     <label for="expiry_date" class="form-label">Date of Expiry</label>
-                    <input type="date" id="expiry_date" name="expiry_date" class="form-input" value="{{ form.expiry_date or '' }}" />
+                    <input type="date" id="expiry_date" name="expiry_date" class="form-input" value="{{ form.expiry_date or '' }}" required />
                 </div>
             </div>
         </div>
@@ -221,50 +221,7 @@
             </div>
             <div class="form-group">
                 <label for="manufacturer_report_receive_date" class="form-label">Manufacturer Report Receive Date</label>
-                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" value="{{ form.manufacturer_report_receive_date or '' }}" />
-            </div>
-        </div>
-        <script>
-            (function () {
-                var rcmCb = document.getElementById("retailer_cum_manufacturer");
-                if (!rcmCb) return;
-                var hidden = function (el) {
-                    el.parentElement.style.display = "none";
-                    el.required = false;
-                };
-                var shown = function (el) {
-                    el.parentElement.style.display = "";
-                    el.required = true;
-                };
-                rcmCb.addEventListener("change", function () {
-                    var rcm = rcmCb.checked;
-                    ["product_name", "batch_no"].forEach(function (id) {
-                        var el = document.getElementById(id);
-                        if (!el) return;
-                        if (rcm) {
-                            hidden(el);
-                            el.value = "";
-                        } else {
-                            shown(el);
-                            el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
-                        }
-                    });
-                    ["sample_quantity", "packet_count"].forEach(function (id) {
-                        var el = document.getElementById(id);
-                        if (el) el.required = !rcm;
-                    });
-                    ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
-                     "manufacturer_address", "manufacturer_report_receive_date", "mfg_date",
-                     "expiry_date"
-                    ].forEach(function (id) {
-                        var el = document.getElementById(id);
-                        if (el) hidden(el);
-                    });
-                    document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
-                });
-                if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
-            })();
-        \</script\>
+                <input type="date" id="manufacturer_report_receive_date" name="manufacturer_report_receive_date" class="form-input" value="{{ form.manufacturer_report_receive_date or '' }}" required />
             </div>
         </div>
         <div class="form-row form-row--2">
@@ -372,44 +329,52 @@
         );
     }
 
-    // Retailer-cum-Manufacturer checkbox: loose foods have no separate
-    // manufacturer and carry no batch / mfg / expiry.
-    (function () {
-        var rcmCb = document.getElementById("retailer_cum_manufacturer");
-        if (!rcmCb) return;
-        var hidden = function (el) {
-            var group = el.parentElement.parentElement;
-            if (group && group.tagName === "DIV") group.style.display = "none";
-            el.required = false;
-            if (rcmCb.checked) el.value = "";
-        };
-        rcmCb.addEventListener("change", function () {
-            var rcm = rcmCb.checked;
-            ["product_name", "batch_no"].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (!el) return;
-                if (rcm) {
-                    hidden(el);
-                    el.value = "";
-                } else {
-                    shown(el);
-                    el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
-                }
-            });
-            ["sample_quantity", "packet_count"].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) el.required = !rcm;
-            });
-            ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
-             "manufacturer_address", "manufacturer_report_receive_date", "mfg_date",
-             "expiry_date"
-            ].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) hidden(el);
-            });
-            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
-        });
-        if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
-    })();
+    // RCM toggle (single canonical handler): hides manufacturer identity
+    // + batch / mfg / expiry groups when Retailer-cum-Manufacturer is
+    // checked; product_name / sample_quantity / packet_count stay visible
+    // and required in both modes.
+            (function () {
+                var rcmCb = document.getElementById("retailer_cum_manufacturer");
+                if (!rcmCb) return;
+                var rcmFieldIds = ["manufacturer_fssai", "manufacturer_name",
+                 "manufacturer_fbo_name", "manufacturer_address",
+                 "manufacturer_report_receive_date",
+                 "batch_no", "mfg_date", "expiry_date"];
+                var origRequired = {};
+                rcmFieldIds.forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) origRequired[id] = el.required;
+                });
+                rcmCb.addEventListener("change", function () {
+                    var rcm = rcmCb.checked;
+                    // Manufacturer identity + batch / mfg / expiry apply only
+                    // to non-RCM (packaged) food. product_name,
+                    // sample_quantity and packet_count stay visible and
+                    // required in both modes — the server requires them for
+                    // RCM cases too. Values are never cleared here: the
+                    // server blanks irrelevant fields on save.
+                    // Restoring a field brings back its original required
+                    // flag so the form is identical before and after a
+                    // toggle cycle.
+                    ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
+                     "manufacturer_address", "manufacturer_report_receive_date",
+                     "batch_no", "mfg_date", "expiry_date"
+                    ].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        var group = el.closest ? (el.closest(".form-group") || el.parentElement) : el.parentElement;
+                        if (rcm) {
+                            group.style.display = "none";
+                            el.required = false;
+                        } else {
+                            group.style.display = "";
+                            el.required = !!origRequired[id];
+                        }
+                    });
+                    var batchEl = document.getElementById("batch_no");
+                    if (batchEl) batchEl.placeholder = rcm ? "N/A for loose food" : "e.g., IFF";
+                });
+                if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+            })();
 </script>
 {% endblock %}

@@ -251,7 +251,7 @@
                 </label>
             </div>
         </div>
-        <div id="rcm_details_wrap" style="display: none;">
+        <div id="rcm_details_wrap">
             <div class="form-row form-row--4">
                 <div class="form-group">
                     <label for="product_name" class="form-label">Product Name</label>
@@ -271,6 +271,7 @@
                         id="batch_no"
                         name="batch_no"
                         class="form-input"
+                        required
                         placeholder="N/A for loose food"
                     />
                 </div>
@@ -301,7 +302,7 @@
             <div class="form-row form-row--4">
                 <div class="form-group">
                     <label for="mfg_date" class="form-label">Date of Manufacturing</label>
-                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" />
+                    <input type="date" id="mfg_date" name="mfg_date" class="form-input" required />
                 </div>
                 <div class="form-group">
                     <label for="expiry_date" class="form-label">Date of Expiry</label>
@@ -310,6 +311,7 @@
                         id="expiry_date"
                         name="expiry_date"
                         class="form-input"
+                        required
                     />
                 </div>
                 <div class="form-group">
@@ -818,57 +820,46 @@
     (function () {
         var rcmCb = document.getElementById("retailer_cum_manufacturer");
         if (!rcmCb) return;
-        var hidden = function (el) {
-            el.parentElement.style.display = "none";
-            el.required = false;
+        var groupOf = function (el) {
+            if (el.closest) {
+                var group = el.closest(".form-group");
+                if (group) return group;
+            }
+            return el.parentElement;
         };
-        var shown = function (el) {
-            el.parentElement.style.display = "";
-            el.required = true;
-        };
+        var rcmFieldIds = ["manufacturer_fssai", "manufacturer_name", "manufacturer_fbo_name",
+         "manufacturer_address", "manufacturer_report_receive_date",
+         "batch_no", "mfg_date", "expiry_date"];
+        var origRequired = {};
+        rcmFieldIds.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) origRequired[id] = el.required;
+        });
         rcmCb.addEventListener("change", function () {
             var rcm = rcmCb.checked;
-            ["product_name", "batch_no"].forEach(function (id) {
+            // Manufacturer identity + batch / mfg / expiry apply only to
+            // non-RCM (packaged) food. product_name, sample_quantity and
+            // packet_count stay visible and required in both modes — the
+            // server requires them for RCM cases too. Restoring a field
+            // brings back its original required flag (not a hardcoded one)
+            // so the form is identical before and after a toggle cycle.
+            rcmFieldIds.forEach(function (id) {
                 var el = document.getElementById(id);
                 if (!el) return;
                 if (rcm) {
-                    hidden(el);
+                    groupOf(el).style.display = "none";
+                    el.required = false;
                     el.value = "";
                 } else {
-                    shown(el);
-                    el.placeholder = id === "batch_no" ? "e.g., IFF" : "e.g., Taaja Jalpan Nilgiri Chanachur";
+                    groupOf(el).style.display = "";
+                    el.required = !!origRequired[id];
                 }
             });
-            if (!rcm) {
-                var pop = document.getElementById("product_name").parentElement;
-                if (pop) pop.style.display = "";
-                document.getElementById("batch_no").placeholder = "e.g., IFF";
-            }
-            ["sample_quantity", "packet_count"].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) el.required = !rcm;
-            });
-            var mfgFg = document.getElementById("manufacturer_fssai").parentElement;
-            if (rcm) {
-                mfgFg.style.display = "none";
-                document.getElementById("manufacturer_info").style.display = "none";
-            } else {
-                mfgFg.style.display = "";
-                document.getElementById("manufacturer_info").style.display = "none";
-            }
-            ["manufacturer_name", "manufacturer_fbo_name", "manufacturer_address",
-             "manufacturer_report_receive_date", "mfg_date", "expiry_date"
-            ].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) hidden(el);
-            });
-            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
-            // for non-RCM restore, pulse visible the rcm_details_wrap product group inside
-            if (!rcm) {
-                document.getElementById("product_name").parentElement.style.display = "";
-                document.getElementById("batch_no").parentElement.style.display = "";
-            }
-            document.getElementById("rcm_details_wrap").style.display = rcm ? "" : "none";
+            var batchEl = document.getElementById("batch_no");
+            if (batchEl) batchEl.placeholder = rcm ? "N/A for loose food" : "e.g., IFF";
+            // FSSAI lookup result boxes are re-shown on demand by lookups.
+            var mfgInfo = document.getElementById("manufacturer_info");
+            if (mfgInfo) mfgInfo.style.display = "none";
         });
         if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
     })();

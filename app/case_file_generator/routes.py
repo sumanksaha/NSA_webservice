@@ -13,7 +13,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 """
 
 import io
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from flask_login import login_required
@@ -105,6 +105,17 @@ def _safe_int(value, default=None):
         return int(value) if value not in (None, "") else default
     except (TypeError, ValueError):
         return default
+
+
+# Date fields irrelevant for Retailer-cum-Manufacturer loose food (no
+# separate manufacturer, no batch/mfg/expiry). Skipped by every date
+# check below when RCM — the server blanks them on save, so stale hidden
+# values must not fail validation.
+_RCM_EXEMPT_DATE_FIELDS = frozenset({
+    "mfg_date",
+    "expiry_date",
+    "manufacturer_report_receive_date",
+})
 
 
 # Model-cased keys accepted as aliases of their canonical form keys.
@@ -267,11 +278,25 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
         value = form_data.get(field, "")
         if not value:
             continue
+        if rcm and field in _RCM_EXEMPT_DATE_FIELDS:
+            # Stale hidden values on RCM cases: the server blanks these on
+            # save, so they must not fail validation (this also keeps them
+            # out of parsed_dates, skipping the future/ordering rules).
+            continue
         dt = _parse_date(value)
         if dt is None:
             errors[field] = f"{_REQUIRED_FIELDS.get(field, field)} must be a valid date."
         else:
             parsed_dates[field] = dt
+
+    # --- No-future-dates rule ---
+    # These dates record events that already happened (authorization,
+    # draws, receipts, reports). Expiry is excluded: it is normally in
+    # the future (and is separately constrained to be after mfg_date).
+    today = date.today()
+    for field, dt in parsed_dates.items():
+        if field != "expiry_date" and dt.date() > today:
+            errors[field] = f"{_REQUIRED_FIELDS.get(field, field)} must not be a future date."
 
     # --- Date ordering validation ---
     # Only enforced when both dates are provided (e.g. non-RCM packaged food).
@@ -479,7 +504,6 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.directive_letter_no = form_data.get("directive_letter_no", "")
     case_file.directive_letter_date = parse_date(form_data.get("directive_letter_date", ""))
     case_file.retailer_report_receive_date = parse_date(form_data.get("retailer_report_receive_date", ""))
-    case_file.manufacturer_report_receive_date = parse_date(form_data.get("manufacturer_report_receive_date", ""))
     case_file.applicable_regulation = form_data.get("applicable_regulation", "")
     case_file.applicable_clause = form_data.get("applicable_clause", "")
     case_file.applicable_sections = ", ".join(get_applicable_sections(form_data))
@@ -491,6 +515,8 @@ def _process_case_file_form(form_data):
 
     packet_count = _safe_int(form_data.get("packet_count"), 4)
 
+    rcm = _is_retailer_cum_manufacturer(form_data)
+
     return CaseFile(
         case_number=form_data.get("case_number", ""),
         food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
@@ -498,20 +524,21 @@ def _process_case_file_form(form_data):
         inspection_date=parse_date(form_data.get("inspection_date", "")),
         inspection_time=form_data.get("inspection_time", ""),
         sample_id=sample_id,
-        manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
-        manufacturer_name=form_data.get("manufacturer_name", ""),
-        manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
-        manufacturer_address=form_data.get("manufacturer_address", ""),
+        retailer_cum_manufacturer=rcm,
+        manufacturer_fssai="" if rcm else form_data.get("manufacturer_fssai", ""),
+        manufacturer_name="" if rcm else form_data.get("manufacturer_name", ""),
+        manufacturer_fbo_name="" if rcm else form_data.get("manufacturer_fbo_name", ""),
+        manufacturer_address="" if rcm else form_data.get("manufacturer_address", ""),
         retailer_fssai=form_data.get("retailer_fssai", ""),
         retailer_name=form_data.get("retailer_name", ""),
         retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
         retailer_address=form_data.get("retailer_address", ""),
         product_name=form_data.get("product_name", ""),
-        batch_no=form_data.get("batch_no", ""),
+        batch_no="" if rcm else form_data.get("batch_no", ""),
         sample_quantity=form_data.get("sample_quantity", ""),
         packet_count=packet_count,
-        mfg_date=parse_date(form_data.get("mfg_date", "")),
-        expiry_date=parse_date(form_data.get("expiry_date", "")),
+        mfg_date=None if rcm else parse_date(form_data.get("mfg_date", "")),
+        expiry_date=None if rcm else parse_date(form_data.get("expiry_date", "")),
         other_food_articles=form_data.get("other_food_articles", ""),
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
@@ -526,7 +553,9 @@ def _process_case_file_form(form_data):
         directive_letter_no=form_data.get("directive_letter_no", ""),
         directive_letter_date=parse_date(form_data.get("directive_letter_date", "")),
         retailer_report_receive_date=parse_date(form_data.get("retailer_report_receive_date", "")),
-        manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
+        manufacturer_report_receive_date=(
+            None if rcm else parse_date(form_data.get("manufacturer_report_receive_date", ""))
+        ),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),

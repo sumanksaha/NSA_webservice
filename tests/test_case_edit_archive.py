@@ -192,6 +192,37 @@ class TestCaseFileEditArchive:
         assert resp.status_code == 400
         assert "product_name" in resp.get_json()["errors"]
 
+    def test_put_rcm_blanks_manufacturer_fields(self, client):
+        """Switching a case to RCM must blank manufacturer identity, batch,
+        mfg/expiry, and the manufacturer report date — even when the form
+        posts stale values for them.
+
+        Regression: apply_case_file_update blanked the report date but an
+        unconditional overwrite below restored the stale value, which then
+        fed generation_gate's max() and could wrongly extend the 30-day
+        embargo.
+        """
+        _login(client)
+        with client.application.app_context():
+            case_id = _seed_case_file()
+        data = dict(
+            CASE_FILE_FORM,
+            retailer_cum_manufacturer="on",
+            manufacturer_report_receive_date="2026-02-01",
+            batch_no="STALE",
+        )
+        resp = client.put(f"/case_file_generator/case/{case_id}", data=data)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        with client.application.app_context():
+            case = db.session.get(CaseFile, case_id)
+            assert case.retailer_cum_manufacturer is True
+            assert case.manufacturer_report_receive_date is None
+            assert case.manufacturer_fssai == ""
+            assert case.batch_no == ""
+            assert case.mfg_date is None
+            # Always-required fields survive the switch.
+            assert case.product_name == "Mustard Oil"
+
     def test_archive_hides_from_lists_but_keeps_data(self, client):
         _login(client)
         with client.application.app_context():
