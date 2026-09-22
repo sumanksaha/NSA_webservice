@@ -955,6 +955,12 @@
                 result.case_file_id +
                 " created. " +
                 TaskPoll.downloadLink({ file_path: filePath }, "Download Case Files (ZIP)");
+            if (result.sync_warning) {
+                statusBox.innerHTML +=
+                    "<br><span><i class='fa-solid fa-triangle-exclamation'></i> " +
+                    result.sync_warning +
+                    " Refresh the page to see the new row in the table below.</span>";
+            }
         });
     });
 </script>

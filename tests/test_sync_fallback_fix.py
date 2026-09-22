@@ -139,6 +139,45 @@ class TestCaseFileSyncFallback:
         assert "Case file created" in body["message"]
         assert body["pdf_result"]["status"] == "ok"
 
+    def test_sync_failure_still_saves_case_file(self, app_client):
+        """Sync is best-effort: a Sheets outage must not fail the save.
+
+        Regression for the prod report (save errored with "sync failed"
+        although the row was in Postgres): the record is committed before
+        sync, so the route must succeed and surface the sync problem as a
+        non-blocking warning.
+        """
+        from app.case_file_generator import routes as cfr
+        from app.models import CaseFile
+
+        fake_pdf_result = {
+            "status": "ok",
+            "file_path": "pdfs/case_files/2026/08/case_1.zip",
+        }
+
+        with (
+            patch.object(cfr, "sync_row", side_effect=RuntimeError("sheets down")),
+            patch(
+                "app.case_file_generator.tasks.generate_case_file_pdf",
+                return_value=fake_pdf_result,
+            ),
+        ):
+            with app_client.session_transaction() as sess:
+                sess["_user_id"] = "1"
+                sess["_fresh"] = True
+
+            resp = app_client.post("/case_file_generator/generate_case_file", data=_VALID_FORM_DATA)
+
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        body = resp.get_json()
+        assert "Case file created" in body["message"]
+        assert body.get("sync_warning"), "sync failure must be surfaced as a warning"
+
+        from app.extensions import db as _db
+
+        with app_client.application.app_context():
+            assert _db.session.query(CaseFile).count() == 1
+
     def test_sync_mode_task_error_returns_500(self, app_client):
         """When the PDF task raises, the route returns 500 with the error."""
         from app.case_file_generator import routes as cfr

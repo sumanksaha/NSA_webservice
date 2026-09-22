@@ -5,7 +5,7 @@ tests pin its observable contract before splitting the 179-line body into
 stage helpers (2026-09-12 review):
 
 1. Happy path: 200, a ZIP attachment, adjudication row persisted.
-2. Sync failure → 500 with an error payload.
+2. Sync failure → save still succeeds (warn-only); the row persists.
 3. ``include_flagged=true`` without ``flag_override_reason`` → 400.
 4. Non-pre-authorization without ``authorization_date`` → 403 (petition gated
    until authorization is issued).
@@ -87,16 +87,25 @@ class TestGenerateAllContract:
         sync.assert_called_once()
         assert sync.call_args.kwargs.get("entity_id") is not None
 
-    def test_sync_failure_returns_500(self, client, monkeypatch):
+    def test_sync_failure_does_not_block_save(self, client, monkeypatch):
+        """Sync is best-effort: the committed record must still download.
+
+        Regression for the prod report (save errored with "sync failed"
+        although the row was in Postgres): a Sheets outage must not fail
+        the save — warn-only, matching inspection/sample/edit/archive.
+        """
         _login(client)
         _fake_pdf(monkeypatch)
         monkeypatch.setattr(
             "app.adjudication.routes.sync_row",
-            mock.Mock(side_effect=RuntimeError("airtable down")),
+            mock.Mock(side_effect=RuntimeError("sheets down")),
         )
         resp = client.post("/adjudication/generate_all", data=VALID_FORM)
-        assert resp.status_code == 500
-        assert "sync failed" in resp.get_json()["error"].lower()
+        assert resp.status_code == 200
+
+        from app.models import Adjudication
+
+        assert Adjudication.query.count() == 1
 
     def test_include_flagged_requires_reason(self, client, monkeypatch):
         _login(client)

@@ -702,8 +702,10 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
     """Persist the new Adjudication with RBAC scoping, inspection link, and sync.
 
     Phase 18 RBAC: an fso-role account always owns what it creates.  The
-    Sheets/Airtable/Excel sync is mandatory and synchronous — a failure
-    aborts the request with 500 (after rolling back).
+    Sheets/Airtable/Excel sync is best-effort and synchronous — the record
+    is committed before it, so a sync failure is logged and the save still
+    succeeds (matches inspection/sample/edit/archive paths; persistence
+    never depends on sync).
     """
     from flask_login import current_user
 
@@ -792,9 +794,9 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
         row_dict["created_at"] = adj.created_at.isoformat() if adj.created_at else ""
         sync_row("non_sample", row_dict, entity_id=adj.id)
     except Exception as e:
-        current_app.logger.error(f"Adjudication sync failed: {e}")
-        db.session.rollback()
-        abort(make_response(jsonify({"error": f"Adjudication sync failed: {e}"}), 500))
+        # Best-effort: adj is committed above, so a Sheets outage must not
+        # fail the save (a post-commit rollback could not undo it anyway).
+        current_app.logger.warning(f"Adjudication {adj.id} sync failed (non-fatal): {e}")
 
     return adj
 

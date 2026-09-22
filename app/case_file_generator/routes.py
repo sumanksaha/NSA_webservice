@@ -788,9 +788,12 @@ def generate_case_file_route():
         row_dict["applicable_sections"] = case_file_record.applicable_sections
         row_dict["sample_id"] = case_file_record.sample_id
         sync_row("sample", row_dict, entity_id=case_file_record.id)
+        sync_warning = None
     except Exception as e:
-        current_app.logger.error(f"Case File sync failed: {e}")
-        return jsonify({"error": f"Case file sync failed: {e}"}), 500
+        # Best-effort: the record is committed above, so a Sheets outage
+        # must not fail the save — surface it as a non-blocking warning.
+        current_app.logger.warning(f"Case file {case_file_record.id} sync failed (non-fatal): {e}")
+        sync_warning = f"Table sync failed ({e}); the case file was saved."
 
     case_data = process_form_data(form_data)
 
@@ -813,6 +816,7 @@ def generate_case_file_route():
                 "earliest_allowed_date": earliest.isoformat() if earliest else None,
                 "handover_date": handover.isoformat() if handover else None,
                 "authorization_issued": bool(case_file_record.authorization_date),
+                "sync_warning": sync_warning,
             }),
             201,
         )
@@ -837,6 +841,7 @@ def generate_case_file_route():
             "pdf_result": pdf_result,
             "pdf_deferred": False,
             "authorization_issued": bool(case_file_record.authorization_date),
+            "sync_warning": sync_warning,
         }),
         200,
     )
