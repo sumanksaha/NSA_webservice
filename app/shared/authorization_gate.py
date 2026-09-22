@@ -11,6 +11,13 @@ from __future__ import annotations
 
 from flask import jsonify
 
+#: Shared denial text (also used by the generation-access seam so the two
+#: never drift apart).
+AUTHORIZATION_REQUIRED_ERROR = (
+    "Petition cannot be generated until authorization is issued. "
+    "Submit the permission file first, then record the authorization date on the case."
+)
+
 
 def authorization_gate_response(authorization_date):
     """Return a 403 JSON response when no authorization has been issued yet.
@@ -27,15 +34,7 @@ def authorization_gate_response(authorization_date):
     normalized = _normalize(authorization_date)
     if normalized:
         return None
-    return (
-        jsonify({
-            "error": (
-                "Petition cannot be generated until authorization is issued. "
-                "Submit the permission file first, then record the authorization date on the case."
-            ),
-        }),
-        403,
-    )
+    return (jsonify({"error": AUTHORIZATION_REQUIRED_ERROR}), 403)
 
 
 def _normalize(value):

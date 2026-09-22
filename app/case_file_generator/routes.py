@@ -29,14 +29,19 @@ from app.shared.case_keys import (
     DERIVED_SECTIONS_DISPLAY,
     DERIVED_VIOLATIONS,
 )
-from app.shared.authorization_gate import authorization_gate_response as _authorization_gate_response
 from app.shared.context_derivers import (
     derive_applicable_sections_from_case_file,
     derive_same_entity,
     derive_sections_display,
 )
 from app.shared.document_case_manager import DocumentCaseManager
+from app.shared.generation_access import check_generation_allowed
+from app.shared.rcm_policy import EXEMPT_DATE_FIELDS as _RCM_EXEMPT_DATE_FIELDS
+from app.shared.rcm_policy import EXEMPT_FIELDS as _RCM_EXEMPT_FIELDS
+from app.shared.rcm_policy import is_rcm as _rcm_policy_is_rcm
+from app.shared.rcm_policy import stripped_for_save as _rcm_stripped_for_save
 from app.utils.auth import admin_required
+from app.utils.filters import form_date
 from app.utils.filters import format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
@@ -107,17 +112,6 @@ def _safe_int(value, default=None):
         return default
 
 
-# Date fields irrelevant for Retailer-cum-Manufacturer loose food (no
-# separate manufacturer, no batch/mfg/expiry). Skipped by every date
-# check below when RCM — the server blanks them on save, so stale hidden
-# values must not fail validation.
-_RCM_EXEMPT_DATE_FIELDS = frozenset({
-    "mfg_date",
-    "expiry_date",
-    "manufacturer_report_receive_date",
-})
-
-
 # Model-cased keys accepted as aliases of their canonical form keys.
 # ``case_file_to_dict()`` / export payloads use model column names
 # (e.g. ``Lab_Registration_No``) while forms, templates, and the canonical
@@ -141,39 +135,12 @@ def _lookup_field(form_data: dict, field: str):
 
 def _is_retailer_cum_manufacturer(form_data: dict) -> bool:
     """Is the case a Retailer-cum-Manufacturer loose food (no separate
-    manufacturer, no batch/mfg/expiry)?"""
-    return str(form_data.get("retailer_cum_manufacturer", "")).strip().lower() in (
-        "on", "true", "1", "yes",
-    )
+    manufacturer, no batch/mfg/expiry)?
 
-
-def _generation_embargo_response(retailer_receive, manufacturer_receive):
-    """Return a 403 JSON response if the 30-day appeal window still blocks
-    petition/permission generation, else None.
-
-    The embargo runs from max(retailer, manufacturer report-handover date);
-    files may be generated on/after handover + 30 days.
+    Thin alias over the RCM policy seam (app/shared/rcm_policy.py);
+    retained so existing importers keep working.
     """
-    from app.timeline.engine import generation_gate
-
-    gate = generation_gate(retailer_receive, manufacturer_receive)
-    if not gate["blocked"]:
-        return None
-    earliest = gate["earliest"]
-    handover = gate["handover"]
-    earliest_str = format_date_indian(earliest) if earliest else "—"
-    handover_str = format_date_indian(handover) if handover else "—"
-    return (
-        jsonify({
-            "error": (
-                "Permission/petition files cannot be generated until "
-                f"{earliest_str} (30 days after report handover on {handover_str})."
-            ),
-            "earliest_allowed_date": earliest.isoformat() if earliest else None,
-            "handover_date": handover.isoformat() if handover else None,
-        }),
-        403,
-    )
+    return _rcm_policy_is_rcm(form_data)
 
 
 def _generation_gate_info(retailer_receive, manufacturer_receive) -> dict:
@@ -202,18 +169,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     standard_required = tuple(
         field
         for field, label in _REQUIRED_FIELDS.items()
-        if field
-        not in (
-            "authorization_date",
-            "manufacturer_fssai",
-            "manufacturer_name",
-            "manufacturer_fbo_name",
-            "manufacturer_address",
-            "batch_no",
-            "mfg_date",
-            "expiry_date",
-            "manufacturer_report_receive_date",
-        )
+        if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
     )
     for field, label in _REQUIRED_FIELDS.items():
         if field not in standard_required:
@@ -227,16 +183,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     # fields are therefore acceptable; manufacturer_report_receive_date is
     # also absent because no separate manufacturer is served the report.
     if not rcm:
-        for field in (
-            "manufacturer_fssai",
-            "manufacturer_name",
-            "manufacturer_fbo_name",
-            "manufacturer_address",
-            "batch_no",
-            "mfg_date",
-            "expiry_date",
-            "manufacturer_report_receive_date",
-        ):
+        for field in sorted(_RCM_EXEMPT_FIELDS):
             label = _REQUIRED_FIELDS.get(field, field)
             if field == "mfg_date" or field == "expiry_date":
                 value = form_data.get(field, "").strip()
@@ -432,18 +379,12 @@ def case_file_to_dict(case_file):
     return result
 
 
-def _form_date(value) -> str:
-    """Normalise a model date value to a ``YYYY-MM-DD`` form string."""
-    dt = parse_date(value) if not isinstance(value, datetime) else value
-    return dt.strftime("%Y-%m-%d") if dt else ""
-
-
 def case_file_form_dict(case_file) -> dict:
     """Convert a CaseFile record to form-keyed values for the edit page."""
     record = case_file_to_dict(case_file)
     form = dict(record)
     for field in _DATE_FIELDS:
-        form[field] = _form_date(record.get(field))
+        form[field] = form_date(record.get(field))
     form["lab_registration_no"] = record.get("Lab_Registration_No") or ""
     form["sample_id"] = record.get("sample_id") or ""
     return form
@@ -468,28 +409,19 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.retailer_cum_manufacturer = _is_retailer_cum_manufacturer(form_data)
     case_file.product_name = form_data.get("product_name", "")
 
-    if case_file.retailer_cum_manufacturer:
-        # Retailer-cum-Manufacturer loose food: the retailer is the sole FBO
-        # and the food carries no batch / mfg / expiry numbers at all.
-        case_file.batch_no = ""
-        case_file.mfg_date = None
-        case_file.expiry_date = None
-        case_file.manufacturer_fssai = ""
-        case_file.manufacturer_name = ""
-        case_file.manufacturer_fbo_name = ""
-        case_file.manufacturer_address = ""
-        case_file.manufacturer_report_receive_date = None
-    else:
-        case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
-        case_file.manufacturer_name = form_data.get("manufacturer_name", "")
-        case_file.manufacturer_fbo_name = form_data.get("manufacturer_fbo_name", "")
-        case_file.manufacturer_address = form_data.get("manufacturer_address", "")
-        case_file.batch_no = form_data.get("batch_no", "")
-        case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
-        case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
-        case_file.manufacturer_report_receive_date = parse_date(
-            form_data.get("manufacturer_report_receive_date", "")
-        )
+    # RCM-exempt fields arrive blanked (by decision of the RCM policy
+    # seam), so one unconditional assignment block serves both modes.
+    form_data = _rcm_stripped_for_save(form_data)
+    case_file.manufacturer_fssai = form_data.get("manufacturer_fssai", "")
+    case_file.manufacturer_name = form_data.get("manufacturer_name", "")
+    case_file.manufacturer_fbo_name = form_data.get("manufacturer_fbo_name", "")
+    case_file.manufacturer_address = form_data.get("manufacturer_address", "")
+    case_file.batch_no = form_data.get("batch_no", "")
+    case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
+    case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
+    case_file.manufacturer_report_receive_date = parse_date(
+        form_data.get("manufacturer_report_receive_date", "")
+    )
     case_file.other_food_articles = form_data.get("other_food_articles", "")
     case_file.total_cost = form_data.get("total_cost", "")
     case_file.cost_in_words = form_data.get("cost_in_words", "")
@@ -515,6 +447,9 @@ def _process_case_file_form(form_data):
 
     packet_count = _safe_int(form_data.get("packet_count"), 4)
 
+    # RCM-exempt fields arrive blanked (by decision of the RCM
+    # policy seam): parse_date("")/"" land the right types downstream.
+    form_data = _rcm_stripped_for_save(form_data)
     rcm = _is_retailer_cum_manufacturer(form_data)
 
     return CaseFile(
@@ -525,20 +460,20 @@ def _process_case_file_form(form_data):
         inspection_time=form_data.get("inspection_time", ""),
         sample_id=sample_id,
         retailer_cum_manufacturer=rcm,
-        manufacturer_fssai="" if rcm else form_data.get("manufacturer_fssai", ""),
-        manufacturer_name="" if rcm else form_data.get("manufacturer_name", ""),
-        manufacturer_fbo_name="" if rcm else form_data.get("manufacturer_fbo_name", ""),
-        manufacturer_address="" if rcm else form_data.get("manufacturer_address", ""),
+        manufacturer_fssai=form_data.get("manufacturer_fssai", ""),
+        manufacturer_name=form_data.get("manufacturer_name", ""),
+        manufacturer_fbo_name=form_data.get("manufacturer_fbo_name", ""),
+        manufacturer_address=form_data.get("manufacturer_address", ""),
         retailer_fssai=form_data.get("retailer_fssai", ""),
         retailer_name=form_data.get("retailer_name", ""),
         retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
         retailer_address=form_data.get("retailer_address", ""),
         product_name=form_data.get("product_name", ""),
-        batch_no="" if rcm else form_data.get("batch_no", ""),
+        batch_no=form_data.get("batch_no", ""),
         sample_quantity=form_data.get("sample_quantity", ""),
         packet_count=packet_count,
-        mfg_date=None if rcm else parse_date(form_data.get("mfg_date", "")),
-        expiry_date=None if rcm else parse_date(form_data.get("expiry_date", "")),
+        mfg_date=parse_date(form_data.get("mfg_date", "")),
+        expiry_date=parse_date(form_data.get("expiry_date", "")),
         other_food_articles=form_data.get("other_food_articles", ""),
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
@@ -553,9 +488,7 @@ def _process_case_file_form(form_data):
         directive_letter_no=form_data.get("directive_letter_no", ""),
         directive_letter_date=parse_date(form_data.get("directive_letter_date", "")),
         retailer_report_receive_date=parse_date(form_data.get("retailer_report_receive_date", "")),
-        manufacturer_report_receive_date=(
-            None if rcm else parse_date(form_data.get("manufacturer_report_receive_date", ""))
-        ),
+        manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
@@ -571,12 +504,17 @@ def _regenerate_case_file(case_id):
     downloads stay 403 until the date is recorded.
     """
     case_file = CaseFile.query.get_or_404(case_id)
-    blocked = _generation_embargo_response(
-        case_file.retailer_report_receive_date,
-        case_file.manufacturer_report_receive_date,
+    # Pre-authorization draft bundle: the embargo applies, authorization
+    # does not (petition-only downloads stay 403 until the date exists).
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="both",
+        require_authorization=False,
+        retailer_receive=case_file.retailer_report_receive_date,
+        manufacturer_receive=case_file.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
     form_data = case_file_to_dict(case_file)
     case_data = process_form_data(form_data)
 
@@ -752,50 +690,10 @@ def generate_case_file_route():
     # handover dates are still inside the window.
     from app.timeline.engine import generation_gate
 
-    _rcm = _is_retailer_cum_manufacturer(form_data)
-    case_file_record = CaseFile(
-        case_number=form_data.get("case_number", ""),
-        food_safety_officer_name=form_data.get("food_safety_officer_name", ""),
-        authorization_date=parse_date(form_data.get("authorization_date", "")),
-        inspection_date=parse_date(form_data.get("inspection_date", "")),
-        inspection_time=form_data.get("inspection_time", ""),
-        sample_id=_safe_int(form_data["sample_id"]) if form_data.get("sample_id") else None,
-        retailer_cum_manufacturer=_rcm,
-        manufacturer_fssai=(form_data.get("manufacturer_fssai", "")) if not _rcm else "",
-        manufacturer_name=(form_data.get("manufacturer_name", "")) if not _rcm else "",
-        manufacturer_fbo_name=(form_data.get("manufacturer_fbo_name", "")) if not _rcm else "",
-        manufacturer_address=(form_data.get("manufacturer_address", "")) if not _rcm else "",
-        retailer_fssai=form_data.get("retailer_fssai", ""),
-        retailer_name=form_data.get("retailer_name", ""),
-        retailer_fbo_name=form_data.get("retailer_fbo_name", ""),
-        retailer_address=form_data.get("retailer_address", ""),
-        product_name=form_data.get("product_name", ""),
-        batch_no=(form_data.get("batch_no", "")) if not _rcm else "",
-        sample_quantity=form_data.get("sample_quantity", ""),
-        packet_count=_safe_int(form_data.get("packet_count"), 4),
-        mfg_date=(parse_date(form_data.get("mfg_date", ""))) if not _rcm else None,
-        expiry_date=(parse_date(form_data.get("expiry_date", ""))) if not _rcm else None,
-        other_food_articles=form_data.get("other_food_articles", ""),
-        total_cost=form_data.get("total_cost", ""),
-        cost_in_words=form_data.get("cost_in_words", ""),
-        sample_code=form_data.get("sample_code", ""),
-        Lab_Registration_No=_lookup_field(form_data, "lab_registration_no"),
-        sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
-        do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
-        is_misbranded=form_data.get("is_misbranded") == "misbranded",
-        is_substandard=form_data.get("is_substandard") == "substandard",
-        analyst_report_no=form_data.get("analyst_report_no", ""),
-        analyst_report_date=parse_date(form_data.get("analyst_report_date", "")),
-        directive_letter_no=form_data.get("directive_letter_no", ""),
-        directive_letter_date=parse_date(form_data.get("directive_letter_date", "")),
-        retailer_report_receive_date=parse_date(form_data.get("retailer_report_receive_date", "")),
-        manufacturer_report_receive_date=(
-            parse_date(form_data.get("manufacturer_report_receive_date", ""))
-        ) if not _rcm else None,
-        applicable_regulation=form_data.get("applicable_regulation", ""),
-        applicable_clause=form_data.get("applicable_clause", ""),
-        applicable_sections=", ".join(get_applicable_sections(form_data)),
-    )
+    # Record construction (including RCM blanking) lives in
+    # _process_case_file_form — the route owns scoping, persistence,
+    # sync, gating, and PDF dispatch, not field mapping.
+    case_file_record = _process_case_file_form(form_data)
 
     db.session.add(case_file_record)
     try:
@@ -1011,15 +909,15 @@ def download_petition_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
-    blocked = _generation_embargo_response(
-        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="petition",
+        authorization_date=case.authorization_date,
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
-
-    authorized = _authorization_gate_response(case.authorization_date)
-    if authorized is not None:
-        return authorized
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
@@ -1043,11 +941,14 @@ def download_permission_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
-    blocked = _generation_embargo_response(
-        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="permission",
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
@@ -1071,15 +972,15 @@ def download_both_docx(case_id: int):
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
-    blocked = _generation_embargo_response(
-        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="both",
+        authorization_date=case.authorization_date,
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
-
-    authorized = _authorization_gate_response(case.authorization_date)
-    if authorized is not None:
-        return authorized
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     import io as _io
     import zipfile
@@ -1128,15 +1029,15 @@ def download_petition_pdf(case_id: int):
     if case is None:
         return jsonify({"error": "Case not found"}), 404
 
-    blocked = _generation_embargo_response(
-        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="petition",
+        authorization_date=case.authorization_date,
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
-
-    authorized = _authorization_gate_response(case.authorization_date)
-    if authorized is not None:
-        return authorized
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
@@ -1191,16 +1092,15 @@ def copy_letter(case_id: int, doc_type: str):
     if doc_type not in ("petition", "permission"):
         return jsonify({"error": "Invalid doc_type"}), 400
 
-    blocked = _generation_embargo_response(
-        case.retailer_report_receive_date, case.manufacturer_report_receive_date
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type=doc_type,
+        authorization_date=case.authorization_date,
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
     )
-    if blocked is not None:
-        return blocked
-
-    if doc_type == "petition":
-        authorized = _authorization_gate_response(case.authorization_date)
-        if authorized is not None:
-            return authorized
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)

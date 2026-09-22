@@ -10,28 +10,7 @@ from datetime import datetime
 
 from flask import render_template
 
-from app.shared.case_keys import (
-    DERIVED_APPLICABLE_SECTIONS,
-    DERIVED_CASE_TRACK,
-    DERIVED_SAME_ENTITY,
-    DERIVED_SECTIONS_DISPLAY,
-    DERIVED_VIOLATIONS,
-    SECTION_55,
-    SECTION_56,
-    SECTION_58,
-    SECTION_63,
-    SECTION_64,
-    SHARED_COMPLAINT_LODGED,
-    SHARED_NON_LICENSE,
-    SHARED_PRE_AUTHORIZATION,
-)
-from app.shared.context_derivers import (
-    derive_applicable_sections_from_adjudication,
-    derive_case_track,
-    derive_sections_display,
-    derive_violations,
-)
-from app.utils.pdf_utils import embed_photos_as_base64, post_process_pdf_html
+from app.utils.pdf_utils import post_process_pdf_html
 
 
 def render_case_file_document(case_id: int, doc_type: str) -> str:
@@ -60,72 +39,14 @@ def render_case_file_document(case_id: int, doc_type: str) -> str:
 def build_adjudication_context(form_data: dict) -> dict:
     """Build the render context dict for adjudication documents.
 
-    Extracted from the inline logic in ``adjudication/routes.py``
-    ``generate_all()`` (lines ~571-651) and ``regenerate_adjudication_documents()``
-    (lines ~313-392). Both functions can call this helper to avoid duplication.
+    Delegates to the canonical builder in ``adjudication/routes.py`` (same
+    section reads, derive calls, and date normalisation) and adds the
+    render-time ``compilation_date`` the viewer stamps on documents.
     """
-    # Get section checkboxes
-    section_55 = form_data.get(SECTION_55, "no")
-    section_56 = form_data.get(SECTION_56, "no")
-    section_58 = form_data.get(SECTION_58, "no")
-    section_63 = form_data.get(SECTION_63, "no")
-    section_64 = form_data.get(SECTION_64, "no")
+    from app.adjudication.routes import _prepare_adjudication_context
 
-    # Get case flags
-    non_license = form_data.get(SHARED_NON_LICENSE, "no")
-    pre_authorization = form_data.get(SHARED_PRE_AUTHORIZATION, "no")
-    complaint_lodged = form_data.get(SHARED_COMPLAINT_LODGED, "no")
-
-    # Derive applicable sections
-    applicable_sections = derive_applicable_sections_from_adjudication(
-        section_55=section_55,
-        section_56=section_56,
-        section_58=section_58,
-        section_63=section_63,
-        section_64=section_64,
-    )
-
-    # Render context
-    context = form_data.copy()
+    context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
-
-    # Add canonical derived context fields
-    context[DERIVED_APPLICABLE_SECTIONS] = applicable_sections
-    context[DERIVED_SECTIONS_DISPLAY] = derive_sections_display(applicable_sections)
-    context[DERIVED_CASE_TRACK] = derive_case_track(
-        non_license=non_license,
-        pre_authorization=pre_authorization,
-        complaint_lodged=complaint_lodged,
-        is_sample=False,
-    )
-    context[DERIVED_VIOLATIONS] = derive_violations(form_data)
-    context[DERIVED_SAME_ENTITY] = False  # Adjudication doesn't use same_entity
-
-    # Backward compatible violations field
-    context["violations"] = context[DERIVED_VIOLATIONS]
-
-    # Normalise dates to DD-MM-YYYY (model dicts carry ISO datetimes with a
-    # trailing time that must not leak into produced documents). Templates use
-    # lower-case keys while the model uses e.g. ``First_inspection_date``.
-    from app.utils.filters import format_date_indian
-
-    for template_key, model_key in (
-        ("first_inspection_date", "First_inspection_date"),
-        ("compliance_deadline", "compliance_deadline"),
-        ("complaint_date", "Complaint_date"),
-        ("followup_inspection_date", "inspection_date"),
-        ("authorization_date", "authorization_date"),
-    ):
-        raw = context.get(template_key)
-        if raw in (None, "") and model_key != template_key:
-            raw = context.get(model_key)
-        if raw in (None, ""):
-            continue
-        formatted = format_date_indian(raw)
-        context[template_key] = formatted
-        if model_key in context:
-            context[model_key] = formatted
-
     return context
 
 
@@ -136,33 +57,21 @@ def render_adjudication_document(case_id: int, doc_type: str) -> str:
     and the extracted ``build_adjudication_context()`` helper.
     """
     from app.adjudication.routes import adjudication_to_dict
-    from app.models import Adjudication, Evidence
+    from app.models import Adjudication
 
     adj = Adjudication.query.get_or_404(case_id)
     form_data = adjudication_to_dict(adj)
 
     context = build_adjudication_context(form_data)
 
-    # Photo Evidence Integration -- all photos for this case (linked via
-    # case_id or adjudication_id, since adjudication uploads store the
-    # adjudication_id on the unified Evidence model)
-    from sqlalchemy import or_
+    # Photo Evidence Integration -- verified photos for this adjudication,
+    # selected and embedded via the photo seam.
+    from app.shared.photo_selection import select_for_document
 
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
-        )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-
+    selection = select_for_document(adjudication_id=adj.id)
     context["adjudication"] = {
-        "photos": verified_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
+        "photos": selection.photos,
+        "photo_embeds": selection.embeds,
     }
 
     if doc_type == "petition":

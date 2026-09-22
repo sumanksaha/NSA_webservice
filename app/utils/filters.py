@@ -69,6 +69,16 @@ def parse_date(date_val):
     return _to_datetime(date_val)
 
 
+def form_date(date_val) -> str:
+    """Normalise a model date value to a ``YYYY-MM-DD`` form string.
+
+    Single home for the edit-page prefill conversion both tracks used to
+    duplicate locally (``_form_date`` in each routes module).
+    """
+    dt = _to_datetime(date_val)
+    return dt.strftime("%Y-%m-%d") if dt else ""
+
+
 def to_words(number):
     """Jinja filter to convert a number (integer or float) to Indian currency word representation.
     e.g., 6025.55 -> 'Six thousand, twenty-five and fifty-five hundredths' or equivalent.

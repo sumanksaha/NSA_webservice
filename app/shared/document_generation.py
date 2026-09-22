@@ -13,57 +13,47 @@ from datetime import UTC, datetime
 from typing import Any
 
 from flask import current_app, jsonify, render_template, request, send_file
-from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
-from app.models import Evidence
 from app.services.audit_context import audit_logger
 from app.services.sync_orchestrator import sync_row
 from app.shared import document_lookup as lookup
-from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
+from app.utils.pdf_utils import generate_pdf_from_html, post_process_pdf_html
 from app.utils.qstash_client import make_dedup_key, publish_task
 
 logger = logging.getLogger(__name__)
 
 
-def build_photos_context(case_id: int, context: dict) -> dict | tuple[Any, int]:
-    """Fetch photos and embed as base64 for template rendering."""
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+def build_photos_context(
+    case_id: int,
+    context: dict,
+    *,
+    case_type: str = "case_file",
+    include_flagged: bool = False,
+    flag_reason: str = "",
+) -> dict | tuple[Any, int]:
+    """Fetch photos and embed as base64 for template rendering.
+
+    Thin transport adapter over the photo-selection seam: maps the track
+    to the right id column and renders ``FlagReasonRequired`` as the
+    established 400 payload. Flags arrive explicitly from the calling
+    route — this function no longer reads ``request.args`` itself.
+    """
+    from app.shared.photo_selection import FlagReasonRequired, select_for_document
+
+    actor = context.get("food_safety_officer_name", "unknown")
+    id_kwarg = {"adjudication_id": case_id} if case_type != "case_file" else {"case_id": case_id}
+    try:
+        selection = select_for_document(
+            **id_kwarg,
+            include_flagged=include_flagged,
+            flag_reason=flag_reason,
+            actor=actor,
         )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-
-    include_flagged = request.args.get("include_flagged", "false").lower() == "true"
-    flag_override_reason = request.args.get("flag_override_reason", "").strip()
-
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
-
-    if include_flagged:
-        if not flag_override_reason:
-            return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
-        final_photos = verified_photos + flagged_photos
-        flagged_image_ids = [p.id for p in flagged_photos]
-        if flagged_image_ids:
-            audit_logger("photo").log(
-                ",".join(flagged_image_ids),
-                "FLAGGED_PHOTO_INCLUDED",
-                actor=context.get("food_safety_officer_name", "unknown"),
-                reason=flag_override_reason,
-            )
-    else:
-        final_photos = verified_photos
-
-    return {
-        "photos": final_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
-    }
+    except FlagReasonRequired as exc:
+        return jsonify({"error": str(exc)}), 400
+    return {"photos": selection.photos, "photo_embeds": selection.embeds}
 
 
 def templates_to_generate(case_type: str, context: dict):
@@ -149,7 +139,13 @@ def regenerate(
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
     # --- Photo evidence integration ---
-    context["adjudication"] = build_photos_context(case_id, context)
+    context["adjudication"] = build_photos_context(
+        case_id,
+        context,
+        case_type=case_type,
+        include_flagged=request.args.get("include_flagged", "false").lower() == "true",
+        flag_reason=request.args.get("flag_override_reason", ""),
+    )
     log_generation(case_type, case_id, form_data)
 
     templates = templates_to_generate(case_type, context)
@@ -252,7 +248,13 @@ def generate_adjudication_pdfs(adj: Any, form_data: dict, prepare_context_fn) ->
     """Generate adjudication PDFs in-memory synchronously."""
     context = prepare_context_fn(form_data) if prepare_context_fn else form_data
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
-    context["adjudication"] = build_photos_context(adj.id, context)
+    context["adjudication"] = build_photos_context(
+        adj.id,
+        context,
+        case_type="adjudication",
+        include_flagged=request.args.get("include_flagged", "false").lower() == "true",
+        flag_reason=request.args.get("flag_override_reason", ""),
+    )
     log_generation("adjudication", adj.id, form_data)
 
     templates = templates_to_generate("adjudication", context)

@@ -20,11 +20,10 @@ from datetime import UTC, datetime
 
 from flask import Blueprint, abort, current_app, jsonify, make_response, render_template, request, send_file
 from flask_login import login_required
-from sqlalchemy import or_
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import csrf, db
-from app.models import Adjudication, Evidence, FboIssue
+from app.models import Adjudication, FboIssue
 from app.plugins.registry import PluginRegistry
 from app.services.audit_context import audit_logger
 from app.services.sync_orchestrator import sync_row
@@ -50,8 +49,8 @@ from app.shared.context_derivers import (
     derive_violations,
 )
 from app.shared.document_case_manager import DocumentCaseManager
-from app.shared.authorization_gate import authorization_gate_response as _authorization_gate_response
-from app.utils.filters import format_date_indian, parse_date
+from app.shared.generation_access import check_generation_allowed
+from app.utils.filters import form_date, format_date_indian, parse_date
 from app.utils.lookup import lookup_ce, lookup_fssai
 from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, post_process_pdf_html
 
@@ -333,12 +332,6 @@ _ADJUDICATION_DATE_MAP: dict[str, str] = {
 }
 
 
-def _form_date(value) -> str:
-    """Normalise a model date value to a ``YYYY-MM-DD`` form string."""
-    dt = parse_date(value)
-    return dt.strftime("%Y-%m-%d") if dt else ""
-
-
 def adjudication_form_dict(adj) -> dict:
     """Convert an Adjudication record to form-keyed values for the edit page."""
     record = adjudication_to_dict(adj)
@@ -349,7 +342,7 @@ def adjudication_form_dict(adj) -> dict:
     for field in _ADJUDICATION_FORM_FIELDS:
         form[field] = record.get(field) or ""
     for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
-        form[form_field] = _form_date(record.get(model_col))
+        form[form_field] = form_date(record.get(model_col))
     return form
 
 
@@ -532,37 +525,25 @@ def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
     include_flagged = request.args.get("include_flagged", "false").lower() == "true"
     flag_override_reason = request.args.get("flag_override_reason", "").strip()
 
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
+    # Photo selection (filtering, flagged policy + audit, embeds) lives on
+    # the photo-selection seam; the missing-reason 400 keeps this route's
+    # established contract.
+    from app.shared.photo_selection import FlagReasonRequired, select_for_document
+
+    try:
+        selection = select_for_document(
+            adjudication_id=case_id,
+            include_flagged=include_flagged,
+            flag_reason=flag_override_reason,
+            actor=form_data.get("food_safety_officer_name", "unknown"),
         )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
-
-    if include_flagged:
-        if not flag_override_reason:
-            return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
-        final_photos = verified_photos + flagged_photos
-        flagged_image_ids = [p.id for p in flagged_photos]
-        if flagged_image_ids:
-            audit_logger("photo").log(
-                ",".join(flagged_image_ids),
-                "FLAGGED_PHOTO_INCLUDED",
-                actor=form_data.get("food_safety_officer_name", "unknown"),
-                reason=flag_override_reason,
-            )
-    else:
-        final_photos = verified_photos
+    except FlagReasonRequired:
+        return jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400
+    final_photos = selection.photos
 
     context["adjudication"] = {
         "photos": final_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in final_photos]),
+        "photo_embeds": selection.embeds,
     }
 
     image_ids = [p.id for p in final_photos]
@@ -580,9 +561,11 @@ def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
-        gated = _authorization_gate_response(form_data.get("authorization_date"))
-        if gated is not None:
-            return gated
+        access = check_generation_allowed(
+            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date")
+        )
+        if not access.allowed:
+            return jsonify(access.payload()), access.status
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -809,34 +792,21 @@ def _select_adjudication_photos(
     Verified photos always go in; FLAG photos only with an explicit
     ``include_flagged=true`` plus a ``flag_override_reason`` (400 when the
     reason is missing).  The officer's scoping decision is audit-logged.
+    Selection itself lives on the photo-selection seam; this wrapper keeps
+    the generate path's contract (abort mapping, order audit, photo list).
     """
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == adj.id, Evidence.adjudication_id == adj.id),
+    from app.shared.photo_selection import FlagReasonRequired, select_for_document
+
+    try:
+        selection = select_for_document(
+            adjudication_id=adj.id,
+            include_flagged=include_flagged,
+            flag_reason=flag_override_reason,
+            actor=form_data.get("food_safety_officer_name", "unknown"),
         )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    flagged_photos = [p for p in all_photos if p.verification_status == "FLAG"]
-
-    if include_flagged:
-        if not flag_override_reason:
-            abort(make_response(jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400))
-        final_photos = verified_photos + flagged_photos
-        flagged_image_ids = [p.id for p in flagged_photos]
-        if flagged_image_ids:
-            audit_logger("photo").log(
-                ",".join(flagged_image_ids),
-                "FLAGGED_PHOTO_INCLUDED",
-                actor=form_data.get("food_safety_officer_name", "unknown"),
-                reason=flag_override_reason,
-            )
-    else:
-        final_photos = verified_photos
+    except FlagReasonRequired:
+        abort(make_response(jsonify({"error": "flag_override_reason is required when include_flagged=true"}), 400))
+    final_photos = selection.photos
 
     image_ids = [p.id for p in final_photos]
     statuses = [p.verification_status for p in final_photos]
@@ -856,9 +826,11 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
     if is_pre_authorization:
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
-        gated = _authorization_gate_response(form_data.get("authorization_date"))
-        if gated is not None:
-            abort(make_response(*gated))
+        access = check_generation_allowed(
+            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date")
+        )
+        if not access.allowed:
+            abort(make_response(jsonify(access.payload()), access.status))
         templates_to_generate = [("adjudication/template_nonsample_petition.html", "Petition")]
 
     for tpl, prefix in templates_to_generate:
@@ -930,21 +902,11 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
-    # Photos for petition context
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
-        )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    context["adjudication"] = {
-        "photos": verified_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
-    }
+    # Photos for petition context (selection + embeds via the photo seam).
+    from app.shared.photo_selection import select_for_document
+
+    selection = select_for_document(adjudication_id=case_id)
+    context["adjudication"] = {"photos": selection.photos, "photo_embeds": selection.embeds}
 
     if doc_type == "petition":
         if str(adj.pre_authorization or "no").strip().lower() == "yes":
@@ -952,9 +914,11 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
                 jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
                 400,
             )
-        gated = _authorization_gate_response(adj.authorization_date)
-        if gated is not None:
-            return gated
+        access = check_generation_allowed(
+            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+        )
+        if not access.allowed:
+            return jsonify(access.payload()), access.status
         docx_bytes = render_adoc_to_docx("template_nonsample_petition.adoc", context)
         download_name = f"Adjudication_Petition_{adj.case_number or case_id}.docx"
         return send_file(
@@ -978,9 +942,11 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
                 jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
                 400,
             )
-        gated = _authorization_gate_response(adj.authorization_date)
-        if gated is not None:
-            return gated
+        access = check_generation_allowed(
+            case_type="adjudication", doc_type="both", authorization_date=adj.authorization_date
+        )
+        if not access.allowed:
+            return jsonify(access.payload()), access.status
         petition_docx = render_adoc_to_docx("template_nonsample_petition.adoc", context)
         permission_docx = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
         label = adj.case_number or str(case_id)
@@ -1035,9 +1001,11 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
             400,
         )
 
-    gated = _authorization_gate_response(adj.authorization_date)
-    if gated is not None:
-        return gated
+    access = check_generation_allowed(
+        case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+    )
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
 
     required = dict(_ADJUDICATION_PETITION_REQUIRED)
     # Template renders the trade-license branch when the FBO is unlicensed
@@ -1066,20 +1034,11 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
             400,
         )
 
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
-        )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    context["adjudication"] = {
-        "photos": verified_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
-    }
+    # Photo selection + embeds via the photo seam (verified-only here).
+    from app.shared.photo_selection import select_for_document
+
+    selection = select_for_document(adjudication_id=case_id)
+    context["adjudication"] = {"photos": selection.photos, "photo_embeds": selection.embeds}
 
     rendered_html = render_template("adjudication/template_nonsample_petition.html", **context)
     rendered_html = post_process_pdf_html(rendered_html, adjudication_id=case_id)
@@ -1127,29 +1086,22 @@ def copy_letter(case_id: int, doc_type: str):
                 jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
                 400,
             )
-        gated = _authorization_gate_response(adj.authorization_date)
-        if gated is not None:
-            return gated
+        access = check_generation_allowed(
+            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+        )
+        if not access.allowed:
+            return jsonify(access.payload()), access.status
 
     form_data = adjudication_to_dict(adj)
     context = _prepare_adjudication_context(form_data)
     context["compilation_date"] = datetime.today().strftime("%d %B %Y")
 
     # Include photos for petition rendering
-    all_photos = (
-        Evidence.query
-        .filter(
-            Evidence.evidence_type == "photo",
-            or_(Evidence.case_id == case_id, Evidence.adjudication_id == case_id),
-        )
-        .order_by(Evidence.captured_at.asc())
-        .all()
-    )
-    verified_photos = [p for p in all_photos if p.verification_status == "PASS"]
-    context["adjudication"] = {
-        "photos": verified_photos,
-        "photo_embeds": embed_photos_as_base64([p.filepath for p in verified_photos]),
-    }
+    # Photo selection + embeds via the photo seam (verified-only here).
+    from app.shared.photo_selection import select_for_document
+
+    selection = select_for_document(adjudication_id=case_id)
+    context["adjudication"] = {"photos": selection.photos, "photo_embeds": selection.embeds}
 
     template_map = {
         "petition": "adjudication/template_nonsample_petition.html",
