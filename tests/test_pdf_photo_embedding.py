@@ -253,17 +253,15 @@ class TestPdfRenderWithEmbeddedPhotos:
         adj = self._build_mock_adjudication([])
         with app.app_context():
             with patch("app.adjudication.routes.Adjudication.query.get_or_404", return_value=adj):
-                with patch("app.adjudication.routes.Evidence") as mock_pe:
-                    mock_pe.query.filter_by.return_value.order_by.return_value.all.return_value = []
-                    # We don't actually hit WeasyPrint; just verify context building
-                    form_data = {
-                        "pre_authorization": "yes",
-                        "case_number": "SMOKE001",
-                    }
-                    context = form_data.copy()
-                    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
-                    # No exception should occur during context derivation
-                    assert True  # smoke guard
+                # We don't actually hit WeasyPrint; just verify context building
+                form_data = {
+                    "pre_authorization": "yes",
+                    "case_number": "SMOKE001",
+                }
+                context = form_data.copy()
+                context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+                # No exception should occur during context derivation
+                assert True  # smoke guard
 
     @patch("app.pdf_assembly.engine.requests.get")
     def test_one_url_photo_embeds_in_base64(self, mock_get):
