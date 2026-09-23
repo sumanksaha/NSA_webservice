@@ -1,0 +1,106 @@
+{
+  "experiment": "D \u2014 Structured Legal Reasoning + Legal Auditor",
+  "conditions": {
+    "C-O3": "Experiment C O3 Full Support outputs and metrics, reused verbatim",
+    "D2": "O3 evidence -> structured legal analysis -> final answer",
+    "D3": "D2 analysis -> Legal Auditor (+ max 1 controlled revision) -> final answer"
+  },
+  "config": {
+    "model": "poolside/laguna-s-2.1:free",
+    "temperature": 0.1,
+    "max_tokens_structured": 8192,
+    "max_tokens_final_answer": 1024,
+    "max_context_chars": 200000,
+    "context_builder": "_COracleContextBuilder (identical to C)",
+    "max_revision_cycles": 1,
+    "prompt_policy": "fixed; no variants (spec sec 21)",
+    "metrics": "experiment_b_topk_eval.compute_metrics (unchanged; spec sec 2)"
+  },
+  "aggregate": {
+    "C-O3": {
+      "label": "C-O3 Direct (reused from Experiment C)",
+      "n": 150,
+      "answer_correctness": 0.3702,
+      "correct_rate": 0.0867,
+      "citation_recall": 0.7,
+      "citation_precision": 0.7244,
+      "groundedness": 0.8533,
+      "abstain_rate": 0.3467,
+      "mean_latency_ms": 51603.9,
+      "median_latency_ms": 25584,
+      "note": "reused Experiment C O3 outputs; no new LLM calls (spec sec 3)"
+    },
+    "D2": {
+      "label": "D2 Structured Reasoning",
+      "n": 148,
+      "answer_correctness": 0.3835,
+      "correct_rate": 0.0946,
+      "citation_recall": 0.7202,
+      "citation_precision": 0.7442,
+      "groundedness": 0.8716,
+      "abstain_rate": 0.1081,
+      "mean_latency_ms": 172686.5,
+      "median_latency_ms": 76537,
+      "p95_latency_ms": 716089
+    },
+    "D3": {
+      "label": "D3 Reasoning + Auditor",
+      "n": 146,
+      "answer_correctness": 0.3601,
+      "correct_rate": 0.0616,
+      "citation_recall": 0.7295,
+      "citation_precision": 0.7376,
+      "groundedness": 0.8904,
+      "abstain_rate": 0.4452,
+      "mean_latency_ms": 185265.7,
+      "median_latency_ms": 76793,
+      "p95_latency_ms": 705152
+    },
+    "iii_analysis": {
+      "n_iii": 130,
+      "D2_improved": 4,
+      "D2_still_incorrect": 124,
+      "D3_improved": 2,
+      "D3_still_incorrect": 125,
+      "defect_types_on_iii_questions": {
+        "other": 416,
+        "unsupported_claim": 221,
+        "incomplete_reasoning": 19,
+        "hidden_uncertainty": 4,
+        "citation_error": 1,
+        "definition_error": 1
+      }
+    }
+  },
+  "comparisons": {
+    "C-O3_vs_D2": {
+      "answer_correctness_delta": 0.0133,
+      "binary_delta": 0.0079
+    },
+    "D2_vs_D3": {
+      "answer_correctness_delta": -0.0234,
+      "binary_delta": -0.033
+    },
+    "C-O3_vs_D3": {
+      "answer_correctness_delta": -0.0101,
+      "binary_delta": -0.0251
+    }
+  },
+  "iii_analysis": {
+    "n_iii": 130,
+    "D2_improved": 4,
+    "D2_still_incorrect": 124,
+    "D3_improved": 2,
+    "D3_still_incorrect": 125,
+    "defect_types_on_iii_questions": {
+      "other": 416,
+      "unsupported_claim": 221,
+      "incomplete_reasoning": 19,
+      "hidden_uncertainty": 4,
+      "citation_error": 1,
+      "definition_error": 1
+    }
+  },
+  "n_per_question": 150,
+  "stub_validation": false
+}

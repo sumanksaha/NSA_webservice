@@ -1,0 +1,22 @@
+{
+  "experiment": "E citation verification",
+  "hard_budget_total_new_generations": 150,
+  "planned_calls": {
+    "E1_repair": 18,
+    "total": 150
+  },
+  "actual_generations": 45,
+  "successful_calls": 18,
+  "failed_calls": 27,
+  "repair_calls_skipped_no_flags": 128,
+  "reused_experiment_D_calls": {
+    "D2": 148,
+    "note": "D2 checkpoint reused verbatim; 0 new reasoning calls"
+  },
+  "total_token_usage": {
+    "input_tokens": 482455,
+    "output_tokens": 265922
+  },
+  "stub_validation": false,
+  "budget_respected": true
+}

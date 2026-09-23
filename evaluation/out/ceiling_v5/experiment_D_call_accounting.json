@@ -1,0 +1,42 @@
+{
+  "experiment": "D structured reasoning + auditor",
+  "hard_budget_total_new_generations": 300,
+  "planned_calls": {
+    "D2_reasoning": 150,
+    "D3_audit_revision": 150,
+    "total": 300
+  },
+  "actual_generations": 334,
+  "successful_calls": 294,
+  "failed_calls": 40,
+  "transport_backoffs": 0,
+  "revision_calls": 0,
+  "reused_experiment_C_calls": {
+    "D1_C-O3": 150,
+    "note": "0 new calls; O3 outputs and metrics reused verbatim (spec sec 3)"
+  },
+  "total_token_usage": {
+    "input_tokens": 6584855,
+    "output_tokens": 681797
+  },
+  "per_condition": {
+    "D2": {
+      "generations": 175,
+      "successful": 148,
+      "failed": 27
+    },
+    "D3": {
+      "generations": 159,
+      "successful": 146,
+      "failed": 13
+    }
+  },
+  "per_stage": {
+    "reasoning": 175,
+    "audit_revision": 159,
+    "revision": 0,
+    "answer": 0
+  },
+  "stub_validation": false,
+  "budget_respected": false
+}

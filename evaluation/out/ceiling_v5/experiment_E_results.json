@@ -1,0 +1,72 @@
+{
+  "experiment": "E \u2014 Evidence-Binding / Citation Verification",
+  "design_doc": "Experiment_E_Citation_Verification_Design.md",
+  "conditions": {
+    "D2": "reused Experiment D checkpoint (0 new calls)",
+    "E1": "deterministic check -> 1 constrained repair call -> repaired answer",
+    "E2": "deterministic check -> remove misattributed markers -> D2 answer (0 calls)"
+  },
+  "config": {
+    "model": "poolside/laguna-s-2.1:free",
+    "temperature": 0.1,
+    "repair_max_tokens": 8192,
+    "repair_call_cap": 150,
+    "prompts": "D2 reasoning/answer reused byte-identical; one fixed REPAIR prompt (design sec 5)",
+    "metrics": "experiment_b_topk_eval.compute_metrics (unchanged)"
+  },
+  "aggregate": {
+    "D2": {
+      "label": "D2 Structured Reasoning (reused checkpoint)",
+      "n": 148,
+      "answer_correctness": 0.3835,
+      "correct_rate": 0.0946,
+      "citation_recall": 0.7202,
+      "citation_precision": 0.7442,
+      "groundedness": 0.8716,
+      "abstain_rate": 0.1081,
+      "mean_latency_ms": 172686.5,
+      "median_latency_ms": 76537
+    },
+    "E1": {
+      "label": "E1 Verification + Constrained Repair",
+      "n": 146,
+      "answer_correctness": 0.3844,
+      "correct_rate": 0.1027,
+      "citation_recall": 0.7266,
+      "citation_precision": 0.7516,
+      "groundedness": 0.8767,
+      "abstain_rate": 0.1027,
+      "mean_latency_ms": 11662.6,
+      "median_latency_ms": 0
+    },
+    "E2": {
+      "label": "E2 Verification + Removal-only (0 calls)",
+      "n": 148,
+      "answer_correctness": 0.3834,
+      "correct_rate": 0.0946,
+      "citation_recall": 0.7247,
+      "citation_precision": 0.7499,
+      "groundedness": 0.8851,
+      "abstain_rate": 0.1081,
+      "mean_latency_ms": 4658.1,
+      "median_latency_ms": 0
+    },
+    "repair_safety": {
+      "d2_correct_n": 14,
+      "E1_repair_regressions": 0,
+      "E1_repair_regressions_qids": [],
+      "E1_repair_gains_qids": [
+        "Q129"
+      ],
+      "E2_removal_regressions": 0,
+      "E2_removal_gains_qids": [],
+      "n_flagged_questions": 18,
+      "E1_improved_on_flagged": 1,
+      "E1_regressed_on_flagged": 0,
+      "E2_improved_on_flagged": 0,
+      "E2_regressed_on_flagged": 0
+    }
+  },
+  "n_per_question": 150,
+  "stub_validation": false
+}

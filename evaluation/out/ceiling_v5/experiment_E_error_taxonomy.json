@@ -1,0 +1,32 @@
+{
+  "note": "answer-surface pattern counts (coarse proxy); claim-level labels in experiment_E_verification.jsonl",
+  "answer_surface_patterns": {
+    "D2": {
+      "scope_jurisdiction_misread": 10,
+      "overqualification_hedging": 7,
+      "prohibition_obligation_confusion": 46,
+      "missing_exception_proviso": 18,
+      "hierarchy_conflict": 18,
+      "wrong_provision_section_cited": 1,
+      "fact_condition_mapping_error": 1
+    },
+    "E1": {
+      "scope_jurisdiction_misread": 11,
+      "overqualification_hedging": 9,
+      "prohibition_obligation_confusion": 46,
+      "missing_exception_proviso": 21,
+      "hierarchy_conflict": 18,
+      "wrong_provision_section_cited": 2,
+      "fact_condition_mapping_error": 1
+    },
+    "E2": {
+      "scope_jurisdiction_misread": 10,
+      "overqualification_hedging": 7,
+      "prohibition_obligation_confusion": 46,
+      "missing_exception_proviso": 18,
+      "hierarchy_conflict": 18,
+      "wrong_provision_section_cited": 1,
+      "fact_condition_mapping_error": 1
+    }
+  }
+}

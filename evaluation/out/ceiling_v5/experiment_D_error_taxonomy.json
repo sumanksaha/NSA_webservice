@@ -1,0 +1,23 @@
+{
+  "D3": {
+    "condition": "D3",
+    "n_questions": 146,
+    "defect_type_counts": {
+      "other": 442,
+      "unsupported_claim": 229,
+      "incomplete_reasoning": 21,
+      "hidden_uncertainty": 4,
+      "citation_error": 1,
+      "definition_error": 1
+    },
+    "defect_severity_counts": {
+      "critical": 324,
+      "major": 326,
+      "minor": 48
+    },
+    "pass_count": 39,
+    "fail_count": 107,
+    "revision_rate": 0.7329,
+    "note": "defects are auditor-detected categories (D3); D2 has no auditor stage"
+  }
+}
