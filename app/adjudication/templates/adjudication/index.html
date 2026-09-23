@@ -320,7 +320,11 @@ block extra_css %}
             <h3>Inspection Checklist</h3>
         </div>
         <div class="checklist-grid">
-            {% for c in checklist %}
+            <!-- Hardcoded item list (mirrors the edit form): the shared index
+                route renders this template without a `checklist` variable,
+                so looping over it produced zero cards and the Inspection
+                Checklist appeared hidden. -->
+            {% for c in ['clean_premise', 'refrigerator_clean', 'proper_attire', 'proper_covered_utensil', 'date_tag', 'veg_nonveg_separation', 'food_segregation', 'license_display', 'artificial_colour', 'Expired_item', 'Pest_report', 'Water_report'] %}
             <div class="checklist-card">
                 <label>{{ c.replace('_',' ') }}</label>
                 <select name="{{ c }}">
@@ -647,8 +651,15 @@ block extra_css %}
 
     function syncLicenseLookupVisibility() {
         const showLookup = nonLicenseToggle.checked;
-        licenseLookupBlock.style.display = showLookup ? "block" : "none";
+        // Toggle the `active` class (mirrors syncComplaintFields): the
+        // `conditional-block` CSS gates both display AND opacity on it.
+        // Setting inline `display` alone leaves opacity: 0, which rendered
+        // the lookup invisible while pushing Case Information down.
+        licenseLookupBlock.classList.toggle("active", showLookup);
         if (!showLookup) {
+            // Fresh-entry form only: safe to reset the lookup fields here.
+            // The edit form intentionally preserves saved ce_* values when
+            // its KMC section is hidden — do not "unify" this away.
             document.getElementById("ce_license_no").value = "";
             document.getElementById("ce_trade_name").value = "";
             document.getElementById("ce_proprietor").value = "";

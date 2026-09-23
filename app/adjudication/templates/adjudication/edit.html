@@ -52,6 +52,7 @@
             {% endfor %}
         </div>
 
+        <div id="kmc_license_section" class="conditional-block{% if form.non_license == 'yes' %} active{% endif %}">
         <div class="section-header"><h3>KMC Trade License Details</h3></div>
         <div class="form-row form-row--2">
             <div class="form-group">
@@ -78,6 +79,7 @@
                 <label for="ce_address" class="form-label">Trade Address</label>
                 <input type="text" id="ce_address" name="ce_address" class="form-input" value="{{ form.ce_address or '' }}" />
             </div>
+        </div>
         </div>
 
         <div class="section-header"><h3>FBO Details</h3></div>
@@ -184,6 +186,21 @@
 </div>
 {% endblock %} {% block extra_js %}
 <script>
+    // Non-Licensed / Unregistered FBO toggle — shows the KMC Trade License
+    // Details section only when the flag is checked (matches the create
+    // form's syncLicenseLookupVisibility). Hidden fields keep their values
+    // (preserved on Save); they are simply not shown.
+    (function () {
+        var nonLicenseCb = document.querySelector('input[name="non_license"]');
+        var kmcSection = document.getElementById("kmc_license_section");
+        if (!nonLicenseCb || !kmcSection) return;
+        function syncKmcSectionVisibility() {
+            kmcSection.classList.toggle("active", nonLicenseCb.checked);
+        }
+        nonLicenseCb.addEventListener("change", syncKmcSectionVisibility);
+        syncKmcSectionVisibility();
+    })();
+
     document.getElementById("editAdjudicationForm").addEventListener("submit", async function (e) {
         e.preventDefault();
         const form = e.target;
