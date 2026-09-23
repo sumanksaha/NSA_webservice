@@ -108,6 +108,7 @@ class TestEditFormKmcSectionWiring:
         assert 'id="kmc_license_section"' in html
         assert 'input[name="non_license"]' in html
         assert "syncKmcSectionVisibility" in html
+        assert "kmcHasData" in html
 
     def test_edit_form_hides_kmc_section_unless_non_license(self, client):
         _login(client)
@@ -120,3 +121,12 @@ class TestEditFormKmcSectionWiring:
         case_id = _seed_adjudication(client, case_number="2026/ADJ/801", non_license="yes")
         html = client.get(f"/adjudication/case/{case_id}/edit").get_data(as_text=True)
         assert 'id="kmc_license_section" class="conditional-block active"' in html
+
+    def test_edit_form_shows_kmc_section_when_ce_data_present(self, client):
+        # Stored trade-license values must stay viewable even if the flag is
+        # unchecked (e.g. data saved before the toggle wiring existed).
+        _login(client)
+        case_id = _seed_adjudication(client, case_number="2026/ADJ/802", ce_license_no="KMC-123")
+        html = client.get(f"/adjudication/case/{case_id}/edit").get_data(as_text=True)
+        assert 'id="kmc_license_section" class="conditional-block active"' in html
+        assert 'value="KMC-123"' in html

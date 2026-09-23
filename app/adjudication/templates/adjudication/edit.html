@@ -52,7 +52,7 @@
             {% endfor %}
         </div>
 
-        <div id="kmc_license_section" class="conditional-block{% if form.non_license == 'yes' %} active{% endif %}">
+        <div id="kmc_license_section" class="conditional-block{% if form.non_license == 'yes' or form.ce_license_no or form.ce_trade_name or form.ce_proprietor or form.ce_address or form.ce_status %} active{% endif %}">
         <div class="section-header"><h3>KMC Trade License Details</h3></div>
         <div class="form-row form-row--2">
             <div class="form-group">
@@ -187,17 +187,29 @@
 {% endblock %} {% block extra_js %}
 <script>
     // Non-Licensed / Unregistered FBO toggle — shows the KMC Trade License
-    // Details section only when the flag is checked (matches the create
-    // form's syncLicenseLookupVisibility). Hidden fields keep their values
-    // (preserved on Save); they are simply not shown.
+    // Details section when the flag is checked OR saved CE data exists, so
+    // previously stored trade-license values are never hidden away (matches
+    // the create form's syncLicenseLookupVisibility). Hidden fields keep
+    // their values (preserved on Save); they are simply not shown.
     (function () {
         var nonLicenseCb = document.querySelector('input[name="non_license"]');
         var kmcSection = document.getElementById("kmc_license_section");
         if (!nonLicenseCb || !kmcSection) return;
+        var CE_FIELD_IDS = ["ce_license_no", "ce_trade_name", "ce_proprietor", "ce_address", "ce_status"];
+        function kmcHasData() {
+            return CE_FIELD_IDS.some(function (id) {
+                var el = document.getElementById(id);
+                return el && el.value.trim() !== "";
+            });
+        }
         function syncKmcSectionVisibility() {
-            kmcSection.classList.toggle("active", nonLicenseCb.checked);
+            kmcSection.classList.toggle("active", nonLicenseCb.checked || kmcHasData());
         }
         nonLicenseCb.addEventListener("change", syncKmcSectionVisibility);
+        CE_FIELD_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener("input", syncKmcSectionVisibility);
+        });
         syncKmcSectionVisibility();
     })();
 
