@@ -1,0 +1,48 @@
+{
+  "conditions": {
+    "F0": {
+      "n": 150,
+      "soft_v2": 0.3853,
+      "binary_v2": 0.12
+    },
+    "F1": {
+      "n": 150,
+      "soft_v2": 0.3854,
+      "binary_v2": 0.12
+    },
+    "F2": {
+      "n": 150,
+      "soft_v2": 0.3865,
+      "binary_v2": 0.12
+    },
+    "F1F2": {
+      "n": 150,
+      "soft_v2": 0.3861,
+      "binary_v2": 0.12
+    }
+  },
+  "f1_gate": {
+    "targets_machine_incorrect": 29,
+    "recovered": 0,
+    "insufficient_evidence_regressions": 0,
+    "binary_gain": 0.0,
+    "passes": false
+  },
+  "f2_gate": {
+    "targets_machine_incorrect": 31,
+    "fixed": 0,
+    "already_correct_regressed": 0,
+    "passes": false
+  },
+  "f1_guard": {
+    "recovered": 16,
+    "recovery_rejected": 0,
+    "reject_rate": 0.0
+  },
+  "accounting": {
+    "generation_attempts": 105,
+    "successful_generations": 68,
+    "failed_attempts": 37,
+    "budget_cap": 150
+  }
+}

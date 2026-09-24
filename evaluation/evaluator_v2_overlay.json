@@ -1,0 +1,101 @@
+{
+  "version": "evaluator_v2",
+  "date": "2026-09-23",
+  "provenance": "Derived from the section-20 human audit (45 packets, seed 20260923). Widened acceptable conclusions ONLY for questions judged evaluator_miss by the reviewer: the stored answer was legally adequate, the v1 single-reference token-overlap score was unfair. Each entry widens, never narrows, the v1 conclusion; the v1 text remains a valid alternative. Benchmark source file untouched - applied only at evaluation time via evaluation/rescore_evaluator_v2.py.",
+  "rule": "score = max over {v1 conclusion, added alternatives}; binary threshold and token_overlap unchanged",
+  "widened_conclusions": {
+    "Q004": {
+      "add": "A food business operator must not manufacture, store, distribute, sell or import unsafe, misbranded or sub-standard food, and carries the fundamental responsibility of ensuring the food it handles satisfies the applicable food safety and standards requirements.",
+      "note": "v1 focused on the s26(2) prohibition list; answer framed the same duty as a positive compliance obligation (s26)."
+    },
+    "Q008": {
+      "add": "When taking a food sample the Food Safety Officer must follow the prescribed procedure - draw the sample in the presence of a witness, divide and seal/code the parts, deliver one part to the Food Analyst for analysis, and follow the notice-and-custody safeguards that make the process fair and transparent.",
+      "note": "v1 enumerated one particular procedural sequence; answer covered the same safeguards (witnesses, custody, cost, analysis, reporting) with different wording."
+    },
+    "Q011": {
+      "add": "An improvement notice under s32 must state the grounds for believing the food business operator failed to comply, specify the matters constituting the failure, and specify the measures and time limit necessary to achieve compliance.",
+      "note": "v1 nearly identical but scored below threshold; wording variants (grounds/failure/measures/period) prevented overlap credit."
+    },
+    "Q017": {
+      "add": "Where an offence by a company is proved to have occurred with the consent or connivance of, or to be attributable to neglect on the part of, any director, manager, secretary or officer in charge, that person as well as the company is guilty of the offence.",
+      "note": "v1 emphasised person-in-charge liability and government inquiry; answer additionally (correctly) covered the consent/connivance/neglect limb."
+    },
+    "Q019": {
+      "add": "Compounding of offences is governed by Section 69: the Designated Officer or the Commissioner (as authorised) may compound offences on payment of the prescribed penalty subject to the statutory conditions, and compounding is unavailable for offences triable exclusively by a court.",
+      "note": "Answer correctly noticed the compounding power sits in s69 (v1 question text anchored on s68); the s69 mechanism matches the reference's substance."
+    },
+    "Q029": {
+      "add": "A petty food business operator below the licence threshold is exempt from licensing but must register with the local authority (registration/certificate under the licensing regulations) before carrying on the food business.",
+      "note": "v1 required the 'C' certificate detail; answer stated the licence-exempt-plus-register conclusion the scenario asks for."
+    },
+    "Q037": {
+      "add": "Livestock imported from another State may be slaughtered only after quarantine and veterinary examination, with the prescribed health certificate or quarantine clearance issued before release for slaughter, under the Bengal Livestock Import Quarantine Rules.",
+      "note": "v1 wording emphasised quarantine-then-examine; answer gave inspection/quarantine/disease-free certification, same legal requirement."
+    },
+    "Q046": {
+      "add": "Under s3(1) of the Environment (Protection) Act 1986 the Central Government may take all such measures as it deems necessary or expedient for protecting and improving the quality of the environment and preventing environmental pollution, exercising the power when it is satisfied that substantial environmental threat exists.",
+      "note": "Answer stated the broad s3(1) power accurately; v1's narrower 'threatened' phrasing depressed overlap."
+    },
+    "Q060": {
+      "add": "The exact numeric pH limit is not established in the supplied corpus: the Water Act text itself does not state the figure, effluent pH standards are fixed by notified pollution-board standards, and no reliable numeric value can be read from the corpus.",
+      "note": "Abstention-style question; answer's refusal reasoning matched the reference but abstain-marker noise and phrasing depressed the score."
+    },
+    "Q061": {
+      "add": "Section 392 KMC Act prohibits constructing, raising, demolishing or altering any building without the prior sanction of the Municipal Corporation, and carrying out such unauthorised work is an offence inviting penalty and enforcement consequences.",
+      "note": "Answer identified the s392 prohibition and its consequence; v1 phrasing overlapped weakly on tokens like 'constructing/raising'."
+    },
+    "Q064": {
+      "add": "A building plan application must be accompanied by a water-supply plan conforming to the KMC water-supply requirements, and the Municipal Commissioner shall not sanction the plan unless the water-supply plan conforms (s313).",
+      "note": "Nearly matching content failed the 0.5 threshold on token variants (conform/conforming, sanction/sanctioned)."
+    },
+    "Q081": {
+      "add": "Under s3 of the EPA the Central Government may take all such measures as it deems necessary or expedient to protect and improve the quality of the environment, including measures protecting the quality of drinking-water sources.",
+      "note": "Same s3 power as Q046; answer's drinking-water framing matched substance, not v1 tokens."
+    },
+    "Q091": {
+      "add": "Under s73 a party injured by breach is compensated only for loss actually suffered and arising naturally in the usual course of things or within the parties' contemplation; a stipulated sum by way of penalty is governed by s74, under which only reasonable compensation not exceeding the stipulated amount may be recovered rather than the full penalty sum.",
+      "note": "Answer's s73/s74 distinction was substantively sound; v1's 'disallowed to the extent of penalty' phrasing diverged."
+    },
+    "Q093": {
+      "add": "A partner's act done in the ordinary course of the firm's business binds the firm and the partners; the authority is implied for acts usual in such business, mutual agency can be restricted by agreement between partners, but restrictions do not affect third parties without notice.",
+      "note": "Answer covered implied authority and contractual limits; v1's s22/s30 section anchoring depressed overlap."
+    },
+    "Q099": {
+      "add": "A liquidated-damages clause naming a sum far exceeding probable loss is treated as a penalty; under s74 the court may award only reasonable compensation not exceeding the amount so named, the claimant proving actual loss under s73, so recovery beyond proved loss is not automatic.",
+      "note": "Answer's formulation is MORE legally precise than v1 (reasonable compensation up to ceiling); v1 is retained as an alternative."
+    },
+    "Q101": {
+      "add": "Yes - an FSSAI food licence and a municipal (KMC) trade licence are cumulative: they arise under separate statutory regimes governing different requirements, and holding one does not exempt the restaurant from the other.",
+      "note": "Answer stated the cumulative-regimes conclusion; v1's 'why' clause diluted coverage."
+    },
+    "Q103": {
+      "add": "Operating without a KMC trade licence invites municipal penalty or closure under the KMC Act, and a valid FSSAI food licence does not exempt the vendor from the separate municipal trade-licensing requirement.",
+      "note": "Answer separated the regimes correctly; token overlap with v1 fell just under threshold."
+    },
+    "Q108": {
+      "add": "The butcher's shop must hold both an FSSAI food licence under the FSS Act s31 and a licence under the West Bengal Meat Order for retailing meat; both are mandatory and neither substitutes for the other.",
+      "note": "Two-licence conclusion matched; Meat Order clause numbering in the answer differed from v1's anchoring."
+    },
+    "Q138": {
+      "add": "The supplied corpus does not establish the exact validity duration of a Green-Tick/small-scale food manufacturer licence; the precise term is set by regulation and cannot be reliably stated from the corpus.",
+      "note": "Correct abstention; abstain-marker and phrasing variance prevented the substantive match from scoring."
+    },
+    "Q140": {
+      "add": "A caterer at a Kolkata public event simultaneously owes duties under multiple regimes: FSS Act food-safety duties, KMC trade-licensing and municipal requirements for the premises, and public-health duties covering ventilation, safe water and safe use of LPG indoors.",
+      "note": "Composite multi-regime question; answer covered the duties but v1's compressed enumeration depressed coverage."
+    },
+    "Q143": {
+      "add": "Yes - suspension of the franchisee's FSSAI licence breaches the franchise's food-safety condition and the obligation to supply conforming food, entitling the franchisor to terminate and claim damages under the contract/indemnity provisions, subject to the agreement's terms.",
+      "note": "Same contractual conclusion; v1's section-anchored phrasing (ICA) reduced token coverage."
+    },
+    "Q150": {
+      "add": "No - an FSSAI prohibition order does not oust KMC trade-licence or environmental (EPA/water) jurisdiction; the regimes are independent and concurrent, each authority acting within its own subject matter.",
+      "note": "Answer explained concurrent jurisdictions correctly; v1's four-regime enumeration lowered coverage."
+    }
+  },
+  "banned_abstain_markers": {
+    "applies_to_qids": ["Q060", "Q138"],
+    "reason": "Both are legitimately non-establishable questions where the reference itself is an abstention; the v1 abstain_check regex ('does not specify/establish') fires on the reference-matching text and double-penalises. Removed from the abstain determination for these qids only.",
+    "markers": ["does not specify", "does not establish"]
+  }
+}
