@@ -135,10 +135,13 @@ class TestRouteAfterAudit:
     def test_missing_audit_goes_to_generate(self):
         assert route_after_audit({}) == "generate"
 
-    def test_missing_max_revisions_uses_roadmap_fallback(self):
-        # Roadmap §32.3 sketch: int(state.get("max_revisions", 2)).
+    def test_missing_max_revisions_uses_default_cap(self):
+        # Missing max_revisions falls back to DEFAULT_MAX_REVISIONS (1),
+        # matching initial_state / Experiment D — not a looser cap of 2.
         state = {"audit_result": {"status": "FAIL", "defects": [{}]}, "revision_count": 1}
-        assert route_after_audit(state) == "structured_reasoner"
+        assert route_after_audit(state) == "generate"
+        state0 = {"audit_result": {"status": "FAIL", "defects": [{}]}, "revision_count": 0}
+        assert route_after_audit(state0) == "structured_reasoner"
 
 
 class TestReasoningTopology:

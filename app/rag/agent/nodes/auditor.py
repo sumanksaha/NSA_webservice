@@ -3,18 +3,22 @@
 Roadmap §32.2: the auditor behaves as a rigorous legal reviewer and emits
 *structured defects*, never just a confidence number.  This pass is fully
 deterministic (no LLM): it checks the :class:`StructuredLegalArgument`
-against the evidence texts for missed exceptions, invalid citations,
-unsupported applications, unhandled definitions and empty scope.
+against the evidence texts for missed exceptions (including stacked /
+partially covered markers), invalid citations (fail-closed on empty
+evidence), unsupported applications, unhandled definitions, empty scope,
+and conclusions that do not ground in the evidence.
 
 The Experiment D harness (Condition C) owns the revision loop — it
-re-invokes the reasoner once with the defect notes when ``status`` is
-``FAIL``.  Graph wiring (``auditor_node`` reading ``structured_argument``
-from state) lands in Phase 3; until the state gains those fields the node
-is a no-op returning no updates.
+re-invokes the reasoner with the defect notes when ``status`` is ``FAIL``,
+capped by ``reasoning_path.DEFAULT_MAX_REVISIONS``.  Graph wiring
+(``auditor_node`` reading ``structured_argument`` from state) lands in
+Phase 3; until the state gains those fields the node is a no-op returning
+no updates.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections.abc import Collection, Mapping
@@ -58,7 +62,6 @@ class AuditResult(BaseModel):
 
     status: Literal["PASS", "FAIL"]
     defects: list[AuditDefect] = Field(default_factory=list)
-    revised_argument: dict[str, Any] | None = None
 
 
 class AuditResultDict(TypedDict, total=False):
@@ -119,19 +122,25 @@ def audit_argument(
         )
 
     exc_ids = [pid for pid, text in evidence.items() if _EXCEPTION_RE.search(text.lower())]
-    if exc_ids and not exceptions:
+    uncovered = [pid for pid in exc_ids if not _exception_covered(pid, exceptions)]
+    if uncovered:
         defects.append(
             AuditDefect(
                 defect_type="missed_exception",
                 severity="critical",
-                provision_reference=exc_ids[0],
-                explanation=f"evidence states an exception/proviso ({exc_ids[0]}) the argument never considers",
+                provision_reference=uncovered[0],
+                explanation=(
+                    f"evidence states an exception/proviso ({uncovered[0]}) "
+                    "the argument never considers"
+                ),
                 required_correction="determine whether the exception applies before concluding",
             )
         )
 
+    # Always validate citations — an empty evidence map must not let every
+    # citation through (fail-closed against known_provisions ∪ applicable).
     for cite in citations:
-        if evidence and cite not in known:
+        if cite not in known:
             defects.append(
                 AuditDefect(
                     defect_type="invalid_citation",
@@ -164,9 +173,62 @@ def audit_argument(
             )
         )
 
+    conclusion = str(arg.get("derived_conclusion") or "").strip()
+    if applicable and not conclusion:
+        defects.append(
+            AuditDefect(
+                defect_type="incomplete_scope",
+                severity="critical",
+                explanation="applicable provisions identified but no derived conclusion stated",
+                required_correction="state an explicit conclusion grounded in the cited provisions",
+            )
+        )
+    elif conclusion and evidence:
+        # Deterministic conclusion↔evidence check: a long conclusion must
+        # share content with the evidence (paraphrase-tolerant prefix match).
+        # Short conclusions (≤2 content words) are skipped — they cannot
+        # carry a meaningful quote signal.
+        conc_words = set(re.findall(r"[a-z]{4,}", conclusion.lower()))
+        if len(conc_words) >= 3:
+            ev_text = " ".join(evidence.values()).lower()
+            if not any(w in ev_text or w[:5] in ev_text for w in conc_words):
+                defects.append(
+                    AuditDefect(
+                        defect_type="unsupported_certainty",
+                        severity="critical",
+                        explanation="derived conclusion shares no content with the evidence texts",
+                        required_correction="ground the conclusion in a quoted span of the evidence",
+                    )
+                )
+
     if not defects:
         return AuditResult(status="PASS")
     return AuditResult(status="FAIL", defects=defects)
+
+
+def _exception_covered(pid: str, exceptions: list[Any]) -> bool:
+    """Whether ``exceptions`` addresses the exception-bearing provision ``pid``.
+
+    Exception-stacking silence: a single non-empty ``exceptions`` list used to
+    silence every exception marker in the evidence.  Each exception-bearing
+    evidence id must be referenced (full id or bare section token), otherwise
+    uncovered provisions emit ``missed_exception``.
+    """
+    if not exceptions:
+        return False
+    pid_l = pid.lower()
+    tail = pid.split("::")[-1].lower() if "::" in pid else ""
+    tail_re = re.compile(rf"(?<!\d){re.escape(tail)}(?!\d)") if tail else None
+    for ex in exceptions:
+        try:
+            blob = json.dumps(ex, default=str).lower()
+        except (TypeError, ValueError):
+            blob = str(ex).lower()
+        if pid_l in blob:
+            return True
+        if tail_re is not None and tail_re.search(blob):
+            return True
+    return False
 
 
 def _coerce(argument: Any) -> dict[str, Any] | None:
@@ -187,8 +249,8 @@ def auditor_node(state: dict[str, Any]) -> dict[str, Any]:
 
     Reads ``structured_argument`` + ``legal_unit_evidence`` when present;
     returns no updates otherwise so the current graph is unaffected.
-    Revision counting belongs to the future ``route_after_audit`` router,
-    not to this node, so only ``audit_result`` is written.
+    Revision counting belongs to ``route_after_audit``, not to this node, so
+    only ``audit_result`` is written.
     """
     raw_argument = state.get("structured_argument")
     if not raw_argument:

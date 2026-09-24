@@ -3,7 +3,9 @@
 Zero LLM calls: rebuilds each record's answer deterministically from the
 stored structured analysis + audit artifacts, reconstructing the context
 exactly as run_d3_one did so citation-marker clamping matches the run.
-Idempotent; edits the D3 checkpoint in place (after a .bak backup).
+Applies harden_audit (FAIL must quote evidence) and the Step 2 safety
+gate (no open-critic full-answer replacement). Idempotent; edits the D3
+checkpoint in place (after a .bak backup).
 """
 
 from __future__ import annotations
@@ -27,16 +29,31 @@ except Exception:
         sys.modules.setdefault(_name, types.ModuleType(_name))
     sys.modules["matplotlib"].pyplot = sys.modules["matplotlib.pyplot"]
 
+# torch / sentence_transformers absent from ./venv — stub before D import chain.
+import types as _t
+for _mod in ("torch", "sentence_transformers"):
+    if _mod not in sys.modules:
+        class _AnyStub:
+            def __init__(self, *a, **k): pass
+            def __call__(self, *a, **k): return _AnyStub()
+            def __getattr__(self, name): return _AnyStub()
+            def __iter__(self): return iter(())
+        _stub = _t.ModuleType(_mod)
+        _stub.__getattr__ = lambda name: _AnyStub()
+        sys.modules[_mod] = _stub
+
 from evaluation.experiment_d_reasoning_eval import (
     D_D3_CKPT,
     MAX_CTX_CHARS,
     O3_COND,
     _COracleContextBuilder,
     build_final_answer,
+    harden_audit,
     load_c_questions,
     normalize_audit,
     to_retrieved_chunk,
 )
+from evaluation.step2_safety_properties import evaluate_safety, fields_for_answers
 
 
 def main() -> int:
@@ -67,6 +84,8 @@ def main() -> int:
         seen[qid] = r
 
     n_fixed = 0
+    n_hardened = 0
+    n_gated = 0
     out_lines = []
     for qid in order:
         r = seen[qid]
@@ -83,16 +102,39 @@ def main() -> int:
             cb = _COracleContextBuilder(2000, MAX_CTX_CHARS)
             built = cb.build(entry["question"], chunks, "general_qa")
             max_index = len(built.citations or [])
+            context = built.context
+            audit_n = harden_audit(normalize_audit(audit), context)
+            if audit_n.get("status") != str((audit or {}).get("status") or "").upper():
+                n_hardened += 1
+            d2_concl = str(analysis.get("legal_conclusion") or "")
+            new = build_final_answer(analysis, audit_n, max_index)
+            safety = evaluate_safety(
+                fields_for_answers(
+                    d2_answer=d2_concl,
+                    candidate_answer=new,
+                    already_correct=False,
+                    candidate_correct=False,
+                    context=context,
+                )
+            )
+            if not safety["pass"]:
+                n_gated += 1
+                audit_n = {**audit_n, "status": "PASS", "coercion_reason": "step2_safety_reject"}
+                new = build_final_answer(analysis, audit_n, max_index)
             old = r["answer"]
-            new = build_final_answer(analysis, normalize_audit(audit), max_index)
             if new != old:
                 n_fixed += 1
             r["answer"] = new
+            r["audit"] = audit_n
+            r["safety"] = safety
             r["rerendered"] = True
         out_lines.append(json.dumps(r, ensure_ascii=False))
 
     ckpt.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-    print(f"records: {len(out_lines)} | answers re-rendered: {n_fixed}")
+    print(
+        f"records: {len(out_lines)} | answers re-rendered: {n_fixed} | "
+        f"audits hardened: {n_hardened} | step2-gated: {n_gated}"
+    )
     return 0
 
 

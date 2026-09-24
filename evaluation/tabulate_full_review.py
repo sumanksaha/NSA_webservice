@@ -4,9 +4,17 @@ Run after reviewing ``full_review_worksheet.md`` (save the reviewed copy as
 ``full_review_worksheet_reviewed.md``).  Incremental: packets with a filled
 ``verdict`` line are parsed; blank packets are skipped and reported.
 
+Step 0 residual labels (plan sec 5.2): [STEP0-RESIDUAL] packets must use
+``reference_narrow`` / ``evidence_missing`` / ``model_wrong``. Those verdicts are
+bucketed into per-label intervention gates before any aggregate claim.
+
 Outputs (evaluation/out/ceiling_v5/):
   full_review_tabulation.json          - per-qid judgments joined with v1/v2 machine scores + aggregates
   evaluator_v3_candidates.json         - qids needing reference widening (fix_reference), with notes
+  step0_residual_labels.json           - residual qid -> label + per-label counts
+  step0_corpus_fill_targets.json       - evidence_missing qids (corpus completion + re-retrieve)
+  step0_contrastive_targets.json       - model_wrong qids (contrastive span-cut call behind quote gate)
+  step0_dual_score_targets.json        - reference_narrow qids (dual-score, no model change)
   experiment_F_gate_lists.json         - F1 abstention-gate + F2 provision-flag qids, with F-design counts
   human_gold_labels.jsonl              - one gold record per reviewed qid (for evaluator calibration)
   full_review_tabulation.md            - human-readable summary
@@ -47,15 +55,16 @@ for i in range(1, len(blocks), 2):
     j = jz.group(1) if jz else ""
 
     def grab(label: str) -> str:
-        m = re.search(rf"-\s*{label}\s*\([^)]*\)\s*:\s*(.*)", j, re.I)
-        if m:
-            return m.group(1).strip()
-        m = re.search(rf"-\s*{label}\s*:\s*(.*)", j, re.I)
-        return m.group(1).strip() if m else ""
+        # [ \t]* (not \s*) so the pattern cannot cross into the next judgment line
+        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
+        if not m:
+            return ""
+        # strip inline guidance comments (e.g. "# required: reference_narrow | ...")
+        return m.group(1).split("#", 1)[0].strip()
 
     verdict = grab("verdict")
     if not verdict:
-        records.append({"qid": qid, "reviewed": False})
+        records.append({"qid": qid, "reviewed": False, "step0_residual": "[STEP0-RESIDUAL]" in body})
         continue
     # Track which condition the reviewer judged best (from human_correct note or explicit letter)
     best_m = re.search(r"best answer[^a-zA-Z]*([A-D])\b", j, re.I)
@@ -69,6 +78,7 @@ for i in range(1, len(blocks), 2):
         "notes": grab("notes"),
         "best_answer_letter": (best_m.group(1).upper() if best_m else None),
         "prefilled": "Prior judgment" in (jz.group(0)[:60]),
+        "step0_residual": "[STEP0-RESIDUAL]" in body,
     })
 
 reviewed = [r for r in records if r.get("reviewed")]
@@ -130,6 +140,95 @@ tabulation = {
 (OUT / "full_review_tabulation.json").write_text(json.dumps(tabulation, indent=1, ensure_ascii=False), encoding="utf-8")
 
 # --------------------------------------------------------------------------- #
+# Step 0 residual labels (plan sec 5.2) — publish before any aggregate claim
+# --------------------------------------------------------------------------- #
+STEP0_ENUM = ("reference_narrow", "evidence_missing", "model_wrong")
+# Prefer the residual set file (authoritative) over worksheet markers alone.
+_residual_set_path = OUT / "step0_residual_set.json"
+if _residual_set_path.exists():
+    _residual_set = set(json.loads(_residual_set_path.read_text(encoding="utf-8"))["qids"])
+else:
+    _residual_set = {r["qid"] for r in records if r.get("step0_residual")}
+
+step0_residual = [r for r in reviewed if r["qid"] in _residual_set]
+step0_blank = sorted(_residual_set - {r["qid"] for r in step0_residual})
+step0_labels = {r["qid"]: r["verdict"] for r in step0_residual}
+bad_step0 = {qid: v for qid, v in step0_labels.items() if v not in STEP0_ENUM}
+# Valid labels only for completeness accounting
+valid_step0 = {qid: v for qid, v in step0_labels.items() if v in STEP0_ENUM}
+step0_complete = not step0_blank and not bad_step0 and len(valid_step0) == len(_residual_set)
+
+step0 = {
+    "enum": list(STEP0_ENUM),
+    "n_residual_total": len(_residual_set),
+    "n_reviewed": len(step0_residual),
+    "n_blank": len(step0_blank),
+    "blank_qids": step0_blank,
+    "labels": dict(sorted(valid_step0.items())),
+    "label_counts": dict(collections.Counter(valid_step0.values())),
+    "invalid_labels": bad_step0,
+    "n_labeled_valid": len(valid_step0),
+    "n_invalid": len(bad_step0),
+    "step0_complete": step0_complete,
+    "source": REVIEWED.name,
+    "scorer": "frozen: experiment_b_topk_eval token_overlap/abstain_check + evaluator_v2 overlay",
+    "note": "publish per-label counts before any aggregate soft-score claim (plan sec 5.2/Step 3)",
+}
+(OUT / "step0_residual_labels.json").write_text(
+    json.dumps(step0, indent=1, ensure_ascii=False), encoding="utf-8"
+)
+
+corpus_fill = sorted(qid for qid, v in valid_step0.items() if v == "evidence_missing")
+contrastive = sorted(qid for qid, v in valid_step0.items() if v == "model_wrong")
+dual_score = sorted(qid for qid, v in valid_step0.items() if v == "reference_narrow")
+
+(OUT / "step0_corpus_fill_targets.json").write_text(
+    json.dumps(
+        {
+            "label": "evidence_missing",
+            "n": len(corpus_fill),
+            "qids": corpus_fill,
+            "intervention": "add missing instrument text to corpus; re-retrieve qid only; one answer call",
+            "keep_if": "gold span now in payload AND binary correctness rises on that id",
+            "reject_if": "section not in index — stop, do not loop retrieval",
+        },
+        indent=1,
+        ensure_ascii=False,
+    ),
+    encoding="utf-8",
+)
+(OUT / "step0_contrastive_targets.json").write_text(
+    json.dumps(
+        {
+            "label": "model_wrong",
+            "n": len(contrastive),
+            "qids": contrastive,
+            "intervention": "one contrastive span-cut call; options cut from retrieved text with section id/authority/operative sentence",
+            "keep_if": "cited span is verbatim substring of context AND operative sentence changed",
+            "reject_if": "section-number-only swap, span not in context, or abstains on element absent from new payload — keep D2",
+        },
+        indent=1,
+        ensure_ascii=False,
+    ),
+    encoding="utf-8",
+)
+(OUT / "step0_dual_score_targets.json").write_text(
+    json.dumps(
+        {
+            "label": "reference_narrow",
+            "n": len(dual_score),
+            "qids": dual_score,
+            "intervention": "change the reference or report a second score; do not change the model",
+            "keep_if": "both old and new score reported until references fixed",
+            "reject_if": "a generation call was spent chasing the narrow reference",
+        },
+        indent=1,
+        ensure_ascii=False,
+    ),
+    encoding="utf-8",
+)
+
+# --------------------------------------------------------------------------- #
 # Evaluator v3 candidates
 # --------------------------------------------------------------------------- #
 v3 = {
@@ -179,6 +278,7 @@ with (OUT / "human_gold_labels.jsonl").open("w", encoding="utf-8") as f:
                     "model_action": r.get("model_action"),
                     "category": r.get("category"),
                     "best_answer_letter": r.get("best_answer_letter"),
+                    "step0_residual": bool(r.get("step0_residual")),
                     "machine_v2_best": max((r["machine"][c]["v2"] or False) for c in CONDITIONS),
                     "machine_v2_best_soft": max((r["machine"][c]["v2_soft"] or 0.0) for c in CONDITIONS),
                     "notes": r.get("notes"),
@@ -201,6 +301,16 @@ md = [
     "",
     f"Reviewed: **{len(reviewed)}/150** ({150 - len(reviewed)} blank)",
     "",
+    "## Step 0 residual labels (publish first)",
+    "",
+    f"- residual packets: {step0['n_residual_total']} | reviewed: {step0['n_reviewed']} | blank: {step0['n_blank']}",
+    f"- label counts: {step0['label_counts']}",
+    f"- invalid labels (not in enum): {step0['invalid_labels'] or 'none'}",
+    f"- **step0_complete: {step0['step0_complete']}**",
+    f"- corpus-fill targets (`evidence_missing`): {len(corpus_fill)}",
+    f"- contrastive targets (`model_wrong`): {len(contrastive)}",
+    f"- dual-score targets (`reference_narrow`): {len(dual_score)}",
+    "",
     "## Verdicts",
     "",
     "| Verdict | n | share |",
@@ -212,6 +322,8 @@ md = [
     "| Action | n | Feeds |",
     "|---|---:|---|",
     f"| fix_reference | {actions.get('fix_reference', 0)} | evaluator v3 overlay |",
+    f"| add_instrument_text | {actions.get('add_instrument_text', 0)} | corpus fill (`evidence_missing`) |",
+    f"| contrastive_repair | {actions.get('contrastive_repair', 0)} | contrastive call (`model_wrong`) |",
     f"| abstention_gate | {actions.get('abstention_gate', 0)} | F1 gate list |",
     f"| provision_check | {actions.get('provision_check', 0)} | F2 gate list |",
     f"| needs_deeper_reasoning | {actions.get('needs_deeper_reasoning', 0)} | future interpretation-depth work |",
@@ -230,7 +342,18 @@ md = [
 ]
 (OUT / "full_review_tabulation.md").write_text("\n".join(md), encoding="utf-8")
 
+print("step0 labels:", step0["label_counts"], "blank residual:", step0["n_blank"])
+print("step0_complete:", step0["step0_complete"])
+if bad_step0:
+    print("WARNING invalid step0 labels:", bad_step0)
+if not step0["step0_complete"]:
+    print(
+        "NOTE: Step 0 incomplete — label every residual qid "
+        f"({step0['n_blank']} blank, {len(bad_step0)} invalid) before Experiment G."
+    )
 print("verdicts:", dict(verdicts))
 print("actions:", dict(actions))
 print("wrote full_review_tabulation.json/.md, evaluator_v3_candidates.json,")
+print("        step0_residual_labels.json, step0_corpus_fill_targets.json,")
+print("        step0_contrastive_targets.json, step0_dual_score_targets.json,")
 print("        experiment_F_gate_lists.json, human_gold_labels.jsonl")

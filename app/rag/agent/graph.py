@@ -120,13 +120,15 @@ def route_after_audit(state: RAGState) -> str:
     one capped correction pass; otherwise (PASS, exhausted budget, or no
     audit at all) → ``generate``.  The policy lives in
     ``reasoning_path.should_revise`` — this router only translates it.
+    Missing ``max_revisions`` falls back to ``DEFAULT_MAX_REVISIONS`` (same
+    contract as ``initial_state`` / Experiment D), not a looser cap.
     """
-    from app.rag.generation.reasoning_path import should_revise
+    from app.rag.generation.reasoning_path import DEFAULT_MAX_REVISIONS, should_revise
 
     if should_revise(
         state.get("audit_result"),
         state.get("revision_count", 0),
-        state.get("max_revisions", 2),
+        state.get("max_revisions", DEFAULT_MAX_REVISIONS),
     ):
         return "structured_reasoner"
     return "generate"

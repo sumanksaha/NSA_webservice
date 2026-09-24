@@ -102,8 +102,16 @@ class TestAuditModelInput:
         assert audit_failed(AuditResult(status="PASS")) is False
 
 
-class TestDefaultCapMatchesRoadmapSketch:
-    def test_default_cap_is_two(self):
-        # Roadmap §32.3 sketch: int(state.get("max_revisions", 2)).
-        assert should_revise(_fail_audit(), 1) is True
-        assert should_revise(_fail_audit(), 2) is False
+class TestDefaultCapMatchesProductionContract:
+    def test_default_cap_is_one(self):
+        # DEFAULT_MAX_REVISIONS = 1: production initial_state + Experiment D
+        # share one budget; a missing override must not grant a second pass.
+        from app.rag.generation.reasoning_path import DEFAULT_MAX_REVISIONS
+
+        assert DEFAULT_MAX_REVISIONS == 1
+        assert should_revise(_fail_audit(), 0) is True
+        assert should_revise(_fail_audit(), 1) is False
+
+    def test_invalid_cap_falls_back_to_default(self):
+        assert should_revise(_fail_audit(), 0, "not-a-number") is True
+        assert should_revise(_fail_audit(), 1, "not-a-number") is False

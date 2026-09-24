@@ -65,6 +65,40 @@ class TestAuditorDefects:
         assert [d.defect_type for d in result.defects] == ["missed_exception"]
         assert result.defects[0].severity == "critical"
 
+    def test_exception_stacking_partial_coverage_fails(self):
+        """One considered exception must not silence every stacked marker."""
+        evidence = {
+            "FSS_ACT::31": "Section 31 requires a licence. Provided that petty retailers are exempt.",
+            "FSS_ACT::45": "Section 45 applies unless the operator is registered.",
+        }
+        # Only provision 31 is addressed; 45's proviso is stacked and ignored.
+        arg = _argument(
+            exceptions_considered=[{"rule": "Section 31", "exception": "petty", "applies": False}],
+            supporting_citations=["FSS_ACT::31", "FSS_ACT::45"],
+        )
+        result = audit_argument(arg, evidence)
+        assert result.status == "FAIL"
+        assert any(
+            d.defect_type == "missed_exception" and d.provision_reference == "FSS_ACT::45"
+            for d in result.defects
+        )
+
+    def test_full_exception_coverage_passes(self):
+        evidence = {
+            "FSS_ACT::31": "Section 31 requires a licence. Provided that petty retailers are exempt.",
+            "FSS_ACT::45": "Section 45 applies unless the operator is registered.",
+        }
+        arg = _argument(
+            exceptions_considered=[
+                {"rule": "Section 31", "exception": "petty", "applies": False},
+                {"rule": "Section 45", "exception": "registered operators", "applies": False},
+            ],
+            supporting_citations=["FSS_ACT::31", "FSS_ACT::45"],
+            applicable_provisions=["FSS_ACT::31", "FSS_ACT::45"],
+        )
+        result = audit_argument(arg, evidence)
+        assert not any(d.defect_type == "missed_exception" for d in result.defects)
+
     def test_no_exception_no_defect_without_markers(self):
         evidence = {"FSS_ACT::31": "Section 31 requires a licence. No provisos."}
         result = audit_argument(_argument(exceptions_considered=[]), evidence)
@@ -75,6 +109,35 @@ class TestAuditorDefects:
         result = audit_argument(arg, EVIDENCE)
         assert result.status == "FAIL"
         assert any(d.defect_type == "invalid_citation" for d in result.defects)
+
+    def test_empty_evidence_does_not_pass_citations(self):
+        """Empty evidence map must not silence the citation check (fail-closed)."""
+        arg = _argument(supporting_citations=["FSS_ACT::99"])
+        result = audit_argument(arg, {})
+        assert result.status == "FAIL"
+        assert any(d.defect_type == "invalid_citation" for d in result.defects)
+
+    def test_empty_conclusion_with_provisions_is_incomplete(self):
+        arg = _argument(derived_conclusion="")
+        result = audit_argument(arg, EVIDENCE)
+        assert result.status == "FAIL"
+        assert any(
+            d.defect_type == "incomplete_scope" and "conclusion" in d.explanation
+            for d in result.defects
+        )
+
+    def test_conclusion_without_evidence_overlap_is_unsupported(self):
+        arg = _argument(
+            derived_conclusion="Quantum chromodynamics governs mandatory orbital filing windows.",
+        )
+        result = audit_argument(arg, EVIDENCE)
+        assert result.status == "FAIL"
+        assert any(d.defect_type == "unsupported_certainty" for d in result.defects)
+
+    def test_conclusion_with_evidence_overlap_passes_quote_check(self):
+        # "licence"/"required"/"section" appear (or prefix-match) in evidence.
+        result = audit_argument(_argument(), EVIDENCE)
+        assert not any(d.defect_type == "unsupported_certainty" for d in result.defects)
 
     def test_satisfied_without_facts(self):
         arg = _argument(
@@ -100,6 +163,11 @@ class TestAuditorDefects:
         arg = _argument(applicable_provisions=[], supporting_citations=[])
         result = audit_argument(arg, {})
         assert any(d.defect_type == "incomplete_scope" for d in result.defects)
+
+    def test_no_revised_argument_field(self):
+        """Dead revised_argument field was removed — verdict is defects-only."""
+        result = audit_argument(_argument(), EVIDENCE)
+        assert "revised_argument" not in result.model_dump()
 
 
 class TestMarkerSyncWithTaxonomy:

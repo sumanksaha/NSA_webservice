@@ -31,7 +31,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.rag.agent.nodes.auditor import audit_argument
-from app.rag.generation.reasoning_path import reasoning_user_content, revision_context, should_revise
+from app.rag.generation.reasoning_path import (
+    DEFAULT_MAX_REVISIONS,
+    reasoning_user_content,
+    revision_context,
+    should_revise,
+)
 from app.rag.generation.structured_reasoner import StructuredReasoner
 
 CONDITIONS = ("A_direct", "B_structured", "C_structured_audit")
@@ -105,7 +110,7 @@ def run_condition(
     condition: str,
     *,
     max_calls: int = 10,
-    max_revisions: int = 1,
+    max_revisions: int = DEFAULT_MAX_REVISIONS,
     grade_fn: Callable[[str, str], bool | None] | None = None,
 ) -> dict[str, Any]:
     """Run one (question, evidence, condition) cell.  Raises ``LLMBudgetExceeded``."""

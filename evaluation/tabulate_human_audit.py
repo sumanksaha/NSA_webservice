@@ -40,11 +40,11 @@ for i in range(1, len(blocks), 2):
     j = jz.group(1) if jz else ""
 
     def grab(label: str) -> str:
-        m = re.search(rf"-\s*{label}\s*\([^)]*\)\s*:\s*(.*)", j, re.I)
-        if m:
-            return m.group(1).strip()
-        m = re.search(rf"-\s*{label}\s*:\s*(.*)", j, re.I)
-        return m.group(1).strip() if m else ""
+        # [ \t]* (not \s*) so the pattern cannot cross into the next judgment line
+        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
+        if not m:
+            return ""
+        return m.group(1).split("#", 1)[0].strip()
 
     strata_m = re.search(r"strata: (.*)", body)
     records.append({

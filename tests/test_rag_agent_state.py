@@ -77,9 +77,11 @@ def test_state_is_json_serializable():
 
 def test_initial_state_structured_reasoning_defaults():
     """Phase 3 (§32.3): structured-argument/audit/revision fields start empty."""
+    from app.rag.generation.reasoning_path import DEFAULT_MAX_REVISIONS
+
     state = initial_state("is a licence needed?")
     assert state["structured_argument"] is None
     assert state["audit_result"] is None
     assert state["revision_count"] == 0
-    assert state["max_revisions"] == 1
+    assert state["max_revisions"] == DEFAULT_MAX_REVISIONS == 1
     assert state["legal_unit_evidence"] == []

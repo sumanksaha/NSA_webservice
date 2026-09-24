@@ -104,6 +104,27 @@ except ModuleNotFoundError:
     sys.modules["matplotlib.pyplot"] = _pyplot
     _HAS_MATPLOTLIB = False
 
+# torch / sentence_transformers are not installed in ./venv; stub them so the
+# import chain (eval_e2e_v2 / experiment_b) resolves without altering scoring.
+for _mod in ("torch", "sentence_transformers"):
+    if _mod not in sys.modules:
+        class _AnyStub:
+            def __init__(self, *a, **k):
+                pass
+
+            def __call__(self, *a, **k):
+                return _AnyStub()
+
+            def __getattr__(self, name):
+                return _AnyStub()
+
+            def __iter__(self):
+                return iter(())
+
+        _stub = types.ModuleType(_mod)
+        _stub.__getattr__ = lambda name: _AnyStub()  # type: ignore[attr-defined]
+        sys.modules[_mod] = _stub
+
 from evaluation.eval_e2e_v2 import load_payload_index, _SSLBypassLLMClient
 from evaluation.benchmark import load_questions
 from evaluation.resolution import FamilyMap
@@ -130,11 +151,14 @@ import numpy as np
 
 import torch
 
-torch.set_num_threads(2)
+if hasattr(torch, "set_num_threads"):
+    torch.set_num_threads(2)
 
 # --------------------------------------------------------------------------- #
 # Paths + constants
 # --------------------------------------------------------------------------- #
+from evaluation.step2_safety_properties import evaluate_safety, fields_for_answers
+
 OUT_DIR = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5"
 D_PLOT_DIR = OUT_DIR / "plots"
 D_PLOT_DIR.mkdir(parents=True, exist_ok=True)
@@ -265,7 +289,8 @@ AUDITOR_SYSTEM_PROMPT = (
     "critical|major|minor, evidence: [sources]}); missing_elements (list of "
     "strings); required_corrections (list of strings); corrected_conclusion "
     "(string; empty if PASS); citation_corrections (list of strings). Use only "
-    "the provided evidence: never invent provisions or citations."
+    "the provided evidence: never invent provisions or citations. Each defect "
+    "type MUST be one of: " + ", ".join(_DEFECT_TYPES) + "."
 )
 
 
@@ -679,12 +704,20 @@ def validate_reasoning(obj: Any) -> tuple[bool, str]:
 
 
 def validate_audit(obj: Any) -> tuple[bool, str]:
-    """Minimal structural validation of the auditor output."""
+    """Structural validation of the auditor output.
+
+    FAIL must carry at least one defect object — a bare ``status: FAIL`` is
+    rejected so an empty verdict cannot drive a controlled revision.
+    """
     if not isinstance(obj, dict):
         return False, "not a JSON object"
     status = str(obj.get("status", "")).strip().upper()
     if status not in ("PASS", "FAIL"):
         return False, "missing status PASS|FAIL"
+    if status == "FAIL":
+        defects = [d for d in _as_list(obj.get("defects")) if isinstance(d, dict)]
+        if not defects:
+            return False, "FAIL requires at least one defect object"
     return True, ""
 
 
@@ -715,6 +748,74 @@ def normalize_audit(obj: dict) -> dict:
         "corrected_conclusion": _as_str(obj.get("corrected_conclusion")),
         "citation_corrections": [_as_str(x) for x in _as_list(obj.get("citation_corrections"))],
     }
+
+
+def _norm_ws(s: str) -> str:
+    return re.sub(r"\s+", " ", str(s or "")).strip().lower()
+
+
+def harden_audit(audit: dict, context: str = "") -> dict:
+    """Make FAIL structurally hard (Experiment_D3_Auditor_Logic_and_Improvements §2).
+
+    A FAIL stands only when every one of these holds:
+
+    1. at least one defect of severity ``critical``;
+    2. that defect's ``evidence`` span is a verbatim substring of ``context``
+       (whitespace-normalized); and
+    3. ``corrected_conclusion`` is empty or itself quotes that evidence span.
+
+    Otherwise the audit is coerced to PASS (keep D2) and ``coercion_reason``
+    records why. Never mutates the input dict.
+    """
+    out = dict(audit or {})
+    status = str(out.get("status", "")).strip().upper()
+    out["status"] = status
+    if status != "FAIL":
+        out["coercion_reason"] = ""
+        return out
+
+    defects = [d for d in _as_list(out.get("defects")) if isinstance(d, dict)]
+    if not defects:
+        out["status"] = "PASS"
+        out["coercion_reason"] = "fail_without_defects"
+        out["corrected_conclusion"] = ""
+        return out
+
+    critical = [d for d in defects if str(d.get("severity", "")).lower() == "critical"]
+    if not critical:
+        out["status"] = "PASS"
+        out["coercion_reason"] = "fail_without_critical_defect"
+        out["corrected_conclusion"] = ""
+        return out
+
+    ctx = _norm_ws(context)
+    supported: list[dict] = []
+    for d in critical:
+        for ev in _as_list(d.get("evidence")):
+            span = _norm_ws(ev)
+            if span and span in ctx:
+                supported.append({**d, "evidence": [str(ev)]})
+                break
+    if not supported:
+        out["status"] = "PASS"
+        out["coercion_reason"] = "critical_defect_evidence_not_in_context"
+        out["corrected_conclusion"] = ""
+        return out
+
+    corrected = _as_str(out.get("corrected_conclusion")).strip()
+    if corrected:
+        corr = _norm_ws(corrected)
+        if not any(_norm_ws(ev) in corr for d in supported for ev in _as_list(d.get("evidence"))):
+            out["status"] = "PASS"
+            out["coercion_reason"] = "corrected_conclusion_does_not_quote_defect_evidence"
+            out["corrected_conclusion"] = ""
+            return out
+
+    # Keep FAIL, but scope defects to the evidence-supported critical ones so
+    # the revision notes cannot pile on unsupported minor/other complaints.
+    out["defects"] = supported
+    out["coercion_reason"] = ""
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -1025,11 +1126,28 @@ def run_d3_one(
         rec["latency_ms"] = int((time.perf_counter() - t_total) * 1000)
         return rec
 
-    audit_n = normalize_audit(audit)
+    audit_n = harden_audit(normalize_audit(audit), context)
+    d2_concl = _as_str(d2_analysis.get("legal_conclusion")).strip()
+    # Step 2 safety gate: flags derived from answer texts (never self-report).
     final = build_final_answer(d2_analysis, audit_n, max_idx)
+    safety = evaluate_safety(
+        fields_for_answers(
+            d2_answer=d2_concl,
+            candidate_answer=final,
+            already_correct=False,
+            candidate_correct=False,
+            context=context,
+            is_open_critic=False,
+        )
+    )
+    if not safety["pass"]:
+        # keep_d2: re-render from the PASS path so the D2 conclusion stands.
+        audit_n = {**audit_n, "status": "PASS", "coercion_reason": "step2_safety_reject"}
+        final = build_final_answer(d2_analysis, audit_n, max_idx)
     rec["analysis"] = d2_analysis
     rec["audit"] = audit_n
     rec["answer"] = final
+    rec["safety"] = safety
     rec["revision_count"] = 1 if audit_n["status"] == "FAIL" else 0
     rec["latency_ms"] = int((time.perf_counter() - t_total) * 1000)
     rec["output_tokens"] = int((resp.usage or {}).get("completion_tokens", 0))
@@ -1803,30 +1921,19 @@ def _score_like_service(answer: str, chunks: list, built):
 def build_final_answer(analysis: dict, audit: dict, max_index: int) -> str:
     """Render the final D3 answer from analysis + auditor output.
 
-    PASS  -> the analysis conclusion, qualified by any uncertainties (1 call,
-             identical to D2's answer path apart from the audit check).
-    FAIL  -> the auditor's corrected conclusion, with its required corrections
-             and citation corrections applied as qualifications (the controlled
-             revision is embedded in the same audit/revision call).
+    Never replaces the full answer (Step 2 ``no_open_critic``): the D2
+    ``legal_conclusion`` always stands. An accepted FAIL only appends short
+    correction notes and the analysis caveats — the auditor's
+    ``corrected_conclusion`` is never spliced in as the answer body.
     """
     concl = _as_str(analysis.get("legal_conclusion")).strip()
     uncert = [_as_str(u) for u in _as_list(analysis.get("uncertainties")) if _as_str(u).strip()]
     lines = [concl or "The provided evidence does not establish a determinate legal conclusion."]
 
     if audit["status"] == "FAIL":
-        corrected = _as_str(audit.get("corrected_conclusion")).strip()
-        if corrected:
-            # Spec sec 7: on FAIL the corrected conclusion REPLACES the original
-            # (Reason -> Audit -> Correct -> Answer). Emitting the corrected
-            # conclusion as the answer — not appended after the flagged-wrong
-            # original — avoids a self-contradicting response.
-            lines = [corrected]
-        else:
-            # Auditor flagged defects but supplied no corrected conclusion:
-            # fall back to the original conclusion with corrections as notes.
-            for rc in audit.get("required_corrections", [])[:3]:
-                if _as_str(rc).strip():
-                    lines.append(f"Note: {_as_str(rc).strip()}")
+        for rc in audit.get("required_corrections", [])[:3]:
+            if _as_str(rc).strip():
+                lines.append(f"Note: {_as_str(rc).strip()}")
     elif audit.get("required_corrections"):
         # Minor (non-FAIL) corrections noted as qualifications.
         for rc in audit.get("required_corrections", [])[:2]:

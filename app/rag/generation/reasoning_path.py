@@ -35,12 +35,19 @@ else:
     AuditLike = Any
 
 __all__ = [
+    "DEFAULT_MAX_REVISIONS",
     "audit_failed",
     "defect_notes",
     "reasoning_user_content",
     "revision_context",
     "should_revise",
 ]
+
+#: Single home of the revision budget.  Production ``initial_state`` and the
+#: Experiment D harness both use 1 (one controlled correction pass); the old
+#: should_revise/route fallback of 2 drifted from that contract.
+DEFAULT_MAX_REVISIONS = 1
+
 
 def _status(audit: AuditLike) -> str:
     if audit is None:
@@ -55,21 +62,29 @@ def audit_failed(audit: AuditLike) -> bool:
     return _status(audit) == "FAIL"
 
 
-def should_revise(audit: AuditLike, revision_count: int, max_revisions: int = 2) -> bool:
+def should_revise(
+    audit: AuditLike,
+    revision_count: int,
+    max_revisions: int | None = None,
+) -> bool:
     """Revision policy: FAIL with budget left → revise, else generate.
 
-    Single home of the ``max_revisions`` contract previously enforced by
-    agreement between the graph node, the audit router, and the
-    Experiment D harness.  Default cap 2 matches the roadmap §32.3 sketch.
+    Single home of the ``max_revisions`` contract shared by the graph node,
+    the audit router, and the Experiment D harness.  Default cap is
+    :data:`DEFAULT_MAX_REVISIONS` (1) so a missing/invalid override cannot
+    silently grant a second pass.
     """
     try:
         count = int(revision_count)
     except (TypeError, ValueError):
         count = 0
-    try:
-        cap = int(max_revisions)
-    except (TypeError, ValueError):
-        cap = 2
+    if max_revisions is None:
+        cap = DEFAULT_MAX_REVISIONS
+    else:
+        try:
+            cap = int(max_revisions)
+        except (TypeError, ValueError):
+            cap = DEFAULT_MAX_REVISIONS
     return audit_failed(audit) and count < cap
 
 

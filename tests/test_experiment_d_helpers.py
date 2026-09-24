@@ -52,12 +52,37 @@ def _ensure_matplotlib_stub() -> None:
         sys.modules["matplotlib.pyplot"] = pyplot
 
 
+def _ensure_torch_stubs() -> None:
+    """torch / sentence_transformers are absent from ./venv; stub for import."""
+    for _mod in ("torch", "sentence_transformers"):
+        if _mod in sys.modules:
+            continue
+
+        class _AnyStub:
+            def __init__(self, *a, **k): ...
+
+            def __call__(self, *a, **k):
+                return _AnyStub()
+
+            def __getattr__(self, name):
+                return _AnyStub()
+
+            def __iter__(self):
+                return iter(())
+
+        _stub = types.ModuleType(_mod)
+        _stub.__getattr__ = lambda name: _AnyStub()  # type: ignore[attr-defined]
+        sys.modules[_mod] = _stub
+
+
 _ensure_matplotlib_stub()
+_ensure_torch_stubs()
 
 
 @pytest.fixture(scope="module")
 def d():
     _ensure_matplotlib_stub()
+    _ensure_torch_stubs()
     from evaluation import experiment_d_reasoning_eval as mod
 
     return mod
@@ -152,10 +177,70 @@ def test_validate_reasoning_payload(d):
 def test_validate_audit(d):
     ok, _ = d.validate_audit({"status": "PASS"})
     assert ok
-    ok2, _ = d.validate_audit({"status": "fail", "defects": []})
-    assert ok2
+    # FAIL without a defect object is rejected (structural gate).
+    ok_empty, why_empty = d.validate_audit({"status": "fail", "defects": []})
+    assert not ok_empty and "defect" in why_empty
+    # FAIL with at least one defect object validates.
+    ok_fail, _ = d.validate_audit(
+        {"status": "FAIL", "defects": [{"type": "citation_error", "severity": "critical", "evidence": ["[1]"]}]}
+    )
+    assert ok_fail
     ok3, why3 = d.validate_audit({"defects": []})
     assert not ok3 and "status" in why3
+
+
+def test_harden_audit_coerces_unsupported_fail(d):
+    ctx = "Section 31 requires a licence [1]. Provided that petty retailers are exempt [2]."
+    # No defects -> PASS
+    a1 = d.harden_audit({"status": "FAIL", "defects": []}, ctx)
+    assert a1["status"] == "PASS" and a1["coercion_reason"] == "fail_without_defects"
+    # No critical severity -> PASS
+    a2 = d.harden_audit(
+        {"status": "FAIL", "defects": [{"type": "other", "severity": "minor", "evidence": ["[1]"]}]},
+        ctx,
+    )
+    assert a2["status"] == "PASS" and a2["coercion_reason"] == "fail_without_critical_defect"
+    # Critical evidence not in context -> PASS
+    a3 = d.harden_audit(
+        {"status": "FAIL", "defects": [{"type": "citation_error", "severity": "critical", "evidence": ["ghost span"]}]},
+        ctx,
+    )
+    assert a3["status"] == "PASS" and a3["coercion_reason"] == "critical_defect_evidence_not_in_context"
+    # Corrected conclusion does not quote the evidence span -> PASS
+    a4 = d.harden_audit(
+        {
+            "status": "FAIL",
+            "defects": [{"type": "citation_error", "severity": "critical", "evidence": ["petty retailers are exempt"]}],
+            "corrected_conclusion": "A totally different conclusion without the span.",
+        },
+        ctx,
+    )
+    assert a4["status"] == "PASS" and a4["coercion_reason"] == "corrected_conclusion_does_not_quote_defect_evidence"
+
+
+def test_harden_audit_keeps_supported_fail(d):
+    ctx = "Section 31 requires a licence [1]. Provided that petty retailers are exempt [2]."
+    a = d.harden_audit(
+        {
+            "status": "FAIL",
+            "defects": [
+                {"type": "exception_proviso_omission", "severity": "critical", "evidence": ["petty retailers are exempt"]},
+                {"type": "other", "severity": "major", "evidence": ["unrelated"]},
+            ],
+            "corrected_conclusion": "The petty retailers are exempt from the licence requirement.",
+        },
+        ctx,
+    )
+    assert a["status"] == "FAIL"
+    assert a["coercion_reason"] == ""
+    # Unsupported major defect dropped; critical supported one kept.
+    assert len(a["defects"]) == 1
+    assert a["defects"][0]["severity"] == "critical"
+
+
+def test_harden_audit_pass_stays_pass(d):
+    a = d.harden_audit({"status": "PASS", "defects": []}, "any context")
+    assert a["status"] == "PASS" and a["coercion_reason"] == ""
 
 
 def test_normalize_audit_defaults_and_defects(d):
@@ -253,7 +338,7 @@ def test_build_final_answer_pass_path(d):
     assert "Corrected conclusion" not in out
 
 
-def test_build_final_answer_fail_path_applies_corrections(d):
+def test_build_final_answer_fail_path_keeps_d2_and_appends_notes(d):
     analysis = _valid_analysis()
     audit = d.normalize_audit({
         "status": "FAIL",
@@ -261,11 +346,12 @@ def test_build_final_answer_fail_path_applies_corrections(d):
         "corrected_conclusion": "The exemption applies; no licence is required.",
     })
     out = d.build_final_answer(analysis, audit, max_index=6)
-    # FAIL + corrected_conclusion REPLACES the original (spec sec 7):
-    # the answer must not retain the flagged-wrong original conclusion.
-    assert out.startswith("The exemption applies; no licence is required.")
-    assert "Corrected conclusion (auditor)" not in out
-    assert analysis["legal_conclusion"] not in out
+    # Step 2 no_open_critic: the D2 conclusion is NEVER replaced by the
+    # auditor's corrected_conclusion — only notes are appended.
+    assert out.startswith("The licence requirement applies")
+    assert "The exemption applies; no licence is required." not in out
+    assert "Note: Consider the petty-retailer exemption" in out
+    assert analysis["legal_conclusion"] in out
 
 
 def test_build_final_answer_fail_without_correction_keeps_notes(d):

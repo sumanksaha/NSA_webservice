@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from app.rag.agent.nodes.auditor import AuditResultDict
+from app.rag.generation.reasoning_path import DEFAULT_MAX_REVISIONS
 
 
 class AuditEntry(TypedDict, total=False):
@@ -246,6 +247,6 @@ def initial_state(
         "structured_argument": None,
         "audit_result": None,
         "revision_count": 0,
-        "max_revisions": 1,
+        "max_revisions": DEFAULT_MAX_REVISIONS,
         "legal_unit_evidence": [],
     }
