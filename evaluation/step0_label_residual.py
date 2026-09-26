@@ -205,6 +205,18 @@ def _section_tokens_present_in_o3(
         body_in_o3 = bool(in_o3) and (
             probe_hits >= 2 or (u.section is None and bool(in_o3))
         )
+        # Same probe against the unit's own corpus chunks: distinguishes
+        # "section body never ingested" (ingestion gap) from "ingested but
+        # not retrieved into the payload" (retrieval gap).
+        corpus_blob = "\n".join(
+            _chunk_text(payload_index[cid])
+            for cid in corpus_hits
+            if cid in payload_index and _chunk_text(payload_index[cid]).strip()
+        ).lower()
+        corpus_probe_hits = sum(1 for p in probes if p and p in corpus_blob)
+        body_in_corpus = bool(corpus_hits) and (
+            corpus_probe_hits >= 2 or (u.section is None and bool(corpus_hits))
+        )
         # Unresolved in corpus OR resolved but zero O3 membership => missing from payload
         missing = (not corpus_hits) or (not in_o3)
         if missing:
@@ -220,6 +232,8 @@ def _section_tokens_present_in_o3(
             "in_o3": bool(in_o3),
             "section_probe_in_o3": probe_hits,
             "body_in_o3": body_in_o3,
+            "section_probe_in_corpus": corpus_probe_hits,
+            "body_in_corpus": body_in_corpus,
             "missing_from_o3": missing,
         }
     return {
@@ -388,7 +402,7 @@ def build_residual_worksheet(
             lines += [f"**Pre-annotation signals:** `{', '.join(pre['signals'])}`", ""]
         if sug:
             lines += [f"**Machine suggestion (confirm or override):** `{sug}`", ""]
-        for label, cond in zip(labels, conditions):
+        for label, cond in zip(labels, conditions, strict=False):
             a = ans.get(cond)
             rec = v2row.get(cond) or {}
             if rec.get("status") != "ok":
@@ -552,13 +566,20 @@ def publish_gate_targets(labels: dict[str, str]) -> dict[str, list[str]]:
     return buckets
 
 
-def publish(validation: dict[str, Any], source: str, preanno: dict | None = None) -> Path:
+def publish(
+    validation: dict[str, Any],
+    source: str,
+    preanno: dict | None = None,
+    extra: dict | None = None,
+) -> Path:
     payload = dict(validation)
     payload["source"] = source
     payload["scorer"] = "frozen: experiment_b_topk_eval token_overlap/abstain_check + evaluator_v2 overlay"
     payload["note"] = (
         "publish per-label counts before any aggregate soft-score claim (plan sec 5.2/Step 3)"
     )
+    if extra:
+        payload.update(extra)
     if preanno is not None:
         payload["n_evidence_missing_candidates"] = sum(
             1 for v in preanno.values() if v.get("evidence_missing_candidate")

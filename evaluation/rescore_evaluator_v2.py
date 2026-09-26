@@ -5,9 +5,16 @@ Experiments C (O3), D (D2, D3) and E (E1):
 
   - soft score  = max token_overlap-correctness over {v1 conclusion} ∪ {added alternatives}
                   (token_overlap / thresholds imported UNCHANGED from experiment_b_topk_eval)
-  - binary      = soft > 0.5 (unchanged rule)
-  - abstained   = v1 regex, except the two overlay-listed qids where reference-matching
-                  'does not ...' phrasing was a false positive (markers removed there)
+  - binary      = soft > 0.5, OR abstention-credit on insufficient_evidence
+                  questions (``abstention_rule.abstain_credit`` — the benchmark's
+                  own "a correct abstention is the right answer" rule, which v1
+                  computed as ``abstain_correct`` but never folded into
+                  ``correct``; Step 0 analysis 2026-09-26). v1 binary stays
+                  frozen, so every report shows both.
+  - abstained   = v1 regex (UNCHANGED semantics — only the credit path uses the
+                  extended lexicon), except the two overlay-listed qids where
+                  reference-matching 'does not ...' phrasing was a false
+                  positive (markers removed there)
   - citation metrics / groundedness / latency: untouched (not judgment-dependent)
 
 Comparator discipline: per-condition n is identical to the frozen reports; answers,
@@ -38,6 +45,7 @@ OUT = ROOT / "evaluation" / "out" / "ceiling_v5"
 OVERLAY = ROOT / "evaluation" / "evaluator_v2_overlay.json"
 
 # Unchanged scoring primitives (spec: evaluator stack frozen except the reference side)
+from evaluation.abstention_rule import abstain_credit
 from evaluation.experiment_b_topk_eval import token_overlap
 
 _AbstainRe = re.compile(
@@ -61,13 +69,17 @@ def abstain_check_v2(answer: str, banned: set[str]) -> bool:
     return bool(_AbstainRe.search(low))
 
 
-def score(answer: str, refs: list[str], banned: set[str]) -> dict:
+def score(answer: str, refs: list[str], banned: set[str], *, insufficient_evidence: bool = False) -> dict:
     toks = [token_overlap(answer or "", r) for r in refs if r]
     best = max((t["correctness"] for t in toks), default=0.0)
+    abstained = abstain_check_v2(answer or "", banned)
+    credit = abstain_credit(answer or "", banned, insufficient_evidence)
     return {
         "soft": round(best, 4),
-        "correct": bool(best > 0.5),
-        "abstained": abstain_check_v2(answer or "", banned),
+        # v2 binary: overlap rule + abstention credit on IE questions only
+        "correct": bool(best > 0.5) or credit,
+        "abstained": abstained,
+        "abstain_correct": credit,
     }
 
 
@@ -140,13 +152,14 @@ for qid in sorted(QUESTIONS):
     banned = banned_by_qid.get(qid, set())
     ans = answers_for(qid)
     v1 = v1_for(qid)
-    row: dict[str, dict] = {"qid": qid}
+    ie = bool(getattr(QUESTIONS[qid], "insufficient_evidence", False))
+    row: dict[str, dict] = {"qid": qid, "insufficient_evidence": ie}
     for cond in CONDITIONS:
         a = ans.get(cond)
         if not a:
             row[cond] = {"status": "not_run", "v1": v1.get(cond)}
             continue
-        s2 = score(a, refs, banned)
+        s2 = score(a, refs, banned, insufficient_evidence=ie)
         row[cond] = {"status": "ok", "v1": v1.get(cond), "v2": s2, "answer": a}
     per_q[qid] = row
 
@@ -178,7 +191,40 @@ for cond in CONDITIONS:
         "binary_v1": agg(cond, "correct", "v1")[0],
         "binary_v2": agg(cond, "correct", "v2")[0],
         "abstain_v2": agg(cond, "abstained", "v2")[0],
+        "abstain_credited_v2": agg(cond, "abstain_correct", "v2")[0],
     }
+
+
+# Near-threshold diagnostics (Step 0 analysis): a binary claim on answers
+# sitting just under 0.5 is fragile — publish the band counts next to every
+# binary figure so flips are never read without this context.
+def bands(version: str, key: str) -> dict[str, int]:
+    edges = ((0.45, 0.50), (0.40, 0.45), (0.35, 0.40))
+    out = {f"[{a:.2f},{b:.2f})": 0 for a, b in edges}
+    out["<0.35"] = 0
+    for row in per_q.values():
+        for cond in CONDITIONS:
+            rec = row.get(cond) or {}
+            if rec.get("status") != "ok":
+                continue
+            v = (rec.get(version) or {}).get(key)
+            if v is None:
+                continue
+            for (a, b), k in zip(edges, out):
+                if a <= v < b:
+                    out[k] += 1
+                    break
+            else:
+                if v < 0.35:
+                    out["<0.35"] += 1
+    return out
+
+
+results["near_threshold"] = {
+    "note": "condition-level counts; a qid can appear in several conditions",
+    "soft_v1": bands("v1", "answer_correctness"),
+    "soft_v2": bands("v2", "soft"),
+}
 
 
 # transitions under v2 (audit-based counterfactuals)
@@ -246,6 +292,7 @@ with (OUT / "evaluator_v2_per_question.jsonl").open("w", encoding="utf-8") as f:
 (OUT / "evaluator_v2_results.json").write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
 
 print(json.dumps(results["conditions"], indent=1))
+print("near-threshold bands:", json.dumps(results["near_threshold"], indent=1))
 print("v2 transitions:", results["v2_transitions"])
 print("audit consistency:", results["audit_consistency"])
 print("audit unresolved (still <0.5):", results["audit_unresolved"])

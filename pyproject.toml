@@ -234,6 +234,13 @@ ignore = [
 "evaluation/ce_v2_error_analysis.py" = ["T201"]
 "evaluation/ce_v2_gate.py" = ["T201"]
 "evaluation/publish_ce_v2_assets.py" = ["T201"]
+# Step 0-3 gated evaluation CLI: stdout IS the run report (mirrored to
+# evaluation/out/*.md), so print is deliberate in these harnesses.
+"evaluation/step0_label_residual.py" = ["T201"]
+"evaluation/step0_human_review.py" = ["T201"]
+"evaluation/step0_dual_score_widen.py" = ["T201"]
+"evaluation/step0_qc.py" = ["T201"]
+"evaluation/step3_gated_generation.py" = ["T201"]
 "evaluation/subsection_audit.py" = ["T201"]
 "evaluation/coverage_audit.py" = ["T201"]
 "evaluation/calibrate_ce.py" = ["T201"]

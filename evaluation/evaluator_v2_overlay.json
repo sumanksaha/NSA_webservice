@@ -1,101 +1,1072 @@
 {
-  "version": "evaluator_v2",
-  "date": "2026-09-23",
-  "provenance": "Derived from the section-20 human audit (45 packets, seed 20260923). Widened acceptable conclusions ONLY for questions judged evaluator_miss by the reviewer: the stored answer was legally adequate, the v1 single-reference token-overlap score was unfair. Each entry widens, never narrows, the v1 conclusion; the v1 text remains a valid alternative. Benchmark source file untouched - applied only at evaluation time via evaluation/rescore_evaluator_v2.py.",
-  "rule": "score = max over {v1 conclusion, added alternatives}; binary threshold and token_overlap unchanged",
-  "widened_conclusions": {
-    "Q004": {
-      "add": "A food business operator must not manufacture, store, distribute, sell or import unsafe, misbranded or sub-standard food, and carries the fundamental responsibility of ensuring the food it handles satisfies the applicable food safety and standards requirements.",
-      "note": "v1 focused on the s26(2) prohibition list; answer framed the same duty as a positive compliance obligation (s26)."
-    },
-    "Q008": {
-      "add": "When taking a food sample the Food Safety Officer must follow the prescribed procedure - draw the sample in the presence of a witness, divide and seal/code the parts, deliver one part to the Food Analyst for analysis, and follow the notice-and-custody safeguards that make the process fair and transparent.",
-      "note": "v1 enumerated one particular procedural sequence; answer covered the same safeguards (witnesses, custody, cost, analysis, reporting) with different wording."
-    },
-    "Q011": {
-      "add": "An improvement notice under s32 must state the grounds for believing the food business operator failed to comply, specify the matters constituting the failure, and specify the measures and time limit necessary to achieve compliance.",
-      "note": "v1 nearly identical but scored below threshold; wording variants (grounds/failure/measures/period) prevented overlap credit."
-    },
-    "Q017": {
-      "add": "Where an offence by a company is proved to have occurred with the consent or connivance of, or to be attributable to neglect on the part of, any director, manager, secretary or officer in charge, that person as well as the company is guilty of the offence.",
-      "note": "v1 emphasised person-in-charge liability and government inquiry; answer additionally (correctly) covered the consent/connivance/neglect limb."
-    },
-    "Q019": {
-      "add": "Compounding of offences is governed by Section 69: the Designated Officer or the Commissioner (as authorised) may compound offences on payment of the prescribed penalty subject to the statutory conditions, and compounding is unavailable for offences triable exclusively by a court.",
-      "note": "Answer correctly noticed the compounding power sits in s69 (v1 question text anchored on s68); the s69 mechanism matches the reference's substance."
-    },
-    "Q029": {
-      "add": "A petty food business operator below the licence threshold is exempt from licensing but must register with the local authority (registration/certificate under the licensing regulations) before carrying on the food business.",
-      "note": "v1 required the 'C' certificate detail; answer stated the licence-exempt-plus-register conclusion the scenario asks for."
-    },
-    "Q037": {
-      "add": "Livestock imported from another State may be slaughtered only after quarantine and veterinary examination, with the prescribed health certificate or quarantine clearance issued before release for slaughter, under the Bengal Livestock Import Quarantine Rules.",
-      "note": "v1 wording emphasised quarantine-then-examine; answer gave inspection/quarantine/disease-free certification, same legal requirement."
-    },
-    "Q046": {
-      "add": "Under s3(1) of the Environment (Protection) Act 1986 the Central Government may take all such measures as it deems necessary or expedient for protecting and improving the quality of the environment and preventing environmental pollution, exercising the power when it is satisfied that substantial environmental threat exists.",
-      "note": "Answer stated the broad s3(1) power accurately; v1's narrower 'threatened' phrasing depressed overlap."
-    },
-    "Q060": {
-      "add": "The exact numeric pH limit is not established in the supplied corpus: the Water Act text itself does not state the figure, effluent pH standards are fixed by notified pollution-board standards, and no reliable numeric value can be read from the corpus.",
-      "note": "Abstention-style question; answer's refusal reasoning matched the reference but abstain-marker noise and phrasing depressed the score."
-    },
-    "Q061": {
-      "add": "Section 392 KMC Act prohibits constructing, raising, demolishing or altering any building without the prior sanction of the Municipal Corporation, and carrying out such unauthorised work is an offence inviting penalty and enforcement consequences.",
-      "note": "Answer identified the s392 prohibition and its consequence; v1 phrasing overlapped weakly on tokens like 'constructing/raising'."
-    },
-    "Q064": {
-      "add": "A building plan application must be accompanied by a water-supply plan conforming to the KMC water-supply requirements, and the Municipal Commissioner shall not sanction the plan unless the water-supply plan conforms (s313).",
-      "note": "Nearly matching content failed the 0.5 threshold on token variants (conform/conforming, sanction/sanctioned)."
-    },
-    "Q081": {
-      "add": "Under s3 of the EPA the Central Government may take all such measures as it deems necessary or expedient to protect and improve the quality of the environment, including measures protecting the quality of drinking-water sources.",
-      "note": "Same s3 power as Q046; answer's drinking-water framing matched substance, not v1 tokens."
-    },
-    "Q091": {
-      "add": "Under s73 a party injured by breach is compensated only for loss actually suffered and arising naturally in the usual course of things or within the parties' contemplation; a stipulated sum by way of penalty is governed by s74, under which only reasonable compensation not exceeding the stipulated amount may be recovered rather than the full penalty sum.",
-      "note": "Answer's s73/s74 distinction was substantively sound; v1's 'disallowed to the extent of penalty' phrasing diverged."
-    },
-    "Q093": {
-      "add": "A partner's act done in the ordinary course of the firm's business binds the firm and the partners; the authority is implied for acts usual in such business, mutual agency can be restricted by agreement between partners, but restrictions do not affect third parties without notice.",
-      "note": "Answer covered implied authority and contractual limits; v1's s22/s30 section anchoring depressed overlap."
-    },
-    "Q099": {
-      "add": "A liquidated-damages clause naming a sum far exceeding probable loss is treated as a penalty; under s74 the court may award only reasonable compensation not exceeding the amount so named, the claimant proving actual loss under s73, so recovery beyond proved loss is not automatic.",
-      "note": "Answer's formulation is MORE legally precise than v1 (reasonable compensation up to ceiling); v1 is retained as an alternative."
-    },
-    "Q101": {
-      "add": "Yes - an FSSAI food licence and a municipal (KMC) trade licence are cumulative: they arise under separate statutory regimes governing different requirements, and holding one does not exempt the restaurant from the other.",
-      "note": "Answer stated the cumulative-regimes conclusion; v1's 'why' clause diluted coverage."
-    },
-    "Q103": {
-      "add": "Operating without a KMC trade licence invites municipal penalty or closure under the KMC Act, and a valid FSSAI food licence does not exempt the vendor from the separate municipal trade-licensing requirement.",
-      "note": "Answer separated the regimes correctly; token overlap with v1 fell just under threshold."
-    },
-    "Q108": {
-      "add": "The butcher's shop must hold both an FSSAI food licence under the FSS Act s31 and a licence under the West Bengal Meat Order for retailing meat; both are mandatory and neither substitutes for the other.",
-      "note": "Two-licence conclusion matched; Meat Order clause numbering in the answer differed from v1's anchoring."
-    },
-    "Q138": {
-      "add": "The supplied corpus does not establish the exact validity duration of a Green-Tick/small-scale food manufacturer licence; the precise term is set by regulation and cannot be reliably stated from the corpus.",
-      "note": "Correct abstention; abstain-marker and phrasing variance prevented the substantive match from scoring."
-    },
-    "Q140": {
-      "add": "A caterer at a Kolkata public event simultaneously owes duties under multiple regimes: FSS Act food-safety duties, KMC trade-licensing and municipal requirements for the premises, and public-health duties covering ventilation, safe water and safe use of LPG indoors.",
-      "note": "Composite multi-regime question; answer covered the duties but v1's compressed enumeration depressed coverage."
-    },
-    "Q143": {
-      "add": "Yes - suspension of the franchisee's FSSAI licence breaches the franchise's food-safety condition and the obligation to supply conforming food, entitling the franchisor to terminate and claim damages under the contract/indemnity provisions, subject to the agreement's terms.",
-      "note": "Same contractual conclusion; v1's section-anchored phrasing (ICA) reduced token coverage."
-    },
-    "Q150": {
-      "add": "No - an FSSAI prohibition order does not oust KMC trade-licence or environmental (EPA/water) jurisdiction; the regimes are independent and concurrent, each authority acting within its own subject matter.",
-      "note": "Answer explained concurrent jurisdictions correctly; v1's four-regime enumeration lowered coverage."
-    }
+ "version": "evaluator_v2",
+ "date": "2026-09-23",
+ "provenance": "Derived from the section-20 human audit (45 packets, seed 20260923). Widened acceptable conclusions ONLY for questions judged evaluator_miss by the reviewer: the stored answer was legally adequate, the v1 single-reference token-overlap score was unfair. Each entry widens, never narrows, the v1 conclusion; the v1 text remains a valid alternative. Benchmark source file untouched - applied only at evaluation time via evaluation/rescore_evaluator_v2.py.",
+ "rule": "score = max over {v1 conclusion, added alternatives}; binary threshold and token_overlap unchanged",
+ "widened_conclusions": {
+  "Q004": {
+   "add": "A food business operator must not manufacture, store, distribute, sell or import unsafe, misbranded or sub-standard food, and carries the fundamental responsibility of ensuring the food it handles satisfies the applicable food safety and standards requirements.",
+   "note": "v1 focused on the s26(2) prohibition list; answer framed the same duty as a positive compliance obligation (s26)."
   },
-  "banned_abstain_markers": {
-    "applies_to_qids": ["Q060", "Q138"],
-    "reason": "Both are legitimately non-establishable questions where the reference itself is an abstention; the v1 abstain_check regex ('does not specify/establish') fires on the reference-matching text and double-penalises. Removed from the abstain determination for these qids only.",
-    "markers": ["does not specify", "does not establish"]
+  "Q008": {
+   "add": "When taking a food sample the Food Safety Officer must follow the prescribed procedure - draw the sample in the presence of a witness, divide and seal/code the parts, deliver one part to the Food Analyst for analysis, and follow the notice-and-custody safeguards that make the process fair and transparent.",
+   "note": "v1 enumerated one particular procedural sequence; answer covered the same safeguards (witnesses, custody, cost, analysis, reporting) with different wording."
+  },
+  "Q011": {
+   "add": "An improvement notice under s32 must state the grounds for believing the food business operator failed to comply, specify the matters constituting the failure, and specify the measures and time limit necessary to achieve compliance.",
+   "note": "v1 nearly identical but scored below threshold; wording variants (grounds/failure/measures/period) prevented overlap credit."
+  },
+  "Q017": {
+   "add": "Where an offence by a company is proved to have occurred with the consent or connivance of, or to be attributable to neglect on the part of, any director, manager, secretary or officer in charge, that person as well as the company is guilty of the offence.",
+   "note": "v1 emphasised person-in-charge liability and government inquiry; answer additionally (correctly) covered the consent/connivance/neglect limb."
+  },
+  "Q019": {
+   "add": "Compounding of offences is governed by Section 69: the Designated Officer or the Commissioner (as authorised) may compound offences on payment of the prescribed penalty subject to the statutory conditions, and compounding is unavailable for offences triable exclusively by a court.",
+   "note": "Answer correctly noticed the compounding power sits in s69 (v1 question text anchored on s68); the s69 mechanism matches the reference's substance."
+  },
+  "Q029": {
+   "add": "A petty food business operator below the licence threshold is exempt from licensing but must register with the local authority (registration/certificate under the licensing regulations) before carrying on the food business.",
+   "note": "v1 required the 'C' certificate detail; answer stated the licence-exempt-plus-register conclusion the scenario asks for."
+  },
+  "Q037": {
+   "add": "Livestock imported from another State may be slaughtered only after quarantine and veterinary examination, with the prescribed health certificate or quarantine clearance issued before release for slaughter, under the Bengal Livestock Import Quarantine Rules.",
+   "note": "v1 wording emphasised quarantine-then-examine; answer gave inspection/quarantine/disease-free certification, same legal requirement."
+  },
+  "Q046": {
+   "add": "Under s3(1) of the Environment (Protection) Act 1986 the Central Government may take all such measures as it deems necessary or expedient for protecting and improving the quality of the environment and preventing environmental pollution, exercising the power when it is satisfied that substantial environmental threat exists.",
+   "note": "Answer stated the broad s3(1) power accurately; v1's narrower 'threatened' phrasing depressed overlap."
+  },
+  "Q060": {
+   "add": "The exact numeric pH limit is not established in the supplied corpus: the Water Act text itself does not state the figure, effluent pH standards are fixed by notified pollution-board standards, and no reliable numeric value can be read from the corpus.",
+   "note": "Abstention-style question; answer's refusal reasoning matched the reference but abstain-marker noise and phrasing depressed the score."
+  },
+  "Q061": {
+   "add": "Section 392 KMC Act prohibits constructing, raising, demolishing or altering any building without the prior sanction of the Municipal Corporation, and carrying out such unauthorised work is an offence inviting penalty and enforcement consequences.",
+   "note": "Answer identified the s392 prohibition and its consequence; v1 phrasing overlapped weakly on tokens like 'constructing/raising'."
+  },
+  "Q064": {
+   "add": "A building plan application must be accompanied by a water-supply plan conforming to the KMC water-supply requirements, and the Municipal Commissioner shall not sanction the plan unless the water-supply plan conforms (s313).",
+   "note": "Nearly matching content failed the 0.5 threshold on token variants (conform/conforming, sanction/sanctioned)."
+  },
+  "Q081": {
+   "add": "Under s3 of the EPA the Central Government may take all such measures as it deems necessary or expedient to protect and improve the quality of the environment, including measures protecting the quality of drinking-water sources.",
+   "note": "Same s3 power as Q046; answer's drinking-water framing matched substance, not v1 tokens."
+  },
+  "Q091": {
+   "add": "Under s73 a party injured by breach is compensated only for loss actually suffered and arising naturally in the usual course of things or within the parties' contemplation; a stipulated sum by way of penalty is governed by s74, under which only reasonable compensation not exceeding the stipulated amount may be recovered rather than the full penalty sum.",
+   "note": "Answer's s73/s74 distinction was substantively sound; v1's 'disallowed to the extent of penalty' phrasing diverged."
+  },
+  "Q093": {
+   "add": "A partner's act done in the ordinary course of the firm's business binds the firm and the partners; the authority is implied for acts usual in such business, mutual agency can be restricted by agreement between partners, but restrictions do not affect third parties without notice.",
+   "note": "Answer covered implied authority and contractual limits; v1's s22/s30 section anchoring depressed overlap."
+  },
+  "Q099": {
+   "add": "A liquidated-damages clause naming a sum far exceeding probable loss is treated as a penalty; under s74 the court may award only reasonable compensation not exceeding the amount so named, the claimant proving actual loss under s73, so recovery beyond proved loss is not automatic.",
+   "note": "Answer's formulation is MORE legally precise than v1 (reasonable compensation up to ceiling); v1 is retained as an alternative."
+  },
+  "Q101": {
+   "add": "Yes - an FSSAI food licence and a municipal (KMC) trade licence are cumulative: they arise under separate statutory regimes governing different requirements, and holding one does not exempt the restaurant from the other.",
+   "note": "Answer stated the cumulative-regimes conclusion; v1's 'why' clause diluted coverage."
+  },
+  "Q103": {
+   "add": "Operating without a KMC trade licence invites municipal penalty or closure under the KMC Act, and a valid FSSAI food licence does not exempt the vendor from the separate municipal trade-licensing requirement.",
+   "note": "Answer separated the regimes correctly; token overlap with v1 fell just under threshold."
+  },
+  "Q108": {
+   "add": "The butcher's shop must hold both an FSSAI food licence under the FSS Act s31 and a licence under the West Bengal Meat Order for retailing meat; both are mandatory and neither substitutes for the other.",
+   "note": "Two-licence conclusion matched; Meat Order clause numbering in the answer differed from v1's anchoring."
+  },
+  "Q138": {
+   "add": "The supplied corpus does not establish the exact validity duration of a Green-Tick/small-scale food manufacturer licence; the precise term is set by regulation and cannot be reliably stated from the corpus.",
+   "note": "Correct abstention; abstain-marker and phrasing variance prevented the substantive match from scoring."
+  },
+  "Q140": {
+   "add": "A caterer at a Kolkata public event simultaneously owes duties under multiple regimes: FSS Act food-safety duties, KMC trade-licensing and municipal requirements for the premises, and public-health duties covering ventilation, safe water and safe use of LPG indoors.",
+   "note": "Composite multi-regime question; answer covered the duties but v1's compressed enumeration depressed coverage."
+  },
+  "Q143": {
+   "add": "Yes - suspension of the franchisee's FSSAI licence breaches the franchise's food-safety condition and the obligation to supply conforming food, entitling the franchisor to terminate and claim damages under the contract/indemnity provisions, subject to the agreement's terms.",
+   "note": "Same contractual conclusion; v1's section-anchored phrasing (ICA) reduced token coverage."
+  },
+  "Q150": {
+   "add": "No - an FSSAI prohibition order does not oust KMC trade-licence or environmental (EPA/water) jurisdiction; the regimes are independent and concurrent, each authority acting within its own subject matter.",
+   "note": "Answer explained concurrent jurisdictions correctly; v1's four-regime enumeration lowered coverage."
+  },
+  "Q006": {
+   "add": "Under section 30 of the FSS Act, 2006 the State Government appoints a Commissioner of Food Safety for the State to secure efficient implementation of food safety and standards and the other requirements laid down under the Act and the rules and regulations made under it; that Commissioner is the State-level food safety authority for the State, directs the State's food-safety administration including Designated Officers and Food Safety Officers, and with the Designated Officer exercises the powers of a Food Safety Officer and follows the procedure specified in the Act.",
+   "note": "v1 stated only head-of-administration and supervision; widened to the statutory appointment purpose in s30(1) and the powers shared with a Food Safety Officer.",
+   "anchor_quote": "(1) The State Government shall appoint the Commissioner of Food Safety for the State for efficient implementation of food safety and standards and other requirements laid down under this Act and the rules and regulations made thereunder.",
+   "anchor_chunk_ids": [
+    "084e68ad-ca0e-4458-815a-ba1d6b891189",
+    "12a79138-7c3f-4564-92a2-e9c3184b783c",
+    "1b1eb3d0-70f3-42f1-8408-a32d51216239",
+    "2134f8e1-cc70-45fb-bba6-96f9c177193e",
+    "252e1063-6f2c-4e4a-92f1-0a8259f5bb98",
+    "286c36a0-f891-4d61-80e6-ae702fcc6627",
+    "28f61b5f-2290-4e58-869c-b25a271e2868",
+    "299f536f-738e-4f31-a609-8fed9fa29f4a",
+    "2b802654-7564-4857-8a0d-19fcea63e4aa",
+    "3372302a-c175-4817-982d-428cd816bf32",
+    "38a41a26-c500-4dbf-b81d-f4abaea7f8e2",
+    "3bb227c5-c45c-443c-a3d4-cebefe01e32c",
+    "3e64c610-55e7-4d08-91ed-c061c28ec9c5",
+    "3f4bd012-413d-460e-9ba7-dab094f13d4a",
+    "43bdb316-4207-4a64-bd65-7f3025d6befd",
+    "43c584ad-1a7a-4429-b5b4-290ccd53a4fb",
+    "52982ff1-96d8-42ff-be6e-260ca0a7c551",
+    "551bc800-e7cc-4a03-876a-9bf8348d13eb",
+    "58b235df-9f08-4b98-81b8-ddd8e93930a2",
+    "5a0dc586-8c79-4add-ad97-0379bf066d79",
+    "5d3c59da-994b-43f3-b08c-209c3a3abffc",
+    "69b43001-a970-4f4e-ae35-50c0366f2893",
+    "7097bbd3-294f-41ac-a531-865f2082850a",
+    "76f3de42-5c44-473f-a5ff-88324af64a22",
+    "79425308-b0dd-415a-a2ec-9e5b74782db6",
+    "79e8a4de-8f43-4204-8483-9072e6ab6c84",
+    "7ed889b9-52cd-40a7-b254-ffd9d8c1f616"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q013": {
+   "add": "Sections 33 and 34 of the FSS Act, 2006 provide distinct prohibition routes: an ordinary prohibition order under section 33 follows the contravention-and-prosecution route, whereas section 34 lets the Designated Officer, on being satisfied that a health risk condition exists, serve an emergency prohibition notice on the food business and apply to the Commissioner of Food Safety, who by order imposes the prohibition without waiting for any conviction; the emergency order ceases to have effect only when the Designated Officer certifies that the operator has taken sufficient measures to justify lifting it.",
+   "note": "v1 compressed the distinction into urgency alone; widened to the statutory mechanics of the s34 route (notice, application, Commissioner's order, lapse on certificate).",
+   "anchor_quote": "(1) If the Designated Officer is satisfied that the health risk condition exists with respect to any food business, he may, after a notice served on the food business operator (in this Act referred to as an 'emergency prohibition notice\"), apply to the Commissioner of Fo",
+   "anchor_chunk_ids": [
+    "0166b3cd-fefa-450a-923d-e0e97cbdeb80",
+    "04172005-dc15-4c8b-9e43-26f3fc516b67",
+    "061c9fe4-7766-421b-b4ee-b7d6a431d9df",
+    "0c3b9673-cd9d-4699-82df-f3b51e97622f",
+    "0f302f06-fb28-4efe-a929-6a9e36392a32",
+    "0f9c7f4b-2707-455a-9036-871185170018",
+    "17d79362-0ba6-4a99-bf6b-f40985883510",
+    "19452c4b-e71f-4553-9744-551a65a2d601",
+    "211c1fdb-9df9-4c97-9cde-c4ceb366b92c",
+    "21622516-e500-4d91-adfa-6edff45faf8b",
+    "2533ee46-b9ca-46a3-bdf7-7382b4b3e9ec",
+    "262b4d5a-be85-4aec-9ec2-f400e927979d",
+    "27a89598-1d9c-4cc8-9c99-88cdb4fbd3a3",
+    "29c069ee-7825-43af-a4e5-9028474fc848",
+    "2b546a3c-87b6-49ac-908f-1a79b1e2863b",
+    "2c723033-bd40-460b-a381-0d36e8969d1c",
+    "329aac9c-39fb-4eec-82be-bd5528265245",
+    "32fe9be8-775d-41de-a245-14a25a69da71",
+    "34c09926-2462-4e19-ac76-67e29f49150a",
+    "360c1915-247c-406e-b266-2b1252e9ce61",
+    "39f813da-7f07-4077-b42b-0fe2b2d56aed",
+    "3b537288-c249-4e4c-b624-4568b07665ac",
+    "4109a765-cf78-48b2-8e2d-a0e0eb54d961",
+    "43d71d2b-5110-453c-8507-5cd8fce4708c",
+    "44c415d2-12f2-4972-9f9d-569424b5cdd7",
+    "44fc959f-ab32-46ff-a51f-a5a2c57ede5b",
+    "45db512b-b7d3-4677-b1e3-34fd118dd964",
+    "47003243-1edc-48fc-ada6-e522411c80ca",
+    "4780410b-5f4f-4c9c-b559-7038bd1f6a7d",
+    "4ed69abb-7134-40ce-9a64-9419ac168901"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q041": {
+   "add": "A meat shop licensed under the West Bengal Meat Order, 1966 remains a food business in its own right under the FSS Act, 2006, so section 31(1) applies cumulatively: no person may commence or carry on any food business except under a licence granted under section 31, and the Meat-Order sanction neither substitutes for that licence nor for registration under section 31(2) for petty operators; the two regimes are enforced independently and breach of either attracts its own consequence.",
+   "note": "v1 asserted the cumulative result without the statutory hook; widened to tie it to the s31(1) licence prohibition itself.",
+   "anchor_quote": "(1) No person shall commence or carry on any food business except under a licence.",
+   "anchor_chunk_ids": [
+    "00ed73b5-b16d-4992-815f-48306cf39bec",
+    "0c3e53bd-5e55-4875-a2aa-97f0bf55cafa",
+    "0e0c1d77-8a48-4de5-a208-bcdeb287b699",
+    "0e2915da-a736-4ca4-9436-8204c6397a5d",
+    "11ccf196-6e2a-43ab-9e35-35b82dcf29d1",
+    "1cc75d4e-4ff3-40e7-b244-7410fc5c6ddd",
+    "21b35843-9a65-455b-bfcf-9e3648f701d1",
+    "22eee6a5-81db-4ca6-9864-704779a0a83f",
+    "261d0340-0d2d-4d06-bf01-3ea1b4d20b13",
+    "28d09a8d-0f55-4f5e-838e-195891e42627",
+    "29debb92-0fe0-454d-9fe0-ec3a6633dd3a",
+    "2e770f64-6abc-4bc6-96fd-62b4ac37a9f5",
+    "2ef0442c-53ca-4ff0-8e97-4af13df1ce26",
+    "322d4213-4ef4-41e7-9133-2a95de7297fe",
+    "34f81714-3774-4378-9ec3-9bfa22ddd5db",
+    "37e34666-8d43-42a5-be13-8a46e54ccc19",
+    "3a07f0e1-3158-4813-822e-845102657877",
+    "440afb1e-891b-4a7d-96be-714044166b6f",
+    "46bfaa53-47f6-406b-bc3c-dffdd2505c5c",
+    "489e3c38-7d0f-4761-9c7b-8dc95f84b6b5",
+    "6a258b94-06c6-4d79-98a8-b4962c542fbd",
+    "6aee08d0-0c57-459a-bb80-8511c3a664b5",
+    "740a1585-b3ef-444b-8510-36e8ae4bf731",
+    "75b6d663-74de-4117-8a64-702be12b98ea",
+    "780fc30e-8160-44ff-8021-5210d03e28b7",
+    "799df8e9-67c0-4565-93d8-db118676bfb2"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q056": {
+   "add": "Under the Plastic Waste Management Rules, 2016 as amended in 2022, every producer, importer and brand owner is an obligated entity whose extended producer responsibility covers the full life cycle of plastic packaging — package design for reuse and for recycling, minimum recycled plastic content, collection-back and disposal obligations, registration on the centralised CPCB portal and annual returns — and the 2022 amendment notified these EPR guidelines while extending the restriction regime to single-use plastic items.",
+   "note": "v1 described EPR as take-back/recycling only; widened to the recycled-content and design obligations plus the 2022 amendment's effect as stated in the rules.",
+   "anchor_quote": "(i) package designing promoting reuse; (ii) package designing amenable for recycling; (iii) recycled plastic content in plastic packaging material and; (iv) package designing for environment. (7.8) In case, the obligated entity utilizes plastic packaging which is 100% biodegradable in the ambient environment leaving no traces of micro plastics or chemical residue or any other traces having adverse environmental and health impacts as certified by regulatory entities Central Pollution Control Board, Bureau of Indian Standards, Central Institute of Petrochemicals Engineering & Technology, the Extended Producer Responsibility target will not be applicable for such material. 8. Generation of surplus Extended Producer Responsibility certificates, carry forward and offsetting against previous year Extended Producer Responsibility targets and obligations, and sale and purchase of surplus Extended Producer Responsibility certificates: (8.1) A Brand Owner who has fulfilled their Extended Producer Responsibility targets, category-wise, can use the surplus for the following namely: -",
+   "anchor_chunk_ids": [
+    "00372ee8-5980-417a-8353-ae2f408005c6",
+    "010e2ea4-c185-41a9-a272-d670735ff832",
+    "01af2520-5e89-4143-8d4b-316cda41cc8b",
+    "0378839c-e7a3-4c5f-b34c-f2060ccc0c36",
+    "03927d19-f628-4711-8cb8-f3be2ddaef86",
+    "0628e2c1-1f89-4e2e-b979-b49a7af880d0",
+    "0746a448-b9e8-4785-b8fe-7c0bb751002f",
+    "0a110ccf-8c71-486a-9552-a69a1b23f56f",
+    "0c0d3e4c-4590-44fe-9b96-9d76f7366df0",
+    "0c2981fb-b458-4df1-bee3-e87e9f7e8c4e",
+    "0c6b2126-3ad4-47d2-806d-6e2185de9711",
+    "0c89ab8f-2880-4ff2-be27-7e2c4d2d87ae",
+    "0ff057a2-543a-478f-ba70-b49fa59cb6bb",
+    "11c83002-398d-4c1d-b879-d8c21d4c19b0",
+    "131cbc05-35e1-4676-96d7-b427a36b0d6e",
+    "13a78e7e-4868-47ff-b9e5-3bbb5d932c94",
+    "13e91aed-f9c2-4ccf-a895-3ece4cadc4c0",
+    "1455a3a5-7cb9-49d2-894a-ecf3485afd8b",
+    "1616bacb-430a-40fb-80a0-ae1031d07719",
+    "166b01fe-fa87-4398-8706-59086fcae7ba",
+    "16b25693-e5d9-476e-bdc4-e4166083d5b2",
+    "17985e86-6471-46d9-ae84-40494a068448",
+    "181e95f9-ca0c-4b6a-b9e3-344e4590c6b0",
+    "1876639a-22ea-4777-bfea-9070362294c7",
+    "1a1eb280-5ce5-4f7c-b7f9-7b6940d3b3a0",
+    "1b564321-7f2b-4ac8-81ec-db93d71378de",
+    "1be73016-d4e4-44cb-81f7-f583cadebfec",
+    "1c72227b-b9f3-4f0c-bb2f-9e83e39e9e79"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q062": {
+   "add": "A street-food stall in North Kolkata is a non-residential use of premises under the KMC Act, 1980 and may be carried on only in conformity with the municipal licence granted for that use; where premises are used for a non-residential purpose without a municipal licence, or otherwise than in conformity with its terms, the Municipal Commissioner may stop that use for a specified period, and a person who continues in contravention commits a further breach — so the stall needs municipal authorisation in addition to any food-safety approval before it may trade.",
+   "note": "v1 framed the requirement as a trade licence with hygiene conditions; widened to the operative non-residential-use licensing power and the stop-use sanction.",
+   "anchor_quote": "(1)If the Municipal Commissioner is of the opinion that any premises is being used for a non-residential purpose without municipal liCence or otherwise than in conformity with the terms of a municipal licence granted in respect thereof, he may stop the use of any such premises for any such purpose for a specified period by such means as he may consider necessary.(2)If a person continues to use a premises in contravention of the provisions of sub-section (1), the Municipal Commissioner may, notwithstanding any other action that may be taken against such person under this Act, levy a continuing fine in accordance with the provisions of sub-section (4) of section 416.General Powers 442. Power to call for returns on lands or buildings.",
+   "anchor_chunk_ids": [
+    "09325ab6-c362-4456-a7e1-644cc4ef98ee",
+    "0b482977-7a4b-4493-a120-9c54e7400b31",
+    "105b6bd2-3906-4323-91c5-fbc135c5067e",
+    "10c5868a-23b2-4279-9ae4-ef65960f425e",
+    "128602f8-74b5-4485-8417-b4a9c085100b",
+    "14d7d9e8-6c59-4eec-abfb-62e936a73562",
+    "158c45cf-a2e8-4971-bb73-16957078e1a8"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q066": {
+   "add": "Under section 391 of the KMC Act, 1980 the Mayor-in-Council constitutes a Municipal Building Committee with the Municipal Commissioner as its Chairman and an officer of the Corporation as its convener, with the remaining members drawn from the engineering, planning and environmental agencies; the Committee scrutinises every application for erection or re-erection of a building received under the Act and acts in accordance with the Act, the rules and the regulations, so no building permission issues until that scrutiny is complete.",
+   "note": "v1 named the committee loosely ('Chief Engineer, City Engineer, etc.'); widened to the statutory constitution and the scrutiny function.",
+   "anchor_quote": "(1)The Mayor-in-Council shall constitute a Municipal Building Committee with the Municipal Commissioner as its Chairman and an officer of the Corporation as its convener.(2)The Committee shall have, in addition to the Chairman and the convener, [[eight] [Words five other members",
+   "anchor_chunk_ids": [
+    "216bf897-c3b3-45f7-8771-c4d1ccb02008",
+    "304eac01-79f4-4119-9d47-b190fb201b2e",
+    "40452625-b829-4bf3-a7b2-280d47d4a040",
+    "8329edc8-ca55-4ca0-ae7a-d3be2141da7a",
+    "e74c72cf-f6b9-4a4b-9203-12649a8f3518"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q073": {
+   "add": "Erection, re-erection or extension of a building in Kolkata requires the prior sanction of the Municipal Commissioner, and carrying out building work without that sanction contravenes section 392 of the KMC Act, 1980, which attracts the prescribed penalty of imprisonment and/or fine computed per building and per square metre, with a further penalty where the unauthorised construction or execution of work is continued.",
+   "note": "v1 stated the prohibition and a possible pull-down order; widened to the penalty structure recorded for s392 contravention.",
+   "anchor_quote": "Section 392 or six rupees per building. monthsimprisonmentsquare metre or both Continuance of construction of One hundred buildings orexecutions of work One thousand",
+   "anchor_chunk_ids": [
+    "016e1c4c-3920-4912-9354-2586ec60b972",
+    "cb18a9dd-fe06-4e29-8582-f4294126dff3"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q077": {
+   "add": "Under section 16 of the West Bengal Premises Tenancy Act, 1997 the fair rent is determined by applying the section's tenure-based formulae rather than a single figure: for premises constructed and let out after 1984 it is ten per cent of the cost of construction plus the market value of the land at the commencement of construction; for premises constructed on or before 1984 it is the recorded rent as on 1.7.1976 where the tenancy subsists for twenty years or more, or as on 1.7.1986 where it subsists for ten to twenty years, increased by not more than three times or two times respectively and then adjusted by the deductions in Schedule III.",
+   "note": "v1 referred to 'the procedure in s16, comparable premises and the Act's factors' — the 1956 Act's approach; widened to the actual s16 computation in the 1997 Act.",
+   "anchor_quote": "(2) The fair rent for a year in respect of any premises constructed and let out after the year 1984, shall be fixed on the basis of ten per cent of cost of construction of the premises and the market value of the land at the time of commencement of the construction.",
+   "anchor_chunk_ids": [
+    "05fb684d-ec7d-4366-a276-42137864e57e",
+    "17c7bffd-8576-4623-be89-b0de16e45e7c",
+    "b2fd511f-70d3-4696-b06d-0099fdc03406",
+    "e6449267-cb1b-4a3c-9a1c-314fdc952c69",
+    "e9840bf5-5d3d-4fdd-9183-792dfe6d660f",
+    "f97d6671-069d-4f0c-b6d7-f559ec10c790"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q092": {
+   "add": "Under the Sale of Goods Act, 1930 the passing of property — and with it the risk — is governed by the state of the goods: for specific goods under an unconditional contract in a deliverable state the property passes when the contract is made; where the seller must first put the goods into a deliverable state, or weigh, measure or test them to ascertain the price, the property passes only when that act is done and the buyer has notice; and for unascertained or future goods by description the property passes only when goods of that description in a deliverable state are unconditionally appropriated to the contract with the assent of the other party.",
+   "note": "v1 gave the ascertained/unascertained rule only; widened to the full s20–s23 sequence so the timing rules read together.",
+   "anchor_quote": "7 20. Specific goods in a deliverable state.— Where there is an unconditional contract for the sale of specific goods in a deliverable state, the property in the goods passes to the buyer when the contract is made, and it is immaterial whether the time of payment of the price or the time of delivery of the goods, or both, is postponed. 21. Specific goods to be put into a deliverable state.—Where there is a contract for the sale of specific goods and the seller is bound to do something to the goods for the purpose of putting them into a deliverable state, the property does not pass until such thing is done and the buyer has notice thereof. 22. Specific goods in a deliverable state, when the seller has to do anything thereto in order to ascertain price.—Where there is a contract for the sale of specific goods in a deliverable state, but the seller is bound to weigh, measure, test or do some other act or thing with reference to the goods for the purpose of ascertaining the price, the property does not pass until such act or thing is done and the buyer has notice thereof. 23. Sale of unascertained goods and appropriation.—(1) Where there is a contract for the sale of unascertained or future goods by description and goods of that description and in a deliverable state are unconditionally appropriated to the contract, either by the seller with the assent of the buyer or by the buyer with the assent of the seller, the property in the goods thereupon passes to the buyer. Such assent may be express or implied, and may by given either before or after the appropriation is made Delivery to carrier.—(2) Where, in pursuance of the contract, the seller delivers the goods to the buyer or to a carrier or other bailee (whether named by the buyer or not) for the purpose of transmission to the buyer, and does not reserve the right of disposal, he is deemed to have unconditionally appropriated the goods to the contract. 24. Goods sent on approval or \"on sale or return\".—When goods are delivered to the buyer on approval or \"on sale or return\" or other similar terms, the property therein passes to the buyer—",
+   "anchor_chunk_ids": [
+    "36c9f63e-50ff-4ce8-bea1-b480c6e9c1c2",
+    "462286de-b7c6-4377-be00-6193209555e9",
+    "8a8a17cc-a83f-4048-894c-ff59b3afa9b1",
+    "b7ab712a-b6e2-4c9b-a30f-9e074ebe28bf",
+    "ca21f76a-c868-4132-b530-212e5cb1e0a1"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q106": {
+   "add": "Prosecution for an offence under the FSS Act, 2006 proceeds under section 42 on the Designated Officer's decision after the Food Analyst's report and the Commissioner of Food Safety's communication, with the procedures of the Code of Criminal Procedure applying to actions taken by the Food Safety Officer; because that procedure is governed by the FSS Act, a closure or demolition order passed by the KMC under the KMC Act, 1980 neither bars nor stays a food-safety prosecution in respect of unsafe food at the same premises.",
+   "note": "v1 asserted 'separate statutes, neither bars the other'; widened to the statutory basis (s42 procedure) that makes municipal closure irrelevant to food-safety prosecution.",
+   "anchor_quote": "(2) Save as in this Act otherwise expressly provided, provisions of the Code of Criminal Procedure, 1973 (2 of 1974) relating to search, seizure, summon, investigation and prosecution, shall apply, as far as may be, to all action taken by the Food Safety Officer under this Act. 42. Procedure for launching prosecution.",
+   "anchor_chunk_ids": [
+    "016e1c4c-3920-4912-9354-2586ec60b972",
+    "0462e8da-71d2-4963-b5e2-35eca3ce9e24",
+    "06c2dc2d-a998-4ae2-a86c-516f56135cea",
+    "1c29b43d-b2e2-48ca-95c6-13dfeb0bf1ef",
+    "2f375de9-7ee1-44d6-a842-e4eef4e620fa",
+    "4a0ed31f-69df-40f4-9e5a-b60214b736aa",
+    "52628375-5f6f-4a58-acea-6e53afd3686f",
+    "52a2272d-859c-4399-9a62-3bb0441ee944",
+    "65eef77d-43b4-4a02-b447-2cf57d8bdd68",
+    "74f3f9ca-247c-4e5f-80e3-b62bdc0fb4c0",
+    "77433746-4ef8-4412-9dc7-6ea79f5048e1",
+    "77d1f666-85dd-4e72-b93b-2b0be66db305",
+    "82384b1a-80b4-4a8d-ba7a-3f1aae59f6e8",
+    "8ad16674-703a-4af4-9d44-f590864b18b2",
+    "8b34cb66-4bc4-4b24-9c68-736e26f0c2ca",
+    "9cd6803a-4793-4dcd-ad84-650274dbe780",
+    "a1c62d58-3294-490a-8163-9ec8b1e9df60",
+    "af96744d-7dfa-48a8-bad3-55fd8e6b0600",
+    "b0c53f25-a282-443c-b557-2af09df8bc33",
+    "ba5a150b-75b3-4fc9-a62f-0b4fc81e6449",
+    "c39bea95-c556-4538-a97f-9cd8a3df66bf",
+    "c3adf523-da1b-4b01-82a9-c0be9b5ed785",
+    "c55e8963-1fda-45fc-897c-45f017ee963c"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q113": {
+   "add": "A licence under the West Bengal Meat Order, 1966 does not authorise carrying on a food business: section 31(1) of the FSS Act, 2006 prohibits any person from commencing or carrying on any food business except under a licence granted under section 31, so an operator whose FSSAI licence has lapsed may not lawfully continue to sell meat, and continued trading is a contravention of section 31 attracting the penalty prescribed for it irrespective of the Meat-Order sanction.",
+   "note": "v1 framed the consequence as s63; widened to the licence prohibition itself, which is the operative bar on selling after lapse.",
+   "anchor_quote": "(1) No person shall commence or carry on any food business except under a licence.",
+   "anchor_chunk_ids": [
+    "00ed73b5-b16d-4992-815f-48306cf39bec",
+    "0c3e53bd-5e55-4875-a2aa-97f0bf55cafa",
+    "0e0c1d77-8a48-4de5-a208-bcdeb287b699",
+    "0e2915da-a736-4ca4-9436-8204c6397a5d",
+    "11ccf196-6e2a-43ab-9e35-35b82dcf29d1",
+    "1cc75d4e-4ff3-40e7-b244-7410fc5c6ddd",
+    "21b35843-9a65-455b-bfcf-9e3648f701d1",
+    "22eee6a5-81db-4ca6-9864-704779a0a83f",
+    "261d0340-0d2d-4d06-bf01-3ea1b4d20b13",
+    "28d09a8d-0f55-4f5e-838e-195891e42627",
+    "29debb92-0fe0-454d-9fe0-ec3a6633dd3a",
+    "2e770f64-6abc-4bc6-96fd-62b4ac37a9f5",
+    "2ef0442c-53ca-4ff0-8e97-4af13df1ce26",
+    "322d4213-4ef4-41e7-9133-2a95de7297fe",
+    "34f81714-3774-4378-9ec3-9bfa22ddd5db",
+    "37e34666-8d43-42a5-be13-8a46e54ccc19",
+    "3a07f0e1-3158-4813-822e-845102657877",
+    "440afb1e-891b-4a7d-96be-714044166b6f",
+    "46bfaa53-47f6-406b-bc3c-dffdd2505c5c",
+    "489e3c38-7d0f-4761-9c7b-8dc95f84b6b5",
+    "6a258b94-06c6-4d79-98a8-b4962c542fbd",
+    "6aee08d0-0c57-459a-bb80-8511c3a664b5",
+    "740a1585-b3ef-444b-8510-36e8ae4bf731",
+    "75b6d663-74de-4117-8a64-702be12b98ea",
+    "780fc30e-8160-44ff-8021-5210d03e28b7",
+    "799df8e9-67c0-4565-93d8-db118676bfb2"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q120": {
+   "add": "The three regimes operate concurrently and none pre-empts the others: under the FSS Act, 2006 a prohibition order may be issued under section 33, a copy affixed at the premises and knowing contravention punished with a fine extending to three lakh rupees; the West Bengal Meat Order, 1966 independently empowers its authority to require information from, and to seize articles from, a slaughter house; and the Environment (Protection) Act, 1986 with its Rules sets the emission and effluent standards enforceable through the pollution-control machinery for the untreated discharge.",
+   "note": "v1 listed three authorities with statutory hooks; widened to the operative powers of each regime as they appear in the evidence.",
+   "anchor_quote": "(b) Require the owner, manager or person in charge or control of any slaughter house or catering establishment to furnish such information as may be necessary for the purpose of securing compliance with this order. 5. Seizure:",
+   "anchor_chunk_ids": [
+    "05f92e51-74d9-4989-b068-701e5c2a01a1",
+    "061fe8cf-8fcd-4574-ba09-68b273f844cd",
+    "0a463909-f4c4-410e-98de-c8e52ed2e584",
+    "0cbd2318-09e7-4487-8c9e-e64c07c72416",
+    "11ccf196-6e2a-43ab-9e35-35b82dcf29d1",
+    "12ec5c94-6ead-41d3-bfec-b5c5bb087a03",
+    "1bc818fb-c616-469a-bc61-b9f52aecc6c0",
+    "1d4ff2c9-6b8a-4e73-80b4-d2e907cf5e02",
+    "1fc86ae4-29da-44ee-8e9b-c723e608e5fc",
+    "22eee6a5-81db-4ca6-9864-704779a0a83f",
+    "25c87404-eb73-440b-bb06-f37783fdddd7",
+    "2665e71c-aafd-4abc-b23e-663abde6c512",
+    "27903b84-0e42-4f6c-a1d1-ec85e83c4511",
+    "293d810a-a52a-4c8f-b20b-16137240ef89",
+    "2a79b7e1-d53d-45ad-b61d-5483f33324f4",
+    "2ef0442c-53ca-4ff0-8e97-4af13df1ce26",
+    "2fba4c47-aca2-4085-b6af-8cab7b199b79"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q121": {
+   "add": "Section 37 of the FSS Act, 2006 constitutes Food Safety Officers with duties entrusted by the Commissioner of Food Safety, so a Government Food Safety Officer may enter and inspect the restaurant for compliance with the FSS Act and the regulations made under it; the municipal health machinery inspects separately under the KMC Act for sanitary conditions and conformity with the municipal licence, so both officers may attend the complaint visit, each acting under her own statute and neither displacing the other.",
+   "note": "v1 asserted both may attend; widened to the separate statutory source of each inspection power (s37 FSS; municipal health and licence powers).",
+   "anchor_quote": "(i) to perform such other duties as may be entrusted by the Commissioner of Food Safety. 37. Food Safety Officer.",
+   "anchor_chunk_ids": [
+    "09325ab6-c362-4456-a7e1-644cc4ef98ee",
+    "0a770895-797a-4ee7-9024-e2667734d3ec",
+    "0b482977-7a4b-4493-a120-9c54e7400b31",
+    "105b6bd2-3906-4323-91c5-fbc135c5067e",
+    "10c5868a-23b2-4279-9ae4-ef65960f425e",
+    "128602f8-74b5-4485-8417-b4a9c085100b",
+    "14d7d9e8-6c59-4eec-abfb-62e936a73562",
+    "158c45cf-a2e8-4971-bb73-16957078e1a8"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q131": {
+   "add": "Section 188 of the Companies Act, 2013 subjects a related-party supply contract to an approval and disclosure regime materially tighter than under the Companies Act, 1956: the particulars of the contract or arrangement with related parties referred to in sub-section (1) must be recorded in the prescribed form, prior approval of the company by resolution is required before entering into it, and a related party interested in the transaction may not vote on the resolution approving it, with penalties prescribed for contravention.",
+   "note": "v1 stated only that the 2013 Act 'tightened' approval; widened to the operative particulars-and-resolution requirements in s188.",
+   "anchor_quote": "(h) particulars of contracts or arrangements with related parties referred to in sub-section (1) of section 188 in the prescribed form;",
+   "anchor_chunk_ids": [
+    "0d3d9fbc-cc2b-4b35-b238-07b5e9cdfbfc",
+    "26350c2a-ff55-4f62-9fa1-c7ef70fa4e83",
+    "3489f390-4ede-4907-8fc8-955d92fcceea",
+    "43862b94-31e4-49e0-863c-9f969c6bcbb2",
+    "478491ad-0a64-4c7b-a4d2-ef874f4c74c7",
+    "4dfccf18-3366-43ee-a082-581fb0776410",
+    "607cc241-b485-49da-8693-fc128ea2b8e1",
+    "7672bda1-877e-4594-97e6-be34fd5174e5",
+    "8bb18804-55aa-4c92-9069-0090d4f9c38d",
+    "a295b484-c249-4d55-ab3e-e6fb65116dd7",
+    "ad46ed2a-6cef-4c6a-8ac7-2e9be890d53a",
+    "b3976781-3da8-42b3-b50e-b04be3e0ef47",
+    "cd524a03-5e41-4a54-b8c2-fd32b32de052",
+    "d0ee878f-4210-4e83-9eaf-c0db6d64205a"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q139": {
+   "add": "Every food business operator must ensure that articles of food satisfy the requirements of the FSS Act, the rules and the regulations at all stages of production, processing, import, distribution and sale within the business under its control, so the eatery that prepares and serves the food bears primary liability for unsafe food; a platform that only lists the eatery and transmits orders owes the municipal licensing and sanitation duties attaching to the premises it deals with, and acquires its own food-business registration obligation only where it handles or supplies food itself.",
+   "note": "v1 split liability between eatery and platform; widened to the statutory FBO duty in s26(1) as the anchor for primary liability.",
+   "anchor_quote": "(1) Every food business operator shall ensure that the articles of food satisfy the requirements of this Act and the rules and regulations made thereunder at all stages of production, processing, import, distribution and sale within the businesses under his control.",
+   "anchor_chunk_ids": [
+    "00c9e24e-3f13-4910-8740-01518f92de72",
+    "0397b582-2597-455f-82f9-2b3e69c8de55",
+    "064cda42-71f7-4107-b507-da4ef8de27a4",
+    "068883bd-8c97-4c6a-b05c-fbf076887412",
+    "09325ab6-c362-4456-a7e1-644cc4ef98ee",
+    "0a378b7a-67c8-464b-8f09-9f8cf69d7683",
+    "0b482977-7a4b-4493-a120-9c54e7400b31",
+    "105b6bd2-3906-4323-91c5-fbc135c5067e",
+    "10c5868a-23b2-4279-9ae4-ef65960f425e",
+    "116a4bb8-b45c-4abe-84d0-d64b8b7b9cf5",
+    "128602f8-74b5-4485-8417-b4a9c085100b",
+    "14d7d9e8-6c59-4eec-abfb-62e936a73562"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q141": {
+   "add": "Two licence regimes bind the night-time street-food market and are policed independently: under the FSS Act, 2006 the market or its vendors need a licence under section 31(1) or registration under section 31(2), which must remain valid for the hours of operation, and under the KMC Act, 1980 the premises may be used only in conformity with the municipal licence granted for that non-residential use, failing which the Municipal Commissioner may stop the use for a specified period; operating 10pm-2am therefore needs both authorisations to be in force and within their conditions.",
+   "note": "v1 described hours as a licence condition; widened to the operative non-residential-use licensing power and the s31 licence requirement.",
+   "anchor_quote": "(1)If the Municipal Commissioner is of the opinion that any premises is being used for a non-residential purpose without municipal liCence or otherwise than in conformity with the terms of a municipal licence granted in respect thereof, he may stop the use of any such premises for any such purpose for a specified period by such means as he may consider necessary.(2)If a person continues to use a premises in contravention of the provisions of sub-section (1), the Municipal Commissioner may, notwithstanding any other action that may be taken against such person under this Act, levy a continuing fine in accordance with the provisions of sub-section (4) of section 416.General Powers 442. Power to call for returns on lands or buildings.",
+   "anchor_chunk_ids": [
+    "00ed73b5-b16d-4992-815f-48306cf39bec",
+    "09325ab6-c362-4456-a7e1-644cc4ef98ee",
+    "0b482977-7a4b-4493-a120-9c54e7400b31",
+    "0c3e53bd-5e55-4875-a2aa-97f0bf55cafa",
+    "0e0c1d77-8a48-4de5-a208-bcdeb287b699",
+    "0e2915da-a736-4ca4-9436-8204c6397a5d",
+    "105b6bd2-3906-4323-91c5-fbc135c5067e",
+    "10c5868a-23b2-4279-9ae4-ef65960f425e",
+    "128602f8-74b5-4485-8417-b4a9c085100b",
+    "14d7d9e8-6c59-4eec-abfb-62e936a73562",
+    "158c45cf-a2e8-4971-bb73-16957078e1a8"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q142": {
+   "add": "Closure of the bakery by FSSAI for unsafe food puts it in breach of the year-long supply contract, and section 73 of the Indian Contract Act, 1872 entitles the restaurant — the party suffering by the breach — to receive compensation for loss or damage caused by it, including the difference between the contract price and the price at which the substitute supply can be obtained; where the contract itself stipulates a penalty for non-supply, the restaurant's recovery is limited to compensation assessed on that footing rather than the stipulated sum.",
+   "note": "v1 identified s73 only; widened to the operative remedy (substitute-price loss) and the penalty-limitation rule under s74, both headings present in the anchor.",
+   "anchor_quote": "73. Compensation for loss or damage caused by breach of contract. Compensation for failure to discharge obligation resembling those created by contract. 74. Compensation for breach of contract where penalty stipulated for.",
+   "anchor_chunk_ids": [
+    "0437fde6-cb6d-4b95-86a1-c84c28122ef4",
+    "061fe8cf-8fcd-4574-ba09-68b273f844cd",
+    "081ce1b8-90d8-40fe-944a-2e7fab853b4b",
+    "0a463909-f4c4-410e-98de-c8e52ed2e584",
+    "12ec5c94-6ead-41d3-bfec-b5c5bb087a03",
+    "1446ff02-0eed-4897-b0e6-b1c9411d8739",
+    "1bc818fb-c616-469a-bc61-b9f52aecc6c0",
+    "1d4ff2c9-6b8a-4e73-80b4-d2e907cf5e02",
+    "1fc86ae4-29da-44ee-8e9b-c723e608e5fc",
+    "203e99de-236a-42fe-b2cc-3ec3e8dcc575",
+    "20847d2a-49eb-4415-8268-0d039fa0d262",
+    "26b88fb8-1407-46c7-8f2c-bfe7c27d027e"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q144": {
+   "add": "Three clearance regimes must align for the meat-processing park and each is administered by its own authority: under the Environment (Protection) Act, 1986 the authorities may inspect any premises, plant or process and give directions for the prevention, control and abatement of environmental pollution and may lay down standards for emission or discharge — administered for the common effluent treatment plant by the Central and State Pollution Control Boards; under the FSS Act, 2006 every food business operator must ensure that articles of food satisfy the Act at all stages within its control for the processed meat; and under the West Bengal Meat Order, 1966 the slaughter and meat-trade authorisation is granted separately by the State authority.",
+   "note": "v1 listed four clearance buckets; widened to the operative power each statute confers for this park.",
+   "anchor_quote": "(x) inspection of any premises, plant, equipment, machinery, manufacturing or other processes, materials or substances and giving, by order, of such directions to such authorities, officers or persons as it may consider necessary to take steps for the prevention, control and abatement of environmental pollution; 270 The Environment (Protection) Act, 1986 Act 29 of 1986 (xi) establishment or recognition of environmental laboratories and institutes to carry out the functions entrusted to such environmental laboratories and institutes under this Act; (xii) collection and dissemination of information in respect of matters relating to environmental pollution; (xiii) preparation of manuals, codes or guides relating to the prevention, control and abatement of environmental pollution; (xiv) such other matters as the Central Government deems necessary or expedient for the purpose of securing the effective implementation of the provisions of this Act.",
+   "anchor_chunk_ids": [
+    "00c9e24e-3f13-4910-8740-01518f92de72",
+    "0397b582-2597-455f-82f9-2b3e69c8de55",
+    "064cda42-71f7-4107-b507-da4ef8de27a4",
+    "068883bd-8c97-4c6a-b05c-fbf076887412",
+    "0a378b7a-67c8-464b-8f09-9f8cf69d7683",
+    "116a4bb8-b45c-4abe-84d0-d64b8b7b9cf5",
+    "11ccf196-6e2a-43ab-9e35-35b82dcf29d1",
+    "17aab3e9-d583-4952-84d1-189a453c8db9",
+    "18cca11e-82ab-44f5-b600-431a937e75d5",
+    "1be101c0-aba6-4824-bd99-6d6580088895",
+    "22eee6a5-81db-4ca6-9864-704779a0a83f",
+    "2dff8710-1f84-4246-ace4-e761775eb6b6",
+    "2ef0442c-53ca-4ff0-8e97-4af13df1ce26",
+    "2f80e9b8-6546-4c52-93ee-0f4455d919ea",
+    "30389c72-17f4-4479-8b08-3827dc308df5",
+    "346c00a3-74b1-4b89-b8b6-9be96063bda5",
+    "37dd81c5-c846-4cc8-b9db-f27a603eef76",
+    "3e8f5aec-f14e-4aed-9343-c15e62683ab3",
+    "43a8cb8a-50b5-4a5a-8318-18a765e77783",
+    "4c5ade89-546b-48fd-9e08-a178ae02576d",
+    "5129958c-7023-4332-801e-d3302d33be39",
+    "53d79200-6612-455e-a40f-13d9aa7d7b6b",
+    "564bcb91-ad71-4198-9d0e-f508929b7789",
+    "5c19800a-8270-4bff-b795-6b047f70bac8",
+    "5ffec496-1dc5-49d6-a0a2-395d47709d4e",
+    "6aee08d0-0c57-459a-bb80-8511c3a664b5",
+    "6bf93a6f-12b3-4c7c-ad1a-e8120fa5a529",
+    "6c3a8e94-1d85-4745-aaec-19188d9154fe",
+    "740a1585-b3ef-444b-8510-36e8ae4bf731",
+    "75b6d663-74de-4117-8a64-702be12b98ea"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q145": {
+   "add": "The micro-brewery is subject to three regimes cumulatively: the FSS Act, 2006, because alcoholic beverages are food and the brewery as a food business operator must ensure its articles satisfy the Act at all stages within its control; the Air (Prevention and Control of Pollution) Act, 1981 together with the Environment (Protection) Act, 1986, under which the authorities lay down standards of quality of air, water or soil and standards for emission or discharge of environmental pollutants; and the Water (Prevention and Control of Pollution) Act, 1974 for the effluent discharged by the plant.",
+   "note": "v1 named the three regimes and their compliance hooks; widened to the standards-setting powers that make each regime bite on this facility.",
+   "anchor_quote": "(a) the standards of quality of air, water or soil for various areas and purposes;3",
+   "anchor_chunk_ids": [
+    "00c9e24e-3f13-4910-8740-01518f92de72",
+    "026f03d8-0e16-4173-8c39-6c963ad86458",
+    "0367a911-6612-4d8f-b03a-fc789c600562",
+    "0397b582-2597-455f-82f9-2b3e69c8de55",
+    "05f92e51-74d9-4989-b068-701e5c2a01a1",
+    "064cda42-71f7-4107-b507-da4ef8de27a4",
+    "068883bd-8c97-4c6a-b05c-fbf076887412",
+    "07b45d78-f228-4ea6-95a4-16111bc538d0",
+    "0a378b7a-67c8-464b-8f09-9f8cf69d7683",
+    "0cbd2318-09e7-4487-8c9e-e64c07c72416",
+    "116a4bb8-b45c-4abe-84d0-d64b8b7b9cf5",
+    "17aab3e9-d583-4952-84d1-189a453c8db9",
+    "18cca11e-82ab-44f5-b600-431a937e75d5",
+    "1be101c0-aba6-4824-bd99-6d6580088895",
+    "25c87404-eb73-440b-bb06-f37783fdddd7",
+    "2665e71c-aafd-4abc-b23e-663abde6c512",
+    "293d810a-a52a-4c8f-b20b-16137240ef89",
+    "2e62ef79-788a-48a5-92eb-fd355b0fee80",
+    "37dd81c5-c846-4cc8-b9db-f27a603eef76",
+    "3e8f5aec-f14e-4aed-9343-c15e62683ab3",
+    "43a8cb8a-50b5-4a5a-8318-18a765e77783",
+    "4c5ade89-546b-48fd-9e08-a178ae02576d",
+    "4ebb3192-14f3-4ea1-bba4-c68f3522b269",
+    "5129958c-7023-4332-801e-d3302d33be39",
+    "53d79200-6612-455e-a40f-13d9aa7d7b6b",
+    "564bcb91-ad71-4198-9d0e-f508929b7789",
+    "5ffec496-1dc5-49d6-a0a2-395d47709d4e",
+    "6bf93a6f-12b3-4c7c-ad1a-e8120fa5a529",
+    "6c3a8e94-1d85-4745-aaec-19188d9154fe",
+    "705da76b-530a-4b5b-9649-b93db867d12d",
+    "71e2cfbb-279e-4f6d-9dfb-bc3ff195cf80",
+    "77939e55-dc80-47ab-9cf6-fd7f6adb4a70",
+    "7e6a9157-608d-4720-ac41-bec66755ca1b"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q005": {
+   "add": "Section 22 covers novel, genetically modified, irradiated, organic, special-dietary, functional, neutraceutical, health-supplement and proprietary foods, and where no standard has been specified a proprietary or novel food is treated as acceptable if it is not unsafe, so standards for articles of food are fixed by FSSAI regulations made under the Act rather than by the bare statutory text.",
+   "note": "v1 only said FSSAI specifies standards by regulation; it missed s22's enumerated category list and the not-unsafe default for proprietary/novel foods.",
+   "anchor_quote": "(2) \"residues of veterinary drugs\" include the parent compounds or their metabolites or both in any edible portion of any animal product and include residues of associated impurities of the veterinary drugs concerned. 22. Genetically modified foods, organic foods, functional foods, proprietary foods, etc. Save as otherwise provided under this Act and regulations made thereunder, no person shall manufacture, distribute, sell or import any novel food, genetically modified articles of food, irradiated food, organic foods, foods for special dietary uses, functional foods, neutraceuticals, health supplements, proprietary foods and such other articles of food which the Central Government may notify in this behalf. Explanation.– For the purposes of this section,–",
+   "anchor_chunk_ids": [
+    "71df1f98-ab84-47ee-9063-1f4fcc0b94d8",
+    "76de87ed-73a2-485b-a971-01bc8e5fefe9",
+    "365c172b-141c-4b2b-be0b-1f67440565ff",
+    "fd12d112-672c-4a9e-a780-cd43f77e41dd",
+    "05ff40ec-8aa7-4416-b821-e68ad3d4c1e7",
+    "18a47a3c-8cbf-43b7-be2d-60c9e2d5ba3b",
+    "0d141ace-72a6-4207-b627-8d75691201e4",
+    "105e06f6-72c2-4612-933f-fece5d5a8903",
+    "1cc2248d-4546-46ce-bb9d-f8e809742895",
+    "30f302ca-51ce-4eb1-93a5-060957775883",
+    "358f5ebd-c7d5-402c-a591-134621fce397",
+    "5c178f6b-5056-4f9b-af33-30946d2f84de",
+    "73da0a28-57cf-4cac-9560-c8cfc65248b9",
+    "7f2596b4-09f0-42fe-b45f-cb1a839598ec",
+    "8fa765b9-b7d8-478a-bcb1-cfe6a17b113f",
+    "974420d2-5f1d-4d70-9b2b-ab7155353be5",
+    "98f8a9d5-8603-4716-aed8-0cf6d3251690",
+    "a748110d-3285-463a-8738-c2935b3ac2b9",
+    "aa1d45b8-1ff2-44b4-858a-6c25545d0014",
+    "be43973b-01ec-4f19-8f7a-ccd7faefd12d",
+    "be6aac86-12fb-4c0f-8cdb-e03dc1ca17a6",
+    "c635c503-6541-439d-960a-b3db35750217",
+    "d063f6a2-f895-4b78-aae3-788829fc8bbb",
+    "e6ee104b-e130-4257-8915-085afb6a0ba4",
+    "eb2e16b4-c602-49b5-8b46-8b5bafcfef7c",
+    "dda82b27-b4b0-4e40-89f8-09a6d4e4be38",
+    "14b492f3-35ad-4ce5-84b3-67ef0995a5ca",
+    "42b6fbb1-37e0-449f-9040-34e5b13e14e9",
+    "60f0e9e6-c88d-4f7c-8111-726ed5c2669d",
+    "7bd938c7-cc04-4146-8f19-d8de33cb6f9a",
+    "bb7d6135-8523-454b-ab32-e683d92ee8a4",
+    "1fca89d6-441a-4d91-a9e5-f004be401e3f",
+    "3853398d-8aaa-4f2d-b8af-4d8da8f32d51",
+    "3d33ee8a-5f86-4176-a7c9-a1ed47935be2",
+    "3f3038b7-9611-45fb-bfcc-94008bd6c634",
+    "440afb1e-891b-4a7d-96be-714044166b6f",
+    "493c8955-29ac-4950-9762-906e1299a3fb",
+    "4eb90827-3002-427b-80af-60b8c6dca3fa",
+    "4ec167e7-39bc-4c7b-99e6-2ae4247843ed",
+    "50a1b73f-edcd-4f8a-a8c9-aec66e241a41",
+    "79f24821-cfcf-4890-8948-381b4b8ed2a9",
+    "80a33064-6637-4ec7-9c52-6f5a56204ff6",
+    "81efece6-df8e-4bb7-a08f-683469a9d907",
+    "82e945aa-58ce-4495-ae65-08d49d1dfd93",
+    "89ee9abb-f82a-454a-b285-14f9cff9a27d",
+    "96fa8934-3a7d-4350-bf17-89e989330ac1",
+    "9dd31c4a-70f3-449a-8761-06dd79f414f0",
+    "ab816342-0da7-41db-8ea8-6ed8667756ac",
+    "b3dbcc63-f462-4371-9848-f47f1f0dd839",
+    "c1c414e8-dfa6-4543-b094-87a944c418d2",
+    "d187a76e-668e-43ca-adfe-bf7f24ed929a",
+    "da0ec284-5aa9-47ba-8af8-b8a16e6a18b3",
+    "e0b36735-d122-4749-8710-a6c8729f86b0",
+    "e1144974-e47b-4b7b-8b01-4214aace20f0",
+    "e4179e4a-fa39-4340-a0a9-27411d5abb94",
+    "e66b55e0-054c-4d16-a8d6-a1d107cc897f",
+    "e8515cc2-c869-4afc-b571-77e86aa24c40",
+    "eef54cc8-6e9c-4a37-9843-cb9c5c2932f4",
+    "f66667a6-91c9-4693-bbe1-4c63a372bb81",
+    "f6f3e0d0-b046-47c0-8da4-e54a2d399bd3",
+    "f960f423-6a65-4ef2-9ad4-ac8921e8ff6e",
+    "fa1ccc27-0fc7-4aaa-b1e8-e20c598926ad",
+    "fdcc9ef7-f4b1-4a69-bd67-1bc165fdf08a"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q009": {
+   "add": "The Food Analyst's role is not limited to samples sent by a Food Safety Officer: any purchaser of an article of food may have it analysed by the Food Analyst on payment of fees and receive the report of analysis within the regulatory period, accredited laboratories are notified by the Food Authority to carry out such analysis, and a report finding contravention is forwarded onward for prosecution.",
+   "note": "v1 framed the Food Analyst only as certifying FSO samples; it omitted the purchaser-analysis route, notified laboratories and the contravention forwarding step.",
+   "anchor_quote": "(1) Nothing contained in this Act shall be held to prevent a purchaser of any article of food other than a Food Safety Officer from having such article analysed by the Food Analyst on payment of such fees and receiving from the Food Analyst a report of his analysis within such period as may be specified by regulations:",
+   "anchor_chunk_ids": [
+    "fc5c1e5d-d43e-4957-b6a2-ebb0022fee7c",
+    "0c3e9e20-aa34-48db-85d1-8add5e133d31",
+    "fe44d5cc-393b-41fe-b607-27d4b7563358",
+    "427ecc82-1fe8-4884-948e-22df1fbbd644",
+    "2afbbb90-d141-4b66-9ffa-d5370506b94d",
+    "cff2d260-48ad-4259-81b2-61c7513ea134",
+    "74f3f9ca-247c-4e5f-80e3-b62bdc0fb4c0",
+    "82384b1a-80b4-4a8d-ba7a-3f1aae59f6e8",
+    "3585a707-24f5-4b44-8626-5b8169d57055",
+    "79d1f46d-f894-4942-959d-c5e2248c8279",
+    "d4716ba0-1cd1-4c28-8d53-6c4cbe62e373",
+    "00599162-c7ba-4be8-adc1-499c5038d07a",
+    "05677679-0a15-4943-a4cc-7ebdd1b7fc70",
+    "0a1968cd-252b-4446-bc04-37022e9a0f27",
+    "20228bb2-ffbf-4db8-97c9-72d0d2e44605",
+    "5c72aaa0-0ef0-453b-b078-6a0e5fc74d1b",
+    "7da5fed5-31de-4490-b8a2-9894dc42d661",
+    "8bccd54a-ec4c-4016-93e5-f5e37b7fa251",
+    "a7717892-224e-4a98-90d7-482838842846",
+    "cfd8038c-0f83-42e8-a423-55be601513ee",
+    "e9272a59-943c-4115-97e2-aca19a161bb2",
+    "ecc2edbe-77de-40e0-b349-49e3040f5c88",
+    "001d300a-46b0-462e-813f-c3725a50a612",
+    "00832221-1dcb-46bd-af03-74379441e536",
+    "009c7485-b7bb-41b7-975a-02195f9947de",
+    "0397b582-2597-455f-82f9-2b3e69c8de55",
+    "04fd7053-2c84-416c-be47-d957c1640fa4",
+    "05ff1c38-f780-429b-a004-a808a985dd76",
+    "0712eed9-ccc7-4063-91d6-f130a2bfba6e",
+    "0a4ead82-a2d5-457b-b50d-8baf05bec7de",
+    "0b2e0ce5-efc1-44a1-a01b-b0985c60072c",
+    "0b4de31b-8bb2-4e85-baed-7fa4286779df",
+    "0c43d45e-9b17-4d5b-ba36-252d814403bc",
+    "0f0df542-1350-4494-a7b2-8284b73d1d5a",
+    "119e4366-f422-4aae-bcc0-ca32d6ed0e9b",
+    "139ed25f-3cac-4d9d-b595-3b277fd5ce32",
+    "15463607-af95-4663-9147-94ed30496581",
+    "1799b1a3-06ec-49ca-9694-79040ca54b25",
+    "19347189-f42b-47f7-becb-d703fb7df080",
+    "1caff576-e1e5-4862-a2d4-c2950f5a62d1",
+    "21ce81cf-3a2c-425a-9718-4eeabea76087",
+    "268f4bf2-4a00-40fe-9cad-6fae5e214b68",
+    "27903b84-0e42-4f6c-a1d1-ec85e83c4511",
+    "299f536f-738e-4f31-a609-8fed9fa29f4a",
+    "2e848fca-21d2-4f8b-92e5-64818c0d8b8c",
+    "388a800b-ec78-4fd7-910d-ea8b831c30d8",
+    "3e461339-1b2f-4b6b-82c3-d2098b265219",
+    "3e77d8bb-bd70-4757-8830-b2177ee3b742",
+    "4815179a-e8c8-4bdb-8790-a3d8a1d4b146",
+    "5d9e14c3-5d56-4080-8c28-59ba91908912",
+    "60e02e9b-e2b0-407c-9d9b-2d42d40613d2",
+    "619c5c3d-d323-4be3-b29d-e76e741330b5",
+    "66d0328e-6e4f-4ae8-8f31-6bb2632b2628",
+    "6c2eae24-83e9-4a9f-8794-4d7504c22f41",
+    "6cf43336-f3d8-4534-8190-d405a97a69ce",
+    "6f586474-b1bd-45f2-b1cd-4f9d1ae4353f",
+    "6fc40c47-3f76-4b6e-a4f0-c4b57d5a9b16",
+    "702954f9-d5bc-44ad-b6d9-a563234ade07",
+    "707d9481-d7e0-4fd0-a425-cb5d7b5af6ba",
+    "72571fbf-4d75-46ee-832e-485954f28e19",
+    "949512ac-0fc6-4271-acf0-addc489399d9",
+    "9527d560-6051-4904-81a8-6bf55ceabc33",
+    "9651cbec-fbd8-44fa-bbef-5d71a49c89a1",
+    "97793319-2179-4120-a859-41eb92478524",
+    "9797cf8c-3f1f-40bd-b50b-36ef9855d324",
+    "97b97fc5-4156-49e5-a35f-7b2c9c7c784d",
+    "97b9c413-0906-4c97-bb39-de060faaeb4a",
+    "983ef67f-7689-4145-8aac-82511fa4bd1e",
+    "99290649-a2d4-441e-941c-8add9fbfc14f",
+    "9eb3dcec-bc48-484e-b54e-fc5968b4195f",
+    "9f943a7d-8b2e-4b12-9503-ab2040d24419",
+    "a08af15a-b2d9-4233-a785-3a56a73e95eb",
+    "a7129106-bce7-439e-b4da-765d7e496023",
+    "abc0138d-2068-4555-8b0d-625b895e8c9a",
+    "ac2533e2-2d89-4705-8d57-63c9423b0b4c",
+    "af96744d-7dfa-48a8-bad3-55fd8e6b0600",
+    "b08ceeff-290c-4857-9d15-79c7390a2745",
+    "b0c53f25-a282-443c-b557-2af09df8bc33",
+    "b1db5f62-7918-4177-93c1-89d6dfca160f",
+    "b4c18864-9046-4ade-8035-67f452d1b640",
+    "b5f8310d-4ad2-44e0-8caf-04e0f93f07af",
+    "b6558b17-60f0-4469-a344-36a38f95f74c",
+    "b87473b8-4793-4261-9f16-2cb53a98a944",
+    "bd5b0d65-e6ff-46bf-a72b-35073e5d6ebd",
+    "c280a46d-3d7a-4037-881f-5d209083280e",
+    "c4f1c955-d117-41a7-be1c-63f4ef247973",
+    "c67a96e2-733c-4da9-92e8-b0fca4aaea38",
+    "c72f7989-02d0-4315-b664-7b26d5941e1a",
+    "ca326cd1-2f86-4a8b-9b2f-d191bdab2ffe",
+    "cd6dbc6e-649b-45a9-a032-2d02abc0df7b"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q030": {
+   "add": "Pesticide residue limits, including any figure for chlorpyrifos in vegetables, are not stated in the FSS Act itself: the Act only delegates standard-making to FSSAI through section 31 read with section 92(2)(o), so a specific MRL must be read from regulations notified under that delegation and cannot be quoted from the Act alone.",
+   "note": "v1 was framed as a corpus gap only; the positive statutory reading is that the Act delegates MRL-setting to FSSAI regulations, which is why no figure appears in it.",
+   "anchor_quote": "Now, therefore, in exercise of the powers conferred by clause (o) of sub-section (2) of section 92 read with section 31 of the Food Safety and Standards Act, 2006(34 of 2006) the Food Safety and Standards Authority of India, with the previous approval of the Central Government, hereby makes the following regulations further to amend the Food Safety and Standards (Licensing and Registration of Food Businesses) Regulations, 2011, namely: - 1. (1) These regulations may be called the Food Safety and Standards (Licensing and Registration of Food Businesses) second Amendment Regulations, 2026.",
+   "anchor_chunk_ids": [
+    "1002c98a-de04-411e-aa33-4cde3f7b3640",
+    "ac78ad33-886b-40f5-bdf6-3a060e63f77b",
+    "3d3fc491-ac5b-4c32-8d80-598eb87c611f",
+    "a0e5db79-240e-4c8a-a900-ee6f5b8c2d63",
+    "126b2440-8fef-4edc-8a6c-2175ba1da59d",
+    "d73965d4-c806-4678-aaad-04655d974973",
+    "21541547-a542-4c8e-a334-074838afa089",
+    "576cd1da-f41f-49ba-a4d8-12a75fa9153a",
+    "77509ce0-87d9-4e46-b685-e0a8bda26119",
+    "9366b66d-1eb8-4006-8059-81cab95c748f",
+    "0fe854fe-7a22-471f-bf90-8ddecb8791be",
+    "5d28325b-1de6-4e2a-9847-ee0a7e4e7fbd",
+    "c36dacf7-8aa6-4ba3-9989-0359fef873ba",
+    "23716002-c0bd-4745-94b0-b9fa7884bb4c"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q054": {
+   "add": "Within the EPA framework the standard-setting function covers laying down standards for the quality of environment and for emission or discharge of environmental pollutants from any source, which is how the water-quality intersection works: Board duties to enforce notified ambient and effluent standards operate under standards laid down through this power and under the Water Act s8 notifications.",
+   "note": "v1 mentioned only Water Act s8 standards; it missed EPA s4's own standards-for-environment-quality and emission/discharge limbs that ground the Boards' duty.",
+   "anchor_quote": "(b) under any other law for the time being in force which is relatable to the objects of this Act; (ii) planning and execution of a nation-wide programme for the prevention, control and abatement of environmental pollution; (iii) laying down standards for the quality of environment in its various aspects; (iv) laying down standards for emission or discharge of environmental pollutants from various sources whatsoever:",
+   "anchor_chunk_ids": [
+    "346c00a3-74b1-4b89-b8b6-9be96063bda5",
+    "2dff8710-1f84-4246-ace4-e761775eb6b6",
+    "76e934ee-84ac-4352-b449-b9048cb5dcbb",
+    "7eade1f7-1c20-4f05-938a-5b8a78171fab",
+    "da321cd0-ea05-4ad8-b365-41a8bc5219e8",
+    "89021be8-0a84-4dbb-bb4b-330e8619b0cf",
+    "9cc7f865-09ed-43ba-935e-f525c7cefc2b",
+    "cd3f57da-64c9-48c5-a7a9-01f8c67980cd",
+    "be1e00dd-f34c-4752-94b0-42e776bef94f",
+    "ca078900-ba16-40fd-8587-24bdc9e9983a",
+    "fcd43dda-cd40-4fc1-904a-1cf2450fbedb",
+    "2f80e9b8-6546-4c52-93ee-0f4455d919ea",
+    "30389c72-17f4-4479-8b08-3827dc308df5",
+    "5c19800a-8270-4bff-b795-6b047f70bac8",
+    "76868843-a581-4a9d-bc98-99dcc3d26d1b",
+    "8d7d5b08-d1e2-4627-be9b-2adcc53e20e6",
+    "ba1453b5-e1c4-4be7-a1d2-3960444872ee",
+    "bb15024c-e84c-4e03-a32c-427fd3076a71",
+    "2665e71c-aafd-4abc-b23e-663abde6c512",
+    "3ead2bd2-f3dd-4813-8d36-a8c5b927b165",
+    "4f07f80e-ecf7-4349-8756-507cd5082ea2",
+    "17a70c5f-5c5a-493d-b2ca-5224ae855dbb",
+    "c0794883-e8fd-4ced-9802-a2675d9226d0",
+    "9661c054-acf1-4bb3-921f-51ba8899fdd4",
+    "04afec75-b525-40ba-a715-b4372c5e88fe",
+    "083bcbcd-64ad-43bc-814b-537053232135",
+    "17fb27a2-6462-4558-b867-1671a5080a17",
+    "4fdb2cf3-300c-4a34-b2ea-5575d5a77623",
+    "94bd0c14-fe85-4c51-ba36-7dbb2d74d92a",
+    "e8db0468-0272-402b-ab94-1974e9232db0",
+    "f26526a6-fcdb-41e6-8f43-5ffcbc6c192b",
+    "2122c04e-0536-4fc2-8d84-499cab7526c8",
+    "389dbdea-7561-4705-a76e-91a1233822ce",
+    "8c093623-4f71-4c63-881d-d50a44d98187",
+    "aa33b630-176b-4b99-9ccd-7a406612c06a",
+    "b686dff6-5b5f-4f35-a5b2-7ab2de9d79c0",
+    "04e3437f-0a85-481e-8fb2-f80ced79bc19",
+    "49cff6c2-dcd7-42b7-b522-3411d7fc7b56",
+    "523694d7-0b63-4cfb-b7b7-27f9ed4082ed",
+    "db46bdd0-d3ca-474b-b994-782c4852b62a",
+    "f3df84ab-6c3f-40e4-94af-8940445dc985",
+    "865801b2-8196-4ff6-980c-bb68be175757",
+    "a24282f0-dbee-4f6c-9b59-931d5bf4b573",
+    "1cdbe96a-341a-4d54-9f83-9da1918ef853",
+    "9352131b-3c15-444a-b642-a0e95a5c191f"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q055": {
+   "add": "Consent is administered by the State Board, which inspects sewage and trade effluents, works and plants and reviews plans and specifications in connection with the grant of any consent required by the Act; running a prescribed process without that consent or without complying with its conditions is a breach by the occupier that the Board may act on.",
+   "note": "v1 described only the application mechanics; it omitted the Board's inspection and plan-review function tied to consent and framed non-compliance narrowly.",
+   "anchor_quote": "(f) to inspect sewage or trade effluents, works and plants for the treatment of sewage and trade effluents and to review plans, specifications or other data relating to plants set up for the treatment of water, works for the purification thereof and the system for the disposal of sewage or trade effluents or in connection with the grant of any consent as required by this Act;",
+   "anchor_chunk_ids": [
+    "17a70c5f-5c5a-493d-b2ca-5224ae855dbb",
+    "e490cdf3-6e64-4849-95da-df8b70509a94",
+    "10f5f904-3bf0-4980-af36-e82184e1a253",
+    "8fafa318-d380-40e7-b63e-4a899c5cd25f",
+    "bb514a87-df41-4c6b-9d28-9d5ef21faa4c",
+    "c9939500-9d50-4197-ad59-7b68a4c0d27d",
+    "e2612143-dc4e-4769-be45-7388f1bc03b8",
+    "3e63f7be-fcce-4744-adc1-7633bca85117",
+    "db46bdd0-d3ca-474b-b994-782c4852b62a",
+    "9661c054-acf1-4bb3-921f-51ba8899fdd4",
+    "4f07f80e-ecf7-4349-8756-507cd5082ea2",
+    "49cff6c2-dcd7-42b7-b522-3411d7fc7b56",
+    "93707ff9-2bb6-4bc7-b826-0c63071359d9",
+    "c3de6410-f0b2-47d4-9d7b-6e9dfdb11b87",
+    "315fad5b-1f7e-4eb6-b978-4a72c4260173",
+    "04e3437f-0a85-481e-8fb2-f80ced79bc19",
+    "523694d7-0b63-4cfb-b7b7-27f9ed4082ed",
+    "f3df84ab-6c3f-40e4-94af-8940445dc985",
+    "b4b922bd-9f85-45c8-a390-5993f6c1311a",
+    "11e88d2b-742a-4d87-af70-0f2a33fbae01",
+    "f1eeec61-0e67-48ed-9ed9-77bca7d195f2",
+    "33810b77-743a-49b2-8365-c9dac7f79126",
+    "2d47eb50-e9b1-4ba3-a730-bfea2044344d",
+    "74374422-720b-4ded-b396-600d4cf9ed86",
+    "50aee086-1725-40bb-a35c-d12e19a3364b",
+    "b686dff6-5b5f-4f35-a5b2-7ab2de9d79c0",
+    "d176c0c7-71dc-4753-88cf-5d7195a51383",
+    "7b4caa79-9f64-4035-a854-1dc450ff2089",
+    "865801b2-8196-4ff6-980c-bb68be175757",
+    "a24282f0-dbee-4f6c-9b59-931d5bf4b573",
+    "8374a395-8bfb-4c69-b2a4-fed9384c1312",
+    "1758215d-3e80-4b03-9c94-9890b7255400",
+    "8490ac9c-8fb5-4b24-9404-322e69452c92",
+    "aa33b630-176b-4b99-9ccd-7a406612c06a",
+    "c0794883-e8fd-4ced-9802-a2675d9226d0",
+    "6a294415-8cd0-4623-bba2-2ce135330410",
+    "a5ed75ee-261b-4208-aa12-170dd2567313"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q065": {
+   "add": "Regulating and abating offensive or dangerous trades or practices is an obligatory function of the Corporation, so it may prohibit, restrict, license or relocate such trades and act against premises whose operation endangers or nuisances adjacent premises and their users.",
+   "note": "v1 gave only a generic nuisance power; it missed that trade control is an enumerated obligatory function with direct protection of adjoining premises.",
+   "anchor_quote": "4.5.1992.](b)the construction, maintenance and cleansing of sewers and drains, sewerage and drainage' works, and public latrines, urinals and similar conveniences;(c)the scavenging, removal and disposal of filth, rubbish and other obnoxious or polluted matters;(d)the reclamation of unhealthy localities, the removal of noxious vegetation and generally the abatement of all nuisance;(e)the construction, maintenance, alteration and improvement of public streets and street furniture, bridges, culverts, flyovers, subways, causeways and the like;(f)the lighting, watering and cleansing of public streets and other public places;(g)the removal of obstructions and projections in or upon streets, bridges and other public places;(h)the naming and numbering of streets and premises;(i)the planting and care of trees on road-sides and elsewhere;(j)the control of regular lines of streets;(k)the control of building operations and securing or removal of dangerous buildings and places;(l)the regulation of underground building operation;(m)the co-ordination of overground rights enjoyed by services agencies;(n)the co-ordination of activities of agencies relating to laying and maintenance of underground railways, pipelines, tubes, cables and the like;(o)the laying out or the maintenance of public parks, gardens or recreation grounds;(p)the registration of births and deaths;(q)the regulation of places for the disposal of the dead and the provision and maintenance of places for the said purpose;(r)measures for preventing and checking the spread of dangerous diseases;(s)public vaccination and inoculation;(t)the organisation or management of chemical or bacteriological laboratories for examination or analysis of water, food and drugs for the detection of diseases or research connected with community health or medical relief;(u)the construction and maintenance of municipal markets and slaughter-houses and the regulation of all markets and slaughter-houses;(v)the regulation and abatement of offensive or dangerous trades or practices;(w)the maintenance of all monuments vested in the Corporation;(x)the maintenance and development of all properties vested in or entrusted to the management of the Corporation;(y)the maintenance of a vigilance organisation in respect of its various functions;(z)the compilation and maintenance of records and statistics relating to the administration and functions of the Corporation under this Act;(za)the fulfilment of any other obligation imposed by or under this Act or any other law in force for the time being. Indian Kanoon - http://indiankanoon.org/doc/130993320/ 21 Kolkata Municipal Corporation Act, 1980 30. Discretionary functions of the Corporation. - Subject to the availability of resources. the Corporation may, at its discretion. provide either wholly or in part for all or any of the following matters(a)the furtherance of education (including cultural and physical education) and sports and the establishment and maintenance of, and aid to, schools for primary education;(b)the establishment and maintenance of, and aid to, libraries, museums, art galleries and botanical or zoological collections;(c)the surveys of buildings and lands;(d)the civic reception to persons of distinction;(e)the providing of music or other entertainment in public places or places of public resort and the establishment of theatres and cinemas;(f)the organisation and management of fairs and exhibitions;(g)the acquisition of movable or immovable property for any of the purposes hereinbefore mentioned, including payment of the cost of investigations and surveys or examinations in relation thereto for the construction or adaptation of buildings necessary for such purposes;(h)the construction and maintenance of(i)rest houses,(ii)poor-houses,(iii)infirmaries,(iv)children's homes,(v)houses for the deaf and dumb and for disabled and handicapped children, and(vi)shelters for destitute and disabled persons;(i)the construction and maintenance of cattle pounds;(j)the building, or the purchase and maintenance, of dwelling-houses for the officers and employees of the Corporation;(k)any measures for the welfare of the officers and employees of the Corporation or for any class of them including the sanctioning of loans to such officers and employees for construction of houses and purchase of vehicles;(l)the establishment and maintenance of hospitals, dispensaries, maternity and child welfare centres, and the carrying of other measures necessary for public medical relief and family welfare;(m)the organisation, construction, maintenance and management of swimming pools, public wash houses, bathing places and other institutions designed for the improvement of community health;(n)the construction and maintenance of warehouses and god-downs;(o)the construction and maintenance of garages, sheds and stands for vehicles and cattle biers ;(p)the provisions for unfiltered water supply ;(q)the abatement of smoke nuisances ;(r)the provisions of housing accommodation for the inhabitants of any area or for any class of inhabitants ; and(s)any other measures, not hereinbefore specifically mentioned, likely to promote public safety, health, sanitation [orderly urban growth, economic development and social justice and to prevent cruelty to animals.] [Substituted by section",
+   "anchor_chunk_ids": [
+    "75060cf9-81c5-46ee-a4a2-c25890eb79cc",
+    "b098f291-2f86-4943-9134-c4d1c5f20f6d",
+    "9864042b-7af8-4ee6-aa5c-bb7c414efce9",
+    "a1afce84-bc2d-4290-b807-4fa3cd1b4a10",
+    "2ab82ac5-ae02-4a63-96d6-0de69dafc939"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q069": {
+   "add": "Providing sewerage and drainage, constructing and cleansing sewers and drains, and the scavenging and removal of filth and obnoxious matters are obligatory functions of the Corporation, and those functions support orders against noxious liquid discharge and other nuisances harmful to public health.",
+   "note": "v1 bundled drainage and nuisance removal together; it did not identify the specific obligatory-function clauses that ground the duty and the resulting order power.",
+   "anchor_quote": "4.5.1992.](b)the construction, maintenance and cleansing of sewers and drains, sewerage and drainage' works, and public latrines, urinals and similar conveniences;(c)the scavenging, removal and disposal of filth, rubbish and other obnoxious or polluted matters;(d)the reclamation of unhealthy localities, the removal of noxious vegetation and generally the abatement of all nuisance;(e)the construction, maintenance, alteration and improvement of public streets and street furniture, bridges, culverts, flyovers, subways, causeways and the like;(f)the lighting, watering and cleansing of public streets and other public places;(g)the removal of obstructions and projections in or upon streets, bridges and other public places;(h)the naming and numbering of streets and premises;(i)the planting and care of trees on road-sides and elsewhere;(j)the control of regular lines of streets;(k)the control of building operations and securing or removal of dangerous buildings and places;(l)the regulation of underground building operation;(m)the co-ordination of overground rights enjoyed by services agencies;(n)the co-ordination of activities of agencies relating to laying and maintenance of underground railways, pipelines, tubes, cables and the like;(o)the laying out or the maintenance of public parks, gardens or recreation grounds;(p)the registration of births and deaths;(q)the regulation of places for the disposal of the dead and the provision and maintenance of places for the said purpose;(r)measures for preventing and checking the spread of dangerous diseases;(s)public vaccination and inoculation;(t)the organisation or management of chemical or bacteriological laboratories for examination or analysis of water, food and drugs for the detection of diseases or research connected with community health or medical relief;(u)the construction and maintenance of municipal markets and slaughter-houses and the regulation of all markets and slaughter-houses;(v)the regulation and abatement of offensive or dangerous trades or practices;(w)the maintenance of all monuments vested in the Corporation;(x)the maintenance and development of all properties vested in or entrusted to the management of the Corporation;(y)the maintenance of a vigilance organisation in respect of its various functions;(z)the compilation and maintenance of records and statistics relating to the administration and functions of the Corporation under this Act;(za)the fulfilment of any other obligation imposed by or under this Act or any other law in force for the time being. Indian Kanoon - http://indiankanoon.org/doc/130993320/ 21 Kolkata Municipal Corporation Act, 1980 30. Discretionary functions of the Corporation. - Subject to the availability of resources. the Corporation may, at its discretion. provide either wholly or in part for all or any of the following matters(a)the furtherance of education (including cultural and physical education) and sports and the establishment and maintenance of, and aid to, schools for primary education;(b)the establishment and maintenance of, and aid to, libraries, museums, art galleries and botanical or zoological collections;(c)the surveys of buildings and lands;(d)the civic reception to persons of distinction;(e)the providing of music or other entertainment in public places or places of public resort and the establishment of theatres and cinemas;(f)the organisation and management of fairs and exhibitions;(g)the acquisition of movable or immovable property for any of the purposes hereinbefore mentioned, including payment of the cost of investigations and surveys or examinations in relation thereto for the construction or adaptation of buildings necessary for such purposes;(h)the construction and maintenance of(i)rest houses,(ii)poor-houses,(iii)infirmaries,(iv)children's homes,(v)houses for the deaf and dumb and for disabled and handicapped children, and(vi)shelters for destitute and disabled persons;(i)the construction and maintenance of cattle pounds;(j)the building, or the purchase and maintenance, of dwelling-houses for the officers and employees of the Corporation;(k)any measures for the welfare of the officers and employees of the Corporation or for any class of them including the sanctioning of loans to such officers and employees for construction of houses and purchase of vehicles;(l)the establishment and maintenance of hospitals, dispensaries, maternity and child welfare centres, and the carrying of other measures necessary for public medical relief and family welfare;(m)the organisation, construction, maintenance and management of swimming pools, public wash houses, bathing places and other institutions designed for the improvement of community health;(n)the construction and maintenance of warehouses and god-downs;(o)the construction and maintenance of garages, sheds and stands for vehicles and cattle biers ;(p)the provisions for unfiltered water supply ;(q)the abatement of smoke nuisances ;(r)the provisions of housing accommodation for the inhabitants of any area or for any class of inhabitants ; and(s)any other measures, not hereinbefore specifically mentioned, likely to promote public safety, health, sanitation [orderly urban growth, economic development and social justice and to prevent cruelty to animals.] [Substituted by section",
+   "anchor_chunk_ids": [
+    "75060cf9-81c5-46ee-a4a2-c25890eb79cc",
+    "b098f291-2f86-4943-9134-c4d1c5f20f6d",
+    "392ddc96-cfa4-4442-bdd1-0c2df64f12a9",
+    "158c45cf-a2e8-4971-bb73-16957078e1a8",
+    "a1afce84-bc2d-4290-b807-4fa3cd1b4a10",
+    "e17ddf2f-a5e3-46fd-acd6-df190a52d949"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q070": {
+   "add": "Where the Municipal Commissioner is of the opinion that a nuisance exists on any land or building, section 517 lets him require the person whose act, default or sufferance caused or continued it, or the owner, lessee or occupier, to remove or abate the nuisance within the period specified in the written notice, which reaches obstructive stalls, signage and similar street nuisances.",
+   "note": "v1 spoke generally of trade/licensing provisions; the operative ground is the s517 notice power and who may be served with it.",
+   "anchor_quote": "(1)No person shall(cid:128)(a)in any public street or public place-(i)ease himself; or(ii)carry meat exposed to public view; or(iii)picket animals or collect carts; or(iv)being engaged in the removal of rubbish, filth or other polluted and obnoxious matter wilfully or negligently permit any portion thereof to spill or fall or neglect to sweep away or otherwise effectually to remove any portion thereof which may spill or fall in such street or place; or(v)without proper authority affix upon any building(cid:129) monument, post, wall, fence, tree or other thing any bill, notice or other document; or(vi)without proper authority deface or write upon or otherwise mark any building, monument, post, wall, fence, tree or other thing; or(vii)without proper authority remove, destroy, deface or otherwise obliterate any notice or other document put up or exhibited under this Act or the rules or the regulations made thereunder; or(viii)without proper authority displace, damage, or make any alteration in or otherwise interfere with, the pavement, gutter, storm water-drain, flags or other materials of any such street or any lamp bracket, direction-post, hydrant or water-pipe maintained by the Corporation in any such street or place or extinguish a public light; or(ix)carry rubbish, filth or other polluted and obnoxious matter at any hour prohibited by the Municipal Commissioner by public notice or in any pattern of cart or receptacle which has not been approved for the purpose by the Municipal Commissioner or fail to close such cart or receptacle when in use; or(b)carry rubbish, filth or other polluted and obnoxious matter along any route in contravention of any prohibition made in this behalf by the Municipal Commissioner by public notice; or(c)deposit or cause or permit to be deposited earth or materials of any description or any rubbish or polluted and obnoxious matter in any place not intended for the purpose in any public street or public place or waste or unoccupied land under the management of the Corporation; or(d)make any grave or burn or bury any corpse at any place not set apart for such purpose; or(e)at any time or place at which the same has been prohibited by the Municipal Commissioner by public or special notice beat a drum or tom-tom or blow a horn or trumpet or beat any utensil or sound any brass or other instrument or play any music; or(f)disturb the public peace or order by singing, screaming or shouting or by using any apparatus for amplifying or reproducing the human voice, such as a megaphone or a loudspeaker; or(g)let loose any animal so as to cause, or negligently allow any animal to cause, injury, danger, alarm or annoyance to any person; or(h)save with the written permission of the Municipal Commissioner and in such manner as he may authorise store or use night-soil, cow-dung, manure, rubbish or any other substance emitting an offensive smell; or(i)use of permit to be used as a latrine any place not intended for such purpose.(2)Every person shall take all reasonable means to prevent every child under the age of twelve years being in his charge from easing himself in any public street or public place.(3)The owner or keeper of any animal shall not allow it straying in a public street or public place without a keeper.(4)Any animal found straying as aforesaid may be removed by an officer or employee of the Corporation or by any police officer to a pound. 517. Power to require removal or abatement of nuisance. - Where the Municipal Commissioner is of the opinion that there is a nuisance on any land or building, he may, by notice in writing, require the person by whose act, default or sufferance the Indian Kanoon - http://indiankanoon.org/doc/130993320/ 211 Kolkata Municipal Corporation Act, 1980 nuisance arises or continues or the owner, lessee or occupier of the land or building or any one or more of these persons to remove or abate the nuisance by taking such measures in such manner and within such period as may be specified in the notice. 517A. [ Power to remove nuisance.(cid:128) Notwithstanding anything contained in",
+   "anchor_chunk_ids": [
+    "2ab82ac5-ae02-4a63-96d6-0de69dafc939",
+    "3a6bca05-dce9-4e8e-82c6-65fe97b68009",
+    "b098f291-2f86-4943-9134-c4d1c5f20f6d",
+    "4b21c109-4a69-4dea-a5ac-8d2a9135cfe3",
+    "75060cf9-81c5-46ee-a4a2-c25890eb79cc"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q075": {
+   "add": "Where a removal notice is not complied with, the Commissioner may himself carry out the removal after the notice period expires and recover the expenses from the owner as an arrear of tax under the Act, so obstruction removal from a public place carries a cost recovery enforceable exactly like a municipal due.",
+   "note": "v1 stated cost recovery abstractly; it missed the self-execution power and the arrear-of-tax recovery route that makes the cost enforceable.",
+   "anchor_quote": "(1)Where it appears to the Municipal Commissioner that any block of buildings is in an unhealthy condition by reason of the manner in which the buildings are crowded together or the narrowness, closeness, or faulty arrangement of streets or the want of proper drainage and ventilation or the impracticability of cleansing the buildings or any other similar cause, he shall cause the block to be inspected by the Chief Municipal Health Officer and the Municipal Engineer-in-Chief who shall make a report in writing to him regarding the sanitary condition of the block.(2)If, upon receipt of such report, the Municipal Commissioner considers that the sanitary condition of the block is likely to cause risk of disease to the inhabitants of the buildings or the neighbourhood or otherwise endanger the community health, he shall with the approval of the Mayor-in-Council, select the buildings which in his opinion should wholly or in part be removed in order to abate the unhealthy condition of the block, and may thereupon by notice in writing require the owners of such buildings to remove them within such period as may be specified in the notice:Provided that before issuing the notice a reasonable opportunity should be afforded to the owner to show cause why the buildings should not be removed :Provided further that Municipal Commissioner shall make compensation to the owner for any building so removed which may have been erected under proper authority.(3)If a notice under sub-section (2) requiring any owner of a building to remove it is not complied with, then, after the expiration of the time specified in the notice, the Municipal Commissioner may himself remove the building required to be removed by the notice and recover from the owner of the building the expenses of such removal as an arrear of tax under this Act. Indian Kanoon - http://indiankanoon.org/doc/130993320/ 214 Kolkata Municipal Corporation Act, 1980 525. Power to require improvement of buildings unfit for human habitation.",
+   "anchor_chunk_ids": [
+    "158c45cf-a2e8-4971-bb73-16957078e1a8",
+    "75060cf9-81c5-46ee-a4a2-c25890eb79cc",
+    "3a6bca05-dce9-4e8e-82c6-65fe97b68009",
+    "2ab82ac5-ae02-4a63-96d6-0de69dafc939"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q087": {
+   "add": "The amendment empowers notification prohibiting manufacture, import, stocking, distribution, sale and use of carry bags, plastic sheets, multilayered packaging and single-use plastic including polystyrene and expanded polystyrene commodities, with extended producer responsibility duties on producers, importers and brand-owners for end-of-life management so that littered plastic exposure falls off.",
+   "note": "v1 combined prohibition and EPR in one sentence; it missed that the restriction operates by notification over the enumerated commodity classes.",
+   "anchor_quote": "(4) Any notification prohibiting the manufacture, import, stocking, distribution, sale and use of carry bags, plastic sheets or like, or cover made of plastic sheets and multilayered packaging and single-use plastic, including polystyrene and expanded polystyrene, commodities, issued after this notification, shall come into force after the expiry of ten years, from the date of its publication\". 5. In the said rules, in rule 5, in sub-rule (1), in clause (d), for the figures \"2000\", the figures \"2016\" shall be substituted. 6. In the said rules, in rule 6, in sub-rule (2), after clause (a), following clause shall be inserted, namely: - \"(aa) ensuring that the provisions of these rules, as amended, are adhered to;\". 7. In the said rules, in rule 7, in sub-rule (1), after clause (a), following clause shall be inserted, namely : - \"(aa) ensuring that the provisions of these rules, as amended, are adhered to;\". 8. In the said rules, in rule 9, in sub-rule (1), after the words, \"local body concerned\", the words \"as per guidelines issued under these rules from time to time\" shall be inserted. 9. In rule 11, sub-rule (1),",
+   "anchor_chunk_ids": [
+    "4f36778d-0e51-485a-9f60-836d18b49225",
+    "48799da9-9a73-49c3-9701-179126c14d29",
+    "ce3e8850-8c15-47c1-aa98-84fbfc23ecb6",
+    "f12fe63d-538c-4792-91e8-ca20bf14d563",
+    "84f45f61-2329-4ac5-9e33-4db56f5b0fd4"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q114": {
+   "add": "Under the WB Meat Order no person may slaughter any animal at a slaughter house or any other place except as the Order permits, with prohibited days such as every Thursday notified by the State Government and exemptions granted only by notification, so a separate Meat Order authority is needed and an FSSAI food licence does not authorise slaughter the Meat Order prohibits.",
+   "note": "v1 asserted the FSSAI point alone; it did not state the general prohibition, notified prohibited days and notification-only exemptions that make the licence distinction follow.",
+   "anchor_quote": "(1) No person shall slaughter or cause to be slaughter or cause to be slaughtered any animal at any slaughter house or at any other place –",
+   "anchor_chunk_ids": [
+    "d11a6215-375b-4ed0-a0c8-e60e988e70ab",
+    "d725c331-c6b8-4dc9-9975-0d7f19ae6861",
+    "740a1585-b3ef-444b-8510-36e8ae4bf731",
+    "8fba66c5-6917-4aa5-b3b8-024c9883fd35",
+    "0e2915da-a736-4ca4-9436-8204c6397a5d",
+    "75b6d663-74de-4117-8a64-702be12b98ea",
+    "faa3cc99-54e7-4de9-befb-5ed05a0a2e79",
+    "f9edb826-8124-4990-a90c-1e5b5b8b6491",
+    "96e733fa-9e4e-46da-bb11-0d4c58787e21",
+    "9ec317a2-fd11-4fe7-8643-b1a4701a9661",
+    "c7257cbc-5145-4369-a443-0d245681123a",
+    "2ef0442c-53ca-4ff0-8e97-4af13df1ce26",
+    "780fc30e-8160-44ff-8021-5210d03e28b7",
+    "11ccf196-6e2a-43ab-9e35-35b82dcf29d1",
+    "db9f0fa1-3166-4f8b-a6c4-84852c73e0fe",
+    "28d09a8d-0f55-4f5e-838e-195891e42627",
+    "322d4213-4ef4-41e7-9133-2a95de7297fe",
+    "6a258b94-06c6-4d79-98a8-b4962c542fbd",
+    "799df8e9-67c0-4565-93d8-db118676bfb2",
+    "df16b35f-9553-47df-ac87-4cf74e248c17",
+    "cabec648-04a1-410b-8717-7afc58e642b6",
+    "a519f2b9-b610-4a47-a4d9-a3e1c49e2e2d",
+    "f6e578ae-23ad-408f-860a-769215208ec1",
+    "950643ca-f811-4a12-87fa-19017306a082",
+    "21b35843-9a65-455b-bfcf-9e3648f701d1",
+    "e079182c-50df-450c-9176-331bbedd0d8b",
+    "00ed73b5-b16d-4992-815f-48306cf39bec",
+    "819e5a7a-50ce-498f-a586-19ada94c8f49",
+    "884b3b71-7386-447c-989f-f781580449a3",
+    "e7a1e273-23e4-48ba-9429-58a5682e5dc5",
+    "6aee08d0-0c57-459a-bb80-8511c3a664b5",
+    "92658b3a-5f89-412a-bf49-99a669e124a6",
+    "a7717892-224e-4a98-90d7-482838842846",
+    "0c3e53bd-5e55-4875-a2aa-97f0bf55cafa",
+    "0e0c1d77-8a48-4de5-a208-bcdeb287b699",
+    "1cc75d4e-4ff3-40e7-b244-7410fc5c6ddd",
+    "22eee6a5-81db-4ca6-9864-704779a0a83f",
+    "261d0340-0d2d-4d06-bf01-3ea1b4d20b13",
+    "29debb92-0fe0-454d-9fe0-ec3a6633dd3a",
+    "2e770f64-6abc-4bc6-96fd-62b4ac37a9f5",
+    "34f81714-3774-4378-9ec3-9bfa22ddd5db",
+    "37e34666-8d43-42a5-be13-8a46e54ccc19",
+    "3a07f0e1-3158-4813-822e-845102657877",
+    "440afb1e-891b-4a7d-96be-714044166b6f",
+    "46bfaa53-47f6-406b-bc3c-dffdd2505c5c",
+    "489e3c38-7d0f-4761-9c7b-8dc95f84b6b5",
+    "8679ff1c-e9fd-421c-a92a-3af297defa77",
+    "9430d758-b73d-4d51-a397-e637182ae2e3",
+    "9e187409-793a-4b4c-8499-25c8cea3e202",
+    "9e736f7f-1bde-45f0-b44d-be032e880a11",
+    "c00e7135-ce50-4866-a8ae-8d5e88f73288",
+    "c5bff399-deb8-4083-bf5f-e44e9fe8bf94",
+    "ca529373-777f-4d7e-9cae-d74e0d8b1c2b",
+    "d94e585b-28e3-4a9b-8c89-0c938a90f8c2",
+    "e2cda7a6-ea9a-489e-b41b-005870949cda",
+    "f6f3e0d0-b046-47c0-8da4-e54a2d399bd3",
+    "f9a38c7c-5e4b-43ff-92c5-b1e1fa80826d",
+    "6a1a0ffc-1da9-4e51-b829-3ff67948624d",
+    "621875f8-61fc-4c52-b7d9-8b84532a534d",
+    "827b13fb-11dc-4678-8626-28fc727b5efd",
+    "05844b27-3be0-4454-b379-2088fde7f81c",
+    "4899f525-481e-4e9f-8d48-0dd1ba2fecd5",
+    "5c53c677-2822-4090-846a-8df0a8968e50",
+    "5fe42070-f07c-489e-820d-56588ce0e126",
+    "7ad9ea48-6bd7-4cbb-9e88-6440dc9deda7",
+    "deb0d0a0-7a77-4c65-9361-25f9adeee0b4",
+    "32d57e31-391a-4745-9ff5-37912ff08bdd",
+    "8299ff41-68eb-4632-82aa-004c8052f47c"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
+  },
+  "Q136": {
+   "add": "The 2022 Amendment Rules only amend definitions, registration procedures, extended producer responsibility obligations and testing protocols and insert Schedule II on EPR guidance; they do not themselves enumerate banned single-use plastic items, so the exhaustive banned list is not established by the corpus text and must come from a separate notification.",
+   "note": "v1 called it merely a corpus gap; the positive reading is what the Amendment Rules actually do, which is why the banned-item list is absent from them.",
+   "anchor_quote": "NOTIFICATION New Delhi, the16th February, 2022 G.S.R. 133(E).—In exercise of the powers conferred by sections 3, 6, and 25 of the Environment (Protection) Act 1986 (29 of 1986), the Central Government hereby makes the following rules further to amend the Plastic Waste Management Rules, 2016, namely: - 1. (1) These rules may be called the Plastic Waste Management (Amendment) Rules, 2022.",
+   "anchor_chunk_ids": [
+    "ce3e8850-8c15-47c1-aa98-84fbfc23ecb6",
+    "ec021de9-15bf-4d66-bf81-db53176c07ad",
+    "84f45f61-2329-4ac5-9e33-4db56f5b0fd4",
+    "53e3dccf-8a8c-4c18-927a-98b439d0ea26",
+    "d9428802-97c8-4dd2-ac0c-534a82feed05",
+    "7f4d3fdf-a08c-43b1-98b5-97be73044421"
+   ],
+   "step0_source": "dual_score_widen (Step 0 reference_narrow label)"
   }
+ },
+ "banned_abstain_markers": {
+  "applies_to_qids": [
+   "Q060",
+   "Q138"
+  ],
+  "reason": "Both are legitimately non-establishable questions where the reference itself is an abstention; the v1 abstain_check regex ('does not specify/establish') fires on the reference-matching text and double-penalises. Removed from the abstain determination for these qids only.",
+  "markers": [
+   "does not specify",
+   "does not establish"
+  ]
+ },
+ "revisions": [
+  {
+   "date": "2026-09-26T11:37:04Z",
+   "n_added": 19,
+   "qids": [
+    "Q006",
+    "Q013",
+    "Q041",
+    "Q056",
+    "Q062",
+    "Q066",
+    "Q073",
+    "Q077",
+    "Q092",
+    "Q106",
+    "Q113",
+    "Q120",
+    "Q121",
+    "Q131",
+    "Q139",
+    "Q141",
+    "Q142",
+    "Q144",
+    "Q145"
+   ],
+   "source": "step0_dual_score_widen.py --merge (Step 0 reference_narrow labels; quote-validated against O3 payload, independence-checked vs stored D2)"
+  },
+  {
+   "date": "2026-09-26T13:47:36Z",
+   "n_added": 12,
+   "qids": [
+    "Q005",
+    "Q009",
+    "Q030",
+    "Q054",
+    "Q055",
+    "Q065",
+    "Q069",
+    "Q070",
+    "Q075",
+    "Q087",
+    "Q114",
+    "Q136"
+   ],
+   "source": "step0_dual_score_widen.py --merge (Step 0 reference_narrow labels; quote-validated against O3 payload, independence-checked vs stored D2)"
+  }
+ ]
 }
