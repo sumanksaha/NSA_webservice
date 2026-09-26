@@ -239,33 +239,38 @@ class RateLimiter:
 
         Uses :data:`fcntl.flock` on Unix for cross-process serialisation.
         """
-        lock_fd = None
+        # The lock/timestamp dir (repo ``db/``) is not tracked in git and
+        # may not exist on fresh checkouts/deploys — without this, every
+        # KMC lookup dies with FileNotFoundError before any HTTP happens.
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_fd = open(self._lock_path, "w")
         try:
-            with open(self._lock_path, "w") as lock_fd:
-                if fcntl:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+            if fcntl:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
-                try:
-                    with open(self._timestamp_path) as f:
-                        last_time = float(f.read().strip() or "0")
-                except (FileNotFoundError, ValueError):
-                    last_time = 0
+            try:
+                with open(self._timestamp_path) as f:
+                    last_time = float(f.read().strip() or "0")
+            except (FileNotFoundError, ValueError):
+                last_time = 0
 
+            current_time = time.time()
+            elapsed = current_time - last_time
+            if elapsed < self._min_gap:
+                sleep_time = self._min_gap - elapsed
+                time.sleep(sleep_time)
                 current_time = time.time()
-                elapsed = current_time - last_time
-                if elapsed < self._min_gap:
-                    sleep_time = self._min_gap - elapsed
-                    time.sleep(sleep_time)
-                    current_time = time.time()
 
-                with open(self._timestamp_path, "w") as f:
-                    f.write(str(current_time))
+            with open(self._timestamp_path, "w") as f:
+                f.write(str(current_time))
         finally:
-            if lock_fd and fcntl:
-                try:
+            try:
+                if fcntl:
                     fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
-                except Exception as e:
-                    logger.warning("Failed to release file lock: %s", e)
+            except Exception as e:
+                logger.warning("Failed to release file lock: %s", e)
+            finally:
+                lock_fd.close()
 
 
 class _NoopRateLimiter:
@@ -412,6 +417,15 @@ def lookup_ce(
         )
     except httpx.HTTPError as e:
         logger.warning("KMC portal request failed: %s", e)
+        return LookupResult(
+            found=False,
+            error=f"KMC lookup failed: {e}",
+        )
+    except Exception as e:
+        # Contract: lookup_ce never raises (see docstring) — rate-limiter
+        # I/O, TLS setup, and other non-HTTP failures must surface as a
+        # result so callers can report them instead of 502ing.
+        logger.warning("KMC lookup failed unexpectedly: %s", e)
         return LookupResult(
             found=False,
             error=f"KMC lookup failed: {e}",
