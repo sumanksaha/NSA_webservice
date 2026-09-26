@@ -437,6 +437,21 @@ _TABLE: tuple[Setting, ...] = (
         120,
         help="Circuit breaker timeout (seconds) for KG calls (per domain).",
     ),
+    # --- Context limits (ContextBuilder) ----------------------------------------
+    Setting(
+        "RAG_CONTEXT_MAX_CHUNKS",
+        "context_max_chunks",
+        int,
+        20,
+        help="Max chunks assembled into the LLM context (ContextBuilder ceiling; also the live query routes' top_k default).",
+    ),
+    Setting(
+        "RAG_CONTEXT_MAX_CHARS",
+        "context_max_chars",
+        int,
+        24000,
+        help="Max context characters (ContextBuilder ceiling); raised to widen the evidence window.",
+    ),
     # --- Runtime / plugins ------------------------------------------------------
     Setting("RAG_TORCH_THREADS", "torch_threads", int, 4, help="Torch intra/inter-op thread cap for RAG inference."),
     Setting("OCR_PROVIDER", "ocr_provider", str, "easyocr", help="Active OCR plugin."),

@@ -426,6 +426,10 @@ class TestEnsemblePipelineWiring:
         monkeypatch.setattr("app.rag.retrieval.logger.RetrievalLogger", FakeLogger)
         monkeypatch.setenv("RAG_IDENTIFIER_ROUTE", "true")
         monkeypatch.setenv("RAG_ENSEMBLE_RERANK", "true")
+        # Isolate the legal-identity layer: evidence_set/expansion are
+        # activated globally via .env, but this test pins legal structure only.
+        monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "false")
+        monkeypatch.setenv("ENABLE_REFERENCE_EXPANSION", "false")
         # build_hybrid_retriever is lru_cache-wrapped: a fake cached by an
         # earlier test in the same batch (e.g. test_identifier_route) would
         # otherwise be returned here and never record "reranker".
@@ -437,22 +441,24 @@ class TestEnsemblePipelineWiring:
         assert isinstance(recorded["reranker"], EnsembleReranker)
         assert result["identifier"]["form"] == "section"
 
-        # Parallel legal-structure layer (default flags: legal_identities on,
-        # evidence_set/expansion off)
+        # Parallel legal-structure layer (legal_identities on; evidence_set /
+        # expansion explicitly disabled to isolate this layer).
         assert "legal_identities" in result
         assert isinstance(result["legal_identities"], list)
         assert "evidence_set" in result
         assert "expanded_candidates" in result
-        # Evidence selector is off by default
         assert result["evidence_set"] is None
 
 
 class TestLegalStructureLayerInPipeline:
     """The parallel legal-structure layer is wired behind feature flags."""
 
-    def test_evidence_selector_flag_off_by_default(self):
+    def test_evidence_selector_flag_off_by_default(self, monkeypatch):
         from app.shared.config import cfg
 
+        # Config default is off (opt-in); explicitly clear any operator env so
+        # the assertion holds regardless of .env activation.
+        monkeypatch.delenv("ENABLE_EVIDENCE_SELECTOR", raising=False)
         assert cfg.evidence_selector is False
 
     def test_evidence_selector_flag_on(self, monkeypatch):

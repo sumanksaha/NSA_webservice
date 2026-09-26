@@ -14,6 +14,8 @@ from typing import Any, ClassVar
 
 from app.rag.retrieval.result import RetrievedChunk
 
+from app.shared.config import cfg
+
 logger = logging.getLogger(__name__)
 
 from app.rag.constants import TOKENS_PER_CHAR
@@ -59,14 +61,19 @@ class ContextBuilder:
 
     def __init__(
         self,
-        max_context_chars: int = 12_000,
-        max_chunks: int = 10,
+        max_context_chars: int | None = None,
+        max_chunks: int | None = None,
         query_type: str = "",
     ) -> None:
         # 2.6: Adjust budget per query type when caller doesn't override.
+        # Context-K lever (RAG_CONTEXT_MAX_CHUNKS / RAG_CONTEXT_MAX_CHARS)
+        # sets the ceiling for untyped/default queries. Per-type budgets stay
+        # tuned but fall back to this ceiling when not overridden.
+        base_chars = cfg.context_max_chars if max_context_chars is None else max_context_chars
+        base_chunks = cfg.context_max_chunks if max_chunks is None else max_chunks
         budget = self._QUERY_TYPE_BUDGETS.get(query_type.lower(), {})
-        self.max_context_chunks = budget.get("max_chunks", max_chunks)
-        self.max_context_chars = budget.get("max_context_chars", max_context_chars)
+        self.max_context_chunks = budget.get("max_chunks", base_chunks)
+        self.max_context_chars = budget.get("max_context_chars", base_chars)
         self._query_type = query_type
 
     def build(

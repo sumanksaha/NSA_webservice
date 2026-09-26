@@ -39,6 +39,8 @@ def _clean_env(monkeypatch):
 def test_defaults_outside_app_context():
     assert cfg.rag_enabled is True
     assert cfg.evidence_selector is False
+    assert cfg.context_max_chunks == 20  # context-K lever (activated ceiling)
+    assert cfg.context_max_chars == 24000
     # KG context is on by default (declaration table in app/shared/config.py);
     # tasks.py applies fusion first, expansion only when fusion is off.
     assert cfg.kg_fusion is True

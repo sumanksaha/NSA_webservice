@@ -353,9 +353,10 @@ class TestRunGenerationPipeline:
         assert result["groundedness_score"] == 0.0
         assert result["query_type"] == "general_qa"
 
-    def test_kg_contract_fusion_off_by_default(self, monkeypatch):
-        """RAG_KG_FUSION defaults off: no KG contract provisions injected, and
-        no KG call is made."""
+    def test_kg_contract_fusion_disabled_when_flag_false(self, monkeypatch):
+        """RAG_KG_FUSION=false: no KG contract provisions injected, and
+        no KG call is made (off-path for the now-activated .env default)."""
+        monkeypatch.setenv("RAG_KG_FUSION", "false")
         chunks = [
             {
                 "chunk_id": "c1",

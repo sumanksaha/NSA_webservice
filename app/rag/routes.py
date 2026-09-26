@@ -70,8 +70,10 @@ def _get_query_breaker():
         import app.rag.tasks as tasks_mod
         from app.rag.resilient import ResilientRAGPipeline
 
-        def _pipeline(query: str, top_k: int = 10, **kwargs):
-            return tasks_mod.run_generation_pipeline(query=query, top_k=top_k, **kwargs)
+        def _pipeline(query: str, top_k: int | None = None, **kwargs):
+            return tasks_mod.run_generation_pipeline(
+                query=query, top_k=top_k or cfg.context_max_chunks, **kwargs
+            )
 
         _query_breaker = ResilientRAGPipeline(pipeline_fn=_pipeline)
     return _query_breaker
@@ -318,7 +320,7 @@ def generate():
         chunks (list[dict], optional): Pre-retrieved chunks from a
             prior retrieve_task. If omitted, retrieval runs first.
         query_type (str, optional): Overridden query classification.
-        top_k (int, optional): Chunks to retrieve (default 10).
+        top_k (int, optional): Chunks to retrieve (default RAG_CONTEXT_MAX_CHUNKS = 20).
         collection_name (str, optional): Qdrant collection override.
         filters (dict, optional): Metadata filters for retrieval.
 
@@ -335,7 +337,7 @@ def generate():
     if not query or not isinstance(query, str) or not query.strip():
         return jsonify({"error": "query must be a non-empty string."}), 400
 
-    top_k = payload.get("top_k", 10)
+    top_k = payload.get("top_k", cfg.context_max_chunks)
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
@@ -363,7 +365,7 @@ def query():
 
     Request JSON:
         query (str, required): The user legal question.
-        top_k (int, optional): Chunks to retrieve (default 10).
+        top_k (int, optional): Chunks to retrieve (default RAG_CONTEXT_MAX_CHUNKS = 20).
         filters (dict, optional): Metadata filters for retrieval.
 
     Response JSON: a ``RAGResponse``-schema dict including groundedness
@@ -380,7 +382,7 @@ def query():
     if not query_str or not isinstance(query_str, str) or not query_str.strip():
         return jsonify({"error": "query must be a non-empty string."}), 400
 
-    top_k = payload.get("top_k", 10)
+    top_k = payload.get("top_k", cfg.context_max_chunks)
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
@@ -411,7 +413,7 @@ def eval_batch():
         dataset (list, required): List of {"query", "expected_answer",
             "expected_citations"} dicts.
         eval_run_id (str, optional): UUID for the eval run.
-        top_k (int, optional): Chunks per query (default 10).
+        top_k (int, optional): Chunks per query (default RAG_CONTEXT_MAX_CHUNKS = 20).
 
     Response JSON: evaluation summary with per-query results and aggregate
     metric averages.
@@ -431,7 +433,7 @@ def eval_batch():
     if not isinstance(dataset, list) or not dataset:
         return jsonify({"error": "dataset must be a non-empty list."}), 400
 
-    top_k = payload.get("top_k", 10)
+    top_k = payload.get("top_k", cfg.context_max_chunks)
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
