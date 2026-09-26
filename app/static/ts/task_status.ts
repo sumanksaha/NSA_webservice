@@ -56,6 +56,29 @@ import type {
      * `errors` (when present) is a structured {field: message} map from the
      * server used by forms to highlight invalid inputs inline.
      */
+    /** Message shown when the server answered with something that is not
+     * the JSON task payload (login page after session expiry, CSRF HTML
+     * error page, gateway timeout page, ...). Parsing those as JSON
+     * throws a raw `JSON.parse: unexpected character` SyntaxError, which
+     * is what callers used to display verbatim. */
+    function nonJsonError(resp: Response): SubmitFetchError {
+        var err: SubmitFetchError =
+            resp.redirected ||
+            (resp.url && resp.url.indexOf("/auth/login") !== -1)
+                ? new Error(
+                      "Your session may have expired. Please reload the page, log in again, and retry.",
+                  )
+                : new Error(
+                      "Unexpected response from the server (HTTP " +
+                          resp.status +
+                          "). The record may still have been created — reload the list to check, then retry.",
+                  );
+        err.status = resp.status;
+        err.errors = null;
+        err.data = null;
+        return err;
+    }
+
     function submitAndPoll(
         form: HTMLFormElement,
         onDone: (result: TaskPollResult) => void,
@@ -65,19 +88,33 @@ import type {
         var formData = new FormData(form);
         fetch(form.action, { method: "POST", body: formData })
             .then(function (resp: Response) {
-                return resp.json().then(function (data: Record<string, unknown>) {
-                    if (!resp.ok) {
-                        var err: SubmitFetchError = new Error(
-                            (data.error as string) ||
-                                "Request failed (" + resp.status + ")",
-                        );
-                        err.status = resp.status;
-                        err.errors = (data.errors as Record<string, string>) || null;
-                        err.data = data; // full body — e.g. bill_id when only the PDF step failed
-                        throw err;
-                    }
-                    return data;
-                });
+                var contentType = resp.headers.get("content-type") || "";
+                if (
+                    resp.redirected ||
+                    contentType.indexOf("application/json") === -1
+                ) {
+                    throw nonJsonError(resp);
+                }
+                return resp.json().then(
+                    function (data: Record<string, unknown>) {
+                        if (!resp.ok) {
+                            var err: SubmitFetchError = new Error(
+                                (data.error as string) ||
+                                    "Request failed (" + resp.status + ")",
+                            );
+                            err.status = resp.status;
+                            err.errors =
+                                (data.errors as Record<string, string>) || null;
+                            err.data = data; // full body — e.g. bill_id when only the PDF step failed
+                            throw err;
+                        }
+                        return data;
+                    },
+                    function () {
+                        // Body claimed to be JSON but did not parse.
+                        throw nonJsonError(resp);
+                    },
+                );
             })
             .then(function (data: Record<string, unknown>) {
                 // Synchronous path: result is inline (no task_id).

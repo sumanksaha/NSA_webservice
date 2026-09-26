@@ -709,6 +709,13 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
                 jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409
             )
         )
+    except Exception as exc:
+        # Any other persistence failure must still be JSON, never an HTML
+        # 500 page (unhandled failures surface on fetch-driven callers as
+        # a cryptic "JSON.parse: unexpected character" error).
+        db.session.rollback()
+        current_app.logger.error("Adjudication save failed: %s", exc)
+        abort(make_response(jsonify({"error": f"Could not save the adjudication: {exc}"}), 500))
 
     # Link back to inspection if this was created from one
     from_inspection = form_data.get("from_inspection")

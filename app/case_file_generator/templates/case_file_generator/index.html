@@ -699,7 +699,7 @@
             const productName = result.product_name || "";
             const retailerFssai = result.retailer_fssai || "";
             const retailerName = result.retailer_name || "";
-            const price = result.price || "";
+            const price = result.total_cost || "";
 
             if (productName) {
                 document.getElementById("product_name").value = productName;
@@ -718,9 +718,8 @@
 
             infoDiv.innerHTML =
                 `<strong>Linked Sample:</strong> ${result.sample_code}<br>` +
-                `<strong>Sample Name:</strong> ${sampleName}<br>` +
+                `<strong>Sample Name:</strong> ${productName}<br>` +
                 `<strong>Retailer:</strong> ${retailerName} (${retailerFssai})<br>` +
-                `<strong>Submission Date:</strong> ${submissionDate || "N/A"}<br>` +
                 `<strong>Price:</strong> Rs. ${price || "0"}`;
             infoDiv.className = "info-box info-box--success";
         } catch (error) {

@@ -408,6 +408,15 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.sample_id = _safe_int(sample_id_raw) if sample_id_raw not in (None, "") else None
     case_file.retailer_cum_manufacturer = _is_retailer_cum_manufacturer(form_data)
     case_file.product_name = form_data.get("product_name", "")
+    # Retailer identity + sample quantity/packet count are editable like
+    # every other entered field (they were previously read by the edit
+    # form and validated on PUT but never written back).
+    case_file.retailer_fssai = form_data.get("retailer_fssai", "")
+    case_file.retailer_name = form_data.get("retailer_name", "")
+    case_file.retailer_fbo_name = form_data.get("retailer_fbo_name", "")
+    case_file.retailer_address = form_data.get("retailer_address", "")
+    case_file.sample_quantity = form_data.get("sample_quantity", "")
+    case_file.packet_count = _safe_int(form_data.get("packet_count"), 4)
 
     # RCM-exempt fields arrive blanked (by decision of the RCM policy
     # seam), so one unconditional assignment block serves both modes.
@@ -701,6 +710,14 @@ def generate_case_file_route():
     except StaleDataError:
         db.session.rollback()
         return jsonify({"error": "This case file was modified by another user. Please reload and try again."}), 409
+    except Exception as exc:
+        # Any other persistence failure (e.g. an IntegrityError from a
+        # stale sample link) must still be JSON: the create form submits
+        # via fetch() and parses the body as JSON, so an HTML 500 page
+        # surfaces as a cryptic "JSON.parse: unexpected character" error.
+        db.session.rollback()
+        current_app.logger.error("Case file save failed: %s", exc)
+        return jsonify({"error": f"Could not save the case file: {exc}"}), 500
 
     allowed_sheets_columns = set(_REQUIRED_FIELDS.keys()) | {
         "is_misbranded",

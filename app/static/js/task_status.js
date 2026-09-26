@@ -20,6 +20,27 @@
     // Core: submitAndPoll
     // -----------------------------------------------------------------------
     /**
+     * Message shown when the server answered with something that is not
+     * the JSON task payload (login page after session expiry, CSRF HTML
+     * error page, gateway timeout page, ...). Parsing those as JSON
+     * throws a raw `JSON.parse: unexpected character` SyntaxError, which
+     * is what callers used to display verbatim.
+     */
+    function nonJsonError(resp) {
+        var err =
+            resp.redirected || (resp.url && resp.url.indexOf("/auth/login") !== -1)
+                ? new Error("Your session may have expired. Please reload the page, log in again, and retry.")
+                : new Error(
+                      "Unexpected response from the server (HTTP " +
+                          resp.status +
+                          "). The record may still have been created — reload the list to check, then retry."
+                  );
+        err.status = resp.status;
+        err.errors = null;
+        err.data = null;
+        return err;
+    }
+    /**
      * Submit a form via fetch(), then poll the returned task_id until
      * completed/error. Calls onDone({ status, result, error, errors }).
      * `errors` (when present) is a structured {field: message} map from the
@@ -30,16 +51,26 @@
         var formData = new FormData(form);
         fetch(form.action, { method: "POST", body: formData })
             .then(function (resp) {
-                return resp.json().then(function (data) {
-                    if (!resp.ok) {
-                        var err = new Error(data.error || "Request failed (" + resp.status + ")");
-                        err.status = resp.status;
-                        err.errors = data.errors || null;
-                        err.data = data; // full body — e.g. bill_id when only the PDF step failed
-                        throw err;
+                var contentType = resp.headers.get("content-type") || "";
+                if (resp.redirected || contentType.indexOf("application/json") === -1) {
+                    throw nonJsonError(resp);
+                }
+                return resp.json().then(
+                    function (data) {
+                        if (!resp.ok) {
+                            var err = new Error(data.error || "Request failed (" + resp.status + ")");
+                            err.status = resp.status;
+                            err.errors = data.errors || null;
+                            err.data = data; // full body — e.g. bill_id when only the PDF step failed
+                            throw err;
+                        }
+                        return data;
+                    },
+                    function () {
+                        // Body claimed to be JSON but did not parse.
+                        throw nonJsonError(resp);
                     }
-                    return data;
-                });
+                );
             })
             .then(function (data) {
                 // Synchronous path: result is inline (no task_id).

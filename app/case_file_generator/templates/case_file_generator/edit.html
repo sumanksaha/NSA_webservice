@@ -271,7 +271,24 @@
                 }
             });
             const response = await fetch(form.action, { method: "PUT", body: formData });
-            const data = await response.json();
+            if (response.redirected) {
+                status.textContent = "Your session may have expired. Please reload, log in again, and retry.";
+                alert("Error: Your session may have expired. Please reload, log in again, and retry.");
+                return;
+            }
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                status.textContent =
+                    "Unexpected response from the server (HTTP " + response.status + "). Please reload and retry.";
+                alert(
+                    "Error: Unexpected response from the server (HTTP " +
+                        response.status +
+                        "). Please reload and retry."
+                );
+                return;
+            }
             if (response.ok) {
                 status.textContent = "Saved. Returning to case list...";
                 window.location.href = "{{ url_for('case_file_generator.index') }}";
@@ -303,7 +320,13 @@
         const body = new FormData();
         body.append("csrf_token", csrfToken());
         const response = await fetch(url, { method: "POST", body });
-        const data = await response.json();
+        if (response.redirected) {
+            alert("Error: Your session may have expired. Please reload, log in again, and retry.");
+            return;
+        }
+        const data = await response.json().catch(function () {
+            return {};
+        });
         if (response.ok) {
             window.location.href = "{{ url_for('case_file_generator.index') }}";
         } else {

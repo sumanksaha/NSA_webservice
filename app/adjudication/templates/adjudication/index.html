@@ -78,6 +78,7 @@ block extra_css %}
                 <input
                     type="text"
                     id="ce_license_no"
+                    name="ce_license_no"
                     class="form-input"
                     value="{{ prefill.ce_license_no if prefill and prefill.ce_license_no else '' }}"
                     placeholder="Enter License Number"
@@ -99,6 +100,7 @@ block extra_css %}
                     <input
                         type="text"
                         id="ce_trade_name"
+                        name="ce_trade_name"
                         class="form-input"
                         readonly
                         value="{{ prefill.ce_trade_name if prefill and prefill.ce_trade_name else '' }}"
@@ -109,6 +111,7 @@ block extra_css %}
                     <input
                         type="text"
                         id="ce_proprietor"
+                        name="ce_proprietor"
                         class="form-input"
                         readonly
                         value="{{ prefill.ce_proprietor if prefill and prefill.ce_proprietor else '' }}"
@@ -119,6 +122,7 @@ block extra_css %}
                     <input
                         type="text"
                         id="ce_address"
+                        name="ce_address"
                         class="form-input"
                         readonly
                         value="{{ prefill.ce_address if prefill and prefill.ce_address else '' }}"
@@ -129,6 +133,7 @@ block extra_css %}
                     <input
                         type="text"
                         id="ce_status"
+                        name="ce_status"
                         class="form-input"
                         readonly
                         value="{{ prefill.ce_status if prefill and prefill.ce_status else '' }}"
@@ -928,7 +933,18 @@ block extra_css %}
             method: "POST",
             body: formData,
         })
-            .then((resp) => resp.json())
+            .then((resp) => {
+                if (resp.redirected) {
+                    throw new Error("Your session may have expired. Please reload, log in again, and retry.");
+                }
+                return resp.json().catch(function () {
+                    throw new Error(
+                        "Unexpected response from the server (HTTP " +
+                            resp.status +
+                            "). Please reload and retry."
+                    );
+                });
+            })
             .then((data) => {
                 if (data.error) {
                     statusBox.innerHTML =
