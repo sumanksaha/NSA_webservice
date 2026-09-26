@@ -12,16 +12,20 @@ Relaxes the four RCM-exempt columns to match the model. Fresh
 ``create_all`` databases already have them nullable; the batch alter is
 a no-op there.
 
-Revision ID: allow_null_rcm_exempt_case_file_fields
+Revision ID: allow_null_rcm_fields
 Revises: add_retailer_cum_manufacturer
 Create Date: 2026-09-26
+
+NOTE: the id must stay within 32 chars — production's
+``alembic_version.version_num`` is VARCHAR(32) and a longer id aborts
+the deploy with StringDataRightTruncation on the version stamp.
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "allow_null_rcm_exempt_case_file_fields"
+revision = "allow_null_rcm_fields"
 down_revision = "add_retailer_cum_manufacturer"
 branch_labels = None
 depends_on = None

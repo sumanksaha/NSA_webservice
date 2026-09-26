@@ -1,4 +1,4 @@
-"""Tests for the ``allow_null_rcm_exempt_case_file_fields`` migration.
+"""Tests for the ``allow_null_rcm_fields`` migration.
 
 Production context (2026-09-26): saving an RCM (loose-food) case file
 failed with ``NotNullViolation: null value in column "mfg_date"``. The
@@ -51,7 +51,7 @@ def _notnull(path, column) -> int:
 
 
 def _run(path, fn_name: str):
-    from migrations.versions import allow_null_rcm_exempt_case_file_fields as mig
+    from migrations.versions import allow_null_rcm_fields as mig
 
     engine = sa.create_engine(f"sqlite:///{path}")
     with engine.connect() as conn:
@@ -99,4 +99,4 @@ class TestRcmNullableMigration:
         cfg = Config()
         cfg.set_main_option("script_location", str(repo_root / "migrations"))
         script = ScriptDirectory.from_config(cfg)
-        assert script.get_heads() == ["allow_null_rcm_exempt_case_file_fields"]
+        assert script.get_heads() == ["allow_null_rcm_fields"]
