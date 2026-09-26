@@ -1,0 +1,60 @@
+{
+  "auto_search_active": true,
+  "execution_time_iso": "2026-09-26T15:59:00Z",
+  "step": "Step 2 \u2014 Evidence Gap Mapping (post Step 0 labeling)",
+  "residual_questions_total": 124,
+  "residual_qids_sample": [
+    "Q005",
+    "Q006",
+    "Q007",
+    "Q008",
+    "Q009"
+  ],
+  "step0_labels_applied": 0,
+  "step0_complete": false,
+  "evidence_missing_candidates_from_preannotations": 14,
+  "preannotation_qids_sample": [
+    "Q005",
+    "Q006",
+    "Q007",
+    "Q008",
+    "Q009",
+    "Q010",
+    "Q012",
+    "Q013",
+    "Q014",
+    "Q016"
+  ],
+  "intervention_for_evidence_missing": "Add missing instrument text to corpus (Water Act section bodies, WB Meat Order, KMC water rules, PCA Rules schedules). Re-retrieve those qids only. One answer call on new payload.",
+  "budget_per_evidence_missing_qid": 1,
+  "budget_remaining_for_evidence_missing": 150,
+  "identified_missing_families": [
+    "Water Act 1974 \u2014 section bodies (e.g., sections 12, 14, 22 referenced by questions on water quality, pollution)",
+    "West Bengal Meat (Control and Supply) Order, 1966 \u2014 full operative text",
+    "Kolkata Municipal Corporation (KMC) water supply / drainage rules \u2014 relevant schedules",
+    "Prevention of Cruelty to Animals (PCA) Rules \u2014 schedule provisions (schedule 6 / schedule 7 for specific animal categories)"
+  ],
+  "evidence_missing_target_file": "step0_corpus_fill_targets.json",
+  "process_metrics": {
+    "questions_analyzed": 124,
+    "evidence_missing_candidates": 14,
+    "provisions_identified": 4,
+    "evidence_completion_rate": 0.0,
+    "budget_compliance": true,
+    "time_to_complete_hours": "pending (depends on human step 0 labeling)"
+  },
+  "success_metrics_target": {
+    "binary_correct_gain_target": "+5%",
+    "citation_recall_target": "+2%",
+    "citation_precision_target": "+2%",
+    "context_recall_at_10_target": "+3%",
+    "budget_cap": 150
+  },
+  "quality_metrics_target": {
+    "report_completeness_target": "95%",
+    "recommendations_actionable_target": ">=1 per missing provision",
+    "budget_overrun_target": "<=1"
+  },
+  "status": "READY \u2014 requires Step 0 human labeling to activate evidence_missing gate (currently 124 unlabelled; 14 pre-annotated candidates). Once labeled, apply step1_preregistered_gates.json intervention (add missing instrument text, re-retrieve, one answer call).",
+  "next_action": "Run step0_label_residual.py with --worksheet to apply labels; then trigger evidence fill per step1_preregistered_gates.json; then run step3_gated_generation.py with new payload."
+}
