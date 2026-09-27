@@ -9,7 +9,7 @@ The classifier is **rule-based** (no LLM) for determinism and zero latency
 overhead.  It maps user queries to one of the legal query types used in the
 evaluation framework:
 
-    penalty, direct provision, exception, obligation, procedure,
+    penalty, direct provision, definition, exception, obligation, procedure,
     authority, prohibition, cross-reference, offence, enforcement,
     insufficient-evidence, temporal, ambiguous
 
@@ -42,6 +42,7 @@ from dataclasses import dataclass
 LEGAL_QUERY_TYPES = frozenset({
     "penalty",
     "direct provision",
+    "definition",
     "exception",
     "obligation",
     "procedure",
@@ -134,6 +135,16 @@ DIRECT_PROVISION_CONFIG = QueryTypeConfig(
     feature_weight=1.0,
 )
 
+#: Definition: start at standard weights (no k500 signal yet — tune from
+#: the benchmark slice per the universal-multihop plan).  Registered so
+#: ``get_config("definition")`` no longer silently falls back to DEFAULT.
+DEFINITION_CONFIG = QueryTypeConfig(
+    ce_weight=0.5,
+    ce_head=30,
+    hierarchy_weight=0.2,
+    feature_weight=1.0,
+)
+
 #: Exception: hierarchy works well — standard config.
 EXCEPTION_CONFIG = QueryTypeConfig(
     ce_weight=0.5,
@@ -214,6 +225,7 @@ AMBIGUOUS_CONFIG = QueryTypeConfig(
 QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
     "penalty": PENALTY_CONFIG,
     "direct provision": DIRECT_PROVISION_CONFIG,
+    "definition": DEFINITION_CONFIG,
     "exception": EXCEPTION_CONFIG,
     "obligation": OBLIGATION_CONFIG,
     "procedure": PROCEDURE_CONFIG,
@@ -350,6 +362,56 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bwithin\s+\d+\s+(?:days|months|years)\b",
         ],
     ),
+    # definition — explicit definition asks + statutory definition shapes.
+    # Borrowed from the planner keyword list (define/definition/refers to)
+    # and the chunk/taxonomy guards (quoted-term "means", for the purposes
+    # of, shall have the meaning).  Bare "means"/"includes" are DELIBERATELY
+    # absent: they fire on ordinary prose ("this means the result") — the
+    # quoted-term guard is what makes this precise.  Placed before
+    # ``obligation`` so a definition ask containing "shall" wins the tie.
+    (
+        "definition",
+        [
+            r"""['"][^'"]{1,60}['"]\s+means\b""",
+            r"\bdefine\b",
+            r"\bdefinition\b",
+            r"\bfor the purposes of\b",
+            r"\bshall have the meaning\b",
+            r"\brefer(?:s)? to\b",
+            r"\bwhat\s+is\s+meant\s+by\b",
+            r"\bmeaning\s+of\b",
+        ],
+    ),
+    # procedure — process/how-to asks + forum words (shared with the
+    # chunk-side provision-type list).  Placed before ``obligation`` so
+    # "how shall I appeal" types as procedure, not obligation.  ``tribunal``
+    # intentionally duplicates the authority list — ties keep authority
+    # (earlier entry), count-wins still resolve genuinely procedural
+    # queries here.
+    (
+        "procedure",
+        [
+            r"\bprocedure\b",
+            r"\bappeal\b",
+            r"\bhearing\b",
+            r"\btribunal\b",
+            r"\bcompound(?:ing|able|ed)?\b",
+            r"\bhow\s+to\b",
+            r"\bapply\s+for\b",
+            r"\bregistration\s+process\b",
+        ],
+    ),
+    # direct provision — verbatim-text asks.  Deliberately narrow: this is
+    # the default lookup shape, and a broad pattern here would swallow
+    # penalty/prohibition queries that cite a section.
+    (
+        "direct provision",
+        [
+            r"\bwhat\s+does\s+section\b",
+            r"\btext\s+of\b",
+            r"\bbare\s+act\b",
+        ],
+    ),
     # obligation — duties, responsibilities, what must be done
     (
         "obligation",
@@ -459,6 +521,7 @@ __all__ = [
     "AUTHORITY_CONFIG",
     "CROSS_REFERENCE_CONFIG",
     "DEFAULT_CONFIG",
+    "DEFINITION_CONFIG",
     "DIRECT_PROVISION_CONFIG",
     "ENFORCEMENT_CONFIG",
     "EXCEPTION_CONFIG",

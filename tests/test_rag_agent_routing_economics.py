@@ -30,10 +30,19 @@ def test_multi_part_plan_routes_dag_at_moderate_tier():
     assert d["tier"] == "moderate"
 
 
-def test_simple_plan_routes_direct():
+def test_simple_plan_routes_iterative_multi_hop():
+    # Part B (universal multihop): every non-DAG, non-single-identifier query
+    # takes the iterative linear path — the node itself decides
+    # evidence-conditionally whether a second pass is warranted.
     d = route_strategy({"complexity": "simple"}, "general", "what is food adulteration")
-    assert d["strategy"] == "direct"
-    assert d["tier"] == "direct"
+    assert d["strategy"] == "multi_hop"
+    assert d["tier"] == "deep"
+
+
+def test_simple_penalty_routes_iterative_multi_hop():
+    d = route_strategy({"complexity": "simple"}, "penalty", "penalty for selling substandard food")
+    assert d["strategy"] == "multi_hop"
+    assert d["tier"] == "deep"
 
 
 def test_direct_override_single_identifier_lookup():
@@ -49,7 +58,12 @@ def test_direct_override_requires_no_conjunction():
 
 
 def test_cross_reference_query_type_routes_multi_hop():
-    d = route_strategy({"complexity": "simple"}, "cross_reference", "which rule does section 12 refer to")
+    # Part B: every non-single-identifier query takes the iterative path.
+    # (A single cited section with no conjunction — e.g. "which rule does
+    # section 12 refer to" — is a DIRECT lookup by the identifier rule.)
+    d = route_strategy(
+        {"complexity": "simple"}, "cross_reference", "which rules do the labelling provisions refer to"
+    )
     assert d["strategy"] == "multi_hop"
     assert d["tier"] == "deep"
 
@@ -74,7 +88,7 @@ def test_no_pin_on_first_plan():
         retry_count=0,
         prior_decision={"strategy": "decomposition"},
     )
-    assert d["strategy"] == "direct"
+    assert d["strategy"] == "multi_hop"
     assert d["pinned"] is False
 
 

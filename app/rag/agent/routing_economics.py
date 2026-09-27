@@ -113,8 +113,11 @@ def route_strategy(
       DAG path) — unless the query is really a single-identifier lookup
       (the DIRECT override), which would otherwise leak "What is
       Section 12?" into the expensive pipeline.
-    - cross_reference / case_law classifier types → ``multi_hop``.
-    - everything else → ``direct`` (plain retrieve → generate).
+    - every other query → ``multi_hop`` (the universal iterative linear
+      path — Part B).  The node itself decides evidence-conditionally
+      whether a second pass is warranted, so routing every type through
+      it costs nothing when no cross-references are mined.
+    - single-identifier lookups → ``direct`` (plain retrieve → generate).
 
     Once ``retry_count > 0`` and a prior decision exists, the prior
     strategy is **pinned**: a re-planned retry must not switch paths
@@ -136,7 +139,7 @@ def route_strategy(
 
     if complexity in ("multi_part", "multi_hop") and not _single_identifier_lookup(query):
         strategy = "decomposition"
-    elif qt in ("cross_reference", "case_law"):
+    elif not _single_identifier_lookup(query):
         strategy = "multi_hop"
     else:
         strategy = "direct"

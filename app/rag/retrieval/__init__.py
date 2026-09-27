@@ -64,7 +64,12 @@ from app.rag.retrieval.query_classifier import (
     QueryType,
     SectionQueryParser,
 )
-from app.rag.retrieval.query_understanding import QueryUnderstanding, understand
+from app.rag.retrieval.query_understanding import (
+    QueryUnderstanding,
+    effective_query_type,
+    normalize_query_type,
+    understand,
+)
 from app.rag.retrieval.reference_extractor import (
     CONFIDENCE_HIGH,
     CONFIDENCE_LOW,
@@ -118,6 +123,8 @@ __all__ = [
     "QueryParser",
     "QueryType",
     "QueryUnderstanding",
+    "effective_query_type",
+    "normalize_query_type",
     "Reference",
     "ReferenceEdge",
     "ReferenceGraph",

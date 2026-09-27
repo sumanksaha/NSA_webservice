@@ -162,6 +162,36 @@ _TABLE: tuple[Setting, ...] = (
         False,
         help="Evidence Task planning for task-aware retrieval (default off).",
     ),
+    # --- Universal multihop (Part B) --------------------------------------
+    Setting(
+        "ENABLE_MULTIHOP",
+        "multihop_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help="Second-pass follow-up retrieval in multi_hop_retrieve_node (opt-out; set false to pin single-pass).",
+    ),
+    Setting(
+        "MULTIHOP_CONFIDENCE_MIN",
+        "multihop_confidence_min",
+        str,
+        "MEDIUM",
+        help="Minimum reference confidence (HIGH/MEDIUM/LOW) that can trigger a multihop follow-up.",
+    ),
+    Setting(
+        "MULTIHOP_MAX_FOLLOWUPS",
+        "multihop_max_followups",
+        int,
+        1,
+        help="Max follow-up retrieval rounds per multi_hop_retrieve_node call.",
+    ),
+    Setting(
+        "MULTIHOP_MAX_REFS",
+        "multihop_max_refs",
+        int,
+        2,
+        help="Max cross-references fused into one multihop follow-up query.",
+    ),
     Setting(
         "RAG_AGENT_TASK_PARALLELISM",
         "task_parallelism",

@@ -99,9 +99,12 @@ def test_route_after_plan_dag_for_multi_part():
     assert _route_after_plan({"query_plan": {"complexity": "multi_hop"}}) == "plan_tasks"
 
 
-def test_route_after_plan_linear_for_simple():
+def test_route_after_plan_iterative_for_simple():
+    # Part B: simple queries of any type take the iterative node.
     state = {"query_plan": {"complexity": "simple"}, "query_type": "general"}
-    assert _route_after_plan(state) == "retrieve"
+    assert _route_after_plan(state) == "multi_hop_retrieve"
+    state = {"query_plan": {"complexity": "simple"}, "query_type": "penalty"}
+    assert _route_after_plan(state) == "multi_hop_retrieve"
 
 
 def test_route_after_plan_multi_hop_for_cross_reference():
@@ -183,16 +186,31 @@ def test_route_after_verify_threshold_boundary():
 
 
 def test_agent_flow_grounded_query(monkeypatch):
+    from app.rag.agent.graph import _reset_graph_cache
+
     _patch_pipeline(monkeypatch, groundedness=0.9)
+    # Pin the optional evidence topology off so the asserted path is
+    # deterministic regardless of ambient config.
+    monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "false")
+    _reset_graph_cache()
     result = run_agent(initial_state("penalty for selling substandard food"))
     assert result["answer"] == "Section 50 prescribes the penalty."
     assert result["pipeline"] == "agent"
     assert result["agent"]["retry_count"] == 0
     assert result["agent"]["expanded_query"] is None
-    # One full pass on the linear path (Phase 0: plan routes SIMPLE queries
-    # to retrieve — no DAG nodes, exactly one generation call).
+    # One full pass on the universal iterative path (Part B: SIMPLE queries
+    # route through multi_hop_retrieve — no DAG nodes, exactly one
+    # generation call).
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
-    assert nodes_run == ["classify", "plan", "retrieve", "generate", "verify", "citation_quality"]
+    assert nodes_run == [
+        "classify",
+        "plan",
+        "multi_hop_retrieve",
+        "retrieve",
+        "generate",
+        "verify",
+        "citation_quality",
+    ]
     assert "synthesize" not in nodes_run
     assert "plan_tasks" not in nodes_run
 
@@ -461,9 +479,10 @@ def test_route_after_plan_reads_persisted_decision():
     assert _route_after_plan({"routing_decision": {"strategy": "decomposition"}}) == "plan_tasks"
     assert _route_after_plan({"routing_decision": {"strategy": "multi_hop"}}) == "multi_hop_retrieve"
     assert _route_after_plan({"routing_decision": {"strategy": "direct"}}) == "retrieve"
-    # Legacy fallback for states that never ran the planner.
+    # Legacy fallback for states that never ran the planner (same economics).
     assert _route_after_plan({"query_plan": {"complexity": "multi_part"}}) == "plan_tasks"
-    assert _route_after_plan({}) == "retrieve"
+    assert _route_after_plan({}) == "multi_hop_retrieve"
+    assert _route_after_plan({"query": "What is Section 12?"}) == "retrieve"
 
 
 def test_route_after_verify_enforces_round_cap():

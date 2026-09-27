@@ -6,7 +6,7 @@ each with its own private regexes:
 - ``QueryClassifier`` + ``QueryParser`` (legacy 5-way view: amendment /
   section / case-law / provision / general) — consumed by
   ``classify_node`` and the legacy ``tasks`` pipeline;
-- ``classify_legal_query`` + ``get_config`` (13-type view driving reranker
+- ``classify_legal_query`` + ``get_config`` (14-type view driving reranker
   weights) — consulted inline per rerank call;
 - ``QueryPlanner._extract_*`` (intent / entities / jurisdiction / temporal
   for decomposition) — with its own hand-rolled act/section patterns;
@@ -48,8 +48,48 @@ from app.rag.retrieval.query_classifier import (
 
 __all__ = [
     "QueryUnderstanding",
+    "effective_query_type",
+    "normalize_query_type",
     "understand",
 ]
+
+#: Normalized values treated as "no specific legal signal" — callers fall
+#: back to the other view (see :func:`effective_query_type`).
+_NON_SPECIFIC_TYPES = frozenset({"", "general", "general_qa", "ambiguous"})
+
+
+def normalize_query_type(value: str | None) -> str:
+    """Normalize a query-type string across both classifier vocabularies.
+
+    Lowercases, maps hyphens/spaces to underscores, so ``"cross-reference"``,
+    ``"cross_reference"``, ``"general_qa"``/``"general"`` compare equal to
+    their canonical forms. ``None``/empty/whitespace maps to ``"general"``.
+    """
+    if value is None:
+        return "general"
+    text = str(value).strip().lower()
+    if not text:
+        return "general"
+    text = text.replace("-", "_").replace(" ", "_")
+    if text == "general_qa":
+        return "general"
+    return text
+
+
+def effective_query_type(
+    query_type: str | None,
+    legal_type: str | None,
+) -> str:
+    """Pick the operative type for multihop routing from both views.
+
+    Prefers the normalized ``legal_type`` (14-type reranker view) when it
+    carries a specific signal; otherwise falls back to the normalized legacy
+    ``query_type``. Pure, deterministic — no I/O, safe for routers and nodes.
+    """
+    legal = normalize_query_type(legal_type)
+    if legal not in _NON_SPECIFIC_TYPES:
+        return legal
+    return normalize_query_type(query_type)
 
 
 @dataclass(frozen=True)
@@ -59,7 +99,7 @@ class QueryUnderstanding:
     query: str
     #: Legacy 5-way view (``classify_node``, legacy pipeline filters).
     query_type: QueryType
-    #: 13-type legal view (reranker weight selection).
+    #: 14-type legal view (reranker weight selection).
     legal_type: str
     legal_confidence: float
     #: Canonical act name (identifier vocabulary), if mentioned.

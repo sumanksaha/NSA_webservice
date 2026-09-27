@@ -141,6 +141,11 @@ _EVIDENCE_TYPE_KEYWORDS: dict[EvidenceRequirement, list[str]] = {
     EvidenceRequirement.SCOPE: ["scope", "applicability", "applies to", "range", "covers"],
     EvidenceRequirement.CROSS_REFERENCE: ["cross-reference", "read with", "referred to", "see also"],
     EvidenceRequirement.FACT_APPLICATION: ["can", "could", "be penalized", "does it apply", "whether"],
+    # Appended last: _extract_intent returns the FIRST match, so existing
+    # winners keep priority and only pure-procedure asks (no provision /
+    # penalty / exception signals) resolve Intent.PROCEDURE — making the
+    # PROCEDURE entries in both intent maps reachable.
+    EvidenceRequirement.PROCEDURE: ["procedure", "appeal", "hearing", "compounding", "how to", "apply for"],
 }
 
 
@@ -154,6 +159,7 @@ _REQUIREMENT_TO_INTENT: dict[EvidenceRequirement, Intent] = {
     EvidenceRequirement.PROVISION: Intent.LOOKUP,
     EvidenceRequirement.DEFINITION: Intent.DEFINITION,
     EvidenceRequirement.PENALTY: Intent.PENALTY,
+    EvidenceRequirement.PROCEDURE: Intent.PROCEDURE,
     EvidenceRequirement.EXCEPTION: Intent.EXCEPTION,
     EvidenceRequirement.JURISDICTION: Intent.JURISDICTION,
     EvidenceRequirement.SCOPE: Intent.SCOPE,
@@ -405,6 +411,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
     intent_to_requirement: dict[Intent, EvidenceRequirement] = {
         Intent.PENALTY: EvidenceRequirement.PENALTY,
         Intent.EXCEPTION: EvidenceRequirement.EXCEPTION,
+        Intent.PROCEDURE: EvidenceRequirement.PROCEDURE,
         Intent.DEFINITION: EvidenceRequirement.DEFINITION,
         Intent.CROSS_REFERENCE: EvidenceRequirement.CROSS_REFERENCE,
         Intent.JURISDICTION: EvidenceRequirement.JURISDICTION,
@@ -476,6 +483,27 @@ def _extract_requirements(query: str) -> list[Requirement]:
             Requirement(
                 requirement_id=f"r{req_id}",
                 evidence_type=EvidenceRequirement.EXCEPTION,
+                subject=subject,
+                conditions=conditions,
+                negation=has_negation,
+                jurisdiction=jurisdiction,
+                temporal_scope=temporal_scope,
+                entities=list(entities.values()),
+            )
+        )
+
+    # Check for procedure mentions (Part A: Intent.PROCEDURE previously had
+    # no path to a PROCEDURE requirement — intent_to_requirement lacked the
+    # entry and _extract_intent never returns it, so procedure asks degraded
+    # to plain provision lookups).
+    if _mentions_any(
+        q, ["procedure", "appeal", "hearing", "tribunal", "compounding", "how to", "apply for"]
+    ) and not any(r.evidence_type == EvidenceRequirement.PROCEDURE for r in requirements):
+        req_id += 1
+        requirements.append(
+            Requirement(
+                requirement_id=f"r{req_id}",
+                evidence_type=EvidenceRequirement.PROCEDURE,
                 subject=subject,
                 conditions=conditions,
                 negation=has_negation,

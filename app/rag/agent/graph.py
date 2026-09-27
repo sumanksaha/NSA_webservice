@@ -3,10 +3,10 @@
 The graph orchestrates the existing RAG services into a self-correcting
 pipeline (Phase 0: exactly one path per query — the plan router picks)::
 
-    classify ──► plan ──┬─ SIMPLE ─────────► retrieve ──► generate ──► verify ──► citation_quality
-                        │                    ▲                            │                │   ──► finalize
-                        │                    └──── expand_query / targeted_retry ◄────────────┘
-                        ├─ cross_ref/case ─► multi_hop_retrieve ──► retrieve ──► …
+    classify ──► plan ──┬─ single-identifier ─► retrieve ──► generate ──► verify ──► citation_quality
+                         │                        ▲                            │                │   ──► finalize
+                         │                        └──── expand_query / targeted_retry ◄────────────┘
+                          ├─ simple (iterative) ─► multi_hop_retrieve ──► retrieve ──► …
                         └─ MULTI_PART/HOP ─► plan_tasks ──► budget_gate ──► execute_task
                                               ──► evidence_sufficiency ──► synthesize ──► verify
                                                    │                (abstain / targeted_retry)
@@ -189,8 +189,8 @@ def _route_after_plan(state: RAGState) -> str:
     Phase 0 rule as a fallback for states that never ran the planner.
 
     - ``decomposition`` → the EvidenceTask DAG path.
-    - ``multi_hop`` → multi-hop retrieval.
-    - ``direct`` → the plain linear path.
+    - ``multi_hop`` → multi-hop retrieval (universal iterative linear path).
+    - ``direct`` → the plain linear path (single-identifier lookups only).
     """
     decision = state.get("routing_decision")
     if isinstance(decision, dict) and decision.get("strategy"):
@@ -200,13 +200,20 @@ def _route_after_plan(state: RAGState) -> str:
         if strategy == "multi_hop":
             return "multi_hop_retrieve"
         return "retrieve"
-    # Fallback: legacy derivation for states without a routing decision.
+    # Fallback: derive through the same economics (no duplicated type
+    # allowlist) for states that never ran the planner.
+    from app.rag.agent.routing_economics import route_strategy
+
     plan = state.get("query_plan") or {}
     complexity = str(plan.get("complexity", "")).lower() if isinstance(plan, dict) else ""
-    if complexity in ("multi_part", "multi_hop"):
+    fallback = route_strategy(
+        {"complexity": complexity},
+        str(state.get("query_type", "general")),
+        state.get("query") or "",
+    )
+    if fallback["strategy"] == "decomposition":
         return "plan_tasks"
-    query_type = str(state.get("query_type", "general")).lower()
-    if query_type in ("cross_reference", "case_law"):
+    if fallback["strategy"] == "multi_hop":
         return "multi_hop_retrieve"
     return "retrieve"
 
@@ -503,7 +510,7 @@ def build_graph(
     # downstream nodes (retrieve, multi_hop_retrieve).
     builder.add_node("plan", lambda state, cfg=None: nodes.plan_node(state))
     builder.add_node("retrieve", lambda state, cfg=None: nodes.retrieve_node(state))
-    # Multi-hop retrieval node for cross-reference / case-law queries (1.2).
+    # Iterative retrieval node — universal second-pass mining (Part B).
     builder.add_node("multi_hop_retrieve", lambda state, cfg=None: nodes.multi_hop_retrieve_node(state))
     builder.add_node("generate", lambda state, cfg=None: nodes.generate_node(state))
     builder.add_node("verify", lambda state, cfg=None: nodes.verify_node(state))

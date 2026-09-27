@@ -68,6 +68,33 @@ def test_classify_node_falls_back_to_general(monkeypatch):
     assert out["audit_trail"][-1]["detail"]["fallback"] is True
 
 
+def test_classify_node_writes_legal_type_seam():
+    out = classify_node(_make_state(query="penalty for selling substandard food"))
+    assert out["legal_type"] == "penalty"
+    assert out["legal_confidence"] > 0.0
+    assert out["audit_trail"][-1]["detail"]["legal_type"] == "penalty"
+    # Legacy view preserved for back-compat.
+    assert out["query_type"]
+
+
+def test_classify_node_fallback_sets_legal_type_ambiguous(monkeypatch):
+    from app.rag.retrieval import QueryClassifier
+
+    def boom(self, query):
+        raise RuntimeError("no classifier")
+
+    monkeypatch.setattr(QueryClassifier, "classify", boom)
+    out = classify_node(_make_state())
+    assert out["legal_type"] == "ambiguous"
+    assert out["legal_confidence"] == 0.0
+
+
+def test_initial_state_carries_legal_type_seam():
+    state = initial_state("what is food safety?")
+    assert state["legal_type"] == ""
+    assert state["legal_confidence"] == 0.0
+
+
 # ---------------------------------------------------------------------- #
 # retrieve_node
 # ---------------------------------------------------------------------- #
@@ -986,7 +1013,7 @@ def test_task_results_carry_token_cost(monkeypatch):
 
 
 # ---------------------------------------------------------------------- #
-# multi_hop_retrieve_node (cross-reference mining repair)
+# multi_hop_retrieve_node (Part B: universal evidence-gated follow-up)
 # ---------------------------------------------------------------------- #
 
 
@@ -1010,3 +1037,323 @@ def test_multi_hop_mines_section_for_followup(monkeypatch):
     assert len(calls) == 2  # first pass + mined follow-up
     assert calls[1] == "penalty provisions AND section 18"
     assert out["audit_trail"][-1]["node"] == "multi_hop_retrieve"
+    detail = out["audit_trail"][-1]["detail"]
+    assert detail["multi_hop"] is True
+    assert detail["refs_used"] == ["section 18"]
+    assert detail["followup_query"] == "penalty provisions AND section 18"
+    assert out["multi_hop_followup"] == "penalty provisions AND section 18"
+    assert out["budget"]["consumed_retrieval_rounds"] == 2
+
+
+def test_multi_hop_fires_for_penalty_type(monkeypatch):
+    """Part B: the follow-up is evidence-gated, not type-gated."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        if len(calls) == 1:
+            return {"chunks": [{"chunk_id": "c1", "text": "punishable under section 50 of the Act"}]}
+        return {"chunks": [{"chunk_id": "c2", "text": "Section 50 penalty text"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(
+        _make_state(query="penalty for substandard food", query_type="provision_search", legal_type="penalty")
+    )
+    assert len(calls) == 2
+    assert calls[1] == "penalty for substandard food AND section 50"
+    assert [c["chunk_id"] for c in out["chunks"]] == ["c1", "c2"]
+    assert out["audit_trail"][-1]["detail"]["effective_type"] == "penalty"
+
+
+def test_multi_hop_definition_flavor_builder(monkeypatch):
+    """Part B: DEFINITION requirements get the definition-cued follow-up."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": '"food" as defined in section 3 of the Act'}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(
+        _make_state(
+            query="what is food",
+            query_type="general_qa",
+            legal_type="definition",
+            evidence_requirements=["provision", "definition"],
+        )
+    )
+    assert len(calls) == 2
+    assert calls[1] == "what is food definition AND section 3"
+    assert out["audit_trail"][-1]["detail"]["builder"] == "definition"
+
+
+def test_multi_hop_skips_query_cited_section(monkeypatch):
+    """A section the query already cites needs no follow-up round."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": "Section 18 procedure applies"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(_make_state(query="procedure under section 18", query_type="general"))
+    assert len(calls) == 1
+    detail = out["audit_trail"][-1]["detail"]
+    assert detail["multi_hop"] is False
+    assert detail["fired_reason"] == "no_refs"
+    assert out["multi_hop_followup"] is None
+
+
+def test_multi_hop_single_pass_without_refs(monkeypatch):
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": "plain prose with no legal references"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(_make_state(query="what is food safety"))
+    assert len(calls) == 1
+    assert out["budget"]["consumed_retrieval_rounds"] == 1
+    # Stash always carries pass-1 chunks so retrieve_node can reuse them.
+    assert out["multi_hop_chunks"] == out["chunks"]
+    assert out["multi_hop_query"] == "what is food safety"
+    assert out["multi_hop_followup"] is None
+    assert out["audit_trail"][-1]["detail"]["followups_fired"] == 0
+
+
+def test_multi_hop_disabled_flag_pins_single_pass(monkeypatch):
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": "subject to section 18 of the Act"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    monkeypatch.setenv("ENABLE_MULTIHOP", "false")
+    out = multi_hop_retrieve_node(_make_state(query="penalty provisions", query_type="general"))
+    assert len(calls) == 1
+    assert out["audit_trail"][-1]["detail"]["fired_reason"] == "disabled"
+
+
+def test_multi_hop_respects_spent_budget(monkeypatch):
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": "subject to section 18 of the Act"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    spent = {"max_retrieval_rounds": 3, "consumed_retrieval_rounds": 3}
+    out = multi_hop_retrieve_node(_make_state(query="penalty provisions", budget=spent))
+    assert len(calls) == 1
+    assert out["audit_trail"][-1]["detail"]["fired_reason"] == "budget_exhausted"
+
+
+def test_retrieve_node_preserves_multihop_chunks(monkeypatch):
+    """The multi_hop_retrieve → retrieve edge must not drop pass-2 evidence."""
+    import app.rag.tasks as tasks
+
+    def fake_run(query, **kw):
+        return {
+            "chunks": [{"chunk_id": "c1", "text": "fresh single-pass chunk"}],
+            "query_type": "general",
+        }
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    stashed = [
+        {"chunk_id": "c1", "text": "fresh single-pass chunk"},
+        {"chunk_id": "c2", "text": "mined section 18 chunk"},
+    ]
+    out = retrieve_node(
+        _make_state(multi_hop_chunks=stashed, multi_hop_followup="q AND section 18")
+    )
+    assert [c["chunk_id"] for c in out["chunks"]] == ["c1", "c2"]
+    assert out["multi_hop_chunks"] == []
+    assert out["multi_hop_followup"] is None
+    assert out["audit_trail"][-1]["detail"]["multi_hop_merged"] == 1
+
+
+def test_retrieve_node_unchanged_without_stash(monkeypatch):
+    import app.rag.tasks as tasks
+
+    def fake_run(query, **kw):
+        return {"chunks": [{"chunk_id": "c1"}], "query_type": "general"}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = retrieve_node(_make_state())
+    assert [c["chunk_id"] for c in out["chunks"]] == ["c1"]
+    assert "multi_hop_chunks" not in out
+    assert out["audit_trail"][-1]["detail"]["multi_hop_merged"] == 0
+
+
+def test_retrieve_node_reuses_identical_multihop_query(monkeypatch):
+    """Finding 1: no duplicate pipeline call when the query is unchanged."""
+    import app.rag.tasks as tasks
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "fresh"}], "query_type": "general"}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    stashed = [{"chunk_id": "c1", "text": "pass-1 chunk"}, {"chunk_id": "c2", "text": "pass-2 chunk"}]
+    out = retrieve_node(
+        _make_state(
+            query="penalty provisions",
+            multi_hop_chunks=stashed,
+            multi_hop_query="penalty provisions",
+            multi_hop_followup="penalty provisions AND section 18",
+        )
+    )
+    assert calls == []
+    assert [c["chunk_id"] for c in out["chunks"]] == ["c1", "c2"]
+    assert out["multi_hop_chunks"] == []
+    assert out["multi_hop_query"] is None
+    assert out["multi_hop_followup"] is None
+    assert out["audit_trail"][-1]["detail"]["multihop_reused"] is True
+    assert out["budget"]["consumed_retrieval_rounds"] == 0
+    # Reuse charges nothing: the chunks were already counted by the
+    # multi-hop node (review: double-count exhausted tight caps early).
+    assert out["budget"]["consumed_documents"] == 0
+
+
+def test_retrieve_node_refetches_on_changed_query(monkeypatch):
+    """A failure-aware targeted query must not reuse the stash outright."""
+    import app.rag.tasks as tasks
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "fresh"}], "query_type": "general"}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = retrieve_node(
+        _make_state(
+            query="penalty provisions",
+            targeted_query="penalty provisions section 50 exception",
+            multi_hop_chunks=[{"chunk_id": "c1", "text": "pass-1 chunk"}],
+            multi_hop_query="penalty provisions",
+            multi_hop_followup="penalty provisions AND section 18",
+        )
+    )
+    assert calls == ["penalty provisions section 50 exception"]
+    assert [c["chunk_id"] for c in out["chunks"]] == ["fresh", "c1"]
+    assert out["audit_trail"][-1]["detail"]["multihop_reused"] is False
+
+
+def test_multi_hop_chains_two_followups(monkeypatch):
+    """MULTIHOP_MAX_FOLLOWUPS is a real round cap (Rule → section → penalty)."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        if "section 50" in query:
+            return {"chunks": [{"chunk_id": "c3", "text": "Section 50 penalty text"}]}
+        if "rule 2.3.1" in query:
+            return {"chunks": [{"chunk_id": "c2", "text": "punishable under section 50"}]}
+        return {"chunks": [{"chunk_id": "c1", "text": "recall order prescribed by Rule 2.3.1"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    monkeypatch.setenv("MULTIHOP_MAX_FOLLOWUPS", "2")
+    out = multi_hop_retrieve_node(_make_state(query="recall order penalty", query_type="general"))
+    assert len(calls) == 3
+    assert calls[1] == "recall order penalty AND rule 2.3.1"
+    assert calls[2] == "recall order penalty AND section 50"
+    detail = out["audit_trail"][-1]["detail"]
+    assert detail["followups_fired"] == 2
+    assert detail["multi_hop"] is True
+    assert detail["refs_used"] == ["rule 2.3.1", "section 50"]
+    assert [c["chunk_id"] for c in out["chunks"]] == ["c1", "c2", "c3"]
+    assert out["budget"]["consumed_retrieval_rounds"] == 3
+
+
+def test_multi_hop_skips_already_retrieved_units(monkeypatch):
+    """Step-5 finding: self-mentions (Section 18 inside Section-18 chunks)
+    fired no-op rounds — units already in pass 1 are not re-targeted."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {
+            "chunks": [{
+                "chunk_id": "c1",
+                "text": "Section 18 procedure applies, subject to Section 55",
+                "section_number": "18",
+                "act_name": "Food Safety and Standards Act, 2006",
+                "document_title": "Food Safety and Standards Act 2006",
+            }]
+        }
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(_make_state(query="procedure query", query_type="general"))
+    assert len(calls) == 2
+    assert calls[1] == "procedure query AND section 55"
+    detail = out["audit_trail"][-1]["detail"]
+    assert detail["refs_used"] == ["section 55"]
+    assert detail["covered_skipped"] == 1
+
+
+def test_multi_hop_zero_max_followups_caps(monkeypatch):
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": "subject to section 18 of the Act"}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    monkeypatch.setenv("MULTIHOP_MAX_FOLLOWUPS", "0")
+    out = multi_hop_retrieve_node(_make_state(query="penalty provisions"))
+    assert len(calls) == 1
+    detail = out["audit_trail"][-1]["detail"]
+    assert detail["multi_hop"] is False
+    assert detail["fired_reason"] == "followups_capped"
+    assert detail["followups_fired"] == 0
+
+
+def test_multi_hop_definition_relation_flavors_builder(monkeypatch):
+    """Mined as-defined-in relations flavor the builder even when the
+    query types as general with no DEFINITION requirement (Finding 3)."""
+    import app.rag.tasks as tasks
+    from app.rag.agent.nodes import multi_hop_retrieve_node
+
+    calls: list[str] = []
+
+    def fake_run(query, **kw):
+        calls.append(query)
+        return {"chunks": [{"chunk_id": "c1", "text": '"food" as defined in section 3 of the Act'}]}
+
+    monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
+    out = multi_hop_retrieve_node(_make_state(query="what is food", query_type="general_qa"))
+    assert len(calls) == 2
+    assert calls[1] == "what is food definition AND section 3"
+    assert out["audit_trail"][-1]["detail"]["builder"] == "definition"

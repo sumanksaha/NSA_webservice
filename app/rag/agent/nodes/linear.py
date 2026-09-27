@@ -46,29 +46,44 @@ __all__ = [
 def classify_node(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the query into a legal query type.
 
-    Reads the legacy view off the shared query-understanding seam; a
-    failure degrades to ``"general"`` so the graph never stalls on
-    classification.
+    Reads both views off the shared query-understanding seam: the legacy
+    ``query_type`` (back-compat) plus the 14-type ``legal_type`` with its
+    confidence (Step 0 seam for universal multihop — routers and the
+    multihop node resolve the operative type via
+    ``effective_query_type``). A failure degrades to ``"general"`` /
+    ``"ambiguous"`` so the graph never stalls on classification.
     """
     start = time.monotonic()
     query = state.get("query") or ""
     query_type = "general"
+    legal_type = "ambiguous"
+    legal_confidence = 0.0
     detail: dict[str, Any] = {"fallback": False}
     try:
         from app.rag.retrieval import understand
 
-        query_type = understand(query).query_type.value
+        understood = understand(query)
+        query_type = understood.query_type.value
+        legal_type = understood.legal_type
+        legal_confidence = float(understood.legal_confidence or 0.0)
     except Exception as exc:
         logger.warning("classify_node: classification failed (%s)", exc)
         detail = {"fallback": True, "error": str(exc)}
     return {
         "query_type": query_type,
+        "legal_type": legal_type,
+        "legal_confidence": legal_confidence,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
                 "node": "classify",
                 "latency_ms": _ms(start),
-                "detail": {"query_type": query_type, **detail},
+                "detail": {
+                    "query_type": query_type,
+                    "legal_type": legal_type,
+                    "legal_confidence": legal_confidence,
+                    **detail,
+                },
             },
         ],
     }
@@ -88,32 +103,76 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     start = time.monotonic()
     from app.rag.tasks import run_retrieval_pipeline
 
-    result = run_retrieval_pipeline(
-        query=_query_for_retrieval(state),
-        top_k=state.get("top_k", 10),
-        collection_name=state.get("collection_name"),
-        filters=state.get("filters"),
-        pipeline="agent",
-    )
-    return {
-        "chunks": result.get("chunks", []),
-        "query_type": result.get("query_type") or state.get("query_type", "general"),
-        "retrieval_latency_ms": result.get("retrieval_latency_ms", 0),
-        "log_id": result.get("log_id"),
+    retrieval_query = _query_for_retrieval(state)
+    stashed = state.get("multi_hop_chunks") or []
+    stash_update: dict[str, Any] = {}
+    if "multi_hop_chunks" in state or "multi_hop_query" in state or "multi_hop_followup" in state:
+        stash_update = {"multi_hop_chunks": [], "multi_hop_query": None, "multi_hop_followup": None}
+    multi_hop_merged = 0
+    multihop_reused = False
+    if stashed and state.get("multi_hop_query") == retrieval_query and retrieval_query:
+        # Part B reuse: the multi-hop node already retrieved this exact
+        # query (pass 1 + follow-ups, merged) — skip the duplicate pipeline
+        # call.  Freshness metadata was forwarded by the multi-hop node and
+        # already sits on state, so it is kept as-is.  A changed query
+        # (e.g. failure-aware targeted retry) falls through to fresh
+        # retrieval below.
+        chunks = list(stashed)
+        multihop_reused = True
+        # No budget charge: these exact chunks were already counted by the
+        # multi-hop node (re-counting documents would exhaust tight caps a
+        # retry early).
+        query_type = state.get("query_type", "general")
+        retrieval_latency_ms = state.get("retrieval_latency_ms", 0)
+        log_id = state.get("log_id")
+        evidence_set = state.get("evidence_set")
+        budget = _consume_budget(state, retrieval_rounds=0, documents=0)
+    else:
+        result = run_retrieval_pipeline(
+            query=retrieval_query,
+            top_k=state.get("top_k", 10),
+            collection_name=state.get("collection_name"),
+            filters=state.get("filters"),
+            pipeline="agent",
+        )
+        chunks = result.get("chunks", [])
+        # Preserve second-pass evidence: fold unseen stashed chunks into the
+        # fresh result (fresh results stay primary).
+        if stashed and state.get("multi_hop_followup"):
+            seen_ids = {c.get("chunk_id") for c in chunks if isinstance(c, dict) and c.get("chunk_id")}
+            for c in stashed:
+                if isinstance(c, dict) and (not c.get("chunk_id") or c.get("chunk_id") not in seen_ids):
+                    chunks.append(c)
+                    if c.get("chunk_id"):
+                        seen_ids.add(c.get("chunk_id"))
+                    multi_hop_merged += 1
+        query_type = result.get("query_type") or state.get("query_type", "general")
+        retrieval_latency_ms = result.get("retrieval_latency_ms", 0)
+        log_id = result.get("log_id")
         # Evidence set is already computed by apply_stages inside
         # run_retrieval_pipeline — forward it to avoid recompute in the
         # evidence_node downstream.
-        "evidence_set": result.get("evidence_set"),
-        "budget": _consume_budget(state, retrieval_rounds=1, documents=len(result.get("chunks", []))),
+        evidence_set = result.get("evidence_set")
+        budget = _consume_budget(state, retrieval_rounds=1, documents=len(chunks))
+    return {
+        "chunks": chunks,
+        "query_type": query_type,
+        "retrieval_latency_ms": retrieval_latency_ms,
+        "log_id": log_id,
+        "evidence_set": evidence_set,
+        "budget": budget,
+        **stash_update,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
                 "node": "retrieve",
                 "latency_ms": _ms(start),
                 "detail": {
-                    "chunk_count": len(result.get("chunks", [])),
-                    "retrieval_latency_ms": result.get("retrieval_latency_ms", 0),
-                    "log_id": result.get("log_id"),
+                    "chunk_count": len(chunks),
+                    "retrieval_latency_ms": retrieval_latency_ms,
+                    "log_id": log_id,
+                    "multi_hop_merged": multi_hop_merged,
+                    "multihop_reused": multihop_reused,
                 },
             },
         ],
@@ -644,12 +703,199 @@ def plan_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Targeted retrieval using reasoning note — multi-hop for cross-reference / case-law.
+#: Confidence rank for multihop reference filtering (mirrors
+#: ``reference_extractor`` levels so the ``MULTIHOP_CONFIDENCE_MIN`` string
+#: resolves without importing the extractor at module load).
+_MULTIHOP_CONFIDENCE_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
-    Priority 3: Inspects retrieved chunks for cross-references (via
-    ReferenceExtractor), builds follow-up queries, and merges results.
-    Activated for query_type ``cross_reference`` or ``case_law``.
+#: Definition-signalling relations (LOW confidence by construction — no
+#: section number).  These never become follow-up targets themselves; they
+#: mark a chunk as definition-bearing for the definition branch.
+_MULTIHOP_DEFINITION_RELATIONS = frozenset({"as_defined_in", "meaning_of", "interpretation_of"})
+
+
+def _multihop_settings() -> dict[str, Any]:
+    """Resolve multihop tunables via the shared config seam (Pattern A)."""
+    try:
+        from app.shared.config import cfg
+
+        enabled = bool(cfg.multihop_enabled)
+    except Exception:
+        enabled = True
+    try:
+        from app.shared.config import cfg as _cfg
+
+        confidence_min = str(_cfg.multihop_confidence_min or "MEDIUM").strip().upper()
+    except Exception:
+        confidence_min = "MEDIUM"
+    if confidence_min not in _MULTIHOP_CONFIDENCE_RANK:
+        confidence_min = "MEDIUM"
+    try:
+        from app.shared.config import cfg as _cfg2
+
+        max_followups = max(0, int(_cfg2.multihop_max_followups))
+    except (TypeError, ValueError):
+        max_followups = 1
+    except Exception:
+        max_followups = 1
+    try:
+        from app.shared.config import cfg as _cfg3
+
+        max_refs = max(1, int(_cfg3.multihop_max_refs))
+    except (TypeError, ValueError):
+        max_refs = 2
+    except Exception:
+        max_refs = 2
+    return {
+        "enabled": enabled,
+        "confidence_min": confidence_min,
+        "max_followups": max_followups,
+        "max_refs": max_refs,
+    }
+
+
+def _plan_requirement_types(state: dict[str, Any]) -> set[str]:
+    """Normalized evidence-requirement types from the query plan.
+
+    Reads ``state["evidence_requirements"]`` (written by ``plan_node``) plus
+    the serialized ``query_plan["tasks"]`` — both JSON-safe, no re-plan.
+    """
+    from app.rag.retrieval import normalize_query_type
+
+    found: set[str] = set()
+    for raw in state.get("evidence_requirements") or []:
+        if raw:
+            found.add(normalize_query_type(str(raw)))
+    plan = state.get("query_plan") or {}
+    tasks = plan.get("tasks") if isinstance(plan, dict) else None
+    for task in tasks or []:
+        if isinstance(task, dict) and task.get("evidence_requirement"):
+            found.add(normalize_query_type(str(task["evidence_requirement"])))
+    return found
+
+
+def _mined_followup_targets(
+    chunks: list[dict[str, Any]],
+    query: str,
+    min_rank: int,
+    exclude_canons: set[str] | None = None,
+) -> tuple[list[str], int, bool, int]:
+    """Mine addressable follow-up targets from retrieved chunks.
+
+    Returns ``(canons, refs_found, definition_relation_seen, covered_skipped)``
+    where ``canons`` are deduplicated lowercase canonical refs
+    (``"section 18"``, ``"Rule 2.3.1"``) for section/rule/schedule/chapter
+    references at or above ``min_rank`` — excluding targets the query itself
+    already cites, units already retrieved in these chunks (a follow-up
+    re-fetching the same unit mostly replays merge-deduped chunk_ids), and
+    any in ``exclude_canons`` (fetched by an earlier follow-up round).
+    Definition-signalling relations (``as defined in``/``meaning of``
+    without a section) are reported via ``definition_relation_seen``,
+    never as targets.
+    """
+    from app.rag.retrieval.reference_extractor import extract_references
+
+    excluded = exclude_canons or set()
+    refs_found = 0
+    covered_skipped = 0
+    definition_relation_seen = False
+    seen_canons: set[str] = set()
+    ranked: list[tuple[int, int, str]] = []  # (-rank, span, canon)
+
+    # Sections/rules/schedules the query already cites need no follow-up.
+    query_cited: set[tuple[str | None, ...]] = set()
+    try:
+        for qr in extract_references(query or ""):
+            query_cited.add((qr.section, qr.rule, qr.schedule, qr.chapter))
+    except Exception:
+        query_cited = set()
+
+    # Units already retrieved in these chunks (Step-5 finding: self-mentions
+    # like "Section 31" inside Section-31 chunks fired no-op rounds).
+    covered: set[tuple[str | None, ...]] = set()
+    try:
+        from app.rag.retrieval.legal_identity import parse_legal_identity
+
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            ident = parse_legal_identity(chunk)
+            if ident.section or ident.rule or ident.schedule or ident.chapter:
+                covered.add((ident.section, ident.rule, ident.schedule, ident.chapter))
+    except Exception as exc:
+        logger.warning("multi_hop: covered-unit read failed (%s)", exc)
+        covered = set()
+
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        text = str(chunk.get("text") or "")
+        if not text:
+            continue
+        try:
+            chunk_refs = extract_references(text)
+        except Exception:
+            continue
+        for ref in chunk_refs:
+            refs_found += 1
+            if (ref.relation or "") in _MULTIHOP_DEFINITION_RELATIONS:
+                definition_relation_seen = True
+            rank = _MULTIHOP_CONFIDENCE_RANK.get(ref.confidence, 0)
+            if rank < min_rank:
+                continue
+            if not (ref.section or ref.rule or ref.schedule or ref.chapter):
+                continue
+            if (ref.section, ref.rule, ref.schedule, ref.chapter) in query_cited:
+                continue
+            if (ref.section, ref.rule, ref.schedule, ref.chapter) in covered:
+                covered_skipped += 1
+                continue
+            canon = ref.canonical_ref()
+            if not canon:
+                continue
+            # Lowercase the leading keyword ("Section 18" -> "section 18")
+            # to preserve the historical follow-up query shape.
+            canon = canon[0].lower() + canon[1:]
+            if canon in seen_canons or canon in excluded:
+                continue
+            seen_canons.add(canon)
+            ranked.append((-rank, ref.span_start, canon))
+
+    ranked.sort()
+    return [canon for _, _, canon in ranked], refs_found, definition_relation_seen, covered_skipped
+
+
+def _build_followup_query(query: str, canons: list[str], *, definition_flavor: bool) -> str:
+    """Build the follow-up query from fused canonical refs.
+
+    Definition-flavored follow-ups carry a ``definition`` cue so the
+    lexical arm prefers defining provisions over merely mentioning ones.
+    """
+    clause = " AND ".join(canons)
+    if definition_flavor:
+        return f"{query} definition AND {clause}"
+    return f"{query} AND {clause}"
+
+
+def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Targeted retrieval using mined cross-references — universal (Part B).
+
+    Pass 1 runs standard retrieval for every query type.  Follow-up rounds
+    (up to ``MULTIHOP_MAX_FOLLOWUPS``) fire only when the evidence warrants
+    them (universal-conditional): mined section/rule/schedule/chapter
+    references at or above ``MULTIHOP_CONFIDENCE_MIN`` that neither the
+    query nor an earlier round already covered — so reference chains
+    (Rule → authorizing section → penalty) resolve iteratively.  The
+    operative type resolves via ``effective_query_type`` (Step 0 seam);
+    the plan's requirement types and mined definition relations pick the
+    follow-up builder (definition-flavored when a DEFINITION requirement
+    is present or definition-bearing relations were mined).
+
+    Pass-1 chunks are always stashed on ``multi_hop_chunks`` with the
+    pass-1 query on ``multi_hop_query`` so the downstream ``retrieve``
+    node reuses them instead of re-running the identical query (Finding 1).
+    The fired query (if any) rides on ``multi_hop_followup``; both stash
+    keys are cleared by ``retrieve_node`` after use.
     """
     start = time.monotonic()
     from app.rag.tasks import run_retrieval_pipeline
@@ -658,7 +904,7 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     query = state.get("expanded_query") or state.get("query", "")
     query_type = state.get("query_type", "general")
 
-    # First pass — standard retrieval (re-uses existing chunks if present).
+    # First pass — standard retrieval.
     result = run_retrieval_pipeline(
         query=query,
         top_k=state.get("top_k", 10),
@@ -667,51 +913,117 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         pipeline="agent",
     )
     chunks = result.get("chunks", [])
+    last_result = result
+    budget = _consume_budget(state, retrieval_rounds=1, documents=len(chunks))
 
-    # Multi-hop: only for complex cross-reference / case-law queries.
-    # Extract cross-references from retrieved chunks and build a follow-up.
-    # (Uses the extract_references function — the same seam the DAG path
-    # mines via _cross_reference_queries.)
-    if query_type in ("cross_reference", "case_law") and chunks:
+    # Operative type + requirement signals (Steps 0/A seams — pure reads).
+    from app.rag.retrieval import effective_query_type
+
+    legal_type = state.get("legal_type", "")
+    effective_type = effective_query_type(query_type, legal_type)
+    try:
+        req_types = _plan_requirement_types(state)
+    except Exception as exc:
+        logger.warning("multi_hop_retrieve_node: requirement read failed (%s)", exc)
+        req_types = set()
+
+    settings = _multihop_settings()
+    fired = False
+    followups_fired = 0
+    followup: str | None = None
+    refs_found = 0
+    covered_skipped = 0
+    refs_used: list[str] = []
+    merged_new = 0
+    builder = "none"
+    reason = "no_refs"
+    fetched_canons: set[str] = set()
+    definition_relation_seen = False
+
+    def _mine() -> list[str]:
+        """Mine one batch of unfetched targets (never raises)."""
+        nonlocal refs_found, definition_relation_seen, covered_skipped
         try:
-            from app.rag.retrieval.reference_extractor import extract_references
+            min_rank = _MULTIHOP_CONFIDENCE_RANK[settings["confidence_min"]]
+            canons, n_found, def_rel, n_covered = _mined_followup_targets(
+                chunks, query, min_rank, exclude_canons=fetched_canons
+            )
+        except Exception as exc:
+            logger.warning("multi_hop_retrieve_node: cross-ref extraction failed (%s)", exc)
+            return []
+        refs_found += n_found
+        definition_relation_seen = definition_relation_seen or def_rel
+        covered_skipped += n_covered
+        return canons
 
-            refs = []
-            for chunk in chunks:
-                if not isinstance(chunk, dict):
-                    continue
-                text = str(chunk.get("text") or "")
-                if text:
-                    refs.extend(extract_references(text))
-            # Build refined query from the first section-bearing
-            # cross-reference (bare relation keywords carry no section).
-            if refs:
-                first_ref = next((r for r in refs if getattr(r, "section", "")), refs[0])
-                section = getattr(first_ref, "section", "") or ""
-                raw = getattr(first_ref, "raw", "") or ""
-                refined = f"{query} AND section {section}" if section else f"{query} AND {raw}"
-                # Second retrieval pass — merge results.
-                result2 = run_retrieval_pipeline(
-                    query=refined,
+    if not settings["enabled"]:
+        reason = "disabled"
+    else:
+        from app.rag.agent.routing_economics import is_exhausted
+
+        if is_exhausted(budget, include_tasks=False):
+            reason = "budget_exhausted"
+        elif not chunks:
+            reason = "no_chunks"
+        elif settings["max_followups"] >= 1:
+            while followups_fired < settings["max_followups"]:
+                if is_exhausted(budget, include_tasks=False):
+                    reason = "budget_exhausted" if not fired else "fired"
+                    break
+                batch = _mine()
+                if not batch:
+                    reason = "fired" if fired else "no_refs"
+                    break
+                batch = batch[: settings["max_refs"]]
+                definition_flavor = (
+                    effective_type == "definition" or "definition" in req_types or definition_relation_seen
+                )
+                builder = "definition" if definition_flavor else "section"
+                followup = _build_followup_query(query, batch, definition_flavor=definition_flavor)
+                refs_used.extend(batch)
+                fetched_canons.update(batch)
+                followup_result = run_retrieval_pipeline(
+                    query=followup,
                     top_k=state.get("top_k", 10),
                     collection_name=state.get("collection_name"),
                     filters=state.get("filters"),
                     pipeline="agent",
                 )
-                chunks2 = result2.get("chunks", [])
-                # Merge — prefer second-pass chunks that don't duplicate
-                # first-pass chunk_ids, preserving RRF score order.
-                seen = {c.get("chunk_id") for c in chunks}
+                last_result = followup_result
+                chunks2 = followup_result.get("chunks", [])
+                budget = _consume_budget(
+                    {**state, "budget": budget},
+                    retrieval_rounds=1,
+                    documents=len(chunks2),
+                )
+                # Merge — follow-up chunks that don't duplicate known
+                # chunk_ids, preserving RRF score order (id-less chunks
+                # never count as duplicates).
+                seen = {c.get("chunk_id") for c in chunks if isinstance(c, dict) and c.get("chunk_id")}
                 for c in chunks2:
-                    if c.get("chunk_id") not in seen:
+                    if isinstance(c, dict) and (not c.get("chunk_id") or c.get("chunk_id") not in seen):
                         chunks.append(c)
-                        seen.add(c.get("chunk_id"))
-                result = {**result, "chunks": chunks, "total": len(chunks)}
-        except Exception as exc:
-            logger.warning("multi_hop_retrieve_node: cross-ref extraction failed (%s)", exc)
+                        if c.get("chunk_id"):
+                            seen.add(c.get("chunk_id"))
+                        merged_new += 1
+                fired = True
+                followups_fired += 1
+                reason = "fired"
+        elif _mine():
+            # max_followups == 0 with actionable refs: capped, single pass.
+            reason = "followups_capped"
 
     return {
         "chunks": chunks,
+        # Stash for retrieve_node reuse (cleared there after use).
+        "multi_hop_chunks": list(chunks),
+        "multi_hop_query": query,
+        "multi_hop_followup": followup,
+        # Freshness metadata for the reuse path (last result wins).
+        "evidence_set": last_result.get("evidence_set"),
+        "log_id": last_result.get("log_id"),
+        "retrieval_latency_ms": last_result.get("retrieval_latency_ms", 0),
+        "budget": budget,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
@@ -720,7 +1032,18 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
                 "detail": {
                     "refined": bool(reasoning),
                     "query_type": query_type,
-                    "multi_hop": query_type in ("cross_reference", "case_law"),
+                    "legal_type": legal_type,
+                    "effective_type": effective_type,
+                    "requirement_types": sorted(req_types),
+                    "multi_hop": fired,
+                    "followups_fired": followups_fired,
+                    "refs_found": refs_found,
+                    "covered_skipped": covered_skipped,
+                    "refs_used": refs_used,
+                    "followup_query": followup,
+                    "fired_reason": reason,
+                    "merged_new": merged_new,
+                    "builder": builder,
                 },
             },
         ],

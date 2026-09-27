@@ -293,3 +293,28 @@ class TestLegalUnitEnrichment:
             act_name="FSS Act",
         )
         assert parse_legal_identity(chunk).cross_references == ["Rule 5", "Schedule 2"]
+
+    def test_dict_chunk_parses_full_identity(self):
+        # Agent-pipeline chunks are to_dict() dicts — section/act metadata
+        # must survive parsing (drives the multihop already-covered check).
+        chunk = {
+            "chunk_id": "c1",
+            "text": "Section 31(2) procedure applies.",
+            "section_number": "31(2)",
+            "act_name": "Food Safety and Standards Act, 2006",
+            "document_title": "Food Safety and Standards Act 2006",
+        }
+        ident = parse_legal_identity(chunk)
+        assert ident.section == "31"
+        assert ident.subsection == ["2"]
+        assert ident.act == "Food Safety and Standards Act, 2006"
+
+    def test_dotted_rule_identity(self):
+        chunk = FakeChunk(
+            text="Recall order prescribed by Rule 2.3.1.",
+            section_number="",
+            act_name="FSS Act",
+            document_title="FSS Regulations",
+            document_type="Regulation",
+        )
+        assert parse_legal_identity(chunk).cross_references == ["Rule 2.3.1"]

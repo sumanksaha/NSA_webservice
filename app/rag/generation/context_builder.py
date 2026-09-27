@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from app.rag.retrieval.result import RetrievedChunk
-
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -245,10 +244,7 @@ class ContextBuilder:
     @staticmethod
     def _format_entry(idx: int, header: str, text: str) -> str:
         """One per-source entry (research §3.1 document/source tags)."""
-        return (
-            f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n'
-            f"{text}\n</document>"
-        )
+        return f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n{text}\n</document>'
 
     @staticmethod
     def _citation_entry(idx: int, chunk: RetrievedChunk) -> dict[str, Any]:

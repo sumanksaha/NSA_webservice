@@ -38,9 +38,10 @@ _LEADING_SECTION_KW_RE = re.compile(r"^\s*(?:section|sec\.|s\.|u/s)\s+", re.IGNO
 #: Cross-reference mentions inside provision text ("subject to Section 32").
 _CROSS_REF_RE = re.compile(r"(?:section|sec\.|s\.|u/s)\s+(\d{1,4}[a-z]?)", re.IGNORECASE)
 
-#: Rule / Schedule mentions ("under Rule 5", "Schedule 2") — kept distinct
-#: from section numbers so section-family logic never confuses them.
-_RULE_REF_RE = re.compile(r"\brule\s+(\d{1,4}[a-z]?)", re.IGNORECASE)
+#: Rule / Schedule mentions ("under Rule 5", "Rule 2.3.1", "Schedule 2") —
+#: kept distinct from section numbers so section-family logic never
+#: confuses them.  Dotted hierarchies included (mirrors reference_extractor).
+_RULE_REF_RE = re.compile(r"\brule\s+(\d{1,4}(?:\.\d{1,4})*[a-z]?)", re.IGNORECASE)
 _SCHEDULE_REF_RE = re.compile(r"\bschedule\s+([a-z0-9\-]+)", re.IGNORECASE)
 
 #: Provision-type detectors in priority order (roadmap §6).  First match wins —
@@ -251,6 +252,17 @@ def _resolve_act_alias(act_name: str | None, document_title: str | None) -> str 
     return act_name or None
 
 
+def _chunk_field(chunk: Any, name: str, default: Any = None) -> Any:
+    """Read a payload field off a chunk object, dataclass, or plain dict.
+
+    Agent-pipeline chunks are ``RetrievedChunk.to_dict()`` dicts — without
+    this, every dict parsed as if it had no section/act metadata at all.
+    """
+    if isinstance(chunk, dict):
+        return chunk.get(name, default)
+    return getattr(chunk, name, default)
+
+
 def parse_legal_identity(chunk: Any) -> LegalIdentity:
     """Parse a legal identity from a ``RetrievedChunk`` (or chunk-like object).
 
@@ -261,9 +273,9 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     identity = LegalIdentity()
 
     # Act / Act alias
-    act_name = getattr(chunk, "act_name", None) or ""
-    document_title = getattr(chunk, "document_title", None) or ""
-    authority = getattr(chunk, "authority", None) or ""
+    act_name = _chunk_field(chunk, "act_name", None) or ""
+    document_title = _chunk_field(chunk, "document_title", None) or ""
+    authority = _chunk_field(chunk, "authority", None) or ""
 
     identity.act = _resolve_act_alias(act_name or None, document_title or None)
     identity.act_alias = act_name if act_name and act_name != identity.act else None
@@ -273,7 +285,7 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     # — so base/subsection/clause can never disagree with the hierarchy view.
     # A leading section keyword ("Section 31(2)") is stripped first; the
     # field is a section ref by construction, so no keyword check is needed.
-    section_number = getattr(chunk, "section_number", None) or ""
+    section_number = _chunk_field(chunk, "section_number", None) or ""
     identity.raw_section = section_number if section_number else None
 
     bare = _LEADING_SECTION_KW_RE.sub("", section_number)
@@ -285,15 +297,15 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
             identity.clause = chain[2:]
 
     # Document-type inference (Rule, Schedule, Chapter)
-    doc_type = getattr(chunk, "document_type", None) or ""
-    text_lower = (document_title + " " + (getattr(chunk, "text", "") or "")).lower()
+    doc_type = _chunk_field(chunk, "document_type", None) or ""
+    text_lower = (document_title + " " + (_chunk_field(chunk, "text", "") or "")).lower()
 
     if "schedule" in text_lower or "schedule" in doc_type.lower():
         sched_m = re.search(r"schedule\s+([a-z0-9\-]+)", text_lower)
         identity.schedule = sched_m.group(1) if sched_m else None
 
     if "rule" in doc_type.lower() and "rule" in text_lower:
-        rule_m = re.search(r"rule\s+([0-9]+)", text_lower)
+        rule_m = re.search(r"rule\s+([0-9]+(?:\.[0-9]+)*)", text_lower)
         identity.rule = rule_m.group(1) if rule_m else None
 
     if "chapter" in text_lower:
@@ -311,7 +323,7 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
 
     # --- Phase 2 enrichment: hierarchy links + operative signals ---
     identity.parent_unit = _parent_canonical_id(identity.act, chain)
-    chunk_text = getattr(chunk, "text", "") or ""
+    chunk_text = _chunk_field(chunk, "text", "") or ""
     if isinstance(chunk, dict):
         chunk_text = chunk.get("text", "") or ""
     identity.provision_type = detect_provision_type(chunk_text)

@@ -117,10 +117,13 @@ _SECTION_PAT = re.compile(
     re.IGNORECASE,
 )
 
-#: Matches "Rule N", "Schedule N", "Chapter N".
-_RULE_PAT = re.compile(r"(rule|regulation)\s+(\d{1,4}[a-z]?)\b", re.IGNORECASE)
-_SCHEDULE_PAT = re.compile(r"schedule\s+(\d{1,4}[a-z]?)\b", re.IGNORECASE)
-_CHAPTER_PAT = re.compile(r"chapter\s+(\d{1,4}[a-z]?)\b", re.IGNORECASE)
+#: Matches "Rule N", "Schedule N", "Chapter N" — including dotted
+#: hierarchies ("Rule 2.3.1", "Schedule 1.2").  A bare ``\d+`` stopped at
+#: the first dot, silently truncating regulation references.
+_DOTTED_NUM = r"\d{1,4}(?:\.\d{1,4})*[a-z]?"
+_RULE_PAT = re.compile(rf"(rule|regulation)\s+({_DOTTED_NUM})\b", re.IGNORECASE)
+_SCHEDULE_PAT = re.compile(rf"schedule\s+({_DOTTED_NUM})\b", re.IGNORECASE)
+_CHAPTER_PAT = re.compile(rf"chapter\s+({_DOTTED_NUM})\b", re.IGNORECASE)
 
 #: Textual relation patterns — these signal a legal reference even without
 #: an explicit section number (lower confidence).

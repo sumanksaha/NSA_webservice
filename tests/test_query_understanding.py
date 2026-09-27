@@ -87,3 +87,25 @@ def test_empty_query_is_safe():
     assert u.act is None and u.section is None
     assert u.parsed_filters == {}
     assert u.identifier_query is None
+
+
+def test_normalize_query_type_canonicalizes_both_vocabularies():
+    from app.rag.retrieval import normalize_query_type
+
+    assert normalize_query_type("cross-reference") == "cross_reference"
+    assert normalize_query_type("cross_reference") == "cross_reference"
+    assert normalize_query_type("direct provision") == "direct_provision"
+    assert normalize_query_type("general_qa") == "general"
+    assert normalize_query_type("general") == "general"
+    assert normalize_query_type(None) == "general"
+    assert normalize_query_type("  ") == "general"
+
+
+def test_effective_query_type_prefers_specific_legal_view():
+    from app.rag.retrieval import effective_query_type
+
+    assert effective_query_type("general_qa", "penalty") == "penalty"
+    assert effective_query_type("provision_search", "cross-reference") == "cross_reference"
+    assert effective_query_type("general_qa", "ambiguous") == "general"
+    assert effective_query_type("section_lookup", "ambiguous") == "section_lookup"
+    assert effective_query_type("general_qa", "") == "general"

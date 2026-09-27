@@ -66,6 +66,19 @@ class TestReferenceExtraction:
         refs = extract_references(text)
         assert any(r.chapter == "3" for r in refs)
 
+    def test_dotted_rule_reference_kept_whole(self):
+        # Regression: "Rule 2.3.1" truncated to rule "2", breaking recall
+        # chains (Rule -> authorizing section -> penalty) at the first hop.
+        refs = extract_references("recall order prescribed by Rule 2.3.1 of the Regulations")
+        rules = [r for r in refs if r.rule]
+        assert any(r.rule == "2.3.1" for r in rules)
+        assert any(r.canonical_ref() == "Rule 2.3.1" for r in rules)
+
+    def test_dotted_schedule_and_chapter_references(self):
+        refs = extract_references("per Schedule 1.2 and Chapter 4.1 of the code")
+        assert any(r.schedule == "1.2" for r in refs)
+        assert any(r.chapter == "4.1" for r in refs)
+
     def test_relation_pattern_subject_to(self):
         text = "Subject to Section 55, this provision applies."
         refs = extract_references(text)

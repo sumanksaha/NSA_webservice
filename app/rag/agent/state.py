@@ -36,7 +36,15 @@ class RAGState(TypedDict, total=False):
     filters: dict[str, Any] | None
 
     # --- Classify ---
+    # Legacy 5-way view (back-compat; drives legacy pipeline filters).
     query_type: str
+    # Step 0 (universal multihop seam): 14-type legal view from
+    # ``understand().legal_type`` + its confidence. The multihop node
+    # prefers this via ``effective_query_type``; routing stays on the
+    # planner complexity + DIRECT override. Legacy ``query_type`` is
+    # preserved untouched.
+    legal_type: str
+    legal_confidence: float
 
     # --- Plan (Phase 2.1 / Phase 0) ---
     # Serialized plan from plan_node: intent, complexity, and EvidenceTask
@@ -50,6 +58,14 @@ class RAGState(TypedDict, total=False):
     # List of chunk dicts (``RetrievedChunk.to_dict()`` shape) — kept as
     # plain dicts so the state stays JSON-serializable (M5 checkpointing).
     chunks: list[dict[str, Any]]
+    # Part B stash: pass-1 (possibly follow-up-merged) chunks from
+    # multi_hop_retrieve_node + the pass-1 query it ran + the fired
+    # follow-up query (if any).  ``retrieve_node`` reuses the stash when it
+    # would run the identical query (saving a duplicate pipeline call) or
+    # merges it into a fresh result otherwise, then clears all three keys.
+    multi_hop_chunks: list[dict[str, Any]]
+    multi_hop_query: str | None
+    multi_hop_followup: str | None
     retrieval_latency_ms: int
     log_id: str | None
     # Evidence set forwarded from retrieve_node (computed by apply_stages
@@ -185,11 +201,16 @@ def initial_state(
         "collection_name": collection_name,
         "filters": filters,
         "query_type": "",
+        "legal_type": "",
+        "legal_confidence": 0.0,
         "query_plan": None,
         "subquestions": [],
         "evidence_requirements": [],
         "dag_valid": True,
         "chunks": [],
+        # Part B stash keys are intentionally absent by default (only the
+        # multi-hop node sets them) so retrieve_node can distinguish
+        # "multi-hop ran" from "never ran".
         "retrieval_latency_ms": 0,
         "log_id": None,
         "evidence_tasks": None,
