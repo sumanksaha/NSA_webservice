@@ -582,20 +582,50 @@ def payload_blob(qid: str, manifest: dict, payload_index: dict) -> str:
     ids = cond.get("context_chunk_ids") or []
     import evaluation.step0_label_residual as s0
 
-    return "\n".join(
-        s0._chunk_text(payload_index[cid])
-        for cid in ids
-        if cid in payload_index
-    )
+    return "\n".join(s0._chunk_text(payload_index[cid]) for cid in ids if cid in payload_index)
 
 
 def _coverage(needle: str, haystack: str) -> float | None:
     """Fraction of distinctive needle tokens present in haystack (stopword-free)."""
     import re as _re
 
-    stop = set(
-        ["the", "a", "an", "of", "and", "or", "to", "in", "for", "is", "are", "be", "shall", "must", "may", "with", "on", "by", "that", "this", "it", "as", "at", "from", "any", "its", "not", "no", "if", "or", "other", "under", "within", "act", "section"]
-    )
+    stop = set([
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "for",
+        "is",
+        "are",
+        "be",
+        "shall",
+        "must",
+        "may",
+        "with",
+        "on",
+        "by",
+        "that",
+        "this",
+        "it",
+        "as",
+        "at",
+        "from",
+        "any",
+        "its",
+        "not",
+        "no",
+        "if",
+        "or",
+        "other",
+        "under",
+        "within",
+        "act",
+        "section",
+    ])
     a = {t for t in _re.findall(r"[a-z0-9]+", needle.lower()) if t not in stop and len(t) > 2}
     b = set(_re.findall(r"[a-z0-9]+", haystack.lower()))
     return len(a & b) / len(a) if a else None
@@ -655,11 +685,7 @@ def decide_reaudit(qid: str, ev: dict) -> tuple[str | None, str, str]:
             f"payload (ans_cov={ans_cov:.3f} >= {ANS_COV_MW_TO_RN}); the miss is "
             "reference/scorer-side, not a provision misapplication",
         )
-    if (
-        lab == "evidence_missing"
-        and states == {"evidence_present"}
-        and (ref_cov or 0) >= REF_COV_EM_TO_RN
-    ):
+    if lab == "evidence_missing" and states == {"evidence_present"} and (ref_cov or 0) >= REF_COV_EM_TO_RN:
         return (
             "reference_narrow",
             "R2_em_reference_present_in_payload",
@@ -695,8 +721,7 @@ def decide_reaudit(qid: str, ev: dict) -> tuple[str | None, str, str]:
         return (
             None,
             "upheld_mw",
-            "no contradiction with human_correct and the label is not in the "
-            "re-audit scope rule set",
+            "no contradiction with human_correct and the label is not in the re-audit scope rule set",
         )
     return None, "upheld_no_rule", "no re-audit rule applies"
 
@@ -728,23 +753,17 @@ def run_reaudit(
         and _as_bool(rec.get("human_correct")) is not None
         and (
             (labels[q] == "model_wrong" and _as_bool(rec.get("human_correct")) is True)
-            or (
-                labels[q] in ("reference_narrow", "evidence_missing")
-                and _as_bool(rec.get("human_correct")) is False
-            )
+            or (labels[q] in ("reference_narrow", "evidence_missing") and _as_bool(rec.get("human_correct")) is False)
         )
     }
     em_present = {
         q
         for q in residual_qids
         if labels.get(q) == "evidence_missing"
-        and set(unit_states((preanno.get(q) or {}).get("primary_units") or {}).values())
-        == {"evidence_present"}
+        and set(unit_states((preanno.get(q) or {}).get("primary_units") or {}).values()) == {"evidence_present"}
     }
     # probe table keys only count when the qid is actually in this residual set
-    scope = sorted(
-        (contradiction | em_present | set(RN_RETURNED_PROBES)) & set(residual_qids)
-    )
+    scope = sorted((contradiction | em_present | set(RN_RETURNED_PROBES)) & set(residual_qids))
 
     examined: list[dict] = []
     changes: dict[str, str] = {}
@@ -762,20 +781,15 @@ def run_reaudit(
         new_label, rule, rationale = decide_reaudit(qid, ev)
         if new_label and new_label != ev["label"]:
             changes[qid] = new_label
-        examined.append(
-            {
-                "qid": qid,
-                "from": ev["label"],
-                "to": new_label or ev["label"],
-                "changed": bool(new_label and new_label != ev["label"]),
-                "rule": rule,
-                "rationale": rationale,
-                "evidence": {
-                    k: (round(v, 4) if isinstance(v, float) else v)
-                    for k, v in ev.items()
-                },
-            }
-        )
+        examined.append({
+            "qid": qid,
+            "from": ev["label"],
+            "to": new_label or ev["label"],
+            "changed": bool(new_label and new_label != ev["label"]),
+            "rule": rule,
+            "rationale": rationale,
+            "evidence": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in ev.items()},
+        })
 
     new_labels = dict(labels)
     new_labels.update(changes)
@@ -795,9 +809,7 @@ def run_reaudit(
         "n_examined": len(examined),
         "n_changed": len(changes),
         "counts_before": dict(s0.validate_labels(labels, residual_qids)["label_counts"]),
-        "counts_after": dict(
-            s0.validate_labels(new_labels, residual_qids)["label_counts"]
-        ),
+        "counts_after": dict(s0.validate_labels(new_labels, residual_qids)["label_counts"]),
         "changes": {k: {"from": labels[k], "to": v} for k, v in sorted(changes.items())},
         "examined": examined,
         "new_labels": dict(sorted(new_labels.items())),
@@ -821,14 +833,10 @@ def render_reaudit_md(ra: dict) -> str:
         "|---|---|---|---|---|",
     ]
     for r in ra["examined"]:
-        lines.append(
-            f"| {r['qid']} | `{r['from']}` | `{r['to']}` | `{r['rule']}` | "
-            f"{r['rationale']} |"
-        )
+        lines.append(f"| {r['qid']} | `{r['from']}` | `{r['to']}` | `{r['rule']}` | {r['rationale']} |")
     lines += [
         "",
-        "Thresholds: "
-        + ", ".join(f"`{k}={v}`" for k, v in ra["thresholds"].items() if isinstance(v, float)),
+        "Thresholds: " + ", ".join(f"`{k}={v}`" for k, v in ra["thresholds"].items() if isinstance(v, float)),
         "",
         ra["note"],
         "",
@@ -837,13 +845,17 @@ def render_reaudit_md(ra: dict) -> str:
 
 
 def publish_reaudit(ra: dict, residual_qids: list[str], preanno: dict) -> Path:
-    """Snapshot the registered labels, then republish with re-audit provenance."""
+    """Snapshot the registered labels, then republish with re-audit provenance.
+
+    The registered snapshot is written once — on the first publish. Repeat
+    publishes must keep the original Step 3 registration partition intact
+    (later snapshots would silently re-define "registered" as the previous
+    re-audit's output and invalidate the Step 3 per-label spend join).
+    """
     import evaluation.step0_label_residual as s0
 
-    if LABELS_PUBLISHED.exists():
-        PRE_REAUDIT_LABELS.write_text(
-            LABELS_PUBLISHED.read_text(encoding="utf-8"), encoding="utf-8"
-        )
+    if LABELS_PUBLISHED.exists() and not PRE_REAUDIT_LABELS.exists():
+        PRE_REAUDIT_LABELS.write_text(LABELS_PUBLISHED.read_text(encoding="utf-8"), encoding="utf-8")
     validation = s0.validate_labels(ra["new_labels"], residual_qids)
     if not validation["step0_complete"]:
         raise SystemExit("re-audit label set incomplete — refusing to publish")
@@ -900,9 +912,7 @@ def _write(path: Path, text: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Step 0 — label QC + EM triage (no model calls)")
     ap.add_argument("--qc", action="store_true", help="write step0_label_qc.{json,md}")
-    ap.add_argument(
-        "--em-triage", action="store_true", help="write step0_em_ingestion_report.{json,md}"
-    )
+    ap.add_argument("--em-triage", action="store_true", help="write step0_em_ingestion_report.{json,md}")
     ap.add_argument(
         "--reaudit",
         action="store_true",
@@ -986,9 +996,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {qid}: {ch['from']} -> {ch['to']}")
         if args.publish_reaudit:
             out = publish_reaudit(ra, residual_qids, preanno)
-            print(
-                f"published {out.name} (registered labels snapshotted to {PRE_REAUDIT_LABELS.name})"
-            )
+            print(f"published {out.name} (registered labels snapshotted to {PRE_REAUDIT_LABELS.name})")
 
     return rc
 

@@ -143,6 +143,41 @@ def _chunk_text(payload: dict) -> str:
     return str(payload.get("chunk_text") or payload.get("text") or "")
 
 
+#: A resolved gold unit whose corpus chunks carry at least this many chars of
+#: combined text is treated as ingested even without distinctive-probe hits:
+#: real section bodies are never this short, while cross-reference stubs that
+#: merely mention the section number ("...63 and the Second Schedule") resolve
+#: to a single ~26-char chunk and must stay classified as not ingested.
+MIN_RESOLVED_BODY_CHARS = 200
+
+
+def corpus_body_present(
+    *,
+    has_corpus_hits: bool,
+    section: str | None,
+    corpus_probe_hits: int,
+    resolved_chars: int,
+) -> bool:
+    """Whether a resolved gold unit's section body was actually ingested.
+
+    The historical ``>= 2 distinctive probes`` rule alone false-negatives on
+    fragmented bodies (2026-09-27 corpus-gap audit: 9 of the 10 units
+    classified ``ingest_priority`` carry their body text split across several
+    chunks, with the ``N. HEADING`` stranded at the tail of a neighbour chunk,
+    so only one probe string ever hit). A resolved unit counts as
+    ``body_in_corpus`` when its own resolved chunks carry substantial text;
+    the chunking layer never splits what was never ingested. Additive only:
+    this can flip a unit False -> True, never True -> False.
+    """
+    if not has_corpus_hits:
+        return False
+    if section is None:
+        return True
+    if corpus_probe_hits >= 2:
+        return True
+    return resolved_chars >= MIN_RESOLVED_BODY_CHARS
+
+
 def _section_tokens_present_in_o3(
     qid: str,
     question: Any,
@@ -202,8 +237,12 @@ def _section_tokens_present_in_o3(
             if act_probe:
                 probes.append(act_probe)
         probe_hits = sum(1 for p in probes if p and p in o3_blob)
-        body_in_o3 = bool(in_o3) and (
-            probe_hits >= 2 or (u.section is None and bool(in_o3))
+        o3_resolved_chars = sum(len(_chunk_text(payload_index[cid]).strip()) for cid in in_o3 if cid in payload_index)
+        body_in_o3 = corpus_body_present(
+            has_corpus_hits=bool(in_o3),
+            section=u.section,
+            corpus_probe_hits=probe_hits,
+            resolved_chars=o3_resolved_chars,
         )
         # Same probe against the unit's own corpus chunks: distinguishes
         # "section body never ingested" (ingestion gap) from "ingested but
@@ -214,8 +253,14 @@ def _section_tokens_present_in_o3(
             if cid in payload_index and _chunk_text(payload_index[cid]).strip()
         ).lower()
         corpus_probe_hits = sum(1 for p in probes if p and p in corpus_blob)
-        body_in_corpus = bool(corpus_hits) and (
-            corpus_probe_hits >= 2 or (u.section is None and bool(corpus_hits))
+        resolved_chars = sum(
+            len(_chunk_text(payload_index[cid]).strip()) for cid in corpus_hits if cid in payload_index
+        )
+        body_in_corpus = corpus_body_present(
+            has_corpus_hits=bool(corpus_hits),
+            section=u.section,
+            corpus_probe_hits=corpus_probe_hits,
+            resolved_chars=resolved_chars,
         )
         # Unresolved in corpus OR resolved but zero O3 membership => missing from payload
         missing = (not corpus_hits) or (not in_o3)
@@ -232,8 +277,10 @@ def _section_tokens_present_in_o3(
             "in_o3": bool(in_o3),
             "section_probe_in_o3": probe_hits,
             "body_in_o3": body_in_o3,
+            "resolved_o3_chars": o3_resolved_chars,
             "section_probe_in_corpus": corpus_probe_hits,
             "body_in_corpus": body_in_corpus,
+            "resolved_corpus_chars": resolved_chars,
             "missing_from_o3": missing,
         }
     return {
@@ -273,9 +320,7 @@ def preannotate(
         signals: list[str] = []
         evidence_missing_candidate = False
         if payload_index and manifest:
-            check = _section_tokens_present_in_o3(
-                qid, q, manifest, payload_index, family_map, gold_index
-            )
+            check = _section_tokens_present_in_o3(qid, q, manifest, payload_index, family_map, gold_index)
             if check.get("o3_unresolved"):
                 evidence_missing_candidate = True
                 signals.append("c_manifest_unresolved")
@@ -301,17 +346,13 @@ def preannotate(
             signals.append("benchmark_insufficient_evidence")
 
         rec = out[qid]
-        rec.update(
-            {
-                "evidence_missing_candidate": evidence_missing_candidate,
-                "signals": signals,
-                "suggested_label": "evidence_missing" if evidence_missing_candidate else None,
-                "needs_human_label": not evidence_missing_candidate,
-                "note": (
-                    "machine pre-annotation only; human must confirm final Step 0 label"
-                ),
-            }
-        )
+        rec.update({
+            "evidence_missing_candidate": evidence_missing_candidate,
+            "signals": signals,
+            "suggested_label": "evidence_missing" if evidence_missing_candidate else None,
+            "needs_human_label": not evidence_missing_candidate,
+            "note": ("machine pre-annotation only; human must confirm final Step 0 label"),
+        })
     return out
 
 
@@ -424,9 +465,7 @@ def build_residual_worksheet(
                 "(reference_narrow | evidence_missing | model_wrong)"
             )
         else:
-            verdict_line = (
-                "- verdict: # required: reference_narrow | evidence_missing | model_wrong"
-            )
+            verdict_line = "- verdict: # required: reference_narrow | evidence_missing | model_wrong"
         lines += [
             "**Your judgment:**",
             "",
@@ -481,9 +520,7 @@ def parse_residual_worksheet(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     for i in range(1, len(blocks), 2):
         qid, body = blocks[i], blocks[i + 1]
-        jz = re.search(
-            r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.S
-        )
+        jz = re.search(r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.S)
         j = jz.group(1) if jz else ""
         m = re.search(r"^[ \t]*-\s*verdict\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
         if not m:
@@ -494,9 +531,7 @@ def parse_residual_worksheet(path: Path) -> dict[str, str]:
     return out
 
 
-def validate_labels(
-    labels: dict[str, str], residual_qids: list[str]
-) -> dict[str, Any]:
+def validate_labels(labels: dict[str, str], residual_qids: list[str]) -> dict[str, Any]:
     residual_set = set(residual_qids)
     missing = sorted(residual_set - set(labels))
     extra = sorted(set(labels) - residual_set)
@@ -575,9 +610,7 @@ def publish(
     payload = dict(validation)
     payload["source"] = source
     payload["scorer"] = "frozen: experiment_b_topk_eval token_overlap/abstain_check + evaluator_v2 overlay"
-    payload["note"] = (
-        "publish per-label counts before any aggregate soft-score claim (plan sec 5.2/Step 3)"
-    )
+    payload["note"] = "publish per-label counts before any aggregate soft-score claim (plan sec 5.2/Step 3)"
     if extra:
         payload.update(extra)
     if preanno is not None:
@@ -622,7 +655,7 @@ def main(argv: list[str] | None = None) -> int:
         "--labels",
         type=Path,
         default=None,
-        help="JSON file with {qid: label} or {\"labels\": {...}} or [{qid, verdict}]",
+        help='JSON file with {qid: label} or {"labels": {...}} or [{qid, verdict}]',
     )
     ap.add_argument(
         "--from-worksheet",
@@ -677,9 +710,7 @@ def main(argv: list[str] | None = None) -> int:
                 if PREANNO.exists():
                     preanno = json.loads(PREANNO.read_text(encoding="utf-8")).get("annotations", {})
                 else:
-                    preanno = preannotate(
-                        residual_qids, questions, manifest, payload_index, f_statuses
-                    )
+                    preanno = preannotate(residual_qids, questions, manifest, payload_index, f_statuses)
             d_perq = _load_jsonl_map(OUT / "experiment_D_per_question.jsonl")
             e_perq = _load_jsonl_map(OUT / "experiment_E_per_question.jsonl")
             c_perq = (
@@ -736,8 +767,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {out_path.name} + gate targets")
         if args.require_complete and not validation["step0_complete"]:
             print(
-                "INCOMPLETE: label every residual qid with exactly one of "
-                + " | ".join(STEP0_ENUM),
+                "INCOMPLETE: label every residual qid with exactly one of " + " | ".join(STEP0_ENUM),
                 file=sys.stderr,
             )
             return 2
