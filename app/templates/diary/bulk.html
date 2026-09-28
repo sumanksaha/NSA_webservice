@@ -1,0 +1,289 @@
+{% extends "base.html" %} {% block title %}Work Diary{% endblock %} {% block content %}
+<div class="container">
+    <div class="diary-header">
+        <h1><i class="fa-solid fa-book-open"></i> Work Diary</h1>
+        <div class="diary-nav">
+            <a href="{{ url_for('diary.bulk', m=prev_month) }}" class="btn btn-secondary btn-sm" aria-label="Previous month">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+            <span class="diary-month">{{ month_label }}</span>
+            <a href="{{ url_for('diary.bulk', m=next_month) }}" class="btn btn-secondary btn-sm" aria-label="Next month">
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('diary.bulk', m=month_param, fso_name=owner) }}" class="diary-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="table-container">
+            <table class="diary-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Day</th>
+                        <th scope="col">Activity</th>
+                        <th scope="col">Premises</th>
+                        <th scope="col">Samples</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td class="diary-day">
+                            <span class="diary-day-num">{{ row.day }}</span>
+                            <span class="diary-day-dow">{{ row.weekday }}</span>
+                        </td>
+                        <td>
+                            <select name="activity_{{ row.day }}" class="form-input diary-select" aria-label="Activity for day {{ row.day }}">
+                                <option value="">—</option>
+                                {% for key, label in activities.items() %}
+                                <option value="{{ key }}" {% if row.activity == key %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                                {% if row.activity and row.activity not in activities %}
+                                {# A stored activity no longer offered (e.g. a renamed key): keep it
+                                   selected so re-saving the month cannot silently clear the day. #}
+                                <option value="{{ row.activity }}" selected>{{ row.activity }} (retired)</option>
+                                {% endif %}
+                            </select>
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                name="premises_{{ row.day }}"
+                                class="form-input diary-num"
+                                value="{{ row.premises or '' }}"
+                                placeholder="0"
+                                aria-label="Premises for day {{ row.day }}"
+                            />
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                name="samples_{{ row.day }}"
+                                class="form-input diary-num"
+                                value="{{ row.samples or '' }}"
+                                placeholder="0"
+                                aria-label="Samples for day {{ row.day }}"
+                            />
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                name="notes_{{ row.day }}"
+                                class="form-input diary-notes"
+                                value="{{ row.notes }}"
+                                aria-label="Notes for day {{ row.day }}"
+                            />
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="diary-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> Save all
+            </button>
+            <span class="form-hint">Premises and samples are counted only for field work. Select “—” to clear a saved day.</span>
+        </div>
+    </form>
+
+    {% if officer_choices %}
+    <form method="get" action="{{ url_for('diary.bulk', m=month_param) }}" class="diary-actions">
+        <label for="diary-officer" class="form-hint">Officer</label>
+        <select id="diary-officer" name="fso_name" class="form-input diary-select">
+            <option value="" {% if not owner %}selected{% endif %}>Unassigned (my own)</option>
+            {% for name in officer_choices %}
+            <option value="{{ name }}" {% if owner == name %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+            {% if owner and owner not in officer_choices %}
+            <option value="{{ owner }}" selected>{{ owner }} (my own)</option>
+            {% endif %}
+        </select>
+        <button type="submit" class="btn btn-secondary btn-sm">Switch</button>
+    </form>
+    {% endif %}
+
+    <div class="diary-panels">
+        <div class="card diary-summary">
+            <div class="card-header">Month summary</div>
+            <div class="card-body">
+                <div class="diary-totals">
+                    <span class="diary-total">
+                        <strong>{{ total_premises }}</strong> premises inspected
+                    </span>
+                    <span class="diary-total">
+                        <strong>{{ total_samples }}</strong> samples collected
+                    </span>
+                </div>
+                <ul class="diary-activity-counts">
+                    {% for key, label in activities.items() %}
+                    <li>
+                        <span class="badge">{{ days_per_activity[key] }}</span> {{ label }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="card diary-daily">
+            <div class="card-header">Daily activity</div>
+            <div class="card-body">
+                {% if daily_activity %}
+                <ul class="diary-activity-list">
+                    {% for line in daily_activity %}
+                    <li>{{ line }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No entries for this month yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_css %}
+<style>
+    .diary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .diary-header h1 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-size: 1.4rem;
+    }
+    .diary-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .diary-month {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        min-width: 10ch;
+        text-align: center;
+    }
+    .diary-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .diary-table th,
+    .diary-table td {
+        padding: 3px 6px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+    }
+    .diary-table th {
+        position: sticky;
+        top: 0;
+        background: var(--bg-subtle);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+    }
+    .diary-day {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    .diary-day-num {
+        font-weight: 700;
+        display: inline-block;
+        min-width: 1.4ch;
+    }
+    .diary-day-dow {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        margin-left: 4px;
+    }
+    .diary-select,
+    .diary-num,
+    .diary-notes {
+        width: 100%;
+        padding: 3px 6px;
+        font-size: 0.85rem;
+    }
+    .diary-num {
+        max-width: 64px;
+        text-align: right;
+    }
+    .diary-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 12px 0 18px;
+    }
+    .diary-panels {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 14px;
+    }
+    .diary-totals {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .diary-total strong {
+        font-size: 1.1rem;
+        color: var(--accent-primary);
+    }
+    .diary-activity-counts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+    }
+    .diary-activity-counts .badge {
+        display: inline-block;
+        min-width: 2.2ch;
+        text-align: center;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1px 6px;
+        font-variant-numeric: tabular-nums;
+    }
+    .diary-activity-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.85rem;
+    }
+    .diary-activity-list li {
+        padding: 6px 10px;
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+    @media (max-width: 640px) {
+        .diary-table th:nth-child(1),
+        .diary-table td:nth-child(1) {
+            position: sticky;
+            left: 0;
+            background: var(--bg-card);
+        }
+        .diary-table th:nth-child(1) {
+            background: var(--bg-subtle);
+        }
+        .diary-notes {
+            min-width: 120px;
+        }
+    }
+</style>
+{% endblock %}

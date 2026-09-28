@@ -90,6 +90,10 @@ def register_blueprints(app: Flask) -> None:
     from app.workdiary import workdiary_bp
 
     app.register_blueprint(workdiary_bp)
+    # Work Diary bulk daily-entry editor (/diary/bulk)
+    from app.diary import diary_bp
+
+    app.register_blueprint(diary_bp)
     # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
     from app.rag import rag_bp
 

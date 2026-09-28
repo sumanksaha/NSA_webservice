@@ -27,6 +27,7 @@ ROLE_BLUEPRINTS: dict[str, set[str]] = {
         "notepad",
         "inspection",
         "workdiary",
+        "diary",
         "comments",
         "auditor",  # FBO compliance auditor (CAPA plans + dossier closure)
         "rag",  # Legal RAG + FSO advisory (game-theory + Talebian Act)

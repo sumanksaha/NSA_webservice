@@ -11,6 +11,7 @@ like ``from app.models import User`` continue to work transparently.
 from app.models.auth import AirtableBaseMap, Comment, RecordAudit, Role, User, user_roles
 from app.models.billing import Bill, BillSample, CodeSequence, Sample
 from app.models.config import AppSecret, Settings
+from app.models.diary import WorkDiaryEntry
 from app.models.document import (
     Adjudication,
     Annexure,

@@ -784,17 +784,44 @@ class TestComments:
         assert db.session.query(Comment).count() == 1  # nothing deleted
 
     def test_admin_can_delete_any_visible_comment(self, two_officers):
-        own = _make_case_file("Officer A", "CF/A/8")
-        _, client_a = _make_fso("Officer A")
-        client_a.post("/comments", json={"case_type": "case_file", "case_id": own.id, "content": "mine"})
+        """Admins may delete another user's comment on a visible case.
 
+        Each user dispatches inside its own app context: Flask-Login caches
+        the loaded user on the context's ``g`` and the test client reuses a
+        pushed context, so a second request on the same context would run as
+        the first user. The comment is authored by a third party on purpose —
+        a stale officer identity gets 403 here, only a genuine admin gets
+        204, so this test fails if the two requests ever share a context.
+        """
         from app.extensions import db
-        from app.models import Comment
+        from app.models import Comment, User
 
-        comment = db.session.query(Comment).one()
+        app = two_officers
+        own = _make_case_file("Officer A", "CF/A/8")
+        own_id = own.id
+        author = User(username="u_comment_author", password_hash="x")
+        db.session.add(author)
+        db.session.commit()
+        comment = Comment(
+            case_id=own_id,
+            case_type="case_file",
+            user_id=author.id,
+            content="third-party note",
+        )
+        db.session.add(comment)
+        db.session.commit()
+        comment_id = comment.id
+
+        _, client_a = _make_fso("Officer A")
         admin_client = self._admin_client()
-        assert admin_client.delete(f"/comments/{comment.id}").status_code in (200, 204)
-        assert db.session.query(Comment).count() == 0
+
+        with app.app_context():
+            # A non-admin request first, as any earlier request in the test
+            # would prime the shared context's ``g``.
+            assert client_a.get(f"/case_file_generator/case/{own_id}").status_code == 200
+        with app.app_context():
+            assert admin_client.delete(f"/comments/{comment_id}").status_code in (200, 204)
+            assert db.session.query(Comment).count() == 0
 
     def test_author_can_delete_own_comment(self, two_officers):
         own = _make_case_file("Officer A", "CF/A/7")
