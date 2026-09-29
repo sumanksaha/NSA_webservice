@@ -71,20 +71,31 @@ RUN python -m playwright install chromium || true
 # ── Runtime ───────────────────────────────────────────────────────────────────
 FROM base AS runtime
 
-ENV PATH=/root/.local/bin:${PATH}
+# Non-root runtime user (UID 10001).  The app needs no root privileges: it
+# binds unprivileged :8000 and writes only to /app/instance, /app/uploads and
+# /app/logs.  Migrations via the entrypoint run as this user too.
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser
 
-# Copy compiled/site-packages from the builder (no build tools).
-COPY --from=builder /root/.local /root/.local
+# Compiled site-packages + console scripts live in the appuser's user-site
+# (the builder installed them as root into /root/.local — unreadable there).
+ENV PATH=/home/appuser/.local/bin:${PATH}
+COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application source.
 COPY . .
 
 # Ensure the entrypoint script is executable (Windows git checkouts lose the
 # executable bit; Docker builds run on Linux where this matters).
-RUN chmod +x /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && \
+    chown -R appuser:appuser /app /home/appuser/.local
 
-# Ensure the instance folder (SQLite fallback / uploads) is writable.
+# Ensure the instance folder (SQLite fallback / uploads) is writable.  World
+# writable on purpose: dev volume mounts may carry an arbitrary UID.
 RUN mkdir -p /app/instance /app/uploads /app/logs && chmod -R 777 /app/instance /app/uploads
+
+# Everything above runs as root (build-time only); from here on the container
+# runs unprivileged.
+USER appuser
 
 # Migrations run via the entrypoint (docker-entrypoint.sh) at container start,
 # which calls `flask db upgrade` before handing off to the CMD. This keeps the
