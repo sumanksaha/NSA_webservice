@@ -1,31 +1,53 @@
 """Work Diary engine.
 
 Builds per-FSO diary rows from :class:`~app.models.inspection.Inspection`
-records.  The engine is deliberately read-only: the diary *accumulates*
-inspections that FSOs already enter through the Inspection tab — no
-duplicate data entry, no separate persistence layer.
+records **plus** Monthly Diary rows (``WorkDiaryEntry``, written in
+``/diary/bulk``). The Inspection side is read-only — the diary *accumulates*
+inspections that FSOs already enter through the Inspection tab. The Monthly
+side contributes the FSO's own day-wise entries (VVIP duty / Meeting /
+Inspection); ``holiday`` / ``leave`` days stay in the monthly grid and are
+skipped here.
 
 Row contract (fixed format):
-    - ``date``           — ``Inspection.inspection_date``
-    - ``place_of_visit`` — ``Inspection.fbo_address`` (falls back to the
-      FBO name when no address was recorded)
-    - ``purpose``        — always ``"Routine Inspection"`` or ``"Complaint"``;
-      derived from whether the inspection records a ``problem``
-    - ``activity``       — human-readable activity line built from the
-      purpose + FBO/problem context
+    - ``date``           — ``Inspection.inspection_date`` or the Monthly
+      row's ``work_date`` (parsed to datetime)
+    - ``place_of_visit`` — Inspection: ``fbo_address`` (fallback FBO name);
+      Monthly: the per-day Place of Visit input (fallback ``—``)
+    - ``purpose``        — Inspections: ``"Routine Inspection"`` / ``"Complaint"``;
+      Monthly: ``"VVIP duty"`` / ``"Meeting"`` / ``"Inspection"``
+      (see ``app.diary.derive_diary_purpose``)
+    - ``activity``       — human-readable activity line
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
+from html import escape
 from typing import Any
 
+from sqlalchemy import exc as sa_exc
+
+from app.diary import (
+    DIARY_PURPOSE_INSPECTION,
+    DIARY_PURPOSE_MEETING,
+    DIARY_PURPOSE_VVIP,
+    derive_diary_purpose,
+    print_activity,
+)
 from app.extensions import db
 from app.models import FSO, Inspection
 from app.utils.filters import parse_date
 
+logger = logging.getLogger(__name__)
+
 PURPOSE_ROUTINE = "Routine Inspection"
 PURPOSE_COMPLAINT = "Complaint"
+#: Monthly-row purposes, single-sourced from app.diary (the owner of the
+#: Monthly Diary vocabulary) so a rename can't silently empty the filters.
+PURPOSE_VVIP = DIARY_PURPOSE_VVIP
+PURPOSE_MEETING = DIARY_PURPOSE_MEETING
+PURPOSE_INSPECTION = DIARY_PURPOSE_INSPECTION
 
 
 class WorkDiaryEngine:
@@ -41,16 +63,26 @@ class WorkDiaryEngine:
     ) -> list[dict[str, Any]]:
         """Return diary rows sorted by inspection date (oldest first).
 
+        Unions Inspection rows with Monthly Diary (``WorkDiaryEntry``) rows
+        for the same officer + date range. Within one date, Inspection rows
+        come first, Monthly rows after.
+
         Args:
             fso_name: Restrict to one FSO (the per-FSO view).
             date_from / date_to: Inclusive ISO-date strings (YYYY-MM-DD).
-            purpose: Optional filter — ``"routine"`` or ``"complaint"``;
-                anything else means "all".
-            include_dismissed: Dismissed inspections are excluded by default.
+            purpose: Optional filter — ``"routine"`` / ``"inspection"`` (routine
+                inspections + monthly field/office days), ``"complaint"``
+                (complaint inspections), ``"vvip"`` / ``"meeting"`` (monthly
+                days only); ``"routine"`` is kept as an alias of
+                ``"inspection"``. Anything else means "all".
+            include_dismissed: Dismissed inspections are excluded by default
+                (Monthly rows have no dismissed state and are always kept).
         """
         query = db.session.query(Inspection).join(FSO, Inspection.fso_name == FSO.fso_name)
 
-        if fso_name:
+        if fso_name is not None:
+            # ``""`` is the deny-by-default sentinel for unbound non-admins
+            # (scoped_officer_name): it must filter to nothing, not to all.
             query = query.filter(Inspection.fso_name == fso_name)
 
         parsed_from = parse_date(date_from) if date_from else None
@@ -66,7 +98,18 @@ class WorkDiaryEngine:
         if not include_dismissed:
             query = query.filter((Inspection.is_dismissed.is_(False)) | (Inspection.is_dismissed.is_(None)))
 
-        if purpose == "complaint":
+        norm_purpose = (purpose or "").strip().lower()
+        if norm_purpose in ("inspection", "routine"):
+            query = query.filter(
+                db.or_(
+                    Inspection.visit_purpose == "routine",
+                    db.and_(
+                        Inspection.visit_purpose.is_(None),
+                        db.or_(Inspection.problem.is_(None), Inspection.problem == ""),
+                    ),
+                )
+            )
+        elif norm_purpose == "complaint":
             query = query.filter(
                 db.or_(
                     Inspection.visit_purpose == "complaint",
@@ -77,19 +120,25 @@ class WorkDiaryEngine:
                     ),
                 )
             )
-        elif purpose == "routine":
-            query = query.filter(
-                db.or_(
-                    Inspection.visit_purpose == "routine",
-                    db.and_(
-                        Inspection.visit_purpose.is_(None),
-                        db.or_(Inspection.problem.is_(None), Inspection.problem == ""),
-                    ),
-                )
-            )
+        elif norm_purpose in ("vvip", "meeting"):
+            query = query.filter(db.text("1 = 0"))  # no Inspection matches these
 
         inspections = query.order_by(Inspection.inspection_date.asc(), Inspection.id.asc()).all()
         entries = [self._to_entry(insp) for insp in inspections]
+        entries.extend(
+            self._monthly_entries(
+                fso_name=fso_name,
+                date_from=date_from,
+                date_to=date_to,
+                purpose=norm_purpose or None,
+            )
+        )
+        entries.sort(
+            key=lambda e: (
+                e["date"].date() if e["date"] else datetime.min.date(),
+                0 if e.get("inspection_id") else 1,
+            )
+        )
         self._annotate_date_groups(entries)
         return entries
 
@@ -111,6 +160,96 @@ class WorkDiaryEngine:
         if problem and problem.strip():
             return PURPOSE_COMPLAINT
         return PURPOSE_ROUTINE
+
+    def _monthly_entries(
+        self,
+        fso_name: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        purpose: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Monthly Diary rows for the same officer + range, as diary entries.
+
+        Skips ``holiday`` / ``leave`` days (no Work Diary purpose) and applies
+        the shared purpose filter (``vvip`` / ``meeting`` / ``inspection`` /
+        ``routine``-alias / ``complaint``-excludes-monthly).
+        """
+        from app.models import WorkDiaryEntry
+
+        if purpose == "complaint":
+            return []
+        query = db.session.query(WorkDiaryEntry)
+        if fso_name is not None:
+            query = query.filter(WorkDiaryEntry.fso_name == fso_name)
+        if date_from:
+            query = query.filter(WorkDiaryEntry.work_date >= date_from)
+        if date_to:
+            query = query.filter(WorkDiaryEntry.work_date <= date_to)
+        try:
+            rows = query.order_by(WorkDiaryEntry.work_date.asc()).all()
+        except (sa_exc.OperationalError, sa_exc.ProgrammingError):
+            # Pre-migration database without the work_diary table / place
+            # column (the boot schema check fails loud for this; this is
+            # belt-and-braces so the report degrades instead of 500ing).
+            logger.exception("WorkDiaryEngine: work_diary query failed")
+            return []
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            entry = self._diary_to_entry(row)
+            if entry is None:
+                continue
+            if purpose in ("vvip", "meeting", "inspection", "routine"):
+                want = {
+                    "vvip": PURPOSE_VVIP,
+                    "meeting": PURPOSE_MEETING,
+                    "inspection": PURPOSE_INSPECTION,
+                    "routine": PURPOSE_INSPECTION,
+                }[purpose]
+                if entry["purpose"] != want:
+                    # "routine" is the legacy alias of the monthly
+                    # "Inspection" purpose; routine inspections are already
+                    # included from the Inspection side.
+                    continue
+            out.append(entry)
+        return out
+
+    @staticmethod
+    def _diary_to_entry(row: Any) -> dict[str, Any] | None:
+        """Shape one ``WorkDiaryEntry`` into a diary row (or ``None`` to skip).
+
+        The Activity text is rebuilt here at print time from the live fields
+        (never the frozen stored summary): ``<label>[ at place].`` + the
+        count sentence when the activity records counts and at least one of
+        premises/samples is non-zero + ``Remarks: <notes>`` when notes exist.
+        No date prefix — column (i) already shows the date.
+        """
+        activity_key = (row.activity or "").strip()
+        purpose = derive_diary_purpose(activity_key)
+        if purpose is None:
+            return None  # holiday / leave / unknown: monthly grid only
+        try:
+            when = datetime.strptime(row.work_date, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            return None
+        place = (getattr(row, "place_of_visit", None) or "").strip()
+        activity = print_activity(
+            activity_key,
+            row.premises or 0,
+            row.samples or 0,
+            (row.notes or "").strip(),
+            place,
+        )
+        return {
+            "inspection_id": None,
+            "inspection_code": "",
+            "fso_name": row.fso_name,
+            "date": when,
+            "place_of_visit": escape(place) if place else "—",
+            "purpose": purpose,
+            "activity": escape(activity),
+            "sample_collected": False,
+            "sample_code": "",
+        }
 
     def _to_entry(self, insp: Inspection) -> dict[str, Any]:
         purpose = self.derive_purpose(insp.problem, insp.visit_purpose)

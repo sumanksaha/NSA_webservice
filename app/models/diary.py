@@ -30,6 +30,7 @@ class WorkDiaryEntry(db.Model):
     premises = db.Column(db.Integer, nullable=True)
     samples = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    place_of_visit = db.Column(db.String(200), nullable=True)
     summary = db.Column(db.Text, nullable=True)
 
     def __repr__(self) -> str:

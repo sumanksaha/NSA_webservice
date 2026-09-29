@@ -4,13 +4,15 @@ Covers:
 - Officer scoping: an FSO only ever reads/writes their own rows; a second
   officer neither sees nor overwrites them, and a cross-officer ``fso_name``
   in the query string is ignored
-- Save loop: field work keeps its counts, other activities zero them,
-  numbers with no activity imply field work, unknown activities are ignored
+- Save loop: field/office/vvip/meeting keep their counts, holiday/leave zero
+  them, numbers with no activity imply field work, unknown activities are
+  ignored, place of visit round-trips (truncated to 200)
 - Clearing a day: a fully blank row, and flipping a saved day to "—" without
   retyping the pre-filled numbers
 - Only days that actually had a row are counted as cleared
 - ``_parse_count`` clamping (32-bit INTEGER column)
-- Month resolution, summary lines, shift across a year boundary
+- Month resolution, summary lines (count sentence hidden on 0/0), shift
+  across a year boundary
 - Auth gate + RBAC map entry
 """
 
@@ -159,6 +161,45 @@ class TestSave:
         row = _row(app, "Officer A", 7)
         assert row.activity == "leave"
         assert (row.premises, row.samples) == (0, 0)
+        _save_day(clients["officerA"], 8, activity="holiday", premises=2, samples=2, notes="")
+        assert (_row(app, "Officer A", 8).premises, _row(app, "Officer A", 8).samples) == (0, 0)
+
+    def test_vvip_meeting_office_keep_counts(self, env):
+        """VVIP/meeting/office days can carry inspection + sample data."""
+        app, clients = env
+        # One POST for all three days: each _save_day blanks the rest of the
+        # month, so sequential single-day saves would clear each other.
+        form = _blank_form()
+        for day, activity, premises, samples in [
+            (10, "vvip", 2, 1),
+            (12, "meeting", 1, 0),
+            (14, "office", 3, 3),
+        ]:
+            form[f"activity_{day}"] = activity
+            form[f"premises_{day}"] = str(premises)
+            form[f"samples_{day}"] = str(samples)
+        resp = clients["officerA"].post(f"/diary/bulk?m={MONTH}", data=form, follow_redirects=True)
+        assert resp.status_code == 200
+        assert (_row(app, "Officer A", 10).premises, _row(app, "Officer A", 10).samples) == (2, 1)
+        assert (_row(app, "Officer A", 12).premises, _row(app, "Officer A", 12).samples) == (1, 0)
+        assert (_row(app, "Officer A", 14).premises, _row(app, "Officer A", 14).samples) == (3, 3)
+
+    def test_place_round_trips_and_truncates(self, env):
+        app, clients = env
+        _save_day(clients["officerA"], 15, activity="field", place="Town Hall")
+        assert _row(app, "Officer A", 15).place_of_visit == "Town Hall"
+        # NOTE: each _save_day blanks the rest of the month, so day 15 is
+        # cleared by this second save — only day 16 is asserted below.
+        _save_day(clients["officerA"], 16, activity="field", place="x" * 500)
+        assert _row(app, "Officer A", 16).place_of_visit == "x" * 200
+
+    def test_zero_counts_hide_the_count_sentence(self, env):
+        from app.diary import _summary_line
+
+        assert _summary_line("2026-03-05", "field", 0, 0, "", "Bazaar") == (
+            "On 2026-03-05: Field work at Bazaar."
+        )
+        assert "Inspected 3 premises" in _summary_line("2026-03-05", "field", 3, 2, "", "")
 
     def test_numbers_without_activity_become_field_work(self, env):
         app, clients = env

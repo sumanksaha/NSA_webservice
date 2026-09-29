@@ -280,6 +280,34 @@ Talebian antifragility, first-principles lenses) stored as JSON; re-runs
 append rather than overwrite. Never abbreviated "DO" — that collides with DO
 Intimation.
 
+### Monthly Diary
+
+The owner-scoped editable grid (`app/diary.py`, `/diary/bulk`) where an FSO
+records one row per calendar day: Activity (`field | vvip | meeting | office
+| holiday | leave`), Place of Visit (free text, max 200), premises/samples
+counts (recorded for field, office, VVIP duty and meeting — a VVIP or
+meeting day can include inspections/samples; holiday / leave always zero
+them), Notes. Persisted as `WorkDiaryEntry`
+(`work_diary`, keyed `fso_name + work_date`). Spelled "Diary", never "Dairy".
+Input field is Notes; its printed suffix is Remarks (see Work Diary).
+
+### Work Diary
+
+The official per-FSO report (`app/workdiary/`, `/workdiary` → preview/PDF in
+the `FSO_Work_Diary_Template.html` shape: Date (i) / Place of Visit (ii) /
+Purpose (iii) / Activity (iv)). It unions Inspection rows (purpose `Routine
+Inspection | Complaint`) with Monthly Diary rows whose derived purpose is
+`VVIP duty | Meeting | Inspection` (`vvip → VVIP duty`, `meeting → Meeting`,
+`field/office → Inspection` via `derive_diary_purpose`); `holiday` / `leave`
+days stay in the Monthly Diary and are skipped in print. Column (iv) Activity
+for a Monthly row is rebuilt at print time from the live fields (never the
+frozen stored summary): base is `Field work` for field days and the purpose
+(`VVIP duty` / `Meeting` / `Inspection`) otherwise, `[ at place].` + `Inspected N premises,
+collected M sample(s).` when the activity records counts and at least one is
+non-zero (hidden on 0/0) + `Remarks: <notes>` when notes exist; no date
+prefix since column (i) shows it. Both sides scope by
+`fso_name` (non-admins locked to their binding).
+
 ### Daily Plan
 
 A short AI-generated battle plan for an FSO's own open Notes — the top 3–5

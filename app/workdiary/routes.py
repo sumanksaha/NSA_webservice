@@ -21,7 +21,13 @@ from flask import render_template, request, send_file
 from app.utils.fso_data import get_all_fso_names
 from app.utils.pdf_utils import generate_pdf_from_html
 from app.workdiary import workdiary_bp
-from app.workdiary.engine import PURPOSE_COMPLAINT, PURPOSE_ROUTINE, WorkDiaryEngine
+from app.workdiary.engine import (
+    PURPOSE_COMPLAINT,
+    PURPOSE_INSPECTION,
+    PURPOSE_MEETING,
+    PURPOSE_VVIP,
+    WorkDiaryEngine,
+)
 
 engine = WorkDiaryEngine()
 
@@ -35,9 +41,14 @@ def _visual_row_count(entries: list[dict]) -> int:
 
 _PURPOSE_CHOICES = (
     ("", "All"),
-    ("routine", PURPOSE_ROUTINE),
+    ("inspection", PURPOSE_INSPECTION),
     ("complaint", PURPOSE_COMPLAINT),
+    ("vvip", PURPOSE_VVIP),
+    ("meeting", PURPOSE_MEETING),
 )
+# NOTE: ``purpose=routine`` URLs (old bookmarks/tests) still work — the engine
+# treats "routine" as an alias of "inspection". It is intentionally absent
+# from the dropdown since the two are indistinguishable as filters.
 
 
 def _filters_from_request() -> dict[str, str | None]:

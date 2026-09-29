@@ -1,7 +1,7 @@
 """Work Diary module — bulk daily activity entry.
 
-One editable grid per calendar month: every day gets a row (Activity,
-Premises, Samples, Notes) and "Save all" writes the whole month in one
+One editable grid per calendar month: every day gets a row (Activity, Place
+of Visit, Premises, Samples, Notes) and "Save all" writes the whole month in one
 POST. Persistence is the ``work_diary`` table (one row per officer per day,
 keyed by ``fso_name`` + ``work_date``), owned by
 ``app.models.WorkDiaryEntry`` and created by its Alembic migration.
@@ -31,7 +31,8 @@ from app.shared.rbac import scoped_officer_name
 
 #: Activity types offered in the dropdown. Edit here to change labels or
 #: add/remove options — the dropdown, validation, and summary lines all
-#: derive from this dict. Premises/samples are only counted for ``field``.
+#: derive from this dict. Premises/samples are recorded for ``COUNT_ACTIVITIES``
+#: (field, office, VVIP duty, meeting); holiday / leave always zero them.
 ACTIVITIES = {
     "field": "Field work",
     "vvip": "VVIP duty",
@@ -40,6 +41,24 @@ ACTIVITIES = {
     "holiday": "Holiday / weekly off",
     "leave": "Leave",
 }
+
+#: Purpose labels printed in the official Work Diary report for Monthly
+#: Diary rows. ``holiday`` / ``leave`` have no purpose — those days are kept
+#: in the monthly grid but skipped when the Work Diary report is built.
+DIARY_PURPOSE_VVIP = "VVIP duty"
+DIARY_PURPOSE_MEETING = "Meeting"
+DIARY_PURPOSE_INSPECTION = "Inspection"
+
+#: Activities whose report purpose is ``DIARY_PURPOSE_INSPECTION``.
+INSPECTION_ACTIVITIES = frozenset({"field", "office"})
+
+#: Activities for which premises / samples are recorded. Field, office,
+#: VVIP duty and meeting days can all involve inspections/samples (e.g. a
+#: VVIP visit with a premises check); only holiday / leave always zero them.
+COUNT_ACTIVITIES = frozenset({"field", "office", "vvip", "meeting"})
+
+#: Max length of the per-day Place of Visit input (mirrors the column).
+PLACE_MAX_LEN = 200
 
 #: The only activity for which premises / samples are recorded.
 FIELD_ACTIVITY = "field"
@@ -116,12 +135,12 @@ def _shift_month(month: _dt.date, delta: int) -> _dt.date:
     return _dt.date(index // 12, index % 12 + 1, 1)
 
 
-def _is_blank_day(premises: int, samples: int, notes: str) -> bool:
+def _is_blank_day(premises: int, samples: int, notes: str, place: str = "") -> bool:
     """True when every free-text field of a submitted row is empty."""
-    return premises == 0 and samples == 0 and not notes
+    return premises == 0 and samples == 0 and not notes and not place
 
 
-def _is_untouched_stored(entry: dict | None, premises: int, samples: int, notes: str) -> bool:
+def _is_untouched_stored(entry: dict | None, premises: int, samples: int, notes: str, place: str = "") -> bool:
     """True when a submitted row only changed the activity dropdown to "—".
 
     The grid pre-fills premises / samples / notes, so selecting "—" submits
@@ -130,11 +149,16 @@ def _is_untouched_stored(entry: dict | None, premises: int, samples: int, notes:
     """
     if entry is None:
         return False
-    return premises == entry["premises"] and samples == entry["samples"] and notes == entry["notes"]
+    return (
+        premises == entry["premises"]
+        and samples == entry["samples"]
+        and notes == entry["notes"]
+        and place == entry.get("place_of_visit", "")
+    )
 
 
 def _is_unchanged_stored(
-    entry: dict | None, activity: str, premises: int, samples: int, notes: str, summary: str
+    entry: dict | None, activity: str, premises: int, samples: int, notes: str, summary: str, place: str = ""
 ) -> bool:
     """True when a submitted row already matches the stored row exactly.
 
@@ -150,8 +174,26 @@ def _is_unchanged_stored(
         and premises == entry["premises"]
         and samples == entry["samples"]
         and notes == entry["notes"]
+        and place == entry.get("place_of_visit", "")
         and summary == entry["summary"]
     )
+
+
+def derive_diary_purpose(activity: str) -> str | None:
+    """Map a Monthly Diary activity to its Work Diary purpose label.
+
+    ``vvip`` → "VVIP duty", ``meeting`` → "Meeting",
+    ``field`` / ``office`` → "Inspection". ``holiday`` / ``leave`` (and
+    anything unknown) return ``None`` — those days stay in the monthly grid
+    but are skipped in the official Work Diary print.
+    """
+    if activity == "vvip":
+        return DIARY_PURPOSE_VVIP
+    if activity == "meeting":
+        return DIARY_PURPOSE_MEETING
+    if activity in INSPECTION_ACTIVITIES:
+        return DIARY_PURPOSE_INSPECTION
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -159,13 +201,45 @@ def _is_unchanged_stored(
 # ---------------------------------------------------------------------------
 
 
-def _summary_line(work_date: str, activity: str, premises: int, samples: int, notes: str) -> str:
-    """Build the daily activity summary line for one diary row."""
+def _summary_line(work_date: str, activity: str, premises: int, samples: int, notes: str, place: str = "") -> str:
+    """Build the daily activity summary line for one diary row.
+
+    The count sentence is shown whenever premises/samples are recorded for
+    the activity and at least one is non-zero; a 0/0 day prints the label
+    (and place/remarks) with no count sentence.
+    """
+    where = f" at {place.strip()}" if place.strip() else ""
+    label = ACTIVITIES.get(activity, activity)
+    line = f"On {work_date}: {label}{where}."
+    if activity in COUNT_ACTIVITIES and (premises or samples):
+        line += f" Inspected {premises} premises, collected {samples} sample(s)."
+    remarks = (notes or "").strip()
+    if remarks:
+        line += f" Remarks: {remarks}"
+    return line
+
+
+def print_activity(activity: str, premises: int, samples: int, notes: str, place: str = "") -> str:
+    """Build the Work Diary column-(iv) text for one Monthly Diary row.
+
+    Rebuilt at print time from the live fields (never the frozen stored
+    summary): no date prefix (column (i) already shows it), then the count
+    sentence when the activity records counts and at least one of
+    premises/samples is non-zero, then the ``Remarks:`` suffix when notes exist.
+
+    The base uses the Work Diary purpose (``Meeting`` / ``Inspection`` /
+    ``VVIP duty``) so the place never echoes the grid label (e.g. not
+    ``Meeting at HQ at HQ Room 2``); field work keeps its traditional
+    ``Field work`` base.
+    """
     if activity == FIELD_ACTIVITY:
-        line = f"On {work_date}: Field work. Inspected {premises} premises, collected {samples} sample(s)."
+        base = "Field work"
     else:
-        label = ACTIVITIES.get(activity, activity)
-        line = f"On {work_date}: {label}."
+        base = derive_diary_purpose(activity) or ACTIVITIES.get(activity, activity)
+    where = f" at {place.strip()}" if place.strip() else ""
+    line = f"{base}{where}."
+    if activity in COUNT_ACTIVITIES and (premises or samples):
+        line += f" Inspected {premises} premises, collected {samples} sample(s)."
     remarks = (notes or "").strip()
     if remarks:
         line += f" Remarks: {remarks}"
@@ -195,12 +269,22 @@ def _load_month(owner: str, month: _dt.date) -> dict[str, dict]:
             "premises": row.premises or 0,
             "samples": row.samples or 0,
             "notes": row.notes or "",
+            "place_of_visit": row.place_of_visit or "",
             "summary": row.summary or "",
         }
     return rows
 
 
-def _upsert(owner: str, work_date: str, activity: str, premises: int, samples: int, notes: str, summary: str) -> None:
+def _upsert(
+    owner: str,
+    work_date: str,
+    activity: str,
+    premises: int,
+    samples: int,
+    notes: str,
+    summary: str,
+    place: str = "",
+) -> None:
     """Insert or update one of ``owner``'s diary rows."""
     row = db.session.get(WorkDiaryEntry, {"fso_name": owner, "work_date": work_date})
     if row is None:
@@ -210,6 +294,7 @@ def _upsert(owner: str, work_date: str, activity: str, premises: int, samples: i
     row.premises = premises
     row.samples = samples
     row.notes = notes
+    row.place_of_visit = place[:PLACE_MAX_LEN] or None
     row.summary = summary
 
 
@@ -246,24 +331,25 @@ def bulk():
             premises = _parse_count(request.form.get(f"premises_{day}"))
             samples = _parse_count(request.form.get(f"samples_{day}"))
             notes = (request.form.get(f"notes_{day}") or "").strip()
+            place = (request.form.get(f"place_{day}") or "").strip()[:PLACE_MAX_LEN]
 
             if activity and activity not in ACTIVITIES:
                 continue  # unknown activity values are ignored
             if not activity:
-                if _is_blank_day(premises, samples, notes) or _is_untouched_stored(
-                    entries.get(work_date), premises, samples, notes
+                if _is_blank_day(premises, samples, notes, place) or _is_untouched_stored(
+                    entries.get(work_date), premises, samples, notes, place
                 ):
                     # A fully blank row clears the day, and so does flipping a
                     # saved day to "—" without retyping its numbers — the
                     # pre-filled inputs are still in the submitted form.
                     deleted += _delete(owner, work_date)
                     continue
-                activity = FIELD_ACTIVITY  # numbers (or notes) with no activity -> field work
-            if activity != FIELD_ACTIVITY:
+                activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
+            if activity not in COUNT_ACTIVITIES:
                 premises = 0
                 samples = 0
-            summary = _summary_line(work_date, activity, premises, samples, notes)
-            if _is_unchanged_stored(entries.get(work_date), activity, premises, samples, notes, summary):
+            summary = _summary_line(work_date, activity, premises, samples, notes, place)
+            if _is_unchanged_stored(entries.get(work_date), activity, premises, samples, notes, summary, place):
                 continue  # untouched rows are not rewritten; a re-save is a no-op
             _upsert(
                 owner,
@@ -273,6 +359,7 @@ def bulk():
                 samples,
                 notes,
                 summary,
+                place,
             )
             saved += 1
         if saved or deleted:
@@ -295,6 +382,7 @@ def bulk():
             "premises": entry.get("premises", 0),
             "samples": entry.get("samples", 0),
             "notes": entry.get("notes", ""),
+            "place_of_visit": entry.get("place_of_visit", ""),
         })
 
     month_entries = [entries[r["work_date"]] for r in rows if r["work_date"] in entries]
@@ -305,10 +393,16 @@ def bulk():
         if e["activity"] in days_per_activity:
             days_per_activity[e["activity"]] += 1
     daily_activity = [
-        e["summary"] or _summary_line(e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"])
+        e["summary"]
+        or _summary_line(
+            e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"], e.get("place_of_visit", "")
+        )
         for e in sorted(month_entries, key=lambda e: e["work_date"])
     ]
 
+    last_day = days_in_month
+    date_from = month.isoformat()
+    date_to = _dt.date(month.year, month.month, last_day).isoformat()
     return render_template(
         "diary/bulk.html",
         activities=ACTIVITIES,
@@ -324,6 +418,7 @@ def bulk():
         daily_activity=daily_activity,
         owner=owner,
         officer_choices=_officer_choices(),
+        workdiary_url=url_for("workdiary.index", fso_name=owner, date_from=date_from, date_to=date_to),
     )
 
 

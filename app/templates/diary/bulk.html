@@ -21,6 +21,7 @@
                     <tr>
                         <th scope="col">Day</th>
                         <th scope="col">Activity</th>
+                        <th scope="col">Place of Visit</th>
                         <th scope="col">Premises</th>
                         <th scope="col">Samples</th>
                         <th scope="col">Notes</th>
@@ -45,6 +46,17 @@
                                 <option value="{{ row.activity }}" selected>{{ row.activity }} (retired)</option>
                                 {% endif %}
                             </select>
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                name="place_{{ row.day }}"
+                                class="form-input diary-place"
+                                value="{{ row.place_of_visit }}"
+                                maxlength="200"
+                                placeholder="Place of visit"
+                                aria-label="Place of visit for day {{ row.day }}"
+                            />
                         </td>
                         <td>
                             <input
@@ -86,7 +98,10 @@
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i> Save all
             </button>
-            <span class="form-hint">Premises and samples are counted only for field work. Select “—” to clear a saved day.</span>
+            <a href="{{ workdiary_url }}" class="btn btn-secondary">
+                <i class="fa-solid fa-book-open"></i> View in Work Diary
+            </a>
+            <span class="form-hint">Premises and samples can be recorded for field work, VVIP duty, meeting and office work. Select “—” to clear a saved day.</span>
         </div>
     </form>
 
@@ -206,7 +221,8 @@
     }
     .diary-select,
     .diary-num,
-    .diary-notes {
+    .diary-notes,
+    .diary-place {
         width: 100%;
         padding: 3px 6px;
         font-size: 0.85rem;

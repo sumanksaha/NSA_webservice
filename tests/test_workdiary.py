@@ -90,6 +90,38 @@ def _make_inspection(
     db.session.commit()
 
 
+def _make_diary_day(
+    fso_name: str,
+    day: int,
+    activity: str,
+    month: int = 3,
+    year: int = 2026,
+    place: str = "",
+    premises: int = 0,
+    samples: int = 0,
+    notes: str = "",
+) -> None:
+    """One Monthly Diary row written directly (bypasses the grid POST)."""
+    from app.diary import _summary_line
+    from app.extensions import db
+    from app.models import WorkDiaryEntry
+
+    work_date = f"{year:04d}-{month:02d}-{day:02d}"
+    db.session.add(
+        WorkDiaryEntry(
+            fso_name=fso_name,
+            work_date=work_date,
+            activity=activity,
+            premises=premises,
+            samples=samples,
+            notes=notes,
+            place_of_visit=place or None,
+            summary=_summary_line(work_date, activity, premises, samples, notes, place),
+        )
+    )
+    db.session.commit()
+
+
 # --------------------------------------------------------------------------- #
 # Engine: purpose derivation + row shaping
 # --------------------------------------------------------------------------- #
@@ -285,6 +317,64 @@ class TestFilters:
         routines = WorkDiaryEngine().build_entries(purpose="routine")
         assert [e["inspection_code"] for e in complaints] == ["INSP-WD-53"]
         assert [e["inspection_code"] for e in routines] == ["INSP-WD-54", "INSP-WD-55"]
+
+
+# --------------------------------------------------------------------------- #
+# Engine: Monthly Diary union
+# --------------------------------------------------------------------------- #
+
+
+class TestMonthlyUnion:
+    def test_monthly_rows_appear_with_place_purpose_activity(self, env):
+        from app.workdiary.engine import PURPOSE_INSPECTION, PURPOSE_MEETING, PURPOSE_VVIP
+
+        _make_diary_day("Officer A", 5, "vvip", place="Town Hall", premises=2, samples=1, notes="duty")
+        _make_diary_day("Officer A", 6, "meeting", place="HQ Room 2")
+        _make_diary_day("Officer A", 7, "field", place="Market", premises=3, samples=2)
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        by_day = {e["date"].strftime("%d"): e for e in entries}
+        assert by_day["05"]["purpose"] == PURPOSE_VVIP
+        assert by_day["05"]["place_of_visit"] == "Town Hall"
+        assert by_day["05"]["activity"] == (
+            "VVIP duty at Town Hall. Inspected 2 premises, collected 1 sample(s). Remarks: duty"
+        )
+        assert by_day["06"]["purpose"] == PURPOSE_MEETING
+        assert by_day["06"]["activity"] == "Meeting at HQ Room 2."
+        assert by_day["07"]["purpose"] == PURPOSE_INSPECTION
+        assert "On 2026" not in by_day["07"]["activity"]  # no date prefix at print
+
+    def test_holiday_and_leave_are_skipped_in_print(self, env):
+        _make_diary_day("Officer A", 8, "holiday", place="Home")
+        _make_diary_day("Officer A", 9, "leave")
+        assert WorkDiaryEngine().build_entries(fso_name="Officer A") == []
+
+    def test_inspections_sort_first_within_a_date(self, env):
+        _make_inspection("INSP-WD-90", "Officer A", 5)
+        _make_diary_day("Officer A", 5, "field", place="Market")
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A")
+        assert [e["inspection_code"] for e in entries] == ["INSP-WD-90", ""]
+        assert entries[0]["is_first_in_date"] and entries[0]["date_rowspan"] == 2
+
+    def test_monthly_rows_are_fso_scoped(self, env):
+        _make_diary_day("Officer A", 5, "vvip", place="Town Hall")
+        assert WorkDiaryEngine().build_entries(fso_name="Officer B") == []
+        # "" is the deny-by-default sentinel for unbound non-admins: it must
+        # match nothing, not everything.
+        assert WorkDiaryEngine().build_entries(fso_name="") == []
+
+    def test_monthly_purpose_filters(self, env):
+        from app.workdiary.engine import PURPOSE_INSPECTION, PURPOSE_MEETING, PURPOSE_VVIP
+
+        _make_diary_day("Officer A", 5, "vvip", place="Town Hall")
+        _make_diary_day("Officer A", 6, "meeting", place="HQ")
+        _make_diary_day("Officer A", 7, "field", place="Market")
+        _make_inspection("INSP-WD-91", "Officer A", 8, problem="c")
+        assert [e["purpose"] for e in WorkDiaryEngine().build_entries(purpose="vvip")] == [PURPOSE_VVIP]
+        assert [e["purpose"] for e in WorkDiaryEngine().build_entries(purpose="meeting")] == [PURPOSE_MEETING]
+        assert [e["purpose"] for e in WorkDiaryEngine().build_entries(purpose="complaint")] == [PURPOSE_COMPLAINT]
+        assert [e["purpose"] for e in WorkDiaryEngine().build_entries(purpose="inspection")] == [PURPOSE_INSPECTION]
+        # "routine" stays a working alias of "inspection" for old URLs.
+        assert [e["purpose"] for e in WorkDiaryEngine().build_entries(purpose="routine")] == [PURPOSE_INSPECTION]
 
 
 # --------------------------------------------------------------------------- #

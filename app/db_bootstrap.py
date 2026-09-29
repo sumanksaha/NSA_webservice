@@ -44,6 +44,7 @@ def _required_table_models() -> dict[str, type]:
         "case_files": models.CaseFile,
         "adjudications": models.Adjudication,
         "inspection": models.Inspection,
+        "work_diary": models.WorkDiaryEntry,
     }
 
 
