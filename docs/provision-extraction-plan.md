@@ -1,6 +1,7 @@
 # NLP-based Statutory Provision Extraction & Isolation — Implementation Plan
 
-Status: **planned** (saved for review before execution).
+Status: **planned, re-scoped 2026-09-27** after review against
+`docs/RAG_AUTORESEARCH_RESEARCH.md` and `docs/RAG_EFFECTIVENESS_EVALUATION.md`.
 Date: 2026-09-27.
 
 Scoped decisions (confirmed via questionnaire):
@@ -135,7 +136,10 @@ satisfy the gold layer.
 5. Pipeline adapter + backfill CLI (dry-run full-corpus diff) → gated live write.
 6. KG `build_provisions` wiring.
 
-Open question for execution kickoff: skip KG wiring (step 6) for now or include it.
+KG wiring (step 6) stays **out of the first execution**. The effectiveness
+evaluation treats a statute tree as a lookup aid, not the next measured
+intervention. Wire `build_provisions` only after the dry-run diff shows
+stable ids.
 
 ## 7. Risks
 
@@ -144,3 +148,67 @@ Open question for execution kickoff: skip KG wiring (step 6) for now or include 
 - Unknown acts stay fail-closed (`ACT_SECTION_RANGES`); ranges extensible per manifest.
 - Live Qdrant writes are the risky step → dry-run diff report first; reversible via
   existing re-stamp scripts.
+
+## 8. Evaluation against the two research notes (2026-09-27)
+
+Reviewed against `docs/RAG_EFFECTIVENESS_EVALUATION.md` (retrieval ceiling,
+step-0 labels, F abstentions) and `docs/RAG_AUTORESEARCH_RESEARCH.md`
+(corpus discovery vs extraction). Code check: universal multi-hop is already
+live (`MULTIHOP_MAX_FOLLOWUPS`, type gate removed in `linear.py`). The
+research note's "multi-hop only for cross_reference/case_law" gap is closed.
+Do not spend this plan reopening it.
+
+### What this plan is
+
+A **boundary isolator over text that is already indexed**. It proposes
+section/subsection spans on ordered payload chunks, stamps
+`provision_spans`, and emits gold-grammar ids. That matches the
+effectiveness note's allowed use of a section index: a lookup aid for
+corpus completion and for gold resolution (`matches_gold`, multi-primary
+Q068/Q102/Q124/Q145).
+
+### What this plan is not
+
+It does **not** acquire missing instruments. Experiment F's justified
+abstentions name texts absent from the O3 payload (Water Act ss.25–29,
+Rule 63, Order 12, WB Meat Order, KMC water-connection rules, PCA Rules
+schedules). Re-segmenting 27,361 existing chunks cannot create those
+spans. Binary-correctness targets in the autoresearch note (+5%, evidence-
+missing 14/124 → <5) are **fill** outcomes, not extraction outcomes.
+
+Autoresearch's "Provision Extraction Engine" (read source PDFs, NLP new
+documents into the corpus) is a different component. This checkout has no
+raw statute PDFs. Web scrape / PDF ingest stays a later phase and is not
+part of steps 1–5.
+
+### Revised success criteria
+
+Keep the gates in §4 (boundary P/R, noise-stamp ≈ 0, gold id round-trip,
+no suite regression). Drop any claim that a backfill alone moves benchmark
+binary correctness. A backfill is successful when:
+
+- emitted ids parse through `_section_from_id` and resolve where the text
+  is already in the payload;
+- bogus stamps on the strip-noise corpus do not return;
+- `chunk_id`s are unchanged.
+
+Report gold misses that are **absent text** separately from misses that are
+**bad boundaries**. Only the second class is in scope here.
+
+### Revised order relative to the effectiveness path
+
+1. This plan, rules mode through dry-run (steps 1–3, then 5 dry-run).
+   Hybrid ML only if it beats rules on the held-out boundary metrics.
+2. Use the resulting id map as a lookup when labeling residuals
+   (`evidence_missing` vs `model_wrong` vs `reference_narrow`). Do not
+   start a generation budget for this work.
+3. Corpus fill of instruments named as absent (separate ingestion work,
+   human-approved, `step3_em_fill_approved.json`) — outside this plan.
+4. KG `build_provisions` replacement after the dry-run is accepted.
+
+### Environment note
+
+The sklearn/torch inventory in §1 was taken on a Linux host
+(`/home/suman_saha/.venv-nsa`). On this Windows checkout, confirm that
+runner before training. Rules mode does not need it. Lazy sklearn import
+and the rules fallback stay as specified.

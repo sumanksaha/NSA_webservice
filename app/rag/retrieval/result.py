@@ -34,6 +34,9 @@ class RetrievedChunk:
     chunk_index: int = 0
     hierarchy_level: int = 0
     parent_chunk_id: str | None = None
+    #: Owning document id (payload ``document_id``) — needed by the
+    #: parent-standard reconstruction (clause grouping across a document).
+    document_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +52,7 @@ class RetrievedChunk:
             "chunk_index": self.chunk_index,
             "hierarchy_level": self.hierarchy_level,
             "parent_chunk_id": self.parent_chunk_id,
+            "document_id": self.document_id,
         }
 
     @classmethod
@@ -66,6 +70,7 @@ class RetrievedChunk:
             chunk_index=data.get("chunk_index", 0),
             hierarchy_level=data.get("hierarchy_level", 0),
             parent_chunk_id=data.get("parent_chunk_id"),
+            document_id=data.get("document_id", ""),
         )
 
 

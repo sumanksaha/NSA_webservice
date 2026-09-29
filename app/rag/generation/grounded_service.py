@@ -138,6 +138,58 @@ class GroundedGenerationService:
         # 7. Assemble response
         return self._assemble_response(query, query_type, chunks, llm_response, sanitized, total_latency_ms, built)
 
+    def generate_with_prompts(
+        self,
+        query: str,
+        chunks: list[RetrievedChunk],
+        query_type: str = "",
+        prompts: tuple[str, str] | None = None,
+        query_log_id: str | None = None,
+    ) -> RAGResponse:
+        """Run the pipeline with caller-supplied (system, user) prompts.
+
+        Used by the food-intent answer mode: the evidence bundle renders the
+        prompts (§12/§13), everything else — citations, sanitisation,
+        logging, response assembly — is identical to :meth:`generate`.
+        ``prompts=None`` degrades to the default rendering.
+        """
+        total_start = time.perf_counter()
+
+        if not chunks:
+            total_latency_ms = int((time.perf_counter() - total_start) * 1000)
+            return RAGResponse(
+                query=query,
+                query_type=query_type,
+                answer="",
+                citations=[],
+                retrieved_chunks=chunks,
+                groundedness_score=0.0,
+                hallucination_detected=False,
+                hallucinated_claims=[],
+                confidence=0.0,
+                generation_latency_ms=0,
+                total_latency_ms=total_latency_ms,
+                llm_model="",
+                debug={"context_length": 0, "chunk_count": 0, "truncated": False, "empty_context": True},
+            )
+
+        # 1. Build context (context budget + answerability unchanged)
+        built = self._build_context(query, chunks, query_type)
+
+        # 2. Render prompt — caller override when provided and valid.
+        if prompts and prompts[0] and prompts[1]:
+            system_prompt, user_prompt = prompts[0], prompts[1]
+        else:
+            system_prompt, user_prompt = self._render_prompt(query, built)
+
+        # 3-7 identical to generate()
+        llm_response = self._call_llm(system_prompt, user_prompt)
+        citations = self._extract_citations(llm_response, chunks, built)
+        sanitized = self.sanitizer.sanitize(llm_response.text, citations, chunks)
+        total_latency_ms = int((time.perf_counter() - total_start) * 1000)
+        self._log_generation(query_log_id, query, llm_response, sanitized, total_latency_ms, built)
+        return self._assemble_response(query, query_type, chunks, llm_response, sanitized, total_latency_ms, built)
+
     # ------------------------------------------------------------------ #
     # Pipeline steps (each isolated for testability)
     # ------------------------------------------------------------------ #

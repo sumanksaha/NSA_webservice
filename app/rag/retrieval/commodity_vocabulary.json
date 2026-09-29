@@ -1,0 +1,1136 @@
+{
+  "commodities": [
+    "acesulfame potassium",
+    "ajowan",
+    "ale",
+    "aniseed",
+    "aromatized wine",
+    "asafoetida",
+    "atta",
+    "bakery products",
+    "baking powder",
+    "bamboo wine",
+    "bean",
+    "besan",
+    "beverages",
+    "blended brandy",
+    "blended country liquor",
+    "capsicum",
+    "caraway",
+    "carbonated wine",
+    "cardamom",
+    "cassia",
+    "catechu",
+    "celery",
+    "chakka and shrikhand",
+    "cheese",
+    "chhana or paneer",
+    "chicory",
+    "chillies",
+    "cider",
+    "cinnamon",
+    "cloves",
+    "coffee",
+    "coriander",
+    "corn flakes",
+    "cornflour",
+    "cream",
+    "cumin",
+    "curry powder",
+    "custard powder",
+    "dahi or curd",
+    "dehydrated fruits",
+    "dehydrated onion",
+    "dehydrated vegetables",
+    "dextrose",
+    "draught beer",
+    "dried mango powder",
+    "dried mango slices",
+    "edible casein products",
+    "edible common salt",
+    "edible fats",
+    "feni",
+    "fennel",
+    "fenny",
+    "fenugreek",
+    "fermented milk products",
+    "fish",
+    "fish products",
+    "food colours",
+    "food grains",
+    "foods for infant nutrition",
+    "fortified wine",
+    "frozen vegetables",
+    "fruit cheese",
+    "fruit jelly",
+    "fruits",
+    "garlic",
+    "ginger",
+    "ginger cocktail",
+    "golden syrup",
+    "grape brandy",
+    "grated desiccated coconut",
+    "gur or jaggery",
+    "hydrogenated vegetable oils",
+    "ice lollies or edible ices",
+    "interesterified vegetable fat",
+    "jam",
+    "lager",
+    "lozenges",
+    "macaroni products",
+    "mace",
+    "maida",
+    "malai",
+    "malted and malt based foods",
+    "mango chutney",
+    "margarine and fat spreads",
+    "marmalades",
+    "meat",
+    "meat products",
+    "milk",
+    "mineral water",
+    "misri",
+    "mixed masala",
+    "murabba",
+    "mustard",
+    "nutmeg",
+    "nuts and raisins",
+    "oils",
+    "packaged drinking water",
+    "palm wine",
+    "partially hydrogenated soyabean oil",
+    "pearl barley",
+    "pepper black",
+    "pepper white",
+    "perry",
+    "pickles",
+    "plain country liquor",
+    "poppy",
+    "porter",
+    "pot-still distilled spirit",
+    "proprietary food",
+    "red wine",
+    "rolled oats",
+    "saccharin sodium",
+    "safflowerseed oil",
+    "saffron",
+    "semolina",
+    "sharbat",
+    "silver leaf",
+    "solvent extracted flours",
+    "soup powders",
+    "soyabean sauce",
+    "sparkling",
+    "starchy foods",
+    "stout",
+    "sucralose",
+    "sugar",
+    "sugar boiled confectionery",
+    "sunflowerseed oil",
+    "synthetic syrup",
+    "table olives",
+    "tea",
+    "thermally processed fruit nectars",
+    "thermally processed fruits",
+    "thermally processed fruits juices",
+    "thermally processed tomato juice",
+    "thermally processed vegetable juices",
+    "thermally processed vegetable soups",
+    "thermally processed vegetables",
+    "tomato ketchup",
+    "tomato sauce",
+    "turmeric",
+    "vegetable chutney",
+    "vinegar",
+    "vodka",
+    "wheat beer",
+    "whey products",
+    "white wine"
+  ],
+  "candidate_synonyms": {
+    "adrak": "ginger",
+    "amchur": "dried mango powder",
+    "bishops seed": "ajowan",
+    "celery whole": "celery",
+    "chandi-ka-warq": "silver leaf",
+    "cream powder": "cream",
+    "dalchini": "cinnamon",
+    "deshelled": "nuts and raisins",
+    "dhania": "coriander",
+    "edible": "catechu",
+    "elaichi": "cardamom",
+    "haldi": "turmeric",
+    "high oleic acid": "safflowerseed oil",
+    "jaipatri": "mace",
+    "jaiphal": "nutmeg",
+    "jau": "pearl barley",
+    "kalimirch": "pepper black",
+    "kalonji": "cumin",
+    "kesar": "saffron",
+    "khas": "poppy",
+    "lahsun": "garlic",
+    "lal mirchi": "chillies and capsicum",
+    "laung": "cloves",
+    "macaroni": "macaroni products",
+    "maize starch": "cornflour",
+    "methi": "fenugreek",
+    "milk powder": "milk",
+    "naryal ka tel": "oils",
+    "quick cooking oats": "rolled oats",
+    "rai": "mustard",
+    "sarson": "mustard",
+    "saunf": "aniseed",
+    "seeds": "celery",
+    "siahjira": "caraway",
+    "sonth": "ginger",
+    "spaghetti": "macaroni products",
+    "sukha pyaj": "dehydrated onion",
+    "taj": "cassia",
+    "vermicelli": "macaroni products",
+    "whole": "mixed masala",
+    "zeera": "cumin"
+  },
+  "compounds": [],
+  "stats": {
+    "families": {
+      "1.3": 1,
+      "10.01": 1,
+      "2.1": 13,
+      "2.10": 6,
+      "2.11": 3,
+      "2.12": 1,
+      "2.2": 8,
+      "2.3": 29,
+      "2.4": 15,
+      "2.5": 1,
+      "2.6": 2,
+      "2.7": 3,
+      "2.8": 8,
+      "2.9": 31,
+      "22.01": 1,
+      "3.1": 10,
+      "3.2": 1,
+      "4.1": 4,
+      "4.2": 1
+    },
+    "skipped": [
+      {
+        "clause": "2.9.9",
+        "candidate": "Food and non-food products transported at the same time in t"
+      },
+      {
+        "clause": "5.2",
+        "candidate": "Labeling of standard drink"
+      },
+      {
+        "clause": "5.4",
+        "candidate": "In case of imported alcoholic beverage, the provisions of th"
+      },
+      {
+        "clause": "3.1.2.1",
+        "candidate": "Semi sparkling or Crackling"
+      },
+      {
+        "clause": "3.1",
+        "candidate": "Cleaning and sanitation"
+      },
+      {
+        "clause": "3.0",
+        "candidate": "Space Requirements"
+      },
+      {
+        "clause": "2.2",
+        "candidate": "Food and packaging materials storage"
+      },
+      {
+        "clause": "27.4",
+        "candidate": "Cargo compartments of transport vehicles and containers shou"
+      },
+      {
+        "clause": "4.0",
+        "candidate": "Slaughter"
+      },
+      {
+        "clause": "3.3",
+        "candidate": "Containers for chemicals and hazardous substances Containers"
+      },
+      {
+        "clause": "2.8.1",
+        "candidate": "Packaging and wrapping material"
+      },
+      {
+        "clause": "1.3.3",
+        "candidate": "Containers for chemicals and hazardous substances Containers"
+      },
+      {
+        "clause": "2.1.13",
+        "candidate": "Return"
+      },
+      {
+        "clause": "2.2",
+        "candidate": "Crop contaminants and naturally occurring toxic substances"
+      },
+      {
+        "clause": "27.2",
+        "candidate": "The important records that shall be maintained include incom"
+      },
+      {
+        "clause": "2.2.1",
+        "candidate": "General Requirements"
+      },
+      {
+        "clause": "2.2.5",
+        "candidate": "As far as possible, store raw materials separately from semi"
+      },
+      {
+        "clause": "5.7",
+        "candidate": "The label of a package of a beverage containing more than"
+      },
+      {
+        "clause": "4.5",
+        "candidate": "Drainage and waste disposal"
+      },
+      {
+        "clause": "2.11",
+        "candidate": "OTHER FOOD PRODUCT AND INGREDIENTS"
+      },
+      {
+        "clause": "1.1",
+        "candidate": "Short title and commencement"
+      },
+      {
+        "clause": "2.8",
+        "candidate": "Food Packaging and wrapping"
+      },
+      {
+        "clause": "2.6",
+        "candidate": "Exemptions from labelling requirements"
+      },
+      {
+        "clause": "1.1.1",
+        "candidate": "These regulations may be called the Food Safety and Standard"
+      },
+      {
+        "clause": "10.3",
+        "candidate": "Visitors"
+      },
+      {
+        "clause": "4.1",
+        "candidate": "Health Status"
+      },
+      {
+        "clause": "3.4",
+        "candidate": "Waste disposal Management"
+      },
+      {
+        "clause": "5.03",
+        "candidate": "The weighing scales used shall be of a type which obviates u"
+      },
+      {
+        "clause": "1.1.1",
+        "candidate": "These regulations may be called the Food Safety and Standard"
+      },
+      {
+        "clause": "2.9",
+        "candidate": "Food Transportation"
+      },
+      {
+        "clause": "6.1",
+        "candidate": "Training"
+      },
+      {
+        "clause": "2.4.6",
+        "candidate": "Specific restrictions on Product labels",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "3.2",
+        "candidate": "Standards of Additives"
+      },
+      {
+        "clause": "5.1",
+        "candidate": "Declaration of alcohol content"
+      },
+      {
+        "clause": "8.03",
+        "candidate": "No worker suspected to be suffering from fever, vomiting, di"
+      },
+      {
+        "clause": "2.1",
+        "candidate": "Food Receipt"
+      },
+      {
+        "clause": "2.10",
+        "candidate": "Quality control"
+      },
+      {
+        "clause": "2.1.16",
+        "candidate": "Jurisdiction of Designated officer The Commissioner of Food "
+      },
+      {
+        "clause": "2.5",
+        "candidate": "Holding"
+      },
+      {
+        "clause": "2.2.2",
+        "candidate": "Labelling of Pre-packaged Foods In addition to the General L"
+      },
+      {
+        "clause": "1.3.1",
+        "candidate": "Equipment and containers that come in direct contact with fo"
+      },
+      {
+        "clause": "1.1",
+        "candidate": "Title and commencement"
+      },
+      {
+        "clause": "2.3.2",
+        "candidate": "Principal display panel"
+      },
+      {
+        "clause": "2.2.2",
+        "candidate": "Responsibilities of E-commerce Food Business Operators"
+      },
+      {
+        "clause": "1.4.8",
+        "candidate": "Storage facilities Where necessary, adequate facilities for "
+      },
+      {
+        "clause": "3.1.4.3",
+        "candidate": "Other fruit wines"
+      },
+      {
+        "clause": "2.7",
+        "candidate": "Notice of addition, admixture or deficiency in food"
+      },
+      {
+        "clause": "2.1.18",
+        "candidate": "Testing"
+      },
+      {
+        "clause": "2.3",
+        "candidate": "Residues"
+      },
+      {
+        "clause": "2.7",
+        "candidate": "Food Display and Service"
+      },
+      {
+        "clause": "2.1.9",
+        "candidate": "Modifications, Expansion or Changes in premise"
+      },
+      {
+        "clause": "3.1.16",
+        "candidate": "Use of Dimethyl Dicarbonate"
+      },
+      {
+        "clause": "3.1.15",
+        "candidate": "Use of Lactulose Syrup in foods"
+      },
+      {
+        "clause": "2.8.9",
+        "candidate": "ASPARTYL PHENYL ALANINE METHYL ESTER",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "3.1.12",
+        "candidate": "SEQUESTERING AND BUFFERING AGENTS",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "4.3.4",
+        "candidate": "All people entering food processing, storage, distribution a"
+      },
+      {
+        "clause": "5.3.1",
+        "candidate": "Time and temperature control"
+      },
+      {
+        "clause": "7.4",
+        "candidate": "Allergenic Contamination Presence of allergens listed in the"
+      },
+      {
+        "clause": "2.3.1",
+        "candidate": "General Conditions"
+      },
+      {
+        "clause": "2.10.5",
+        "candidate": "Beverages - ALCOHOLIC"
+      },
+      {
+        "clause": "2.8.1",
+        "candidate": "Malt or grain whisky",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "1.2",
+        "candidate": "Premises and rooms"
+      },
+      {
+        "clause": "1.2.1",
+        "candidate": "In these regulations unless the context otherwise requires"
+      },
+      {
+        "clause": "6.1",
+        "candidate": "A detailed Standard Operating Procedure"
+      },
+      {
+        "clause": "0.1",
+        "candidate": "N hydrochloric acid per gram of material"
+      },
+      {
+        "clause": "4.4",
+        "candidate": "Ice and Steam Ice and steam used in direct contact with food"
+      },
+      {
+        "clause": "3.27",
+        "candidate": "Consistent with the size of the factory and volume and varie"
+      },
+      {
+        "clause": "2.1.10",
+        "candidate": "Mode of payment"
+      },
+      {
+        "clause": "1.3",
+        "candidate": "The surrounding areas of the establishment shall be kept cle"
+      },
+      {
+        "clause": "2.1.11",
+        "candidate": "Transfer of registration certificate or License in case of d"
+      },
+      {
+        "clause": "3.1.2",
+        "candidate": "Based on carbon dioxide content, wine may be of the followin"
+      },
+      {
+        "clause": "4.3",
+        "candidate": "Personal Cleanliness"
+      },
+      {
+        "clause": "2.1.5",
+        "candidate": "Procedure for License in certain local areas"
+      },
+      {
+        "clause": "5.1",
+        "candidate": "Procurement of raw materials"
+      },
+      {
+        "clause": "7.5",
+        "candidate": "Wherever steam is used directly on food during processing, t"
+      },
+      {
+        "clause": "2.5",
+        "candidate": "MEAT AND MEAT PRODUCTS",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "2.6",
+        "candidate": "Meat processing unit should be laid out and equipped so as t"
+      },
+      {
+        "clause": "5.2",
+        "candidate": "Cleaning and Disinfection - Cleaning and disinfection should"
+      },
+      {
+        "clause": "2.2.1",
+        "candidate": "Licensing of E-Commerce Food Business"
+      },
+      {
+        "clause": "3.10",
+        "candidate": "All items, fittings and equipments that touch or come in con"
+      },
+      {
+        "clause": "1.2",
+        "candidate": "Barley water means the product prepared from unfermented but"
+      },
+      {
+        "clause": "4.05",
+        "candidate": "Suitable and sufficient receptacles furnished with closely f"
+      },
+      {
+        "clause": "2.1.4",
+        "candidate": "Processing of Application for license"
+      },
+      {
+        "clause": "22.2.2",
+        "candidate": "Cooling chambers for storage of fish food products shall be "
+      },
+      {
+        "clause": "3.2",
+        "candidate": "Food control and monitoring equipment used to cook, heat tre"
+      },
+      {
+        "clause": "10.2",
+        "candidate": "Personal Cleanliness"
+      },
+      {
+        "clause": "5.4.2",
+        "candidate": "For primary packaging"
+      },
+      {
+        "clause": "4.2.3",
+        "candidate": "In food-handling areas, personnel with open cuts, wounds or "
+      },
+      {
+        "clause": "2.1",
+        "candidate": "DAIRY PRODUCTS AND ANALOGUES",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "1.1",
+        "candidate": "Location & Surroundings"
+      },
+      {
+        "clause": "2.13.4",
+        "candidate": "Record of Irradiation of Food"
+      },
+      {
+        "clause": "3.10",
+        "candidate": "All items, fittings and equipments that touch or come in con"
+      },
+      {
+        "clause": "3.1.17",
+        "candidate": "Other substances to be used in Specified limits The use of s"
+      },
+      {
+        "clause": "4.5.2",
+        "candidate": "The disposal of sewage and effluents"
+      },
+      {
+        "clause": "4.10",
+        "candidate": "Suitable and sufficient receptacles furnished with properly "
+      },
+      {
+        "clause": "1.3.5",
+        "candidate": "Alcoholic beverage may contain additives, enzymes and proces"
+      },
+      {
+        "clause": "3.6",
+        "candidate": "Appropriate facilities for the cleaning and disinfecting of "
+      },
+      {
+        "clause": "2.3",
+        "candidate": "Manner of declaration"
+      },
+      {
+        "clause": "10.1",
+        "candidate": "Health Status"
+      },
+      {
+        "clause": "2.1.5",
+        "candidate": "The FBO should have procedures in place to confirm that the "
+      },
+      {
+        "clause": "1.2",
+        "candidate": "Definitions"
+      },
+      {
+        "clause": "1.2.1",
+        "candidate": "In these regulations unless the context otherwise requires"
+      },
+      {
+        "clause": "16.4",
+        "candidate": "The disposal of sewage and effluents"
+      },
+      {
+        "clause": "5.4",
+        "candidate": "Food Packaging"
+      },
+      {
+        "clause": "2.1.14",
+        "candidate": "Food Business Operator to be bound by directions or order"
+      },
+      {
+        "clause": "3.1",
+        "candidate": "Water Supply"
+      },
+      {
+        "clause": "2.7",
+        "candidate": "Liqueur or Cordial or Apertifs",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "4.3.1",
+        "candidate": "Food handlers shall maintain a high degree of personal clean"
+      },
+      {
+        "clause": "1.2.1",
+        "candidate": "In these regulations unless the context otherwise requires"
+      },
+      {
+        "clause": "5.2",
+        "candidate": "Cleaning and Disinfection - Cleaning and disinfection should"
+      },
+      {
+        "clause": "2.11.7",
+        "candidate": "CAROB POWDER means the powder obtained from the roasted pods"
+      },
+      {
+        "clause": "2.6",
+        "candidate": "Fish and Fish Products",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "6.5",
+        "candidate": "Personal Effects and Clothing"
+      },
+      {
+        "clause": "3.25",
+        "candidate": "In case of small slaughter houses, waste material should be "
+      },
+      {
+        "clause": "4.4",
+        "candidate": "Ice and Steam Ice and steam used in direct contact with food"
+      },
+      {
+        "clause": "2.10.4",
+        "candidate": "COFFEE - CHICORY MIXTURE"
+      },
+      {
+        "clause": "2.4.5",
+        "candidate": "Cooked or semi processed high risk food that is to be refrig"
+      },
+      {
+        "clause": "3.21",
+        "candidate": "Suitable and sufficient facilities shall be provided in conv"
+      },
+      {
+        "clause": "1.3.9",
+        "candidate": "Alcoholic beverage shall be packed in suitable containers as"
+      },
+      {
+        "clause": "2.13.2",
+        "candidate": "Requirement for the process of Irradiation"
+      },
+      {
+        "clause": "2.2",
+        "candidate": "FATS, OILS AND FAT EMULSIONS"
+      },
+      {
+        "clause": "4.1",
+        "candidate": "Water supply"
+      },
+      {
+        "clause": "3.1.1",
+        "candidate": "Table wine or grape wine",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "3.1.5",
+        "candidate": "Wine from other agricultural and plant sources"
+      },
+      {
+        "clause": "4.2",
+        "candidate": "Sanitary Design, Construction and Installation"
+      },
+      {
+        "clause": "2.13.1",
+        "candidate": "Dose of Irradiation"
+      },
+      {
+        "clause": "2.1",
+        "candidate": "Packaging"
+      },
+      {
+        "clause": "1.3.4",
+        "candidate": "The water used for dilution to bottling strength shall meet "
+      },
+      {
+        "clause": "2.3.30",
+        "candidate": "Carbonated Fruit Beverages or Fruit Drinks"
+      },
+      {
+        "clause": "2.4.1",
+        "candidate": "Labelling of infant milk substitute and infant food"
+      },
+      {
+        "clause": "9.14",
+        "candidate": "Waste of the meat shop to be disposed of packed in heavy pol"
+      },
+      {
+        "clause": "4.8",
+        "candidate": "Where necessary, adequate facilities for the storage of food"
+      },
+      {
+        "clause": "7.4",
+        "candidate": "Washing of Hands"
+      },
+      {
+        "clause": "2.13",
+        "candidate": "IRRADIATION OF FOOD"
+      },
+      {
+        "clause": "1.4.4",
+        "candidate": "Personnel hygiene and employee facilities"
+      },
+      {
+        "clause": "2.3",
+        "candidate": "FRUIT & VEGETABLE PRODUCTS"
+      },
+      {
+        "clause": "2.1.21",
+        "candidate": "Scheme for Facilitators"
+      },
+      {
+        "clause": "1.4",
+        "candidate": "Roasted coffee and ground coffee shall conform to the follow"
+      },
+      {
+        "clause": "2.9",
+        "candidate": "SALT, SPICES, CONDIMENTS AND RELATED PRODUCTS"
+      },
+      {
+        "clause": "2.7",
+        "candidate": "SWEETS & CONFECTIONERY"
+      },
+      {
+        "clause": "22.2",
+        "candidate": "Equipment & containers"
+      },
+      {
+        "clause": "2.1.9",
+        "candidate": "Modifications, Expansion or Changes in premise"
+      },
+      {
+        "clause": "2.1.8",
+        "candidate": "Suspension or cancellation of Registration Certificate or li"
+      },
+      {
+        "clause": "4.5",
+        "candidate": "Visitors"
+      },
+      {
+        "clause": "2.1.2",
+        "candidate": "License for food business"
+      },
+      {
+        "clause": "19.1",
+        "candidate": "Food handlers shall maintain a high degree of personal clean"
+      },
+      {
+        "clause": "1.1.1",
+        "candidate": "These regulations may be called the Food Safety and Standard"
+      },
+      {
+        "clause": "2.1.10",
+        "candidate": "BUTTER, GHEE & MILK FATS"
+      },
+      {
+        "clause": "3.1",
+        "candidate": "Wine Save as specifically mentioned in different categories,"
+      },
+      {
+        "clause": "1.1",
+        "candidate": "Short title and commencement"
+      },
+      {
+        "clause": "2.4",
+        "candidate": "CEREALS AND CEREAL PRODUCTS",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "2.1.2",
+        "candidate": "Product specific requirements"
+      },
+      {
+        "clause": "2.3.23",
+        "candidate": "Synthetic Syrup for use in Dispensers for carbonated water"
+      },
+      {
+        "clause": "4.6",
+        "candidate": "Personnel facilities and toilets"
+      },
+      {
+        "clause": "19.4",
+        "candidate": "All people entering food processing, storage, distribution a"
+      },
+      {
+        "clause": "2.4.5",
+        "candidate": "Specific Labelling Requirements of other Products"
+      },
+      {
+        "clause": "2.1.7",
+        "candidate": "Validity and Renewal of Registration and License"
+      },
+      {
+        "clause": "12.2",
+        "candidate": "The FBO shall have a documented and effective product recall"
+      },
+      {
+        "clause": "2.1.1",
+        "candidate": "General Requirements"
+      },
+      {
+        "clause": "3.1.13",
+        "candidate": "Use of Glycerol Esters of Wood Resins"
+      },
+      {
+        "clause": "1.3",
+        "candidate": "General requirements"
+      },
+      {
+        "clause": "2.8",
+        "candidate": "In meat handling areas"
+      },
+      {
+        "clause": "2.4.3",
+        "candidate": "Labelling of permitted food colours"
+      },
+      {
+        "clause": "1.5",
+        "candidate": "The container shall be well filled with the product and shal"
+      },
+      {
+        "clause": "2.8",
+        "candidate": "Sweetening agents including Honey",
+        "reason": "no-means-long"
+      },
+      {
+        "clause": "7.2",
+        "candidate": "The important records that shall be maintained and kept for "
+      },
+      {
+        "clause": "2.6",
+        "candidate": "Reheating"
+      },
+      {
+        "clause": "2.4",
+        "candidate": "Food preparation"
+      },
+      {
+        "clause": "2.9",
+        "candidate": "The use of construction materials which cannot be adequately"
+      },
+      {
+        "clause": "2.13.3",
+        "candidate": "Restrictions on Irradiation of Food"
+      },
+      {
+        "clause": "4.4",
+        "candidate": "Personal Behaviour"
+      },
+      {
+        "clause": "2.3.14",
+        "candidate": "Thermally Processed Tomato Puree And Paste"
+      },
+      {
+        "clause": "4.6.2",
+        "candidate": "Number of toilets should be adequate depending on the number"
+      },
+      {
+        "clause": "2.10.6",
+        "candidate": "BEVERAGES NON-ALCOHOLIC - CARBONATED"
+      },
+      {
+        "clause": "2.1.19",
+        "candidate": "Inspection and Audit"
+      },
+      {
+        "clause": "3.3",
+        "candidate": "Every utensil or container containing any food or ingredient"
+      },
+      {
+        "clause": "9.1",
+        "candidate": "Cleaning and Maintenance"
+      },
+      {
+        "clause": "1.4.1",
+        "candidate": "Water Supply vi) Adequate supply of potable water"
+      },
+      {
+        "clause": "2.2",
+        "candidate": "Labelling"
+      },
+      {
+        "clause": "2.0",
+        "candidate": "Loading"
+      },
+      {
+        "clause": "2.1.12",
+        "candidate": "Appeal"
+      },
+      {
+        "clause": "3.5",
+        "candidate": "Hand Washing Facilities in Processing Areas"
+      },
+      {
+        "clause": "9.2",
+        "candidate": "Pest Control Systems"
+      },
+      {
+        "clause": "8.4",
+        "candidate": "Personal Behavior"
+      },
+      {
+        "clause": "2.4.2",
+        "candidate": "Labelling of edible oils and fats"
+      },
+      {
+        "clause": "2.7.4",
+        "candidate": "Chocolate means a homogeneous product obtained by an adequat"
+      },
+      {
+        "clause": "22.1",
+        "candidate": "All interior structures"
+      },
+      {
+        "clause": "5.1",
+        "candidate": "Product information There shall be a clear indication in eve"
+      },
+      {
+        "clause": "2.5.1",
+        "candidate": "Definition"
+      },
+      {
+        "clause": "5.9.1",
+        "candidate": "In addition to requirements mentioned in sub-regulations"
+      },
+      {
+        "clause": "2.3.3",
+        "candidate": "The height of numeral in the declaration"
+      },
+      {
+        "clause": "2.7.1",
+        "candidate": "Food Portioning"
+      },
+      {
+        "clause": "28.2",
+        "candidate": "Biological water resources catchments and food products of a"
+      },
+      {
+        "clause": "5.9",
+        "candidate": "Labelling of wine"
+      },
+      {
+        "clause": "1.14",
+        "candidate": "Each consignment should bear a label showing the following p"
+      },
+      {
+        "clause": "1.14",
+        "candidate": "Each consignment should bear a label showing the following p"
+      },
+      {
+        "clause": "5.9.2",
+        "candidate": "In addition the label on wine may"
+      },
+      {
+        "clause": "8.5",
+        "candidate": "Visitors"
+      },
+      {
+        "clause": "2.1.1",
+        "candidate": "Registration of Petty Food Business"
+      },
+      {
+        "clause": "2.13.5",
+        "candidate": "Standards of Irradiated Food"
+      },
+      {
+        "clause": "2.8",
+        "candidate": "In meat handling areas"
+      },
+      {
+        "clause": "3.26",
+        "candidate": "Suitable and sufficient facilities shall be provided for the"
+      },
+      {
+        "clause": "9.14",
+        "candidate": "Waste of the meat shop to be disposed of packed in heavy pol"
+      },
+      {
+        "clause": "4.5.2",
+        "candidate": "The disposal of sewage and effluents"
+      },
+      {
+        "clause": "5.03",
+        "candidate": "The weighing scales used shall be of a type which obviates u"
+      },
+      {
+        "clause": "4.2",
+        "candidate": "Illness and injuries"
+      },
+      {
+        "clause": "16.1",
+        "candidate": "CPCB shall establish an online system for the registration a"
+      },
+      {
+        "clause": "7.4",
+        "candidate": "Brand Owner"
+      },
+      {
+        "clause": "7.3",
+        "candidate": "Importer"
+      },
+      {
+        "clause": "7.8",
+        "candidate": "EPR on plastic packaging will promote sustainable packaging,"
+      },
+      {
+        "clause": "7.3",
+        "candidate": "Importer"
+      },
+      {
+        "clause": "12.8",
+        "candidate": "The CPCB shall carry out review of technologies related to p"
+      },
+      {
+        "clause": "9.4",
+        "candidate": "The Environment Compensation shall be levied by respective S"
+      },
+      {
+        "clause": "6.2",
+        "candidate": "The entities covered under clause"
+      },
+      {
+        "clause": "6.5",
+        "candidate": "In case any entity falls in more than one sub-category menti"
+      },
+      {
+        "clause": "8.1",
+        "candidate": "A PIBO who has fulfilled their EPR targets, category-wise an"
+      },
+      {
+        "clause": "6.3",
+        "candidate": "The entities covered under clause"
+      },
+      {
+        "clause": "1.1",
+        "candidate": "The Ministry of Environment, Forest and Climate Change"
+      },
+      {
+        "clause": "5.2",
+        "candidate": "The EPR regulation covers the following with respect to plas"
+      },
+      {
+        "clause": "6.1",
+        "candidate": "The following entities shall register on the centralized por"
+      },
+      {
+        "clause": "12.6",
+        "candidate": "CPCB will establish a mechanism to ensure a regular dialogue"
+      },
+      {
+        "clause": "5.1",
+        "candidate": "The following plastic packaging categories are covered under"
+      },
+      {
+        "clause": "7.4",
+        "candidate": "Brand Owner"
+      },
+      {
+        "clause": "7.2",
+        "candidate": "Producer"
+      },
+      {
+        "clause": "9.7",
+        "candidate": "Non-fulfilment of obligations set out under these guidelines"
+      },
+      {
+        "clause": "1.3",
+        "candidate": "The rules cast Extended Producer Responsibility"
+      }
+    ],
+    "n_commodities": 146,
+    "n_synonyms": 41
+  }
+}
