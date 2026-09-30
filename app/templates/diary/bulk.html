@@ -395,16 +395,20 @@
             row.hidden = false;
             row.querySelectorAll('select, input').forEach(function (el) { el.disabled = false; });
             if (toggle) { toggle.textContent = '− 2nd duty'; toggle.setAttribute('aria-expanded', 'true'); }
-        } else {
-            if (clear) {
-                row.querySelectorAll('select').forEach(function (el) { el.value = ''; });
-                row.querySelectorAll('input').forEach(function (el) { el.value = ''; });
-            }
-            // Keep the row submitted-but-empty (disabled inputs are not
-            // submitted, which the server also treats as blank) — either
-            // way a cleared saved duty is deleted on save.
+        } else if (clear) {
+            // "Remove": blank the inputs so saving deletes the stored duty.
+            // Disabled controls are not submitted, which the server also
+            // treats as blank — either way the cleared duty is deleted.
+            row.querySelectorAll('select').forEach(function (el) { el.value = ''; });
+            row.querySelectorAll('input').forEach(function (el) { el.value = ''; });
             row.hidden = true;
             row.querySelectorAll('select, input').forEach(function (el) { el.disabled = true; });
+            if (toggle) { toggle.textContent = '+ 2nd duty'; toggle.setAttribute('aria-expanded', 'false'); }
+        } else {
+            // Collapsing is non-destructive: the row hides but its inputs
+            // stay enabled (and submitted), so a saved second duty survives
+            // a collapse + save. Only "Remove" deletes.
+            row.hidden = true;
             if (toggle) { toggle.textContent = '+ 2nd duty'; toggle.setAttribute('aria-expanded', 'false'); }
         }
     }

@@ -64,10 +64,6 @@ COUNT_ACTIVITIES = frozenset({"field", "office", "vvip", "meeting"})
 #: their counts, and are skipped in the Work Diary print.
 EXCLUSIVE_ACTIVITIES = frozenset({"holiday", "leave"})
 
-#: Duty slots per calendar day. 1 is the primary row (legacy field names);
-#: 2 is the collapsed "+ second duty" sub-row (``*2_`` field names).
-DUTY_SEQS = (1, 2)
-
 #: Max length of the per-day Place of Visit input (mirrors the column).
 PLACE_MAX_LEN = 200
 
@@ -408,8 +404,9 @@ def bulk():
     entries = _load_month(owner, month)
 
     if request.method == "POST":
-        saved = 0
-        deleted = 0
+        saved_days: set[str] = set()
+        deleted_days: set[str] = set()
+        moved_days: set[str] = set()
         for day in range(1, days_in_month + 1):
             work_date = f"{month.year:04d}-{month.month:02d}-{day:02d}"
             day_entries = entries.get(work_date, {})
@@ -430,36 +427,71 @@ def bulk():
                 a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
                 has1, has2 = True, False
 
-            # holiday / leave are exclusive: slot 1 wins, slot 2 is
-            # cleared; a holiday in slot 2 alongside a working slot 1
-            # is dropped (the working duty wins).
-            if a1 in EXCLUSIVE_ACTIVITIES and has2:
+            # holiday / leave are exclusive and never share a day. Slot 1
+            # wins: a second duty alongside a holiday is cleared, and a
+            # holiday in slot 2 alongside a working slot 1 is dropped
+            # (the working duty wins).
+            if (a1 in EXCLUSIVE_ACTIVITIES and has2) or (a2 in EXCLUSIVE_ACTIVITIES and has1):
                 if day_entries.get(2) is not None:
-                    deleted += _delete(owner, work_date, 2)
-                a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
-                has2 = False
-            elif a2 in EXCLUSIVE_ACTIVITIES and has1:
-                if day_entries.get(2) is not None:
-                    deleted += _delete(owner, work_date, 2)
+                    deleted_days.add(work_date)
+                    _delete(owner, work_date, 2)
                 a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
                 has2 = False
 
+            outcomes: dict[int, str] = {}
             for seq, vals, had in ((1, (a1, p1, s1, n1, pl1), has1), (2, (a2, p2, s2, n2, pl2), has2)):
                 act, prem, samp, note, place = vals
                 stored = day_entries.get(seq)
                 if not had and stored is None:
+                    outcomes[seq] = "noop"
                     continue
                 outcome = _save_slot(owner, work_date, seq, act, prem, samp, note, place, stored)
+                outcomes[seq] = outcome
                 if outcome == "saved":
-                    saved += 1
+                    saved_days.add(work_date)
                 elif outcome == "deleted":
-                    deleted += 1
-        if saved or deleted:
+                    deleted_days.add(work_date)
+
+            # Clearing duty 1 must not strand the survivor in seq=2:
+            # compact it down to slot 1 so a day never holds a bare
+            # seq=2 row (the same invariant as pre-save promotion above).
+            present = {
+                seq: outcomes[seq] == "saved"
+                or (day_entries.get(seq) is not None and outcomes[seq] == "noop")
+                for seq in (1, 2)
+            }
+            if not present[1] and present[2]:
+                survivor = db.session.get(
+                    WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": 2}
+                )
+                if survivor is not None:
+                    db.session.add(WorkDiaryEntry(
+                        fso_name=owner,
+                        work_date=work_date,
+                        duty_seq=1,
+                        activity=survivor.activity,
+                        premises=survivor.premises,
+                        samples=survivor.samples,
+                        notes=survivor.notes,
+                        place_of_visit=survivor.place_of_visit,
+                        summary=survivor.summary,
+                    ))
+                    db.session.delete(survivor)
+                    # The day compacted rather than cleared: drop its
+                    # delete mark (a save mark, if any, already stands).
+                    # Track the move separately — it must still commit even
+                    # when no save/delete mark remains for the month.
+                    moved_days.add(work_date)
+                    deleted_days.discard(work_date)
+        if saved_days or deleted_days or moved_days:
             db.session.commit()
-        if saved:
-            flash(f"Saved {saved} day(s) for {calendar.month_name[month.month]} {month.year}.", "success")
-        if deleted:
-            flash(f"Cleared {deleted} blank day(s).", "info")
+        if saved_days:
+            flash(
+                f"Saved {len(saved_days)} day(s) for {calendar.month_name[month.month]} {month.year}.",
+                "success",
+            )
+        if deleted_days:
+            flash(f"Cleared {len(deleted_days)} blank day(s).", "info")
         return redirect(url_for("diary.bulk", m=month.strftime("%Y-%m"), fso_name=owner))
 
     rows = []

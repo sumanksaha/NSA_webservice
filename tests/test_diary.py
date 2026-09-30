@@ -536,6 +536,34 @@ class TestSplitDuty:
         assert _row(app, "Officer A", 5, 1).activity == "field"
         assert _row(app, "Officer A", 5, 2) is None
 
+    def test_clearing_duty_1_compacts_survivor_to_slot_1(self, env):
+        """No bare seq=2 row: clearing duty 1 moves the survivor down."""
+        app, clients = env
+        _save_split_day(
+            clients["officerA"],
+            5,
+            activity="field",
+            premises=3,
+            samples=2,
+            place="Market",
+            notes="morning",
+            second_activity="vvip",
+            second_place="Town Hall",
+            second_notes="evening",
+        )
+        # Select "—" on duty 1 with its stored numbers re-submitted.
+        form = _blank_form()
+        form.update({
+            "activity_5": "", "premises_5": "3", "samples_5": "2",
+            "place_5": "Market", "notes_5": "morning",
+            "activity2_5": "vvip", "place2_5": "Town Hall", "notes2_5": "evening",
+        })
+        clients["officerA"].post(f"/diary/bulk?m={MONTH}", data=form, follow_redirects=True)
+        survivor = _row(app, "Officer A", 5, 1)
+        assert survivor is not None
+        assert (survivor.activity, survivor.place_of_visit, survivor.notes) == ("vvip", "Town Hall", "evening")
+        assert _row(app, "Officer A", 5, 2) is None
+
     def test_holiday_clears_the_second_duty(self, env):
         app, clients = env
         _save_split_day(clients["officerA"], 5, activity="field", second_activity="vvip")

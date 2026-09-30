@@ -159,6 +159,12 @@ def preview():
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
+    if filters.get("purpose") == "complaint":
+        # The official report is Monthly-only and no Monthly row carries
+        # the Complaint purpose (complaint detail lives in Notes text).
+        # Carrying the index's complaint filter here would silently export
+        # a blank signed document, so report unfiltered instead.
+        filters["purpose"] = None
     entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
     return render_template(
@@ -221,6 +227,10 @@ def pdf():
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
+    if filters.get("purpose") == "complaint":
+        # As in preview(): the Monthly-only report has no Complaint
+        # purpose — drop the filter rather than exporting blank rows.
+        filters["purpose"] = None
     entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
     html = render_template(

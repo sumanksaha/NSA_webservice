@@ -27,6 +27,9 @@ def upgrade():
         return
     # Rebuild the table with the new 3-column PK (works on both
     # PostgreSQL and SQLite, where ALTER of a PK is not supported).
+    # NOTE: on PostgreSQL the rebuilt PK constraint keeps the
+    # auto-generated name (work_diary_new_pkey); a future migration must
+    # reference that name, not work_diary_pkey, when touching the PK.
     op.create_table(
         "work_diary_new",
         sa.Column("fso_name", sa.String(length=100), nullable=False),

@@ -432,6 +432,19 @@ class TestRoutes:
         assert WorkDiaryEngine().build_entries(fso_name="Officer B", include_inspections=False) == []
         assert len(WorkDiaryEngine().build_entries(fso_name="Officer B")) == 1
 
+    def test_preview_drops_complaint_filter(self, env):
+        """No Monthly row carries Complaint purpose: preview with
+        purpose=complaint renders the unfiltered monthly report, never a
+        blank signed document."""
+        _, client = env
+        _make_diary_day("Officer B", 11, "field", place="Monthly Market")
+        _make_inspection("INSP-WD-70C", "Officer B", 11, problem="adulteration")
+        resp = client.get(
+            "/workdiary/preview", query_string={"fso_name": "Officer B", "purpose": "complaint"}
+        )
+        assert resp.status_code == 200
+        assert "Monthly Market" in resp.get_data(as_text=True)
+
     def test_split_duty_day_renders_two_rows_with_merged_date(self, env):
         """A split-duty day is two rows; Date merges, Place/Purpose/Activity stay separate."""
         _make_diary_day("Officer A", 5, "field", place="Market", premises=3, samples=2)
