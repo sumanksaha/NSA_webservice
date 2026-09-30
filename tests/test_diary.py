@@ -93,13 +93,12 @@ def env():
 
 
 def _blank_form() -> dict[str, str]:
-    """A form with every day of the month left empty."""
+    """A form with every day of the month left empty (both duty slots)."""
     form: dict[str, str] = {}
     for day in range(1, 32):
-        form[f"activity_{day}"] = ""
-        form[f"premises_{day}"] = ""
-        form[f"samples_{day}"] = ""
-        form[f"notes_{day}"] = ""
+        for base in ("activity", "premises", "samples", "notes", "place"):
+            form[f"{base}_{day}"] = ""
+            form[f"{base}2_{day}"] = ""
     return form
 
 
@@ -112,13 +111,15 @@ def _save_day(client, day: int, **fields) -> str:
     return resp.get_data(as_text=True)
 
 
-def _row(app, fso_name: str, day: int):
-    """The stored diary row for one officer and day (``None`` when absent)."""
+def _row(app, fso_name: str, day: int, duty_seq: int = 1):
+    """The stored diary row for one officer, day and duty slot (``None`` when absent)."""
     from app.extensions import db
     from app.models import WorkDiaryEntry
 
     with app.app_context():
-        return db.session.get(WorkDiaryEntry, {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}"})
+        return db.session.get(
+            WorkDiaryEntry, {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}", "duty_seq": duty_seq}
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -374,6 +375,7 @@ class TestRetiredActivity:
                 WorkDiaryEntry(
                     fso_name="Officer A",
                     work_date=f"{MONTH}-05",
+                    duty_seq=1,
                     activity="inspection",
                     premises=3,
                     samples=1,
@@ -480,3 +482,71 @@ class TestMonth:
         for day in (1, 15, 31):
             assert f'name="activity_{day}"' in body
         assert 'name="activity_32"' not in body
+
+
+# --------------------------------------------------------------------------- #
+# Split-duty days (field + VVIP on one date)
+# --------------------------------------------------------------------------- #
+
+
+def _save_split_day(client, day: int, **fields) -> str:
+    """POST a split-duty day: ``field`` keys target duty 1, ``second_*`` target duty 2."""
+    form = _blank_form()
+    for key, value in fields.items():
+        if key.startswith("second_"):
+            form[f"{key[7:]}2_{day}"] = str(value)
+        else:
+            form[f"{key}_{day}"] = str(value)
+    resp = client.post(f"/diary/bulk?m={MONTH}", data=form, follow_redirects=True)
+    assert resp.status_code == 200
+    return resp.get_data(as_text=True)
+
+
+class TestSplitDuty:
+    def test_field_plus_vvip_on_one_date(self, env):
+        app, clients = env
+        _save_split_day(
+            clients["officerA"],
+            5,
+            activity="field",
+            premises=3,
+            samples=2,
+            place="Market",
+            second_activity="vvip",
+            second_place="Town Hall",
+            second_premises=1,
+        )
+        first = _row(app, "Officer A", 5, 1)
+        second = _row(app, "Officer A", 5, 2)
+        assert (first.activity, first.premises, first.samples, first.place_of_visit) == ("field", 3, 2, "Market")
+        assert (second.activity, second.premises, second.place_of_visit) == ("vvip", 1, "Town Hall")
+
+    def test_lone_second_duty_promotes_to_slot_1(self, env):
+        app, clients = env
+        _save_split_day(clients["officerA"], 6, second_activity="vvip", second_place="Hall")
+        assert _row(app, "Officer A", 6, 1).activity == "vvip"
+        assert _row(app, "Officer A", 6, 2) is None
+
+    def test_clearing_one_slot_keeps_the_other(self, env):
+        app, clients = env
+        _save_split_day(clients["officerA"], 5, activity="field", premises=3, second_activity="vvip")
+        form = _blank_form()
+        form.update({"activity_5": "field", "premises_5": "3", "activity2_5": "", "premises2_5": ""})
+        clients["officerA"].post(f"/diary/bulk?m={MONTH}", data=form, follow_redirects=True)
+        assert _row(app, "Officer A", 5, 1).activity == "field"
+        assert _row(app, "Officer A", 5, 2) is None
+
+    def test_holiday_clears_the_second_duty(self, env):
+        app, clients = env
+        _save_split_day(clients["officerA"], 5, activity="field", second_activity="vvip")
+        _save_split_day(clients["officerA"], 5, activity="holiday", second_activity="vvip")
+        row = _row(app, "Officer A", 5, 1)
+        assert row.activity == "holiday"
+        assert (row.premises, row.samples) == (0, 0)
+        assert _row(app, "Officer A", 5, 2) is None
+
+    def test_totals_sum_both_duties(self, env):
+        _, clients = env
+        _save_split_day(clients["officerA"], 5, activity="field", premises=3, second_activity="vvip", second_premises=1)
+        body = clients["officerA"].get(f"/diary/bulk?m={MONTH}").get_data(as_text=True)
+        assert "<strong>4</strong> premises inspected" in body

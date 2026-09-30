@@ -283,24 +283,40 @@ Intimation.
 ### Monthly Diary
 
 The owner-scoped editable grid (`app/diary.py`, `/diary/bulk`) where an FSO
-records one row per calendar day: Activity (`field | vvip | meeting | office
-| holiday | leave`), Place of Visit (free text, max 200), premises/samples
-counts (recorded for field, office, VVIP duty and meeting — a VVIP or
-meeting day can include inspections/samples; holiday / leave always zero
-them), Notes. Persisted as `WorkDiaryEntry`
-(`work_diary`, keyed `fso_name + work_date`). Spelled "Diary", never "Dairy".
-Input field is Notes; its printed suffix is Remarks (see Work Diary).
+records up to two duty slots per calendar day (`duty_seq` 1|2): Activity
+(`field | vvip | meeting | office | holiday | leave`), Place of Visit (free
+text, max 200), premises/samples counts (recorded for field, office, VVIP
+duty and meeting — a VVIP or meeting day can include inspections/samples;
+holiday / leave always zero them), Notes. Each slot is an independent
+record; a day with two slots is a **split-duty day** (e.g. field work +
+VVIP duty). Persisted as `WorkDiaryEntry` (`work_diary`, keyed
+`fso_name + work_date + duty_seq`). `holiday` / `leave` are exclusive and
+never share a day. Spelled "Diary", never "Dairy". Input field is Notes;
+its printed suffix is Remarks (see Work Diary).
+
+### Split-duty day
+
+A `(fso_name, work_date)` with two Monthly Diary duty slots (any two of
+`field | office | vvip | meeting`, duplicates allowed; `holiday | leave`
+never splits). Month totals sum both slots; per-activity day counts count
+duties, not calendar days. Clearing one slot keeps the other; a lone
+second-slot entry promotes to slot 1 so days never hold a bare seq=2 row.
 
 ### Work Diary
 
 The official per-FSO report (`app/workdiary/`, `/workdiary` → preview/PDF in
 the `FSO_Work_Diary_Template.html` shape: Date (i) / Place of Visit (ii) /
-Purpose (iii) / Activity (iv)). It unions Inspection rows (purpose `Routine
-Inspection | Complaint`) with Monthly Diary rows whose derived purpose is
-`VVIP duty | Meeting | Inspection` (`vvip → VVIP duty`, `meeting → Meeting`,
-`field/office → Inspection` via `derive_diary_purpose`); `holiday` / `leave`
-days stay in the Monthly Diary and are skipped in print. Column (iv) Activity
-for a Monthly row is rebuilt at print time from the live fields (never the
+Purpose (iii) / Activity (iv)). The interactive index unions Inspection rows
+(purpose `Routine Inspection | Complaint`) with Monthly Diary rows whose
+derived purpose is `VVIP duty | Meeting | Inspection` (`vvip → VVIP duty`,
+`meeting → Meeting`, `field/office → Inspection` via `derive_diary_purpose`);
+`holiday` / `leave` days stay in the Monthly Diary and are skipped in print.
+The official preview/PDF buildup is Monthly-only
+(`include_inspections=False`): Inspection rows are excluded, numeric values
+come from the Monthly Diary itself. A split-duty day renders as two rows:
+Date merged (`rowspan=2`), Place / Purpose / Activity separate per duty
+(Duty1 then Duty2 in `duty_seq` order, after any Inspections in the index).
+Column (iv) Activity for a Monthly row is rebuilt at print time from the live fields (never the
 frozen stored summary): base is `Field work` for field days and the purpose
 (`VVIP duty` / `Meeting` / `Inspection`) otherwise, `[ at place].` + `Inspected N premises,
 collected M sample(s).` when the activity records counts and at least one is

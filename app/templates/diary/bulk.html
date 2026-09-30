@@ -80,7 +80,7 @@
                                 aria-label="Samples for day {{ row.day }}"
                             />
                         </td>
-                        <td>
+                        <td class="diary-notes-cell">
                             <input
                                 type="text"
                                 name="notes_{{ row.day }}"
@@ -88,6 +88,74 @@
                                 value="{{ row.notes }}"
                                 aria-label="Notes for day {{ row.day }}"
                             />
+                            <button type="button" class="btn btn-secondary btn-sm diary-toggle" data-duty-toggle="{{ row.day }}" aria-expanded="{{ 'true' if row.has_second else 'false' }}" aria-controls="duty2-{{ row.day }}">
+                                {{ '− 2nd duty' if row.has_second else '+ 2nd duty' }}
+                            </button>
+                        </td>
+                    </tr>
+                    <tr id="duty2-{{ row.day }}" class="diary-second" {% if not row.has_second %}hidden{% endif %}>
+                        <td class="diary-day diary-second-label">
+                            <span class="diary-day-dow">+ 2nd</span>
+                        </td>
+                        <td>
+                            <select name="activity2_{{ row.day }}" class="form-input diary-select" aria-label="Second activity for day {{ row.day }}" {% if not row.has_second %}disabled{% endif %}>
+                                <option value="">—</option>
+                                {% for key, label in activities.items() %}
+                                <option value="{{ key }}" {% if row.activity2 == key %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                                {% if row.activity2 and row.activity2 not in activities %}
+                                <option value="{{ row.activity2 }}" selected>{{ row.activity2 }} (retired)</option>
+                                {% endif %}
+                            </select>
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                name="place2_{{ row.day }}"
+                                class="form-input diary-place"
+                                value="{{ row.place_of_visit2 }}"
+                                maxlength="200"
+                                placeholder="Place of visit (2nd duty)"
+                                aria-label="Second place of visit for day {{ row.day }}"
+                                {% if not row.has_second %}disabled{% endif %}
+                            />
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                name="premises2_{{ row.day }}"
+                                class="form-input diary-num"
+                                value="{{ row.premises2 or '' }}"
+                                placeholder="0"
+                                aria-label="Second premises for day {{ row.day }}"
+                                {% if not row.has_second %}disabled{% endif %}
+                            />
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                name="samples2_{{ row.day }}"
+                                class="form-input diary-num"
+                                value="{{ row.samples2 or '' }}"
+                                placeholder="0"
+                                aria-label="Second samples for day {{ row.day }}"
+                                {% if not row.has_second %}disabled{% endif %}
+                            />
+                        </td>
+                        <td>
+                            <input
+                                type="text"
+                                name="notes2_{{ row.day }}"
+                                class="form-input diary-notes"
+                                value="{{ row.notes2 }}"
+                                aria-label="Second notes for day {{ row.day }}"
+                                {% if not row.has_second %}disabled{% endif %}
+                            />
+                            <button type="button" class="btn btn-secondary btn-sm diary-remove" data-duty-remove="{{ row.day }}" aria-controls="duty2-{{ row.day }}">
+                                Remove
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -101,7 +169,7 @@
             <a href="{{ workdiary_url }}" class="btn btn-secondary">
                 <i class="fa-solid fa-book-open"></i> View in Work Diary
             </a>
-            <span class="form-hint">Premises and samples can be recorded for field work, VVIP duty, meeting and office work. Select “—” to clear a saved day.</span>
+            <span class="form-hint">Premises and samples can be recorded for field work, VVIP duty, meeting and office work. Use “+ 2nd duty” for a split day (e.g. field + VVIP). Select “—” to clear a saved duty. Holiday / leave cannot share a day.</span>
         </div>
     </form>
 
@@ -287,6 +355,18 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
     }
+    .diary-notes-cell {
+        white-space: nowrap;
+    }
+    .diary-toggle, .diary-remove {
+        margin-top: 4px;
+    }
+    .diary-second {
+        background: var(--bg-subtle);
+    }
+    .diary-second-label {
+        font-style: italic;
+    }
     @media (max-width: 640px) {
         .diary-table th:nth-child(1),
         .diary-table td:nth-child(1) {
@@ -302,4 +382,44 @@
         }
     }
 </style>
+{% endblock %}
+{% block extra_js %}
+{{ super() }}
+<script>
+(function () {
+    function setSecondDay(day, show, clear) {
+        var row = document.getElementById('duty2-' + day);
+        if (!row) return;
+        var toggle = document.querySelector('[data-duty-toggle="' + day + '"]');
+        if (show) {
+            row.hidden = false;
+            row.querySelectorAll('select, input').forEach(function (el) { el.disabled = false; });
+            if (toggle) { toggle.textContent = '− 2nd duty'; toggle.setAttribute('aria-expanded', 'true'); }
+        } else {
+            if (clear) {
+                row.querySelectorAll('select').forEach(function (el) { el.value = ''; });
+                row.querySelectorAll('input').forEach(function (el) { el.value = ''; });
+            }
+            // Keep the row submitted-but-empty (disabled inputs are not
+            // submitted, which the server also treats as blank) — either
+            // way a cleared saved duty is deleted on save.
+            row.hidden = true;
+            row.querySelectorAll('select, input').forEach(function (el) { el.disabled = true; });
+            if (toggle) { toggle.textContent = '+ 2nd duty'; toggle.setAttribute('aria-expanded', 'false'); }
+        }
+    }
+    document.querySelectorAll('[data-duty-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var day = btn.getAttribute('data-duty-toggle');
+            var row = document.getElementById('duty2-' + day);
+            setSecondDay(day, !!(row && row.hidden), false);
+        });
+    });
+    document.querySelectorAll('[data-duty-remove]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            setSecondDay(btn.getAttribute('data-duty-remove'), false, true);
+        });
+    });
+})();
+</script>
 {% endblock %}

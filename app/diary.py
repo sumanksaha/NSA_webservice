@@ -1,9 +1,11 @@
 """Work Diary module — bulk daily activity entry.
 
 One editable grid per calendar month: every day gets a row (Activity, Place
-of Visit, Premises, Samples, Notes) and "Save all" writes the whole month in one
-POST. Persistence is the ``work_diary`` table (one row per officer per day,
-keyed by ``fso_name`` + ``work_date``), owned by
+of Visit, Premises, Samples, Notes) plus a collapsed "+ second duty"
+sub-row for a **split-duty day** (e.g. field work + VVIP duty on one date).
+"Save all" writes the whole month in one POST. Persistence is the
+``work_diary`` table (one row per officer per day per duty slot, keyed by
+``fso_name`` + ``work_date`` + ``duty_seq`` 1|2), owned by
 ``app.models.WorkDiaryEntry`` and created by its Alembic migration.
 
 Rows are officer-scoped: a non-admin always reads and writes their own bound
@@ -56,6 +58,15 @@ INSPECTION_ACTIVITIES = frozenset({"field", "office"})
 #: VVIP duty and meeting days can all involve inspections/samples (e.g. a
 #: VVIP visit with a premises check); only holiday / leave always zero them.
 COUNT_ACTIVITIES = frozenset({"field", "office", "vvip", "meeting"})
+
+#: Activities that can never share a day with another duty. A split-duty
+#: day holds two countable duties; holiday / leave are exclusive, zero
+#: their counts, and are skipped in the Work Diary print.
+EXCLUSIVE_ACTIVITIES = frozenset({"holiday", "leave"})
+
+#: Duty slots per calendar day. 1 is the primary row (legacy field names);
+#: 2 is the collapsed "+ second duty" sub-row (``*2_`` field names).
+DUTY_SEQS = (1, 2)
 
 #: Max length of the per-day Place of Visit input (mirrors the column).
 PLACE_MAX_LEN = 200
@@ -251,8 +262,13 @@ def print_activity(activity: str, premises: int, samples: int, notes: str, place
 # ---------------------------------------------------------------------------
 
 
-def _load_month(owner: str, month: _dt.date) -> dict[str, dict]:
-    """Return ``owner``'s diary rows for ``month`` keyed by ISO date."""
+def _load_month(owner: str, month: _dt.date) -> dict[str, dict[int, dict]]:
+    """Return ``owner``'s diary rows for ``month`` keyed by ISO date then duty slot.
+
+    Outer key is the ISO date, inner key is ``duty_seq`` (1|2). A
+    single-duty day maps to ``{1: entry}``; a split-duty day to
+    ``{1: entry, 2: entry}``; a blank day is absent.
+    """
     last_day = calendar.monthrange(month.year, month.month)[1]
     result = db.session.execute(
         db.select(WorkDiaryEntry).where(
@@ -261,10 +277,12 @@ def _load_month(owner: str, month: _dt.date) -> dict[str, dict]:
             WorkDiaryEntry.work_date <= _dt.date(month.year, month.month, last_day).isoformat(),
         ),
     ).scalars()
-    rows: dict[str, dict] = {}
+    rows: dict[str, dict[int, dict]] = {}
     for row in result:
-        rows[row.work_date] = {
+        seq = row.duty_seq or 1
+        rows.setdefault(row.work_date, {})[seq] = {
             "work_date": row.work_date,
+            "duty_seq": seq,
             "activity": row.activity or "",
             "premises": row.premises or 0,
             "samples": row.samples or 0,
@@ -284,11 +302,12 @@ def _upsert(
     notes: str,
     summary: str,
     place: str = "",
+    duty_seq: int = 1,
 ) -> None:
-    """Insert or update one of ``owner``'s diary rows."""
-    row = db.session.get(WorkDiaryEntry, {"fso_name": owner, "work_date": work_date})
+    """Insert or update one duty slot of ``owner``'s diary rows."""
+    row = db.session.get(WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": duty_seq})
     if row is None:
-        row = WorkDiaryEntry(fso_name=owner, work_date=work_date)
+        row = WorkDiaryEntry(fso_name=owner, work_date=work_date, duty_seq=duty_seq)
         db.session.add(row)
     row.activity = activity
     row.premises = premises
@@ -298,14 +317,80 @@ def _upsert(
     row.summary = summary
 
 
-def _delete(owner: str, work_date: str) -> int:
-    """Remove one of ``owner``'s diary rows; return 1 if a row was deleted."""
+def _delete(owner: str, work_date: str, duty_seq: int = 1) -> int:
+    """Remove one duty slot of ``owner``'s diary rows; return 1 if deleted."""
     return (
         db.session
         .query(WorkDiaryEntry)
-        .filter(WorkDiaryEntry.fso_name == owner, WorkDiaryEntry.work_date == work_date)
+        .filter(
+            WorkDiaryEntry.fso_name == owner,
+            WorkDiaryEntry.work_date == work_date,
+            WorkDiaryEntry.duty_seq == duty_seq,
+        )
         .delete()
     )
+
+
+# ---------------------------------------------------------------------------
+# Split-duty helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_slot(day: int, second: bool = False) -> tuple[str, int, int, str, str]:
+    """Parse one duty slot's submitted fields for ``day``.
+
+    Duty 1 uses the legacy names (``activity_{day}`` …); duty 2 uses the
+    ``*2_`` names (``activity2_{day}`` …) so single-duty months submit
+    exactly the form they always did.
+    """
+    prefix = lambda base: f"{base}2_{day}" if second else f"{base}_{day}"  # noqa: E731
+    activity = (request.form.get(prefix("activity")) or "").strip()
+    premises = _parse_count(request.form.get(prefix("premises")))
+    samples = _parse_count(request.form.get(prefix("samples")))
+    notes = (request.form.get(prefix("notes")) or "").strip()
+    place = (request.form.get(prefix("place")) or "").strip()[:PLACE_MAX_LEN]
+    return activity, premises, samples, notes, place
+
+
+def _slot_has_data(activity: str, premises: int, samples: int, notes: str, place: str) -> bool:
+    """True when a submitted slot carries anything worth persisting."""
+    return bool(activity) or not _is_blank_day(premises, samples, notes, place)
+
+
+def _save_slot(
+    owner: str,
+    work_date: str,
+    duty_seq: int,
+    activity: str,
+    premises: int,
+    samples: int,
+    notes: str,
+    place: str,
+    stored: dict | None,
+) -> str:
+    """Persist one duty slot; return ``"saved"`` / ``"deleted"`` / ``"noop"``.
+
+    Unknown activity values are ignored (``"noop"`` without touching the
+    stored row). A blank slot clears its stored row; flipping a saved slot
+    to "—" without retyping its numbers clears it too. Numbers (or
+    notes/place) with no activity imply field work.
+    """
+    if activity and activity not in ACTIVITIES:
+        return "noop"  # unknown activity values are ignored
+    if not activity:
+        if _is_blank_day(premises, samples, notes, place) or _is_untouched_stored(
+            stored, premises, samples, notes, place
+        ):
+            return "deleted" if _delete(owner, work_date, duty_seq) else "noop"
+        activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
+    if activity not in COUNT_ACTIVITIES:
+        premises = 0
+        samples = 0
+    summary = _summary_line(work_date, activity, premises, samples, notes, place)
+    if _is_unchanged_stored(stored, activity, premises, samples, notes, summary, place):
+        return "noop"  # untouched rows are not rewritten; a re-save is a no-op
+    _upsert(owner, work_date, activity, premises, samples, notes, summary, place, duty_seq)
+    return "saved"
 
 
 # ---------------------------------------------------------------------------
@@ -327,41 +412,48 @@ def bulk():
         deleted = 0
         for day in range(1, days_in_month + 1):
             work_date = f"{month.year:04d}-{month.month:02d}-{day:02d}"
-            activity = (request.form.get(f"activity_{day}") or "").strip()
-            premises = _parse_count(request.form.get(f"premises_{day}"))
-            samples = _parse_count(request.form.get(f"samples_{day}"))
-            notes = (request.form.get(f"notes_{day}") or "").strip()
-            place = (request.form.get(f"place_{day}") or "").strip()[:PLACE_MAX_LEN]
+            day_entries = entries.get(work_date, {})
+            a1, p1, s1, n1, pl1 = _parse_slot(day, second=False)
+            a2, p2, s2, n2, pl2 = _parse_slot(day, second=True)
 
-            if activity and activity not in ACTIVITIES:
-                continue  # unknown activity values are ignored
-            if not activity:
-                if _is_blank_day(premises, samples, notes, place) or _is_untouched_stored(
-                    entries.get(work_date), premises, samples, notes, place
-                ):
-                    # A fully blank row clears the day, and so does flipping a
-                    # saved day to "—" without retyping its numbers — the
-                    # pre-filled inputs are still in the submitted form.
-                    deleted += _delete(owner, work_date)
+            # Unknown activity values are ignored slot-wise (the stored
+            # slot survives a re-save, mirroring the single-duty rule).
+            # _save_slot returns "noop" for them; keep their submitted
+            # shape so promotion/exclusivity treat them as occupied.
+            has1 = _slot_has_data(a1, p1, s1, n1, pl1)
+            has2 = _slot_has_data(a2, p2, s2, n2, pl2)
+
+            # A lone second-duty entry promotes to slot 1 so days never
+            # hold a bare seq=2 row.
+            if not has1 and has2:
+                a1, p1, s1, n1, pl1 = a2, p2, s2, n2, pl2
+                a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
+                has1, has2 = True, False
+
+            # holiday / leave are exclusive: slot 1 wins, slot 2 is
+            # cleared; a holiday in slot 2 alongside a working slot 1
+            # is dropped (the working duty wins).
+            if a1 in EXCLUSIVE_ACTIVITIES and has2:
+                if day_entries.get(2) is not None:
+                    deleted += _delete(owner, work_date, 2)
+                a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
+                has2 = False
+            elif a2 in EXCLUSIVE_ACTIVITIES and has1:
+                if day_entries.get(2) is not None:
+                    deleted += _delete(owner, work_date, 2)
+                a2, p2, s2, n2, pl2 = "", 0, 0, "", ""
+                has2 = False
+
+            for seq, vals, had in ((1, (a1, p1, s1, n1, pl1), has1), (2, (a2, p2, s2, n2, pl2), has2)):
+                act, prem, samp, note, place = vals
+                stored = day_entries.get(seq)
+                if not had and stored is None:
                     continue
-                activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
-            if activity not in COUNT_ACTIVITIES:
-                premises = 0
-                samples = 0
-            summary = _summary_line(work_date, activity, premises, samples, notes, place)
-            if _is_unchanged_stored(entries.get(work_date), activity, premises, samples, notes, summary, place):
-                continue  # untouched rows are not rewritten; a re-save is a no-op
-            _upsert(
-                owner,
-                work_date,
-                activity,
-                premises,
-                samples,
-                notes,
-                summary,
-                place,
-            )
-            saved += 1
+                outcome = _save_slot(owner, work_date, seq, act, prem, samp, note, place, stored)
+                if outcome == "saved":
+                    saved += 1
+                elif outcome == "deleted":
+                    deleted += 1
         if saved or deleted:
             db.session.commit()
         if saved:
@@ -373,19 +465,29 @@ def bulk():
     rows = []
     for day in range(1, days_in_month + 1):
         work_date = f"{month.year:04d}-{month.month:02d}-{day:02d}"
-        entry = entries.get(work_date, {})
+        day_entries = entries.get(work_date, {})
+        first = day_entries.get(1, {})
+        second = day_entries.get(2, {})
         rows.append({
             "day": day,
             "work_date": work_date,
             "weekday": _dt.date(month.year, month.month, day).strftime("%a"),
-            "activity": entry.get("activity", ""),
-            "premises": entry.get("premises", 0),
-            "samples": entry.get("samples", 0),
-            "notes": entry.get("notes", ""),
-            "place_of_visit": entry.get("place_of_visit", ""),
+            "activity": first.get("activity", ""),
+            "premises": first.get("premises", 0),
+            "samples": first.get("samples", 0),
+            "notes": first.get("notes", ""),
+            "place_of_visit": first.get("place_of_visit", ""),
+            "activity2": second.get("activity", ""),
+            "premises2": second.get("premises", 0),
+            "samples2": second.get("samples", 0),
+            "notes2": second.get("notes", ""),
+            "place_of_visit2": second.get("place_of_visit", ""),
+            "has_second": 2 in day_entries,
         })
 
-    month_entries = [entries[r["work_date"]] for r in rows if r["work_date"] in entries]
+    month_entries: list[dict] = []
+    for day_entries in entries.values():
+        month_entries.extend(day_entries.values())
     total_premises = sum(e["premises"] for e in month_entries)
     total_samples = sum(e["samples"] for e in month_entries)
     days_per_activity = {key: 0 for key in ACTIVITIES}
@@ -397,7 +499,7 @@ def bulk():
         or _summary_line(
             e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"], e.get("place_of_visit", "")
         )
-        for e in sorted(month_entries, key=lambda e: e["work_date"])
+        for e in sorted(month_entries, key=lambda e: (e["work_date"], e.get("duty_seq", 1)))
     ]
 
     last_day = days_in_month

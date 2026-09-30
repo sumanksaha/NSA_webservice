@@ -100,6 +100,7 @@ def _make_diary_day(
     premises: int = 0,
     samples: int = 0,
     notes: str = "",
+    duty_seq: int = 1,
 ) -> None:
     """One Monthly Diary row written directly (bypasses the grid POST)."""
     from app.diary import _summary_line
@@ -111,6 +112,7 @@ def _make_diary_day(
         WorkDiaryEntry(
             fso_name=fso_name,
             work_date=work_date,
+            duty_seq=duty_seq,
             activity=activity,
             premises=premises,
             samples=samples,
@@ -405,8 +407,10 @@ class TestRoutes:
         assert "No inspections match" in resp.get_data(as_text=True)
 
     def test_preview_renders_official_report(self, env):
+        """Preview is the Monthly-only official report (inspections excluded)."""
         _, client = env
-        _make_inspection("INSP-WD-70", "Officer B", 11, fbo_address="5 Park St")
+        _make_diary_day("Officer B", 11, "field", place="5 Park St", premises=2, samples=1)
+        _make_inspection("INSP-WD-70", "Officer B", 11, fbo_address="Inspection Addr")
         resp = client.get("/workdiary/preview", query_string={"fso_name": "Officer B"})
         assert resp.status_code == 200
         body = resp.get_data(as_text=True)
@@ -418,6 +422,29 @@ class TestRoutes:
         assert "Signature of Food Safety Officer (FSO)" in body
         assert "Countersigned" in body and "Designated Officer (DO)" in body
         assert "5 Park St" in body
+        assert "Inspection Addr" not in body
+
+    def test_preview_monthly_only_excludes_inspections(self, env):
+        """PDF buildup contract: preview never merges Inspection rows."""
+        from app.workdiary.engine import WorkDiaryEngine
+
+        _make_inspection("INSP-WD-70B", "Officer B", 11, fbo_address="5 Park St")
+        assert WorkDiaryEngine().build_entries(fso_name="Officer B", include_inspections=False) == []
+        assert len(WorkDiaryEngine().build_entries(fso_name="Officer B")) == 1
+
+    def test_split_duty_day_renders_two_rows_with_merged_date(self, env):
+        """A split-duty day is two rows; Date merges, Place/Purpose/Activity stay separate."""
+        _make_diary_day("Officer A", 5, "field", place="Market", premises=3, samples=2)
+        _make_diary_day("Officer A", 5, "vvip", place="Town Hall", duty_seq=2)
+        entries = WorkDiaryEngine().build_entries(fso_name="Officer A", include_inspections=False)
+        assert len(entries) == 2
+        assert entries[0]["is_first_in_date"] is True
+        assert entries[0]["date_rowspan"] == 2
+        assert entries[1]["is_first_in_date"] is False
+        assert entries[0]["purpose"] == "Inspection"
+        assert entries[1]["purpose"] == "VVIP duty"
+        assert "Market" in entries[0]["place_of_visit"]
+        assert "Town Hall" in entries[1]["place_of_visit"]
 
     def test_report_pads_to_minimum_rows(self, env):
         _, client = env

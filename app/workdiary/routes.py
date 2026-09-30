@@ -149,12 +149,17 @@ def index():
 
 @workdiary_bp.route("/preview")
 def preview():
-    """Official Work Diary report, print-ready (opens in a new tab)."""
+    """Official Work Diary report, print-ready (opens in a new tab).
+
+    Monthly-only buildup: Inspection rows are excluded here (numeric
+    inspection values are entered through the Monthly Diary itself); the
+    interactive index above keeps the union.
+    """
     filters = _filters_from_request()
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
-    entries = engine.build_entries(**filters)
+    entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
     return render_template(
         "workdiary/report.html",
@@ -211,12 +216,12 @@ def save_edited():
 
 @workdiary_bp.route("/pdf")
 def pdf():
-    """Download the current diary report as a PDF."""
+    """Download the current diary report as a PDF (Monthly-only buildup)."""
     filters = _filters_from_request()
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
-    entries = engine.build_entries(**filters)
+    entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
     html = render_template(
         "workdiary/report.html",
