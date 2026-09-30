@@ -1159,12 +1159,12 @@ A preliminary knowledge graph was extracted from the 24-document FSSAI corpus (`
 
 ### Deepening Priority Ranking (Post D1-D5)
 
-| Rank | Candidate | File                            | Depth       | Risk          | Effort   | Why first?                                                                                                       |
-| ---- | --------- | ------------------------------- | ----------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1    | D6        | `app/utils/sync.py`             | 1 to 4      | Low           | 2-3 days | Dead code + 3x duplication + test surface = internals. Deletion test passes cleanly. Highest leverage.           |
-| 2    | D7        | `app/services/audit.py` callers | 1 to 3      | —             | —        | ✅ **DONE (2026-09-09)** — `audit_logger` factory shipped in `app/services/audit_context.py`; wrappers deleted; 23/23 tests pass.                                                  |
-| 3    | D8        | `app/utils/lookup.py`           | 1 to 4      | Medium        | 1-2 days | ⚠️ Module deepened (2026-09-08); caller migration outstanding — 6 call sites broken at runtime; contract tests missing.                                                          |
-| 4    | D9        | `verification_service.py`       | N/A (smell) | Trivially low | <1 hour  | Optional `_degrade` helper. Not a deepening move.                                                                |
+| Rank | Candidate | File                            | Depth       | Risk          | Effort   | Why first?                                                                                                                        |
+| ---- | --------- | ------------------------------- | ----------- | ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | D6        | `app/utils/sync.py`             | 1 to 4      | Low           | 2-3 days | Dead code + 3x duplication + test surface = internals. Deletion test passes cleanly. Highest leverage.                            |
+| 2    | D7        | `app/services/audit.py` callers | 1 to 3      | —             | —        | ✅ **DONE (2026-09-09)** — `audit_logger` factory shipped in `app/services/audit_context.py`; wrappers deleted; 23/23 tests pass. |
+| 3    | D8        | `app/utils/lookup.py`           | 1 to 4      | Medium        | 1-2 days | ⚠️ Module deepened (2026-09-08); caller migration outstanding — 6 call sites broken at runtime; contract tests missing.           |
+| 4    | D9        | `verification_service.py`       | N/A (smell) | Trivially low | <1 hour  | Optional `_degrade` helper. Not a deepening move.                                                                                 |
 
 ---
 
