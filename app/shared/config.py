@@ -162,6 +162,36 @@ _TABLE: tuple[Setting, ...] = (
         False,
         help="Evidence Task planning for task-aware retrieval (default off).",
     ),
+    # --- Autonomous research (Phase 1+: corpus discovery + gap analysis) ---
+    Setting(
+        "RAG_RESEARCH_ENABLED",
+        "research_enabled",
+        bool,
+        False,
+        help="Master switch for the autonomous research loop (corpus discovery + gap analysis). Off by default.",
+    ),
+    Setting(
+        "RAG_RESEARCH_CORPUS_DISCOVERY",
+        "research_corpus_discovery",
+        bool,
+        True,
+        help="When RAG_RESEARCH_ENABLED, auto-discover missing corpus provisions from the gold registry. Off = skip discovery.",
+    ),
+    Setting(
+        "RAG_RESEARCH_USE_PAYLOAD_INDEX",
+        "research_use_payload_index",
+        bool,
+        True,
+        opt_in=False,
+        help="When True, corpus discovery uses the cached Qdrant payload index to verify section-body presence. Falls back to chunk_id-only checks when the index is unavailable.",
+    ),
+    Setting(
+        "RAG_RESEARCH_MAX_INGESTION_REQUESTS",
+        "research_max_ingestion_requests",
+        int,
+        50,
+        help="Circuit breaker: cap on ingestion requests emitted per discovery run (prevents runaway fetches).",
+    ),
     # --- Universal multihop (Part B) --------------------------------------
     Setting(
         "ENABLE_MULTIHOP",
@@ -559,6 +589,54 @@ _TABLE: tuple[Setting, ...] = (
         True,
         opt_in=False,
         help="Kill switch for the FBO auditor CAPA agent (LLM spend). 503 when off.",
+    ),
+    # --- Entity–provision-aware food retrieval (2026-09-28) --------------------
+    Setting(
+        "RAG_FOOD_INTENT_ENABLED",
+        "food_intent_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help="Food-commodity query understanding (entity/intent/parameters) feeding retrieval + reranking.",
+    ),
+    Setting(
+        "RAG_FOOD_LEGAL_RERANK",
+        "food_legal_rerank",
+        bool,
+        True,
+        opt_in=False,
+        help="Two-stage legal-aware reranker (entity gate + intent/provision features) for food queries.",
+    ),
+    Setting(
+        "RAG_FOOD_PARENT_RECONSTRUCT",
+        "food_parent_reconstruct",
+        bool,
+        True,
+        opt_in=False,
+        help="Parent-standard reconstruction (clause grouping + evidence bundle) before generation.",
+    ),
+    Setting(
+        "RAG_FOOD_VALIDATE",
+        "food_validate",
+        bool,
+        True,
+        opt_in=False,
+        help="Post-retrieval validation layer: check the evidence can answer the intent before generation; run fallback retrieval otherwise.",
+    ),
+    Setting(
+        "RAG_FOOD_ANSWER_MODE",
+        "food_answer_mode",
+        bool,
+        True,
+        opt_in=False,
+        help="Intent-conditioned food-standard answer prompts (anti-definition-anchoring) + structured answer.",
+    ),
+    Setting(
+        "RAG_FOOD_FALLBACK_ROUNDS",
+        "food_fallback_rounds",
+        int,
+        2,
+        help="Max fallback retrieval rounds when validation fails (0 disables fallback retrieval).",
     ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}

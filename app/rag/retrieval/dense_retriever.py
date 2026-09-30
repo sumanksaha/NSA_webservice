@@ -191,6 +191,7 @@ class DenseRetriever:
             chunk_index=payload.get("chunk_index", 0),
             hierarchy_level=payload.get("hierarchy_level", 0),
             parent_chunk_id=payload.get("parent_chunk_id"),
+            document_id=str(payload.get("document_id", "") or ""),
         )
 
     def search(
