@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nsa-webservice"
-version = "0.8.0"
+version = "0.9.0"
 description = "Government-grade Legal Intelligence Platform for Food Safety Officer adjudication, inspection tracking, sample management, and legal document generation."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"

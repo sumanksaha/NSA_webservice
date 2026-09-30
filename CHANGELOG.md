@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
 > Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Rust Parts 1.6+ / 2–5, CE-v2 retrain.
 
+## [0.9.0] - 2026-09-30
+
+### Added
+
+- **Monthly Diary split-duty days**: a calendar day holds up to two duty slots (`duty_seq` 1|2, PK now `fso_name + work_date + duty_seq`, migration `add_diary_duty_seq`) so an FSO can record field work + VVIP duty on one date via the `/diary/bulk` collapsed "+ 2nd duty" sub-row. Slots are independent (activity/place/counts/notes); `holiday`/`leave` stay exclusive; clearing duty 1 compacts the survivor to slot 1; month totals count duties (`tests/test_diary.py` — 35 pass, incl. 6 split-duty tests).
+- **Monthly-only Work Diary PDF/preview**: `WorkDiaryEngine.build_entries(include_inspections=False)` for the official report (index keeps the Inspection union); a split-duty day renders as two rows with Date merged (`rowspan=2`) and Place/Purpose/Activity separate; `purpose=complaint` renders unfiltered with an explicit printed notice instead of a blank document (`tests/test_workdiary.py` — 44 pass).
+
+### Fixed
+
+- Review findings: collapsing (not removing) a second-duty row no longer deletes it; merged identical holiday-exclusivity branches (ruff SIM114); day-based save/clear flash counts; removed dead `DUTY_SEQS`.
+
 ### Fixed / Added / Feat (2026-09-20 → 2026-09-26)
 
 - Fix: KMC trade-license lookup, RCM migration length, NULL RCM-exempt fields, JSON save guard, edit-form KMC visibility, adjudication visibility, dead Evidence mock, RCM form/edit save/validation/future-date guard, sync best-effort, boot schema-drift guard

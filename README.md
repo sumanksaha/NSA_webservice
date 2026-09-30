@@ -241,7 +241,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ## Project Status & Capabilities
 
-**Version:** 0.8.0 (Pre‑Production)
+**Version:** 0.9.0 (Pre‑Production)
 
 The NSA Webservice now offers a comprehensive, end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. Key capabilities include:
 
@@ -259,6 +259,7 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **OCR extraction pipeline foundation** (models + services + QStash task) toward lab‑report autopopulation.
 - **Food Cell DO Intimation workflow** (Phase 21) forwarding samples to the Designated Officer.
 - **Legal RAG vector search** (694 tests) — full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation, LangGraph self-correcting agent with M5 checkpointing + human-in-the-loop.
+- **Monthly Diary split-duty days + monthly-only Work Diary PDF** — a calendar day holds up to two duty slots (e.g. field work + VVIP duty) via the `/diary/bulk` “+ 2nd duty” sub-row; preview/PDF build Monthly-only with the Date cell merged and Place/Purpose/Activity separate per duty; `purpose=complaint` renders unfiltered with an explicit printed notice (`tests/test_diary.py` 35 + `tests/test_workdiary.py` 44 pass).
 - **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
 
 | Area                      | Status         | Notes                                                                                                                                                                                                                                                                              |
