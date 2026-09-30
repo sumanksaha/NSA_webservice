@@ -434,8 +434,8 @@ class TestRoutes:
 
     def test_preview_drops_complaint_filter(self, env):
         """No Monthly row carries Complaint purpose: preview with
-        purpose=complaint renders the unfiltered monthly report, never a
-        blank signed document."""
+        purpose=complaint renders the unfiltered monthly report with an
+        explicit notice — never a blank signed document, never silent."""
         _, client = env
         _make_diary_day("Officer B", 11, "field", place="Monthly Market")
         _make_inspection("INSP-WD-70C", "Officer B", 11, problem="adulteration")
@@ -443,7 +443,18 @@ class TestRoutes:
             "/workdiary/preview", query_string={"fso_name": "Officer B", "purpose": "complaint"}
         )
         assert resp.status_code == 200
-        assert "Monthly Market" in resp.get_data(as_text=True)
+        body = resp.get_data(as_text=True)
+        assert "Monthly Market" in body
+        assert "official report is built from the Monthly Diary" in body
+
+    def test_preview_without_complaint_filter_has_no_notice(self, env):
+        _, client = env
+        _make_diary_day("Officer B", 11, "field", place="Monthly Market")
+        resp = client.get("/workdiary/preview", query_string={"fso_name": "Officer B"})
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "Monthly Market" in body
+        assert "official report is built from the Monthly Diary" not in body
 
     def test_split_duty_day_renders_two_rows_with_merged_date(self, env):
         """A split-duty day is two rows; Date merges, Place/Purpose/Activity stay separate."""

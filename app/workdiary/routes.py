@@ -159,11 +159,13 @@ def preview():
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
-    if filters.get("purpose") == "complaint":
+    complaint_dropped = filters.get("purpose") == "complaint"
+    if complaint_dropped:
         # The official report is Monthly-only and no Monthly row carries
         # the Complaint purpose (complaint detail lives in Notes text).
         # Carrying the index's complaint filter here would silently export
-        # a blank signed document, so report unfiltered instead.
+        # a blank signed document, so report unfiltered instead — with an
+        # explicit notice in the report (complaint_dropped).
         filters["purpose"] = None
     entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
@@ -172,6 +174,7 @@ def preview():
         entries=entries,
         pad_rows=max(MIN_REPORT_ROWS - visual, 0),
         fso_label=filters.get("fso_name") or "\u00a0",
+        complaint_dropped=complaint_dropped,
         **_period_labels(filters),
     )
 
@@ -227,9 +230,11 @@ def pdf():
     blocked = _enforce_scope(filters, strict=True)
     if blocked is not None:
         return blocked
-    if filters.get("purpose") == "complaint":
+    complaint_dropped = filters.get("purpose") == "complaint"
+    if complaint_dropped:
         # As in preview(): the Monthly-only report has no Complaint
-        # purpose — drop the filter rather than exporting blank rows.
+        # purpose — drop the filter rather than exporting blank rows,
+        # and flag it so the report carries an explicit notice.
         filters["purpose"] = None
     entries = engine.build_entries(**filters, include_inspections=False)
     visual = _visual_row_count(entries)
@@ -238,6 +243,7 @@ def pdf():
         entries=entries,
         pad_rows=max(MIN_REPORT_ROWS - visual, 0),
         fso_label=filters.get("fso_name") or "\u00a0",
+        complaint_dropped=complaint_dropped,
         **_period_labels(filters),
     )
     pdf_bytes, pdf_error = generate_pdf_from_html(html)
