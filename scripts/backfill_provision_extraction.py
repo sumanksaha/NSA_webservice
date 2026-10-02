@@ -162,9 +162,24 @@ def apply_updates(store: Any, updates: dict[str, dict[str, Any]], collection: st
 
 
 def _open_collection(collection: str) -> Any:
-    from app.rag.qdrant_client import QdrantStore
+    """Build a store with an explicit client.
 
-    return QdrantStore(collection_name=collection)
+    ``QdrantStore`` reads its URL from ``flask.current_app``, which is
+    unavailable in a plain script run (it raises outside an app context and
+    the store then reports "Qdrant unavailable").  The client is therefore
+    constructed here from the project config, which reads the same
+    ``RAG_QDRANT_URL`` / ``RAG_QDRANT_API_KEY`` environment settings.
+    """
+    from qdrant_client import QdrantClient
+
+    from app.rag.qdrant_client import QdrantStore
+    from app.shared.config import cfg
+
+    url = cfg.qdrant_url
+    if not url:
+        raise RuntimeError("RAG_QDRANT_URL is not set")
+    client = QdrantClient(url=url, api_key=cfg.qdrant_api_key or None, prefer_grpc=False, timeout=120)
+    return QdrantStore(collection_name=collection, client=client)
 
 
 # --------------------------------------------------------------------------- #
