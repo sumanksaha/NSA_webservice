@@ -638,6 +638,50 @@ _TABLE: tuple[Setting, ...] = (
         2,
         help="Max fallback retrieval rounds when validation fails (0 disables fallback retrieval).",
     ),
+    # --- Statutory provision extractor (ADR-0009 Tier 1 rules mode) ----------
+    Setting(
+        "PROVISION_EXTRACTOR_ENABLED",
+        "provision_extractor_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help="Tiered statutory provision extractor at ingestion/backfill (ADR-0009).",
+    ),
+    Setting(
+        "PROVISION_EXTRACTOR_MODE",
+        "provision_extractor_mode",
+        str,
+        "rules",
+        help="Boundary disambiguation mode: 'rules' (Tier 1) or 'hybrid' (Tier 2 ML with rules fallback).",
+    ),
+    Setting(
+        "PROVISION_EXTRACTOR_MODEL_PATH",
+        "provision_extractor_model_path",
+        str,
+        "models/provision_boundaries.joblib",
+        help="Joblib artifact for Tier 2 boundary disambiguation (hybrid mode only).",
+    ),
+    Setting(
+        "PROVISION_EXTRACTOR_MIN_CONFIDENCE",
+        "provision_extractor_min_confidence",
+        float,
+        0.70,
+        help="Minimum rules-mode boundary probability to auto-accept a provision boundary.",
+    ),
+    Setting(
+        "PROVISION_EXTRACTOR_ML_THRESHOLD",
+        "provision_extractor_ml_threshold",
+        float,
+        0.25,
+        help="Tier-2 (hybrid) decision threshold; lower than rules by design.",
+    ),
+    Setting(
+        "PROVISION_EXTRACTOR_REVIEW_THRESHOLD",
+        "provision_extractor_review_threshold",
+        float,
+        0.30,
+        help="Lower bound of the borderline review band for P2 human review.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

@@ -1,6 +1,6 @@
 # ADR-0009: Tiered statutory provision extraction engine
 
-- **Status:** Accepted (Design & Architecture Spec; Implementation scheduled)
+- **Status:** Accepted; Tier 1 (rules) shipped and is the **default mode**. Tier 2 (hybrid ML) implemented but **not adopted** — the paired-bootstrap significance gate failed (see §8, 2026-10-02)
 - **Date:** 2026-09-27
 - **Context:** Ingestion & retrieval subsystems (`app/rag/`), Legal Metadata Engine (`app/metadata_extractor/`), and Legal Knowledge Graph (`kg/`)
 - **Deciders:** Architecture review
@@ -142,3 +142,39 @@ class ProvisionRecord(BaseModel):
    - Unit test asserting full functionality when `scikit-learn` is monkeypatched as absent (`test_rules_fallback_without_sklearn`).
 3. **Round-Trip Gold Resolution:**
    - All emitted `provision_id` strings must parse through `evaluation/benchmark.py::_section_from_id` and match benchmark gold targets.
+
+---
+
+## 5. Adoption Gate Result (2026-10-02)
+
+The Tier 2 (hybrid rules + statistical ML) tier is adopted over Tier 1 (rules)
+only if it beats rules on boundary recall AND gold resolution with a
+non-overlapping paired 95% bootstrap confidence interval, bootstrapped over
+documents (10,000 iterations, seed `20260811` from `evaluation/config.py`).
+
+Harness: `evaluation/provision_significance.py`
+(`bootstrap_significance` / `bootstrap_significance_report`), exposed via
+`python -m evaluation.provision_extraction_eval --bootstrap`.
+
+Corpus: 63 indexed documents, 27,345 chunks, 11 of which carry gold references.
+
+| Metric | Rules (per-doc mean) | Hybrid | Mean diff | 95% CI | Significant |
+| --- | --- | --- | --- | --- | --- |
+| Boundary recall | 0.773 | 0.788 | +0.0152 | [-0.045, 0.091] | No |
+| Gold resolution | 0.773 | 0.788 | +0.0152 | [-0.045, 0.091] | No |
+
+Aggregate report figures agree in direction: rules P=0.021 / R=0.811 / F1=0.041
+with gold resolution 0.303; hybrid P=0.022 / R=0.838 / F1=0.044 with gold
+resolution 0.313. Hybrid also resolved 3 gold provisions that rules missed
+(`gold_miss_triage_delta = 3`).
+
+**Verdict: `adopt_hybrid = false`.** Both intervals straddle zero, so the
++1.5pp recall / +3-provision gain is not distinguishable from noise at n=11
+documents. Decisions:
+
+- `PROVISION_EXTRACTOR_MODE` stays `rules` (the shipped default).
+- Tier 2 stays implemented and reachable behind the flag; it is not the default
+  and `models/provision_boundaries.joblib` remains uncommitted (training is
+  reproducible via `scripts/train_provision_boundaries.py`).
+- Revisit only when the gold-referenced document count grows enough for the
+  bootstrap to have power, or when Tier 1 recall regresses.

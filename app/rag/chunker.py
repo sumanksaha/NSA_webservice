@@ -98,6 +98,14 @@ class Chunk:
     #: against any covered section (V7-gap fix, 2026-08-13; written by
     #: ``_l4_section_headers`` and the backfill's L4 layer).
     sections_covered: list[str] = field(default_factory=list)
+    #: Provisions whose span overlaps this chunk (ADR-0009): a list of
+    #: ``{provision_id, section, subsection}``.  Empty until the provision
+    #: extractor adapter runs at ingestion.
+    provision_spans: list[dict[str, object]] = field(default_factory=list)
+    #: Max boundary confidence over the overlapping provisions.
+    provision_confidence: float = 0.0
+    #: Primary deontic modality over the overlapping provisions.
+    provision_modality: str = ""
 
     def to_payload(self) -> dict[str, object]:
         """JSON-safe Qdrant payload dict (§5.1 schema)."""
@@ -132,6 +140,9 @@ class Chunk:
             "embedding_model": self.embedding_model,
             "content_hash": self.content_hash,
             "sections_covered": list(self.sections_covered),
+            "provision_spans": [dict(span) for span in self.provision_spans],
+            "provision_confidence": round(float(self.provision_confidence), 6),
+            "provision_modality": self.provision_modality,
         }
 
     @classmethod

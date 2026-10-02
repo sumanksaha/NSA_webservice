@@ -127,6 +127,7 @@ class IngestionPipeline:
         entity_extractor: Any | None = None,
         quality_validator: Any | None = None,
         ocr: Any | None = None,
+        provision_extractor: Any | None = None,
         collection: str | None = None,
     ) -> None:
         self._indexer = indexer
@@ -140,6 +141,7 @@ class IngestionPipeline:
         self._entity_extractor = entity_extractor
         self._quality_validator = quality_validator
         self._ocr = ocr
+        self._provision_extractor = provision_extractor
         self._collection = collection
 
     # ------------------------------------------------------------------ #
@@ -304,6 +306,16 @@ class IngestionPipeline:
             chunks = [self._crossref_adapter.enrich_chunk(c) for c in chunks]
         if self._entity_extractor is not None:
             chunks = [self._entity_extractor.enrich_chunk(c) for c in chunks]
+        if self._provision_extractor is not None:
+            # ADR-0009: document-level provision spans, annotated in place on
+            # the chunk payloads (fail-closed — never blocks ingestion).
+            records = self._provision_extractor.extract(
+                chunks,
+                act_name=str(meta.get("act_name") or ""),
+                document_title=str(meta.get("title") or meta.get("document_title") or ""),
+                document_id=str(meta.get("document_id") or ""),
+            )
+            logger.debug("provision extraction: %d records for %r", records, result.document_id)
         if self._quality_validator is not None:
             # Quality is graded on the produced chunks (pre-dedup): every chunk
             # the pipeline emitted is checked, even ones later filtered as
@@ -418,6 +430,10 @@ def make_ingestion_pipeline(
     }
     if cleaner is not None:
         kwargs["cleaner"] = cleaner
+    if cfg.provision_extractor_enabled:
+        from app.rag.provision_extractor import ProvisionExtractorAdapter
+
+        kwargs["provision_extractor"] = ProvisionExtractorAdapter()
     if full_enrichment:
         from app.rag.chunk_quality import ChunkQualityValidator
         from app.rag.citation_adapter import CitationAdapter

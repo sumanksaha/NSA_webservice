@@ -199,6 +199,13 @@ Report gold misses that are **absent text** separately from misses that are
 
 1. This plan, rules mode through dry-run (steps 1–3, then 5 dry-run).
    Hybrid ML only if it beats rules on the held-out boundary metrics.
+   **Gate decided 2026-10-02: not adopted.** The paired bootstrap over the
+   11 gold-referenced documents (10,000 iterations, seed 20260811) gives
+   recall and gold-resolution mean differences of +0.0152 with 95% CI
+   [-0.045, 0.091] for both, so the CI does not exclude zero. Hybrid does
+   resolve 3 gold provisions rules misses, but that is inside the noise
+   band. `PROVISION_EXTRACTOR_MODE` therefore stays `rules`; see ADR-0009
+   section 5 and `evaluation/provision_significance.py`.
 2. Use the resulting id map as a lookup when labeling residuals
    (`evidence_missing` vs `model_wrong` vs `reference_narrow`). Do not
    start a generation budget for this work.
