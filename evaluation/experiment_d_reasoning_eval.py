@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -106,8 +107,12 @@ except ModuleNotFoundError:
 
 # torch / sentence_transformers are not installed in ./venv; stub them so the
 # import chain (eval_e2e_v2 / experiment_b) resolves without altering scoring.
+# Only stub when the real package is missing: a bare ``ModuleType`` has
+# ``__spec__ = None``, which poisons ``importlib.util.find_spec`` for every
+# later importer (``ValueError: torch.__spec__ is None``).
 for _mod in ("torch", "sentence_transformers"):
-    if _mod not in sys.modules:
+    if _mod not in sys.modules and importlib.util.find_spec(_mod) is None:
+
         class _AnyStub:
             def __init__(self, *a, **k):
                 pass

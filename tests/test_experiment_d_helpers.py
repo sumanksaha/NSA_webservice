@@ -8,6 +8,7 @@ helpers remain testable (the plots phase is never executed in tests).
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import types
@@ -53,10 +54,18 @@ def _ensure_matplotlib_stub() -> None:
 
 
 def _ensure_torch_stubs() -> None:
-    """torch / sentence_transformers are absent from ./venv; stub for import."""
+    """torch / sentence_transformers are absent from ./venv; stub for import.
+
+    Only stub when the real package is missing: a bare ``ModuleType``
+    has ``__spec__ = None``, so installing it over a real install
+    poisons ``importlib.util.find_spec`` for every later importer
+    (``ValueError: torch.__spec__ is None`` during test collection).
+    """
     for _mod in ("torch", "sentence_transformers"):
         if _mod in sys.modules:
             continue
+        if importlib.util.find_spec(_mod) is not None:
+            continue  # real package installed — never shadow it
 
         class _AnyStub:
             def __init__(self, *a, **k): ...
@@ -181,9 +190,10 @@ def test_validate_audit(d):
     ok_empty, why_empty = d.validate_audit({"status": "fail", "defects": []})
     assert not ok_empty and "defect" in why_empty
     # FAIL with at least one defect object validates.
-    ok_fail, _ = d.validate_audit(
-        {"status": "FAIL", "defects": [{"type": "citation_error", "severity": "critical", "evidence": ["[1]"]}]}
-    )
+    ok_fail, _ = d.validate_audit({
+        "status": "FAIL",
+        "defects": [{"type": "citation_error", "severity": "critical", "evidence": ["[1]"]}],
+    })
     assert ok_fail
     ok3, why3 = d.validate_audit({"defects": []})
     assert not ok3 and "status" in why3
@@ -224,7 +234,11 @@ def test_harden_audit_keeps_supported_fail(d):
         {
             "status": "FAIL",
             "defects": [
-                {"type": "exception_proviso_omission", "severity": "critical", "evidence": ["petty retailers are exempt"]},
+                {
+                    "type": "exception_proviso_omission",
+                    "severity": "critical",
+                    "evidence": ["petty retailers are exempt"],
+                },
                 {"type": "other", "severity": "major", "evidence": ["unrelated"]},
             ],
             "corrected_conclusion": "The petty retailers are exempt from the licence requirement.",

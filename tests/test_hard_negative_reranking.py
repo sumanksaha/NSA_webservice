@@ -24,7 +24,24 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # These four tests exercise torch's own loss functions directly and need
 # the optional torch stack installed.
-_requires_torch = pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="torch not installed")
+
+
+def _torch_available() -> bool:
+    """True when a real (non-stub) torch is importable.
+
+    ``find_spec`` raises ``ValueError`` when a spec-less stub module
+    sits in ``sys.modules`` (see ``test_experiment_d_helpers``), so
+    check the existing module's ``__spec__`` first and treat that
+    case as unavailable — these tests skip instead of erroring at
+    collection time.
+    """
+    module = sys.modules.get("torch")
+    if module is not None:
+        return getattr(module, "__spec__", None) is not None
+    return importlib.util.find_spec("torch") is not None
+
+
+_requires_torch = pytest.mark.skipif(not _torch_available(), reason="torch not installed")
 
 from evaluation.failure_taxonomy import (
     CATEGORIES,
