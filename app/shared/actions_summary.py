@@ -26,6 +26,63 @@ from app.shared.context_derivers import REMEDIATION_ACTIONS
 # Keys are checklist fields; values are action directives.
 _FIELD_TO_ACTION: dict[str, str] = REMEDIATION_ACTIONS
 
+# Field-to-purchase-items mapping (per FBO_actionmode.md)
+# Each field that triggers a purchase requirement maps to required items
+_FIELD_TO_PURCHASE: dict[str, list[dict[str, str]]] = {
+    "proper_attire": [
+        {
+            "name": "Hairnet",
+            "specification": "100% polyester, with elastic band",
+            "triggers": "Improper Protective Attire",
+            "reason": "Food handlers must wear clean headgear at all times while on duty.",
+        },
+        {
+            "name": "Apron",
+            "specification": "Food-grade, waterproof, knee-length",
+            "triggers": "Improper Protective Attire",
+            "reason": "All handlers must wear clean protective clothing during food handling.",
+        },
+        {
+            "name": "Gloves",
+            "specification": "Disposable, food-safe, box of 100",
+            "triggers": "Improper Protective Attire",
+            "reason": "Hand protection required for all food-contact operations.",
+        },
+    ],
+    "refrigerator_clean": [
+        {
+            "name": "Temperature Probe",
+            "specification": "Range: -20C to +100C, digital",
+            "triggers": "Improper Refrigerator Maintenance",
+            "reason": "Required for temperature monitoring of refrigeration and thawing protocols.",
+        },
+    ],
+    "date_tag": [
+        {
+            "name": "Waterproof Stickers",
+            "specification": "Roll of 1000, 5cm x 5cm",
+            "triggers": "Absence of Date Tagging",
+            "reason": "For affixing legible date tags on all stored food containers.",
+        },
+    ],
+    "veg_nonveg_separation": [
+        {
+            "name": "Waterproof Stickers",
+            "specification": "Roll of 1000, 5cm x 5cm, colour-coded",
+            "triggers": "Improper Veg/Non-Veg Separation",
+            "reason": "For marking veg/non-veg storage areas and utensils.",
+        },
+    ],
+    "license_display": [
+        {
+            "name": "License Frame",
+            "specification": "A4 portrait, wall-mountable",
+            "triggers": "Improper License Display",
+            "reason": "FSSAI license must be displayed prominently at entry.",
+        },
+    ],
+}
+
 
 def _infer_field_from_text(text: str | None) -> str:
     """Convert a violation text title to the canonical field name for lookup.
