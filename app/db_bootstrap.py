@@ -59,6 +59,7 @@ ALTER TABLE case_files ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEF
 ALTER TABLE case_files ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITHOUT TIME ZONE;
 CREATE INDEX IF NOT EXISTS idx_case_files_is_archived ON case_files (is_archived);
 ALTER TABLE case_files ADD COLUMN IF NOT EXISTS retailer_cum_manufacturer BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS is_unsafe BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITHOUT TIME ZONE;
 CREATE INDEX IF NOT EXISTS idx_adjudications_is_archived ON adjudications (is_archived);
@@ -71,6 +72,7 @@ _MANUAL_REPAIR_SQL_SQLITE = """\
 ALTER TABLE case_files ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE case_files ADD COLUMN archived_at DATETIME;
 ALTER TABLE case_files ADD COLUMN retailer_cum_manufacturer BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE case_files ADD COLUMN is_unsafe BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE adjudications ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE adjudications ADD COLUMN archived_at DATETIME;
 ALTER TABLE inspection ADD COLUMN auditor_plan_json TEXT;

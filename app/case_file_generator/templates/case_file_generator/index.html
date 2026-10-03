@@ -416,6 +416,15 @@
                     />
                     Substandard
                 </label>
+                <label class="toggle-card">
+                    <input
+                        type="checkbox"
+                        id="is_unsafe"
+                        name="is_unsafe"
+                        value="unsafe"
+                    />
+                    Unsafe
+                </label>
             </div>
         </div>
 
@@ -623,6 +632,15 @@
                         >
                             <i class="fa-solid fa-file-pdf"></i> Petition PDF
                         </button>
+                        {% if c.is_unsafe %}
+                        <a
+                            href="{{ url_for('case_file_generator.download_unsafe_file_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Unsafe File (prohibition order) as Word"
+                        >
+                            <i class="fa-solid fa-file-word"></i> Unsafe File
+                        </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}

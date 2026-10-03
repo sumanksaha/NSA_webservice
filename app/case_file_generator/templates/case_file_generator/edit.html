@@ -194,6 +194,13 @@
                     />
                     Substandard
                 </label>
+                <label class="toggle-card">
+                    <input
+                        type="checkbox" name="is_unsafe" value="unsafe" data-off=""
+                        {% if form.is_unsafe == 'unsafe' %}checked{% endif %}
+                    />
+                    Unsafe
+                </label>
             </div>
         </div>
         <div class="form-row form-row--4">

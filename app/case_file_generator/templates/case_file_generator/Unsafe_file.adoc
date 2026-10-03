@@ -1,0 +1,199 @@
+++++
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    line-height: 1.4;
+    margin: 40px;
+  }
+  .header {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 30px;
+  }
+  .sub-header {
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+  .justify {
+    text-align: justify;
+  }
+  .bold {
+    font-weight: bold;
+  }
+  .center {
+    text-align: center;
+  }
+  .footer-table {
+    width: 100%;
+    margin-top: 20px;
+    border: none;
+  }
+  .footer-table td {
+    width: 50%;
+    border: none;
+  }
+  .container {
+    display: flex;
+    border-top: 2px solid black;
+    border-bottom: 2px solid black;
+    min-height: auto;
+  }
+
+  .legal-notice-box {
+    border: 2px solid #2c3e50;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: #f8f9fa;
+    font-weight: bold;
+    line-height: 1.6;
+    border-radius: 4px;
+  }
+  .section-title {
+    text-transform: uppercase;
+    text-decoration: underline;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .column {
+    width: 50%;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .left-col {
+    border-right: 1px solid black;
+  }
+
+  .entry {
+    margin-bottom: 40px;
+  }
+  .entry-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .page-break {
+    break-after: always;
+  }
+</style>
+</head>
+++++
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unsafe File (Prohibition Order) — ADR-001 .adoc template.
+//
+// Design note ("barring logo and text of letter in the first page"):
+// This single .adoc generates the prohibition-order letter for a sample that
+// was found UNSAFE. It does NOT embed the page-1 logo image (the letterhead
+// logo is supplied by stationery) and it does NOT reproduce the source cover
+// memo letter ("To / Letter No H/FCI31/2025-26 / Purnima Jaiswal /
+// PROHIBITION ORDER UNDER SEC 36(3)(B) … signature DESIGNATED FOOD CELL")
+// that precedes the prohibition order. The document starts at the order's
+// own letterhead ("Before the Ld. Adjudicating Officer" → "To, The
+// Designated Officer").
+//
+// Variable mapping (template var → CaseFile column / UI form field):
+//   sample_code        → sample_code            / sample_code
+//   sample_name        → product_name           / product_name       (aliased)
+//   fso_name           → food_safety_officer_name / food_safety_officer_name (aliased)
+//   packet_count       → packet_count           / packet_count
+//   sample_quantity    → sample_quantity        / sample_quantity
+//   batch_no           → batch_no               / batch_no
+//   mfg_date           → mfg_date               / mfg_date
+//   expiry_date        → expiry_date            / expiry_date
+//   retailer_cum_manufacturer → retailer_cum_manufacturer (bool)
+//   case_number        → case_number            / case_number
+//   inspection_date    → inspection_date        / inspection_date        (sampling date)
+//   authorization_date → authorization_date     / authorization_date
+//   manufacturer_*     → manufacturer_*         / manufacturer_*
+//   retailer_*         → retailer_*             / retailer_*
+//   analyst_report_no/date → analyst_report_no / analyst_report_date
+//   directive_letter_no/date → directive_letter_no / directive_letter_date
+//   retailer/manufacturer_report_receive_date → *_report_receive_date
+// ─────────────────────────────────────────────────────────────────────────
+
+[.bold]#Before the Ld. Adjudicating Officer, KMC#
+
+//// Header table (page 1). Per the task, the page-1 logo IMAGE and the
+     cover-memo letter text are omitted; this structured letterhead block
+     supplies the header content as a 2-column table. ////
+|===
+| OFFICE OF THE DESIGNATED OFFICER +
+Food Cell (Health) +
+Kolkata Municipal Corporation +
+Kolkata - 700015 | F.S. &amp; S Case No. {{ case_number }} +
+PROHIBITION ORDER UNDER SEC 36(3)(b) +
+of the Food Safety &amp; Standards Act, 2006
+|===
+
+To,
+The Designated Officer,
+Food Cell,
+Kolkata Municipal Corporation,
+
+*Sub:* Initiation of Prohibition on Sale of Unsafe Food and Grant of Sanction for Prosecution in respect of Sample No : {{ sample_code }}
+
+[.justify]
+Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles (X {{ packet_count }} = {{ sample_quantity }} ) bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
+
+Upon further inquiry, {{ retailer_name }} disclosed the name of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No - {{ manufacturer_fssai }} as the manufacturer of the said product **{{ sample_name }}** (scaled packet).
+
+<<<
+
+//// Sample details + FBO table (page 2): structured per CaseFile fields. ////
+|===
+| Sample | {{ sample_name }}
+| No. of Packets / Quantity | {{ packet_count }} sealed packets (X {{ packet_count }} = {{ sample_quantity }} )
+| Batch No | {{ batch_no }}
+| Date of Manufacture | {{ mfg_date }}
+| Date of Expiry | {{ expiry_date }}
+| Sample Code | {{ sample_code }}
+| Date of Sampling | {{ inspection_date }}
+| Sampled by | {{ fso_name }}, Food Safety Officer (Br. XVI)
+| Retailer | {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}; FSSAI {{ retailer_fssai }}
+| Manufacturer | {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}; FSSAI {{ manufacturer_fssai }}
+|===
+
+[.justify]
+Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
+
+An intimation letter vide No - {{ directive_letter_no }} dated {{ directive_letter_date }} along with a copy of the Food Analyst Report (No. {{ analyst_report_no }} dated {{ analyst_report_date }}) was received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }} and to the representative of {{ manufacturer_name }} on {{ manufacturer_report_receive_date }} via email (attached herewith, marked B). The manufacturer acknowledged the receipt of the letter on {{ manufacturer_report_receive_date }}.
+
+The Food Business Operator(s) did not prefer an appeal under Section 46(4) of the Food Safety &amp; Standards Act, 2006 within the stipulated time as per FSSAI guidelines.
+
+<<<
+
+[.legal-notice-box]
+Therefore, under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, you are hereby directed to stop sale &amp; distribution of **{{ sample_name }}** (product name), bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry {{ expiry_date }}, read with Section 18(1)(2) of the Food Safety &amp; Standards Act, 2006 with immediate effect.
+
+[.justify]
+Pursuant to the provisions of Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, it is submitted that a prohibition order may be issued against the concerned Food Business Operator subject to concurrence of Authority (Draft Prohibition Order attached herewith, marked D).
+
+In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):
+
+Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}) are attached herewith (marked F) for the following:
+d. Initiation of Prohibition on Sale of Unsafe food.
+e. Grant of Sanction for Prosecution,
+f. Initiation of Product Recall, if applicable.
+
+*Enclosures:*
+. Attachment A — copy of {{ directive_letter_no }} dated {{ directive_letter_date }} and Food Analyst Report No. {{ analyst_report_no }} dated {{ analyst_report_date }}, duly received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }}.
+. Attachment B — Entry of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, Lic No - {{ manufacturer_fssai }}.
+. Attachment C — Reply of the manufacturer dated {{ manufacturer_report_receive_date }}.
+. Attachment D — Draft prohibition order.
+. Attachment E — Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025.
+. Attachment F — Documents regarding the collection of the sample of {{ sample_name }} vide Sample Code {{ sample_code }} dated {{ inspection_date }}.
+  i. Copy of Form of Notice to the FBO (Form VA dated {{ inspection_date }}).
+  ii. Copy of Form of Memorandum to the Food Analyst (Form VI dated {{ inspection_date }}).
+  iii. Copy of sample coupon form dated {{ inspection_date }}.
+  iv. Copy of Lab &amp; DO picon book dated {{ inspection_date }}.
+
+[.signature]
+{{ food_safety_officer_name }}
+Food Safety Officer
+Kolkata Municipal Corporation
+
+[.header]
+Date - {{ authorization_date }}

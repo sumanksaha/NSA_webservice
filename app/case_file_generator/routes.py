@@ -41,8 +41,7 @@ from app.shared.rcm_policy import EXEMPT_FIELDS as _RCM_EXEMPT_FIELDS
 from app.shared.rcm_policy import is_rcm as _rcm_policy_is_rcm
 from app.shared.rcm_policy import stripped_for_save as _rcm_stripped_for_save
 from app.utils.auth import admin_required
-from app.utils.filters import form_date
-from app.utils.filters import format_date_indian, parse_date
+from app.utils.filters import form_date, format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
 
@@ -291,8 +290,10 @@ def process_form_data(form_data):
 
     is_misbranded = form_data.get("is_misbranded") == "misbranded"
     is_substandard = form_data.get("is_substandard") == "substandard"
+    is_unsafe = form_data.get("is_unsafe") == "unsafe"
     case_data["is_misbranded"] = is_misbranded
     case_data["is_substandard"] = is_substandard
+    case_data["is_unsafe"] = is_unsafe
 
     if is_misbranded and is_substandard:
         case_data["analysis_result"] = "misbranded and substandard"
@@ -375,6 +376,7 @@ def case_file_to_dict(case_file):
     # Boolean fields need string representation for templates
     result["is_misbranded"] = "misbranded" if result.get("is_misbranded") else ""
     result["is_substandard"] = "substandard" if result.get("is_substandard") else ""
+    result["is_unsafe"] = "unsafe" if result.get("is_unsafe") else ""
 
     return result
 
@@ -440,6 +442,7 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.do_receipt_date = parse_date(form_data.get("do_receipt_date", ""))
     case_file.is_misbranded = form_data.get("is_misbranded") == "misbranded"
     case_file.is_substandard = form_data.get("is_substandard") == "substandard"
+    case_file.is_unsafe = form_data.get("is_unsafe") == "unsafe"
     case_file.analyst_report_no = form_data.get("analyst_report_no", "")
     case_file.analyst_report_date = parse_date(form_data.get("analyst_report_date", ""))
     case_file.directive_letter_no = form_data.get("directive_letter_no", "")
@@ -492,6 +495,7 @@ def _process_case_file_form(form_data):
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),
         is_misbranded=form_data.get("is_misbranded") == "misbranded",
         is_substandard=form_data.get("is_substandard") == "substandard",
+        is_unsafe=form_data.get("is_unsafe") == "unsafe",
         analyst_report_no=form_data.get("analyst_report_no", ""),
         analyst_report_date=parse_date(form_data.get("analyst_report_date", "")),
         directive_letter_no=form_data.get("directive_letter_no", ""),
@@ -722,6 +726,7 @@ def generate_case_file_route():
     allowed_sheets_columns = set(_REQUIRED_FIELDS.keys()) | {
         "is_misbranded",
         "is_substandard",
+        "is_unsafe",
         "applicable_regulation",
         "applicable_clause",
         "applicable_sections",
@@ -977,6 +982,41 @@ def download_permission_docx(case_id: int):
         buf,
         as_attachment=True,
         download_name=f"Permission_Letter_{case.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/unsafe_file")
+@login_required
+def download_unsafe_file_docx(case_id: int):
+    """Download the Unsafe File (prohibition order) as Word (.docx).
+
+    Renders ``Unsafe_file.adoc`` from a sample-adjudication case file whose
+    data was entered through the sample adjudication UI. The AsciiDoc template
+    uses ``fso_name`` and ``sample_name`` placeholders which are aliased here
+    to the CaseFile columns ``food_safety_officer_name`` and ``product_name``
+    respectively (see Unsafe_file.adoc header for the full variable map).
+    """
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+
+    # Unsafe_file.adoc template variables that differ from the canonical
+    # CaseFile column names — alias them so the .adoc renders from UI-entered data.
+    case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
+    case_data.setdefault("sample_name", case_data.get("product_name", ""))
+
+    docx_bytes = render_docx("unsafe_file", case_data)
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Unsafe_File_{case.case_number or case_id}.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 

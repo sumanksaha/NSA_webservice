@@ -106,6 +106,52 @@ def _fallback_docx_from_adoc(rendered: str) -> bytes:
 
     list_counter = 0
     in_table = False
+    table_buf: list[str] = []
+
+    def _flush_table() -> None:
+        """Emit buffered AsciiDoc table lines as a real Word grid table.
+
+        Handles ``+`` cell-continuations (multi-line cells, as used by
+        ``petition.adoc``) and pipe-delimited rows. Rows are padded to a common
+        column count so ``python-docx`` ``cell(row, col)`` never goes out of
+        range. If a row does not parse cleanly (no cells), it is skipped rather
+        than dropping surrounding cell text.
+        """
+        if not table_buf:
+            return
+        # Join lines ending in '+' (asciidoc line continuation) into rows.
+        logical_rows: list[str] = []
+        acc = ""
+        for line in table_buf:
+            if line.endswith("+"):
+                acc += line[:-1] + " "
+            else:
+                acc += line
+                logical_rows.append(acc)
+                acc = ""
+        if acc:
+            logical_rows.append(acc)
+        rows: list[list[str]] = []
+        max_cols = 0
+        for row in logical_rows:
+            cells = [_strip_inline_markup(part) for part in row.split("|")]
+            cells = [c for c in cells if c]
+            if not cells:
+                continue
+            rows.append(cells)
+            max_cols = max(max_cols, len(cells))
+        if not rows or max_cols == 0:
+            return
+        # Pad short rows so every row has max_cols columns.
+        for r in rows:
+            while len(r) < max_cols:
+                r.append("")
+        tbl = doc.add_table(rows=len(rows), cols=max_cols)
+        tbl.style = "Table Grid"
+        for ri, r in enumerate(rows):
+            for ci, cell_text in enumerate(r):
+                tbl.cell(ri, ci).text = cell_text
+
     for raw_line in rendered.splitlines():
         stripped = raw_line.strip()
 
@@ -113,15 +159,14 @@ def _fallback_docx_from_adoc(rendered: str) -> bytes:
             list_counter = 0
             continue
         if stripped.startswith("|==="):
+            if in_table:
+                _flush_table()
+                table_buf.clear()
             in_table = not in_table
             list_counter = 0
             continue
         if in_table:
-            # AsciiDoc table rows are pipe-delimited; render each line's cells.
-            cells = [_strip_inline_markup(part) for part in stripped.split("|")]
-            cells = [cell for cell in cells if cell]
-            if cells:
-                doc.add_paragraph("    ".join(cells))
+            table_buf.append(stripped)
             continue
         if stripped == "<<<":
             doc.add_page_break()

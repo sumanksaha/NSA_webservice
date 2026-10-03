@@ -65,6 +65,7 @@ def case_summary(case_type: str, case) -> dict:
             "manufacturer_name": case.manufacturer_name,
             "created_at": case.created_at.isoformat() if case.created_at else None,
             "is_archived": archived,
+            "is_unsafe": bool(getattr(case, "is_unsafe", False)),
         }
     return {
         "id": case.id,
@@ -142,6 +143,7 @@ def sheets_columns(case_type: str) -> set[str]:
             "do_receipt_date",
             "is_misbranded",
             "is_substandard",
+            "is_unsafe",
             "analyst_report_no",
             "analyst_report_date",
             "directive_letter_no",

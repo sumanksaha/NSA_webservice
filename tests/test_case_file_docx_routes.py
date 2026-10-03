@@ -257,3 +257,167 @@ class TestBothDocxZip:
         text = _extract_docx_text(docx_bytes)
         placeholders = _brace_placeholders(text)
         assert not placeholders, f"ZIP permission DOCX has unsubstituted placeholders: {placeholders}"
+
+
+# ── Unsafe File DOCX (prohibition order) ─────────────────────────────────
+
+
+class TestUnsafeFileDocxDownload:
+    """Seam: GET /case_file_generator/case/<id>/docx/unsafe_file
+
+    The Unsafe_file.adoc template is the prohibition-order document for a sample
+    found UNSAFE. It is wired into the sample-adjudication UI as a new per-case
+    option and must render from CaseFile data entered via that UI (with the
+    fso_name / sample_name aliases resolved by the route).
+    """
+
+    def test_returns_200(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+    def test_returns_docx_mimetype(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        assert response.content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document", (
+            f"Expected .docx mimetype, got {response.content_type}"
+        )
+
+    def test_docx_is_valid_zip(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        assert response.data[:4] == b"PK\x03\x04", "DOCX must be a valid ZIP archive"
+
+    def test_docx_has_word_document_xml(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            names = zf.namelist()
+        assert "word/document.xml" in names, f"Missing word/document.xml: {names}"
+
+    def test_docx_contains_sample_code(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "TDD-SL-001" in text, "Unsafe File DOCX must contain the sample_code value"
+
+    def test_docx_contains_officer_name(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "TDD Officer" in text, "Unsafe File DOCX must contain the fso_name (food_safety_officer_name)"
+
+    def test_docx_contains_product_name(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "TDD Product" in text, "Unsafe File DOCX must contain the sample_name (product_name)"
+
+    def test_docx_contains_prohibition_reference(self, client, case_file):
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "36(3)(b)" in text, "Unsafe File DOCX must reference Section 36(3)(b)"
+
+    def test_docx_no_literal_brace_placeholders(self, client, case_file):
+        """REGRESSION: docx must not contain unsubstituted {field_name} tokens."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        placeholders = _brace_placeholders(text)
+        assert not placeholders, f"Unsafe File DOCX contains unsubstituted placeholders: {placeholders}"
+
+    def test_unknown_case_returns_404(self, client):
+        # Mirrors the sibling petition/permission DOCX routes, which use
+        # CaseFile.query.get_or_404 -> an HTML 404 page (these routes are only
+        # reached from the per-case UI button, so unknown IDs are not a real
+        # path; the JSON-404 handler is only attached to the /pdf/ API route).
+        response = client.get("/case_file_generator/case/999999/docx/unsafe_file")
+        assert response.status_code == 404
+
+    def test_docx_renders_real_word_table(self, client, case_file):
+        """The ADR-001 fallback must emit real Word grid tables (<w:tbl>),
+        not cells flattened into joined paragraphs — so page tables render as
+        true tables even without pandoc."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        assert "<w:tbl" in xml, "Unsafe File DOCX must contain a real Word <w:tbl> table"
+        assert xml.count("<w:tr") >= 2, "Unsafe File DOCX must contain table rows"
+
+    def test_docx_has_no_unsubstituted_placeholders(self, client, case_file):
+        """No leaked Jinja placeholders in the generated Unsafe File DOCX —
+        every {{ case_number }} / {{ product_name }} etc. must be substituted."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        assert "{{" not in xml and "}}" not in xml, (
+            "Unsafe File DOCX must not contain unsubstituted Jinja {{ }} placeholders"
+        )
+
+    def test_docx_contains_letterhead_table(self, client, case_file):
+        """Page 1 letterhead table: header block + case number."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "OFFICE OF THE DESIGNATED OFFICER" in text, "letterhead table must render"
+        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" in text, "subject row must render"
+        assert "TDD-SAMPLE-001" in text, "case_number must render in the header table"
+
+    def test_docx_contains_sample_details_table(self, client, case_file):
+        """Page 2 structured table: label + value for each CaseFile field."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        for label, value in [
+            ("Sample", "TDD Product"),
+            ("Batch No", "TDD-BATCH-1"),
+            ("Sample Code", "TDD-SL-001"),
+            ("Retailer", "TDD Retailer"),
+            ("Manufacturer", "TDD Manufacturer"),
+        ]:
+            assert label in text, f"sample-details table missing label '{label}'"
+            assert value in text, f"sample-details table missing value '{value}'"
+
+
+class TestUnsafeFileButtonGating:
+    """The "Unsafe" verdict toggle gates the Unsafe-File download option.
+
+    Mirrors the user's requirement: the Unsafe File is generated once the
+    unsafe option is toggled — i.e. the option exists in the adjudication UI
+    and the per-case "Unsafe File" button only appears when ``is_unsafe``
+    is set on the case.
+    """
+
+    def test_create_form_exposes_unsafe_option(self, client, case_file):
+        """The sample-adjudication create form renders an Unsafe toggle."""
+        response = client.get("/case_file_generator/")
+        assert response.status_code == 200
+        html = response.data.decode("utf-8", errors="replace")
+        assert 'name="is_unsafe"' in html, "create form must expose the is_unsafe checkbox"
+        assert 'value="unsafe"' in html, "is_unsafe toggle must submit value 'unsafe'"
+        assert "Unsafe" in html, "create form must label the toggle 'Unsafe'"
+
+    def test_unsafe_file_button_hidden_until_toggled(self, client, case_file):
+        """No Unsafe-File button until the case is marked unsafe.
+
+        The case IS listed (TDD-SAMPLE-001 appears) — we only prove the
+        button is gated off while ``is_unsafe`` is False.
+        """
+        response = client.get("/case_file_generator/")
+        html = response.data.decode("utf-8", errors="replace")
+        assert "TDD-SAMPLE-001" in html, "case row must be listed"
+        assert 'name="is_unsafe"' in html  # the toggle is always rendered
+        assert "/docx/unsafe_file" not in html, (
+            "Unsafe File button must be hidden until is_unsafe is toggled"
+        )
+
+    def test_unsafe_file_button_shown_when_unsafe(self, client, case_file):
+        """Toggling the Unsafe option makes the Unsafe-File button appear.
+
+        ``url_for('...download_unsafe_file_docx')`` renders as the
+        ``/docx/unsafe_file`` path, so we assert on that path (not the
+        endpoint name, which never appears in the markup).
+        """
+        from app.extensions import db
+
+        case_file.is_unsafe = True
+        db.session.commit()
+        response = client.get("/case_file_generator/")
+        assert response.status_code == 200
+        html = response.data.decode("utf-8", errors="replace")
+        assert "TDD-SAMPLE-001" in html, "case row must be listed"
+        assert "/docx/unsafe_file" in html, (
+            "Unsafe File button must appear once is_unsafe is toggled on"
+        )
+
+

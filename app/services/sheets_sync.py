@@ -89,6 +89,7 @@ SHEET_COLUMNS = {
         "do_receipt_date",
         "is_misbranded",
         "is_substandard",
+        "is_unsafe",
         "analyst_report_no",
         "analyst_report_date",
         "directive_letter_no",

@@ -16,6 +16,7 @@ TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "case_file_genera
 ADOC_TEMPLATES = {
     "petition": "petition.adoc",
     "permission": "permission_letter.adoc",
+    "unsafe_file": "Unsafe_file.adoc",
 }
 
 

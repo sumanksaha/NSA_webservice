@@ -67,6 +67,10 @@ class CaseFile(db.Model):
     # Results
     is_misbranded = db.Column(db.Boolean, default=False)
     is_substandard = db.Column(db.Boolean, default=False)
+    # "Unsafe" verdict: a sample found unsafe (prohibition-order trigger under
+    # Sec 36(3)(b)). Distinct from substandard/misbranded — a sample may be
+    # unsafe and/or substandard. Drives the Unsafe-File option in the UI.
+    is_unsafe = db.Column(db.Boolean, default=False)
     analyst_report_no = db.Column(db.String(100), nullable=False)
     analyst_report_date = db.Column(db.DateTime, nullable=False)
     directive_letter_no = db.Column(db.String(100), nullable=False)
