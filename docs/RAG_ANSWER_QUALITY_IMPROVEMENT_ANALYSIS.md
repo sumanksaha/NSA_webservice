@@ -29,9 +29,14 @@ Retrieval is largely solved. Answer correctness is not.
 
 **Core diagnosis:** As retrieval availability rises (K=1→100: recall ~29%→88%), answer correctness barely moves (~33%→38%). Even oracle gold/full-support context stays near ~37% soft.
 
-**Measured split of the residual failures** (`evaluation/failure_attribution.py`, over the 89 `model_wrong` questions): **44.9% are a retrieval-ranking failure** (gold evidence is in the candidate pool but below the context window) and **51.7% are generation failures** (gold is inside the window and the answer is still wrong). Only 3.4% never retrieve gold at all. R@10 = 51.7%, R@20 = 68.5%, R@50 = 77.5%.
+**Measured split of the residual failures** (`evaluation/failure_attribution.py`, over the 89 `model_wrong` questions, measured by asking `ContextBuilder` what it actually admits):
 
-So the remaining gap is **not** purely interpretation and application, as originally stated here — roughly half of it is evidence that was retrievable and never surfaced. That is why the P0-1 prompt-packing A/B came back flat: reordering a window that is missing the gold provision cannot help.
+- **Before the window fix:** 36 (40.4%) were evidence-starved (gold in the pool but not in the prompt), 50 (56.2%) had gold in the prompt and still answered wrong, 3 (3.4%) never retrieved gold at all.
+- **After the window fix (shipped):** evidence-starved falls to **26 (29.2%)** and gold-in-prompt rises to **60 (67.4%)**.
+
+So the remaining gap is **not** purely interpretation and application, as originally stated here — a substantial part of it was evidence that was retrievable and never surfaced. That is also why the P0-1 prompt-packing A/B came back flat: reordering a window that is missing the gold provision cannot help.
+
+**This is evidence presence, not answer quality.** Whether the 10 newly-reached questions convert to correct answers requires an LLM A/B that has not been run.
 
 The other driver is a **soft Jaccard metric** that is a weak proxy for legal correctness.
 
@@ -248,7 +253,7 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 
 ## 8. What not to do first
 
-1. **Do not** chase K → 200–500 blindly. The dilution warning still stands, but it is now qualified by measurement: for 44.9% of the `model_wrong` bucket the gold provision is retrievable and simply sits below the effective window (R@10 51.7% → R@20 68.5%). Growing the window is worth an A/B — it just must be measured, not assumed. Note the effective window is set by `ContextBuilder._QUERY_TYPE_BUDGETS` (8–12 chunks), **not** by `RAG_CONTEXT_MAX_CHUNKS`, which those per-type values override.
+1. ~~**Do not** chase K → 200–500 blindly.~~ **Partly acted on.** Measured: 36 of 89 `model_wrong` questions had gold below the prompt window, so the window was raised (per-type budgets are now caps under `RAG_CONTEXT_MAX_CHUNKS`/`_CHARS` instead of overriding them) and evidence-starved failures dropped to 26. The dilution risk is still unmeasured — an LLM A/B on the widened window has not been run, and that is the check that matters before keeping it.
 2. **Do not** treat O3 ≈ 37% soft as a universal LLM ceiling (soft Jaccard is heavily distorted by lexical phrasing).
 3. **Do not** enable the auditor and judge wins only on soft Jaccard (Exp D proved auditor gains appear as soft drops due to reference drift).
 4. **Do not** train contrastive generation models before corpus fill and evidence packing are fixed.
