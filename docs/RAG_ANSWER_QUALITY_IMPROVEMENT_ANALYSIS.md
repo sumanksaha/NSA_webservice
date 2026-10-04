@@ -31,7 +31,9 @@ Retrieval is largely solved. Answer correctness is not.
 
 > retrieved legal evidence → interpretation → application → final answer
 
-plus **corpus gaps** and a **soft Jaccard metric** that is a weak proxy for legal correctness.
+plus a **soft Jaccard metric** that is a weak proxy for legal correctness.
+
+**Corpus gaps are NOT a material driver** — measured at **1.6% of gold units** (4/248), affecting 3 of 150 questions, all in one instrument (§5.2). They were originally listed here from prose; measurement contradicts that.
 
 **The 9–12% binary figure is substantially an evaluator artifact, not a model failure.** The human audit is complete (150/150 reviewed, `evaluation/out/ceiling_v5/full_review_tabulation.md`): of the reviewed set, **38.0% were `evaluator_miss`** (grader wrong), **59.3% `model_wrong`**, 2.7% `reference_narrow`. Adjudicated model-side accuracy is therefore ~61%, not ~10%.
 
@@ -116,10 +118,12 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 - **Gap:** Flag default off. When on, `evidence_set` is computed/stored, but `evidence_node` is a pass-through and `generate_node` still feeds **full** `chunks` into `run_generation_pipeline`. ContextBuilder ranks/truncates by score, not by selected evidence types.
 - **Why it hurts:** Irrelevant high-scoring chunks dominate the prompt → definition-anchoring, diluted citations, wrong primary provision.
 
-### 5.2 Missing statute corpus (P0)
+### 5.2 Missing statute corpus — MEASURED, and much smaller than assumed (P2, not P0)
 
-- **Gap:** Documented residual failures include Acts / orders not in the corpus (e.g. Water Act, WB Meat Order, KMC water rules, PCA schedules).
-- **Why it hurts:** No reasoning or verifier can invent grounded statute text. Abstentions get misread as model failures.
+- **Status: gap measured at 1.6%, downgraded from P0 to P2.** `evaluation/corpus_gap_scope.py` against the indexed corpus (27,351 payloads) and the 150 benchmark questions: **147 covered, 3 not in corpus (2.0%)**, and **4 of 248 gold units missing (1.6%)**.
+- **The gap is one instrument, not four.** All three affected questions (Q033, Q034, Q042) are the **Prevention of Cruelty to Animals Rules, 2017**. The acts named in the original draft of this document — Water Act, WB Meat Order, KMC water rules, PCA schedules — are **not** missing from the corpus.
+- **Why it matters less than assumed:** a 1.6% unit gap cannot explain the ~89 `model_wrong` cases. Corpus absence was inferred from failure volume without being measured; measurement contradicts the inference.
+- **Still worth doing**, and cheap (`ingest_corpus_task` and `LegalParagraphChunker` already exist) — but it is procurement, not a correctness lever.
 
 ### 5.3 Soft metric ≠ legal correctness (P0)
 
@@ -191,7 +195,7 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 | # | Improvement | Key files | Action & Technical Specification | Effort | Expected impact |
 |---|---|---|---|---|---|
 | 1 | Wire `evidence_set` into generation context | `app/rag/generation/context_builder.py`, `app/rag/agent/nodes/linear.py`, `app/rag/tasks.py`, `app/rag/generation/grounded_service.py` | **Context packing filter:**<br>• Update `ContextBuilder.build(query, chunks, query_type, evidence_set=None)` to accept the selected evidence set.<br>• **Type is a serialized `dict`, not an `EvidenceSet` object** — `_enrich_evidence_set` (`retrieval/stages.py`) calls `.to_dict()`, and `AgentState.evidence_set` is typed as a dict.<br>• Pack provisions by legal role order: Primary $\to$ Exceptions $\to$ Definitions $\to$ Penalties $\to$ Cross-References. Retain unselected chunks as overflow only.<br>• **Reuse `_EVIDENCE_TYPE_PRIORITY`** (`retrieval/evidence_selector.py:341`) rather than defining a second order, so the two cannot drift.<br>• Forward `evidence_set` from `run_retrieval_pipeline` / `state["evidence_set"]` into `run_generation_pipeline` and `generate_node`. Note `GroundedGenerationService.generate()` also lacks the parameter — three layers, not one.<br>• **Keep `_check_answerability` on the full pool, before packing.** It early-returns `enough_evidence=False`; filtering first would shrink the pool it judges and could reject queries that pass today.<br>• Annotate `<document>` tags with `role="{evidence_type}"` to prevent definition-anchoring.<br>• **Land behind `ENABLE_EVIDENCE_SELECTOR` (default false).** This changes every live prompt when on.<br>• **Write characterization tests for the `_check_answerability` early-return first** — it currently has no direct coverage, so there is no regression guard for the interaction above. | Low | **Highest win:** converts high retrieval recall into relevant LLM context without diluting primary provisions. Targets the largest model-side audit bucket (`provision_check`, n=35). |
-| 2 | Fill missing statute corpus | `ingestion/`, `tasks.py` (`ingest_corpus_task`), Qdrant index | **Corpus expansion:**<br>• Ingest identified missing legal acts (Water Act, WB Meat Order, KMC water rules, PCA schedules).<br>• Index using `LegalParagraphChunker` with explicit section/act metadata tagging.<br>• Re-run benchmark to measure reduction in `evidence-missing` rate. | Med | Eliminates artificial model abstentions and hallucinations caused by corpus absence. |
+| 2 | Fill missing statute corpus (**DOWNGRADED P0→P2**) | `ingestion/`, `tasks.py` (`ingest_corpus_task`), Qdrant index | **Measured scope:** the gap is **4 of 248 gold units (1.6%)**, 3 of 150 questions, and entirely the **Prevention of Cruelty to Animals Rules, 2017** — not the four acts named in the original draft.<br>• Ingest the PCRA Rules 2017 with `LegalParagraphChunker` + act/section metadata.<br>• Re-run `evaluation/corpus_gap_scope.py` to confirm the rate reaches 0.<br>• Do **not** budget further procurement against this row: it cannot move the ~89 `model_wrong` cases. | Low | Removes 3 benchmark questions from artificial abstention. Much smaller than the original "eliminates hallucinations" claim. |
 | 3 | Dual-metric reporting (audit already done) | `evaluation/eval_e2e_v2.py`, `evaluation/grading.py`, `evaluation/answer_error_taxonomy.py` | **Reporting, not new measurement:**<br>• Audit is complete (150/150) — see §5.3. Do **not** re-run it.<br>• Emit dual scorecards: `binary_correctness` alongside `soft_jaccard_score`, `citation_p/r`, `groundedness`, always together (§8.5).<br>• Triage the 38 unresolved `evaluator_miss` cases into an evaluator-v3 overlay; 19 were already fixed by v2.<br>• Re-baseline the binary target against adjudicated ~61%, not the mechanical 9–12%. | Low | Stops misreading evaluator error as model error; makes P0-1's measured delta trustworthy. |
 
 ### P1 — Close quality & verification loops
@@ -230,7 +234,7 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 
 ### Phase 2 (Weeks 2–3) — Recovery & Honest Evaluation Ceiling
 1. **Targeted Retry Hardening:** Implement failure-specific query generators in `TargetedRetryPlanner` (`_target_definition`, `_target_identifier`, `_target_exception`).
-2. **Corpus Ingestion:** Ingest missing Acts (Water Act, WB Meat Order, etc.) and re-measure corpus completeness.
+2. **Corpus Ingestion (deferred, P2):** the measured gap is 1.6% and confined to the Prevention of Cruelty to Animals Rules, 2017 — not the acts originally listed. See §5.2.
 3. **Dual Metric Evaluation & 50-Answer Human Audit:** Run benchmark measuring binary correctness alongside soft metrics; classify residual failures.
 
 ### Phase 3 (Weeks 4+) — Reasoning Quality & Knowledge Graph
@@ -262,7 +266,7 @@ Track these together, never soft alone:
 | **Citation precision / recall** | Evidence attribution quality | $\ge 0.85 / \ge 0.85$ |
 | **Groundedness / claim_groundedness** | Hallucination prevention | $\ge 0.90$ |
 | **Evidence-set P/R/F1** | Packing & selection health | $\ge 0.80$ |
-| **Evidence-missing rate** | Corpus completeness | $\le 5\%$ of benchmark queries |
+| **Evidence-missing rate** | Corpus completeness | **Already 2.0%** (3/150 questions, 4/248 gold units) — target 0% |
 | **Abstention precision** | Correct refusal when evidence is absent | $\ge 90\%$ |
 
 ---
