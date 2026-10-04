@@ -76,9 +76,7 @@ def _gold_in_prompt(qid: str, question, arms: dict, payload_index: dict, fm) -> 
     built = ContextBuilder(query_type=qt).build(question.question, chunks, qt)
     admitted = {c["chunk_id"] for c in built.citations}
     units = question.recall_units()
-    return any(
-        cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted
-    )
+    return any(cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted)
 
 
 def _gold_depth(chunk_ids: list[str], payload_index: dict, units, fm) -> int | None:
@@ -124,8 +122,13 @@ def main() -> int:
             bucket = "generation"
         else:
             bucket = "retrieval_rank"
-        per_q.append({"qid": qid, "verdict": verdict, "model_action": rec.get("model_action"),
-            "gold_depth": depth, "gold_in_prompt": in_prompt, "bucket": bucket,
+        per_q.append({
+            "qid": qid,
+            "verdict": verdict,
+            "model_action": rec.get("model_action"),
+            "gold_depth": depth,
+            "gold_in_prompt": in_prompt,
+            "bucket": bucket,
             "query_types": q.question_types,
         })
 
