@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>FBO Actions Report — Sunrise Bakers</title>
+        <style>
+            /* Professional black-and-white report styling */
+            @page {
+                margin: 20mm;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+                color: #111;
+                background: #fff;
+                font-size: 10pt;
+                line-height: 1.4;
+            }
+            .page {
+                max-width: 210mm;
+                padding: 28pt 36pt 36pt;
+                margin: 0 auto;
+            }
+
+            .letterhead {
+                text-align: center;
+                border-top: 3pt solid #000;
+                border-bottom: 1.5pt solid #000;
+                padding: 10pt 0;
+                margin-bottom: 16pt;
+            }
+            .letterhead h1 {
+                font-size: 16pt;
+                font-weight: bold;
+                letter-spacing: 1.5pt;
+                text-transform: uppercase;
+                color: #000;
+                margin: 0 0 4pt;
+            }
+            .letterhead .subtitle {
+                font-size: 9.5pt;
+                color: #333;
+                letter-spacing: 0.5pt;
+            }
+
+            .meta-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9pt;
+                margin-bottom: 18pt;
+            }
+            .meta-table td {
+                padding: 3pt 6pt;
+                vertical-align: top;
+                border-bottom: 0.5pt solid #ccc;
+            }
+            .meta-table .label {
+                font-weight: bold;
+                text-transform: uppercase;
+                font-size: 7.5pt;
+                color: #555;
+                letter-spacing: 0.3pt;
+                white-space: nowrap;
+                width: 28%;
+            }
+
+            .doc-class {
+                font-size: 9pt;
+                text-align: center;
+                text-transform: uppercase;
+                letter-spacing: 2pt;
+                font-weight: bold;
+                color: #000;
+                border-top: 1pt solid #000;
+                border-bottom: 1pt solid #000;
+                padding: 6pt 0;
+                margin: 14pt 0 10pt;
+            }
+
+            h2 {
+                font-size: 11pt;
+                font-weight: bold;
+                margin: 14pt 0 6pt;
+                padding-bottom: 2pt;
+                border-bottom: 1pt solid #000;
+                color: #000;
+                letter-spacing: 0.5pt;
+            }
+
+            .section-sub {
+                font-size: 8.5pt;
+                text-transform: uppercase;
+                letter-spacing: 0.8pt;
+                color: #555;
+                font-weight: bold;
+                margin: 10pt 0 4pt;
+            }
+
+            .summary-box {
+                border: 1pt solid #000;
+                padding: 8pt;
+                margin: 6pt 0 12pt;
+                background: #fdfdfd;
+            }
+            .summary-row {
+                display: flex;
+                gap: 8pt;
+                flex-wrap: wrap;
+            }
+            .summary-card {
+                border: 0.5pt solid #999;
+                padding: 5pt 7pt;
+                min-width: 42pt;
+                text-align: center;
+                flex: 1;
+            }
+            .summary-card .count {
+                font-size: 13pt;
+                font-weight: bold;
+                color: #000;
+            }
+            .summary-card .label {
+                font-size: 7pt;
+                text-transform: uppercase;
+                color: #555;
+                letter-spacing: 0.3pt;
+                margin-top: 2pt;
+            }
+
+            .actions-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9pt;
+            }
+            .actions-table thead th {
+                background: #000;
+                color: #fff;
+                font-size: 7.5pt;
+                text-transform: uppercase;
+                letter-spacing: 0.6pt;
+                padding: 5pt 6pt;
+                text-align: left;
+                border-bottom: 1.5pt solid #000;
+            }
+            .actions-table tbody td {
+                padding: 5pt 6pt;
+                vertical-align: top;
+                border-bottom: 0.5pt solid #ccc;
+            }
+            .actions-table tbody tr:nth-child(even) {
+                background: #f5f5f5;
+            }
+
+            .tier-badge {
+                display: inline-block;
+                font-size: 6.5pt;
+                text-transform: uppercase;
+                letter-spacing: 0.4pt;
+                padding: 1pt 4pt;
+                border: 0.5pt solid #333;
+                color: #000;
+                font-weight: bold;
+                white-space: nowrap;
+            }
+            .tier-easy {
+                border-color: #333;
+            }
+            .tier-medium {
+                border-color: #333;
+            }
+            .tier-hard {
+                border-color: #333;
+            }
+
+            .action-text {
+                color: #111;
+                line-height: 1.35;
+            }
+
+            .footer {
+                margin-top: 18pt;
+                padding-top: 6pt;
+                border-top: 1pt solid #000;
+                font-size: 7pt;
+                color: #555;
+                text-align: center;
+                letter-spacing: 0.2pt;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <div class="letterhead">
+                <h1>FSSAI Audit — Corrective Action Plan</h1>
+                <div class="subtitle">
+                    Government Format &nbsp;|&nbsp; Black &amp; White Document &nbsp;|&nbsp;
+                    Standard A4
+                </div>
+            </div>
+
+            <table class="meta-table" aria-label="Document meta">
+                <tbody>
+                    <tr>
+                        <td class="label">Report ID</td>
+                        <td>ACTIONS-TEST-001</td>
+                    </tr>
+                    <tr>
+                        <td class="label">FBO Name</td>
+                        <td>Sunrise Bakers</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Inspection Code</td>
+                        <td>INSP-2026-001</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Generated</td>
+                        <td>2026-10-02</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="doc-class">Corrective Actions Report — Section 32 of FSS Act</div>
+
+            <h2>Items to be Purchased</h2>
+            <p class="section-sub">
+                Required materials to address the identified shortcomings (per FBO_actionmode.md)
+            </p>
+            {% if items_to_purchase %}
+            <table class="actions-table" aria-label="Items to be purchased">
+                <thead>
+                    <tr>
+                        <th style="width: 8%">S.No</th>
+                        <th style="width: 20%">Item</th>
+                        <th style="width: 22%">Specification</th>
+                        <th style="width: 20%">Triggered By</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for idx, item in enumerate(items_to_purchase, start=1) %}
+                    <tr>
+                        <td>{{ idx }}</td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.specification }}</td>
+                        <td>{{ item.triggers }}</td>
+                        <td class="action-text">{{ item.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="section-sub">No items required for the identified shortcomings.</p>
+            {% endif %}
+
+            <h2>Summary</h2>
+            <div class="summary-box">
+                <div class="summary-row">
+                    <div class="summary-card">
+                        <div class="count">5</div>
+                        <div class="label">Total Actions</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="count">2</div>
+                        <div class="label">Easy Tier</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="count">2</div>
+                        <div class="label">Medium Tier</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="count">1</div>
+                        <div class="label">Hard Tier</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2>Corrective Actions</h2>
+            <p class="section-sub">Ordered Easy → Medium → Hard (per FBO_actionmode.md)</p>
+            <table class="actions-table" aria-label="Corrective actions">
+                <thead>
+                    <tr>
+                        <th style="width: 10%">Priority</th>
+                        <th style="width: 14%">Tier</th>
+                        <th style="width: 18%">Field</th>
+                        <th>Title</th>
+                        <th>Action Required</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><span class="tier-badge tier-easy">EASY</span></td>
+                        <td><strong>license_display</strong></td>
+                        <td>Improper License Display</td>
+                        <td class="action-text">
+                            Display the FSSAI license/registration prominently at the entry of the
+                            food business premises.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><span class="tier-badge tier-easy">EASY</span></td>
+                        <td><strong>proper_attire</strong></td>
+                        <td>Improper Protective Attire</td>
+                        <td class="action-text">
+                            Ensure all food handlers wear clean protective attire, including
+                            headgear and footwear, while on duty.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><span class="tier-badge tier-medium">MEDIUM</span></td>
+                        <td><strong>date_tag</strong></td>
+                        <td>Absence of Date Tagging</td>
+                        <td class="action-text">
+                            Affix legible date tags to all stored food articles and maintain
+                            batch-wise traceability and stock-rotation records.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><span class="tier-badge tier-medium">MEDIUM</span></td>
+                        <td><strong>clean_premise</strong></td>
+                        <td>Unclean Premises</td>
+                        <td class="action-text">
+                            Maintain the entire food premises, including all food-contact surfaces,
+                            in a clean and hygienic condition at all times.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><span class="tier-badge tier-hard">HARD</span></td>
+                        <td><strong>artificial_colour</strong></td>
+                        <td>Use of Artificial Colours</td>
+                        <td class="action-text">
+                            Discontinue the use of artificial colours except as permitted under the
+                            Food Safety and Standards (Food Products Standards and Food Additives)
+                            Regulations, and declare permitted colours on the label.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="footer">
+                Professional Black &amp; White Format &nbsp;|&nbsp; No colour or decorative elements
+                &nbsp;|&nbsp; Print-ready A4 layout &nbsp;|&nbsp; FSS Act Section 32 Compliant
+            </div>
+        </div>
+    </body>
+</html>

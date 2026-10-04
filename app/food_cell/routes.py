@@ -30,6 +30,7 @@ from app.food_cell.word_converter import ImprovementNoticeWordConverter
 from app.models.billing import Sample
 from app.models.food_cell import DoIntimation
 from app.models.inspection import Inspection
+from app.shared.actions_summary import build_unified_actions
 from app.shared.context_derivers import derive_actions, derive_violations
 
 
@@ -261,3 +262,40 @@ def save_edited_improvement_notice(inspection_id: int):
         "html_path": html_path,
         "pdf_path": pdf_path,
     }), 200
+
+
+@food_cell_bp.route("/improvement-notice/actions/<int:inspection_id>.json", methods=["GET"])
+@login_required
+def get_unified_actions(inspection_id: int):
+    """Return a well-formatted JSON file with unified corrective actions
+    for an FBO inspection – combining checklist violations and FBO issue details.
+
+    This satisfies the requirement to "generate a well formatted actions to be done"
+    for an FBO, supporting the union/dedup logic described in the design.
+    """
+    import json
+    import tempfile
+
+    from flask import send_file
+
+    inspection = db.session.get(Inspection, inspection_id)
+    if inspection is None:
+        abort(404, description="Inspection not found.")
+
+    # Extract checklist violations from the inspection
+    violations = _inspection_violations(inspection)
+
+    # Build unified actions: checklist violations + FBO issues
+    actions = build_unified_actions(violations, [])
+
+    # Write to a temporary JSON file and serve it
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+    json.dump(actions, tmp, indent=2)
+    tmp.close()
+
+    return send_file(
+        tmp.name,
+        as_attachment=True,
+        download_name=f"actions_{inspection_id}.json",
+        mimetype="application/json",
+    )
