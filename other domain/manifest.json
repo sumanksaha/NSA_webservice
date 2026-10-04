@@ -248,7 +248,7 @@
       "act_name": "Prevention of Cruelty to Animals Act, 1960",
       "enactment_date": "2017",
       "is_current": true,
-      "notes": "SCANNED PDF — 0 selectable text pages; OCR pipeline required"
+      "notes": "SCANNED PDF — 0 selectable text pages. DONE: OCR'd with EasyOCR and indexed (1100 chunks in animal_legal_768, verified 2026-10-03)."
     },
     {
       "file": "PWM-Amendment-Rules-2022.pdf",
@@ -292,7 +292,7 @@
       "is_current": true,
       "duplicate_of": "SWM_2026.pdf",
       "ingest": false,
-      "notes": "CONFIRMED byte-identical duplicate of SWM_2026.pdf (sha256 4963ee30…) — skip ingestion; canonical is SWM_2026.pdf"
+      "notes": "CONFIRMED byte-identical duplicate of SWM_2026.pdf (sha256 4963ee30…) — skip ingestion; canonical is SWM_2026.pdf. The duplicate file was deleted from disk after dedup — row retained to document the decision"
     },
     {
       "file": "SWM_2026.pdf",
@@ -363,7 +363,7 @@
       "act_name": "West Bengal Prevention and Control of Infectious and Contagious Diseases in Animals Act, 2001",
       "enactment_date": "2016",
       "is_current": true,
-      "notes": "SCANNED PDF — 0 selectable text pages; OCR pipeline required"
+      "notes": "SCANNED PDF — 0 selectable text pages. DONE: OCR'd with EasyOCR and indexed (105 chunks in animal_legal_768, verified 2026-10-03)."
     },
     {
       "file": "view-casepdf-1.pdf",
@@ -506,7 +506,7 @@
       "act_name": "West Bengal Fire Services Act, 1950",
       "enactment_date": "1950-03-30",
       "is_current": true,
-      "notes": "SCANNED PDF — 0 selectable text (48 pp); EasyOCR applied at ingest (EasyOCR 300 DPI ~70s/page -> ~56 min). OCR-confirmed: West Bengal Act XVIII of 1950, enacted 30-03-1950. Parent act of the 2022 amendment."
+      "notes": "SCANNED PDF — 0 selectable text (48 pp). DONE 2026-10-03: OCR'd with EasyOCR (all 48 pages, 124,592 chars, avg confidence 0.788, no empty pages) and indexed as 141 chunks in wb_state_legal_768. OCR runs at 200 DPI with the ImagePreprocessor upscale capped at 2400 px (~65s/page vs ~150s at 300 DPI/4000 px, quality comparable); EasyOCR returns hard-wrapped lines, so text was reflowed and regrouped into ~300-char paragraphs before chunking — without that the chunker emitted 1839 fragments (~38/page). Act XVIII of 1950, enacted 30-03-1950. Parent act of the 2022 amendment. Expect typical scan noise ('eflfect', 'scction')."
     }
   ]
 }

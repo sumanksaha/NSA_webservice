@@ -111,6 +111,7 @@ class TestDomainManifest:
 
         # CRIMINAL added 2026-08-11 (Option B) to align the KG taxonomy with
         # the Qdrant corpus collections (Bharatiya Nyaya Sanhita, 2023).
+        # FIRE_SAFETY added 2026-10-03 for the West Bengal fire-services acts.
         expected = {
             "FOOD_SAFETY",
             "ANIMAL_SLAUGHTER",
@@ -120,6 +121,7 @@ class TestDomainManifest:
             "BUSINESS_CIVIL",
             "LAND_PREMISES",
             "CRIMINAL",
+            "FIRE_SAFETY",
         }
         assert set(DOMAINS.keys()) == expected
 

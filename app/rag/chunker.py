@@ -249,6 +249,42 @@ def _l4_section_headers(text: str, act_name: str | None) -> list[str]:
     return out
 
 
+def _propagate_sections(chunks: list[Chunk]) -> int:
+    """Carry the active section number forward across continuation chunks.
+
+    Only the *first* chunk of a section carries its header, so every
+    continuation chunk was emitted with ``section_number=None``.  That left
+    the KG unable to bind them: at audit time 10,890 of 34,439 chunks
+    (32%) had no ``SUPPORTED_BY`` edge, and 476 provisions were built whose
+    ``provision_text`` was nothing but the bare section number ("4", "12").
+
+    A chunk with no detected header inherits the most recently seen section
+    (number + title) so it can bind to the provision it continues.  Chunks
+    *before* the first header are left untouched — preamble, title pages and
+    schedules of contents must never be attributed to section 1.
+
+    Returns:
+        The number of chunks that gained an inherited section.
+    """
+    active_number: str | None = None
+    active_title: str | None = None
+    inherited = 0
+    for chunk in chunks:
+        if chunk.section_number:
+            active_number = chunk.section_number
+            active_title = chunk.section_title or active_title
+            continue
+        if not active_number:
+            continue  # still in the preamble — never guess
+        chunk.section_number = active_number
+        if active_title and not chunk.section_title:
+            chunk.section_title = active_title
+        if active_number not in chunk.sections_covered:
+            chunk.sections_covered.append(active_number)
+        inherited += 1
+    return inherited
+
+
 class Chunker:
     """Adapt ``LegalParagraphEngine`` paragraph output into :class:`Chunk`\\ s.
 
@@ -321,6 +357,10 @@ class Chunker:
             parent_id = paragraph.get("parent_id")
             if parent_id and parent_id in chunk_by_paragraph:
                 chunk.parent_chunk_id = chunk_by_paragraph[parent_id]
+
+        # Carry the active section across continuation chunks (third pass) —
+        # without this the body text of a section never binds to its provision.
+        _propagate_sections(chunks)
 
         return chunks
 

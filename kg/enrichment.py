@@ -21,9 +21,17 @@ Design rules:
 3. **Precedence-aware** — \"shall not\" must win over \"shall\" (PROHIBITS beats
    IMPOSES_DUTY); \"punishable with imprisonment\" wins over bare \"offence\".
 4. **Targets the typed concept vocabulary** — edges land on the controlled
-   ``LegalConcept`` nodes (Offence/Penalty/Prohibition/Obligation/Duty/
-   Permission/Power/Procedure) that already exist in the graph.
-5. **Graceful** — provisions with < 40 chars of text (OCR-limited) are skipped
+   ``LegalConcept`` nodes.  The enricher is standalone, so it calls
+   :meth:`LegalSemanticEnricher.ensure_concepts` to MERGE any vocabulary node
+   it is about to write to.  Without it, ``write_edges``' ``MATCH`` on a
+   concept silently matches nothing and the whole rule group vanishes: the
+   2026-08-11 run reported ``edges_written: 2526`` while 297 of those
+   (DEFINES/EXEMPTS/DECLARES) were dropped on the floor.
+5. **Honest counters** — ``edges_written`` counts rows Cypher actually
+   materialised (``RETURN count(*)`` after the ``MERGE``), not rows handed to
+   the driver.  A rule group that cannot land must show up as a shortfall,
+   never as a success.
+6. **Graceful** — provisions with < 40 chars of text (OCR-limited) are skipped
    (no junk edges from noise); Neo4j absence degrades to an empty report.
 
 The enricher reads provisions + writes edges through the same batched
@@ -36,8 +44,11 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
+
+from kg.domain_manifest import CONCEPTS
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +158,91 @@ SEMANTIC_RULES: list[tuple[str, str, float, re.Pattern[str]]] = [
     ("PRESCRIBES", "Procedure", 0.8, re.compile(r"\bin\s+the\s+prescribed\s+manner\b", re.IGNORECASE)),
     ("PRESCRIBES", "Procedure", 0.75, re.compile(r"\bprocedure\b", re.IGNORECASE)),
     ("PRESCRIBES", "Procedure", 0.7, re.compile(r"\bshall\s+be\s+in\s+writing\b", re.IGNORECASE)),
+    # --- Definitions (added 2026-10-03) ---
+    # A definitional provision is substantive law but has no duty/penalty
+    # shape, so before DEFINES existed it produced no edge and was reported
+    # `unclassified` (~796 provisions, mostly Sale of Goods / BNS s.2 style
+    # "X is said to be ..." clauses). These rules must stay ABOVE the generic
+    # "shall" duty rule: a definition often contains "shall" incidentally.
+    ("DEFINES", "Definition", 0.85, re.compile(r"\bis\s+said\s+to\s+be\b", re.IGNORECASE)),
+    ("DEFINES", "Definition", 0.85, re.compile(r"\bmeans\b(?!\s+to\s+mean)", re.IGNORECASE)),
+    (
+        "DEFINES",
+        "Definition",
+        0.8,
+        re.compile(r"\b(?:shall|may)\s+(?:be\s+called|mean|be\s+deemed\s+to\s+mean)\b", re.IGNORECASE),
+    ),
+    ("DEFINES", "Definition", 0.8, re.compile(r"\b(?:refers\s+to|includes)\b", re.IGNORECASE)),
+    (
+        "DEFINES",
+        "Definition",
+        0.75,
+        re.compile(r"\bin\s+this\s+Act,?\s+unless\s+the\s+context\s+otherwise\b", re.IGNORECASE),
+    ),
+    # --- Exemptions (added 2026-10-03) ---
+    ("EXEMPTS", "Exemption", 0.85, re.compile(r"\bshall\s+not\s+apply\b", re.IGNORECASE)),
+    ("EXEMPTS", "Exemption", 0.8, re.compile(r"\bshall\s+be\s+exempt\b", re.IGNORECASE)),
+    ("EXEMPTS", "Exemption", 0.72, re.compile(r"\bsave\s+as\s+provided\b", re.IGNORECASE)),
+    ("EXEMPTS", "Exemption", 0.7, re.compile(r"\bnotwithstanding\b", re.IGNORECASE)),
+    # --- Declarative / deeming rules (added 2026-10-03) ---
+    # Statements of what the law IS, with no deontic force: the Sale of Goods
+    # Act conditions/warranty rules ("an agreement to sell becomes a sale
+    # when..."), deeming rules, and status-conferring provisions. Without
+    # these they matched no category and piled up as `unclassified`.
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.8,
+        re.compile(r"\b(?:shall|is|are)\s+(?:be\s+)?deemed\s+(?:to\s+be|an?|that)\b", re.IGNORECASE),
+    ),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.78,
+        re.compile(r"\bbecomes?\s+(?:a|an|the)\b.{0,60}\bwhen\b", re.IGNORECASE | re.DOTALL),
+    ),
+    ("DECLARES", "DeclarativeRule", 0.78, re.compile(r"\boperates\s+as\s+(?:a|an|the)\b", re.IGNORECASE)),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.75,
+        re.compile(r"\b(?:is|are)\s+(?:a|an)\s+contract\s+of\s+(?:sale|lease|work)\b", re.IGNORECASE),
+    ),
+    # Construction / qualification clauses (added 2026-10-03).  These state
+    # how a rule is to be read or what it is subject to — substantive law with
+    # no deontic force, so they belong to DECLARES rather than to a duty,
+    # permission or prohibition category.
+    ("DECLARES", "DeclarativeRule", 0.8, re.compile(r"\bshall\s+be\s+(?:construed|interpreted)\b", re.IGNORECASE)),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.75,
+        re.compile(r"\bin\s+the\s+absence\s+of\s+(?:a\s+)?(?:contract|agreement)\b", re.IGNORECASE),
+    ),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.72,
+        re.compile(r"\b(?:shall|is)\s+be\s+subject\s+to\s+the\s+(?:provisions|conditions)\b", re.IGNORECASE),
+    ),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.7,
+        re.compile(r"\bfor\s+the\s+purposes\s+of\s+this\s+(?:Act|section)\b", re.IGNORECASE),
+    ),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.75,
+        re.compile(r"\b(?:rules?|provisions?)\s+(?:contained\s+in\s+)?sections?\b.{0,40}\bare\b", re.IGNORECASE),
+    ),
+    (
+        "DECLARES",
+        "DeclarativeRule",
+        0.72,
+        re.compile(r"\bdepends\s+(?:in\s+each\s+case\s+)?on\s+the\s+construction\b", re.IGNORECASE),
+    ),
 ]
 
 #: Minimum confidence for an edge to be written (keeps weak \"may\" tagging from
@@ -162,7 +258,13 @@ MIN_CONFIDENCE = 0.7
 #: provision matching none of these AND producing no edge is marked
 #: ``unclassified`` and reported individually.
 NOT_APPLICABLE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("definition", re.compile(r"\b(?:means|defined|definition)\b", re.IGNORECASE)),
+    # Definitions that did NOT match a DEFINES rule (e.g. a bare "Definitions"
+    # heading) are genuinely non-substantive; broadened 2026-10-03 to cover
+    # the constructions the DEFINES rules do not claim.
+    (
+        "definition",
+        re.compile(r"\b(?:means|defined|definition|is said to be|shall be called)\b", re.IGNORECASE),
+    ),
     (
         "amendment_machinery",
         re.compile(
@@ -193,6 +295,36 @@ NOT_APPLICABLE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "financial_format_row",
         re.compile(r"\brupees?\s+in\b.{0,80}?particulars", re.IGNORECASE | re.DOTALL),
+    ),
+    # --- Structural fragments that are not provisions at all (2026-10-03) ---
+    # Measured over the residual 588 `unclassified` provisions, the largest
+    # single group is front/back-matter, not law: the arrangement-of-sections
+    # list ("1 21. Specific goods ... 22. Specific goods ..."), the
+    # Contract Act's explanatory Illustrations, and bare chapter headings.
+    # These carry no operative text and must not be presented as provisions.
+    (
+        "arrangement_of_sections",
+        re.compile(r"\d{1,3}\.\s+[A-Z][^.\n]{3,70}\.\s+\d{1,3}\.\s+[A-Z]"),
+    ),
+    # Must be the Contract Act's *heading* form ("Illustrations" alone on a
+    # line), not any sentence that happens to open with the word — otherwise
+    # "Illustration (a) ... shall not ..." would be filed as front-matter and
+    # lose its operative rule.
+    ("illustration", re.compile(r"^\s*illustrations?\s*[\r\n]", re.IGNORECASE)),
+    ("chapter_heading", re.compile(r"^[\s(\[]*chapter\s+[IVXL]+\b", re.IGNORECASE)),
+    # A run of bare section/subsection numbers with no operative prose
+    # ("section 70, section 71, section 74 ...", "251, 259, 260, 261,").
+    # Whitespace is optional throughout because the BNS PDFs extract with
+    # inter-word spaces stripped ("sections9,49,50,52,54,...").  The literal
+    # word "section"/"clause" is required, so a numeric money or quantity
+    # sentence is never swallowed.
+    (
+        "citation_list",
+        re.compile(
+            r"\b(?:sub-?sections?|sections?|clauses?)\s*\d{1,4}(?:\s*\([a-z0-9]+\))*\s*[,;]"
+            r"(?:\s*(?:and\s*)?(?:sub-?sections?|sections?|clauses?)?\s*\d{1,4}\s*[,;]){3,}",
+            re.IGNORECASE,
+        ),
     ),
 ]
 
@@ -339,12 +471,48 @@ class LegalSemanticEnricher:
             })
         return out
 
+    def ensure_concepts(self, concept_ids: Iterable[str] | None = None) -> int:
+        """MERGE the ``LegalConcept`` nodes this enricher writes edges to.
+
+        ``kg.ingestion.load_vocabularies`` is the only other writer of the
+        controlled vocabulary and it runs inside ``run_rebuild`` — so running
+        this CLI against a graph whose vocabulary is stale (or never loaded)
+        makes every edge to an unknown concept a no-op.  MERGE on the
+        ``concept_id`` uniqueness constraint keeps this idempotent; an
+        existing node is only refreshed with its manifest metadata.
+        """
+        wanted = set(concept_ids or (r[1] for r in SEMANTIC_RULES))
+        written = 0
+        for concept in CONCEPTS.values():
+            if concept.concept_id not in wanted:
+                continue
+            self._execute(
+                """
+                MERGE (c:LegalConcept {concept_id: $cid})
+                ON MATCH SET c.name = $name, c.description = $desc,
+                             c.domains = $domains
+                """,
+                {
+                    "cid": concept.concept_id,
+                    "name": concept.name,
+                    "desc": concept.description,
+                    "domains": list(concept.domains),
+                },
+            )
+            written += 1
+        return written
+
     def write_edges(self, rows: list[dict[str, Any]]) -> int:
         """MERGE semantic edges ``(p)-[r:REL]->(:LegalConcept)`` with evidence.
 
         Rows are grouped by ``rel_type`` (a fixed, controlled set from
         :data:`SEMANTIC_RULES`) and written with a static f-string Cypher per
         type — no APOC needed, works on Aura Free.
+
+        Returns the number of rows Cypher actually materialised.  That is
+        deliberately ``< len(rows)`` whenever a ``MATCH`` finds no target: an
+        unmatched row means the concept vocabulary is stale, and reporting the
+        shortfall is the whole point (see the module docstring, rule 5).
         """
         if not rows:
             return 0
@@ -355,7 +523,7 @@ class LegalSemanticEnricher:
         for rel_type, batch_rows in by_type.items():
             for i in range(0, len(batch_rows), self.batch_size):
                 batch = batch_rows[i : i + self.batch_size]
-                self._execute(
+                res = self._execute(
                     f"""
                     UNWIND $rows AS r
                     MATCH (p:LegalProvision {{provision_id: r.provision_id}})
@@ -366,10 +534,18 @@ class LegalSemanticEnricher:
                         rel.evidence_type = 'corpus_semantic'
                     ON MATCH SET rel.evidence = r.evidence,
                         rel.confidence = r.confidence
+                    RETURN count(*) AS written
                     """,
                     {"rows": batch},
                 )
-                written += len(batch)
+                written += _count_of(res)
+        if written < len(rows):
+            logger.warning(
+                "enrichment: %d/%d rows did not materialise — a target "
+                "provision or concept node is missing from the graph",
+                len(rows) - written,
+                len(rows),
+            )
         return written
 
     # ------------------------------------------------------------------ #
@@ -445,11 +621,16 @@ class LegalSemanticEnricher:
             )
 
         if not dry_run:
+            # Standalone guarantee: the concept nodes these rows point at must
+            # exist before any edge can materialise (see module docstring).
+            summary["concepts_ensured"] = self.ensure_concepts()
             summary["edges_written"] = self.write_edges(rows)
             summary["classes_written"] = self._write_semantic_classes(class_rows)
         else:
+            summary["concepts_ensured"] = 0
             summary["edges_written"] = 0
             summary["classes_written"] = 0
+        summary["edges_dropped"] = len(rows) - summary["edges_written"]
 
         summary["elapsed_s"] = round((datetime.now(UTC) - started).total_seconds(), 1)
         return summary
@@ -496,6 +677,19 @@ def _unwrap(value: Any) -> Any:
         except Exception:
             pass
     return value
+
+
+def _count_of(rows: Any) -> int:
+    """Total a ``RETURN count(...) AS written`` result (driver records or rows)."""
+    if rows is None:
+        return 0
+    if isinstance(rows, int):
+        return rows
+    total = 0
+    for row in rows:
+        value = row.get("written") if hasattr(row, "get") else getattr(row, "written", None)
+        total += int(value or 0)
+    return total
 
 
 def _rupees_match_not_fee(text: str, pattern: re.Pattern[str] | None = None) -> re.Match[str] | None:

@@ -73,6 +73,12 @@ DOCUMENT_TO_INSTRUMENT: dict[str, str] = {
 #: The FSS Act instrument/document identity (primary domain).
 FSS_ACT_ID = "FSS_ACT_2006"
 
+#: Qdrant collection holding the primary-domain (FSSAI) corpus.
+FSS_COLLECTION = "fssai_legal_768"
+
+#: Benchmark/registry provision-id family for the FSSAI corpus.
+FSS_PROVISION_FAMILY = "fssai"
+
 #: Manifest domain -> KG domain (``None`` = resolved per document).
 MANIFEST_DOMAIN_TO_KG: dict[str, str | None] = {
     "fssai": "FOOD_SAFETY",
@@ -88,6 +94,8 @@ MANIFEST_DOMAIN_TO_KG: dict[str, str | None] = {
 WB_STATE_DOMAIN_MAP: dict[str, str] = {
     "kmc_act_1980": "MUNICIPAL",
     "wb_premises_tenancy_act_1997": "LAND_PREMISES",
+    "wb_fire_services_act_1950": "FIRE_SAFETY",
+    "wb_fire_services_amendment_act_2022": "FIRE_SAFETY",
 }
 
 #: Manifest ``document_type`` -> Neo4j instrument label.
@@ -345,6 +353,8 @@ class KGCorpusIngestionEngine:
         self._qdrant_loaded = False
         #: Cached FSS DB corpus (documents + chunks) — loaded in ONE app context
         self._fss_cache_data: tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]] | None = None
+        #: Cached scroll of the FSSAI Qdrant collection (DB-empty fallback).
+        self._fss_qdrant_payloads_cache: list[dict[str, Any]] | None = None
 
     # ------------------------------------------------------------------ #
     # Driver / client plumbing
@@ -481,15 +491,187 @@ class KGCorpusIngestionEngine:
         return self._fss_cache_data
 
     def load_fss_documents(self) -> list[dict[str, Any]]:
-        """Read the 29 FSSAI ``LegalDocument`` rows from the local DB (cached)."""
-        return self._fss_corpus()[0]
+        """FSSAI corpus documents, DB-first with a Qdrant fallback.
+
+        The local ``LegalDocument`` table is the authority when populated.
+        On a fresh/empty database it holds 0 rows even though the live
+        ``fssai_legal_768`` collection carries the whole FSSAI corpus, so we
+        fall back to deriving document rows from the Qdrant payloads.  Without
+        this the rebuilt KG has zero FOOD_SAFETY provisions and the food
+        retrieval arm silently gets no graph expansion.
+        """
+        docs = self._fss_corpus()[0]
+        if not docs:
+            docs = self._fss_documents_from_qdrant()
+            self._fss_cache_data = (docs, self._fss_corpus()[1] or self._fss_chunks_from_qdrant())
+        return docs
 
     def load_all_fss_chunks(self) -> dict[str, list[dict[str, Any]]]:
-        """Load every ``LegalChunk`` row (cached, single app context).
+        """Load every FSSAI chunk, DB-first with a Qdrant fallback.
 
-        Returns ``{document_id: [chunk dicts]}`` for all 29 FSSAI documents.
+        Returns ``{document_id: [chunk dicts]}``.
         """
-        return self._fss_corpus()[1]
+        chunks = self._fss_corpus()[1]
+        if not chunks:
+            chunks = self._fss_chunks_from_qdrant()
+            docs = self._fss_corpus()[0] or self._fss_documents_from_qdrant()
+            self._fss_cache_data = (docs, chunks)
+        return chunks
+
+    # ------------------------------------------------------------------ #
+    # FSSAI corpus from Qdrant payloads (DB-empty fallback)
+    # ------------------------------------------------------------------ #
+
+    def _fss_qdrant_payloads(self) -> list[dict[str, Any]]:
+        """Scroll the FSSAI collection once, one payload dict per point."""
+        if self._fss_qdrant_payloads_cache is not None:
+            return self._fss_qdrant_payloads_cache
+        client = self._get_qdrant_client()
+        out: list[dict[str, Any]] = []
+        offset: Any = None
+        while True:
+            recs, offset = client.scroll(
+                collection_name=FSS_COLLECTION,
+                limit=1000,
+                with_payload=True,
+                with_vectors=False,
+                offset=offset,
+            )
+            if not recs:
+                break
+            for rec in recs:
+                if isinstance(rec, dict):
+                    payload = dict(rec.get("payload") or rec)
+                    rec_id = rec.get("id")
+                else:
+                    payload = dict(getattr(rec, "payload", None) or {})
+                    rec_id = getattr(rec, "id", None)
+                if not payload.get("chunk_id") and rec_id:
+                    payload["chunk_id"] = str(rec_id)
+                out.append(payload)
+            if not offset:
+                break
+        self._fss_qdrant_payloads_cache = out
+        return out
+
+    def _fss_documents_from_qdrant(self) -> list[dict[str, Any]]:
+        """Derive FSSAI document rows from the live Qdrant payloads."""
+        by_doc: dict[str, dict[str, Any]] = {}
+        for payload in self._fss_qdrant_payloads():
+            doc_id = str(payload.get("document_id") or "")
+            if not doc_id:
+                continue
+            row = by_doc.setdefault(
+                doc_id,
+                {
+                    "db_id": doc_id,
+                    "title": str(payload.get("document_title") or ""),
+                    "document_type": str(payload.get("document_type") or "regulation"),
+                    "source_uri": str(payload.get("document_uri") or ""),
+                    "authority": str(payload.get("authority") or ""),
+                    "jurisdiction": str(payload.get("jurisdiction") or "India"),
+                    "effective_date": _iso(payload.get("effective_date")),
+                    "enactment_date": _iso(payload.get("enactment_date")),
+                    "is_current": bool(payload.get("is_current", True)),
+                    "qdrant_collection": FSS_COLLECTION,
+                    "chunk_count": 0,
+                    "is_fss_act": bool(
+                        re.search(
+                            r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006",
+                            str(payload.get("document_uri") or ""),
+                            flags=re.IGNORECASE,
+                        )
+                    ),
+                    "instrument_id": str(payload.get("instrument_id") or ""),
+                },
+            )
+            row["chunk_count"] += 1
+        return list(by_doc.values())
+
+    def _fss_chunks_from_qdrant(self) -> dict[str, list[dict[str, Any]]]:
+        """Group live FSSAI Qdrant payloads into ``{document_id: [chunk]}``.
+
+        FSSAI chunks are keyed by ``clause_number``/``provision_ids`` (e.g.
+        ``fssai:s2.9.8``), not by act section number, so the payload's own
+        provision ids are carried through verbatim for the KG join.
+        """
+        by_doc: dict[str, list[dict[str, Any]]] = {}
+        for payload in self._fss_qdrant_payloads():
+            doc_id = str(payload.get("document_id") or "")
+            if not doc_id:
+                continue
+            by_doc.setdefault(doc_id, []).append(
+                {
+                    "chunk_id": str(payload.get("chunk_id") or ""),
+                    "qdrant_point_id": str(payload.get("chunk_id") or ""),
+                    "document_id": doc_id,
+                    "chunk_index": int(payload.get("chunk_index") or 0),
+                    "chunk_text": (payload.get("chunk_text") or "")[:500],
+                    "section_number": _clean_section(payload.get("section_number")),
+                    "clause_number": payload.get("clause_number"),
+                    "provision_ids": list(payload.get("provision_ids") or []),
+                    "provision_modality": payload.get("provision_modality"),
+                    "provision_confidence": payload.get("provision_confidence"),
+                }
+            )
+        return by_doc
+
+    def build_fss_provisions(
+        self, instrument_id: str, chunks: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Group FSSAI chunks into provisions keyed by clause number.
+
+        FSSAI regulations are clause-numbered (``2.9.8``), not sectioned, and
+        the payloads carry a registry provision id (``fssai:s2.9.8``) that is
+        only unique *within* a regulation — clause ``4`` alone is claimed by 14
+        documents in this corpus.  So the node id is scoped by instrument
+        (``<instrument>_CLAUSE_4``) and the registry id is kept on
+        ``provision_ref`` as the join key used by the benchmark and evaluation
+        harnesses, which address provisions in exactly that scheme.
+        """
+        sections: dict[str, dict[str, Any]] = {}
+        for chunk in chunks:
+            clause = str(chunk.get("clause_number") or "").strip()
+            ref = str((chunk.get("provision_ids") or [""])[0] or "").strip()
+            if not clause and not ref:
+                continue
+            key = clause or ref
+            entry = sections.setdefault(
+                key,
+                {
+                    "ref": ref or f"{FSS_PROVISION_FAMILY}:s{key}",
+                    "text": "",
+                    "chunk_ids": [],
+                    "confidence": None,
+                    "modality": None,
+                },
+            )
+            if not entry["text"]:
+                entry["text"] = (chunk.get("chunk_text") or "").strip()
+            entry["chunk_ids"].append(chunk.get("chunk_id") or "")
+            if entry.get("confidence") is None and chunk.get("provision_confidence") is not None:
+                entry["confidence"] = chunk["provision_confidence"]
+            if entry.get("modality") is None and chunk.get("provision_modality"):
+                entry["modality"] = chunk["provision_modality"]
+
+        provisions: list[dict[str, Any]] = []
+        for key, entry in sorted(sections.items()):
+            provisions.append(
+                {
+                    "provision_id": f"{instrument_id}_CLAUSE_{key}",
+                    "provision_ref": entry["ref"],
+                    "provision_number": key or entry["ref"],
+                    "title": f"Clause {key}" if key else entry["ref"],
+                    "text": entry["text"][:2000],
+                    "instrument_id": instrument_id,
+                    "chunk_ids": entry["chunk_ids"],
+                    "header_chunk_id": entry["chunk_ids"][0] if entry["chunk_ids"] else None,
+                    "source": "corpus_qdrant",
+                    "confidence": float(entry["confidence"]) if entry["confidence"] is not None else 0.9,
+                    "modality": entry["modality"] or "",
+                }
+            )
+        return provisions
 
     # ------------------------------------------------------------------ #
     # Mapping helpers
@@ -584,32 +766,54 @@ class KGCorpusIngestionEngine:
         and against junk (year-like numbers).  ``fallback_stubs`` optionally
         adds verified section content for sections the chunker missed (stub
         instruments only — never for corpus instruments).
+
+        Two corpus-scale defects were fixed here:
+
+        * **Text is accumulated, not taken from the first chunk.**  The header
+          chunk of a section carries only the section number ("9"), so keeping
+          just that chunk gave every provision a one-character body — 476
+          provisions landed as ``skipped_short_text`` downstream purely for
+          want of their own text.
+        * **The declared section is carried forward** across the chunks that
+          follow it in the same instrument, so a section's continuation
+          chunks link to it instead of dangling.  See
+          :func:`resolve_section_keys` for why the registry
+          ``provision_ids`` metadata is deliberately not used for this.
         """
         known = sections_for_act(act_name) if act_name else None
+        keys = resolve_section_keys(chunks, known)
         sections: dict[str, dict[str, Any]] = {}
         for chunk in chunks:
-            sn = chunk.get("section_number")
+            sn = keys.get(str(chunk.get("chunk_id") or ""))
             if not sn:
-                continue
-            if not _valid_section(sn, known):
                 continue
             entry = sections.setdefault(
                 sn,
                 {
                     "title": chunk.get("section_title") or _section_title_from_text(chunk.get("chunk_text", "")),
-                    "text": (chunk.get("chunk_text") or "").strip(),
+                    "text_parts": [],
                     "chunk_ids": [],
                 },
             )
-            if not entry["text"]:
-                entry["text"] = (chunk.get("chunk_text") or "").strip()
+            text = (chunk.get("chunk_text") or "").strip()
+            # Drop bare-number header stubs: they carry no provision body and
+            # would otherwise be the *only* text a provision ends up with.
+            if text and not _is_bare_section_stub(text):
+                entry["text_parts"].append(text)
+            if not entry.get("title") and chunk.get("section_title"):
+                entry["title"] = chunk["section_title"]
             entry["chunk_ids"].append(chunk.get("chunk_id") or "")
             if entry.get("header_chunk_id") is None and chunk.get("section_title"):
                 entry["header_chunk_id"] = chunk.get("chunk_id")
 
         for sn, (title, text) in (fallback_stubs or {}).items():
             if sn not in sections:
-                sections[sn] = {"title": title, "text": text, "chunk_ids": [], "header_chunk_id": None}
+                sections[sn] = {
+                    "title": title,
+                    "text_parts": [text] if text else [],
+                    "chunk_ids": [],
+                    "header_chunk_id": None,
+                }
 
         provisions: list[dict[str, Any]] = []
         for sn in sorted(sections, key=lambda s: (len(s), s)):
@@ -618,7 +822,7 @@ class KGCorpusIngestionEngine:
                 "provision_id": f"{instrument_id}_SEC_{sn}",
                 "provision_number": sn,
                 "title": entry["title"] or f"Section {sn}",
-                "text": entry["text"][:2000],
+                "text": "\n".join(entry["text_parts"])[:2000],
                 "instrument_id": instrument_id,
                 "chunk_ids": entry["chunk_ids"],
                 "header_chunk_id": entry.get("header_chunk_id"),
@@ -626,6 +830,24 @@ class KGCorpusIngestionEngine:
                 "confidence": 0.9 if entry["chunk_ids"] else 0.6,
             })
         return provisions
+
+    def map_chunks_to_provisions(
+        self,
+        instrument_id: str,
+        act_name: str | None,
+        chunks: list[dict[str, Any]],
+    ) -> dict[str, str]:
+        """Map ``chunk_id -> provision_id`` using the same key resolution.
+
+        Split out of :meth:`build_provisions` so the caller and the provision
+        builder can never disagree about which section a chunk belongs to —
+        that disagreement is what silently produced unlinked chunks.
+        """
+        known = sections_for_act(act_name) if act_name else None
+        return {
+            chunk_id: f"{instrument_id}_SEC_{sn}"
+            for chunk_id, sn in resolve_section_keys(chunks, known).items()
+        }
 
     # ------------------------------------------------------------------ #
     # Write helpers (batched UNWIND MERGE)
@@ -680,7 +902,15 @@ class KGCorpusIngestionEngine:
             # Non-FSS multi-part PDFs share one filename stem ("a.pdf#<doc-id>"),
             # so the stem alone would collide and silently drop sub-documents.
             # Disambiguate with the DB primary key: deterministic and unique.
-            instrument_id = FSS_ACT_ID if doc["is_fss_act"] else f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
+            # A payload-carried ``instrument_id`` (Qdrant fallback) is already
+            # unique and stable, so prefer it over a re-derived slug.
+            payload_instrument = str(doc.get("instrument_id") or "").strip()
+            if payload_instrument:
+                instrument_id = payload_instrument
+            elif doc["is_fss_act"]:
+                instrument_id = FSS_ACT_ID
+            else:
+                instrument_id = f"{_slug_id(display_title, 'FSS_')}_{doc['db_id'][:8]}"
             domain = "FOOD_SAFETY"
             domains_used.append(domain)
             label = DOC_TYPE_TO_LABEL.get(str(doc["document_type"] or "").lower(), "Act")
@@ -868,11 +1098,13 @@ class KGCorpusIngestionEngine:
                 p.instrument_id = r.instrument_id, p.legal_domain = r.legal_domain,
                 p.status = coalesce(r.status, 'current'), p.effective_from = r.effective_from,
                 p.confidence = r.confidence, p.source = r.source,
-                p.provision_text = r.text, p.version = '1.0'
+                p.provision_text = r.text, p.version = '1.0',
+                p.provision_ref = coalesce(r.provision_ref, '')
             ON MATCH SET
                 p.title = r.title, p.legal_domain = r.legal_domain,
                 p.provision_text = r.text, p.confidence = r.confidence,
-                p.status = coalesce(r.status, 'current')
+                p.status = coalesce(r.status, 'current'),
+                p.provision_ref = coalesce(r.provision_ref, p.provision_ref, '')
             """,
             rows,
         )
@@ -1084,7 +1316,7 @@ class KGCorpusIngestionEngine:
                 for p in pts
             ]
             provs = self.build_provisions(iid, row.get("act_name"), payload_chunks)
-            valid_secs = {p["provision_number"] for p in provs}
+            chunk_provision = self.map_chunks_to_provisions(iid, row.get("act_name"), payload_chunks)
             for p in provs:
                 p["legal_domain"] = row["legal_domain"]
                 p["effective_from"] = row["effective_date"]
@@ -1096,7 +1328,7 @@ class KGCorpusIngestionEngine:
                 {
                     **c,
                     "legal_domain": row["legal_domain"],
-                    "provision_id": (f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None),
+                    "provision_id": chunk_provision.get(c["chunk_id"]),
                     "qdrant_collection": _collection_for_domain(row["legal_domain"]),
                 }
                 for c in payload_chunks
@@ -1110,8 +1342,14 @@ class KGCorpusIngestionEngine:
         for iid, row in fss_docs.items():
             doc_db_id = row["document_id"]
             page = fss_chunks.get(doc_db_id, [])
-            provs = self.build_provisions(iid, row.get("act_name") or None, page)
-            valid_secs = {p["provision_number"] for p in provs}
+            # FSSAI provisions are clause-numbered and already carry registry
+            # ids in the payloads (``fssai:s2.9.8``) — keep those ids so the
+            # graph stays joinable to the benchmark/eval harnesses.
+            provs = self.build_fss_provisions(iid, page)
+            by_chunk: dict[str, str] = {}
+            for p in provs:
+                for cid in p["chunk_ids"]:
+                    by_chunk[cid] = p["provision_id"]
             for p in provs:
                 p["legal_domain"] = row["legal_domain"]
                 p["effective_from"] = row["effective_date"]
@@ -1123,14 +1361,21 @@ class KGCorpusIngestionEngine:
                 {
                     **c,
                     "legal_domain": row["legal_domain"],
-                    "provision_id": (f"{iid}_SEC_{c['section_number']}" if c["section_number"] in valid_secs else None),
-                    "qdrant_collection": row.get("qdrant_collection", "fssai_legal_768"),
+                    "provision_id": by_chunk.get(c.get("chunk_id") or ""),
+                    "qdrant_collection": row.get("qdrant_collection", FSS_COLLECTION),
                 }
                 for c in page
             )
+            stats.setdefault("fssai_provisions", 0)
+            stats["fssai_provisions"] += len(provs)
 
         stats["provisions"] = len(provisions)
         stats["chunks"] = len(chunks)
+        # Chunk→provision coverage is the headline corpus-scale metric: a chunk
+        # with no link is invisible to every KG-context path at generation time.
+        linked = sum(1 for c in chunks if c.get("provision_id"))
+        stats["chunks_with_provision"] = linked
+        stats["chunks_without_provision"] = len(chunks) - linked
         stats["provisions_with_domain"] = len(provisions)  # every provision gets a domain edge
 
         # Provision text/title enrichment from best chunks happens inside
@@ -1269,6 +1514,104 @@ def _valid_section(section: str, known: frozenset[str] | None) -> bool:
         return s in known
     # Unknown act: cap at 1200 (max plausible section number in this corpus)
     return n <= 1200
+
+
+#: Registry provision refs look like ``comp:s3`` / ``epa:s26.5`` / ``bns:s188``.
+#:
+#: NOT USED for section resolution.  Measured 2026-10-03 across all six
+#: collections, ``provision_ids`` / ``provision_spans`` are frequently
+#: degenerate — a single constant ref repeated over hundreds of chunks
+#: (``sog:s66`` on 130 of 141 Sale of Goods chunks; ``epa:s26.5`` on 1,625
+#: chunks of the environment compilation; ``3.2.1`` on 4,509 of 5,907 food
+#: chunks), and several instruments yield only 3-4 distinct refs in total
+#: (Companies Act: 4 refs for 633 chunks; Indian Contract Act: 3 refs).
+#: Resolving sections from them fabricates mega-provisions, so the KG carries
+#: the last *declared* section forward instead (see
+#: :func:`resolve_section_keys`).
+_PROVISION_REF_RE = re.compile(r"^[^:]+:s(?P<section>[^:]+)$")
+
+#: A subsection-qualified key: ``26.5``, ``3(ii)``, ``4A(1)(b)``.
+_SUBSECTION_RE = re.compile(r"^\d{1,4}[A-Za-z]?(?:\.\d+|\([A-Za-z0-9ivxIVX]+\))+$")
+
+#: Cap on a provision key's length so a runaway string can never become a node id.
+_MAX_SECTION_KEY_CHARS = 24
+
+
+def _ref_section(ref: Any) -> str | None:
+    """Extract the section expression from a registry provision ref."""
+    m = _PROVISION_REF_RE.match(str(ref or "").strip())
+    return m.group("section") if m else None
+
+
+def _valid_section_key(section: str, known: frozenset[str] | None) -> bool:
+    """Section sanity for a resolved key, allowing subsection-qualified forms.
+
+    A qualified key is only accepted when its *head* section passes the same
+    range/year checks as a bare one, so junk years and out-of-range cross
+    references are still rejected.
+    """
+    if _valid_section(section, known):
+        return True
+    s = str(section).strip()
+    if len(s) > _MAX_SECTION_KEY_CHARS or not _SUBSECTION_RE.match(s):
+        return False
+    head = re.match(r"^\d{1,4}[A-Za-z]?", s)
+    return bool(head) and _valid_section(head.group(0), known)
+
+
+def _explicit_section_key(chunk: dict[str, Any], known: frozenset[str] | None) -> str | None:
+    """The section this chunk *declares*, or ``None``.
+
+    Only ``section_number`` is trusted here.  It is the chunker's own header
+    detection and the same field the primary grouping has always used.
+    """
+    sn = chunk.get("section_number")
+    if not sn:
+        return None
+    sn = str(sn).strip()
+    return sn if _valid_section_key(sn, known) else None
+
+
+def resolve_section_keys(
+    chunks: list[dict[str, Any]], known: frozenset[str] | None
+) -> dict[str, str]:
+    """Map ``chunk_id -> section key``, carrying the last declaration forward.
+
+    10,505 corpus chunks carry no ``section_number`` because the chunker only
+    writes one on a section's header chunk; every continuation chunk in
+    between is unmarked.  Within a single instrument, a chunk after a
+    declared section and before the next one belongs to that section, so the
+    declared key is propagated forward in ``chunk_index`` order.
+
+    Chunks before the first declaration in their instrument stay unlinked:
+    there is no evidence for where they belong, and guessing is what made the
+    registry-ref fallback unsafe.
+
+    A chunk whose declared number is *rejected* as junk (year-like, out of
+    range) does not open a new section — it is a cross-reference sitting in the
+    body of whatever section precedes it, so it continues that one.  The junk
+    number still never becomes a provision of its own.
+    """
+    ordered = sorted(chunks, key=lambda c: (int(c.get("chunk_index") or 0), str(c.get("chunk_id") or "")))
+    out: dict[str, str] = {}
+    current: str | None = None
+    for chunk in ordered:
+        declared = _explicit_section_key(chunk, known)
+        if declared:
+            current = declared
+        chunk_id = str(chunk.get("chunk_id") or "")
+        if chunk_id and current:
+            out[chunk_id] = current
+    return out
+
+
+def _is_bare_section_stub(text: str) -> bool:
+    """True for a header chunk whose whole body is just a section marker."""
+    stripped = text.strip().strip(".:;-— \t")
+    if not stripped or len(stripped) > 8:
+        return False
+    head = re.match(r"^\d{1,4}[A-Za-z]?", stripped)
+    return bool(head) and stripped == head.group(0)
 
 
 def _section_title_from_text(text: str) -> str | None:

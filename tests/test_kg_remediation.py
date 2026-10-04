@@ -454,12 +454,38 @@ class TestNotApplicableClassifier:
                 "349 PART II – STATEMENT OF PROFIT AND LOSS ... (Rupees in ........) Particulars Note No. Figures for the current reporting period Revenue from operations",
                 "financial_format_row",
             ),
+            # Structural front/back-matter measured in the residual 588
+            # `unclassified` provisions (2026-10-03).
+            (
+                "1 21. Specific goods to be put into a deliverable state. 22. Specific goods in a deliverable state, when the seller has to do anything.",
+                "arrangement_of_sections",
+            ),
+            ("Illustrations\n(e) A agrees to sell B one thousand maunds of rice.", "illustration"),
+            ("(Chapter VII. Sub-tenancies. Section 26.)", "chapter_heading"),
+            (
+                "(3),(4)and(5)ofsection8,sections9,49,50,52,54,55,56,57,58,59,60,61,119, 120,123,",
+                "citation_list",
+            ),
         ],
     )
     def test_reasons(self, text, expected_reason):
         from kg.enrichment import _not_applicable_reason
 
         assert _not_applicable_reason(text) == expected_reason
+
+    def test_structural_patterns_do_not_swallow_substantive_text(self):
+        """A real provision that merely contains digits, a chapter word or an
+        "illustration" example must not be filed as front-matter."""
+        from kg.enrichment import _not_applicable_reason
+
+        substantive = [
+            "Where the seller draws on the buyer for the price, the buyer acquires a good title to the goods.",
+            "The Central Government may, in Chapter II of these rules, fix the norms.",
+            "Illustration (a) is an illustration and shall not be cited as law.",
+            "A contract of sale of goods of the value of Rs. 500, 1,000, 2,000, 3,000 shall be in writing.",
+        ]
+        for text in substantive:
+            assert _not_applicable_reason(text) is None, text
 
     def test_substantive_text_is_not_applicable_none(self):
         from kg.enrichment import _not_applicable_reason
@@ -516,14 +542,68 @@ class TestEnrichClassTagging:
         summary = LegalSemanticEnricher(driver=drv, database="neo4j").enrich(dry_run=False)
         assert summary["provisions_loaded"] == 3
         assert summary["skipped_short_text"] == 1
-        assert summary["not_applicable"] == 1
+        # P2 ('"Food Analyst" means ...') now matches the DEFINES rule added
+        # 2026-10-03, so it is TAGGED rather than parked as
+        # not_applicable:definition — a definitional provision is substantive
+        # law that previously produced no edge at all.
+        assert summary["not_applicable"] == 0
         assert summary["unclassified"] == 0
         assert summary["classes_written"] == 3
         # Class write went through UNWIND with semantic_class values
         class_writes = [c for c in drv.calls if "SET p.semantic_class = r.semantic_class" in c[0]]
         assert class_writes
         classes = [r["semantic_class"] for r in class_writes[0][1]["rows"]]
-        assert "tagged" in classes and "not_applicable:definition" in classes and "skipped_short_text" in classes
+        assert "tagged" in classes and "skipped_short_text" in classes
+        assert classes.count("tagged") == 2
+
+    def test_definitional_provision_gets_defines_edge(self):
+        """A definition is substantive law: it must yield a typed edge, not
+        be left unclassified (2026-10-03 ontology extension)."""
+        from kg.enrichment import LegalSemanticEnricher
+
+        cases = {
+            "is said to be": 'A person is said to be "insolvent" who has ceased to pay his debts.',
+            "means": 'In this Act, "food" means any substance used for human consumption.',
+            "shall mean": '"vehicle" shall mean any road vehicle of a class specified.',
+            "may be called": "This Act may be called the Prevention of Food Adulteration Act, 1954.",
+        }
+        for label, text in cases.items():
+            tags = LegalSemanticEnricher.tag_text(text)
+            rels = {t["rel_type"] for t in tags}
+            assert "DEFINES" in rels, f"{label}: expected DEFINES, got {rels}"
+
+    def test_exemption_provision_gets_exempts_edge(self):
+        from kg.enrichment import LegalSemanticEnricher
+
+        text = "The provisions of this section shall not apply to any transaction intended as a contract of sale."
+        tags = LegalSemanticEnricher.tag_text(text)
+        assert "EXEMPTS" in {t["rel_type"] for t in tags}
+
+    def test_new_rules_do_not_steal_existing_semantics(self):
+        """DEFINES/EXEMPTS are additive categories; duty/penalty/prohibition
+        tagging must be unchanged by them."""
+        from kg.enrichment import LegalSemanticEnricher
+
+        duty = "Every food business operator shall maintain the prescribed records."
+        assert {t["rel_type"] for t in LegalSemanticEnricher.tag_text(duty)} >= {"IMPOSES_DUTY"}
+
+        penalty = "Whoever contravenes shall be punished with imprisonment which may extend to six months."
+        assert "PRESCRIBES_PENALTY" in {t["rel_type"] for t in LegalSemanticEnricher.tag_text(penalty)}
+
+        prohibition = (
+            "No person shall sell, offer for sale or expose for sale any article of food "
+            "which is not in compliance with the prescribed standards."
+        )
+        assert "PROHIBITS" in {t["rel_type"] for t in LegalSemanticEnricher.tag_text(prohibition)}
+
+    def test_new_concepts_are_registered_in_domain_manifest(self):
+        """Every concept the enricher emits must exist in the controlled
+        vocabulary, or load_vocabularies will not MERGE it and the edge
+        silently targets nothing."""
+        from kg.domain_manifest import CONCEPTS
+
+        for concept in ("Definition", "Exemption"):
+            assert concept in CONCEPTS
 
     def test_dry_run_counts_classes_without_writes(self):
         from kg.enrichment import LegalSemanticEnricher

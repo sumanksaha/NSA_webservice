@@ -6,7 +6,7 @@ Scores the Tier-1/Tier-2 provision extractor over already-indexed corpus text:
   overall and macro per numbering family (Acts / dotted regulations / …).
 * **Noise-stamp rate** — emitted stamps that are out of the act's range,
   year-like, or duplicated within a document; target ≈ 0.
-* **Gold resolution** — the share of the 97 gold provisions whose emitted
+* **Gold resolution** — the share of the 99 gold provisions whose emitted
   ``provision_id`` round-trips through ``benchmark._section_from_id`` to the
   gold section (the plan's "gold id round-trip" gate).
 

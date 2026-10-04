@@ -439,8 +439,14 @@ class TestValidation:
     def test_fallback_queries_no_entity(self):
         assert fallback_queries("What is the procedure?") == []
 
-    def test_kg_fallback_degrades_gracefully(self):
-        """No Neo4j configured → empty list, never raises (spec §11)."""
+    def test_kg_fallback_degrades_gracefully(self, monkeypatch):
+        """No Neo4j configured → empty list, never raises (spec §11).
+
+        The env vars are cleared explicitly: a developer's ``.env`` may point at
+        a real local Neo4j, and this test is about the *unconfigured* path.
+        """
+        for key in ("NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"):
+            monkeypatch.delenv(key, raising=False)
         out = kg_fallback_queries("What is the standard for cumin?")
         assert out == []
 
@@ -463,10 +469,38 @@ class TestFoodAnswer:
         assert prompt == FOOD_STANDARD_SYSTEM_PROMPT
         assert "a definition of the food is not an answer" in prompt
 
+    def test_standard_prompt_demands_full_enumeration(self):
+        """§6.1: B_food_standard failed by quoting one variety / part of the table."""
+        from app.rag.generation.food_answer import build_food_system_prompt
+
+        prompt = build_food_system_prompt("food_standard")
+        assert "EVERY parameter/requirement row" in prompt
+        assert "EVERY variety/form" in prompt
+        # Adjacent-row misreading guard (FI020: total ash answered with moisture).
+        assert "bound to the parameter it was read from" in prompt
+
     def test_parameter_prompt(self):
         from app.rag.generation.food_answer import build_food_system_prompt
 
         assert "SPECIFIC PARAMETER" in build_food_system_prompt("parameter_specific_standard")
+
+    def test_parameter_prompt_demands_exact_row_match(self):
+        """§6.1: a parameter ask must not fall back to the nearest numeric row."""
+        from app.rag.generation.food_answer import build_food_system_prompt
+
+        prompt = build_food_system_prompt("parameter_specific_standard")
+        assert "ROW MATCHING" in prompt
+        assert "adjacent rows" in prompt
+
+    def test_parameter_prompt_does_not_encourage_refusal(self):
+        """Regression: an over-cautious row-matching clause made the model
+        decline limits that were present in the retrieved table (FI003,
+        FI018, FI025) whenever the clause heading was missing."""
+        from app.rag.generation.food_answer import build_food_system_prompt
+
+        prompt = build_food_system_prompt("parameter_specific_standard")
+        assert "rather than returning the nearest value" not in prompt
+        assert "give the parameter's value and cite it, rather than declining" in prompt
 
     def test_user_prompt_numbers_evidence(self):
         from app.rag.generation.food_answer import render_food_user_prompt

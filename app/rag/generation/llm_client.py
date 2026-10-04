@@ -76,6 +76,19 @@ class GroundedLLMClient:
     #: OpenRouter's OpenAI-compatible endpoint.
     DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
+    #: Total attempts for one logical call (1 initial + N retries).
+    MAX_ATTEMPTS = int(os.environ.get("RAG_LLM_MAX_ATTEMPTS", "6"))
+
+    #: Backoff bounds in seconds.  429s need real breathing room: the old
+    #: 1s/2s ladder exhausted its retries inside a rate-limit window and
+    #: surfaced as an empty answer rather than an error.
+    BACKOFF_BASE_S = float(os.environ.get("RAG_LLM_BACKOFF_BASE_S", "2.0"))
+    BACKOFF_MAX_S = float(os.environ.get("RAG_LLM_BACKOFF_MAX_S", "60.0"))
+
+    #: HTTP statuses worth retrying.  4xx outside this set (401/403/400/404)
+    #: are configuration or request bugs — retrying them just burns the quota.
+    RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
+
     def __init__(
         self,
         model: str | None = None,
@@ -188,12 +201,26 @@ class GroundedLLMClient:
         body.update(extra)
 
         last_exc: Exception | None = None
-        for attempt in range(3):
+        last_status: int | None = None
+        for attempt in range(self.MAX_ATTEMPTS):
             try:
                 import httpx
 
                 with httpx.Client(timeout=30.0) as client:
                     resp = client.post(url, headers=headers, json=body)
+                    if resp.status_code in self.RETRYABLE_STATUS:
+                        # Rate limit / transient server error.  Honour the
+                        # server's own pacing hint when it sends one.
+                        last_status = resp.status_code
+                        last_exc = httpx.HTTPStatusError(
+                            f"HTTP {resp.status_code}",
+                            request=resp.request,
+                            response=resp,
+                        )
+                        if attempt < self.MAX_ATTEMPTS - 1:
+                            time.sleep(self._backoff_delay(attempt, resp.headers.get("Retry-After")))
+                            continue
+                        break
                     resp.raise_for_status()
                     data = resp.json()
                     choice = data["choices"][0]
@@ -218,15 +245,44 @@ class GroundedLLMClient:
                         latency=latency,
                     )
             except Exception as exc:
+                # A non-retryable HTTP status (401/403/400/404 …) is a config
+                # or request bug.  Fail fast instead of burning the retry
+                # budget — and report it distinctly from a rate limit.
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status is not None and status not in self.RETRYABLE_STATUS:
+                    latency = time.perf_counter() - start
+                    return GroundedLLMResponse(
+                        error=f"LLM request failed (non-retryable HTTP {status}): {exc}",
+                        model=self.model,
+                        latency=latency,
+                    )
                 last_exc = exc
-                if attempt < 2:
-                    time.sleep(2**attempt)
+                if attempt < self.MAX_ATTEMPTS - 1:
+                    time.sleep(self._backoff_delay(attempt))
                 else:
                     break
 
         latency = time.perf_counter() - start
+        suffix = f" (last HTTP {last_status})" if last_status else ""
         return GroundedLLMResponse(
-            error=f"LLM request failed after 3 attempts: {last_exc}",
+            error=f"LLM request failed after {self.MAX_ATTEMPTS} attempts{suffix}: {last_exc}",
             model=self.model,
             latency=latency,
         )
+
+    def _backoff_delay(self, attempt: int, retry_after: str | None = None) -> float:
+        """Seconds to wait before retry *attempt*.
+
+        Exponential in ``attempt``, capped at ``BACKOFF_MAX_S``, with a small
+        deterministic jitter so concurrent workers do not resynchronise onto
+        the same tick.  A server-sent ``Retry-After`` (seconds form) wins.
+        """
+        if retry_after:
+            try:
+                return min(float(retry_after), self.BACKOFF_MAX_S)
+            except (TypeError, ValueError):
+                pass
+        base = min(self.BACKOFF_BASE_S * (2**attempt), self.BACKOFF_MAX_S)
+        # Deterministic jitter: avoids stampede without needing a RNG import.
+        jitter = (attempt % 4) * 0.25
+        return min(base + jitter, self.BACKOFF_MAX_S)

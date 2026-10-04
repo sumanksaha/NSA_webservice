@@ -178,3 +178,22 @@ documents. Decisions:
   reproducible via `scripts/train_provision_boundaries.py`).
 - Revisit only when the gold-referenced document count grows enough for the
   bootstrap to have power, or when Tier 1 recall regresses.
+
+**Revisit check (2026-10-02, second pass):** neither trigger condition is
+met, so the verdict stands.
+
+- Gold-referenced documents: still **11 of 63** indexed. The registry holds
+  99 provisions over 22 documents, but 11 documents (44 provisions —
+  including the 41-provision FSS Act block) are not in the payload index
+  (`document_absent`), so they contribute no bootstrap rows. Power at the
+  observed effect (+0.0152 mean per-doc diff, sd 0.1168): ~228
+  gold-referenced documents (~21× current) are needed for the 95% CI to
+  exclude 0.
+- Tier 1 recall: unchanged — micro 0.811 (30/37), per-doc mean 0.773,
+  noise 0.0000, gold resolution 0.303. No regression.
+- Tier-2 artifact retrained (seed 20260928, test F1 0.737, sha256
+  `a0951834…`) and re-gated the same day (10:38 UTC): recall 0.773→0.788,
+  CI [-0.045, 0.091], `adopt_hybrid=false` — identical to the morning gate.
+
+Next trigger events: index the missing gold documents (above all the FSS
+Act corpus carrying 41 gold provisions), or a Tier-1 recall drop.

@@ -76,6 +76,13 @@ DOMAINS: dict[str, LegalDomain] = {
         "INDIA",
         8,
     ),
+    "FIRE_SAFETY": LegalDomain(
+        "FIRE_SAFETY",
+        "Fire prevention and fire services law: West Bengal Fire Services Act, 1950 - fire brigade, "
+        "licensing of warehouses, fire offences and penalties.",
+        "WEST_BENGAL",
+        9,
+    ),
 }
 
 
@@ -295,6 +302,34 @@ CONCEPTS: dict[str, LegalConcept] = {
         "AnimalWelfare", "Animal Welfare", "Humane treatment of animals.", ("ANIMAL_SLAUGHTER",)
     ),
     "Vehicles": LegalConcept("Vehicles", "Vehicles", "Mobile food vending units.", ("MUNICIPAL", "FOOD_SAFETY")),
+    # --- Added 2026-10-03 (ontology extension for unclassified provisions) ---
+    # Definitional and exemption provisions previously produced NO semantic
+    # edge: the relation vocabulary had no way to express "this section
+    # defines X" or "this provision carves out an exception", so ~796
+    # provisions were reported `unclassified`. They are substantive law, just
+    # not duty/penalty shaped - forcing them into IMPOSES_DUTY would be wrong.
+    "Definition": LegalConcept(
+        "Definition",
+        "Definition",
+        "Provision defining a term used elsewhere in the instrument.",
+        ("FOOD_SAFETY", "BUSINESS_CIVIL", "MUNICIPAL", "LAND_PREMISES", "ENVIRONMENT_POLLUTION", "ANIMAL_SLAUGHTER", "CRIMINAL", "FIRE_SAFETY"),
+    ),
+    "Exemption": LegalConcept(
+        "Exemption",
+        "Exemption",
+        "Provision carving an exception or exclusion out of an otherwise applicable requirement.",
+        ("FOOD_SAFETY", "BUSINESS_CIVIL", "MUNICIPAL", "LAND_PREMISES", "ENVIRONMENT_POLLUTION", "ANIMAL_SLAUGHTER", "FIRE_SAFETY"),
+    ),
+    # Declarative / deeming provisions (Sale of Goods conditions-vs-warranty
+    # rules, "shall be deemed", "operates as"). These state what the law IS
+    # rather than what anyone must or must not do, so every prior category
+    # missed them and they piled up as unclassified.
+    "DeclarativeRule": LegalConcept(
+        "DeclarativeRule",
+        "Declarative Rule",
+        "Provision stating what the law is - a status, condition or deeming rule - without imposing or prohibiting conduct.",
+        ("FOOD_SAFETY", "BUSINESS_CIVIL", "MUNICIPAL", "LAND_PREMISES", "ENVIRONMENT_POLLUTION", "ANIMAL_SLAUGHTER", "CRIMINAL", "FIRE_SAFETY"),
+    ),
 }
 
 

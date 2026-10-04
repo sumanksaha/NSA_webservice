@@ -48,6 +48,9 @@ class FakeDriver:
         self.calls.append({"cypher": cypher, "params": parameters_ or {}, "database": database_})
         if "MATCH (p:LegalProvision)" in cypher and "UNWIND" not in cypher:
             return FakeResult([FakeRecord(p) for p in self.provisions])
+        if "RETURN count(*) AS written" in cypher:
+            # A real driver reports the rows the MERGE actually materialised.
+            return FakeResult([FakeRecord({"written": len((parameters_ or {}).get("rows") or [])})])
         return FakeResult()
 
 
@@ -229,3 +232,40 @@ class TestEnrich:
         driver = FakeDriver(provisions=provisions)
         LegalSemanticEnricher(driver=driver, database="neo4j").enrich(dry_run=False)
         assert not any("apoc." in c["cypher"].lower() for c in driver.calls)
+
+    def test_ensures_concepts_before_writing_edges(self, provisions):
+        """Regression: the 2026-08-11 run reported 2526 edges written while
+        297 of them (DEFINES/EXEMPTS/DECLARES) were dropped, because the
+        enricher's ``MATCH (c:LegalConcept)`` silently matched nothing — the
+        vocabulary is only loaded by ``run_rebuild``, never by this CLI."""
+        from kg.domain_manifest import CONCEPTS
+        from kg.enrichment import LegalSemanticEnricher
+
+        driver = FakeDriver(provisions=provisions)
+        summary = LegalSemanticEnricher(driver=driver, database="neo4j").enrich(dry_run=False)
+
+        merged = {c["params"]["cid"] for c in driver.calls if c["cypher"].lstrip().startswith("MERGE (c:LegalConcept")}
+        assert merged, "concepts were never ensured"
+        assert merged <= set(CONCEPTS)
+        # A dry run must not touch the vocabulary.
+        dry = FakeDriver(provisions=provisions)
+        LegalSemanticEnricher(driver=dry, database="neo4j").enrich(dry_run=True)
+        assert not any("MERGE (c:LegalConcept" in c["cypher"] for c in dry.calls)
+        assert summary["edges_dropped"] == 0
+
+    def test_reports_edges_that_failed_to_materialise(self, provisions):
+        """A row whose MATCH finds no target must be reported as a shortfall,
+        not counted as written."""
+        from kg.enrichment import LegalSemanticEnricher
+
+        class DroppingDriver(FakeDriver):
+            def execute_query(self, cypher, parameters_=None, database_=None):
+                if "RETURN count(*) AS written" in cypher:
+                    self.calls.append({"cypher": cypher, "params": parameters_ or {}, "database": database_})
+                    return FakeResult([FakeRecord({"written": 0})])
+                return super().execute_query(cypher, parameters_, database_)
+
+        driver = DroppingDriver(provisions=provisions)
+        summary = LegalSemanticEnricher(driver=driver, database="neo4j").enrich(dry_run=False)
+        assert summary["edges_written"] == 0
+        assert summary["edges_dropped"] == summary["edges_planned"] > 0

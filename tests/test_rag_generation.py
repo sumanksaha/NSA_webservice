@@ -192,6 +192,109 @@ class TestGroundedLLMClient:
         assert GroundedLLMClient().model == "openai/gpt-4o-mini"
 
 
+class TestLLMRateLimitRetry:
+    """§6.1.1: 429s used to exhaust 3 attempts in ~3s and surface as an empty
+    answer.  The client now backs off properly and honours Retry-After."""
+
+    def _client(self, monkeypatch, **env):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+        monkeypatch.setenv("RAG_USE_STUB_LLM", "false")
+        monkeypatch.setenv("RAG_LLM_MAX_ATTEMPTS", "6")
+        monkeypatch.setenv("RAG_LLM_BACKOFF_BASE_S", "0.01")
+        monkeypatch.setenv("RAG_LLM_BACKOFF_MAX_S", "0.02")
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        return GroundedLLMClient()
+
+    def _patch_http(self, monkeypatch, statuses):
+        """Patch httpx.Client.post to return `statuses` in order."""
+        calls = []
+
+        class FakeResp:
+            def __init__(self, code):
+                self.status_code = code
+                self.headers = {}
+                self.request = object()
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    import httpx
+
+                    raise httpx.HTTPStatusError(f"HTTP {self.status_code}", request=self.request, response=self)
+
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+        import httpx
+
+        def fake_post(self, url, headers=None, json=None):
+            calls.append(1)
+            return FakeResp(statuses[min(len(calls) - 1, len(statuses) - 1)])
+
+        monkeypatch.setattr(httpx.Client, "post", fake_post)
+        return calls
+
+    def test_retries_429_then_succeeds(self, monkeypatch):
+        client = self._client(monkeypatch)
+        calls = self._patch_http(monkeypatch, [429, 429, 200])
+        resp = client.call("sys", "usr")
+        assert resp.success
+        assert len(calls) == 3  # survived two rate limits instead of dying
+
+    def test_gives_up_after_max_attempts_with_status_in_error(self, monkeypatch):
+        client = self._client(monkeypatch)
+        calls = self._patch_http(monkeypatch, [429])
+        resp = client.call("sys", "usr")
+        assert not resp.success
+        assert len(calls) == 6
+        assert "HTTP 429" in resp.error
+        # Never returns empty text on failure — that is what became a scored answer.
+        assert not resp.text
+
+    def test_non_retryable_status_fails_immediately(self, monkeypatch):
+        """A 401 is a config bug; retrying it only burns the quota."""
+        client = self._client(monkeypatch)
+        calls = self._patch_http(monkeypatch, [401])
+        resp = client.call("sys", "usr")
+        assert not resp.success
+        assert len(calls) == 1
+
+    def test_retry_after_header_is_honoured(self, monkeypatch):
+        slept = []
+        monkeypatch.setattr("time.sleep", lambda s: slept.append(s))
+        client = self._client(monkeypatch)
+        monkeypatch.setenv("RAG_LLM_BACKOFF_MAX_S", "30")
+
+        import httpx
+
+        class FakeResp:
+            status_code = 429
+            headers = {"Retry-After": "7"}
+            request = object()
+
+            def raise_for_status(self):
+                pass
+
+        calls = []
+
+        def fake_post(self, url, headers=None, json=None):
+            calls.append(1)
+            return FakeResp() if len(calls) == 1 else type(
+                "OK",
+                (),
+                {
+                    "status_code": 200,
+                    "headers": {},
+                    "raise_for_status": lambda self: None,
+                    "json": lambda self: {"choices": [{"message": {"content": "ok"}}], "usage": {}},
+                },
+            )()
+
+        monkeypatch.setattr(httpx.Client, "post", fake_post)
+        assert client.call("sys", "usr").success
+        assert 7.0 in slept  # server's own pacing hint wins over our ladder
+
+
 class TestCitationTracker:
     def test_bracket_citations(self):
         chunks = _make_chunks(3)

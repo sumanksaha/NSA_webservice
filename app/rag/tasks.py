@@ -350,21 +350,21 @@ def _retrieval_food_rerank_validate(
                         from app.rag.qdrant_client import QdrantStore
 
                         store = QdrantStore(collection_name=collection_name)
-                        # Scroll + local filter: the live cluster runs strict
-                        # mode and rejects server-side filters on unindexed
-                        # payload fields ("Index required but not found for
-                        # clause_number") — scroll paginates without a filter.
-                        points = store.scroll_all(batch_size=500)
+                        # Server-side payload filter (§6 item 3): a keyword
+                        # index on clause_number exists on the live cluster,
+                        # so strict mode accepts the filter and Qdrant
+                        # paginates only the matching points (index lookup)
+                        # instead of scrolling the whole collection locally.
+                        points = store.scroll_all(
+                            batch_size=500,
+                            filters={"document_id": doc_id, "clause_number": clause_no},
+                        )
                         seen_ids = {c.chunk_id for c in ranked}
                         fresh = []
                         for p in points:
                             payload = p.get("payload") or {}
                             pid = str(p.get("id"))
                             if pid in seen_ids:
-                                continue
-                            if str(payload.get("document_id", "") or "") != doc_id:
-                                continue
-                            if str(payload.get("clause_number", "") or "") != clause_no:
                                 continue
                             fresh.append(_point_to_chunk(p, pid, payload))
                         if fresh:

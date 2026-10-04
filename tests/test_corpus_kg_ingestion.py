@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -211,6 +212,85 @@ def engine(fake_manifest: Path) -> MagicMock:
     return e
 
 
+class FakeFssQdrant:
+    """Qdrant double holding only the FSSAI collection, FSS payload shape."""
+
+    POINTS: ClassVar[list[dict]] = [
+        {
+            "id": "f1",
+            "payload": {
+                "chunk_id": "f1",
+                "document_id": "11f9c5e8765e4c678c6b271d20ed426b",
+                "document_title": "Food Additives Regulations-4",
+                "document_uri": "FSSAI_rules documents\\Food_Additives_Regulations-4.pdf",
+                "document_type": "regulation",
+                "authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+                "act_name": "Food Safety and Standards Act, 2006",
+                "instrument_id": "FSS_FOOD_ADDITIVES_REGULATIONS_4_11f9c5e8",
+                "legal_domain": "FOOD_SAFETY",
+                "is_current": True,
+                "chunk_index": 900,
+                "chunk_text": "2.9.8 Cumin (K Jeera) whole means the dried ...",
+                "clause_number": "2.9.8",
+                "section_number": None,
+                "provision_ids": ["fssai:s2.9.8"],
+                "provision_confidence": 0.88,
+                "provision_modality": "obligation",
+            },
+        },
+        {
+            "id": "f2",
+            "payload": {
+                "chunk_id": "f2",
+                "document_id": "11f9c5e8765e4c678c6b271d20ed426b",
+                "document_title": "Food Additives Regulations-4",
+                "document_uri": "FSSAI_rules documents\\Food_Additives_Regulations-4.pdf",
+                "document_type": "regulation",
+                "authority": "MINISTRY OF HEALTH AND FAMILY WELFARE",
+                "act_name": "Food Safety and Standards Act, 2006",
+                "instrument_id": "FSS_FOOD_ADDITIVES_REGULATIONS_4_11f9c5e8",
+                "legal_domain": "FOOD_SAFETY",
+                "is_current": True,
+                "chunk_index": 901,
+                "chunk_text": "(x) Insect damaged matter Not more than 1.0 percent",
+                "clause_number": "2.9.8",
+                "section_number": None,
+                "provision_ids": ["fssai:s2.9.8"],
+            },
+        },
+        {
+            "id": "f3",
+            "payload": {
+                "chunk_id": "f3",
+                "document_id": "cf9fdf64c87e48429c6ba51c2c5cf356",
+                "document_title": "L-and-R oper content merged",
+                "document_uri": "FSSAI_rules documents\\L-and-R.pdf",
+                "document_type": "regulation",
+                "authority": "Food Safety and Standards Authority of India",
+                "act_name": "Food Safety and Standards Act, 2006",
+                "instrument_id": "FSS_L_AND_R_OPER_CONTENT_MERGED_cf9fdf64",
+                "legal_domain": "FOOD_SAFETY",
+                "is_current": True,
+                "chunk_index": 10,
+                "chunk_text": "2.9.8 Food vans of caterers must be covered",
+                "clause_number": "2.9.8",
+                "section_number": None,
+                "provision_ids": ["fssai:s2.9.8"],
+            },
+        },
+    ]
+
+    def get_collections(self):
+        return type("R", (), {"collections": [type("C", (), {"name": "fssai_legal_768"})]})()
+
+    def scroll(
+        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None
+    ):
+        if collection_name != "fssai_legal_768":
+            return [], None
+        return list(self.POINTS), None
+
+
 # --------------------------------------------------------------------------- #
 # Mapping tests
 # --------------------------------------------------------------------------- #
@@ -229,6 +309,29 @@ class TestMappings:
             engine.resolve_domain({"domain": "wb_state", "document_id": "wb_premises_tenancy_act_1997"})
             == "LAND_PREMISES"
         )
+
+    def test_fire_services_acts_map_to_fire_safety(self, engine):
+        """Both Fire Services Acts must not fall through to the LAND_PREMISES default.
+
+        ``resolve_domain`` silently defaults unmapped ``wb_state`` documents to
+        ``LAND_PREMISES``, which misfiled fire-services law as land/premises
+        law with no error. Regression guard for the 2026-10-03 OCR ingest.
+        """
+        for doc_id in ("wb_fire_services_act_1950", "wb_fire_services_amendment_act_2022"):
+            assert engine.resolve_domain({"domain": "wb_state", "document_id": doc_id}) == "FIRE_SAFETY"
+
+    def test_every_mapped_domain_is_registered(self, engine):
+        """A domain name absent from ``kg.domain_manifest.DOMAINS`` yields NO
+        domain edge: ``load_vocabularies`` MERGEs only the registry, and the
+        write step ``MATCH``es a ``LegalDomain`` by that name. An unregistered
+        name therefore fails silently, so assert the registry covers every
+        mapping this module can produce."""
+        from kg.corpus_ingestion import MANIFEST_DOMAIN_TO_KG, WB_STATE_DOMAIN_MAP
+        from kg.domain_manifest import DOMAINS
+
+        mapped = set(WB_STATE_DOMAIN_MAP.values()) | {d for d in MANIFEST_DOMAIN_TO_KG.values() if d}
+        unregistered = sorted(mapped - set(DOMAINS))
+        assert unregistered == [], f"domains used but never registered (would get no domain edge): {unregistered}"
 
     def test_jurisdiction_mapping(self, engine):
         assert engine.resolve_jurisdiction({"jurisdiction": "India", "state": ""}) == "INDIA"
@@ -313,16 +416,259 @@ class TestProvisionBuilding:
         ids = {p["provision_id"] for p in provs}
         assert ids == {"ENV_PROTECTION_ACT_1986_SEC_5", "ENV_PROTECTION_ACT_1986_SEC_12"}
         by_num = {p["provision_number"]: p for p in provs}
-        assert "1986" not in by_num  # year junk filtered
+        assert "1986" not in by_num  # year junk never becomes a provision
         sec5 = by_num["5"]
-        assert len(sec5["chunk_ids"]) == 2  # both section-5 chunks support it
+        # "a" and "b" declare s5; "c" declares the junk year 1986 and so
+        # continues the section it sits in.
+        assert len(sec5["chunk_ids"]) == 3
         assert "directions" in sec5["text"]
+        assert "Body." in sec5["text"]
 
     def test_stub_fallback_provisions(self, engine):
         provs = engine.build_provisions("PFA_1954", None, [], fallback_stubs={"1": ("Short title", "PFA 1954 text.")})
         assert provs[0]["provision_id"] == "PFA_1954_SEC_1"
         assert provs[0]["source"] == "stub"
         assert provs[0]["confidence"] == 0.6
+
+    def test_provision_text_accumulates_across_chunks(self, engine):
+        """Regression: the header chunk of a section carries only the section
+        number, so taking text from the first chunk left 476 provisions with a
+        one-character body (``'9'``) and a ``skipped_short_text`` class."""
+        chunks = [
+            {
+                "chunk_id": "h",
+                "chunk_index": 0,
+                "chunk_text": "9",
+                "section_number": "9",
+                "section_title": "Ascertainment of price",
+            },
+            {
+                "chunk_id": "b1",
+                "chunk_index": 1,
+                "chunk_text": "The price may be fixed by the contract.",
+                "section_number": None,
+            },
+            {
+                "chunk_id": "b2",
+                "chunk_index": 2,
+                "chunk_text": "It may be left to be fixed in manner agreed.",
+                "section_number": None,
+            },
+        ]
+        provs = engine.build_provisions("SALE_OF_GOODS_ACT_1930", "Sale of Goods Act, 1930", chunks)
+        text = provs[0]["text"]
+        # The bare-number stub is dropped, both bodies survive.
+        assert "fixed by the contract" in text
+        assert "manner agreed" in text
+        assert not text.startswith("9\n")
+
+    def test_bare_section_stub_alone_gives_no_body(self, engine):
+        """A section with nothing but its header stub still yields a provision,
+        but an empty body rather than a misleading one-character body."""
+        chunks = [{"chunk_id": "h", "chunk_index": 0, "chunk_text": "9", "section_number": "9"}]
+        provs = engine.build_provisions("AIR_ACT_1981", "Air (Prevention and Control of Pollution) Act, 1981", chunks)
+        assert [p["provision_id"] for p in provs] == ["AIR_ACT_1981_SEC_9"]
+        assert provs[0]["text"] == ""
+
+    def test_declared_section_propagates_to_following_chunks(self, engine):
+        """Regression: the chunker writes ``section_number`` only on a
+        section's header chunk, leaving 10,505 continuation chunks unlinked.
+        A continuation chunk belongs to the section declared before it."""
+        chunks = [
+            {"chunk_id": "h9", "chunk_index": 0, "chunk_text": "9", "section_number": "9"},
+            {"chunk_id": "b1", "chunk_index": 1, "chunk_text": "The price may be fixed.", "section_number": None},
+            {"chunk_id": "b2", "chunk_index": 2, "chunk_text": "It may be left to be fixed.", "section_number": None},
+            {"chunk_id": "h10", "chunk_index": 3, "chunk_text": "10", "section_number": "10"},
+            {"chunk_id": "b3", "chunk_index": 4, "chunk_text": "Stipulations.", "section_number": None},
+        ]
+        mapping = engine.map_chunks_to_provisions("SALE_OF_GOODS_ACT_1930", None, chunks)
+        assert mapping == {
+            "h9": "SALE_OF_GOODS_ACT_1930_SEC_9",
+            "b1": "SALE_OF_GOODS_ACT_1930_SEC_9",
+            "b2": "SALE_OF_GOODS_ACT_1930_SEC_9",
+            "h10": "SALE_OF_GOODS_ACT_1930_SEC_10",
+            "b3": "SALE_OF_GOODS_ACT_1930_SEC_10",
+        }
+        provs = {p["provision_number"]: p for p in engine.build_provisions("SALE_OF_GOODS_ACT_1930", None, chunks)}
+        assert "fixed by" in provs["9"]["text"] or "may be fixed" in provs["9"]["text"]
+        assert "Stipulations" in provs["10"]["text"]
+
+    def test_chunks_before_any_declaration_stay_unlinked(self, engine):
+        """No declaration, no evidence — guessing is what made the registry-ref
+        fallback unsafe, so a leading run of undeclared chunks stays out."""
+        chunks = [
+            {"chunk_id": "a", "chunk_index": 0, "chunk_text": "Preamble.", "section_number": None},
+            {"chunk_id": "b", "chunk_index": 1, "chunk_text": "More preamble.", "section_number": None},
+            {"chunk_id": "h", "chunk_index": 2, "chunk_text": "5", "section_number": "5"},
+        ]
+        mapping = engine.map_chunks_to_provisions("X_ACT", None, chunks)
+        assert mapping == {"h": "X_ACT_SEC_5"}
+
+    def test_registry_provision_refs_are_never_used_for_sections(self, engine):
+        """Regression: ``provision_ids`` / ``provision_spans`` are frequently a
+        single degenerate constant repeated over hundreds of chunks (``sog:s66``
+        on 130 of 141 Sale of Goods chunks; ``epa:s26.5`` on 1,625 chunks).
+        Resolving sections from them fabricated mega-provisions."""
+        chunks = [
+            {"chunk_id": "h", "chunk_index": 0, "chunk_text": "5", "section_number": "5"},
+            {
+                "chunk_id": "a",
+                "chunk_index": 1,
+                "chunk_text": "Body A.",
+                "section_number": None,
+                "provision_ids": ["sog:s66"],
+                "provision_spans": [{"section": "66"}],
+            },
+            {
+                "chunk_id": "b",
+                "chunk_index": 2,
+                "chunk_text": "Body B.",
+                "section_number": None,
+                "sections_covered": ["66"],
+            },
+        ]
+        assert engine.map_chunks_to_provisions("SOG", None, chunks) == {
+            "h": "SOG_SEC_5",
+            "a": "SOG_SEC_5",
+            "b": "SOG_SEC_5",
+        }
+
+    def test_subsection_qualified_keys_respect_act_range(self, engine):
+        """A qualified key is only accepted when its head section is in range."""
+        chunks = [
+            {"chunk_id": "ok", "chunk_index": 0, "chunk_text": "Body.", "section_number": "3(ii)"},
+            {"chunk_id": "year", "chunk_index": 1, "chunk_text": "Body.", "section_number": "1986(ii)"},
+            {"chunk_id": "junk", "chunk_index": 2, "chunk_text": "Body.", "section_number": "Section 9"},
+        ]
+        provs = engine.build_provisions("COMPANIES_ACT_2013", "The Companies Act, 2013", chunks)
+        assert [p["provision_number"] for p in provs] == ["3(ii)"]
+
+    def test_map_chunks_agrees_with_build_provisions(self, engine):
+        """The mapping and the provision builder must never disagree — that
+        disagreement is what produced chunks pointing at nothing."""
+        chunks = [
+            {"chunk_id": "a", "chunk_index": 0, "chunk_text": "Body A.", "section_number": "12"},
+            {"chunk_id": "b", "chunk_index": 1, "chunk_text": "Body B.", "section_number": None},
+            {"chunk_id": "c", "chunk_index": 2, "chunk_text": "Body C.", "section_number": "1999"},
+        ]
+        provs = engine.build_provisions("BNS_2023", None, chunks)
+        mapping = engine.map_chunks_to_provisions("BNS_2023", None, chunks)
+        known = {p["provision_id"] for p in provs}
+        assert set(mapping.values()) <= known
+        # "b" continues s12; "c" declares the junk year 1999, so it never
+        # becomes a provision and continues s12 instead.
+        assert mapping == {
+            "a": "BNS_2023_SEC_12",
+            "b": "BNS_2023_SEC_12",
+            "c": "BNS_2023_SEC_12",
+        }
+        assert {p["provision_number"] for p in provs} == {"12"}
+
+
+# --------------------------------------------------------------------------- #
+# FSSAI corpus (clause-keyed, Qdrant fallback when the local DB is empty)
+# --------------------------------------------------------------------------- #
+
+
+class TestFssProvisions:
+    def _chunks(self):
+        return [
+            {
+                "chunk_id": "c1",
+                "chunk_text": "2.9.8 Cumin (K Jeera) whole means ...",
+                "clause_number": "2.9.8",
+                "provision_ids": ["fssai:s2.9.8"],
+                "provision_confidence": 0.88,
+                "provision_modality": "obligation",
+            },
+            {
+                "chunk_id": "c2",
+                "chunk_text": "(x) Insect damaged matter Not more than 1.0 percent",
+                "clause_number": "2.9.8",
+                "provision_ids": ["fssai:s2.9.8"],
+            },
+            {
+                "chunk_id": "c3",
+                "chunk_text": "2.9.7 Coriander whole means ...",
+                "clause_number": "2.9.7",
+                "provision_ids": ["fssai:s2.9.7"],
+            },
+        ]
+
+    def test_clauses_group_and_keep_registry_ref(self, engine):
+        provs = engine.build_fss_provisions("FSS_FAR4", self._chunks())
+        assert [p["provision_id"] for p in provs] == ["FSS_FAR4_CLAUSE_2.9.7", "FSS_FAR4_CLAUSE_2.9.8"]
+        p298 = next(p for p in provs if p["provision_number"] == "2.9.8")
+        assert p298["provision_ref"] == "fssai:s2.9.8"
+        assert p298["chunk_ids"] == ["c1", "c2"]
+        assert p298["confidence"] == 0.88
+        assert p298["modality"] == "obligation"
+
+    def test_node_id_scoped_by_instrument(self, engine):
+        # Clause 4 exists in 14 documents of the real corpus — the registry id
+        # alone is not unique, so the node id must be instrument-scoped.
+        chunks = [{"chunk_id": "a", "chunk_text": "t", "clause_number": "4", "provision_ids": ["fssai:s4"]}]
+        one = engine.build_fss_provisions("INSTR_A", chunks)[0]
+        two = engine.build_fss_provisions("INSTR_B", chunks)[0]
+        assert one["provision_id"] != two["provision_id"]
+        assert one["provision_ref"] == two["provision_ref"] == "fssai:s4"
+
+    def test_chunk_without_provision_id_falls_back_to_clause(self, engine):
+        provs = engine.build_fss_provisions(
+            "FSS_FAR4", [{"chunk_id": "x", "chunk_text": "t", "clause_number": "2.9.8"}]
+        )
+        assert provs[0]["provision_id"] == "FSS_FAR4_CLAUSE_2.9.8"
+        assert provs[0]["provision_ref"] == "fssai:s2.9.8"
+
+    def test_chunks_without_clause_or_provision_dropped(self, engine):
+        assert engine.build_fss_provisions("FSS_FAR4", [{"chunk_id": "x", "chunk_text": "t"}]) == []
+
+
+class TestFssQdrantFallback:
+    """The local LegalDocument/LegalChunk tables can be empty on a fresh DB."""
+
+    def _engine(self, fake_manifest):
+        from kg.corpus_ingestion import KGCorpusIngestionEngine
+
+        e = KGCorpusIngestionEngine(
+            driver=FakeDriver(),
+            database="neo4j",
+            manifest_path=fake_manifest,
+            qdrant_client=FakeFssQdrant(),
+        )
+        e._fss_corpus = MagicMock(return_value=([], {}))  # empty local DB
+        return e
+
+    def test_documents_derived_from_payloads(self, fake_manifest):
+        docs = self._engine(fake_manifest).load_fss_documents()
+        assert len(docs) == 2
+        far4 = next(d for d in docs if d["title"] == "Food Additives Regulations-4")
+        assert far4["chunk_count"] == 2
+        assert far4["qdrant_collection"] == "fssai_legal_768"
+        assert far4["instrument_id"] == "FSS_FOOD_ADDITIVES_REGULATIONS_4_11f9c5e8"
+
+    def test_chunks_grouped_by_document(self, fake_manifest):
+        chunks = self._engine(fake_manifest).load_all_fss_chunks()
+        assert sum(len(v) for v in chunks.values()) == 3
+        far4 = chunks["11f9c5e8765e4c678c6b271d20ed426b"]
+        assert {c["chunk_id"] for c in far4} == {"f1", "f2"}
+        assert far4[0]["clause_number"] == "2.9.8"
+
+    def test_payload_instrument_id_wins_over_derived_slug(self, fake_manifest):
+        from kg.corpus_ingestion import KGCorpusIngestionEngine
+
+        e = KGCorpusIngestionEngine(
+            driver=FakeDriver(),
+            database="neo4j",
+            manifest_path=fake_manifest,
+            qdrant_client=FakeFssQdrant(),
+        )
+        e._fss_corpus = MagicMock(return_value=([], {}))
+        rows, _ = e._build_instrument_rows()
+        fss = [r for r in rows if r["source_type"] == "existing_db"]
+        assert fss
+        assert all(r["instrument_id"].startswith("FSS_") for r in fss)
+        assert "FSS_FOOD_ADDITIVES_REGULATIONS_4_11f9c5e8" in {r["instrument_id"] for r in fss}
 
 
 # --------------------------------------------------------------------------- #
@@ -332,22 +678,17 @@ class TestProvisionBuilding:
 
 class TestEngine:
     def test_collect_plans_domain_edge_for_every_provision(self, engine):
+        from kg.domain_manifest import DOMAINS
+
         collected = engine.collect()
         stats = collected["stats"]
         assert stats["provisions"] == stats["provisions_with_domain"]
         assert stats["provisions"] >= 2  # EP Act s.5 + s.12 (+ stubs)
-        # Every provision row carries legal_domain
+        # Every provision row carries a REGISTERED legal_domain (the registry is
+        # the source of truth — deriving from DOMAINS keeps this from drifting
+        # when a new domain such as FIRE_SAFETY is added).
         for p in collected["provisions"]:
-            assert p["legal_domain"] in {
-                "FOOD_SAFETY",
-                "ANIMAL_SLAUGHTER",
-                "ENVIRONMENT_POLLUTION",
-                "MUNICIPAL",
-                "PUBLIC_HEALTH",
-                "BUSINESS_CIVIL",
-                "LAND_PREMISES",
-                "CRIMINAL",
-            }
+            assert p["legal_domain"] in DOMAINS
 
     def test_collect_documents_and_instruments(self, engine):
         collected = engine.collect()
