@@ -578,9 +578,9 @@ _TABLE: tuple[Setting, ...] = (
         "CASE_FILE_UNSAFE_OPTION_ENABLED",
         "case_file_unsafe_option_enabled",
         bool,
-        False,
+        True,
         opt_in=False,
-        help="When False, hides the 'Unsafe' verdict toggle from the sample-adjudication create/edit forms.",
+        help="Opt-out switch for the 'Unsafe' verdict toggle on the sample-adjudication create/edit forms. True (default) shows it; set false to hide it.",
     ),
     # --- FSO strategic advisory (game-theory + Talebian, ADR-0003) ------------
     Setting(

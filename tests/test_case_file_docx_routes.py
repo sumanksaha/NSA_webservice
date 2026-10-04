@@ -508,31 +508,32 @@ class TestUnsafeFileButtonGating:
     and the per-case "Unsafe File" button only appears when ``is_unsafe``
     is set on the case.
 
-    Note: By default (``CASE_FILE_UNSAFE_OPTION_ENABLED = False``) the
-    'Unsafe' verdict toggle is hidden from the create/edit forms. It becomes
-    visible only when the setting is enabled via config.
+    Note: By default (``CASE_FILE_UNSAFE_OPTION_ENABLED = True``) the
+    'Unsafe' verdict toggle is shown on the create/edit forms. It is an
+    opt-out switch: only an explicit ``false`` hides it.
     """
 
     def test_create_form_exposes_unsafe_option(self, client, case_file, monkeypatch):
         """The sample-adjudication create form gates the Unsafe checkbox on the setting.
 
-        Default ``CASE_FILE_UNSAFE_OPTION_ENABLED = False`` hides it; enabling
-        the setting renders ``name="is_unsafe"`` again.
+        The setting is opt-out (``CASE_FILE_UNSAFE_OPTION_ENABLED = True``), so
+        ``name="is_unsafe"`` renders by default; setting the flag to ``false``
+        hides it.
         """
         response = client.get("/case_file_generator/")
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' not in html, (
-            "Unsafe checkbox must be hidden while the setting is disabled"
+        assert 'name="is_unsafe"' in html, (
+            "Unsafe checkbox must render by default (opt-out setting)"
         )
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", True
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False
         )
         response = client.get("/case_file_generator/")
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' in html, (
-            "Unsafe checkbox must render once the setting is enabled"
+        assert 'name="is_unsafe"' not in html, (
+            "Unsafe checkbox must hide once the setting is explicitly false"
         )
 
     def test_unsafe_file_button_hidden_until_toggled(self, client, case_file):
@@ -544,9 +545,10 @@ class TestUnsafeFileButtonGating:
         response = client.get("/case_file_generator/")
         html = response.data.decode("utf-8", errors="replace")
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
-        # The unsafe checkbox is not rendered when the setting is disabled (default).
+        # The per-case Unsafe File button is gated on the case's own is_unsafe
+        # flag, not on the settings-page toggle.
         assert "/docx/unsafe_file" not in html, (
-            "Unsafe File button must be hidden until the option is enabled"
+            "Unsafe File button must be hidden until the case is marked unsafe"
         )
 
     def test_unsafe_file_button_shown_when_unsafe(self, client, case_file):
@@ -569,23 +571,23 @@ class TestUnsafeFileButtonGating:
         )
 
     def test_edit_form_gates_unsafe_checkbox(self, client, case_file, monkeypatch):
-        """The edit form hides the Unsafe checkbox unless the setting is on."""
+        """The edit form shows the Unsafe checkbox unless the setting is false."""
         url = f"/case_file_generator/case/{case_file.id}/edit"
         response = client.get(url)
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' not in html, (
-            "edit form must hide the Unsafe checkbox while disabled"
+        assert 'name="is_unsafe"' in html, (
+            "edit form must show the Unsafe checkbox by default (opt-out setting)"
         )
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", True
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False
         )
         response = client.get(url)
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' in html, (
-            "edit form must show the Unsafe checkbox once enabled"
+        assert 'name="is_unsafe"' not in html, (
+            "edit form must hide the Unsafe checkbox once set to false"
         )
 
 
