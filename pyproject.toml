@@ -242,6 +242,7 @@ ignore = [
 "evaluation/triage_evaluator_v3.py" = ["T201"]
 "evaluation/bench_p0_1_packing.py" = ["T201"]
 "evaluation/evaluator_v3_component_rule.py" = ["T201"]
+"evaluation/v3_component_rescore.py" = ["T201"]
 "evaluation/ab_p0_1_packing.py" = ["T201"]
 "evaluation/step0_human_review.py" = ["T201"]
 "evaluation/step0_dual_score_widen.py" = ["T201"]
