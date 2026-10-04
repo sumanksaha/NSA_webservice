@@ -223,6 +223,36 @@ def test_generate_node_calls_pipeline(monkeypatch):
     assert out["audit_trail"][-1]["node"] == "generate"
 
 
+def test_generate_node_forwards_evidence_set(monkeypatch):
+    """P0-1: generation must receive the retrieval-time evidence selection."""
+    import app.rag.tasks as tasks
+
+    captured = {}
+
+    def fake_run(query, **kwargs):
+        captured["evidence_set"] = kwargs.get("evidence_set")
+        return {"answer": "ok"}
+
+    monkeypatch.setattr(tasks, "run_generation_pipeline", fake_run)
+    es = {"items": [{"chunk_id": "c1", "evidence_type": "primary_provision"}]}
+    generate_node(_make_state(chunks=[{"chunk_id": "c1"}], evidence_set=es))
+    assert captured["evidence_set"] == es
+
+
+def test_generate_node_forwards_none_when_no_evidence_set(monkeypatch):
+    import app.rag.tasks as tasks
+
+    captured = {}
+
+    def fake_run(query, **kwargs):
+        captured["evidence_set"] = kwargs.get("evidence_set")
+        return {"answer": "ok"}
+
+    monkeypatch.setattr(tasks, "run_generation_pipeline", fake_run)
+    generate_node(_make_state(chunks=[{"chunk_id": "c1"}], evidence_set=None))
+    assert captured["evidence_set"] is None
+
+
 def test_generate_node_defaults_on_empty(monkeypatch):
     import app.rag.tasks as tasks
 

@@ -22,6 +22,29 @@ from app.rag.constants import TOKENS_PER_CHAR
 _TOKENS_PER_CHAR = TOKENS_PER_CHAR
 _CHUNK_OVERHEAD_CHARS = 120
 
+#: P0-1 prompt packing order — lower number packs earlier (analysis §6 item 1:
+#: Primary → Exceptions → Definitions → Penalties → Cross-References).
+#:
+#: Deliberately NOT the selector's ``_EVIDENCE_TYPE_PRIORITY``. The two answer
+#: different questions: selection asks *which* provisions to keep (a definition
+#: may legitimately outrank an exception on evidence value), while packing asks
+#: *in what order* to place them in the prompt window. Pushing definitions after
+#: the primary provision and its exceptions is the anti-definition-anchoring
+#: effect §6 calls for; reusing the selection order would place definitions
+#: second and reintroduce the anchoring this feature exists to prevent.
+_PACK_ORDER: dict[str, int] = {
+    "primary_provision": 0,
+    "subsection": 1,
+    "exception": 2,
+    "definition": 3,
+    "penalty_provision": 4,
+    "cross_reference": 5,
+    "authority": 6,
+    "adjacent_section": 7,
+    "duplicate": 8,
+}
+_PACK_ORDER_DEFAULT = 7
+
 
 @dataclass
 class BuiltContext:
@@ -80,6 +103,7 @@ class ContextBuilder:
         query: str,
         chunks: list[RetrievedChunk],
         query_type: str = "",
+        evidence_set: dict[str, Any] | None = None,
     ) -> BuiltContext:
         """Build a structured LLM context from retrieved chunks.
 
@@ -89,6 +113,14 @@ class ContextBuilder:
         answerability check (§2.8): if evidence coverage is insufficient for
         the query type, the method signals this so the caller can trigger
         targeted retrieval instead of proceeding to generation.
+
+        P0-1: when *evidence_set* is supplied (the serialized dict produced
+        by :func:`select_evidence_set` via ``apply_stages``), selected
+        provisions are packed first in legal-role order (:data:`_PACK_ORDER`)
+        so the primary provision leads the prompt, with unselected chunks
+        retained as overflow.  Each ``<document>`` tag carries a ``role``
+        attribute naming its evidence type.  When *evidence_set* is ``None``
+        the behaviour is byte-identical to the score-only ordering.
         """
         if not chunks:
             return BuiltContext(
@@ -120,6 +152,14 @@ class ContextBuilder:
             )
 
         ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
+
+        # P0-1: evidence-set packing.  The answerability gate above has
+        # already judged the FULL pool — packing happens strictly after, so
+        # filtering can never shrink the set that gate considered.
+        roles: dict[Any, str] = {}
+        if evidence_set:
+            roles = self._roles_from_evidence_set(evidence_set, chunks)
+            ranked = self._pack_by_role(ranked, roles)
         selected = ranked[: self.max_context_chunks]
 
         context_parts: list[str] = []
@@ -129,27 +169,28 @@ class ContextBuilder:
 
         for idx, chunk in enumerate(selected, start=1):
             header = self._format_header(chunk)
-            entry = self._format_entry(idx, header, chunk.text)
+            role = roles.get(chunk.chunk_id)
+            entry = self._format_entry(idx, header, chunk.text, role=role)
             entry_len = len(entry) + _CHUNK_OVERHEAD_CHARS
 
             if total_chars + entry_len > self.max_context_chars:
                 remaining = self.max_context_chars - total_chars
                 if remaining > 200:
-                    overhead = len(self._format_entry(idx, header, ""))
+                    overhead = len(self._format_entry(idx, header, "", role=role))
                     max_text = remaining - overhead
                     truncated_text = chunk.text[: max(0, max_text)]
-                    entry = self._format_entry(idx, header, truncated_text)
+                    entry = self._format_entry(idx, header, truncated_text, role=role)
                     context_parts.append(entry)
                     total_chars += len(entry)
                     truncated = True
-                    citations.append(self._citation_entry(idx, chunk))
+                    citations.append(self._citation_entry(idx, chunk, role))
                 else:
                     truncated = True
                 break
 
             context_parts.append(entry)
             total_chars += entry_len
-            citations.append(self._citation_entry(idx, chunk))
+            citations.append(self._citation_entry(idx, chunk, role))
 
         context = "\n\n---\n\n".join(context_parts)
         token_est = int(len(context) * _TOKENS_PER_CHAR)
@@ -242,13 +283,64 @@ class ContextBuilder:
         return header
 
     @staticmethod
-    def _format_entry(idx: int, header: str, text: str) -> str:
-        """One per-source entry (research §3.1 document/source tags)."""
+    def _roles_from_evidence_set(evidence_set: dict[str, Any], chunks: list[RetrievedChunk]) -> dict[str, str]:
+        """Map chunk_id → evidence_type for the items the selector kept.
+
+        Tolerates the serialized dict form (``EvidenceSet.to_dict()``) and
+        ignores items whose chunk is no longer in the pool.  Unknown or
+        malformed shapes degrade to an empty mapping, which leaves packing
+        in score order rather than failing generation.
+        """
+        items = evidence_set.get("items") if isinstance(evidence_set, dict) else None
+        if not isinstance(items, list):
+            return {}
+        known = {c.chunk_id for c in chunks}
+        roles: dict[str, str] = {}
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            chunk_id = item.get("chunk_id")
+            evidence_type = item.get("evidence_type")
+            if chunk_id and evidence_type and chunk_id in known:
+                roles[chunk_id] = str(evidence_type)
+        return roles
+
+    @staticmethod
+    def _pack_by_role(ranked: list[RetrievedChunk], roles: dict[str, str]) -> list[RetrievedChunk]:
+        """Order selected provisions by legal role, unselected as overflow.
+
+        Selected chunks sort by role (:data:`_PACK_ORDER`) then by descending score;
+        unselected chunks follow in their original score order.
+        """
+        if not roles:
+            return list(ranked)
+        return sorted(
+            ranked,
+            key=lambda c: (
+                0 if c.chunk_id in roles else 1,
+                _PACK_ORDER.get(roles.get(c.chunk_id, ""), _PACK_ORDER_DEFAULT),
+                -c.score,
+            ),
+        )
+
+    @staticmethod
+    def _format_entry(idx: int, header: str, text: str, role: str | None = None) -> str:
+        """One per-source entry (research §3.1 document/source tags).
+
+        P0-1: *role* annotates the tag with the provision's legal role so the
+        model can distinguish the governing provision from definitions and
+        exceptions.  Omitted entirely when no evidence set was supplied, so
+        the default prompt is unchanged.
+        """
+        if role:
+            return (
+                f'<document index="{idx}" role="{role}">\n<source>[Source {idx}] {header}</source>\n{text}\n</document>'
+            )
         return f'<document index="{idx}">\n<source>[Source {idx}] {header}</source>\n{text}\n</document>'
 
     @staticmethod
-    def _citation_entry(idx: int, chunk: RetrievedChunk) -> dict[str, Any]:
-        return {
+    def _citation_entry(idx: int, chunk: RetrievedChunk, role: str | None = None) -> dict[str, Any]:
+        entry = {
             "index": idx,
             "chunk_id": chunk.chunk_id,
             "section_number": chunk.section_number,
@@ -256,3 +348,6 @@ class ContextBuilder:
             "document_type": chunk.document_type,
             "authority": chunk.authority,
         }
+        if role:
+            entry["evidence_type"] = role
+        return entry

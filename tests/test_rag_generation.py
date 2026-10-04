@@ -107,6 +107,165 @@ class TestContextBuilder:
         built = ContextBuilder().build("q", chunks)
         assert built.citations[0]["chunk_id"] == "high"
 
+    # --- 2.8 answerability characterization -------------------------- #
+    # These lock in the CURRENT early-return behaviour of
+    # _check_answerability before the P0-1 evidence-set packing filter
+    # lands.  Packing must NOT run before this check, or it would judge a
+    # filtered pool and start rejecting queries that pass today.
+
+    def test_answerability_rejects_single_chunk_for_non_definition(self):
+        # One chunk is rejected, but NOT for type coverage — the fixture text
+        # already carries several type keywords.  It trips the
+        # minimum-chunks rule instead.  Asserted here so the distinction
+        # stays pinned: a future fixture change must not silently move the
+        # rejection reason.
+        single = [_make_chunks(1)[0]]
+        built = ContextBuilder().build("q", single, query_type="general")
+        assert built.enough_evidence is False
+        assert built.chunk_count == 0
+        assert built.context == ""
+        assert "count:minimum_chunks" in built.missing
+
+    def test_answerability_rejects_on_missing_type_coverage(self):
+        # A 2-chunk pool whose text carries no recognised evidence-type
+        # keyword fails the type-coverage branch (min_req=2 for general).
+        chunks = [
+            RetrievedChunk(chunk_id="a", score=0.9, text="The provisions are set out below."),
+            RetrievedChunk(chunk_id="b", score=0.8, text="Text continues in the schedule."),
+        ]
+        built = ContextBuilder().build("q", chunks, query_type="general")
+        assert built.enough_evidence is False
+        assert any(m.startswith("type:") for m in built.missing)
+
+    def test_answerability_allows_single_chunk_for_definition_query(self):
+        # "definition" has min_req=1 and is exempt from the minimum-chunks
+        # rule — a one-chunk definition query is expected to pass.
+        chunks = [
+            RetrievedChunk(
+                chunk_id="d1",
+                score=0.9,
+                text='"licence" means a grant of authority to manufacture or sell.',
+                section_number="2",
+                document_title="FSS Act 2006",
+            )
+        ]
+        built = ContextBuilder().build("what is a licence", chunks, query_type="definition")
+        assert built.enough_evidence is True
+        assert built.chunk_count == 1
+
+    def test_answerability_rejects_when_minimum_chunks_not_met(self):
+        # Enough distinct types but too few chunks for a non-definition type.
+        built = ContextBuilder().build("q", _make_chunks(1), query_type="general")
+        assert built.enough_evidence is False
+        assert "count:minimum_chunks" in built.missing
+
+    def test_answerability_passes_for_multi_type_pool(self):
+        built = ContextBuilder().build("q", _make_chunks(3), query_type="general")
+        assert built.enough_evidence is True
+        assert built.missing == []
+        assert built.chunk_count == 3
+
+    def test_answerability_runs_before_chunk_limit(self):
+        # The answerability gate judges the WHOLE pool, not the truncated
+        # set — a pool that passes must still report enough_evidence even
+        # when max_chunks would cut it down.
+        built = ContextBuilder(max_chunks=2).build("q", _make_chunks(5), query_type="general")
+        assert built.enough_evidence is True
+        assert built.chunk_count == 2
+        assert built.truncated is True
+
+    # --- P0-1 evidence-set packing ------------------------------- #
+    # Build() must pack selected provisions by legal role when an
+    # evidence_set is supplied, and behave exactly as before when it
+    # is not.
+
+    @staticmethod
+    def _es(*pairs):
+        """Serialized evidence set: ((chunk_id, evidence_type), ...)."""
+        return {
+            "query": "q",
+            "items": [{"chunk_id": cid, "evidence_type": et} for cid, et in pairs],
+            "total_pool": len(pairs),
+            "selection_rationale": "test",
+        }
+
+    def test_no_evidence_set_leaves_score_order_unchanged(self):
+        chunks = _make_chunks(3)
+        built = ContextBuilder(max_chunks=10).build("q", chunks)
+        assert [c["chunk_id"] for c in built.citations] == ["c0", "c1", "c2"]
+        assert 'role=' not in built.context
+
+    def test_no_evidence_set_output_is_byte_identical(self):
+        # Regression guard: the default path must not change at all.
+        chunks = _make_chunks(3)
+        with_es = ContextBuilder(max_chunks=10).build("q", chunks, evidence_set=None)
+        without = ContextBuilder(max_chunks=10).build("q", chunks)
+        assert with_es.context == without.context
+        assert with_es.citations == without.citations
+
+    def test_primary_packs_before_definition(self):
+        # Score order deliberately inverted: the definition scores HIGHER,
+        # but the evidence set marks c2 as the primary provision so it
+        # must lead the prompt (anti-definition-anchoring).
+        es = self._es(("c2", "primary_provision"), ("c0", "definition"))
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=es)
+        assert built.citations[0]["chunk_id"] == "c2"
+
+    def test_role_order_primary_then_exception_then_definition(self):
+        es = self._es(
+            ("c0", "definition"),
+            ("c1", "exception"),
+            ("c2", "primary_provision"),
+        )
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=es)
+        order = [c["chunk_id"] for c in built.citations]
+        assert order.index("c2") < order.index("c1") < order.index("c0")
+
+    def test_unselected_chunks_kept_as_overflow(self):
+        # Only c0 is selected; c1/c2 must still appear, after it.
+        es = self._es(("c0", "primary_provision"))
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=es)
+        order = [c["chunk_id"] for c in built.citations]
+        assert order[0] == "c0"
+        assert set(order) == {"c0", "c1", "c2"}
+
+    def test_role_attribute_rendered_on_document_tag(self):
+        es = self._es(("c2", "primary_provision"))
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=es)
+        assert '<document index="1" role="primary_provision">' in built.context
+
+    def test_evidence_type_in_citations(self):
+        es = self._es(("c0", "exception"))
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=es)
+        by_id = {c["chunk_id"]: c for c in built.citations}
+        assert by_id["c0"]["evidence_type"] == "exception"
+
+    def test_packing_respects_max_chunks(self):
+        es = self._es(("c2", "primary_provision"), ("c1", "exception"))
+        built = ContextBuilder(max_chunks=2).build("q", _make_chunks(5), evidence_set=es)
+        assert built.chunk_count == 2
+        assert built.truncated is True
+
+    def test_malformed_evidence_set_degrades_to_score_order(self):
+        malformed = (
+            {"items": None},
+            {"items": ["not-a-dict"]},
+            {},
+            {"items": [{"chunk_id": "nope", "evidence_type": "x"}]},
+        )
+        for bad in malformed:
+            built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), evidence_set=bad)
+            assert [c["chunk_id"] for c in built.citations] == ["c0", "c1", "c2"]
+            assert "role=" not in built.context
+
+    def test_answerability_still_judges_full_pool_with_evidence_set(self):
+        # Packing must not shrink the pool the 2.8 gate judges: a pool that
+        # passes must still pass even when the evidence set is narrow.
+        es = self._es(("c0", "primary_provision"))
+        built = ContextBuilder(max_chunks=10).build("q", _make_chunks(3), query_type="general", evidence_set=es)
+        assert built.enough_evidence is True
+        assert built.chunk_count == 3
+
     def test_token_estimate_positive(self):
         # 2+ chunks: the §2.8 answerability gate requires >=2 chunks for
         # non-definition queries (single-chunk fixtures are rejected).
@@ -425,6 +584,77 @@ class TestGroundedGenerationService:
 
 
 class TestRunGenerationPipeline:
+    def test_evidence_set_ignored_when_flag_off(self, monkeypatch):
+        # P0-1 gate: ENABLE_EVIDENCE_SELECTOR off must leave the prompt path
+        # untouched even when an evidence set is supplied.
+        from app.rag.generation.grounded_service import GroundedGenerationService
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "evidence_selector", False, raising=False)
+
+        seen = {}
+        original = GroundedGenerationService._render_prompt
+
+        def spy(self, query, built):
+            seen["context"] = built.context
+            return original(self, query, built)
+
+        monkeypatch.setattr(GroundedGenerationService, "_render_prompt", spy)
+
+        chunks = [
+            {
+                "chunk_id": f"c{i}",
+                "score": 0.9 - i * 0.1,
+                "text": f"Section {i + 1} licensing authority penalty enforcement powers apply.",
+                "section_number": str(i + 1),
+                "document_title": "FSS Act",
+                "document_type": "act",
+                "authority": "FSSAI",
+            }
+            for i in range(3)
+        ]
+        es = {"items": [{"chunk_id": "c0", "evidence_type": "primary_provision"}]}
+        run_generation_pipeline(query="Section 55?", chunks=chunks, evidence_set=es)
+
+        assert "role=" not in seen["context"]
+        assert '<document index="1">' in seen["context"]
+
+    def test_evidence_set_honoured_when_flag_on(self, monkeypatch):
+        from app.rag.generation.grounded_service import GroundedGenerationService
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "evidence_selector", True, raising=False)
+
+        # Capture the prompt actually handed to the LLM — the stub returns a
+        # fixed string, so the answer cannot prove the role was annotated.
+        seen = {}
+        original = GroundedGenerationService._render_prompt
+
+        def spy(self, query, built):
+            seen["context"] = built.context
+            seen["citations"] = built.citations
+            return original(self, query, built)
+
+        monkeypatch.setattr(GroundedGenerationService, "_render_prompt", spy)
+
+        chunks = [
+            {
+                "chunk_id": f"c{i}",
+                "score": 0.9 - i * 0.1,
+                "text": f"Section {i + 1} licensing authority penalty enforcement powers apply.",
+                "section_number": str(i + 1),
+                "document_title": "FSS Act",
+                "document_type": "act",
+                "authority": "FSSAI",
+            }
+            for i in range(3)
+        ]
+        es = {"items": [{"chunk_id": "c0", "evidence_type": "primary_provision"}]}
+        run_generation_pipeline(query="Section 55?", chunks=chunks, evidence_set=es)
+
+        assert 'role="primary_provision"' in seen["context"]
+        assert seen["citations"][0]["evidence_type"] == "primary_provision"
+
     def test_with_pre_provided_chunks(self):
         chunks = [
             {

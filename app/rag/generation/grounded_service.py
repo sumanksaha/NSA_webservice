@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from app.rag.generation.citation_tracker import CitationTracker
 from app.rag.generation.context_builder import BuiltContext, ContextBuilder
@@ -77,6 +78,7 @@ class GroundedGenerationService:
         chunks: list[RetrievedChunk],
         query_type: str = "",
         query_log_id: str | None = None,
+        evidence_set: dict[str, Any] | None = None,
     ) -> RAGResponse:
         """Run the full grounded-generation pipeline.
 
@@ -86,6 +88,8 @@ class GroundedGenerationService:
             query_type: Classified query type (for logging).
             query_log_id: Optional ``RAGQueryLog`` UUID to update with
                 generation metrics.
+            evidence_set: P0-1 — serialized evidence selection used to pack
+                the prompt by legal role.  ``None`` keeps score-only order.
 
         Returns:
             A :class:`RAGResponse` with answer, citations, and groundedness.
@@ -117,7 +121,7 @@ class GroundedGenerationService:
             )
 
         # 1. Build context
-        built = self._build_context(query, chunks, query_type)
+        built = self._build_context(query, chunks, query_type, evidence_set)
 
         # 2. Render prompt
         system_prompt, user_prompt = self._render_prompt(query, built)
@@ -199,9 +203,10 @@ class GroundedGenerationService:
         query: str,
         chunks: list[RetrievedChunk],
         query_type: str,
+        evidence_set: dict[str, Any] | None = None,
     ) -> BuiltContext:
         try:
-            return self.context_builder.build(query, chunks, query_type)
+            return self.context_builder.build(query, chunks, query_type, evidence_set=evidence_set)
         except Exception as exc:
             logger.warning("ContextBuilder failed: %s", exc)
             return BuiltContext(context="", citations=[], chunk_count=0, truncated=True)

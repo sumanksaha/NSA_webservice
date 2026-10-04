@@ -633,6 +633,7 @@ def run_generation_pipeline(
     collection_name: str | None = None,
     filters: dict[str, Any] | None = None,
     pipeline: str | None = None,
+    evidence_set: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 2 grounded-generation pipeline for *query*.
 
@@ -643,6 +644,11 @@ def run_generation_pipeline(
     *pipeline* is forwarded to the internal retrieval run (stamping the
     ``RAGQueryLog`` row) and echoed back in the result dict under
     ``"pipeline"`` (rollout §8 A/B).
+
+    P0-1: *evidence_set* is the serialized selection produced by
+    ``run_retrieval_pipeline``'s ``apply_stages``.  Honoured only when
+    ``cfg.evidence_selector`` is enabled; otherwise ignored so the default
+    prompt path is unchanged.
 
     1.3: If the query contains multiple section references with
     conjunctions (e.g., "Section 33 and Section 38"), decompose into
@@ -687,7 +693,13 @@ def run_generation_pipeline(
     if food_prompt is not None:
         rag_response = service.generate_with_prompts(query, chunk_objects, query_type, prompts=food_prompt)
     else:
-        rag_response = service.generate(query, chunk_objects, query_type)
+        # P0-1: forward the selected evidence set so ContextBuilder can pack
+        # the prompt by legal role.  Gated on ENABLE_EVIDENCE_SELECTOR — it
+        # changes the live prompt for every query when on.  An evidence set
+        # that arrived without the flag being enabled is ignored.
+        if evidence_set and not cfg.evidence_selector:
+            evidence_set = None
+        rag_response = service.generate(query, chunk_objects, query_type, evidence_set=evidence_set)
 
     # Stage 3 — claim-level verification + citation validation
     # (both best-effort, both escalation-only).

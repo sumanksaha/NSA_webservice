@@ -237,6 +237,12 @@ ignore = [
 # Step 0-3 gated evaluation CLI: stdout IS the run report (mirrored to
 # evaluation/out/*.md), so print is deliberate in these harnesses.
 "evaluation/step0_label_residual.py" = ["T201"]
+# P0-3 evaluator-v3 triage + P0-1 packing benchmark: stdout IS the run
+# report for these harnesses, so print is deliberate.
+"evaluation/triage_evaluator_v3.py" = ["T201"]
+"evaluation/bench_p0_1_packing.py" = ["T201"]
+"evaluation/evaluator_v3_component_rule.py" = ["T201"]
+"evaluation/ab_p0_1_packing.py" = ["T201"]
 "evaluation/step0_human_review.py" = ["T201"]
 "evaluation/step0_dual_score_widen.py" = ["T201"]
 "evaluation/step0_qc.py" = ["T201"]
@@ -250,6 +256,9 @@ ignore = [
 "evaluation/fetch_ce_v2_gate_assets.py" = ["T201"]
 # Experiment A/B + eval-v2 consoles (Modal CE session): stdout tables ARE
 # the report output (mirrored to results files), so print is deliberate here.
+# Corporate-proxy TLS interception requires verify=False in the eval-only
+# LLM client (see evaluation/llm_ssl_client.py). Never used by app/rag.
+"evaluation/llm_ssl_client.py" = ["S501"]
 "evaluation/eval_e2e_v2.py" = ["T201", "S501"]
 "evaluation/eval_identifier_classifier.py" = ["T201"]
 "evaluation/eval_v2_checkpoint.py" = ["T201"]

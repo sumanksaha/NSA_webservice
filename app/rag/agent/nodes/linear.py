@@ -236,6 +236,10 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         collection_name=state.get("collection_name"),
         filters=state.get("filters"),
         pipeline="agent",
+        # P0-1: close the evidence loop — the selector ran during retrieval
+        # (evidence_node only passes it through), so forward it here instead
+        # of letting generation re-rank the full chunk list by score.
+        evidence_set=state.get("evidence_set"),
     )
     # Claim-level verification (item 15): extract + entail-check the answer's
     # claims against the retrieved evidence.  Threshold enforcement happens

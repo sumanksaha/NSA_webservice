@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
+import re  # noqa: F401  (kept for downstream eval scripts that import this module)
 import sys
 import time
 import warnings
@@ -44,6 +44,7 @@ import torch
 
 torch.set_num_threads(4)
 
+from evaluation.answer_scoring import BINARY_CORRECTNESS_THRESHOLD, score_answer
 from evaluation.benchmark import load_questions, load_gold_registry
 from evaluation.config import CACHE_DIR
 from evaluation.resolution import FamilyMap, matches_gold
@@ -75,6 +76,10 @@ MAX_LLM_CONCURRENCY = 5
 RAW_DIR = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "raw"
 IDENT_CACHE = PROJECT_ROOT / "evaluation" / "out" / "cache" / "v55_ident" / "sparse_identifier.jsonl"
 OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "e2e_eval_v2.json"
+
+#: P0-3 threshold note: ``BINARY_CORRECTNESS_THRESHOLD`` now lives in
+#: ``evaluation.answer_scoring`` (imported above) so this harness and the
+#: P0-1 A/B share one frozen definition.
 
 
 # ---------------------------------------------------------------------------
@@ -248,20 +253,20 @@ def compute_question_metrics(
     answer = rag_response.answer or ""
     expected = question.acceptable_conclusion or ""
 
-    # --- Answer correctness (text overlap: Jaccard + coverage) ---
-    def tokens(text: str) -> set[str]:
-        return set(re.findall(r"[a-z0-9]+", text.lower()))
-
-    ans_toks = tokens(answer)
-    exp_toks = tokens(expected)
-    if ans_toks and exp_toks:
-        union = ans_toks | exp_toks
-        jaccard = len(ans_toks & exp_toks) / len(union)
-        coverage = len(exp_toks & ans_toks) / len(exp_toks)
-    else:
-        jaccard = 0.0
-        coverage = 0.0
-    answer_correctness = (jaccard + coverage) / 2
+    # --- Answer correctness: soft overlap + binary (P0-3) -----------
+    # Shared with evaluation/answer_scoring.py so the P0-1 A/B scores
+    # identically.  The binary arm credits a genuine abstention on an
+    # insufficient-evidence question; on the soft threshold alone such an
+    # answer scores ~0.3 and is marked wrong, which is how the grader
+    # accounted for 38% of audited failures
+    # (evaluation/out/ceiling_v5/full_review_tabulation.md).
+    scored = score_answer(answer, expected, question.insufficient_evidence, None)
+    answer_correctness = scored["answer_correctness"]
+    jaccard = scored["answer_jaccard"]
+    coverage = scored["answer_coverage"]
+    overlap_ok = bool(scored["binary_correct_overlap_only"])
+    abstention_credited = bool(scored["binary_correct_abstention_credit"])
+    binary_correct = bool(scored["binary_correct"])
 
     # --- Context recall@10 (fraction of gold chunks in top-10) ---
     context_chunk_ids = {c.chunk_id for c in chunks}
@@ -290,6 +295,10 @@ def compute_question_metrics(
 
     return {
         "answer_correctness": round(answer_correctness, 4),
+        # P0-3: dual scorecard — binary always travels with soft.
+        "binary_correct": int(binary_correct),
+        "binary_correct_overlap_only": int(overlap_ok),
+        "binary_correct_abstention_credit": int(abstention_credited),
         "answer_jaccard": round(jaccard, 4),
         "answer_coverage": round(coverage, 4),
         "context_recall_at_10": round(context_recall, 4),
@@ -960,6 +969,22 @@ def main() -> int:
                 m[key] = round(sum(vals) / n, 4)
             m["abstain_correct"] = sum(1 for e in valid if e["metrics"].get("abstain_correct"))
             m["n_abstain"] = sum(1 for e in valid if e["metrics"].get("abstain_correct"))
+
+            # P0-3: binary correctness as a RATE, always emitted beside the
+            # soft score.  The gap between the two is the evaluator-miss
+            # signal — reporting soft alone is what produced the misleading
+            # 9-12% baseline.
+            n_binary = sum(1 for e in valid if e["metrics"].get("binary_correct"))
+            m["binary_correctness"] = round(n_binary / n, 4)
+            m["binary_correctness_overlap_only"] = round(
+                sum(1 for e in valid if e["metrics"].get("binary_correct_overlap_only")) / n, 4
+            )
+            m["binary_abstention_credit"] = round(
+                sum(1 for e in valid if e["metrics"].get("binary_correct_abstention_credit")) / n, 4
+            )
+            m["n_binary_correct"] = n_binary
+            # Soft mean kept for reference; never the headline on its own.
+            m["soft_answer_correctness"] = m["answer_correctness"]
             if sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence) > 0:
                 m["abstain_accuracy"] = round(
                     m["abstain_correct"] / sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence), 4
@@ -1017,6 +1042,30 @@ def main() -> int:
         "llm_generation": {
             "aggregate": llm_agg,
         },
+        # P0-3 dual scorecard.  The four signals are emitted TOGETHER by
+        # construction so no consumer can read soft in isolation (§8.5).
+        # soft is secondary; binary is the primary hard signal.
+        "dual_scorecard": {
+            "primary_signal": "binary_correctness",
+            "warning": "Soft token-overlap is a secondary signal only. The human audit (150/150) found 38% of failures were evaluator misses, not model failures — see evaluation/out/ceiling_v5/full_review_tabulation.md.",
+            "binary_rule": (
+                f"(soft answer_correctness > {BINARY_CORRECTNESS_THRESHOLD}) OR "
+                "(genuine abstention on an insufficient-evidence question)"
+            ),
+            "per_arm": {
+                key: {
+                    "binary_correctness": val.get("binary_correctness", 0.0),
+                    "binary_correctness_overlap_only": val.get("binary_correctness_overlap_only", 0.0),
+                    "binary_abstention_credit": val.get("binary_abstention_credit", 0.0),
+                    "soft_answer_correctness": val.get("soft_answer_correctness", val.get("answer_correctness", 0.0)),
+                    "citation_precision": val.get("citation_precision", 0.0),
+                    "citation_recall": val.get("citation_recall", 0.0),
+                    "groundedness": val.get("groundedness", 0.0),
+                    "n": val.get("n", 0),
+                }
+                for key, val in llm_agg.items()
+            },
+        },
         "failure_classification": {
             "stage_summary": stage_summary,
             "stage_names": stage_names,
@@ -1049,15 +1098,26 @@ def main() -> int:
         )
 
     print("\n--- LLM Generation (retrieved context) ---", flush=True)
-    print(f"{'Model':<16} {'AnsCorrect':>11} {'CtxRec@10':>10} {'CiteRec':>8} {'Ground':>7} {'Latency':>7}", flush=True)
-    print("-" * 60, flush=True)
+    # P0-3: binary leads the table; soft is secondary.  Both always shown.
+    print(
+        f"{'Model':<16} {'BINARY':>8} {'soft':>8} {'CiteP':>7} {'CiteR':>7} {'Ground':>7} {'Latency':>8}",
+        flush=True,
+    )
+    print("-" * 72, flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
         m = llm_agg.get(f"{mname}_retrieved", {})
         print(
-            f"{mname:<16} {m.get('answer_correctness', 0):>11.4f} {m.get('context_recall_at_10', 0):>10.4f} "
-            f"{m.get('citation_recall', 0):>8.4f} {m.get('groundedness', 0):>7.4f} {m.get('llm_latency_s', 0):>7.2f}s",
+            f"{mname:<16} {m.get('binary_correctness', 0):>8.4f} {m.get('answer_correctness', 0):>8.4f} "
+            f"{m.get('citation_precision', 0):>7.4f} {m.get('citation_recall', 0):>7.4f} "
+            f"{m.get('groundedness', 0):>7.4f} {m.get('llm_latency_s', 0):>7.2f}s",
             flush=True,
         )
+    print(
+        "  NOTE: BINARY is the primary signal.soft is secondary and drifts with\n"
+        "        reference phrasing. Report both, never soft alone (audit: 38%\n"
+        "        of failures were evaluator misses, not model failures).",
+        flush=True,
+    )
 
     print("\n--- LLM Generation (oracle / gold context) ---", flush=True)
     for mname in ("ce_v1", "ce_v2_K500"):
