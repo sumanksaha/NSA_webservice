@@ -134,8 +134,18 @@ def _fallback_docx_from_adoc(rendered: str) -> bytes:
         rows: list[list[str]] = []
         max_cols = 0
         for row in logical_rows:
-            cells = [_strip_inline_markup(part) for part in row.split("|")]
-            cells = [c for c in cells if c]
+            parts = row.split("|")
+            # ``split`` leaves the text before the leading ``|`` as element 0 —
+            # empty for a well-formed row — and a trailing ``|`` (the usual
+            # row terminator) leaves an empty final element. Drop only those
+            # two artifacts so interior empty cells keep their column position
+            # (dropping *all* empty cells would shift later values left into
+            # the wrong columns).
+            if parts and not parts[0].strip():
+                parts = parts[1:]
+            if parts and not parts[-1].strip() and row.rstrip().endswith("|"):
+                parts = parts[:-1]
+            cells = [_strip_inline_markup(part) for part in parts]
             if not cells:
                 continue
             rows.append(cells)

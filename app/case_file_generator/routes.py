@@ -926,10 +926,17 @@ def import_case_route():
 @case_file_generator_bp.route("/case/<int:case_id>/docx/petition")
 @login_required
 def download_petition_docx(case_id: int):
-    """Download the Petition as a Word (.docx) document."""
+    """Download the Petition as a Word (.docx) document.
+
+    Not available for cases marked unsafe — the prohibition-order file is the
+    appropriate document for unsafe samples.
+    """
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
+
+    if case.is_unsafe:
+        return jsonify({"error": "Petition not available for unsafe cases"}), 403
 
     access = check_generation_allowed(
         case_type="case_file",
@@ -958,10 +965,17 @@ def download_petition_docx(case_id: int):
 @case_file_generator_bp.route("/case/<int:case_id>/docx/permission")
 @login_required
 def download_permission_docx(case_id: int):
-    """Download the Permission Letter as a Word (.docx) document."""
+    """Download the Permission Letter as a Word (.docx) document.
+
+    Not available for cases marked unsafe — the prohibition-order file is the
+    appropriate document for unsafe samples.
+    """
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
+
+    if case.is_unsafe:
+        return jsonify({"error": "Permission letter not available for unsafe cases"}), 403
 
     access = check_generation_allowed(
         case_type="case_file",
@@ -984,6 +998,92 @@ def download_permission_docx(case_id: int):
         download_name=f"Permission_Letter_{case.case_number or case_id}.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
+
+
+def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
+    """Build rows for the page-1 14-column offender table in Unsafe_file.adoc.
+
+    Fill rules (agreed with the operator):
+      * One row for the retailer; a second row for the manufacturer only when
+        the two are separate entities (retailer-cum-manufacturer / same FSSAI
+        collapses to a single offender).
+      * State of the sample: "Loose" only for retailer-cum-manufacturer;
+        otherwise "Packed" (sharing an FSSAI licence does not make a packed
+        product loose).
+      * Report-communication column: the communication dates fetched from case
+        data (retailer_report_receive_date, manufacturer_report_receive_date)
+        — no hardcoded text.
+      * Sec 46(4) preference: always "No" (this letter is the first move to
+        the D.O.).
+      * Referral-lab columns: blank (no referral at this stage).
+      * Remarks: fixed note seeking permission u/s 42(3) of FS&S Act, 2006.
+    """
+    sample_name = case_data.get("sample_name") or case_data.get("product_name", "")
+    sample_code = case_data.get("sample_code", "")
+    sample_particulars = f"{sample_name} (Code: {sample_code})" if sample_code else sample_name
+
+    rcm = bool(case_data.get("retailer_cum_manufacturer"))
+    # Row collapsing: one offender when retailer and manufacturer are the same
+    # FBO (RCM flag or identical FSSAI licence) — a *packed* product from two
+    # licensees that share a licence still collapses, but stays "Packed".
+    separate = not (rcm or case_data.get("same_entity"))
+    sample_state = "Loose" if rcm else "Packed"
+
+    verdicts = []
+    if case_data.get("is_unsafe"):
+        verdicts.append("Unsafe")
+    if case_data.get("is_substandard"):
+        verdicts.append("Substandard")
+    if case_data.get("is_misbranded"):
+        verdicts.append("Misbranded")
+    analysis_result = " and ".join(verdicts) or "Unsafe"
+
+    retailer_recv = (case_data.get("retailer_report_receive_date") or "").strip()
+    manufacturer_recv = (case_data.get("manufacturer_report_receive_date") or "").strip()
+    comm_parts = []
+    if retailer_recv:
+        comm_parts.append(retailer_recv)
+    if manufacturer_recv:
+        comm_parts.append(manufacturer_recv)
+    report_communicated = "; ".join(comm_parts)
+
+    offenders = [
+        (
+            case_data.get("retailer_name", ""),
+            case_data.get("retailer_address", ""),
+            case_data.get("retailer_fssai", ""),
+        )
+    ]
+    if separate:
+        offenders.append(
+            (
+                case_data.get("manufacturer_name", ""),
+                case_data.get("manufacturer_address", ""),
+                case_data.get("manufacturer_fssai", ""),
+            )
+        )
+
+    rows = []
+    for si, (name, address, fssai) in enumerate(offenders, start=1):
+        rows.append(
+            {
+                "si": si,
+                "offender_name": name,
+                "offender_address": address,
+                "fssai_license": fssai,
+                "sample_particulars": sample_particulars,
+                "sample_state": sample_state,
+                "sampled_by": case_data.get("fso_name", ""),
+                "drawl_date": case_data.get("inspection_date", ""),
+                "analysis_result": analysis_result,
+                "report_communicated": report_communicated,
+                "offender_preferred": "No",
+                "forwarded": "",
+                "lab_result": "",
+                "remarks": "seeking permission u/s 42(3) of FS&S Act, 2006",
+            }
+        )
+    return rows
 
 
 @case_file_generator_bp.route("/case/<int:case_id>/docx/unsafe_file")
@@ -1009,6 +1109,9 @@ def download_unsafe_file_docx(case_id: int):
     case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
     case_data.setdefault("sample_name", case_data.get("product_name", ""))
 
+    # Page-1 14-column offender table rows (fill rules in the helper).
+    case_data["table_rows"] = _unsafe_offender_table_rows(case_data)
+
     docx_bytes = render_docx("unsafe_file", case_data)
 
     buf = io.BytesIO(docx_bytes)
@@ -1024,10 +1127,26 @@ def download_unsafe_file_docx(case_id: int):
 @case_file_generator_bp.route("/case/<int:case_id>/docx/zip")
 @login_required
 def download_both_docx(case_id: int):
-    """Download both Petition + Permission Letter as a single ZIP of .docx files."""
+    """Download both Petition + Permission Letter as a single ZIP of .docx files.
+
+    Unsafe cases are rejected with 403 — petition and permission files are not
+    generated for them; the prohibition-order file has its own endpoint
+    (``download_unsafe_file_docx``).
+    """
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
+
+    if case.is_unsafe:
+        return (
+            jsonify(
+                {
+                    "error": "Petition/permission not available for unsafe cases; "
+                    "download the unsafe file instead"
+                }
+            ),
+            403,
+        )
 
     access = check_generation_allowed(
         case_type="case_file",
@@ -1085,6 +1204,9 @@ def download_petition_pdf(case_id: int):
     case = db.session.get(CaseFile, case_id)
     if case is None:
         return jsonify({"error": "Case not found"}), 404
+
+    if case.is_unsafe:
+        return jsonify({"error": "Petition not available for unsafe cases"}), 403
 
     access = check_generation_allowed(
         case_type="case_file",

@@ -346,16 +346,50 @@ class TestUnsafeFileDocxDownload:
             "Unsafe File DOCX must not contain unsubstituted Jinja {{ }} placeholders"
         )
 
-    def test_docx_contains_letterhead_table(self, client, case_file):
-        """Page 1 letterhead table: header block + case number."""
+    def test_docx_contains_14_column_table_on_page_1(self, client, case_file):
+        """Page 1 has 14-column table with offender/sample details, no header table."""
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         text = _extract_docx_text(response.data)
-        assert "OFFICE OF THE DESIGNATED OFFICER" in text, "letterhead table must render"
-        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" in text, "subject row must render"
-        assert "TDD-SAMPLE-001" in text, "case_number must render in the header table"
+        assert "SI. no" in text, "14-column table SI. no column must render"
+        assert "Name of Offenders" in text, "14-column table Name of Offenders must render"
+        assert "FSSAI license no" in text, "14-column table FSSAI license no must render"
+        assert "Result of analysis" in text, "14-column table Result of analysis must render"
+        assert "Remarks" in text, "14-column table Remarks must render"
+        # Verify no letterhead table on page 1
+        assert "OFFICE OF THE DESIGNATED OFFICER" not in text, "letterhead table must not be on page 1"
+        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" not in text, "prohibition order subject must not be on page 1 (moved to body)"
 
-    def test_docx_contains_sample_details_table(self, client, case_file):
-        """Page 2 structured table: label + value for each CaseFile field."""
+    def test_docx_14_column_table_fill_rules(self, client, case_file):
+        """Fill rules: Packed state (separate FBOs), report dates, Sec 46(4)
+        preference No, referral columns blank, fixed remarks."""
+        from app.extensions import db
+
+        case_file.is_unsafe = True
+        db.session.commit()
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        # Separate retailer + manufacturer → sample state "Packed", two offender rows
+        assert "Packed" in text, "sample state must be Packed for separate FBOs"
+        assert "TDD Retailer" in text, "retailer row must render"
+        assert "TDD Manufacturer" in text, "manufacturer row must render"
+        # Report-communication column carries only the receive dates from
+        # case data (retailer_report_receive_date, manufacturer_report_receive_date)
+        assert "14-03-2023; 15-03-2023" in text, (
+            "report-communication cell must list only the two receive dates"
+        )
+        # No hardcoded Yes prefix
+        assert "Yes (Retailer" not in text, "no hardcoded Yes/Retailer labels"
+        # Sec 46(4) preference always No, referral columns blank → No is
+        # immediately followed by the remarks cell. ("FS&S" is XML-escaped as
+        # "FS&amp;S" in the extracted text, so assert up to "FS".)
+        assert "No seeking permission u/s 42(3) of FS" in text, (
+            "preference must be No with blank referral cells before remarks"
+        )
+
+    def test_docx_letter_body_contains_sample_data(self, client, case_file):
+        """Page 2 letter body carries sample data inline (no duplicate sample table —
+        page 1's 14-column table is the only sample table)."""
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         text = _extract_docx_text(response.data)
         for label, value in [
@@ -365,8 +399,105 @@ class TestUnsafeFileDocxDownload:
             ("Retailer", "TDD Retailer"),
             ("Manufacturer", "TDD Manufacturer"),
         ]:
-            assert label in text, f"sample-details table missing label '{label}'"
-            assert value in text, f"sample-details table missing value '{value}'"
+            assert label in text, f"letter body missing label '{label}'"
+            assert value in text, f"letter body missing value '{value}'"
+
+    def test_docx_contains_case_number(self, client, case_file):
+        """The prohibition order must reference the case number (letter body)."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "TDD-SAMPLE-001" in text, "case_number must render in the unsafe file"
+
+    def test_no_framepage_leak(self, client, case_file):
+        """The old <framepage> passthrough must not leak as visible text.
+
+        Pandoc swallows only the first ++++ block; a second one is emitted
+        into the document body.
+        """
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "framepage" not in text, "framepage XML leaked into the document"
+        assert "simple-page-settings" not in text, "page-settings XML leaked into the document"
+
+    def test_first_table_rows_have_14_columns(self, client, case_file):
+        """Page-1 table: header + offender rows each hold exactly 14 cells.
+
+        Asserted per-row on the real Word table so intentionally blank cells
+        (referral columns) cannot silently shift values into wrong columns.
+        """
+        from docx import Document
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        doc = Document(io.BytesIO(response.data))
+        assert doc.tables, "page-1 offender table must render as a Word table"
+        table = doc.tables[0]
+        # Header + retailer + manufacturer (separate FBOs in the fixture).
+        assert len(table.rows) == 3, "header + 2 offender rows expected"
+        for index, row in enumerate(table.rows):
+            assert len(row.cells) == 14, f"row {index} has {len(row.cells)} cells, want 14"
+
+    def test_page1_landscape_rest_portrait(self, client, case_file):
+        """Section 1 (page 1) must be landscape; the remainder portrait."""
+        from docx import Document
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        doc = Document(io.BytesIO(response.data))
+        sections = doc.sections
+        assert len(sections) == 2, f"expected 2 sections, got {len(sections)}"
+        first = sections[0]
+        assert first.page_width > first.page_height, "page 1 must be landscape"
+        last = sections[-1]
+        assert last.page_height > last.page_width, "pages after page 1 must be portrait"
+
+
+class TestUnsafeCaseDocumentGating:
+    """Unsafe cases serve only the prohibition order.
+
+    Petition, permission, both-ZIP and petition-PDF endpoints must 403, and
+    the case list must stop offering those buttons — none of these guards can
+    run on the shared non-unsafe fixture, so each gets its own case.
+    """
+
+    @staticmethod
+    def _mark_unsafe(case_file):
+        from app.extensions import db
+
+        case_file.is_unsafe = True
+        db.session.commit()
+
+    def test_petition_docx_forbidden(self, client, case_file):
+        self._mark_unsafe(case_file)
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/petition")
+        assert response.status_code == 403
+        assert b"not available for unsafe cases" in response.data
+
+    def test_permission_docx_forbidden(self, client, case_file):
+        self._mark_unsafe(case_file)
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/permission")
+        assert response.status_code == 403
+        assert b"not available for unsafe cases" in response.data
+
+    def test_both_zip_forbidden(self, client, case_file):
+        self._mark_unsafe(case_file)
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
+        assert response.status_code == 403
+        assert b"not available for unsafe cases" in response.data
+
+    def test_petition_pdf_forbidden(self, client, case_file):
+        self._mark_unsafe(case_file)
+        response = client.get(f"/case_file_generator/case/{case_file.id}/pdf/petition")
+        assert response.status_code == 403
+        assert b"not available for unsafe cases" in response.data
+
+    def test_index_hides_petition_permission_buttons(self, client, case_file):
+        self._mark_unsafe(case_file)
+        response = client.get("/case_file_generator/")
+        assert response.status_code == 200
+        html = response.data.decode("utf-8", errors="replace")
+        assert "/docx/petition" not in html, "Petition button must hide for unsafe cases"
+        assert "/docx/permission" not in html, "Permission button must hide for unsafe cases"
+        assert "/pdf/petition" not in html, "Petition PDF button must hide for unsafe cases"
+        assert "/docx/unsafe_file" in html, "Unsafe File button must show for unsafe cases"
 
 
 class TestUnsafeFileButtonGating:
@@ -376,16 +507,33 @@ class TestUnsafeFileButtonGating:
     unsafe option is toggled — i.e. the option exists in the adjudication UI
     and the per-case "Unsafe File" button only appears when ``is_unsafe``
     is set on the case.
+
+    Note: By default (``CASE_FILE_UNSAFE_OPTION_ENABLED = False``) the
+    'Unsafe' verdict toggle is hidden from the create/edit forms. It becomes
+    visible only when the setting is enabled via config.
     """
 
-    def test_create_form_exposes_unsafe_option(self, client, case_file):
-        """The sample-adjudication create form renders an Unsafe toggle."""
+    def test_create_form_exposes_unsafe_option(self, client, case_file, monkeypatch):
+        """The sample-adjudication create form gates the Unsafe checkbox on the setting.
+
+        Default ``CASE_FILE_UNSAFE_OPTION_ENABLED = False`` hides it; enabling
+        the setting renders ``name="is_unsafe"`` again.
+        """
         response = client.get("/case_file_generator/")
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' in html, "create form must expose the is_unsafe checkbox"
-        assert 'value="unsafe"' in html, "is_unsafe toggle must submit value 'unsafe'"
-        assert "Unsafe" in html, "create form must label the toggle 'Unsafe'"
+        assert 'name="is_unsafe"' not in html, (
+            "Unsafe checkbox must be hidden while the setting is disabled"
+        )
+
+        monkeypatch.setitem(
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", True
+        )
+        response = client.get("/case_file_generator/")
+        html = response.data.decode("utf-8", errors="replace")
+        assert 'name="is_unsafe"' in html, (
+            "Unsafe checkbox must render once the setting is enabled"
+        )
 
     def test_unsafe_file_button_hidden_until_toggled(self, client, case_file):
         """No Unsafe-File button until the case is marked unsafe.
@@ -396,9 +544,9 @@ class TestUnsafeFileButtonGating:
         response = client.get("/case_file_generator/")
         html = response.data.decode("utf-8", errors="replace")
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
-        assert 'name="is_unsafe"' in html  # the toggle is always rendered
+        # The unsafe checkbox is not rendered when the setting is disabled (default).
         assert "/docx/unsafe_file" not in html, (
-            "Unsafe File button must be hidden until is_unsafe is toggled"
+            "Unsafe File button must be hidden until the option is enabled"
         )
 
     def test_unsafe_file_button_shown_when_unsafe(self, client, case_file):
@@ -418,6 +566,26 @@ class TestUnsafeFileButtonGating:
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
         assert "/docx/unsafe_file" in html, (
             "Unsafe File button must appear once is_unsafe is toggled on"
+        )
+
+    def test_edit_form_gates_unsafe_checkbox(self, client, case_file, monkeypatch):
+        """The edit form hides the Unsafe checkbox unless the setting is on."""
+        url = f"/case_file_generator/case/{case_file.id}/edit"
+        response = client.get(url)
+        assert response.status_code == 200
+        html = response.data.decode("utf-8", errors="replace")
+        assert 'name="is_unsafe"' not in html, (
+            "edit form must hide the Unsafe checkbox while disabled"
+        )
+
+        monkeypatch.setitem(
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", True
+        )
+        response = client.get(url)
+        assert response.status_code == 200
+        html = response.data.decode("utf-8", errors="replace")
+        assert 'name="is_unsafe"' in html, (
+            "edit form must show the Unsafe checkbox once enabled"
         )
 
 

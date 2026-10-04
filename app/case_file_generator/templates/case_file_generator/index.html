@@ -416,6 +416,7 @@
                     />
                     Substandard
                 </label>
+                {% if config.get('CASE_FILE_UNSAFE_OPTION_ENABLED', False) %}
                 <label class="toggle-card">
                     <input
                         type="checkbox"
@@ -425,6 +426,7 @@
                     />
                     Unsafe
                 </label>
+                {% endif %}
             </div>
         </div>
 
@@ -609,6 +611,7 @@
                         >
                             <i class="fa-solid fa-clipboard-check"></i> Validate
                         </button>
+                        {% if not c.is_unsafe %}
                         <a
                             href="{{ url_for('case_file_generator.download_petition_docx', case_id=c.id) }}"
                             class="btn btn-secondary btn-sm"
@@ -632,6 +635,7 @@
                         >
                             <i class="fa-solid fa-file-pdf"></i> Petition PDF
                         </button>
+                        {% endif %}
                         {% if c.is_unsafe %}
                         <a
                             href="{{ url_for('case_file_generator.download_unsafe_file_docx', case_id=c.id) }}"

@@ -194,6 +194,7 @@
                     />
                     Substandard
                 </label>
+                {% if config.get('CASE_FILE_UNSAFE_OPTION_ENABLED', False) %}
                 <label class="toggle-card">
                     <input
                         type="checkbox" name="is_unsafe" value="unsafe" data-off=""
@@ -201,6 +202,7 @@
                     />
                     Unsafe
                 </label>
+                {% endif %}
             </div>
         </div>
         <div class="form-row form-row--4">

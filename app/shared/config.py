@@ -573,6 +573,15 @@ _TABLE: tuple[Setting, ...] = (
         opt_in=False,
         help="Kill switch for Notepad AI evaluation (LLM spend). 503 when off.",
     ),
+    # --- Case file adjudication UI -------------------------------------------
+    Setting(
+        "CASE_FILE_UNSAFE_OPTION_ENABLED",
+        "case_file_unsafe_option_enabled",
+        bool,
+        False,
+        opt_in=False,
+        help="When False, hides the 'Unsafe' verdict toggle from the sample-adjudication create/edit forms.",
+    ),
     # --- FSO strategic advisory (game-theory + Talebian, ADR-0003) ------------
     Setting(
         "FSO_ADVISOR_ENABLED",

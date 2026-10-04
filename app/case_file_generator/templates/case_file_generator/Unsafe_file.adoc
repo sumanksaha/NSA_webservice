@@ -84,6 +84,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Unsafe File (Prohibition Order) — ADR-001 .adoc template.
 //
+// Page 1 holds ONLY the 14-column offender/sample table (no header/letterhead);
+// the renderer (case_file_generator/adoc_renderer.py) post-processes the DOCX
+// so page 1 is a landscape section and every following page is portrait.
+// The letter body starts on page 2.
+//
 // Design note ("barring logo and text of letter in the first page"):
 // This single .adoc generates the prohibition-order letter for a sample that
 // was found UNSAFE. It does NOT embed the page-1 logo image (the letterhead
@@ -114,19 +119,22 @@
 //   retailer/manufacturer_report_receive_date → *_report_receive_date
 // ─────────────────────────────────────────────────────────────────────────
 
+// 14-column table on page 1: offender/sample details for unsafe prohibition order
+// No header/letterhead on page 1 per requirements — table only.
+// Rows are built in routes.py (_unsafe_offender_table_rows): one row for the
+// retailer, plus one for the manufacturer when they are separate entities.
+|===
+| SI. no | Name of Offenders | Address and other details of offender(s) | FSSAI license no | Sample particulars with code no. of the sample | State of the Sample (Packed/loose) | Sample drawn by | Date of drawl of sample | Result of analysis | Whether report of analysis communicated to FBO for giving opportunity of hearing | Whether offender(s) preferred to D.O. as per SEC 46(4) of FS&S act 2006 read with rule 2.4.6(1) of FS&S rules 2011 (Yes/No) | If yes, whether the sample has been forwarded to the referred food laboratory | Result of rederrel food laboratory | Remarks
+{% for row in table_rows -%}
+| {{ row.si }} | {{ row.offender_name }} | {{ row.offender_address }} | {{ row.fssai_license }} | {{ row.sample_particulars }} | {{ row.sample_state }} | {{ row.sampled_by }} | {{ row.drawl_date }} | {{ row.analysis_result }} | {{ row.report_communicated }} | {{ row.offender_preferred }} | {{ row.forwarded }} | {{ row.lab_result }} | {{ row.remarks }}
+{% endfor -%}
+|===
+
+// Page 2+: prohibition-order letter body (no sample table — page 1 already has it;
+// portrait orientation applied by the renderer's section post-processing)
 [.bold]#Before the Ld. Adjudicating Officer, KMC#
 
-//// Header table (page 1). Per the task, the page-1 logo IMAGE and the
-     cover-memo letter text are omitted; this structured letterhead block
-     supplies the header content as a 2-column table. ////
-|===
-| OFFICE OF THE DESIGNATED OFFICER +
-Food Cell (Health) +
-Kolkata Municipal Corporation +
-Kolkata - 700015 | F.S. &amp; S Case No. {{ case_number }} +
-PROHIBITION ORDER UNDER SEC 36(3)(b) +
-of the Food Safety &amp; Standards Act, 2006
-|===
+F.S. &amp; S Case No. {{ case_number }}
 
 To,
 The Designated Officer,
@@ -141,20 +149,6 @@ Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed pack
 Upon further inquiry, {{ retailer_name }} disclosed the name of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No - {{ manufacturer_fssai }} as the manufacturer of the said product **{{ sample_name }}** (scaled packet).
 
 <<<
-
-//// Sample details + FBO table (page 2): structured per CaseFile fields. ////
-|===
-| Sample | {{ sample_name }}
-| No. of Packets / Quantity | {{ packet_count }} sealed packets (X {{ packet_count }} = {{ sample_quantity }} )
-| Batch No | {{ batch_no }}
-| Date of Manufacture | {{ mfg_date }}
-| Date of Expiry | {{ expiry_date }}
-| Sample Code | {{ sample_code }}
-| Date of Sampling | {{ inspection_date }}
-| Sampled by | {{ fso_name }}, Food Safety Officer (Br. XVI)
-| Retailer | {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}; FSSAI {{ retailer_fssai }}
-| Manufacturer | {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}; FSSAI {{ manufacturer_fssai }}
-|===
 
 [.justify]
 Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
