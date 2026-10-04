@@ -56,6 +56,31 @@ EFFECTIVE_K = {
 }
 
 
+def _gold_in_prompt(qid: str, question, arms: dict, payload_index: dict, fm) -> bool:
+    """Whether the gold provision actually survives ContextBuilder for this qid.
+
+    This asks the real builder, not an assumed K. An earlier revision bucketed
+    on a hardcoded rank<=10, which understated the window: most benchmark query
+    types ("Obligation", "Authority", "Direct provision", ...) never match a
+    _QUERY_TYPE_BUDGETS key, so they already used the configured 20-chunk
+    ceiling. Only 74 of 284 query-type entries match the table.
+    """
+    from evaluation.bench_p0_1_packing import _chunks_for
+    from app.rag.generation.context_builder import ContextBuilder
+
+    ids = arms.get(qid) or []
+    chunks = _chunks_for(ids, payload_index)
+    if not chunks:
+        return False
+    qt = question.question_types[0] if question.question_types else ""
+    built = ContextBuilder(query_type=qt).build(question.question, chunks, qt)
+    admitted = {c["chunk_id"] for c in built.citations}
+    units = question.recall_units()
+    return any(
+        cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted
+    )
+
+
 def _gold_depth(chunk_ids: list[str], payload_index: dict, units, fm) -> int | None:
     for i, cid in enumerate(chunk_ids, start=1):
         payload = payload_index.get(cid)
@@ -92,18 +117,15 @@ def main() -> int:
         if not q or not ids:
             continue
         depth = _gold_depth(ids, payload_index, q.recall_units(), fm)
+        in_prompt = _gold_in_prompt(qid, q, arms, payload_index, fm)
         if depth is None:
             bucket = "never_retrieved"
-        elif depth <= 10:
+        elif in_prompt:
             bucket = "generation"
         else:
             bucket = "retrieval_rank"
-        per_q.append({
-            "qid": qid,
-            "verdict": verdict,
-            "model_action": rec.get("model_action"),
-            "gold_depth": depth,
-            "bucket": bucket,
+        per_q.append({"qid": qid, "verdict": verdict, "model_action": rec.get("model_action"),
+            "gold_depth": depth, "gold_in_prompt": in_prompt, "bucket": bucket,
             "query_types": q.question_types,
         })
 

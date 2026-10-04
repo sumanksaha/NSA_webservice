@@ -67,18 +67,29 @@ class ContextBuilder:
         max_chunks: Maximum number of chunks to include.
     """
 
-    # 2.6: Per-query-type context budgets.  case_law needs longer excerpts
-    # (precedent chains); prohibition queries need fewer but more focused
-    # chunks; cross_reference queries need more chunks to cover referenced
-    # sections.
+    # 2.6: Per-query-type context budgets, as CAPS relative to the operator's
+    # ceiling (RAG_CONTEXT_MAX_CHUNKS / RAG_CONTEXT_MAX_CHARS).
+    #
+    # Raised from the original 8-12 chunk / 10k-16k char hardcodes after
+    # measuring where the audited failures actually come from
+    # (evaluation/failure_attribution.py): for 40 of the 89 model_wrong
+    # questions the gold provision IS in the candidate pool but ranks below the
+    # window — R@10 51.7% vs R@20 68.5%. Those were unanswerable by
+    # construction. Two things forced this to move chars and chunks together:
+    # measured evidence-set fit was flat across max_chunks 10/15/20 but jumped
+    # when max_context_chars rose, so the char budget binds first.
+    #
+    # These are caps, applied via min() against the configured ceiling, so an
+    # operator setting a SMALLER window still wins. They only raise the default
+    # when the ceiling is larger.
     _QUERY_TYPE_BUDGETS: ClassVar[dict[str, dict[str, int]]] = {
-        "case_law": {"max_context_chars": 16_000, "max_chunks": 12},
-        "cross_reference": {"max_context_chars": 14_000, "max_chunks": 12},
-        "prohibition": {"max_context_chars": 10_000, "max_chunks": 8},
-        "definition": {"max_context_chars": 10_000, "max_chunks": 8},
-        "penalty": {"max_context_chars": 12_000, "max_chunks": 10},
-        "general": {"max_context_chars": 12_000, "max_chunks": 10},
-        "procedure": {"max_context_chars": 12_000, "max_chunks": 10},
+        "case_law": {"max_context_chars": 24_000, "max_chunks": 20},
+        "cross_reference": {"max_context_chars": 24_000, "max_chunks": 20},
+        "prohibition": {"max_context_chars": 24_000, "max_chunks": 20},
+        "definition": {"max_context_chars": 20_000, "max_chunks": 16},
+        "penalty": {"max_context_chars": 24_000, "max_chunks": 20},
+        "general": {"max_context_chars": 24_000, "max_chunks": 20},
+        "procedure": {"max_context_chars": 24_000, "max_chunks": 20},
     }
 
     def __init__(
@@ -89,13 +100,15 @@ class ContextBuilder:
     ) -> None:
         # 2.6: Adjust budget per query type when caller doesn't override.
         # Context-K lever (RAG_CONTEXT_MAX_CHUNKS / RAG_CONTEXT_MAX_CHARS)
-        # sets the ceiling for untyped/default queries. Per-type budgets stay
-        # tuned but fall back to this ceiling when not overridden.
+        # sets the CEILING. Per-type budgets are caps applied beneath it via
+        # min(), so raising the configured window actually reaches typed
+        # queries instead of being silently overridden by a hardcoded table
+        # (which is what made RAG_CONTEXT_MAX_CHUNKS=20 a no-op).
         base_chars = cfg.context_max_chars if max_context_chars is None else max_context_chars
         base_chunks = cfg.context_max_chunks if max_chunks is None else max_chunks
         budget = self._QUERY_TYPE_BUDGETS.get(query_type.lower(), {})
-        self.max_context_chunks = budget.get("max_chunks", base_chunks)
-        self.max_context_chars = budget.get("max_context_chars", base_chars)
+        self.max_context_chunks = min(budget.get("max_chunks", base_chunks), base_chunks)
+        self.max_context_chars = min(budget.get("max_context_chars", base_chars), base_chars)
         self._query_type = query_type
 
     def build(

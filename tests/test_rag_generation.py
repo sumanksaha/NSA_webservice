@@ -266,6 +266,46 @@ class TestContextBuilder:
         assert built.enough_evidence is True
         assert built.chunk_count == 3
 
+    # --- per-query-type window budgets --------------------------- #
+    # The 89 audited model_wrong failures split 36/89 with gold missing from
+    # the prompt, not from the corpus. These lock in the window fix.
+
+    def test_per_type_budget_does_not_exceed_configured_ceiling(self):
+        from app.shared.config import cfg
+        from app.rag.generation.context_builder import ContextBuilder
+
+        small = ContextBuilder(query_type="general", max_context_chars=8_000, max_chunks=6)
+        assert small.max_context_chars <= 8_000
+        assert small.max_context_chunks <= 6
+
+    def test_per_type_budget_raises_window_when_ceiling_is_larger(self):
+        # A typed query must actually benefit from a raised ceiling; before
+        # the min() clamp the hardcoded table silently overrode the setting,
+        # making RAG_CONTEXT_MAX_CHUNKS=20 a no-op for typed queries.
+        from app.rag.generation.context_builder import ContextBuilder
+
+        b = ContextBuilder(query_type="general", max_context_chars=24_000, max_chunks=20)
+        assert b.max_context_chars == 24_000
+        assert b.max_context_chunks == 20
+
+    def test_every_budget_type_is_within_its_own_cap(self):
+        from app.rag.generation.context_builder import ContextBuilder
+
+        caps = ContextBuilder._QUERY_TYPE_BUDGETS
+        assert caps, "budget table must not be empty"
+        for qtype, cap in caps.items():
+            b = ContextBuilder(query_type=qtype, max_context_chars=100_000, max_chunks=100)
+            assert b.max_context_chars <= cap["max_context_chars"], qtype
+            assert b.max_context_chunks <= cap["max_chunks"], qtype
+
+    def test_definition_type_keeps_its_smaller_cap(self):
+        from app.rag.generation.context_builder import ContextBuilder
+
+        cap = ContextBuilder._QUERY_TYPE_BUDGETS["definition"]
+        b = ContextBuilder(query_type="definition", max_context_chars=100_000, max_chunks=100)
+        assert b.max_context_chars == cap["max_context_chars"]
+        assert b.max_context_chunks == cap["max_chunks"]
+
     def test_token_estimate_positive(self):
         # 2+ chunks: the §2.8 answerability gate requires >=2 chunks for
         # non-definition queries (single-chunk fixtures are rejected).
