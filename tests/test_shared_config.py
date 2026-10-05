@@ -41,10 +41,14 @@ def test_defaults_outside_app_context():
     assert cfg.evidence_selector is False
     assert cfg.context_max_chunks == 20  # context-K lever (activated ceiling)
     assert cfg.context_max_chars == 24000
-    # KG context is on by default (declaration table in app/shared/config.py);
-    # tasks.py applies fusion first, expansion only when fusion is off.
-    assert cfg.kg_fusion is True
-    assert cfg.kg_expansion is True
+    # KG context is OFF by default.  The 150-question A/B
+    # (evaluation/ab_kg_fusion.py) measured both paths subtracting, and the
+    # graph carries only a section reference rather than provision text, so
+    # the measured-harmful path must not be the default.  tasks.py still
+    # applies fusion first and expansion only when fusion is off, so either
+    # flag alone re-enables KG context.
+    assert cfg.kg_fusion is False
+    assert cfg.kg_expansion is False
     assert cfg.ensemble_ce_head == 30  # unified with create_app (was 20 in tasks.py)
     assert cfg.ensemble_ce_weight == 0.5
     assert cfg.agent_checkpointer == "memory"
