@@ -95,9 +95,9 @@
 // logo is supplied by stationery) and it does NOT reproduce the source cover
 // memo letter ("To / Letter No H/FCI31/2025-26 / Purnima Jaiswal /
 // PROHIBITION ORDER UNDER SEC 36(3)(B) … signature DESIGNATED FOOD CELL")
-// that precedes the prohibition order. The document starts at the order's
-// own letterhead ("Before the Ld. Adjudicating Officer" → "To, The
-// Designated Officer").
+// that precedes the prohibition order. The document starts at the addressee ("To, The Designated Officer") — the court header "Before the Ld. Adjudicating Officer, KMC"
+// and case number have been removed per the revised design; the prayer is directed to the DO while the prohibition order on page 3
+// is directed to the FBO manufacturer.
 //
 // Variable mapping (template var → CaseFile column / UI form field):
 //   sample_code        → sample_code            / sample_code
@@ -132,9 +132,7 @@
 
 // Page 2+: prohibition-order letter body (no sample table — page 1 already has it;
 // portrait orientation applied by the renderer's section post-processing)
-[.bold]#Before the Ld. Adjudicating Officer, KMC#
-
-F.S. &amp; S Case No. {{ case_number }}
+F.S. & S Case No. {{ case_number }}
 
 To,
 The Designated Officer,
@@ -142,6 +140,8 @@ Food Cell,
 Kolkata Municipal Corporation,
 
 *Sub:* Initiation of Prohibition on Sale of Unsafe Food and Grant of Sanction for Prosecution in respect of Sample No : {{ sample_code }}
+
+. Prayer to the Designated Officer
 
 [.justify]
 Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles (X {{ packet_count }} = {{ sample_quantity }} ) bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
@@ -159,12 +159,25 @@ The Food Business Operator(s) did not prefer an appeal under Section 46(4) of th
 
 <<<
 
-[.legal-notice-box]
-Therefore, under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, you are hereby directed to stop sale &amp; distribution of **{{ sample_name }}** (product name), bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry {{ expiry_date }}, read with Section 18(1)(2) of the Food Safety &amp; Standards Act, 2006 with immediate effect.
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE 3 — Prohibition Order (separate page, directed to FBO / manufacturer)
+// Not a box; full letterhead prohibition directed at the concerned operator.
+// ─────────────────────────────────────────────────────────────────────────
+
+[.bold]#PROHIBITION ORDER — DIRECTED TO THE FOOD BUSINESS OPERATOR#
 
 [.justify]
-Pursuant to the provisions of Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, it is submitted that a prohibition order may be issued against the concerned Food Business Operator subject to concurrence of Authority (Draft Prohibition Order attached herewith, marked D).
+Under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, read with Section 18(1)(2) of the said Act, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name), bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }}, with immediate effect.
 
+[.justify]
+This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.
+
+[.legal-notice-box]
+Pursuant to Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, a draft Prohibition Order (marked D) is enclosed herewith. The concerned FBO may submit representations, if any, within the time and manner prescribed under the applicable rules.
+
+<<<
+
+[.justify]
 In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):
 
 Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}) are attached herewith (marked F) for the following:
