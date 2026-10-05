@@ -40,7 +40,7 @@ So the remaining gap is **not** purely interpretation and application, as origin
 
 What the window *did* buy is **citations**: gold evidence reachable in the prompt +0.026 (deterministic, a property of the window), and gold actually cited by the model +0.295 on the causal subset. Mean prompt chunks rose 14.9 → 18.9 (+27%), not the ~2x the char budget implies.
 
-**Groundedness shows no measurable harm, but is too noisy to show benefit.** Run through the shipped `CitationTracker` + `ResponseSanitizer`: hallucination flag 13.5% → 21.4% in one run and 10.1% → 13.5% in another (paired |t| = 1.4 both times, sign flips), groundedness −0.067 then +0.034. The per-question crosstab (6 narrow-only vs 12 wide-only flips, 7 both) is what run-to-run variance looks like, not a trend. **Invalid citations were 0 in both arms of every run**, so the wider window did not make the model cite things it was never shown.
+**Groundedness shows no measurable harm, but is too noisy to show benefit.** Run through the shipped `CitationTracker` + `ResponseSanitizer`: hallucination flag 13.5% → 10.1% in one run and 14.6% → 21.4% in another (paired |t| = 1.4 both times, sign flips), groundedness +0.034 then −0.067. The per-question crosstab (6 narrow-only vs 12 wide-only flips, 7 both) is what run-to-run variance looks like, not a trend. **Invalid citations were 0 in both arms of every run**, so the wider window did not make the model cite things it was never shown.
 
 So the window is kept on the citation gain at modest cost. But the bottleneck it was built for is not the one limiting these answers: **60 of 89 failures have gold in the prompt** and are lost downstream in generation.
 
