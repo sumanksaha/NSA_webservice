@@ -35,7 +35,7 @@ Retrieval is largely solved. Answer correctness is not.
 2. The traversal matched only `APPLIES_TO|RELATES_TO|REQUIRES` — **3 of the 15** provision→concept edges that exist. `IMPOSES_DUTY` (2,033 edges), `PRESCRIBES_PENALTY` (645), `PROHIBITS` and `DEFINES` were invisible.
 3. The full-text fallback matched the **entire question** as a literal `CONTAINS` substring. No provision can contain a full English question: the whole-question match returns 0 provisions, the single word `punishment` returns 75.
 
-After the fix, **30/30** questions return provisions (~4.9 per query). But enabling fusion then **degrades** the pipeline (`evaluation/ab_kg_fusion.py`, 150 paired questions, live LLM):
+After the fix, **30/30** questions return provisions (~4.9 per query). But enabling fusion then **degrades** the pipeline (`evaluation/ab_kg_fusion.py`, 150 paired questions, live LLM, `poolside/laguna-s-2.1:free`):
 
 | metric | KG off | KG on | delta | paired t |
 |---|---|---|---|---|
@@ -46,7 +46,23 @@ After the fix, **30/30** questions return provisions (~4.9 per query). But enabl
 
 Gold evidence is lost on **18** questions and gained on only **5**. The cause is in `kg/hybrid.rrf_fuse_chunks`: fusion truncates the candidate pool to `top_k = slot_budget` (~20), while the vector pool holds ~500 chunks. Each KG item enters at rank 1–5 of its own list and therefore outranks every vector chunk beyond rank ~20 by construction — the docstring claims KG "never lets a KG item displace an equally-ranked vector item", but that is true only within the fused top-k, not against the vector list being cut from 500 to 20. Correctness stays flat because the lost gold evidence costs about what the added KG evidence gains.
 
-**So the KG is not a missed lever — it is a correctly-wired lever that currently subtracts.** The open question is fusion policy (reserve slots for KG rather than letting it compete for a truncated pool), not whether the graph has value.
+**Two of the causes were self-inflicted and are now fixed.** The concept-key rewrite made one provision reachable through several of the query's concepts, so `provisions_for_query` emitted it once per concept — **27/40** benchmark questions had duplicate KG chunk_ids, and the `SUPPORTED_BY` fan-out in `search_provisions` emitted one row per supporting chunk edge. Dedupe by `provision_id` plus a `collect`/`head` aggregation in the Cypher took duplicates to **0/40**. `rrf_fuse_chunks` also gained an opt-in `reserve_kg_slots` parameter that confines the KG list to reserved tail slots instead of letting it compete for a truncated 500-chunk pool (default `0` preserves existing behaviour).
+
+**The re-run A/B with those fixes (same 150 questions) still shows fusion subtracting:**
+
+| metric | KG off | KG on | delta |
+|---|---|---|---|
+| binary_correct | 0.1400 | 0.1333 | −0.0067 |
+| answer_correctness | 0.1519 | 0.1467 | −0.0052 |
+| citation_recall | 0.1351 | 0.0369 | **−0.0982** |
+| groundedness_score | 0.3400 | 0.3333 | −0.0067 |
+| n_prompt_chunks | 18.87 | 19.20 | +0.33 |
+
+Gold lost fell 18 → **9** and gold gained rose 5 → **3** at `mean KG provisions/query 4.57`, `KG injected 150/150`, so the dedupe recovered part of the loss but did not change the sign. A reserve-slot sweep over 50 questions at `top_k=20` (vector-only gold@20 = 203) found **no** reserve value that recovers gold: reserve 0 → −26, 1 → −8, 2 → −16, 3 → −22, 5 → −40.
+
+**The ceiling is KG payload quality, not fusion policy.** The text the graph contributes is a *pointer*, not evidence: median injected chunk length is **85 characters**, 108/116 are under 150 characters, and **87/91** chunks only restate their own section reference ("PROVISION 31 — Section 31 Instrument: Food Safety and Standards Act 2006 Authority: Food Safety Officer"). The provision *body* was never ingested — the graph has 3,784 `LegalProvision` nodes whose `text` is a reference line, while the 34,439 `Chunk` nodes hold the real text. KG chunk ids also live in the `KG:*` namespace, so they can never equal a vector gold chunk_id and the gold-loss accounting above is structurally lopsided against the KG.
+
+**So the KG is not a missed lever — it is a correctly-wired lever carrying the wrong payload.** Fixing fusion policy alone cannot help: the graph can point at the right provision but cannot quote it. The work item is ingesting provision text into `LegalProvision.text` (or resolving `SUPPORTED_BY` chunk bodies into the injected chunk), after which the fusion policy question becomes worth revisiting.
 
 **Measured split of the residual failures** (`evaluation/failure_attribution.py`, over the 89 `model_wrong` questions, measured by asking `ContextBuilder` what it actually admits):
 
@@ -339,6 +355,8 @@ If implementing immediately after this analysis, execute in this exact sequence:
 │        app/rag/agent/graph.py                               │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Do not enable `RAG_KG_FUSION` yet.** The fusion path is now correct but the graph carries no quotable text (§1): re-run `evaluation/ab_kg_fusion.py` only after `LegalProvision.text` holds real provision bodies or the injected chunk resolves `SUPPORTED_BY` chunk text. Until then fusion costs ~0.10 citation recall for no correctness gain.
 
 ---
 

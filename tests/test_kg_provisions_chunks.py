@@ -122,6 +122,49 @@ def test_provisions_for_query_limit():
     assert len(out) == 4
 
 
+def test_provisions_for_query_dedupes_across_concepts():
+    """One provision tagged with several query concepts must occupy one slot.
+
+    ``get_cross_domain_laws`` is called once per concept mention, and a
+    provision commonly carries several of them.  Without dedupe the same
+    provision was injected N times, burning prompt budget on repeated text
+    (27/40 benchmark questions had duplicate KG chunk_ids before the fix).
+    """
+    shared = _prov("FSS:SEC_16", "16", "Duties of the Authority")
+    extra = _prov("WBMO:SEC_3", "3", "Slaughter", instrument="West Bengal Meat Order, 1965")
+    q = _FakeQueries(cross=[shared, extra])
+    out = provisions_for_query("food business slaughter hygiene rules", q, limit=10)
+    ids = [p["provision_id"] for p in out]
+    assert len(ids) == len(set(ids))
+    assert "FSS:SEC_16" in ids
+    assert q.concept_calls >= 2  # dedupe is not achieved by skipping concepts
+
+
+def test_provisions_for_query_dedupe_keeps_first_occurrence_order():
+    q = _FakeQueries(cross=[_prov("A", "1"), _prov("B", "2")])
+    out = provisions_for_query("food business slaughter", q, limit=10)
+    assert [p["provision_id"] for p in out][:2] == ["A", "B"]
+
+
+def test_search_provisions_collects_one_source_uri_per_provision():
+    """``SUPPORTED_BY`` fans out to one row per chunk edge.
+
+    Returning ``doc.source_uri`` directly duplicated each provision once per
+    supporting chunk, so a single provision could be injected several times.
+    The query must collapse the fan-out with ``collect``/``head`` before the
+    ``LIMIT``.
+    """
+    import inspect
+
+    from kg.queries import LegalKGQueries
+
+    cypher = inspect.getsource(LegalKGQueries.search_provisions)
+    assert "collect(doc.source_uri) AS uris" in cypher
+    assert "head([u IN uris WHERE u IS NOT NULL]) AS source_uri" in cypher
+    # The aggregation must precede the LIMIT, or the whole result set is capped.
+    assert cypher.index("collect(doc.source_uri)") < cypher.index("LIMIT $limit")
+
+
 # --------------------------------------------------------------------------- #
 # Regression tests for the silent-KG-empty bugs (2026-10-05).
 #

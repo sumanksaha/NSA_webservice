@@ -55,6 +55,105 @@ class TestRrfFuseChunks:
 
         assert rrf_fuse_chunks([[], []], top_k=5) == []
 
+
+class TestReserveKgSlots:
+    """``reserve_kg_slots`` bounds the KG list's footprint in the prompt.
+
+    The vector pool is ~500 chunks wide while the prompt budget is ~20.  A KG
+    item at rank 1 of its own list contributes ``1/(1+1+rrf_k)``, while a
+    vector item at rank 400 contributes ``1/(400+1+rrf_k)`` -- so unbounded
+    RRF lets a handful of KG chunks evict most of the vector evidence by
+    rank position alone, never on merit.
+    """
+
+    @staticmethod
+    def _pool():
+        from kg.hybrid import rrf_fuse_chunks  # noqa: F401  (import parity)
+
+        vector = [_chunk(f"v{i}") for i in range(100)]
+        kg = [
+            RetrievedChunk(
+                chunk_id=f"KG:k{i}",
+                score=0.0,
+                text="",
+                document_title=f"Act {i}, 2006",
+                section_number=str(i),
+                document_type="KG-Provision",
+            )
+            for i in range(5)
+        ]
+        return vector, kg
+
+    def test_default_zero_preserves_rank_fusion(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector, kg = self._pool()
+        fused = rrf_fuse_chunks([vector, kg], rrf_k=60.0, top_k=20)
+        ids = [c.chunk_id for c in fused]
+        assert [i for i in ids if i.startswith("KG:")] == [f"KG:k{i}" for i in range(5)]
+
+    def test_reserve_caps_kg_footprint_and_keeps_vector_head(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector, kg = self._pool()
+        fused = rrf_fuse_chunks([vector, kg], rrf_k=60.0, top_k=20, reserve_kg_slots=3)
+        ids = [c.chunk_id for c in fused]
+        assert len(ids) == 20
+        assert [i for i in ids if i.startswith("KG:")] == ["KG:k0", "KG:k1", "KG:k2"]
+        # The KG list is confined to the tail; the head stays vector evidence.
+        assert all(not i.startswith("KG:") for i in ids[:-3])
+        # Head is the highest-ranked vector items (v0..v16), in RRF order.
+        assert ids[:17] == [f"v{i}" for i in range(17)]
+
+    def test_reserve_larger_than_top_k_keeps_all_top_k(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector, kg = self._pool()
+        fused = rrf_fuse_chunks([vector, kg], rrf_k=60.0, top_k=5, reserve_kg_slots=20)
+        assert len(fused) == 5
+
+    def test_reserve_noop_with_single_list(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector = [_chunk(f"v{i}") for i in range(10)]
+        fused = rrf_fuse_chunks([vector], rrf_k=60.0, top_k=5, reserve_kg_slots=3)
+        assert [c.chunk_id for c in fused] == [f"v{i}" for i in range(5)]
+
+    def test_reserve_is_a_noop_without_kg_list(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        fused = rrf_fuse_chunks([[_chunk(f"v{i}") for i in range(10)]], rrf_k=60.0, top_k=5, reserve_kg_slots=3)
+        assert [c.chunk_id for c in fused] == [f"v{i}" for i in range(5)]
+
+    def test_reserve_preserves_rrf_scores_and_dedupe(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector = [_chunk("v0"), _chunk("v1")]
+        # Same chunk_id as a vector item but a different (act, section), so
+        # ``dedupe_kg`` keeps it and it contributes its own RRF contribution.
+        shared = RetrievedChunk(
+            chunk_id="v0",
+            score=0.0,
+            text="",
+            document_title="Other Act, 2006",
+            section_number="7",
+            document_type="KG-Provision",
+        )
+        kg_only = RetrievedChunk(
+            chunk_id="KG:k0",
+            score=0.0,
+            text="",
+            document_title="Act 9, 2006",
+            section_number="9",
+            document_type="KG-Provision",
+        )
+        fused = rrf_fuse_chunks([[vector[0], vector[1]], [shared, kg_only]], rrf_k=60.0, top_k=4, reserve_kg_slots=1)
+        ids = [c.chunk_id for c in fused]
+        assert ids.count("v0") == 1  # present in both lists, emitted once
+        # Rank 1 in both lists -> 1/61 + 1/61 (ranks are 1-based).
+        assert abs(next(c for c in fused if c.chunk_id == "v0").score - (2 / 61)) < 1e-9
+        assert "KG:k0" in ids
+
     def test_dedupe_kg_drops_redundant_kg_chunk(self):
         """A KG-Provision chunk covering (act, section) a vector chunk already
         covers is dropped before scoring — it must not occupy a fused slot."""

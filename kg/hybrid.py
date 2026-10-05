@@ -272,6 +272,7 @@ def rrf_fuse_chunks(
     rrf_k: float = 60.0,
     top_k: int = 10,
     dedupe_kg: bool = True,
+    reserve_kg_slots: int = 0,
 ) -> list[Any]:
     """Reciprocal-Rank-Fuse several ranked chunk lists into one ranked list.
 
@@ -294,6 +295,17 @@ def rrf_fuse_chunks(
             The act match is a light normalisation (lowercase, leading
             ``the`` stripped, whitespace collapsed); a miss only leaves a
             redundant slot, never drops a novel provision.
+        reserve_kg_slots: When > 0, this many slots at the tail of the
+            fused list are filled from the last input list (the KG list)
+            first, and the remaining ``top_k - reserve_kg_slots`` slots are
+            filled from the other lists.  Without this, a KG item at rank 1
+            of its own list outranks every vector item past rank ~top_k by
+            construction -- each contributes ``1/(1+1+rrf_k)`` while vector
+            rank 500 contributes ``1/(500+1+rrf_k)`` -- so a short KG list
+            evicts proportionally more vector evidence than it adds.  The
+            vector pool is ~500 chunks wide while the prompt budget is ~20,
+            so unbounded competition is not a fair merge.  Defaults to 0,
+            preserving the original rank-fusion behaviour.
 
     Returns:
         Ranked list of the input chunk objects, deduplicated by chunk_id.
@@ -321,6 +333,23 @@ def rrf_fuse_chunks(
     # Stable descending sort by RRF score: ties keep first-appearance order
     # (see tie policy in the docstring) — deterministic across runs.
     ordered = sorted(scores, key=scores.get, reverse=True)  # type: ignore[arg-type]
+
+    if reserve_kg_slots > 0 and len(chunk_lists) > 1:
+        # Reserve tail slots for the KG list (the last input) so a short KG
+        # list cannot evict vector evidence purely on rank position.  KG
+        # items keep their fused order among themselves; vector items fill
+        # the head.  This bounds KG's footprint at ``reserve_kg_slots``
+        # instead of letting it scale with the vector pool width.
+        lists = list(chunk_lists)
+        kg_ids = [str(getattr(c, "chunk_id", "")) for c in lists[-1]]
+        kg_ids = [cid for cid in kg_ids if cid]
+        kg_ordered = [cid for cid in ordered if cid in set(kg_ids)]
+        head_ordered = [cid for cid in ordered if cid not in set(kg_ordered)]
+        n_head = max(top_k - reserve_kg_slots, 0)
+        head = head_ordered[:n_head]
+        kg = kg_ordered[: max(top_k - len(head), 0)]
+        ordered = head + kg
+
     fused = [best[cid] for cid in ordered[:top_k]]
     for chunk in fused:
         chunk.score = scores[chunk.chunk_id]

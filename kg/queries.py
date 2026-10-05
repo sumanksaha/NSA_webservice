@@ -713,6 +713,7 @@ class LegalKGQueries:
             OPTIONAL MATCH (p)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain)
             OPTIONAL MATCH (p)-[:SUPPORTED_BY]->(ch:Chunk)
             OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(doc:Document)
+            WITH p, i, d, collect(doc.source_uri) AS uris
             RETURN
                 p.provision_id AS provision_id,
                 p.provision_number AS provision_number,
@@ -721,7 +722,7 @@ class LegalKGQueries:
                 i.title AS instrument_title,
                 i.instrument_id AS instrument_id,
                 d.domain_name AS legal_domain,
-                doc.source_uri AS source_uri
+                head([u IN uris WHERE u IS NOT NULL]) AS source_uri
             LIMIT $limit
             """,
             {"terms": terms, "min_terms": min_terms, "limit": limit},
@@ -850,8 +851,19 @@ def provisions_for_query(
     (ARM D) and any consumer that only needs the provision candidate set.
     """
     provisions: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for concept in _extract_concept_mentions(query):
-        provisions.extend(kg_queries.get_cross_domain_laws(concept))
+        for row in kg_queries.get_cross_domain_laws(concept):
+            # A provision tagged with several of the query's concepts is
+            # returned once per concept.  Without this the same provision
+            # occupied several injected slots (27/40 benchmark questions had
+            # duplicate KG chunk_ids), wasting budget on repeated text.
+            pid = str(row.get("provision_id") or "")
+            if pid and pid in seen:
+                continue
+            if pid:
+                seen.add(pid)
+            provisions.append(row)
     if not provisions:
         provisions = kg_queries.search_provisions(query, domain=_classify_query_domain(query), limit=limit)
     return provisions[:limit]
