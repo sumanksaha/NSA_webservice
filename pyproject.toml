@@ -245,6 +245,7 @@ ignore = [
 "evaluation/v3_component_rescore.py" = ["T201"]
 "evaluation/corpus_gap_scope.py" = ["T201"]
 "evaluation/failure_attribution.py" = ["T201"]
+"evaluation/ab_window_width.py" = ["T201"]
 "evaluation/ab_p0_1_packing.py" = ["T201"]
 "evaluation/step0_human_review.py" = ["T201"]
 "evaluation/step0_dual_score_widen.py" = ["T201"]

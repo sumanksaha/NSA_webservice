@@ -36,7 +36,9 @@ Retrieval is largely solved. Answer correctness is not.
 
 So the remaining gap is **not** purely interpretation and application, as originally stated here — a substantial part of it was evidence that was retrievable and never surfaced. That is also why the P0-1 prompt-packing A/B came back flat: reordering a window that is missing the gold provision cannot help.
 
-**This is evidence presence, not answer quality.** Whether the 10 newly-reached questions convert to correct answers requires an LLM A/B that has not been run.
+**Evidence presence did not translate into answer quality.** The live-LLM A/B on the widened window (`evaluation/ab_window_width.py`, 89 paired `model_wrong` questions, `poolside/laguna-s-2.1:free`) is **flat on correctness**: binary +0.011 (paired improved 1 / regressed 0, t=1.00), soft correctness +0.001 (t=0.30). On the **7 questions the fix actually moved** from gold-in-prompt 0→1, binary moved **0→0** and soft correctness **−0.004**. The model was handed the gold provision and still answered wrong on every one.
+
+What the window *did* buy is **citation quality**: citation recall +0.026 overall (t=3.29, improved 16 / regressed 0) and +0.205 on the causal subset. Mean prompt chunks rose 14.9 → 18.9 (+27%), not the ~2x the char budget implies. So the fix is worth keeping on citation grounds, but the bottleneck it was built for is not the one limiting these answers — 60 of 89 failures have gold in the prompt and are lost downstream in generation.
 
 The other driver is a **soft Jaccard metric** that is a weak proxy for legal correctness.
 
@@ -253,7 +255,7 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 
 ## 8. What not to do first
 
-1. ~~**Do not** chase K → 200–500 blindly.~~ **Partly acted on.** Measured: 36 of 89 `model_wrong` questions had gold below the prompt window, so the window was raised (per-type budgets are now caps under `RAG_CONTEXT_MAX_CHUNKS`/`_CHARS` instead of overriding them) and evidence-starved failures dropped to 26. The dilution risk is still unmeasured — an LLM A/B on the widened window has not been run, and that is the check that matters before keeping it.
+1. ~~**Do not** chase K → 200–500 blindly.~~ **Acted on, and the dilution check is now done.** Measured: 36 of 89 `model_wrong` questions had gold below the prompt window, so the window was raised (per-type budgets are now caps under `RAG_CONTEXT_MAX_CHUNKS`/`_CHARS` instead of overriding them) and evidence-starved failures dropped to 26. The live-LLM A/B on the widened window came back **flat on correctness** (binary +0.011, t=1.00; soft +0.001, t=0.30) and positive on **citation recall** (+0.026, t=3.29, 16 improved / 0 regressed), at +27% prompt chunks. Kept on the citation gain; the correctness gap it was meant to close is downstream in generation.
 2. **Do not** treat O3 ≈ 37% soft as a universal LLM ceiling (soft Jaccard is heavily distorted by lexical phrasing).
 3. **Do not** enable the auditor and judge wins only on soft Jaccard (Exp D proved auditor gains appear as soft drops due to reference drift).
 4. **Do not** train contrastive generation models before corpus fill and evidence packing are fixed.
