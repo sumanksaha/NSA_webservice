@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -94,6 +95,17 @@ def main() -> int:
     graded = counts["covered"] + counts["not_in_corpus"]
     gap_rate = counts["not_in_corpus"] / max(graded, 1)
 
+    # Distinguish "the statute was never ingested" from "it was ingested but
+    # the chunk lost its section stamp".  The two need opposite remedies
+    # (procurement vs. chunker/backfill), so collapsing them into one
+    # ``not_in_corpus`` bucket sent the original P0-2 diagnosis wrong.
+    untagged_detail = _untagged_evidence(missing_by_act, plist, family_map)
+    for q in per_q:
+        for prov in q.get("missing_provisions") or []:
+            pid = prov.get("provision_id")
+            if pid in untagged_detail:
+                prov["gap_kind"] = "present_but_untagged"
+
     out = {
         "version": "corpus-gap-scope-1",
         "date": "2026-10-04",
@@ -109,6 +121,7 @@ def main() -> int:
             "unit_gap_rate": round(missing_units / max(covered_units + missing_units, 1), 4),
         },
         "missing_by_act": {act: sorted(ids) for act, ids in sorted(missing_by_act.items())},
+        "present_but_untagged": {pid: untagged_detail[pid] for pid in sorted(untagged_detail)},
         "per_question": per_q,
     }
 
@@ -135,6 +148,21 @@ def main() -> int:
             print(f"       {', '.join(listed[:8])}{' ...' if len(listed) > 8 else ''}")
     else:
         print("No missing provisions detected — every gold unit resolves in-corpus.")
+
+    if untagged_detail:
+        # Distinguishes "never ingested" from "ingested but unstamped".  The
+        # two need opposite fixes, and conflating them is what made the
+        # original P0-2 row prescribe procurement for a chunker bug.
+        print()
+        print("GAP KIND: PRESENT BUT UNTAGGED (already ingested, no section stamp)")
+        for pid, d in sorted(untagged_detail.items()):
+            print(
+                f"  {pid:<10} section {d['section']:>3}  "
+                f"{d['chunks_opening_with_section']} chunk(s) open with the section "
+                f"of {d['untagged_chunks_in_act']} unstamped in this act"
+            )
+        print("  -> remedy is re-OCR + section backfill, NOT procurement.")
+        print("  -> the chunk text may still be corrupt OCR; verify before trusting a match.")
     print()
     print(f"written: {OUT_FILE}")
     return 0
@@ -145,6 +173,73 @@ def _safe_match(payload: dict[str, Any], unit: Any, family_map: Any) -> bool:
         return bool(matches_gold(payload, unit, family_map))
     except Exception:
         return False
+
+
+def _untagged_evidence(
+    missing_by_act: dict[str, set[str]],
+    plist: list[dict[str, Any]],
+    family_map: Any,
+) -> dict[str, dict[str, Any]]:
+    """Classify unresolved gold units as *present but untagged*.
+
+    A unit fails :func:`matches_gold` when no payload carries its
+    ``(family, section)`` key.  That happens for two very different reasons:
+
+    * the instrument was never ingested — remedy is procurement; or
+    * the instrument **is** in the index, but the chunk holding this
+      provision has ``section_number=None``, so the resolver cannot match
+      it — remedy is re-chunking / backfilling the section stamp.
+
+    Reporting only the first sends the fix in the wrong direction, which is
+    exactly what happened to the original P0-2 row: the PCRA Rules 2017 were
+    already ingested (1,100 chunks) and the three unresolved gold rules were
+    present but unstamped.
+
+    For each unresolved unit this returns the untagged chunks belonging to
+    its act whose text opens with its section number, i.e. the evidence that
+    the text is present.  It deliberately does **not** claim the text is
+    usable — the PCRA chunks are corrupt OCR, and a count here means
+    "re-OCR before stamping", not "stamp and the gap closes".
+    """
+    from evaluation.resolution import norm_section
+
+    registry = load_gold_registry()
+    out: dict[str, dict[str, Any]] = {}
+    for act, ids in missing_by_act.items():
+        act_norms = {norm(act)}
+        for pid in ids:
+            rec = registry.get(pid) or {}
+            section = norm_section(str(rec.get("section") or ""))
+            if not section:
+                continue
+            # Only look at this act's chunks, matched loosely: PCRA chunks
+            # carry act_name = the parent 1960 Act, not the 2017 Rules.
+            cands = [
+                p for p in plist if act_norms & {norm(str(p.get(k) or "")) for k in ("act_name", "document_title")}
+            ]
+            untagged = [
+                p for p in cands if not p.get("section_number") and not p.get("sections_covered")
+            ]  # Exclude a longer number ("40" for rule 4) and a dotted sub-rule
+            # ("4.1").  ``\b`` alone is not enough: it matches between "4" and
+            # the "." of "4.1".  A trailing digit after the separator is the
+            # discriminator, so a real rule body ("4 The owner ...") still
+            # matches via the whitespace branch.
+            pattern = rf"\s*{re.escape(section)}(?![0-9])(?:\.(?![0-9])|\s)"
+            starts = [p for p in untagged if re.match(pattern, str(p.get("chunk_text") or ""))]
+            if starts:
+                out[pid] = {
+                    "act": act,
+                    "section": section,
+                    "untagged_chunks_in_act": len(untagged),
+                    "chunks_opening_with_section": len(starts),
+                    "verdict": "text present but carries no section stamp; re-OCR, then backfill",
+                }
+    return out
+
+
+def norm(value: str) -> str:
+    """Lowercase, collapse whitespace, drop punctuation used in titles."""
+    return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
 
 
 if __name__ == "__main__":
