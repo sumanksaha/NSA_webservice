@@ -29,6 +29,25 @@ Retrieval is largely solved. Answer correctness is not.
 
 **Core diagnosis:** As retrieval availability rises (K=1→100: recall ~29%→88%), answer correctness barely moves (~33%→38%). Even oracle gold/full-support context stays near ~37% soft.
 
+**The knowledge graph was inert, and wiring it up the obvious way makes things worse.** `provisions_for_query` returned provisions for only **5 of 30** benchmark questions. Three silent bugs in `kg/queries.py`, each wrapped in `try/except` that only logs a warning, so the pipeline served vector-only results while appearing to have a graph:
+
+1. Concept keys did not match the graph's `LegalConcept.name` values — `FoodBusiness` vs `'Food Business'`, `SolidWaste` vs `'Solid Waste'`, `Pollution` vs `'Environmental Pollution'`. Concept traversal is an equality match, so **7 of 13 keys matched nothing**.
+2. The traversal matched only `APPLIES_TO|RELATES_TO|REQUIRES` — **3 of the 15** provision→concept edges that exist. `IMPOSES_DUTY` (2,033 edges), `PRESCRIBES_PENALTY` (645), `PROHIBITS` and `DEFINES` were invisible.
+3. The full-text fallback matched the **entire question** as a literal `CONTAINS` substring. No provision can contain a full English question: the whole-question match returns 0 provisions, the single word `punishment` returns 75.
+
+After the fix, **30/30** questions return provisions (~4.9 per query). But enabling fusion then **degrades** the pipeline (`evaluation/ab_kg_fusion.py`, 150 paired questions, live LLM):
+
+| metric | KG off | KG on | delta | paired t |
+|---|---|---|---|---|
+| binary_correct | 0.1200 | 0.1267 | +0.0067 | +0.45 |
+| answer_correctness | 0.3740 | 0.3729 | −0.0011 | −0.33 |
+| citation_recall | 0.3099 | 0.1035 | **−0.2064** | **−6.96** |
+| groundedness_score | 0.8600 | 0.7867 | −0.0733 | −2.07 |
+
+Gold evidence is lost on **18** questions and gained on only **5**. The cause is in `kg/hybrid.rrf_fuse_chunks`: fusion truncates the candidate pool to `top_k = slot_budget` (~20), while the vector pool holds ~500 chunks. Each KG item enters at rank 1–5 of its own list and therefore outranks every vector chunk beyond rank ~20 by construction — the docstring claims KG "never lets a KG item displace an equally-ranked vector item", but that is true only within the fused top-k, not against the vector list being cut from 500 to 20. Correctness stays flat because the lost gold evidence costs about what the added KG evidence gains.
+
+**So the KG is not a missed lever — it is a correctly-wired lever that currently subtracts.** The open question is fusion policy (reserve slots for KG rather than letting it compete for a truncated pool), not whether the graph has value.
+
 **Measured split of the residual failures** (`evaluation/failure_attribution.py`, over the 89 `model_wrong` questions, measured by asking `ContextBuilder` what it actually admits):
 
 - **Before the window fix:** 36 (40.4%) were evidence-starved (gold in the pool but not in the prompt), 50 (56.2%) had gold in the prompt and still answered wrong, 3 (3.4%) never retrieved gold at all.

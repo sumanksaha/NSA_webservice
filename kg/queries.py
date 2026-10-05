@@ -18,6 +18,7 @@ interact?", "What's the source?", "Was it applicable then?"
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -249,10 +250,22 @@ class LegalKGQueries:
         ``i.instrument_id`` after an aggregation ``RETURN``, which put them
         out of scope and raised a Cypher error; both are now returned as
         aliases.  Also fixed the ``GRANST_POWER_TO`` typo.)
+
+        The edge list covers every relationship the graph actually writes
+        between provisions and concepts.  It previously matched only
+        ``APPLIES_TO|RELATES_TO|REQUIRES``, which in the live graph covers a
+        small minority of concept edges -- ``IMPOSES_DUTY`` (2033),
+        ``PRESCRIBES_PENALTY`` (645), ``PROHIBITS`` and ``DEFINES`` among them
+        were all invisible, so most concepts resolved to nothing.
         """
         results = self._execute(
             """
-            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES]-(p:LegalProvision)
+            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES
+                                             |IMPOSES_DUTY|PRESCRIBES_PENALTY|PROHIBITS
+                                             |DEFINES|EXEMPTS|CREATES_OFFENCE|DECLARES
+                                             |GRANTS_PERMISSION|PRESCRIBES|COMPLEMENTS
+                                             |SUPERSEDED_BY|REPEALS|REPLACES|AMENDS
+                                             |GRANTS_POWER_TO]-(p:LegalProvision)
             MATCH (p)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain)
             MATCH (i)-[:CONTAINS]->(p)
             OPTIONAL MATCH (p)-[:GRANTS_POWER_TO|ENFORCED_BY]->(a:Authority)
@@ -501,7 +514,12 @@ class LegalKGQueries:
         """Get only current (non-repealed) provisions related to a concept."""
         results = self._execute(
             """
-            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES]-(p:LegalProvision)
+            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES
+                                             |IMPOSES_DUTY|PRESCRIBES_PENALTY|PROHIBITS
+                                             |DEFINES|EXEMPTS|CREATES_OFFENCE|DECLARES
+                                             |GRANTS_PERMISSION|PRESCRIBES|COMPLEMENTS
+                                             |SUPERSEDED_BY|REPEALS|REPLACES|AMENDS
+                                             |GRANTS_POWER_TO]-(p:LegalProvision)
             WHERE p.status = 'current'
             OPTIONAL MATCH (p)<-[:CONTAINS]-(i)
             OPTIONAL MATCH (p)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain)
@@ -664,9 +682,25 @@ class LegalKGQueries:
         domain: str | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
-        """Full-text search within provision texts + titles."""
+        """Full-text search within provision texts + titles.
+
+        A whole natural-language question is not a substring of any provision,
+        so matching the entire ``text`` returned nothing for real queries.
+        Search the significant terms instead and require the provision to
+        contain at least ``min_terms`` of them.
+        """
         # Escape special Cypher string characters
         escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+
+        terms = _search_terms(text)
+        min_terms = 1 if len(terms) < 3 else 2
+        if not terms:
+            return []
+        terms_predicate = (
+            "reduce(hits = 0, t IN [x IN $terms | toLower(x)] | "
+            "hits + CASE WHEN toLower(coalesce(p.title, '')) CONTAINS t "
+            "OR toLower(coalesce(p.provision_text, '')) CONTAINS t THEN 1 ELSE 0 END)"
+        )
 
         domain_filter = ""
         if domain:
@@ -675,7 +709,8 @@ class LegalKGQueries:
         results = self._execute(
             f"""
             MATCH (p:LegalProvision)
-            WHERE (toLower(p.title) CONTAINS toLower($text) OR toLower(p.provision_text) CONTAINS toLower($text))
+            WITH p, {terms_predicate} AS hits
+            WHERE hits >= $min_terms
             {domain_filter}
             MATCH (i)-[:CONTAINS]->(p)
             OPTIONAL MATCH (p)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain)
@@ -692,7 +727,7 @@ class LegalKGQueries:
                 doc.source_uri AS source_uri
             LIMIT $limit
             """,
-            {"text": escaped, "limit": limit},
+            {"text": escaped, "terms": terms, "min_terms": min_terms, "limit": limit},
         )
         return [
             {
@@ -831,26 +866,133 @@ def provisions_for_query(
 
 import os
 
+#: Maps a query keyword to the ``LegalConcept.name`` values that actually exist
+#: in the graph.  These must match the stored names exactly: concept traversal
+#: is an equality match on ``name``, so a casing/spacing difference
+#: (``FoodBusiness`` vs ``'Food Business'``) silently matches nothing and the
+#: traversal returns empty.  Names verified against the live graph 2026-10-05.
 _CONCEPT_KEYWORDS: dict[str, list[str]] = {
-    "FoodBusiness": ["food business", "fbo", "food business operator"],
-    "Slaughterhouse": ["slaughter", "slaughterhouse", "meat", "abattoir"],
-    "Wastewater": ["waste water", "wastewater", "effluent"],
-    "SolidWaste": ["solid waste", "garbage", "refuse"],
+    "Food Business": ["food business", "fbo"],
+    "Food Business Operator": ["food business operator"],
+    "Slaughterhouse": ["slaughterhouse", "abattoir", "slaughter"],
+    "Meat": ["meat"],
+    "Animal Slaughter": ["animal slaughter"],
+    "Wastewater": ["waste water", "wastewater"],
+    "Effluent": ["effluent"],
+    "Solid Waste": ["solid waste", "garbage", "refuse"],
     "Licence": ["licence", "license", "permit"],
-    "TradeLicence": ["trade licence", "trade license", "business licence"],
-    "Premises": ["premises", "premise", "location"],
-    "Sanitation": ["sanitation", "cleanliness", "hygiene"],
+    "Trade Licence": ["trade licence", "trade license"],
+    "Premises": ["premises", "premise"],
+    "Land Premises": ["land", "rent", "tenancy"],
+    "Sanitation": ["sanitation"],
+    "Hygiene": ["cleanliness", "hygiene"],
     "Nuisance": ["nuisance"],
-    "Pollution": ["pollution", "pollutant", "emission"],
-    "ConsentToOperate": ["consent", "consent to operate"],
+    "Environmental Pollution": ["pollution", "pollutant", "emission"],
+    "Consent to Operate": ["consent to operate"],
     "Inspection": ["inspection", "inspect", "examine"],
     "Sampling": ["sample", "sampling"],
-    "AnimalSlaughter": ["animal slaughter", "animal welfare", "slaughter"],
-    "AnimalWelfare": ["animal welfare", "animal cruelty"],
-    "FoodAdulteration": ["adulter", "misbrand", "substandard"],
-    "Contract": ["contract", "agreement"],
-    "ConsumerProtection": ["consumer", "consumer protection"],
+    "Animal Welfare": ["animal welfare", "animal cruelty"],
+    "Food Adulteration": ["adulter", "misbrand", "substandard"],
+    "Consumer Protection": ["consumer", "consumer protection"],
+    "Vehicles": ["vehicle"],
+    "Business Civil Law": ["contract", "agreement"],
+    "Improvement Notice": ["improvement notice"],
+    "Duty": ["duty", "obligation"],
+    "Procedure": ["procedure", "process"],
+    "Penalty": ["penalty", "punishment", "fine"],
+    "Offence": ["offence", "offense", "prosecution"],
+    "Prohibition": ["prohibition", "prohibit", "ban"],
+    "Power": ["power", "empowered"],
+    "Registration": ["registration", "register"],
+    "Permission": ["permission"],
+    "Declaration": ["declaration", "declare"],
+    "Definition": ["definition", "defined", "meaning"],
+    "Exemption": ["exemption", "exempt", "excluded"],
+    "Declarative Rule": ["rule", "declarative rule"],
 }
+
+
+#: Question scaffolding that carries no retrieval signal.
+_STOPWORDS: frozenset[str] = frozenset([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "been",
+    "but",
+    "by",
+    "can",
+    "could",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "had",
+    "has",
+    "have",
+    "how",
+    "in",
+    "into",
+    "is",
+    "it",
+    "its",
+    "may",
+    "might",
+    "must",
+    "of",
+    "on",
+    "or",
+    "shall",
+    "should",
+    "that",
+    "the",
+    "their",
+    "then",
+    "there",
+    "these",
+    "this",
+    "those",
+    "to",
+    "under",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "whom",
+    "whose",
+    "why",
+    "will",
+    "with",
+    "would",
+    "you",
+    "your",
+])
+
+
+def _search_terms(text: str, max_terms: int = 12) -> list[str]:
+    """Extract significant terms from a query for provision keyword search.
+
+    Drops question scaffolding and short tokens, and de-duplicates case-
+    insensitively while preserving the original casing for matching.
+    """
+    seen: set[str] = set()
+    terms: list[str] = []
+    for raw in re.findall(r"[A-Za-z][A-Za-z\-']{2,}", text):
+        low = raw.lower()
+        if low in _STOPWORDS or low in seen:
+            continue
+        seen.add(low)
+        terms.append(raw)
+        if len(terms) >= max_terms:
+            break
+    return terms
 
 
 def _classify_query_domain(query: str) -> str | None:

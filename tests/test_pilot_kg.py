@@ -284,8 +284,10 @@ class TestQueries:
         from kg.queries import _extract_concept_mentions
 
         concepts = _extract_concept_mentions("slaughterhouse food business licence wastewater")
+        # Names must match ``LegalConcept.name`` exactly: traversal is an
+        # equality match, so ``FoodBusiness`` silently resolved to nothing.
         assert "Slaughterhouse" in concepts
-        assert "FoodBusiness" in concepts
+        assert "Food Business" in concepts
         assert "Licence" in concepts
         assert "Wastewater" in concepts
 

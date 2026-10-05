@@ -12,7 +12,7 @@ These are pure-function tests (no Neo4j / Qdrant / LLM required).
 from __future__ import annotations
 
 from kg.hybrid import provisions_to_retrieved_chunks
-from kg.queries import provisions_for_query
+from kg.queries import _CONCEPT_KEYWORDS, _search_terms, provisions_for_query
 
 
 def _prov(
@@ -120,6 +120,50 @@ def test_provisions_for_query_limit():
     q = _FakeQueries(cross=[_prov(f"P{i}", str(i)) for i in range(12)])
     out = provisions_for_query("slaughter", q, limit=4)
     assert len(out) == 4
+
+
+# --------------------------------------------------------------------------- #
+# Regression tests for the silent-KG-empty bugs (2026-10-05).
+#
+# Concept traversal is an equality match on ``LegalConcept.name``, so a
+# casing/spacing difference returns nothing, and a whole-question ``CONTAINS``
+# can never match a provision.  Both failed silently -- wrapped in try/except
+# that logs a warning -- so the KG contributed nothing to answers for months.
+# These tests pin the properties that broke.
+# --------------------------------------------------------------------------- #
+
+
+def test_concept_keys_have_no_camelcase():
+    """Concept keys must be graph names, not internal identifiers.
+
+    ``FoodBusiness`` never matched the stored ``'Food Business'``, which made
+    concept traversal return empty for every food-business query.
+    """
+    for key in _CONCEPT_KEYWORDS:
+        assert key == key.strip()
+        assert " " in key or key.isidentifier(), f"{key!r} looks like an identifier, not a graph name"
+        for bad in ("_",):
+            assert bad not in key or " " in key, f"{key!r} looks like a camel-case identifier"
+
+
+def test_search_terms_drops_question_scaffolding():
+    """A whole question is not a substring of any provision, so the search
+    must reduce to significant terms rather than matching the full string."""
+    terms = _search_terms("Under Section 59 of the FSS Act 2006, how is the punishment determined?")
+    assert "punishment" in terms
+    assert "determined" in terms
+    for stop in ("the", "how", "under", "what", "is"):
+        assert stop not in [t.lower() for t in terms]
+
+
+def test_search_terms_are_deduplicated_and_bounded():
+    terms = _search_terms("licence licence Licence permit permit permit")
+    assert len(terms) == len({t.lower() for t in terms})
+    assert len(_search_terms("word " * 200)) <= 12
+
+
+def test_search_terms_empty_for_pure_scaffolding():
+    assert _search_terms("what is the") == []
 
 
 # End of test_kg_provisions_chunks.py
