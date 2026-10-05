@@ -16,6 +16,8 @@ Gates enforced (each row = name / reference / direction):
   HARD - no regression vs baseline v2 (fail always):
     R@1, R@5, R@10, R@20, MRR@10, nDCG@10, pairwise accuracy
     per-domain pairwise accuracy for epa / contract (the domains v2 gained)
+  HARD (paired answers, --answers-json) - answer quality no-regression:
+    answer binary_correct (paired), answer soft score (paired)
   TARGET - plan P1/P2 improvement goals (fail only with --strict-targets):
     hierarchy_version failures <= 4, same_section_hard_neg <= 1,
     total failures <= 12
@@ -88,6 +90,110 @@ TARGET_METRICS = [
     ("total failures", "failures_total", 12, "<="),
 ]
 
+# --------------------------------------------------------------------------- #
+# Answer-level metrics (binary_correct + soft, read alongside R@k/MRR)
+# --------------------------------------------------------------------------- #
+ANSWER_BASELINE_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "answers_baseline.json"
+LABEL_BASELINE_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "label_baseline.json"
+
+
+def load_answers(path: Path) -> dict[str, dict]:
+    """{qid: {soft, binary, abstain_credit}} from baseline json or jsonl."""
+    if path.suffix == ".jsonl":
+        out: dict[str, dict] = {}
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                v2 = (rec.get("C-O3") or {}).get("v2") or {}
+                if "soft" in v2:
+                    out[rec["qid"]] = {
+                        "soft": float(v2.get("soft") or 0.0),
+                        "binary": int(bool(v2.get("correct"))),
+                        "abstain_credit": int(bool(v2.get("abstain_correct"))),
+                    }
+        return out
+    blob = json.loads(path.read_text(encoding="utf-8"))
+    nested = blob.get("answers") or blob
+    if not isinstance(nested, dict) or not nested:
+        return {}
+    return {str(k): {str(kk): vv for kk, vv in v.items()} for k, v in nested.items()}
+
+
+def _mean(items: list[float]) -> float:
+    return sum(items) / len(items) if items else 0.0
+
+
+def answer_pair_checks(current: dict[str, dict], baseline: dict[str, dict]) -> list[dict]:
+    """Paired answer checks for a fresh run vs a frozen answer baseline.
+
+    Returns HARD checks (answer binary/soft must not regress) plus an INFO
+    row counting paired gains/losses on the gate's evaluation set. Used when
+    --answers-json is supplied for the candidate run; the frozen reference is
+    the matching-condition baseline (evaluator_v2 oracle-evidence answers).
+    """
+    checks: list[dict] = []
+    qids = sorted(k for k in current if k in baseline)
+    if not qids:
+        return checks
+    cur_b = [current[q]["binary"] for q in qids]
+    base_b = {q: baseline[q]["binary"] for q in qids}
+    cur_s = [current[q]["soft"] for q in qids]
+    base_s = [baseline[q]["soft"] for q in qids]
+
+    for name, cur, ref in (
+        ("answer binary_correct (paired)", _mean(cur_b), _mean(base_b.values())),
+        ("answer soft score (paired)", _mean(cur_s), _mean(base_s)),
+    ):
+        checks.append({"name": name, "current": round(cur, 4), "reference": round(ref, 4),
+                       "ok": cur >= ref, "kind": "hard", "direction": ">="})
+
+    gains = sum(1 for q in qids if current[q]["binary"] == 1 and base_b[q] == 0)
+    losses = sum(1 for q in qids if current[q]["binary"] == 0 and base_b[q] == 1)
+    checks.append({"name": "answer paired flips (info)", "current": f"{gains}+ / {losses}-",
+                   "reference": "net", "ok": True, "kind": "info", "direction": "-"})
+    return checks
+
+
+def answer_context_checks(label_baseline: dict, split_qids: list[str]) -> list[dict]:
+    """Informational answer context for the gate's evaluation set.
+
+    Reads the corrected label baseline and reports gate-set vs full-benchmark
+    mechanical (machine) vs corrected (human) metrics alongside the ranking
+    outputs, so correctness is always visible with retrieval. Never fails.
+    """
+    checks: list[dict] = []
+    rows = label_baseline.get("per_qid", {})
+    split = [q for q in split_qids if q in rows]
+    if not split:
+        return checks
+
+    def _stats(qs: list) -> tuple[float, float, float]:
+        return (_mean([rows[q]["machine_v2_best"] for q in qs]),
+                _mean([rows[q]["corrected_binary"] for q in qs]),
+                _mean([rows[q]["machine_v2_best_soft"] for q in qs]))
+
+    sm, sc, ss = _stats(split)
+    fm, fc, fs = _stats(rows)
+
+    for label, cur, ref in (
+        ("answer binary - gate set (corrected)", round(sc, 4), round(fc, 4)),
+        ("answer binary - gate set (mechanical)", round(sm, 4), round(fm, 4)),
+        ("answer soft - gate set", round(ss, 4), round(fs, 4)),
+    ):
+        checks.append({"name": label, "current": cur, "reference": ref,
+                       "ok": True, "kind": "info", "direction": "-"})
+    return checks
+
+
+def _passed(checks: list[dict], strict: bool) -> bool:
+    """True when all effective checks (hard + enforced targets) pass."""
+    effective = [c for c in checks if c["kind"] == "hard" or (strict and c["kind"] == "target")]
+    return all(c["ok"] for c in effective)
+
+
 
 # --------------------------------------------------------------------------- #
 # Pure comparison (torch-free - the CI-testable surface)
@@ -154,9 +260,7 @@ def compare(
             "direction": direction,
         })
 
-    effective = [c for c in checks if c["kind"] == "hard" or strict_targets]
-    passed = all(c["ok"] for c in effective)
-    return passed, checks
+    return _passed(checks, strict_targets), checks
 
 
 # --------------------------------------------------------------------------- #
@@ -202,7 +306,14 @@ def _retrained_since(baseline: dict[str, Any]) -> bool:
 # Reporting
 # --------------------------------------------------------------------------- #
 def _fmt(x: Any) -> str:
-    return "-" if x is None else f"{float(x):.4f}"
+    if x is None:
+        return "-"
+    if isinstance(x, str):
+        return x
+    try:
+        return f"{float(x):.4f}"
+    except (TypeError, ValueError):
+        return str(x)
 
 
 def render_report(passed: bool, checks: list[dict[str, Any]], label: str, strict: bool) -> str:
@@ -210,7 +321,7 @@ def render_report(passed: bool, checks: list[dict[str, Any]], label: str, strict
     lines.append(f"{'Check':<32} {'Current':>10} {'Reference':>10} {'Status':>8}")
     lines.append("-" * 64)
     for c in checks:
-        kind = "HARD" if c["kind"] == "hard" else "TGT"
+        kind = {"hard": "HARD", "target": "TGT", "info": "INFO"}.get(c["kind"], c["kind"].upper())
         status = "PASS" if c["ok"] else "FAIL"
         lines.append(
             f"{c['name']:<32} {_fmt(c['current']):>10} {_fmt(c['reference']):>10} {status + ' (' + kind + ')':>16}"
@@ -259,6 +370,19 @@ def main() -> int:
         "--skip-if-unavailable",
         action="store_true",
         help="Exit 0 (skip) when models or training data are absent (pre-commit on fresh checkouts)",
+    )
+    parser.add_argument(
+        "--answers-json",
+        type=Path,
+        default=None,
+        help="Candidate run answers JSON (same condition) - adds paired answer checks (hard gates)",
+    )
+    parser.add_argument(
+        "--answers-baseline",
+        type=Path,
+        default=ANSWER_BASELINE_FILE,
+        help="Frozen answer baseline for paired comparison "
+             "(default: evaluation/out/ceiling_v5/answers_baseline.json)",
     )
     parser.add_argument(
         "--force", action="store_true", help="Run even when nothing was retrained since the baseline freeze"
@@ -327,9 +451,30 @@ def _report_and_exit(
     args: argparse.Namespace,
 ) -> int:
     passed, checks = compare(eval_data, err_data, baseline, strict_targets=args.strict_targets)
+
+    # ---- answer-level metrics joined with retrieval (recommendation step 2) ----
+    extra: list[dict] = []
+    try:
+        split_qids = json.loads(SPLIT_FILE.read_text(encoding="utf-8")).get("test_qids", [])
+        lb = json.loads(LABEL_BASELINE_FILE.read_text(encoding="utf-8"))
+        extra += answer_context_checks(lb, split_qids)
+    except Exception:  # label baseline not yet built - gate still works without it
+        pass
+    if args.answers_json and args.answers_json.exists():
+        try:
+            cur = load_answers(args.answers_json)
+            base = load_answers(args.answers_baseline)
+            if cur and base:
+                extra += answer_pair_checks(cur, base)
+            elif args.answers_baseline.exists() and cur:
+                print("note: no frozen answer baseline yet - candidate answer context reported")
+        except Exception as exc:
+            print(f"note: answer-check parsing failed: {exc}")
+
+    checks += extra
+    passed = _passed(checks, args.strict_targets)
     report = render_report(passed, checks, args.label, args.strict_targets)
     print("\n" + report)
-
     payload = {
         "label": args.label,
         "passed": passed,
