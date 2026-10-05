@@ -497,7 +497,9 @@ class TestUnsafeCaseDocumentGating:
         assert "/docx/petition" not in html, "Petition button must hide for unsafe cases"
         assert "/docx/permission" not in html, "Permission button must hide for unsafe cases"
         assert "/pdf/petition" not in html, "Petition PDF button must hide for unsafe cases"
-        assert "/docx/unsafe_file" in html, "Unsafe File button must show for unsafe cases"
+        assert "/docx/unsafe_file" in html, "Prayer button must show for unsafe cases"
+        assert "> Prayer" in html, "Unsafe cases must offer the Prayer button (unsafe-file document)"
+        assert "> Unsafe File" not in html, "Old Unsafe File label must be replaced by Prayer"
 
 
 class TestUnsafeFileButtonGating:
@@ -548,7 +550,7 @@ class TestUnsafeFileButtonGating:
         # The per-case Unsafe File button is gated on the case's own is_unsafe
         # flag, not on the settings-page toggle.
         assert "/docx/unsafe_file" not in html, (
-            "Unsafe File button must be hidden until the case is marked unsafe"
+            "Prayer button must be hidden until the case is marked unsafe"
         )
 
     def test_unsafe_file_button_shown_when_unsafe(self, client, case_file):
@@ -567,7 +569,7 @@ class TestUnsafeFileButtonGating:
         html = response.data.decode("utf-8", errors="replace")
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
         assert "/docx/unsafe_file" in html, (
-            "Unsafe File button must appear once is_unsafe is toggled on"
+            "Prayer button must appear once is_unsafe is toggled on"
         )
 
     def test_edit_form_gates_unsafe_checkbox(self, client, case_file, monkeypatch):
