@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import statistics
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -53,6 +54,15 @@ OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "window_width_ab
 TABULATION = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "full_review_tabulation.json"
 ARM = "C_hybrid"
 MAX_WORKERS = 5
+
+#: Inline ``[n]`` citation markers, mirroring ``citation_tracker``'s own
+#: ``_BRACKET_CITATION_RE`` so the dangling-rate metric measures exactly what
+#: the shipped pipeline sees.
+_MARKER = re.compile(r"\[(\d+)\]")
+
+#: ``[Source n]`` is a form the model also emits but the tracker ignores
+#: entirely. Counted so it cannot silently hide from the groundedness numbers.
+_SOURCE_MARKER = re.compile(r"\[Source\s+(\d+)\]")
 
 #: Pre-fix budgets, restored verbatim from _QUERY_TYPE_BUDGETS at 66db37c^.
 NARROW_BUDGETS: dict[str, dict[str, int]] = {
@@ -151,19 +161,54 @@ def main() -> int:
                 sys_p, user_p = svc._render_prompt(q.question, built)
                 llm = svc._call_llm(sys_p, user_p)
                 answer = getattr(llm, "text", "") or ""
-                cites = [_Cit(c["chunk_id"]) for c in built.citations]
+                # Real post-generation path: CitationTracker + ResponseSanitizer.
+                # Without these the A/B cannot see whether a wider window makes
+                # the model cite more but no better.
+                tracked = svc._extract_citations(llm, chunks, built)
+                san = svc.sanitizer.sanitize(answer, tracked, chunks)
+                # Prompt-present chunks, i.e. evidence reachability.
+                in_prompt = {_Cit(c["chunk_id"]).chunk_id for c in built.citations}
                 gold = {
                     c.chunk_id
                     for c in chunks
                     if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map) for u in q.recall_units())
                 }
                 m = score_answer(answer, q.acceptable_conclusion or "", q.insufficient_evidence)
-                m["citation_recall"] = (
-                    round(len(set(c.chunk_id for c in cites) & gold) / max(len(gold), 1), 4) if gold else 0.0
-                )
+                # What the model ACTUALLY cited, via CitationTracker. Using
+                # ``built.citations`` here would only measure gold presence in
+                # the prompt, which is a property of the window alone and is
+                # identical on every run.
+                cited = {c.chunk_id for c in tracked}
+                m["citation_recall"] = round(len(cited & gold) / max(len(gold), 1), 4) if gold else 0.0
+                m["gold_reachable"] = round(len(in_prompt & gold) / max(len(gold), 1), 4) if gold else 0.0
                 m["n_prompt_chunks"] = built.chunk_count
-                m["gold_in_prompt"] = int(bool(set(c.chunk_id for c in cites) & gold))
-                return {"qid": qid, "answer_len": len(answer), "llm_error": getattr(llm, "error", None), "m": m}
+                m["gold_in_prompt"] = int(bool(in_prompt & gold))
+                m["n_cited"] = len(cited)
+                # Groundedness / hallucination, from the shipped sanitizer.
+                m["groundedness_score"] = san.groundedness_score
+                m["hallucination_detected"] = int(san.hallucination_detected)
+                m["n_invalid_citations"] = len(san.invalid_citations)
+                m["n_hallucinated_claims"] = len(san.hallucinated_claims)
+                m["confidence"] = san.confidence
+                # The sanitizer validates a citation against the whole retrieval
+                # pool, so it cannot see a citation to a chunk the prompt never
+                # showed the model. This does: a marker pointing at an index
+                # outside the prompt window is an unsupported reference, and it
+                # is the failure mode a wider window could plausibly worsen.
+                n_markers = len(_MARKER.findall(answer))
+                cited = {c["index"] for c in built.citations}
+                dangling = [int(mk) for mk in _MARKER.findall(answer) if int(mk) not in cited]
+                m["n_citation_markers"] = n_markers
+                m["n_dangling_markers"] = len(dangling)
+                m["dangling_marker_rate"] = round(len(dangling) / n_markers, 4) if n_markers else 0.0
+                m["n_source_form_markers"] = len(_SOURCE_MARKER.findall(answer))
+                return {
+                    "qid": qid,
+                    "answer_len": len(answer),
+                    "llm_error": getattr(llm, "error", None),
+                    "answer": answer,
+                    "m": m,
+                }
 
         out = []
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
@@ -202,15 +247,25 @@ def _report(narrow: list[dict[str, Any]], wide_rows: list[dict[str, Any]], shard
     lost = [q for q in common if N[q]["m"]["gold_in_prompt"] == 1 and W[q]["m"]["gold_in_prompt"] == 0]
 
     def agg(rows, qids):
-        vals = {k: [rows[q]["m"][k] for q in qids] for k in ("binary_correct", "answer_correctness", "citation_recall")}
+        keys = (
+            "binary_correct",
+            "answer_correctness",
+            "citation_recall",
+            "gold_reachable",
+            "groundedness_score",
+            "hallucination_detected",
+            "confidence",
+            "dangling_marker_rate",
+        )
+        vals = {k: [rows[q]["m"][k] for q in qids] for k in keys}
         return {k: round(sum(v) / max(len(v), 1), 4) for k, v in vals.items()}
 
     an, aw = agg(N, common), agg(W, common)
     cn = agg(N, changed) if changed else {}
     cw = agg(W, changed) if changed else {}
 
-    def paired(qids):
-        d = [W[q]["m"]["binary_correct"] - N[q]["m"]["binary_correct"] for q in qids]
+    def paired(qids, metric="binary_correct"):
+        d = [W[q]["m"][metric] - N[q]["m"][metric] for q in qids]
         plus = sum(1 for x in d if x > 0)
         minus = sum(1 for x in d if x < 0)
         sd = statistics.stdev(d) if len(d) > 1 else 0.0
@@ -235,18 +290,35 @@ def _report(narrow: list[dict[str, Any]], wide_rows: list[dict[str, Any]], shard
         "aggregate_changed_subset": {"window_narrow": cn, "window_wide": cw},
         "paired_all": paired(common),
         "paired_changed": paired(changed) if changed else None,
+        "paired_all_by_metric": {
+            k: paired(common, k)
+            for k in (
+                "binary_correct",
+                "answer_correctness",
+                "citation_recall",
+                "gold_reachable",
+                "groundedness_score",
+            )
+        },
         "prompt_chunks_mean": {
             "window_narrow": round(statistics.mean(N[q]["m"]["n_prompt_chunks"] for q in common), 2),
             "window_wide": round(statistics.mean(W[q]["m"]["n_prompt_chunks"] for q in common), 2),
         },
         "limitations": [
-            "groundedness/hallucination are not measured: this harness calls "
-            "_render_prompt + _call_llm, not the service sanitizer/verifier.",
+            "The sanitizer validates citations against the whole retrieval pool, not the "
+            "prompt window, so it cannot by itself detect a citation to something "
+            "the model never saw; dangling_marker_rate covers that gap but is a "
+            "proxy, not a claim-level verification.",
             "Only model_wrong questions are run, so this measures recovery, not "
             "regression risk on questions that were already correct.",
             f"The causal subset is n={len(changed)}; a null result there cannot "
             "distinguish no-effect from underpowered.",
-            "Single free-tier model, one run, no seed replication.",
+            "Single free-tier model, one run per arm, no seed replication.",
+            "Soft correctness is not reproducible: across two independent runs "
+            "only 1/89 narrow-arm scores matched exactly, so small deltas in "
+            "answer_correctness are model noise rather than window effect. "
+            "Citation and groundedness metrics are deterministic given the "
+            "answer text and so are stable across runs.",
         ],
     }
 
@@ -283,7 +355,16 @@ def _report(narrow: list[dict[str, Any]], wide_rows: list[dict[str, Any]], shard
     print()
     print(f"{'metric':<26} {'narrow':>9} {'wide':>9} {'delta':>9}")
     print("-" * 58)
-    for k in ("binary_correct", "answer_correctness", "citation_recall"):
+    for k in (
+        "binary_correct",
+        "answer_correctness",
+        "citation_recall",
+        "gold_reachable",
+        "groundedness_score",
+        "hallucination_detected",
+        "confidence",
+        "dangling_marker_rate",
+    ):
         print(f"{k:<26} {an[k]:>9.4f} {aw[k]:>9.4f} {aw[k] - an[k]:>+9.4f}")
     print()
     pa = out["paired_all"]
