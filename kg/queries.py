@@ -689,9 +689,6 @@ class LegalKGQueries:
         Search the significant terms instead and require the provision to
         contain at least ``min_terms`` of them.
         """
-        # Escape special Cypher string characters
-        escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
-
         terms = _search_terms(text)
         min_terms = 1 if len(terms) < 3 else 2
         if not terms:
@@ -727,7 +724,7 @@ class LegalKGQueries:
                 doc.source_uri AS source_uri
             LIMIT $limit
             """,
-            {"text": escaped, "terms": terms, "min_terms": min_terms, "limit": limit},
+            {"terms": terms, "min_terms": min_terms, "limit": limit},
         )
         return [
             {
