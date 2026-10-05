@@ -64,6 +64,10 @@ Gold lost fell 18 → **9** and gold gained rose 5 → **3** at `mean KG provisi
 
 **So the KG is not a missed lever — it is a correctly-wired lever carrying the wrong payload.** Fixing fusion policy alone cannot help: the graph can point at the right provision but cannot quote it. The work item is ingesting provision text into `LegalProvision.text` (or resolving `SUPPORTED_BY` chunk bodies into the injected chunk), after which the fusion policy question becomes worth revisiting.
 
+> **⚠️ The citation-dependent figures in both tables above are now superseded.** `CitationTracker` matched only `[n]` and silently dropped the `[Source n]` form, even though `ContextBuilder` renders every prompt chunk as `<source>[Source {idx}] …</source>`. That is the form the model is actually shown. Every `citation_recall`, `groundedness_score` and gold-gained/lost number above is therefore **under-reported** and was computed with a known bug. Only `binary_correct`, `answer_correctness`, `hallucination_detected`, `n_invalid_citations` and `n_prompt_chunks` are unaffected. Re-measurement is pending (LLM quota exhausted 2026-10-05); see "Re-measurement" below for how to complete it without new quota.
+
+**Fusion is now off by default.** `.env` had `RAG_KG_FUSION=true` and the `config.py` default was also `true`, so the measured-harmful path was live in production. Both are now `false` (`kg_fusion` and `kg_expansion`), so the default configuration is vector-only. This is safe to revert once the KG carries real provision text.
+
 **Measured split of the residual failures** (`evaluation/failure_attribution.py`, over the 89 `model_wrong` questions, measured by asking `ContextBuilder` what it actually admits):
 
 - **Before the window fix:** 36 (40.4%) were evidence-starved (gold in the pool but not in the prompt), 50 (56.2%) had gold in the prompt and still answered wrong, 3 (3.4%) never retrieved gold at all.
@@ -356,7 +360,33 @@ If implementing immediately after this analysis, execute in this exact sequence:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Do not enable `RAG_KG_FUSION` yet.** The fusion path is now correct but the graph carries no quotable text (§1): re-run `evaluation/ab_kg_fusion.py` only after `LegalProvision.text` holds real provision bodies or the injected chunk resolves `SUPPORTED_BY` chunk text. Until then fusion costs ~0.10 citation recall for no correctness gain.
+**Do not enable `RAG_KG_FUSION` yet.** The fusion path is now correct but the graph carries no quotable text (§1): re-run `evaluation/ab_kg_fusion.py` only after `LegalProvision.text` holds real provision bodies or the injected chunk resolves `SUPPORTED_BY` chunk text. Note the cost figure quoted in §1 is itself pre-fix and under-reported; the direction (fusion costs citations, gains no correctness) is what matters.
+
+**Re-measurement (no LLM quota required).** `ab_kg_fusion.py` shards now persist `answer`, `gold_chunk_ids` and `pool_chunk_ids`, and gained `--rescore`, which re-derives `citation_recall` / `gold_in_prompt` from the stored answers through the current `CitationTracker` and reprints the report. `python -m evaluation.ab_kg_fusion --rescore <shards…>` therefore re-measures the tracker fix offline. Verified on a synthetic shard: a `[Source 2]` marker that the old tracker dropped moved `citation_recall` 0.0 → 0.5. The 150-question shards written before this change lack the stored answers and cannot be rescored — those rows need a fresh run when quota is available.
+
+---
+
+## 11b. LangGraph agent pipeline: the KG node was dead three times over
+
+`RAG_USE_AGENT_PIPELINE=false`, so the agent graph was not serving traffic — but it was also non-functional, in three independent ways, each of which alone would have made it a no-op. All three are fixed; the flag stays `false` pending an A/B of the agent path against the linear pipeline.
+
+1. **The node was never registered.** `kg_reason_node` was implemented in `app/rag/agent/nodes/linear.py:497` and exported from `nodes/__init__.py`, but `app/rag/agent/graph.py` contained zero references to it. It is now registered between `plan` and retrieval (`plan → kg_reason → {retrieve, multi_hop_retrieve, plan_tasks}`). It no-ops when the active profile sets `kg_reasoning_enabled=false` (the `fast` profile), so the cost is zero where it should be.
+2. **Its state keys were undeclared.** LangGraph drops any key a node returns that the state schema does not declare — verified directly: a node returning an undeclared key yields an output dict without it. `kg_paths` / `kg_cypher` were absent from `RAGState` while `targeted_retry` reads `kg_paths`. Both are now declared, and a compiled-graph run confirms 9 paths survive the state round-trip.
+3. **The traversal queried a schema the graph does not have.** This is the substantive one. `kg_reasoner.py` was written against `Section` / `Penalty` / `Exception` / `Temporal` nodes and `HAS_AUTHORITY` / `HAS_PENALTY` / `HAS_EXCEPTION` / `HAS_CROSS_REFERENCES` / `TEMPORAL_VALIDITY` edges. The live graph has **none** of those labels or edges. It also minted provision ids as `FSSA::31`, a namespace matching no node.
+
+Measured against the live graph before the fix: `reason_from_query` returned **0 paths for 4/4** section-bearing queries, while recording a clean-looking no-op audit entry. After the fix — real labels/edges, ids resolved by querying `provision_number` with the query's Act as a disambiguating hint — the same queries resolve to exactly the right provision:
+
+| query | resolved provision_id | paths |
+|---|---|---|
+| punishment under Section 31 of the FSS Act 2006 | `FSS_ACT_2006_SEC_31` | 9 |
+| exceptions to section 16 of the FSS Act | `FSS_ACT_2006_SEC_16` | 2 |
+| Section 1 of the IPC | `IPC_1860_SEC_1` | 4 |
+| Section 7 of the Consumer Protection Act | `CONSUMER_PROTECTION_ACT_2019_SEC_7` | 5 |
+| Section 3 of the Air Act | `AIR_ACT_1981_SEC_3` | 5 |
+
+Paths are now backed by real edges (`IMPOSES_DUTY → Obligation`, `GRANTS_PERMISSION → Permission`) rather than by keyword matches on text. Note this is a *reasoning/targeting* improvement, not a payload one: it does not put provision text in the prompt, so it does not by itself move answer quality. `IPC` section 59 and 304 still resolve to nothing — those provisions are genuinely absent from the graph, which is a corpus gap, not a code bug.
+
+Also: there is **no LangChain** in this project. The dependency is `langgraph>=1.0.0`, imported lazily inside `build_graph` so the module still imports without it.
 
 ---
 

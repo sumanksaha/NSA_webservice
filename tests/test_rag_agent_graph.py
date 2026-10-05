@@ -200,11 +200,14 @@ def test_agent_flow_grounded_query(monkeypatch):
     assert result["agent"]["expanded_query"] is None
     # One full pass on the universal iterative path (Part B: SIMPLE queries
     # route through multi_hop_retrieve — no DAG nodes, exactly one
-    # generation call).
+    # generation call).  kg_reason sits between plan and retrieval; it
+    # no-ops when the query names no section, but it still runs and records
+    # an audit entry, so the node is always present in the trail.
     nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
     assert nodes_run == [
         "classify",
         "plan",
+        "kg_reason",
         "multi_hop_retrieve",
         "retrieve",
         "generate",
@@ -213,6 +216,25 @@ def test_agent_flow_grounded_query(monkeypatch):
     ]
     assert "synthesize" not in nodes_run
     assert "plan_tasks" not in nodes_run
+
+
+def test_kg_reason_node_runs_in_the_graph(monkeypatch):
+    """The KG reasoning node must be wired between plan and retrieval.
+
+    It was implemented and exported but never registered, so KG traversal
+    never ran in the agent graph at all.
+    """
+    from app.rag.agent.graph import _reset_graph_cache
+
+    _patch_pipeline(monkeypatch, groundedness=0.9)
+    monkeypatch.setenv("ENABLE_EVIDENCE_SELECTOR", "false")
+    _reset_graph_cache()
+    result = run_agent(initial_state("penalty for selling substandard food"))
+    nodes_run = [e["node"] for e in result["agent"]["audit_trail"]]
+    assert "kg_reason" in nodes_run
+    assert nodes_run.index("kg_reason") == nodes_run.index("plan") + 1
+    # It runs before any retrieval happens.
+    assert nodes_run.index("kg_reason") < nodes_run.index("retrieve")
 
 
 def test_agent_flow_retries_then_succeeds(monkeypatch):

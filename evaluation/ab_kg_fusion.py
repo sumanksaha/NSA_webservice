@@ -89,7 +89,21 @@ def main() -> int:
         default=[],
         help="recompute the summary from previously written shard files, no LLM calls",
     )
+    ap.add_argument(
+        "--rescore",
+        nargs="+",
+        default=[],
+        help=(
+            "re-derive citation_recall / gold_in_prompt from the answers stored in "
+            "shards, then report. No LLM calls. Requires shards written by a "
+            "version that persists 'answer' and 'gold_chunk_ids'."
+        ),
+    )
     args = ap.parse_args()
+
+    if args.rescore:
+        off_rows, on_rows = _load_shards(args.rescore)
+        return _report(_rescore_rows(off_rows), _rescore_rows(on_rows), shard_out="")
 
     if args.merge_shards:
         return _report(*_load_shards(args.merge_shards), shard_out="")
@@ -165,6 +179,20 @@ def main() -> int:
                     "llm_error": getattr(llm, "error", None),
                     "kg": kg_meta,
                     "m": m,
+                    # Persist what the citation-dependent metrics are derived
+                    # from.  citation_recall, groundedness_score and the
+                    # gold-gained/lost counts all flow through
+                    # CitationTracker, so fixing the tracker (e.g. the
+                    # ``[Source n]`` form it used to drop) must not require
+                    # re-spending LLM quota to re-measure them: with these
+                    # fields a shard can be rescored offline.
+                    "answer": answer,
+                    "cited_chunk_ids": sorted(cited),
+                    "gold_chunk_ids": sorted(gold),
+                    "pool_chunk_ids": [c.chunk_id for c in pool],
+                    "invalid_citations": len(san.invalid_citations),
+                    "sanitizer_groundedness": san.groundedness_score,
+                    "sanitizer_hallucination": int(san.hallucination_detected),
                 }
 
         out = []
@@ -189,6 +217,67 @@ def _load_shards(paths: list[str]) -> tuple[list[dict[str, Any]], list[dict[str,
         on.update(blob["kg_on"])
     print(f"merged {len(off)} kg_off / {len(on)} kg_on rows from {len(paths)} shard(s)")
     return list(off.values()), list(on.values())
+
+
+def _rescore_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Recompute citation-derived metrics from the stored answer text.
+
+    ``citation_recall``, ``gold_in_prompt`` and the gold gained/lost sets are
+    all products of ``CitationTracker``.  When the tracker changes (e.g. it
+    used to drop the ``[Source n]`` form that ``ContextBuilder`` actually
+    renders), those numbers change too — and re-deriving them must not cost
+    LLM quota, so the shard keeps the answer text and gold ids needed.
+
+    Rows that lack the stored fields are returned untouched, so mixing old and
+    new shards degrades to "unchanged" rather than to a wrong number.
+    """
+    out: list[dict[str, Any]] = []
+    n_rescored = n_skipped = 0
+    for row in rows:
+        answer = row.get("answer")
+        gold = set(row.get("gold_chunk_ids") or [])
+        if not answer or "gold_chunk_ids" not in row:
+            n_skipped += 1
+            out.append(row)
+            continue
+        try:
+            cited = _cited_ids_from_answer(answer, row)
+        except Exception:
+            n_skipped += 1
+            out.append(row)
+            continue
+        m = dict(row.get("m") or {})
+        m["citation_recall"] = round(len(cited & gold) / max(len(gold), 1), 4) if gold else 0.0
+        m["gold_in_prompt"] = int(bool(cited & gold))
+        new_row = dict(row)
+        new_row["m"] = m
+        new_row["cited_chunk_ids"] = sorted(cited)
+        out.append(new_row)
+        n_rescored += 1
+    print(f"rescored {n_rescored} row(s), skipped {n_skipped} without stored answers", file=sys.stderr)
+    return out
+
+
+def _cited_ids_from_answer(answer: str, row: dict[str, Any]) -> set[str]:
+    """Map citation markers in *answer* back to chunk ids.
+
+    The shard stores which chunks were in the prompt (``cited_chunk_ids`` from
+    the original run is the cited set, not the pool), so the pool must be
+    rebuilt.  Marker *numbers* are prompt positions, so the stored
+    ``n_prompt_chunks`` plus the original ordering is required; when that is
+    unavailable the row is left alone by the caller.
+    """
+    # Without the prompt ordering there is no way to turn "[Source 3]" back
+    # into a chunk id, so signal that clearly rather than guessing.
+    pool = row.get("pool_chunk_ids")
+    if not pool:
+        raise ValueError("shard has no pool_chunk_ids; cannot map markers to chunk ids")
+    from app.rag.generation.citation_tracker import CitationTracker
+
+    from app.rag.retrieval.result import RetrievedChunk
+
+    chunks = [RetrievedChunk(chunk_id=cid, score=0.0, text="", document_title="") for cid in pool]
+    return {c.chunk_id for c in CitationTracker().extract(answer, chunks)}
 
 
 def _report(off_rows: list[dict[str, Any]], on_rows: list[dict[str, Any]], shard_out: str = "") -> int:

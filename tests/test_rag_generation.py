@@ -502,6 +502,52 @@ class TestCitationTracker:
         assert cits[0].chunk_id == "c0"
         assert cits[1].chunk_id == "c2"
 
+    def test_source_bracket_citations_are_tracked(self):
+        """``[Source n]`` is the form ContextBuilder actually renders.
+
+        Each prompt chunk is labelled ``<source>[Source {idx}] ...</source>``,
+        so this is what the model is shown and mostly emits.  It used to be
+        ignored entirely, which made citation recall read as near-zero for
+        answers that cited sources throughout.
+        """
+        chunks = _make_chunks(3)
+        cits = CitationTracker().extract("See [Source 1] and [Source 3]", chunks)
+        assert len(cits) == 2
+        assert cits[0].chunk_id == "c0"
+        assert cits[1].chunk_id == "c2"
+
+    def test_source_citation_alone_is_not_dropped(self):
+        chunks = _make_chunks(3)
+        cits = CitationTracker().extract("Only [Source 2] here", chunks)
+        assert [c.chunk_id for c in cits] == ["c1"]
+
+    def test_source_and_plain_forms_merge_in_document_order(self):
+        """Both forms are scanned in one left-to-right pass.
+
+        Scanning the two regexes separately would order citations by regex
+        rather than by where they appear in the answer.
+        """
+        chunks = _make_chunks(4)
+        cits = CitationTracker().extract("[Source 1] ... [3] ... [Source 2]", chunks)
+        assert [c.chunk_id for c in cits] == ["c0", "c2", "c1"]
+
+    def test_source_and_plain_agreeing_on_one_chunk_dedupe(self):
+        chunks = _make_chunks(3)
+        cits = CitationTracker().extract("[Source 2] and also [2]", chunks)
+        assert [c.chunk_id for c in cits] == ["c1"]
+
+    def test_out_of_range_source_citation_ignored(self):
+        chunks = _make_chunks(3)
+        assert CitationTracker().extract("only [Source 7]", chunks) == []
+
+    def test_source_snippet_anchors_on_the_source_marker(self):
+        """The snippet window must surround the marker the model wrote."""
+        chunks = _make_chunks(3)
+        text = "A" * 200 + " [Source 1] " + "B" * 200
+        cits = CitationTracker().extract(text, chunks)
+        assert len(cits) == 1
+        assert "[Source 1]" in cits[0].snippet
+
     def test_section_references(self):
         chunks = _make_chunks(3)
         cits = CitationTracker().extract("Section 2 and Section 3", chunks)

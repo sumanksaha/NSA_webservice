@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 #: Regex for [n] bracket citations — e.g. [1], [12].
 _BRACKET_CITATION_RE = re.compile(r"\[(\d+)\]")
 
+#: Regex for the ``[Source n]`` form.  ``ContextBuilder`` labels every
+#: prompt chunk ``<source>[Source {idx}] {header}</source>``, so this is the
+#: citation form the model is actually shown and most often emits.  It was
+#: previously ignored entirely, so ``[Source 7]`` counted as no citation at
+#: all and citation recall was under-reported in every measurement.
+_SOURCE_CITATION_RE = re.compile(r"\[Source\s+(\d+)\]", re.IGNORECASE)
+
 #: Regex for inline section references — e.g. "Section 55", "Section 3(1)(a)".
 _SECTION_REF_RE = re.compile(r"\bSection\s+(\d+(?:\([a-zA-Z0-9]+\))*)", re.IGNORECASE)
 
@@ -30,9 +37,11 @@ class CitationTracker:
 
     The tracker works in two passes:
 
-    1. **Bracket citations** — ``[n]`` markers in the response are matched
-       to the ``n``-th chunk (1-based) in the citation map provided by
-       :class:`ContextBuilder`.
+    1. **Bracket citations** — ``[n]`` and ``[Source n]`` markers in the
+       response are matched to the ``n``-th chunk (1-based) in the citation
+       map provided by :class:`ContextBuilder`.  ``ContextBuilder`` renders
+       each prompt chunk as ``<source>[Source {idx}] ...</source>``, so the
+       ``[Source n]`` form is the one the model is shown.
 
     2. **Inline section references** — bare mentions of ``Section <num>``
        are matched against chunks whose ``section_number`` field matches.
@@ -74,7 +83,7 @@ class CitationTracker:
         citations: list[Citation] = []
         seen_chunk_ids: set[str] = set()
 
-        # Pass 1 — bracket citations [n]
+        # Pass 1 — bracket citations [n] and [Source n]
         citations.extend(self._extract_bracket_citations(response_text, citation_map, seen_chunk_ids))
 
         # Pass 2 — inline section references
@@ -86,17 +95,29 @@ class CitationTracker:
     # Internal helpers
     # ------------------------------------------------------------------ #
 
-    @staticmethod
+    @classmethod
     def _extract_bracket_citations(
+        cls,
         response_text: str,
         citation_map: dict[int, RetrievedChunk],
         seen: set[str],
     ) -> list[Citation]:
-        """Parse ``[n]`` markers and map them to source chunks."""
+        """Parse ``[n]`` and ``[Source n]`` markers and map them to chunks.
+
+        Both forms are scanned in a single left-to-right pass so the snippet
+        window is taken around the marker the model actually wrote.  Scanning
+        the two regexes independently would attribute a citation to the
+        wrong span when both forms appear in one answer.
+        """
         results: list[Citation] = []
 
-        for match in _BRACKET_CITATION_RE.finditer(response_text):
-            idx = int(match.group(1))
+        matches = [(m.start(), m.end(), int(m.group(1))) for m in _BRACKET_CITATION_RE.finditer(response_text)]
+        matches += [(m.start(), m.end(), int(m.group(1))) for m in _SOURCE_CITATION_RE.finditer(response_text)]
+        # Left-to-right by position; ties (an index inside a [Source n] label)
+        # resolve to the longest match first so the [Source n] span wins.
+        matches.sort(key=lambda t: (t[0], -(t[1] - t[0])))
+
+        for start, end, idx in matches:
             chunk = citation_map.get(idx)
             if chunk is None:
                 continue
@@ -104,8 +125,8 @@ class CitationTracker:
                 continue
             seen.add(chunk.chunk_id)
 
-            snippet = CitationTracker._extract_snippet(response_text, match.start(), match.end())
-            confidence = CitationTracker._citation_confidence(chunk, snippet)
+            snippet = cls._extract_snippet(response_text, start, end)
+            confidence = cls._citation_confidence(chunk, snippet)
 
             results.append(
                 Citation(

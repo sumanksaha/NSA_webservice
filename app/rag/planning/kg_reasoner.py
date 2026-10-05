@@ -39,36 +39,67 @@ except Exception:  # pragma: no cover - kg package optional
 
 #: Allowed relationship types — any generated Cypher using another
 #: relationship is rejected (validate-query pattern).
+#:
+#: These must be relationship types that actually exist in the graph.  The
+#: original list (HAS_AUTHORITY, HAS_PENALTY, HAS_EXCEPTION,
+#: HAS_CROSS_REFERENCES, TEMPORAL_VALIDITY) described a schema the graph
+#: never had, so every generated query was valid Cypher against labels and
+#: relationships that do not exist and matched nothing.
 ALLOWED_RELATIONS = frozenset({
+    # Act -> LegalProvision
     "CONTAINS",
-    "HAS_AUTHORITY",
+    # LegalProvision -> LegalConcept (the semantic edges the KG actually has)
+    "IMPOSES_DUTY",
+    "APPLIES_TO",
+    "PRESCRIBES_PENALTY",
+    "PROHIBITS",
+    "EXEMPTS",
+    "DEFINES",
+    "CREATES_OFFENCE",
     "GRANTS_POWER_TO",
-    "HAS_PENALTY",
-    "HAS_EXCEPTION",
-    "HAS_CROSS_REFERENCES",
-    "TEMPORAL_VALIDITY",
+    "GRANTS_PERMISSION",
+    # LegalConcept -> LegalDomain
+    "RELEVANT_IN",
+    # LegalProvision -> LegalDomain / Document / Chunk
     "BELONGS_TO_DOMAIN",
-    "AMENDED_BY",
+    "SOURCE_OF",
+    "SUPPORTED_BY",
+    # Act -> Authority, and temporal edges
+    "ISSUED_BY",
     "SUPERSEDED_BY",
+    "AMENDED_BY",
 })
 
-#: Intent → Cypher template. ``{section}`` / ``{provision}`` / ``{authority}``
-#: are substituted after sanitisation (alphanumerics, ::, -, _, spaces only).
+#: Intent → Cypher template, written against the real graph schema:
+#: ``(Act)-[:CONTAINS]->(LegalProvision)-[:<semantic>]->(LegalConcept)``
+#: and ``(LegalProvision)-[:BELONGS_TO_DOMAIN]->(LegalDomain)``.
+#: ``$section`` is a ``provision_id`` (resolved by
+#: :func:`_resolve_provision_ids`, never a raw "FSSA::31" guess).
 _CYPHER_PATTERNS: dict[str, str] = {
     "permission": (
-        "MATCH (s:Section {id: $section})-[:HAS_AUTHORITY]->(a:Authority)"
-        "-[:GRANTS_POWER_TO]->(p:Provision) RETURN s, a, p"
+        "MATCH (p:LegalProvision {provision_id: $section})"
+        "-[:GRANTS_POWER_TO|GRANTS_PERMISSION|IMPOSES_DUTY]->(c:LegalConcept)"
+        " RETURN p, c"
     ),
     "authority_power": (
-        "MATCH (s:Section)-[:HAS_AUTHORITY]->(a:Authority {name: $authority})"
-        "-[:GRANTS_POWER_TO]->(p:Provision) RETURN s, a, p"
+        "MATCH (a:Act)-[:ISSUED_BY]->(auth:Authority {name: $authority})"
+        "-[:CONTAINS]->(p:LegalProvision) RETURN a, auth, p"
     ),
-    "penalty": ("MATCH (s:Section {id: $section})-[:HAS_PENALTY]->(pen:Penalty) RETURN s, pen"),
-    "exception": ("MATCH (s:Section {id: $section})-[:HAS_EXCEPTION]->(e:Exception) RETURN s, e"),
-    "cross_reference": ("MATCH (s:Section {id: $section})-[:HAS_CROSS_REFERENCES]->(t:Section) RETURN s, t"),
-    "lineage": ("MATCH path = (s:Section {id: $section})-[:AMENDED_BY|SUPERSEDED_BY*1..5]->(t:Section) RETURN path"),
-    "temporal": ("MATCH (s:Section {id: $section})-[:TEMPORAL_VALIDITY]->(t:Temporal) RETURN s, t"),
-    "domain": ("MATCH (s:Section)-[:BELONGS_TO_DOMAIN]->(j:Jurisdiction {name: $domain}) RETURN s, j"),
+    "penalty": (
+        "MATCH (p:LegalProvision {provision_id: $section})"
+        "-[:PRESCRIBES_PENALTY|CREATES_OFFENCE]->(c:LegalConcept) RETURN p, c"
+    ),
+    "exception": ("MATCH (p:LegalProvision {provision_id: $section})-[:EXEMPTS]->(c:LegalConcept) RETURN p, c"),
+    "cross_reference": ("MATCH (p:LegalProvision {provision_id: $section})-[:SUPPORTED_BY]->(ch:Chunk) RETURN p, ch"),
+    "lineage": (
+        "MATCH path = (p:LegalProvision {provision_id: $section})-[:SUPERSEDED_BY|AMENDED_BY*1..5]->(t) RETURN path"
+    ),
+    "temporal": (
+        "MATCH (p:LegalProvision {provision_id: $section})"
+        " RETURN p.status AS status, p.effective_from AS effective_from,"
+        " p.effective_to AS effective_to"
+    ),
+    "domain": ("MATCH (p:LegalProvision)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain {domain_name: $domain}) RETURN p, d"),
 }
 
 _SAFE_PARAM = re.compile(r"[^A-Za-z0-9_: \-\./]+")
@@ -174,11 +205,111 @@ class KGAnswer:
     confidence: float = 0.0
 
 
-_SECTION_RE = re.compile(r"[Ss]ection\s+(\d+[A-Za-z]?(?:\(\d+\))?)")
+#: Matches "Section 31", "section 31", "Sections 16 and 31", "Section 7(2)".
+_SECTION_RE = re.compile(r"[Ss]ections?\s+(\d+[A-Za-z]?(?:\(\d+\))?)")
+
+#: Query fragments that hint which Act a bare "Section 31" refers to, mapped
+#: to the token expected in that Act's provision ids.  Used only to rank
+#: candidates: a section number with no matching hint is still resolved, just
+#: across every Act that carries that number.
+_ACT_HINTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (("food safety and standards", "fssai", "fss act", "fss "), ("FSS_ACT_2006", "FSS_ACT")),
+    (("prevention of cruelty to animals",), ("PFA_1954", "PFA")),
+    (("indian penal code", "penal code", "ipc"), ("IPC_1860", "IPC")),
+    (("code of criminal procedure", "crpc"), ("CRPC",)),
+    (("constitution of india", "constitution"), ("CONSTITUTION",)),
+    (("sale of goods",), ("SALE_OF_GOODS",)),
+    (("consumer protection",), ("CONSUMER_PROTECTION_ACT_2019", "CONSUMER_PROTECTION")),
+    (("companies act",), ("COMPANIES_ACT", "COMPANIES")),
+    (("contract act",), ("CONTRACT_ACT", "CONTRACT")),
+    (("negotiable instruments",), ("NEGOTIABLE_INSTRUMENTS", "NI_")),
+    (("evidence act",), ("EVIDENCE_ACT", "IEA")),
+    (("motor vehicles",), ("MOTOR_VEHICLES", "MV_")),
+    (("air act", "prevention of control of pollution"), ("AIR_ACT", "AIR")),
+    (("bharatiya nyaya", "bns "), ("BNS",)),
+    (("limitation act",), ("LIMITATION",)),
+    (("water act", "water pollution"), ("WATER_", "WATER")),
+    (("environment protection", "epr "), ("ENVIRONMENT", "ENV")),
+    (("solid waste",), ("SWM",)),
+    (("pollution control",), ("ENVIRONMENT", "ENV")),
+    (("persons with disabilities",), ("SPECIFIC",)),
+    (("limited liability", "llp "), ("LLP",)),
+)
+
+#: Cap on candidates per section so a common number like "31" (which appears
+#: under many FSS instruments) cannot flood the graph with traversals.
+_MAX_CANDIDATES_PER_SECTION = 5
+
+
+def _act_hints(query: str) -> tuple[str, ...]:
+    """Return id tokens for the Acts named in *query*, best match first."""
+    low = (query or "").lower()
+    hits: list[tuple[int, tuple[str, ...]]] = []
+    for needles, tokens in _ACT_HINTS:
+        for needle in needles:
+            idx = low.find(needle)
+            if idx >= 0:
+                hits.append((idx, tokens))
+                break
+    # Earliest mention wins, so "Section 5 of the IPC" attributes the
+    # section to the IPC rather than to an Act named in a trailing aside.
+    hits.sort(key=lambda t: t[0])
+    return tuple(t for _, t in hits)
+
+
+def _resolve_provision_ids(sections: list[str], query: str = "") -> list[str]:
+    """Resolve section numbers to real ``provision_id`` values.
+
+    The graph keys provisions by id (``FSS_ACT_2006_SEC_31``) and stores the
+    bare number in ``provision_number``.  The previous code invented an
+    ``FSSA::31`` namespace that matches no node, so every traversal returned
+    nothing.  This resolves against the real graph, ranking candidates whose
+    id matches an Act the query actually named.  A section number is often
+    carried by many instruments, so when the query names none the result is
+    ordered by id and capped rather than silently picking one.
+    """
+    if not sections:
+        return []
+    try:
+        from kg.queries import LegalKGQueries
+
+        queries = LegalKGQueries()
+    except Exception:
+        return []
+
+    hints = _act_hints(query)
+    out: list[str] = []
+    for number in sections:
+        try:
+            rows = queries._execute(
+                "MATCH (p:LegalProvision) WHERE p.provision_number = $num "
+                "RETURN p.provision_id AS pid ORDER BY p.provision_id",
+                {"num": number},
+            )
+        except Exception as exc:
+            logger.warning("_resolve_provision_ids: lookup failed for section %s (%s)", number, exc)
+            continue
+        cands = [str(r["pid"]) for r in rows if r.get("pid")]
+        if hints:
+            # Keep only candidates matching the Act the query named, ordered
+            # by hint order so the earliest-named Act is preferred.
+            ranked: list[str] = []
+            for tokens in hints:
+                for pid in cands:
+                    if pid.upper().startswith(tuple(t.upper() for t in tokens)) and pid not in ranked:
+                        ranked.append(pid)
+            cands = ranked
+        out.extend(cands[:_MAX_CANDIDATES_PER_SECTION])
+    return list(dict.fromkeys(out))
 
 
 def _extract_sections(query: str) -> list[str]:
-    return [f"FSSA::{m.group(1)}" for m in _SECTION_RE.finditer(query or "")]
+    """Return the bare section numbers mentioned in *query*.
+
+    These are graph ``provision_number`` values, not provision ids; call
+    :func:`_resolve_provision_ids` to obtain ids the graph can match.
+    """
+    return list(dict.fromkeys(m.group(1) for m in _SECTION_RE.finditer(query or "")))
 
 
 class KGReasoner:
@@ -201,31 +332,43 @@ class KGReasoner:
         provision_id: str,
         max_depth: int = 2,
     ) -> list[ReasoningPath]:
-        """Generate reasoning paths starting from a provision."""
-        if self.expander is None:
+        """Generate reasoning paths starting from a provision.
+
+        *provision_id* must be a real ``LegalProvision.provision_id``; use
+        :func:`_resolve_provision_ids` to turn a "Section 31" mention into
+        one.  Traversal reads the provision's real edges
+        (``IMPOSES_DUTY``, ``PRESCRIBES_PENALTY``, ``EXEMPTS``, …) via
+        :class:`kg.queries.LegalKGQueries`.
+        """
+        if not provision_id:
             return []
         try:
-            if not self.expander.configured():
-                return []
-        except Exception:
-            return []
-        expansion = self.expander.expand_chunks([provision_id])
-        provisions = expansion.get("provisions", [])
+            from kg.queries import LegalKGQueries
 
-        paths: list[ReasoningPath] = []
-        for prov in provisions:
-            paths.append(
-                ReasoningPath(
-                    steps=[f"provision:{provision_id}"],
-                    confidence=1.0,
-                    evidence_types=["PROVISION"],
-                    description=f"Direct provision {provision_id}",
-                )
+            detail = LegalKGQueries().get_provision(provision_id)
+        except Exception as exc:
+            logger.warning("reason_from_provision: lookup failed for %s (%s)", provision_id, exc)
+            return []
+        if not detail:
+            return []
+
+        prov = {
+            "provision_id": detail.get("provision_id") or provision_id,
+            "text": detail.get("text") or "",
+            "legal_domain": detail.get("legal_domain"),
+            "concepts": detail.get("concepts") or [],
+        }
+
+        paths: list[ReasoningPath] = [
+            ReasoningPath(
+                steps=[f"provision:{prov['provision_id']}"],
+                confidence=1.0,
+                evidence_types=["PROVISION"],
+                description=f"Direct provision {prov['provision_id']}",
             )
-            paths.extend(self._find_exception_paths(prov, max_depth - 1))
-            paths.extend(self._find_authority_paths(prov, max_depth - 1))
-            paths.extend(self._find_xref_paths(prov, max_depth - 1))
-            paths.extend(self._find_applicability_paths(prov, max_depth - 1))
+        ]
+        paths.extend(self._find_concept_paths(prov))
+        paths.extend(self._find_applicability_paths(prov, max_depth - 1))
 
         unique_paths: dict[str, ReasoningPath] = {}
         for path in paths:
@@ -234,62 +377,62 @@ class KGReasoner:
                 unique_paths[key] = path
         return sorted(unique_paths.values(), key=lambda p: p.confidence, reverse=True)
 
-    def _find_exception_paths(self, provision: dict, depth: int) -> list[ReasoningPath]:
-        text = (provision.get("text") or "").lower()
-        if "exception" in text or "unless" in text or "except" in text:
-            return [
-                ReasoningPath(
-                    steps=[f"provision:{provision.get('provision_id', '')}", "HAS_EXCEPTION"],
-                    confidence=0.8,
-                    evidence_types=["EXCEPTION"],
-                    description="Provision contains exception clause",
-                )
-            ]
-        return []
+    def _find_concept_paths(self, provision: dict) -> list[ReasoningPath]:
+        """Concept edges hanging off a provision, as typed reasoning paths.
 
-    def _find_authority_paths(self, provision: dict, depth: int) -> list[ReasoningPath]:
-        authorities = provision.get("authorities", [])
-        if authorities:
-            return [
-                ReasoningPath(
-                    steps=[
-                        f"provision:{provision.get('provision_id', '')}",
-                        "GRANTS_POWER_TO",
-                        f"authority:{authorities[0]}",
-                    ],
-                    confidence=0.9,
-                    evidence_types=["AUTHORITY_PROVISION"],
-                    description=f"Grants power to {', '.join(authorities)}",
-                )
-            ]
-        return []
-
-    def _find_xref_paths(self, provision: dict, depth: int) -> list[ReasoningPath]:
-        """Cross-reference paths from KG expansion or text mentions."""
-        out: list[ReasoningPath] = []
+        These are the relationships the graph actually stores, so a path here
+        is backed by a real edge rather than by a keyword match on text.
+        """
         pid = provision.get("provision_id", "")
-        for ref in provision.get("cross_references", []) or []:
+        edges = self._concept_edges(pid)
+        out: list[ReasoningPath] = []
+        for rel, concept, etype, confidence in edges:
             out.append(
                 ReasoningPath(
-                    steps=[f"provision:{pid}", "HAS_CROSS_REFERENCES", f"provision:{ref}"],
-                    confidence=0.85,
-                    evidence_types=["CROSS_REFERENCE"],
-                    description=f"{pid} cross-refers to {ref}",
+                    steps=[f"provision:{pid}", rel, f"concept:{concept}"],
+                    confidence=confidence,
+                    evidence_types=[etype],
+                    description=f"{pid} {rel} {concept}",
                 )
             )
-        if not out:
-            # Fallback: textual "subject to Section N" / "see Section N".
-            for m in re.finditer(
-                r"(?:subject to|see|under)\s+[Ss]ection\s+(\d+[A-Za-z]?)", provision.get("text") or ""
-            ):
-                out.append(
-                    ReasoningPath(
-                        steps=[f"provision:{pid}", "HAS_CROSS_REFERENCES", f"provision:FSSA::{m.group(1)}"],
-                        confidence=0.6,
-                        evidence_types=["CROSS_REFERENCE"],
-                        description=f"Textual cross-reference to Section {m.group(1)}",
-                    )
-                )
+        return out
+
+    def _concept_edges(self, provision_id: str) -> list[tuple[str, str, str, float]]:
+        """Fetch ``(relationship, concept, evidence_type, confidence)`` tuples."""
+        if not provision_id:
+            return []
+        try:
+            from kg.queries import LegalKGQueries
+
+            rows = LegalKGQueries()._execute(
+                """
+                MATCH (p:LegalProvision {provision_id: $pid})-[r]->(c:LegalConcept)
+                RETURN type(r) AS rel, c.name AS concept
+                """,
+                {"pid": provision_id},
+            )
+        except Exception as exc:
+            logger.warning("_concept_edges: traversal failed for %s (%s)", provision_id, exc)
+            return []
+        mapping = {
+            "IMPOSES_DUTY": ("AUTHORITY_PROVISION", 0.9),
+            "PRESCRIBES_PENALTY": ("PENALTY", 0.9),
+            "CREATES_OFFENCE": ("PENALTY", 0.85),
+            "EXEMPTS": ("EXCEPTION", 0.8),
+            "GRANTS_POWER_TO": ("AUTHORITY_PROVISION", 0.85),
+            "GRANTS_PERMISSION": ("AUTHORITY_PROVISION", 0.85),
+            "PROHIBITS": ("PROHIBITION", 0.8),
+            "DEFINES": ("DEFINITION", 0.75),
+            "APPLIES_TO": ("PROVISION", 0.7),
+        }
+        out: list[tuple[str, str, str, float]] = []
+        for row in rows:
+            rel = str(row.get("rel") or "")
+            concept = row.get("concept")
+            if not rel or not concept:
+                continue
+            etype, confidence = mapping.get(rel, ("PROVISION", 0.6))
+            out.append((rel, str(concept), etype, confidence))
         return out
 
     def _find_applicability_paths(self, provision: dict, depth: int) -> list[ReasoningPath]:
@@ -382,10 +525,12 @@ class KGReasoner:
         """Generate an answer using KG traversal for *query*."""
         sections = _extract_sections(query)
         paths: list[ReasoningPath] = []
-        for sec in sections:
-            paths.extend(self.reason_from_provision(sec, 2))
+        for pid in _resolve_provision_ids(sections, query):
+            paths.extend(self.reason_from_provision(pid, 2))
         paths = score_paths(filter_paths_by_intent(paths, intent))
-        cypher = generate_cypher(intent, {"section": sections[0] if sections else query})
+        cypher = generate_cypher(
+            intent, {"section": _resolve_provision_ids(sections, query)[:1] or ([query] if not sections else [])}
+        )
         if not paths:
             return KGAnswer("actionable_answer", "Insufficient KG evidence to answer.", [], cypher, 0.0)
         top = paths[0]
@@ -399,18 +544,26 @@ class KGReasoner:
 
 
 def reason_from_query(query: str) -> list[ReasoningPath]:
-    """Extract provision ids from *query* and reason from each."""
+    """Resolve the sections named in *query* and reason from each.
+
+    Section numbers are resolved against the real graph first: a bare
+    "Section 31" is ambiguous across Acts, so the query's Act mention is used
+    to narrow it when present.
+    """
     sections = _extract_sections(query or "")
     if not sections:
+        return []
+    provision_ids = _resolve_provision_ids(sections, query)
+    if not provision_ids:
         return []
     try:
         reasoner = KGReasoner()
     except Exception:
         return []
     out: list[ReasoningPath] = []
-    for sec in sections:
+    for pid in provision_ids:
         try:
-            out.extend(reasoner.reason_from_provision(sec, 2))
+            out.extend(reasoner.reason_from_provision(pid, 2))
         except Exception as exc:
-            logger.warning("reason_from_query: traversal failed for %s (%s)", sec, exc)
+            logger.warning("reason_from_query: traversal failed for %s (%s)", pid, exc)
     return score_paths(out)

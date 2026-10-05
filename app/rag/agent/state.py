@@ -116,6 +116,16 @@ class RAGState(TypedDict, total=False):
     abstain_required: bool
     abstained: bool
 
+    # --- KG reasoning (kg_reason_node) ---
+    # These MUST be declared on the state: LangGraph drops any key a node
+    # returns that the StateGraph schema does not declare, so kg_reason_node's
+    # output was silently discarded and targeted_retry never saw a path.
+    # kg_paths holds JSON-safe ReasoningPath dicts, kg_cypher the
+    # allowlisted query generated for the audit trail.
+    kg_paths: list[dict[str, Any]]
+    kg_cypher: str | None
+    kg_traversal_failed: bool
+
     # --- Generate / verify ---
     answer: str
     groundedness: float

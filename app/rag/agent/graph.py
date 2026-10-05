@@ -538,9 +538,19 @@ def build_graph(
 
     builder.add_edge(START, "classify")
     builder.add_edge("classify", "plan")
+    # KG reasoning runs between plan and retrieval so targeted_retry can
+    # reuse the traversal paths.  It no-ops (kg_paths=[]) unless the active
+    # query profile enables kg_reasoning, so the `fast` profile pays nothing.
+    # The node was implemented but never registered, so KG traversal never
+    # ran in the graph at all.
+    builder.add_node("kg_reason", lambda state, cfg=None: nodes.kg_reason_node(state))
+    builder.add_edge("plan", "kg_reason")
     # Phase 0: exactly one path per query, chosen by the plan's complexity.
+    # Routed from kg_reason rather than plan so every branch still gets the
+    # traversal; _route_after_plan reads only plan fields, which kg_reason
+    # leaves untouched.
     builder.add_conditional_edges(
-        "plan",
+        "kg_reason",
         _route_after_plan,
         {"retrieve": "retrieve", "multi_hop_retrieve": "multi_hop_retrieve", "plan_tasks": "plan_tasks"},
     )

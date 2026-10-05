@@ -456,15 +456,23 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_KG_EXPANSION",
         "kg_expansion",
         bool,
-        True,
-        help="Expand retrieved chunk IDs through the Neo4j KG (mutually exclusive with fusion).",
+        False,
+        help=(
+            "Expand retrieved chunk IDs through the Neo4j KG (mutually exclusive with fusion). "
+            "Default false: shares the same pointer-only KG payload problem as fusion."
+        ),
     ),
     Setting(
         "RAG_KG_FUSION",
         "kg_fusion",
         bool,
-        True,
-        help="RRF-fuse KG provisions into retrieved context (mutually exclusive with expansion).",
+        False,
+        help=(
+            "RRF-fuse KG provisions into retrieved context (mutually exclusive with expansion). "
+            "Default false: the 150-question A/B (evaluation/ab_kg_fusion.py) measured fusion "
+            "subtracting ~0.10 citation recall for no correctness gain, because the graph's "
+            "LegalProvision.text holds only a section reference, not the provision body."
+        ),
     ),
     Setting(
         "RAG_KG_MAX_PROVISIONS", "kg_max_provisions", int, 5, help="Max KG provisions injected into the LLM context."
