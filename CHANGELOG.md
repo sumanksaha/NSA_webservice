@@ -1,5 +1,7 @@
 # Changelog
 
+> **Version 0.9.1** (2026-09-30) — extensions updated via `pi update --extensions`; version bumped; present status reflected.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -16,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > automation, Dependabot, workflow hygiene, ce-v2 dispatch-only gate, env parity, deploy
 > serialization, dev-dep scanning — `tests/test_cicd_gates.py` 46/46 pass.** **Phase 18 RBAC ✅ Complete (2026-08-26)** (44/44 tests pass). **Work Diary ✅ Complete (2026-08-26)** (28/28 tests pass). **Security close-out S10c+S2 ✅ (2026-08-26)** (12/12 tests pass). **Redis/Celery ssl_cert_reqs fix ✅ (2026-08-26)** (11/11 tests pass). **Case File Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). **Adjudication Preview (TDD) ✅ (2026-08-26)** (9/9 tests pass). Pending:
 > Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI), Rust Parts 1.6+ / 2–5, CE-v2 retrain.
+
+## [0.9.1] - 2026-09-30
+
+### Changed
+
+- Version bumped to 0.9.1; `pi update --extensions` applied; present-status docs updated.
+- Work Diary split-duty + monthly-only PDF (2026-09-30) already reflected in 0.9.0.
 
 ## [0.9.0] - 2026-09-30
 
