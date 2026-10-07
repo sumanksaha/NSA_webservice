@@ -212,7 +212,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 | **ORM**            | SQLAlchemy                          | 2.x      | Database abstraction                          |
 | **Migrations**     | Alembic                             | 1.13+    | Schema version control                        |
 | **Database**       | PostgreSQL (primary) / SQLite (dev) | 16 / 3.x | Data persistence                              |
-| **Task Queue**     | QStash (Upstash)                | 3.x      | Webhook task delivery + sync fallback         |
+| **Task Queue**     | QStash (Upstash)                    | 3.x      | Webhook task delivery + sync fallback         |
 | **Message Broker** | Redis                               | 5.x      | QStash task-status store + polling            |
 | **PDF Generation** | WeasyPrint                          | —        | HTML-to-PDF rendering                         |
 | **Excel Export**   | openpyxl                            | —        | Billing reports                               |
@@ -241,7 +241,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ## Project Status & Capabilities
 
-**Version:** 0.9.0 (Pre‑Production)
+**Version:** 0.9.1 (Pre‑Production)
 
 The NSA Webservice now offers a comprehensive, end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. Key capabilities include:
 
@@ -288,9 +288,9 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
 | PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase)                                                                                                                                                |     |
 | Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
-| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                                                             |
-| Petition PDF download     | ✅ Complete    | Validated single-file petition PDF for case files + adjudications (missing-field 400s, section-63 license rule); row buttons are Timeline / Validate / Word Petition / Word Permission / Petition PDF (10 tests)                                                                                                                  |
-| Violation wordings        | ✅ Complete    | Formal observation prose + per-field remediation directives for Improvement Notices; Expired_item polarity fix                                                                                                                                                                                                                  |
+| Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
+| Petition PDF download     | ✅ Complete    | Validated single-file petition PDF for case files + adjudications (missing-field 400s, section-63 license rule); row buttons are Timeline / Validate / Word Petition / Word Permission / Petition PDF (10 tests)                                                                   |
+| Violation wordings        | ✅ Complete    | Formal observation prose + per-field remediation directives for Improvement Notices; Expired_item polarity fix                                                                                                                                                                     |
 
 ---
 
@@ -529,7 +529,7 @@ pytest tests/test_route_collisions.py -v
 
 > **⚠️ Pin the Python version (required).** Render's native Python environment
 > **ignores `runtime.txt`** (that is a Heroku convention) and floats with
-> Render's *current default image* unless `PYTHON_VERSION` is set. When Render
+> Render's _current default image_ unless `PYTHON_VERSION` is set. When Render
 > bumped its default to 3.14, builds started failing with:
 > `Package 'nsa-webservice' requires a different Python: 3.14.3 not in '<3.15,>=3.12'`.
 >
@@ -566,30 +566,30 @@ gunicorn --bind 0.0.0.0:10000 app:app
 
 ### Environment Variables
 
-| Variable                  | Required            | Description                                   |
-| ------------------------- | ------------------- | --------------------------------------------- |
+| Variable                  | Required            | Description                                                    |
+| ------------------------- | ------------------- | -------------------------------------------------------------- |
 | `PYTHON_VERSION`          | Yes (Render)        | Pin the runtime (e.g. `3.12.9`) — Render ignores `runtime.txt` |
-| `DATABASE_URL`            | Yes                 | PostgreSQL connection string                  |
-| `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)               |
-| `REDIS_URL`               | QStash status store | Redis connection string                       |
-| `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON                   |
-| `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                     |
-| `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                              |
-| `R2_SECRET_KEY`           | For Storage         | R2/B2 secret key                              |
-| `R2_BUCKET`               | For Storage         | Storage bucket name                           |
-| `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                          |
-| `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                      |
-| `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                              |
-| `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full)     |
-| `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                            |
-| `MS_CLIENT_ID`            | For Excel backup    | Azure AD app registration ID                  |
-| `MS_CLIENT_SECRET`        | For Excel backup    | Azure AD client secret                        |
-| `MS_DRIVE_ID`             | For Excel backup    | OneDrive/SharePoint drive ID                  |
-| `MS_SPREADSHEET_ID`       | For Excel backup    | Excel file ID in OneDrive                     |
-| `OCR_PROVIDER`            | Phase 20            | Active OCR provider (default: easyocr)        |
-| `AI_PROVIDER`             | Phase 20            | Active AI provider (default: openrouter)      |
-| `RULES_PROVIDER`          | Phase 20            | Active rule provider (default: fssai_default) |
-| `PDF_PROVIDER`            | Phase 20            | Active PDF provider (default: weasyprint)     |
+| `DATABASE_URL`            | Yes                 | PostgreSQL connection string                                   |
+| `SECRET_KEY`              | Yes                 | Flask secret key (min 32 chars)                                |
+| `REDIS_URL`               | QStash status store | Redis connection string                                        |
+| `GOOGLE_CREDENTIALS_JSON` | For Sheets          | Google service account JSON                                    |
+| `SPREADSHEET_ID`          | For Sheets          | Google Sheets document ID                                      |
+| `R2_ACCESS_KEY`           | For Storage         | R2/B2 access key                                               |
+| `R2_SECRET_KEY`           | For Storage         | R2/B2 secret key                                               |
+| `R2_BUCKET`               | For Storage         | Storage bucket name                                            |
+| `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                                           |
+| `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                                       |
+| `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                                               |
+| `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full)                      |
+| `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                                             |
+| `MS_CLIENT_ID`            | For Excel backup    | Azure AD app registration ID                                   |
+| `MS_CLIENT_SECRET`        | For Excel backup    | Azure AD client secret                                         |
+| `MS_DRIVE_ID`             | For Excel backup    | OneDrive/SharePoint drive ID                                   |
+| `MS_SPREADSHEET_ID`       | For Excel backup    | Excel file ID in OneDrive                                      |
+| `OCR_PROVIDER`            | Phase 20            | Active OCR provider (default: easyocr)                         |
+| `AI_PROVIDER`             | Phase 20            | Active AI provider (default: openrouter)                       |
+| `RULES_PROVIDER`          | Phase 20            | Active rule provider (default: fssai_default)                  |
+| `PDF_PROVIDER`            | Phase 20            | Active PDF provider (default: weasyprint)                      |
 
 ---
 
@@ -600,22 +600,22 @@ by `tests/test_cicd_gates.py` (46 structural tests). The full gate inventory
 lives in [`docs/CI_CD_RESEARCH.md`](docs/CI_CD_RESEARCH.md); the test file is
 the regression shield.
 
-| Gate | Name                   | What it does                                                                | Verified by                         |
-| ---- | ---------------------- | --------------------------------------------------------------------------- | ----------------------------------- |
-| G1   | Deploy gating          | `deploy.yml` triggers only after a green "Repository Validation" run        | `TestDeployGating` (4)              |
-| G2   | Staging environment    | `deploy_staging` → staging GitHub env + Render staging service on `main`    | `TestStagingEnvironment` (11)       |
-| G3   | Migrations             | `preDeployCommand: flask db upgrade` on web + staging services              | `TestRenderHealthAndMigrations` (5) |
-| G4   | Health check           | `healthCheckPath: /health` on web + staging                                 | `TestRenderHealthAndMigrations` (5) |
-| G5   | Full security blocking | Bandit (HIGH/HIGH), Safety, pip-audit — all blocking in `validation.yml`    | `TestSecurityGates` (3)             |
-| G6   | Coverage gate          | `fail_under = 60` (slow shard only)                                         | `TestCoverageGate` (2)              |
-| G7   | Docker path            | `ENTRYPOINT` + `CMD → uvicorn asgi:app` (ASGI)                              | `TestDockerConsistency` (4)         |
-| G8   | Release automation     | `release.yml` — `push: tags` + `workflow_dispatch` → `gh-release@v2`        | `TestReleaseWorkflow` (4)           |
-| G9   | Dependabot             | `pip` + `github-actions` + `npm` ecosystems, `rebase-strategy: all`         | `TestDependabot` (1)                |
-| G10  | Workflow hygiene       | checkout@v7, setup-python@v7, ruff≥0.16.3, ubuntu-24.04, concurrency groups | `TestWorkflowHygiene` (4)           |
-| G11  | ce-v2 gate             | `real-gate` job only runs on `workflow_dispatch`                            | `TestCeV2Gate` (1)                  |
+| Gate | Name                   | What it does                                                                            | Verified by                         |
+| ---- | ---------------------- | --------------------------------------------------------------------------------------- | ----------------------------------- |
+| G1   | Deploy gating          | `deploy.yml` triggers only after a green "Repository Validation" run                    | `TestDeployGating` (4)              |
+| G2   | Staging environment    | `deploy_staging` → staging GitHub env + Render staging service on `main`                | `TestStagingEnvironment` (11)       |
+| G3   | Migrations             | `preDeployCommand: flask db upgrade` on web + staging services                          | `TestRenderHealthAndMigrations` (5) |
+| G4   | Health check           | `healthCheckPath: /health` on web + staging                                             | `TestRenderHealthAndMigrations` (5) |
+| G5   | Full security blocking | Bandit (HIGH/HIGH), Safety, pip-audit — all blocking in `validation.yml`                | `TestSecurityGates` (3)             |
+| G6   | Coverage gate          | `fail_under = 60` (slow shard only)                                                     | `TestCoverageGate` (2)              |
+| G7   | Docker path            | `ENTRYPOINT` + `CMD → uvicorn asgi:app` (ASGI)                                          | `TestDockerConsistency` (4)         |
+| G8   | Release automation     | `release.yml` — `push: tags` + `workflow_dispatch` → `gh-release@v2`                    | `TestReleaseWorkflow` (4)           |
+| G9   | Dependabot             | `pip` + `github-actions` + `npm` ecosystems, `rebase-strategy: all`                     | `TestDependabot` (1)                |
+| G10  | Workflow hygiene       | checkout@v7, setup-python@v7, ruff≥0.16.3, ubuntu-24.04, concurrency groups             | `TestWorkflowHygiene` (4)           |
+| G11  | ce-v2 gate             | `real-gate` job only runs on `workflow_dispatch`                                        | `TestCeV2Gate` (1)                  |
 | G12  | Env parity             | `shared-secrets` envVarGroup (single `SECRET_KEY`), no worker service (QStash topology) | `TestEnvParity` (2)                 |
-| G13  | Deploy serialization   | `concurrency: { group: render-deploy }` in `deploy.yml`                     | `TestDeployGating` (4)              |
-| G14  | Dev dep scanning       | pip-audit scans `requirements-dev.txt` in validation + weekly pip-audit.yml | `TestSecurityGates` (3)             |
+| G13  | Deploy serialization   | `concurrency: { group: render-deploy }` in `deploy.yml`                                 | `TestDeployGating` (4)              |
+| G14  | Dev dep scanning       | pip-audit scans `requirements-dev.txt` in validation + weekly pip-audit.yml             | `TestSecurityGates` (3)             |
 
 ### Deploy flow
 

@@ -169,6 +169,7 @@ data/postgresql/
 
 # Local databases
 instance/*.db
+instance/*.db-journal
 instance/*.db.backup_*
 instance/*.sqlite
 *.sqlite
