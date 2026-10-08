@@ -90,6 +90,8 @@ CLASSIFIER_TRIAGE: dict[str, QueryType] = {
 from app.rag.legal_sections import FSS_ACT_SECTIONS  # noqa: F401  (re-export)
 
 #: Regex patterns for query classification (ordered by priority).
+#: Order matters: more specific types checked first; broader types last.
+#: See also: legal_query_classifier.py _TYPE_PATTERNS for 14-type legal classifier.
 _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # Amendment queries — must be checked before section lookup
     ("amendment", re.compile(r"\bamend|amendment|substitute|inserted|added|repeal|repealed", re.IGNORECASE)),
@@ -105,35 +107,136 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
             re.IGNORECASE,
         ),
     ),
+    # Procedure queries — include form references, seizure, steps, appeal
+    (
+        "procedure",
+        re.compile(
+            r"\b(?:which|what)\s+(?:is\s+the\s+)?(?:form|forms)\b"
+            r"|\bhow\s+(?:can|to|does|do|should)\b"
+            r"|\bwhat\s+happens\s+(?:after|when|if)\b"
+            r"|\bprocedure\b"
+            r"|\bappeal(?:s|ing|ed)?\b"
+            r"|\bsteps?\b"
+            r"|\bseiz(?:e|ure|ing)\b"
+            r"|\bform\s+(?:ii|iii|iv|v|vi|vii|viii)\b"
+            r"|\b(document|order|sequence)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Provision / regulation queries
     (
         "provision",
         re.compile(
             r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE
         ),
     ),
+    # Penalty queries — fines, imprisonment, penalty amounts
+    (
+        "penalty",
+        re.compile(
+            r"\b(penalty|penalties|fine|imprison|punish)\b"
+            r"|\brs\.?\s*\d+[,\d]*\s*(?:per|for|each|or)\b"
+            r"|\bwith\s+imprisonment\b"
+            r"|\bpunishable\b"
+            r"|\bmonetary\s+penalty\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Prohibition queries — what is prohibited, restrictions
+    (
+        "prohibition",
+        re.compile(
+            r"\b(prohibit|prohibition|prohibited)\b"
+            r"|\bshall\s+not\b"
+            r"|\bno\s+(?:person|food\s*business)\b"
+            r"|\brestrict\b"
+            r"|\bprohibition\s+order\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Authority queries — officers, boards, agencies
+    (
+        "authority",
+        re.compile(
+            r"\b(officer|auth|authority|board|agency|commission|tribunal|designated\s+officer|fso|food\s+analyst|appellate)\b"
+            r"|\bempowered\b"
+            r"|\bprincipal\s+enforcement\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Cross-reference queries — "as provided under", "read with", "schedule"
+    (
+        "cross_reference",
+        re.compile(
+            r"\b(referred\s+to\s+in|read\s+with|as\s+provided\s+under|as\s+per|schedule\s+[a-z]?\d+|rule\s+\d+|shall\s+apply\s+in\s+accordance|means\s+and\s+includes|notwithstanding\s+anything\s+contained|subject\s+to\s+the\s+provisions|explained\s+in)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Definition queries — "means", "for the purposes of", definitions
+    (
+        "definition",
+        re.compile(
+            r"""['"][^'"]{1,60}['"]\s+means\b"""
+            r"|\bdefine\b"
+            r"|\bdefinition\b"
+            r"|\bfor\s+the\s+purposes\b"
+            r"|\bshall\s+have\s+the\s+meaning\b"
+            r"|\brefer(?:s)?\s+to\b"
+            r"|\bwhat\s+is\s+meant\s+by\b"
+            r"|\bmeaning\s+of\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # Obligation queries — duties, responsibilities, "must", "required"
+    # NOTE: ``shall`` is deliberately EXCLUDED — it is too common and would
+    # swallow procedural, penalty, and prohibition queries.
+    (
+        "obligation",
+        re.compile(
+            r"\b(responsibility|duty|obligation|must|required|expected|establish)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # General fallback
+    ("general", re.compile(r".+", re.IGNORECASE)),
 ]
 
 
 class QueryClassifier:
     """Rule-based query classifier for the FSS Act legal corpus.
 
-    Classification priority: amendment → section → case law → provision → general.
+    Classification priority: amendment → section → case law → penalty →
+    prohibition → authority → cross_reference → definition → obligation →
+    procedure → provision → general.
+
     Stateless and safe to share across requests/threads.
+
+    Note: the legacy 5-way view (amendment, section, case_law, provision,
+    general) is preserved for backward compatibility.  New types are mapped
+    to their closest legacy equivalent where no exact mapping exists.
     """
+
+    _LABEL_TO_TYPE: ClassVar[dict[str, QueryType]] = {
+        "amendment": QueryType.AMENDMENT_QUERY,
+        "section": QueryType.SECTION_LOOKUP,
+        "case_law": QueryType.CASE_LAW,
+        "penalty": QueryType.PENALTY,
+        "prohibition": QueryType.PROHIBITION,
+        "authority": QueryType.AUTHORITY,
+        "cross_reference": QueryType.CROSS_REFERENCE,
+        "definition": QueryType.DEFINITION,
+        "obligation": QueryType.DUTY,
+        "procedure": QueryType.PROCEDURE,
+        "provision": QueryType.PROVISION_SEARCH,
+        "general": QueryType.GENERAL_QA,
+    }
 
     def classify(self, query: str) -> QueryType:
         if not query or not query.strip():
             return QueryType.GENERAL_QA
         for label, pattern in _QUERY_PATTERNS:
             if pattern.search(query):
-                if label == "amendment":
-                    return QueryType.AMENDMENT_QUERY
-                if label == "section":
-                    return QueryType.SECTION_LOOKUP
-                if label == "case_law":
-                    return QueryType.CASE_LAW
-                if label == "provision":
-                    return QueryType.PROVISION_SEARCH
+                return self._LABEL_TO_TYPE.get(label, QueryType.GENERAL_QA)
         return QueryType.GENERAL_QA
 
 
@@ -214,22 +317,94 @@ class SectionQueryParser:
         return result
 
 
+def _fuzzy_match_authority(query: str, authorities: frozenset[str], threshold: int = 2) -> str | None:
+    """Find authority by fuzzy string match (edit distance).
+
+    Matches authority names that are close but not exact — e.g. "FSS A" -> "FSSAI",
+    "Ministry of Health and Family Welfare" -> "Ministry of Health and Family Welfare".
+
+    Args:
+        query: User query text
+        authorities: Set of known authority names
+        threshold: Maximum edit distance to consider a match
+
+    Returns:
+        Matching authority name or None
+    """
+    q = query.lower()
+    for auth in authorities:
+        # Edit distance (Levenshtein) between the authority and query substrings
+        # Use simple heuristic: check if authority is a close substring match
+        auth_lower = auth.lower()
+        # Direct substring match (already handled by caller, but keep for safety)
+        if auth_lower in q:
+            return auth
+        # Check if query contains a token that closely matches the authority
+        # Simple approach: check character-level overlap
+        # For short authority names, use edit distance
+        if len(auth_lower) <= 5:
+            # For short names like "FSSAI", "MoHFW", check if characters are close
+            for word in q.split():
+                if _edit_distance(word, auth_lower) <= threshold:
+                    return auth
+    return None
+
+
+def _edit_distance(s1: str, s2: str) -> int:
+    """Compute Levenshtein edit distance between two strings."""
+    if len(s1) < len(s2):
+        return _edit_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+# Authority aliases — common abbreviations/misspellings -> canonical name
+_AUTHORITY_ALIASES: dict[str, str] = {
+    "central government of india": "Central Government",
+    "state government of india": "State Government",
+    "govt": "Government",
+}
+
+
 class AuthorityQueryParser:
     """Parse authority references from a query.
 
     Examples::
         "Ministry of Health notification on food labeling"
         -> {"authority": "Ministry of Health"}
+
+    Uses multiple strategies:
+    1. Exact match against known authority names
+    2. Fuzzy match (edit distance) for typos/abbreviations
+    3. Regex match for ministry patterns
+    4. Alias-based match for common abbreviations
     """
 
     @staticmethod
     def parse(query: str) -> dict[str, Any]:
-        for auth in _KNOWN_AUTHORITIES:
+        # 1. Exact match against known authority names (longest first)
+        for auth in sorted(_KNOWN_AUTHORITIES, key=len, reverse=True):
             pattern = re.compile(r"\b" + re.escape(auth) + r"\b", re.IGNORECASE)
             if pattern.search(query):
                 return {"authority": auth}
 
-        # Fuzzy authority match
+        # 2. Alias-based match
+        q_lower = query.lower()
+        for alias, canonical in sorted(_AUTHORITY_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True):
+            if alias in q_lower:
+                return {"authority": canonical}
+
+        # 3. Regex match for ministry patterns
         ministry_re = re.compile(
             r"\b(ministry\s+of\s+[a-z\s]+?|central\s+government|state\s+government)"
             r"(?:\s+notification|\s+order|\s+guideline|\s+circular)?",
@@ -238,6 +413,11 @@ class AuthorityQueryParser:
         m = ministry_re.search(query)
         if m:
             return {"authority": m.group(1).strip()}
+
+        # 4. Fuzzy match for partial authority names
+        matched = _fuzzy_match_authority(query, _KNOWN_AUTHORITIES)
+        if matched:
+            return {"authority": matched}
 
         return {}
 
@@ -277,6 +457,9 @@ class JurisdictionQueryParser:
     Examples::
         "Maharashtra food safety rules"
         -> {"jurisdiction": "Maharashtra", "level": "state"}
+
+        "What is FSS Act applicability in UP?"
+        -> {"jurisdiction": "Uttar Pradesh", "level": "state"}
     """
 
     _INDIAN_STATES = frozenset({
@@ -317,15 +500,49 @@ class JurisdictionQueryParser:
         "lakshadweep",
     })
 
+    #: Common abbreviations and aliases for Indian states
+    _STATE_ALIASES: ClassVar[dict[str, str]] = {
+        "up": "uttar pradesh",
+        "mh": "maharashtra",
+        "gj": "gujarat",
+        "rj": "rajasthan",
+        "mp": "madhya pradesh",
+        "tg": "telangana",
+        "ap": "andhra pradesh",
+        "tn": "tamil nadu",
+        "wb": "west bengal",
+        "dl": "delhi",
+        "ka": "karnataka",
+        "kl": "kerala",
+        "pb": "punjab",
+        "hr": "haryana",
+        "uk": "uttarakhand",
+        "hp": "himachal pradesh",
+        "jk": "jammu and kashmir",
+        "cg": "chhattisgarh",
+        "od": "odisha",
+        "jh": "jharkhand",
+    }
+
     @staticmethod
     def parse(query: str) -> dict[str, Any]:
         query_lower = query.lower()
 
-        for state in JurisdictionQueryParser._INDIAN_STATES:
+        # 1. Full state name match (longest first)
+        for state in sorted(JurisdictionQueryParser._INDIAN_STATES, key=len, reverse=True):
             pattern = re.compile(r"\b" + re.escape(state) + r"\b", re.IGNORECASE)
             if pattern.search(query):
                 return {"jurisdiction": state.title(), "level": "state"}
 
+        # 2. State abbreviation / alias match
+        for alias, full_name in sorted(
+            JurisdictionQueryParser._STATE_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True
+        ):
+            pattern = re.compile(r"\b" + re.escape(alias) + r"\b", re.IGNORECASE)
+            if pattern.search(query):
+                return {"jurisdiction": full_name.title(), "level": "state"}
+
+        # 3. Central / national jurisdiction
         if re.search(r"\b(central government|national|central|india|federal)\b", query_lower):
             return {"jurisdiction": "India", "level": "central"}
 
@@ -340,13 +557,44 @@ class _SubQueryParser(Protocol):
 
 
 class QueryParser:
-    """Dispatch query parsing to the appropriate sub-parser based on QueryType."""
+    """Dispatch query parsing to the appropriate sub-parser based on QueryType.
+
+    Maps each QueryType to the parser that best extracts structured filters
+    for that query type.  Types without a dedicated parser fall back to
+    AuthorityQueryParser or SectionQueryParser based on the query's expected
+    structure.
+    """
 
     _PARSERS: ClassVar[dict[QueryType, type[_SubQueryParser]]] = {
+        # Section-related queries -> SectionQueryParser
         QueryType.SECTION_LOOKUP: SectionQueryParser,
         QueryType.AMENDMENT_QUERY: SectionQueryParser,
+        # Authority/organization queries -> AuthorityQueryParser
+        QueryType.AUTHORITY: AuthorityQueryParser,
         QueryType.PROVISION_SEARCH: AuthorityQueryParser,
+        QueryType.IDENTIFICATION: AuthorityQueryParser,
+        QueryType.LOOKUP: AuthorityQueryParser,
+        # Case-law queries -> CaseLawQueryParser
         QueryType.CASE_LAW: CaseLawQueryParser,
+        # Jurisdiction queries -> JurisdictionQueryParser
+        QueryType.JURISDICTION: JurisdictionQueryParser,
+        # Types that can appear with section references -> SectionQueryParser
+        QueryType.PENALTY: SectionQueryParser,
+        QueryType.PROHIBITION: SectionQueryParser,
+        QueryType.DUTY: SectionQueryParser,
+        QueryType.POWER: SectionQueryParser,
+        QueryType.RIGHT: SectionQueryParser,
+        QueryType.EXCEPTION: SectionQueryParser,
+        QueryType.PROCEDURE: SectionQueryParser,
+        QueryType.APPLICABILITY: SectionQueryParser,
+        QueryType.COMPARISON: SectionQueryParser,
+        QueryType.CROSS_REFERENCE: SectionQueryParser,
+        QueryType.TEMPORAL: SectionQueryParser,
+        QueryType.MULTI_HOP: SectionQueryParser,
+        QueryType.FACT_PATTERN: SectionQueryParser,
+        QueryType.COMPLIANCE_ASSESSMENT: SectionQueryParser,
+        QueryType.DEFINITION: SectionQueryParser,
+        # General queries -> AuthorityQueryParser (broadest capture)
         QueryType.GENERAL_QA: AuthorityQueryParser,
     }
 

@@ -310,7 +310,29 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bnotwithstanding\b",
         ],
     ),
+    # enforcement — enforcement actions, inspection, sampling, seizure
+    # NOTE: placed BEFORE authority so queries like "When will the FSO conduct
+    # sampling?" classify as enforcement (sample) rather than authority (fso),
+    # since enforcement keywords indicate the action type, not just the actor.
+    (
+        "enforcement",
+        [
+            r"\binspect\b",
+            r"\bsample\b",
+            r"\benforcement\b",
+            r"\benter\s+and\s+inspect\b",
+            r"\bseiz(e|ure|ing)\b",
+            r"\bdetention\b",
+            r"\bclosure\s+notice\b",
+            r"\bshow\s+cause\b",
+        ],
+    ),
     # authority — officers, boards, agencies, who has power
+    # NOTE: ``tribunal`` intentionally NOT duplicated here — it is in the
+    # ``procedure`` list above.  If a query mentions both, procedure wins
+    # (earlier entry, count-wins).  This avoids the previous conflict where
+    # "appeal to the tribunal" could be classified as authority instead of
+    # procedure.
     (
         "authority",
         [
@@ -320,7 +342,6 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bboard\b",
             r"\bagency\b",
             r"\bcommission\b",
-            r"\btribunal\b",
             r"\bdesignated\s+officer\b",
             r"\bfso\b",
             r"\bfsoi\b",
@@ -394,11 +415,13 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bprocedure\b",
             r"\bappeal\b",
             r"\bhearing\b",
-            r"\btribunal\b",
             r"\bcompound(?:ing|able|ed)?\b",
             r"\bhow\s+to\b",
             r"\bapply\s+for\b",
             r"\bregistration\s+process\b",
+            r"\bsteps?\b",
+            r"\bform\s+(?:ii|iii|iv|v|vi|vii|viii)\b",
+            r"\bseiz(?:e|ure|ing)\b",
         ],
     ),
     # direct provision — verbatim-text asks.  Deliberately narrow: this is
@@ -413,6 +436,10 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         ],
     ),
     # obligation — duties, responsibilities, what must be done
+    # NOTE: ``shall`` is deliberately removed from this list — it is too
+    # common and would swallow procedural, penalty, and prohibition
+    # queries.  The more specific obligation keywords (duty, obligation,
+    # responsibility) are sufficient to identify obligation intent.
     (
         "obligation",
         [
@@ -420,24 +447,9 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bduty\b",
             r"\bobligation\b",
             r"\bmust\b",
-            r"\bshall\b",
             r"\brequired\s+to\b",
             r"\bexpected\s+to\b",
             r"\bestablish\b",
-        ],
-    ),
-    # enforcement — enforcement actions, inspection, sampling
-    (
-        "enforcement",
-        [
-            r"\binspect\b",
-            r"\bsample\b",
-            r"\benforcement\b",
-            r"\benter\s+and\s+inspect\b",
-            r"\bseiz\b",
-            r"\bdetention\b",
-            r"\bclosure\s+notice\b",
-            r"\bshow\s+cause\b",
         ],
     ),
     # insufficient-evidence — evidentiary standards, burden of proof

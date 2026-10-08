@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.rag.retrieval.form_references import detect_form, form_query
 from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
 from app.rag.retrieval.legal_query_classifier import (
     QueryTypeConfig,
@@ -111,11 +112,20 @@ class QueryUnderstanding:
     court: str | None
     jurisdiction: str | None
     jurisdiction_level: str | None
-    #: ``QueryParser`` dispatch view, keyed for filter merging.
+    #: ``QueryParser`` dispatch view, keyed for filter merging (RESTORED —
+    #: ``tasks._retrieval_understand_query`` and ``tests/test_query_understanding``
+    #: consume it; it was dropped by the form-field edit, breaking ``understand()``).
     parsed_filters: dict[str, Any] = field(default_factory=dict)
     #: Identifier-arm view: lexical "{Act} section {N}" query, if any.
     identifier_query: str | None = None
+    #: Identifier-arm detection metadata (act/section/subsection/...).
     identifier_meta: dict[str, Any] = field(default_factory=dict)
+    #: Form reference detected (e.g. "v", "viii"), if any.
+    form: str | None = None
+    #: Form-identifier-arm view: lexical "Form N" query, if any.
+    form_query: str | None = None
+    #: Reference-graph view: lexical "further research" query, if any.
+    target_query: str | None = None
 
     @property
     def rerank_config(self) -> QueryTypeConfig:
@@ -181,7 +191,9 @@ def understand(query: str) -> QueryUnderstanding:
         court=case_law.get("court"),
         jurisdiction=jurisdiction.get("jurisdiction"),
         jurisdiction_level=jurisdiction.get("level"),
+        form=detect_form(text),
         parsed_filters=dict(parsed_filters),
         identifier_query=identifier_text,
         identifier_meta=dict(identifier_meta),
+        form_query=form_query(text),
     )
