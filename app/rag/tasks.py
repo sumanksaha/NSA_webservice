@@ -137,7 +137,7 @@ def run_retrieval_pipeline(
 
     # Stage 1 — understand the query: classify, parse, legal typing,
     # identifier route, and (food-intent flag) the food-commodity view.
-    query_type, legal_qt, identifier, identifier_query, merged_filters = _retrieval_understand_query(query, filters)
+    query_type, legal_qt, identifier, identifier_query, form_query, merged_filters = _retrieval_understand_query(query, filters)
     food_understanding = _retrieval_food_understanding(query)
 
     # Stage 2 — fetch evidence through the hybrid retriever with the
@@ -147,17 +147,42 @@ def run_retrieval_pipeline(
     fetch_k = top_k
     if food_understanding is not None and (cfg.food_legal_rerank or cfg.food_parent_reconstruct):
         fetch_k = max(top_k, 30)
+
+    # Phase 4: RL parameter selection — override top_k and rrf_k when the
+    # contextual bandit controller is active.  When disabled, the fallback
+    # values are the caller's top_k and the production default rrf_k=60.
+    rl_params = None
+    eff_rrf_k: float | None = None
+    if cfg.rl_enabled:
+        try:
+            from app.rag.rl.controller import get_rl_controller
+
+            controller = get_rl_controller()
+            rl_params = controller.select_params(
+                query=query,
+                query_type=query_type.value,
+                legal_confidence=getattr(legal_qt, "confidence", None) if legal_qt else None,
+                has_identifier=bool(identifier),
+            )
+            eff_rrf_k = rl_params.rrf_k
+        except Exception as exc:
+            logger.warning("RL param selection failed (%s) — using defaults", exc)
+            rl_params = None
+
+    eff_top_k = rl_params.top_k if rl_params else fetch_k
     cache = cache or _default_cache
     result = _retrieval_fetch(
         query,
-        top_k=fetch_k,
+        top_k=eff_top_k,
         collection_name=collection_name,
         merged_filters=merged_filters,
         query_type=query_type,
         legal_qt=legal_qt,
         identifier=identifier,
         identifier_query=identifier_query,
+        form_query=form_query,
         cache=cache,
+        rrf_k=eff_rrf_k,
     )
 
     # Stage 2b — legal-aware reranking + validation + fallback (food-intent
@@ -217,6 +242,12 @@ def run_retrieval_pipeline(
         "log_id": str(log_entry.id) if log_entry else None,
         **enrichment,
     }
+    if rl_params is not None:
+        out["rl_params"] = {
+            "top_k": rl_params.top_k,
+            "rrf_k": rl_params.rrf_k,
+            "is_exploration": rl_params.is_exploration,
+        }
     if food_understanding is not None:
         out["food_understanding"] = food_understanding.to_dict()
         if trace is not None:
@@ -286,10 +317,7 @@ def _retrieval_food_rerank_validate(
         if food.entity and food.entity != "unknown":
             from app.rag.retrieval.provision_metadata import commodity_phrase_match
 
-            has_anchor = any(
-                commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity)
-                for c in ranked
-            )
+            has_anchor = any(commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity) for c in ranked)
             if not has_anchor and anchor_budget[0] > 0:
                 anchor_budget[0] -= 1
                 anchor_result = _retrieval_fetch(
@@ -301,6 +329,7 @@ def _retrieval_food_rerank_validate(
                     legal_qt=legal_qt,
                     identifier=identifier,
                     identifier_query=identifier_query,
+                    form_query=None,
                     cache=cache,
                 )
                 seen_ids = {c.chunk_id for c in ranked}
@@ -320,6 +349,8 @@ def _retrieval_food_rerank_validate(
             from app.rag.retrieval.parent_reconstruction import group_by_clause as _gbc
             from app.rag.retrieval.provision_metadata import (
                 commodity_phrase_match,
+            )
+            from app.rag.retrieval.provision_metadata import (
                 derive_provision_metadata_cached as _dpm,
             )
 
@@ -391,6 +422,7 @@ def _retrieval_food_rerank_validate(
                     legal_qt=legal_qt,
                     identifier=identifier,
                     identifier_query=identifier_query,
+                    form_query=None,
                     cache=cache,
                 )
                 fallback_rounds_used = round_no
@@ -432,10 +464,10 @@ def _retrieval_food_rerank_validate(
 def _retrieval_understand_query(
     query: str,
     filters: dict[str, Any] | None,
-) -> tuple[Any, Any | None, dict[str, Any] | None, str | None, dict[str, Any]]:
-    """Stage 1 — query understanding: classify, parse, legal typing, identifier route.
+) -> tuple[Any, Any | None, dict[str, Any] | None, str | None, str | None, dict[str, Any]]:
+    """Stage 1 — query understanding: classify, parse, legal typing, identifier route, form route.
 
-    Returns ``(query_type, legal_qt, identifier, identifier_query, merged_filters)``.
+    Returns ``(query_type, legal_qt, identifier, identifier_query, form_query, merged_filters)``.
 
     - Legal query typing (CE_RERANK_REVIEW, STEP 7) selects query-type-aware
       reranking weights behind ``RAG_LEGAL_QUERY_TYPING``.
@@ -445,6 +477,9 @@ def _retrieval_understand_query(
       arm — the production form of the single decisive lever measured offline
       (+13.3pp candidate-pool ceiling; 100% after the section-stamp backfill).
       Best-effort: no identifiers -> no arm.
+    - Form route: builds a lexical "Form N" query from form references detected
+      in the question text (e.g., "appeal" -> "Form VIII"), handed to the hybrid
+      retriever as a parallel additive arm for workflow/procedure queries.
     """
     from app.rag.retrieval import understand
 
@@ -457,8 +492,9 @@ def _retrieval_understand_query(
 
     identifier = understood.identifier_meta if cfg.identifier_route else None
     identifier_query = understood.identifier_query if cfg.identifier_route else None
+    form_query = understood.form_query if cfg.identifier_route else None
 
-    return query_type, legal_qt, identifier, identifier_query, merged_filters
+    return query_type, legal_qt, identifier, identifier_query, form_query, merged_filters
 
 
 def _retrieval_fetch(
@@ -471,7 +507,9 @@ def _retrieval_fetch(
     legal_qt: Any | None,
     identifier: dict[str, Any] | None,
     identifier_query: str | None,
-    cache: RetrievalCache,
+    form_query: str | None,
+    cache: Any,
+    rrf_k: float | None = None,
 ) -> Any:
     """Stage 2 — fetch evidence through the hybrid retriever, cache in front.
 
@@ -488,6 +526,9 @@ def _retrieval_fetch(
     from app.rag.retrieval.factory import build_hybrid_retriever
 
     hybrid = build_hybrid_retriever(collection_name)
+    # RL override: replace the RRF constant when the controller selected one.
+    if rrf_k is not None:
+        hybrid._rrf_k = rrf_k
     cache_key = (
         _retrieval_cache_key(
             query,
@@ -524,6 +565,7 @@ def _retrieval_fetch(
             top_k=top_k,
             filters=merged_filters,
             identifier_query=identifier_query,
+            form_query=form_query,
             query_type=legal_qt,
         )
         if cache_key is not None:
@@ -714,6 +756,31 @@ def run_generation_pipeline(
         total_latency_ms,
     )
 
+    # Phase 4: RL reward reporting — compute the composite reward from the
+    # verification signals and update the bandit policy + log the experience.
+    # Best-effort: never block the response on RL failures.
+    rl_reward = None
+    if cfg.rl_enabled and retrieval_data.get("rl_params"):
+        try:
+            from app.rag.rl.controller import RLParams, get_rl_controller
+
+            controller = get_rl_controller()
+            rl_reward = controller.report_reward(
+                query=query,
+                query_type=rag_response.query_type or query_type,
+                params=RLParams(
+                    top_k=retrieval_data["rl_params"]["top_k"],
+                    rrf_k=retrieval_data["rl_params"]["rrf_k"],
+                    is_exploration=retrieval_data["rl_params"]["is_exploration"],
+                ),
+                answer=rag_response.answer,
+                chunks=rag_response.retrieved_chunks,
+                cited_chunk_ids=[c.chunk_id for c in rag_response.citations],
+                latency_ms=total_latency_ms,
+            )
+        except Exception as exc:
+            logger.warning("RL reward reporting failed (%s)", exc)
+
     # Stage 4 — response assembly (stable wire shape).
     out = {
         "query": rag_response.query,
@@ -737,6 +804,8 @@ def run_generation_pipeline(
         "kg_contract": kg_contract,
         "verification": verification,
         "pipeline": pipeline or "legacy",
+        "rl_reward": rl_reward,
+        "rl_params": retrieval_data.get("rl_params") if cfg.rl_enabled else None,
         # 1.3 compound queries: the sub-queries each sub-retrieval ran for
         # (absent for simple queries — decomposition never ran).
         **({"sub_queries": retrieval_data["sub_queries"]} if "sub_queries" in retrieval_data else {}),
@@ -749,7 +818,9 @@ def run_generation_pipeline(
             out["food_completeness"] = check_answer_completeness(query, rag_response.answer, food_bundle)
         except Exception as exc:
             logger.warning("food completeness check failed: %s", exc)
-        out["food_intent"] = (retrieval_data.get("food_understanding") or {}) if isinstance(retrieval_data, dict) else {}
+        out["food_intent"] = (
+            (retrieval_data.get("food_understanding") or {}) if isinstance(retrieval_data, dict) else {}
+        )
     return out
 
 

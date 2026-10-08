@@ -59,6 +59,7 @@ class HybridRetriever:
         sparse_weight: float = 0.3,
         filters: dict[str, Any] | None = None,
         identifier_query: str | None = None,
+        form_query: str | None = None,
         query_type: str | None = None,
     ) -> SearchResult:
         """Retrieve chunks by fusing dense and sparse results.
@@ -80,6 +81,10 @@ class HybridRetriever:
                 lexical text matching, not payload filtering).  Ignored when
                 the server-side fusion path is taken (the single-roundtrip
                 dense + sparse RRF stays the fast path for plain queries).
+            form_query: Optional form-reference query (e.g. ``"Form VIII"``)
+                run through the sparse retriever as a *parallel additive* arm
+                and RRF-fused.  Used for workflow/procedure queries that
+                reference specific FSSAI forms.
 
         Returns:
             A :class:`SearchResult` with fused, optionally re-ranked chunks.
@@ -154,6 +159,15 @@ class HybridRetriever:
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
+        # Form reference arm: for workflow/procedure queries referencing
+        # specific FSSAI forms (e.g., "Form VIII" for appeals).
+        form_result = None
+        if form_query:
+            try:
+                form_result = self.sparse.retrieve(form_query, top_k=max(top_k * 2, 20), filters=None)
+            except (ConnectionError, RuntimeError) as exc:
+                logger.warning("HybridRetriever: form arm failed (%s)", exc)
+
         # RRF fusion — rank-based, so scores from different retrievers are
         # comparable regardless of scale.  The core scoring is delegated to
         # ``reciprocal_rank_fuse`` (app.rag.retrieval.rrf) to eliminate the
@@ -161,6 +175,8 @@ class HybridRetriever:
         ranked_lists = [dense_result.chunks, sparse_result.chunks]
         if ident_result:
             ranked_lists.append(ident_result.chunks)
+        if form_result:
+            ranked_lists.append(form_result.chunks)
         chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=self._rrf_k)
 
         # Build the chunk_map with keep-higher-score upsert.  For the first
