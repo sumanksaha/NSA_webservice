@@ -183,9 +183,10 @@ Owns:
 
 Boundary: `FoodQueryUnderstanding`
 (`retrieval/food_query_understanding.py`) stays the *pure parse value* —
-this module owns stage policy only. The generation-side consumers
-(`_generate_food_prompt`, output keys, completeness check) still re-derive
-their answers and are the planned Landing 2.
+this module owns stage policy only. Landing 1 (2026-10-09) has the
+generation-side consumer (`_generate_food_prompt`) read the view off
+`retrieval_data["food_understanding"]` instead of re-parsing the query
+(`tasks.py:684-692`).
 
 ### `Provision currency` — the temporal validity seam
 

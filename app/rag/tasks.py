@@ -87,8 +87,15 @@ def _retrieval_cache_key(
     query_type: str,
     legal_qt: str | None,
     identifier: dict[str, Any] | None,
+    rrf_k: float | None = None,
 ) -> tuple | None:
-    """Build a hashable cache key, or ``None`` if the inputs are uncacheable."""
+    """Build a hashable cache key, or ``None`` if the inputs are uncacheable.
+
+    ``rrf_k`` is part of the key: it changes the fused ordering, so two calls
+    that differ only in the RL-selected RRF constant are *different* results.
+    Without it the bandit varied a parameter the cache then silently discarded,
+    and the second query in a TTL window replayed the first query's fusion.
+    """
     try:
         return (
             query.strip().lower(),
@@ -98,6 +105,7 @@ def _retrieval_cache_key(
             legal_qt or None,
             (identifier or {}).get("form"),
             json.dumps(filters or {}, sort_keys=True, default=str),
+            None if rrf_k is None else round(float(rrf_k), 6),
         )
     except (TypeError, ValueError):
         return None
@@ -166,7 +174,11 @@ def run_retrieval_pipeline(
             logger.warning("RL param selection failed (%s) — using defaults", exc)
             rl_params = None
 
-    eff_top_k = rl_params.top_k if rl_params else fetch_k
+    # The RL action raises the fetch width, never lowers it: ``fetch_k`` is the
+    # pool the food view sized (up to 30 chunks) so clause siblings survive
+    # into stage 2b.  Taking rl_params.top_k verbatim (10/15/20) truncated that
+    # pool for every food-intent query.
+    eff_top_k = max(rl_params.top_k, fetch_k) if rl_params else fetch_k
     cache = cache or _default_cache
     result = _retrieval_fetch(
         query,
@@ -289,9 +301,14 @@ def _retrieval_understand_query(
       arm — the production form of the single decisive lever measured offline
       (+13.3pp candidate-pool ceiling; 100% after the section-stamp backfill).
       Best-effort: no identifiers -> no arm.
-    - Form route: builds a lexical "Form N" query from form references detected
-      in the question text (e.g., "appeal" -> "Form VIII"), handed to the hybrid
-      retriever as a parallel additive arm for workflow/procedure queries.
+    - Form route: a lexical "Form N" query, built only when the question
+      *explicitly names* a form (see ``retrieval.form_references``).  Gated on
+      ``RAG_FORM_ARM`` (default off) **and** on the query actually being a
+      procedure question — the docstring's "workflow/procedure queries" promise
+      used to be unenforced.  It was previously gated on ``identifier_route``,
+      which is a different lever: borrowing it meant the form arm could not be
+      disabled or A/B'd on its own, and turning the identifier arm off for an
+      unrelated reason silently removed form retrieval too.
     """
     from app.rag.retrieval import understand
 
@@ -304,7 +321,9 @@ def _retrieval_understand_query(
 
     identifier = understood.identifier_meta if cfg.identifier_route else None
     identifier_query = understood.identifier_query if cfg.identifier_route else None
-    form_query = understood.form_query if cfg.identifier_route else None
+    form_query = None
+    if cfg.form_arm and getattr(understood.query_type, "value", understood.query_type) == "procedure":
+        form_query = understood.form_query
 
     return query_type, legal_qt, identifier, identifier_query, form_query, merged_filters
 
@@ -338,9 +357,6 @@ def _retrieval_fetch(
     from app.rag.retrieval.factory import build_hybrid_retriever
 
     hybrid = build_hybrid_retriever(collection_name)
-    # RL override: replace the RRF constant when the controller selected one.
-    if rrf_k is not None:
-        hybrid._rrf_k = rrf_k
     cache_key = (
         _retrieval_cache_key(
             query,
@@ -350,6 +366,7 @@ def _retrieval_fetch(
             query_type.value,
             legal_qt,
             identifier,
+            rrf_k=rrf_k,
         )
         if _retrieval_cache_enabled()
         else None
@@ -379,6 +396,12 @@ def _retrieval_fetch(
             identifier_query=identifier_query,
             form_query=form_query,
             query_type=legal_qt,
+            # RL override travels as an argument. The retriever is a cached
+            # singleton shared by every request in this process, so setting
+            # ``hybrid._rrf_k`` here made the override permanent: the first RL
+            # query fixed the RRF constant for every later query on that
+            # collection, including the ones with RL off.
+            rrf_k=rrf_k,
         )
         if cache_key is not None:
             cache.put(cache_key, result)
@@ -673,11 +696,18 @@ def _generate_food_prompt(
         from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
         from app.rag.retrieval.parent_reconstruction import reconstruct_evidence_bundle
 
+        # Use the food understanding from retrieval_data if available
         food = None
-        if isinstance(retrieval_data, dict) and retrieval_data.get("food_understanding"):
-            food = FoodQueryUnderstanding.from_query(query)  # re-parse (cheap, deterministic)
-        else:
-            food = FoodQueryUnderstanding.from_query(query)
+        if isinstance(retrieval_data, dict):
+            fd = retrieval_data.get("food_understanding")
+            if isinstance(fd, dict):
+                # Reconstruct FoodQueryUnderstanding from the stored dict
+                # The stored dict includes all fields except 'query', so we add it
+                fd_with_query = {"query": query, **fd}
+                food = FoodQueryUnderstanding(**fd_with_query)
+            # else: food remains None (query not food-intent-shaped)
+        # else: retrieval_data is not a dict (e.g., pre-provided chunks), food remains None
+
         if food is None or food.intent == "general_information":
             return None, None
 
