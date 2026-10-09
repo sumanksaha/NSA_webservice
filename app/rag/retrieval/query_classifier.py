@@ -287,7 +287,7 @@ class SectionQueryParser:
     Examples::
         "What does Section 55 say?"           -> {"section_number": "55"}
         "Section 55(2) of the FSS Act"        -> {"section_number": "55", "subsection": "2"}
-        "Sections 55, 56 and 58"              -> {"section_numbers": ["55", "56", "58"]}
+        "Sections 55, 56 and 58"              -> {"section_number": ["55", "56", "58"]}
     """
 
     @staticmethod
@@ -299,7 +299,7 @@ class SectionQueryParser:
         if run_match:
             numbers = re.findall(r"\d{1,3}", run_match.group(1))
             if numbers:
-                result["section_numbers"] = numbers
+                result["section_number"] = numbers
 
         # Single section with optional subsection: "Section 55(2)"
         single_match = _SECTION_NUMBER_RE.search(query)
