@@ -27,6 +27,7 @@ def split_pdf_bundle(pdf_path: str | Path) -> list[Path]:
         List of paths to the per-page PDFs, sorted by page number (0-indexed
         → filenames ``page_1.pdf``, ``page_2.pdf``, ...).  Returns an empty
         list if the PDF has zero pages or cannot be opened.
+
     """
     pdf_path = Path(pdf_path)
     if not pdf_path.exists():

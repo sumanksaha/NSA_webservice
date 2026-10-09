@@ -38,6 +38,7 @@ class RetrievalStage:
             (the stage degrades gracefully).  When False, exceptions propagate
             — preserving the original behaviour where a stage without a
             try/except guard could abort the whole pipeline.
+
     """
 
     name: str

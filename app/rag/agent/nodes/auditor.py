@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 _EXCEPTION_RE = re.compile(
     r"\bexcept\b|\bnotwithstanding\b|\bprovided that\b|\bsubject to\b"
-    r"|\bunless\b|\bproviso\b|\bdoes not apply\b|\bshall not apply\b"
+    r"|\bunless\b|\bproviso\b|\bdoes not apply\b|\bshall not apply\b",
 )
 _DEFINITION_RE = re.compile(r""""[^"]{1,80}"\s+means\b|'[^']{1,80}'\s+means\b|\bfor the purposes of\b""")
 # NOTE: these intentionally duplicate the marker lists in
@@ -98,7 +98,7 @@ def audit_argument(
                     severity="critical",
                     explanation="argument is not a valid structured argument",
                     required_correction="rebuild the structured argument before answering",
-                )
+                ),
             ],
         )
 
@@ -118,7 +118,7 @@ def audit_argument(
                 severity="critical",
                 explanation="no applicable provisions identified",
                 required_correction="identify the governing provision before concluding",
-            )
+            ),
         )
 
     exc_ids = [pid for pid, text in evidence.items() if _EXCEPTION_RE.search(text.lower())]
@@ -134,7 +134,7 @@ def audit_argument(
                     "the argument never considers"
                 ),
                 required_correction="determine whether the exception applies before concluding",
-            )
+            ),
         )
 
     # Always validate citations — an empty evidence map must not let every
@@ -148,7 +148,7 @@ def audit_argument(
                     provision_reference=cite,
                     explanation=f"citation {cite} maps to no evidence or applicable provision",
                     required_correction="cite only provisions present in the evidence",
-                )
+                ),
             )
 
     for cond in conditions:
@@ -160,7 +160,7 @@ def audit_argument(
                     severity="critical",
                     explanation=f"condition {cond.get('condition_id')} marked satisfied with no supporting fact",
                     required_correction="map each satisfied condition to an explicit fact or mark it unknown",
-                )
+                ),
             )
 
     if any(_DEFINITION_RE.search(t.lower()) for t in evidence.values()) and not definitions:
@@ -170,7 +170,7 @@ def audit_argument(
                 severity="minor",
                 explanation="evidence defines a term the argument never applies",
                 required_correction="resolve defined terms before applying the downstream rule",
-            )
+            ),
         )
 
     conclusion = str(arg.get("derived_conclusion") or "").strip()
@@ -181,7 +181,7 @@ def audit_argument(
                 severity="critical",
                 explanation="applicable provisions identified but no derived conclusion stated",
                 required_correction="state an explicit conclusion grounded in the cited provisions",
-            )
+            ),
         )
     elif conclusion and evidence:
         # Deterministic conclusion↔evidence check: a long conclusion must
@@ -198,7 +198,7 @@ def audit_argument(
                         severity="critical",
                         explanation="derived conclusion shares no content with the evidence texts",
                         required_correction="ground the conclusion in a quoted span of the evidence",
-                    )
+                    ),
                 )
 
     if not defects:

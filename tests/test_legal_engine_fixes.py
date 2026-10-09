@@ -54,14 +54,14 @@ class TestCitationExtractorFixesViaService:
 
     def test_full_statute_name_captured(self):
         analysis = analyze_legal_text(
-            "Pursuant to the Food Safety and Standards Act, 2006, the Food Authority shall act."
+            "Pursuant to the Food Safety and Standards Act, 2006, the Food Authority shall act.",
         )
         statutory = _citations_of_type(analysis, "statutory")
         assert set(statutory) == {"Food Safety and Standards Act"}
 
     def test_no_of_the_act_or_fragment_statutes(self):
         analysis = analyze_legal_text(
-            "Pursuant to the provisions of the Food Safety and Standards Act, 2006, the Food Authority shall act."
+            "Pursuant to the provisions of the Food Safety and Standards Act, 2006, the Food Authority shall act.",
         )
         statutory = _citations_of_type(analysis, "statutory")
         # The full statute name is present and no bare "of the Act" reference
@@ -79,7 +79,7 @@ class TestCitationExtractorFixesViaService:
     def test_statutory_citations_deduplicated(self):
         analysis = analyze_legal_text(
             "Pursuant to The Food Safety and Standards Act, 2006 and the provisions of "
-            "the Food Safety and Standards Act, 2006."
+            "the Food Safety and Standards Act, 2006.",
         )
         statutory = _citations_of_type(analysis, "statutory")
         assert set(statutory) == {"The Food Safety and Standards Act"}
@@ -88,7 +88,7 @@ class TestCitationExtractorFixesViaService:
 class TestSectionParserFixesViaService:
     """§2.3 SectionParser fixes exercised via the app's engine accessor."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def engine(self):
         return get_legal_engine()()
 
@@ -106,7 +106,7 @@ class TestSectionParserFixesViaService:
 
     def test_subsection_markers_never_section_title(self, engine):
         sections = engine.section_parser.parse_sections(
-            "Section 3(1)(a)\n\nSection 3(1)(a) Powers of the Food Authority"
+            "Section 3(1)(a)\n\nSection 3(1)(a) Powers of the Food Authority",
         )
         by_content = {s.content: s for s in sections}
         assert by_content["Section 3(1)(a)"].title is None
@@ -122,7 +122,7 @@ class TestSectionParserFixesViaService:
     def test_pipeline_processes_marker_chain_text(self):
         """End-to-end sanity: marker-chain text still yields clean paragraphs."""
         analysis = analyze_legal_text(
-            "Section 3(1)\n\n(1)(a) The Food Authority shall ensure food safety.\n\nSection 14 of the Act."
+            "Section 3(1)\n\n(1)(a) The Food Authority shall ensure food safety.\n\nSection 14 of the Act.",
         )
         assert analysis["paragraphs"]
         assert _citations_of_type(analysis, "statutory") == []

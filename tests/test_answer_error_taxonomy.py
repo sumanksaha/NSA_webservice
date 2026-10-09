@@ -63,13 +63,13 @@ class TestStep4Taxonomy:
 
     def test_exception_detector(self):
         cats = classify_answer_failure(
-            _rec(context_text="Provided that sub-section (2) shall not apply.", answer="Section 31 applies.")
+            _rec(context_text="Provided that sub-section (2) shall not apply.", answer="Section 31 applies."),
         )
         assert "exception" in cats
 
     def test_definition_detector(self):
         cats = classify_answer_failure(
-            _rec(context_text='"Food" means any article used as food.', answer="Food business needs a licence.")
+            _rec(context_text='"Food" means any article used as food.', answer="Food business needs a licence."),
         )
         assert "definition" in cats
 
@@ -116,7 +116,7 @@ class TestStep4Taxonomy:
         assert "definition" not in classify_answer_failure(_rec(context_text="This means the result is clear."))
         assert "definition" not in classify_answer_failure(_rec(context_text="The report includes three tables."))
         assert "definition" in classify_answer_failure(
-            _rec(context_text='"Food" means any staple article.', answer="Licence needed.")
+            _rec(context_text='"Food" means any staple article.', answer="Licence needed."),
         )
 
     def test_zero_marker_citation_suppressed_upstream(self):
@@ -172,7 +172,7 @@ class TestAuditWorksheet:
     def _rows(self):
         return iter_records(
             {f"q{i}": {"correct": False, "gold_available_in_pool": False, "answer": f"Answer {i}."} for i in range(6)}
-            | {"q6": {"correct": True, "answer": "Fine."}}
+            | {"q6": {"correct": True, "answer": "Fine."}},
         )
 
     def test_sample_is_deterministic_and_bounded(self):

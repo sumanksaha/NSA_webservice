@@ -78,6 +78,7 @@ def process_document_ocr(file_path: str | Path, sample_id: int | None = None) ->
                 "extracted_text": str,       # concatenated page text
                 "sample_id": int | None,
             }
+
     """
     file_path = Path(file_path)
     raw_bytes = file_path.read_bytes()

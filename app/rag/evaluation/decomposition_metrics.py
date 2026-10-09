@@ -303,6 +303,7 @@ def compute_requirement_level_metrics(
     Returns:
         Metrics, or None when the entry has no gold requirements to score
         against (requirement-level metrics are undefined when there's no gold).
+
     """
     gold_reqs = _gold_requirements(entry.__dict__ if hasattr(entry, "__dict__") else {})
     if not gold_reqs:
@@ -379,6 +380,7 @@ def requirement_level_report(
 
     Returns:
         Aggregated metrics plus per-query breakdown.
+
     """
     entries = getattr(benchmark, "queries", [])
     per_query: list[RequirementLevelMetrics] = []

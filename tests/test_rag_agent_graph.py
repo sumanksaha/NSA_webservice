@@ -29,7 +29,7 @@ def _graph():
 
 def _patch_pipeline(monkeypatch, groundedness, retrieve_chunks=None):
     """Patch both pipeline entry points on app.rag.tasks."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     chunks = retrieve_chunks or [{"chunk_id": "c1", "score": 0.9, "text": "Section 50 text"}]
 
@@ -239,7 +239,7 @@ def test_kg_reason_node_runs_in_the_graph(monkeypatch):
 
 def test_agent_flow_retries_then_succeeds(monkeypatch):
     """Low groundedness on the first pass, high on the retry."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     calls = {"n": 0}
 
@@ -284,7 +284,7 @@ def test_agent_flow_exhausts_retries(monkeypatch):
     gate routes to ``targeted_retry`` (retrieval targeting) before the
     groundedness rewrite would fire — the answer still stops at max_retries.
     """
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     calls = {"n": 0}
 
@@ -340,7 +340,7 @@ def test_agent_finalize_carries_claim_telemetry(monkeypatch):
 
 def _patch_task_pipeline(monkeypatch, per_task_chunks=2, groundedness=0.9):
     """Patch retrieval to return per-task chunks; generation to be grounded."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     def fake_retrieve(query, **kw):
         evidence_tasks = kw.get("evidence_tasks") or []
@@ -393,7 +393,7 @@ def test_agent_dag_flow_multi_part_query(monkeypatch):
 
 def test_agent_dag_path_abstains_without_evidence(monkeypatch):
     """No evidence on any task + exhausted retry budget → explicit abstention."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     monkeypatch.setattr(
         tasks,
@@ -428,8 +428,9 @@ def test_route_after_retry_returns_to_dag_path():
 def test_agent_dag_recovery_loop_returns_to_dag_path(monkeypatch):
     """Wave-1 zero coverage → sufficiency gate → targeted_retry loops back
     into the DAG path; wave 2 fills the gap and the DAG evidence is synthesized
-    (Phase 1: the retry no longer dead-ends into the linear path)."""
-    import app.rag.tasks as tasks
+    (Phase 1: the retry no longer dead-ends into the linear path).
+    """
+    from app.rag import tasks
 
     calls = {"n": 0}
 

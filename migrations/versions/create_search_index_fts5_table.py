@@ -34,7 +34,7 @@ def upgrade():
         "    title,"
         "    content,"
         "    tokenize = 'porter unicode61'"
-        ")"
+        ")",
     )
 
 

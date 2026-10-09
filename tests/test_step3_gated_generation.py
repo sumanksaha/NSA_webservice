@@ -451,7 +451,7 @@ def test_run_one_em_recovers_behind_gates(tmp_path):
         labels={"QEM": "evidence_missing"},
     )
     client = _FakeClient(
-        payloads=[{"answer": EM_CONCL + " The State Board shall comply.", "cited_span": SPAN}]
+        payloads=[{"answer": EM_CONCL + " The State Board shall comply.", "cited_span": SPAN}],
     )
     led = Ledger(tmp_path / "ledger.json", cap=BUDGET_CAP)
     rec = run_one_em("QEM", deps, client, led, tmp_path / "calls.jsonl")
@@ -537,8 +537,8 @@ def test_run_one_mw_recovers_behind_quote_gate(tmp_path):
                 "authority": "central government",
                 "remedy": "criminal penalty",
                 "missing_element_if_any": None,
-            }
-        ]
+            },
+        ],
     )
     led = Ledger(tmp_path / "ledger.json", cap=BUDGET_CAP)
     rec = run_one_mw("QMW", deps, client, led, tmp_path / "calls.jsonl")
@@ -564,7 +564,7 @@ def test_run_one_mw_section_number_swap_rejected(tmp_path):
     hit = next(o for o in opts if "Central Government may give directions" in o["sentence"])
     cand = "Under section 15 of the Act, " + SPAN
     client = _FakeClient(
-        payloads=[{"chosen_option_id": hit["option_id"], "answer": cand, "cited_span": SPAN}]
+        payloads=[{"chosen_option_id": hit["option_id"], "answer": cand, "cited_span": SPAN}],
     )
     led = Ledger(tmp_path / "ledger.json", cap=BUDGET_CAP)
     rec = run_one_mw("QSWAP", deps, client, led, tmp_path / "calls.jsonl")
@@ -582,7 +582,7 @@ def test_run_one_mw_span_not_in_context_rejected(tmp_path):
         "before issuing any direction to a State Government."
     )
     client = _FakeClient(
-        payloads=[{"chosen_option_id": 1, "answer": SPAN + " More.", "cited_span": invented}]
+        payloads=[{"chosen_option_id": 1, "answer": SPAN + " More.", "cited_span": invented}],
     )
     led = Ledger(tmp_path / "ledger.json", cap=BUDGET_CAP)
     rec = run_one_mw("QMW", deps, client, led, tmp_path / "calls.jsonl")
@@ -601,8 +601,8 @@ def test_run_one_mw_abstain_on_absent_element_rejected(tmp_path):
                 "answer": "I cannot answer this question from the given corpus.",
                 "cited_span": SPAN,
                 "missing_element_if_any": "penalty for lateral entry",
-            }
-        ]
+            },
+        ],
     )
     led = Ledger(tmp_path / "ledger.json", cap=BUDGET_CAP)
     rec = run_one_mw("QMW", deps, client, led, tmp_path / "calls.jsonl")
@@ -829,7 +829,7 @@ def test_execute_folds_and_resumes_past_fill_pending(tmp_path, monkeypatch):
              "reason": "section_not_in_index_stop_do_not_loop_retrieval"},
             {"qid": "QC", "label": "evidence_missing", "verdict": "not_run",
              "reason": "fill_review_pending"},
-        ]
+        ],
     }
     out = tmp_path / "candidates.jsonl"
     calls = tmp_path / "calls.jsonl"
@@ -865,7 +865,7 @@ def test_execute_folds_and_resumes_past_fill_pending(tmp_path, monkeypatch):
              "reason": "section_not_in_index_stop_do_not_loop_retrieval"},
             {"qid": "QC", "label": "evidence_missing", "verdict": "eligible",
              "reason": "fill_approved"},
-        ]
+        ],
     }
     client2 = _FakeClient(payloads=[_qc_payload_for("QC")])
     r3 = execute(
@@ -1144,7 +1144,7 @@ def test_real_preflight_invariants():
 def test_fill_rejected_by_human_spends_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(s, "FILL_APPROVAL_JSON", tmp_path / "approval.json")
     monkeypatch.setattr(
-        s, "load_queue", lambda d: {"evidence_missing": ["QFILL"], "model_wrong": []}
+        s, "load_queue", lambda d: {"evidence_missing": ["QFILL"], "model_wrong": []},
     )
     deps = _fill_deps()
     s.write_approval(set(), source="test", rejected_qids={"QFILL"})
@@ -1226,7 +1226,7 @@ def test_gate_reject_blocks_approval_and_eligibility(tmp_path, monkeypatch):
     # CLI refuses the approval outright (exit 2, nothing written)
     monkeypatch.setattr(s, "load_deps", lambda **kw: deps)
     monkeypatch.setattr(
-        s, "load_queue", lambda d: {"evidence_missing": ["QFILL"], "model_wrong": []}
+        s, "load_queue", lambda d: {"evidence_missing": ["QFILL"], "model_wrong": []},
     )
     rc = s.main(["--approve-fills", "QFILL"])
     assert rc == 2

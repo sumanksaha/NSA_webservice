@@ -59,7 +59,8 @@ def load_raw(arm: str) -> dict[str, dict]:
 
 def load_payload_index() -> dict[str, dict]:
     """Load the cached payload index (point_id -> payload).  Rebuilds on
-    mismatch with the live Qdrant point counts recorded in the freeze."""
+    mismatch with the live Qdrant point counts recorded in the freeze.
+    """
     from evaluation.ceiling_config import OUT_DIR
     from evaluation.config import CACHE_DIR
     from evaluation.resolution import build_payload_index
@@ -111,7 +112,8 @@ def _store(collection: str):
 def load_kg_provision_map() -> dict:
     """Pull the full LegalProvision list from Neo4j once (read-only) so the
     availability audit can answer 'does this gold provision exist as a node?'.
-    Returns {provision_id: {instrument_title, provision_number}}."""
+    Returns {provision_id: {instrument_title, provision_number}}.
+    """
     from kg.queries import LegalKGQueries
 
     try:
@@ -119,7 +121,7 @@ def load_kg_provision_map() -> dict:
         rows = q._execute(
             "MATCH (i)-[:CONTAINS]->(p:LegalProvision) "
             "RETURN p.provision_id AS pid, i.title AS instrument_title, "
-            "p.provision_number AS number"
+            "p.provision_number AS number",
         )
         return {
             r.get("pid"): {
@@ -156,7 +158,8 @@ def unit_first_ranks(arm_result: dict, question, payload_index, family_map) -> d
 def metrics_from_ranks(r: dict[str, int | None], q, depths) -> dict:
     """Metrics derived directly from first-hit ranks (used for the unranked
     union pool where every pool hit collapses to rank 1 — R@K = pool
-    coverage for every K)."""
+    coverage for every K).
+    """
     relevant = q.relevant_units()
     all_units = q.recall_units()
 
@@ -371,7 +374,7 @@ def main() -> int:
     payload_index = load_payload_index()
     kg_provision_map = load_kg_provision_map()
     logger.info(
-        "questions=%d payload_index=%d kg_provisions=%d", len(questions), len(payload_index), len(kg_provision_map)
+        "questions=%d payload_index=%d kg_provisions=%d", len(questions), len(payload_index), len(kg_provision_map),
     )
 
     q_by_id = {q.question_id: q for q in questions}
@@ -547,8 +550,7 @@ def main() -> int:
     def write_csv(name: str, header: list[str], rows: list[list]) -> None:
         with open(OUT_DIR / name, "w", encoding="utf-8", newline="") as f:
             f.write(",".join(header) + "\n")
-            for row in rows:
-                f.write(",".join(str(v) for v in row) + "\n")
+            f.writelines(",".join(str(v) for v in row) + "\n" for row in rows)
 
     # 1. recall_curve.csv
     header = ["retrieval", "R@5", "R@10", "R@20", "R@50", "R@100", "R@200", "R@500"]
@@ -631,7 +633,7 @@ def main() -> int:
     # =====================================================================
     gen_fail_rows = [["question_id", "gold_provisions", "in_union_pool", "class", "note"]]
     recov_rows = [
-        ["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20", "rank>50", "rank>100", "rank>200"]
+        ["question_id", "first_gold_rank_union", "rank<=500", "rank>10", "rank>20", "rank>50", "rank>100", "rank>200"],
     ]
     recoverable = {"k10": 0, "k20": 0, "k50": 0, "k100": 0, "k200": 0, "n500": 0, "n": 0}
     gen_fail = {
@@ -712,7 +714,7 @@ def main() -> int:
     # 12. Gold-provision availability audit (§12)
     # =====================================================================
     avail_rows = [
-        ["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant", "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"]
+        ["qid", "gold", "Source", "Neo4j", "Chunk", "Qdrant", "Dense@500", "Sparse@500", "KG@200", "Hybrid@500"],
     ]
     for qid, q in q_by_id.items():
         for u in q.gold_units:
@@ -1107,7 +1109,7 @@ def main() -> int:
         summary["v3_expanded_query"] = exp_summaries.get("naive_append", {})
 
     (OUT_DIR / "retrieval_ceiling_results.json").write_text(
-        json.dumps(summary, indent=2, default=str), encoding="utf-8"
+        json.dumps(summary, indent=2, default=str), encoding="utf-8",
     )
 
     _write_md_reports(
@@ -1178,7 +1180,7 @@ def _bucket_counts(ranks_q: dict, fn) -> dict:
 
 
 def _conclude(
-    c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500, corpus_present_rate=0.0, neo4j_present_rate=0.0
+    c, e, pool, o, gen_fail_rate, recov_rate, k80, k90, union500, corpus_present_rate=0.0, neo4j_present_rate=0.0,
 ) -> dict:
     r10 = c.get("recall@10", 0)
     r500 = c.get("recall@500", 0)

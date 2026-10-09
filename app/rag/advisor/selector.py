@@ -139,6 +139,7 @@ class DeterministicActSelector:
             ``fso_act`` payload carries the computed game facts (FBO best
             response, maximin value, admissible-act table, binding
             constraint) alongside the legacy fields.
+
         """
         anchors = [
             FSSAI_PENALTY_SCHEDULE[sec]
@@ -182,7 +183,7 @@ class DeterministicActSelector:
                     maximin_value=maximin,
                     optionality=optionality,
                     robust_score=round(maximin + self.omega_optionality * optionality, _SCORE_PRECISION),
-                )
+                ),
             )
 
         # Ascending-ladder iteration + strict '>' ⇒ the least-escalatory

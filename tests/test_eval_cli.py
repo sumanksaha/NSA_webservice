@@ -69,8 +69,8 @@ class TestLiveBatchMode:
     def test_live_batch_uses_injected_pipeline(self, monkeypatch, capsys):
         # The pipeline callable inside run_query_batch imports these at call
         # time, so patching the source modules is enough.
-        import app.rag.agent.graph as graph
         import app.rag.agent.state as state_module
+        from app.rag.agent import graph
         from scripts.eval_rag import run_query_batch
 
         def fake_initial_state(query, **kw):

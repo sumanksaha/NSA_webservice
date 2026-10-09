@@ -71,9 +71,7 @@ def _get_query_breaker():
         from app.rag.resilient import ResilientRAGPipeline
 
         def _pipeline(query: str, top_k: int | None = None, **kwargs):
-            return tasks_mod.run_generation_pipeline(
-                query=query, top_k=top_k or cfg.context_max_chunks, **kwargs
-            )
+            return tasks_mod.run_generation_pipeline(query=query, top_k=top_k or cfg.context_max_chunks, **kwargs)
 
         _query_breaker = ResilientRAGPipeline(pipeline_fn=_pipeline)
     return _query_breaker
@@ -450,6 +448,38 @@ def eval_batch():
         return jsonify({"error": f"Evaluation failed: {exc}"}), 500
 
     return jsonify(result)
+
+
+@rag_bp.route("/rl/policy", methods=["GET"])
+def rl_policy_stats():
+    """Reinforcement-learning policy monitoring endpoint (Phase 4).
+
+    Returns the in-memory policy state so operators can observe the bandit's
+    learning progress without restarting the process.  The endpoint is
+    read-only and best-effort: if RL is disabled or the controller is
+    unavailable, it reports ``enabled: false`` instead of erroring.
+
+    Response JSON:
+        enabled (bool): whether the RL controller is active.
+        contexts_observed (int): number of distinct context buckets seen.
+        total_observations (int): number of (context, action, reward) tuples.
+        epsilon (float): exploration probability.
+        min_observations (int): threshold before exploitation.
+        action_space (list[dict]): the (top_k, rrf_k) pairs the bandit can pick.
+    """
+    if not _rag_enabled():
+        return jsonify({"error": "RAG is disabled."}), 503
+
+    try:
+        from app.rag.rl.controller import get_rl_controller
+
+        controller = get_rl_controller()
+        stats = controller.current_policy_stats()
+    except Exception as exc:
+        logger.error("RL policy stats failed: %s", exc)
+        return jsonify({"error": f"RL controller unavailable: {exc}"}), 500
+
+    return jsonify(stats)
 
 
 # End of routes.py

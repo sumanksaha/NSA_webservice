@@ -81,7 +81,7 @@ def apply_field_corrections(doc_id: str, corrections: dict[str, str], user_id: i
                 field_name=field_name,
                 old_value=old_value,
                 new_value=new_value,
-            )
+            ),
         )
         stored_fields[field_name] = new_value
         result.applied.append({"field_name": field_name, "old": old_value, "new": new_value})
@@ -130,7 +130,7 @@ def correct_lab_parameter(param_id: int, new_value: str, user_id: int | None = N
             field_name=f"lab:{param.parameter_name}",
             old_value=old_value,
             new_value=new_value,
-        )
+        ),
     )
     param.observed_value = new_value
     param.source_authority = "manual"
@@ -151,7 +151,8 @@ def record_conflict(doc_id: str, field_name: str, values: list[dict], sample_id:
 
 def resolve_conflict(conflict_id: int, resolved_value: str, user_id: int | None = None) -> ApplyResult:
     """Resolve a conflict: mark it resolved AND apply the chosen value as a
-    field correction so autopopulation sees the authoritative value."""
+    field correction so autopopulation sees the authoritative value.
+    """
     from app.extensions import db
     from app.models import ConflictLog
 

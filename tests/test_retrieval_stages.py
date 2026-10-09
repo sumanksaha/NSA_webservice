@@ -68,10 +68,10 @@ class TestApplyStagesDisabled:
         result = _result(chunks=[SimpleNamespace()])  # truthy chunks to enter loop
         fake_stages = [
             RetrievalStage(
-                "a", is_enabled=lambda: False, enrich=lambda q, r: "X", output_key="a_val", default="a_default"
+                "a", is_enabled=lambda: False, enrich=lambda q, r: "X", output_key="a_val", default="a_default",
             ),
             RetrievalStage(
-                "b", is_enabled=lambda: False, enrich=lambda q, r: "Y", output_key="b_val", default="b_default"
+                "b", is_enabled=lambda: False, enrich=lambda q, r: "Y", output_key="b_val", default="b_default",
             ),
         ]
         out = apply_stages(QUERY, result, stages=fake_stages)
@@ -83,7 +83,7 @@ class TestApplyStagesEnabled:
         result = _result(chunks=[SimpleNamespace()])
         fake_stages = [
             RetrievalStage(
-                "a", is_enabled=lambda: True, enrich=lambda q, r: "X", output_key="a_val", default="a_default"
+                "a", is_enabled=lambda: True, enrich=lambda q, r: "X", output_key="a_val", default="a_default",
             ),
         ]
         out = apply_stages(QUERY, result, stages=fake_stages)
@@ -93,13 +93,13 @@ class TestApplyStagesEnabled:
         result = _result(chunks=[SimpleNamespace()])
         fake_stages = [
             RetrievalStage(
-                "a", is_enabled=lambda: True, enrich=lambda q, r: "X", output_key="a_val", default="a_default"
+                "a", is_enabled=lambda: True, enrich=lambda q, r: "X", output_key="a_val", default="a_default",
             ),
             RetrievalStage(
-                "b", is_enabled=lambda: False, enrich=lambda q, r: "Y", output_key="b_val", default="b_default"
+                "b", is_enabled=lambda: False, enrich=lambda q, r: "Y", output_key="b_val", default="b_default",
             ),
             RetrievalStage(
-                "c", is_enabled=lambda: True, enrich=lambda q, r: "Z", output_key="c_val", default="c_default"
+                "c", is_enabled=lambda: True, enrich=lambda q, r: "Z", output_key="c_val", default="c_default",
             ),
         ]
         out = apply_stages(QUERY, result, stages=fake_stages)
@@ -133,7 +133,7 @@ class TestApplyStagesErrorIsolation:
         result = _result(chunks=[SimpleNamespace()])
         fake_stages = [
             RetrievalStage(
-                "good", is_enabled=lambda: True, enrich=lambda q, r: "ok", output_key="good_val", default="ok_default"
+                "good", is_enabled=lambda: True, enrich=lambda q, r: "ok", output_key="good_val", default="ok_default",
             ),
             RetrievalStage(
                 "bad",
@@ -160,7 +160,7 @@ class TestApplyStagesErrorIsolation:
         result = _result(chunks=[SimpleNamespace()])
         fake_stages = [
             RetrievalStage(
-                "good", is_enabled=lambda: True, enrich=lambda q, r: "ok", output_key="good_val", default="ok_default"
+                "good", is_enabled=lambda: True, enrich=lambda q, r: "ok", output_key="good_val", default="ok_default",
             ),
             RetrievalStage(
                 "bad",

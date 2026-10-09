@@ -57,7 +57,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-_SECTION_MARKER_RE = re.compile(r"(?:section|sec\.?|s\.?)\s+(\d{1,4}[A-Za-z]?)", re.I)
+_SECTION_MARKER_RE = re.compile(r"(?:section|sec\.?|s\.?)\s+(\d{1,4}[A-Za-z]?)", re.IGNORECASE)
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 #: Minimal English stopwords — legal boilerplate and question scaffolding adds
@@ -384,7 +384,7 @@ def enriched_retrieve(
 
     # 1) Cross-reference expansion (feature-gated)
     pool = list(dense_ids)
-    incoming: dict[str, int] = {cid: 0 for cid in pool}
+    incoming: dict[str, int] = dict.fromkeys(pool, 0)
     if FEATURE_CROSSREFS in features:
         for cid in dense_ids:
             for t in enrichment.get(cid, {}).get("cross_ref_targets", []):

@@ -221,7 +221,6 @@ class TestClauseParser(unittest.TestCase):
 
     def test_parser_thread_safety(self):
         """Test thread safety."""
-
         text = "3(1)(a) First clause.\n3(1)(b) Second clause."
 
         results = []

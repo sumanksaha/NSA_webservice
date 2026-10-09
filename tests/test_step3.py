@@ -36,7 +36,7 @@ def seeded(app):
                 company_name="Step3 Test Foods Pvt Ltd",
                 full_address="3 Step Lane, Kolkata",
                 expiry_date="31-12-2027",
-            )
+            ),
         )
         db.session.commit()
     db.session.expunge_all()

@@ -40,22 +40,22 @@ def upgrade():
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc "
         "ON versions(case_id, doc_type, version_number) "
-        "WHERE branch_name IS NULL"
+        "WHERE branch_name IS NULL",
     )
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc_branch "
         "ON versions(case_id, doc_type, version_number, branch_name) "
-        "WHERE branch_name IS NOT NULL"
+        "WHERE branch_name IS NOT NULL",
     )
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc "
         "ON versions(adjudication_id, doc_type, version_number) "
-        "WHERE branch_name IS NULL"
+        "WHERE branch_name IS NULL",
     )
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc_branch "
         "ON versions(adjudication_id, doc_type, version_number, branch_name) "
-        "WHERE branch_name IS NOT NULL"
+        "WHERE branch_name IS NOT NULL",
     )
     op.execute("CREATE INDEX IF NOT EXISTS idx_version_branch_of ON versions(branch_of)")
 
@@ -69,7 +69,7 @@ def downgrade():
     op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_version_case_doc ON versions(case_id, doc_type, version_number)")
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_version_adjudication_doc "
-        "ON versions(adjudication_id, doc_type, version_number)"
+        "ON versions(adjudication_id, doc_type, version_number)",
     )
     op.execute("ALTER TABLE versions DROP COLUMN branch_of")
     op.execute("ALTER TABLE versions DROP COLUMN branch_name")

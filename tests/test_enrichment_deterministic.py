@@ -337,7 +337,7 @@ def test_validation_resolved_requires_target() -> None:
             "resolved": True,
             "target_chunk_id": None,
             "confidence": 0.5,
-        }
+        },
     ]
     vr = validate_record(rec, _point("x", section="32")["payload"])
     assert not vr.ok
@@ -347,7 +347,7 @@ def test_validation_resolved_requires_target() -> None:
 def test_validation_unresolved_must_not_carry_target() -> None:
     rec = _record()
     rec["cross_references"] = [
-        {"target": "Section 55", "relation": "REFERS_TO", "resolved": False, "target_chunk_id": "t1", "confidence": 0.5}
+        {"target": "Section 55", "relation": "REFERS_TO", "resolved": False, "target_chunk_id": "t1", "confidence": 0.5},
     ]
     vr = validate_record(rec, _point("x", section="32")["payload"])
     assert not vr.ok

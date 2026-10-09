@@ -181,7 +181,7 @@ def _run_arm(arm: str, questions: list[dict], force: bool) -> dict[str, list[str
                         },
                         ensure_ascii=False,
                     )
-                    + "\n"
+                    + "\n",
                 )
             if i % 5 == 0 or i == len(questions):
                 logger.info("%s %d/%d (%.0fs elapsed)", arm, i, len(questions), time.monotonic() - started)
@@ -258,7 +258,7 @@ def main() -> int:
             f"{m['entity']['recall@1']:6.2f} {m['entity']['recall@5']:6.2f} {m['entity']['recall@10']:7.2f} "
             f"{m['standard']['recall@5']:6.2f} {m['standard']['recall@10']:7.2f} "
             f"{m['parameter']['recall@5']:6.2f} {m['source']['recall@10']:7.2f} "
-            f"{r['disambiguation_accuracy']:7.2f}"
+            f"{r['disambiguation_accuracy']:7.2f}",
         )
     print(f"\ntable -> {table_path}")
     return 0

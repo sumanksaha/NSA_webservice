@@ -114,7 +114,7 @@ class TestEvidenceBlueprint:
                 "files": [
                     (io.BytesIO(_png_bytes((10, 200, 10))), "a.png"),
                     (io.BytesIO(b"definitely not a doc"), "bad.xyz"),
-                ]
+                ],
             },
             content_type="multipart/form-data",
         )

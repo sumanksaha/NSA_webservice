@@ -37,6 +37,7 @@ class LegalDocumentOCR:
             the real one is built lazily from ``app.ocr_pipeline``).
         min_text_chars: Below this total char count a loaded PDF is routed
             through OCR. Defaults to :data:`MIN_TEXT_CHARS_FOR_OCR`.
+
     """
 
     def __init__(self, pipeline: Any | None = None, min_text_chars: int = MIN_TEXT_CHARS_FOR_OCR) -> None:
@@ -100,6 +101,7 @@ class LegalDocumentOCR:
         Returns:
             ``(text, ocr_applied)`` — when the loaded text is already
             sufficient, ``(loaded_text, False)`` unchanged.
+
         """
         if not self.should_ocr(loaded_text):
             return loaded_text, False

@@ -48,7 +48,7 @@ def upgrade():
         "(fso_name, work_date, duty_seq, activity, premises, samples, "
         "notes, place_of_visit, summary) "
         "SELECT fso_name, work_date, 1, activity, premises, samples, "
-        "notes, place_of_visit, summary FROM work_diary"
+        "notes, place_of_visit, summary FROM work_diary",
     )
     op.drop_table("work_diary")
     op.rename_table("work_diary_new", "work_diary")
@@ -80,7 +80,7 @@ def downgrade():
         "(fso_name, work_date, activity, premises, samples, "
         "notes, place_of_visit, summary) "
         "SELECT fso_name, work_date, activity, premises, samples, "
-        "notes, place_of_visit, summary FROM work_diary WHERE duty_seq = 1"
+        "notes, place_of_visit, summary FROM work_diary WHERE duty_seq = 1",
     )
     op.drop_table("work_diary")
     op.rename_table("work_diary_old", "work_diary")

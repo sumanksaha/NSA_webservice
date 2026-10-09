@@ -183,7 +183,7 @@ class TestFsoEmailEdit:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     app, admin_client, regular_client, ctx = _setup_test_env()
     yield app, admin_client, regular_client, ctx

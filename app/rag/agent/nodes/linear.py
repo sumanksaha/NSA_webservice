@@ -104,6 +104,26 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     from app.rag.tasks import run_retrieval_pipeline
 
     retrieval_query = _query_for_retrieval(state)
+    plan = state.get("target_plan") if isinstance(state.get("target_plan"), dict) else None
+    plan_top_k = None
+    plan_active = False
+    try:
+        from app.shared.config import cfg as _cfg2
+
+        plan_active = bool(_cfg2.targeted_retry_v2) and bool(plan) and bool(plan.get("query"))
+    except Exception:
+        plan_active = False
+    if plan_active:
+        retrieval_query = str(plan.get("query") or retrieval_query)
+        try:
+            plan_top_k = int(plan.get("top_k_override")) if plan.get("top_k_override") is not None else None
+        except (TypeError, ValueError):
+            plan_top_k = None
+    eff_top_k = plan_top_k or state.get("top_k", 10)
+    plan_update: dict[str, Any] = {}
+    if ("target_plan" in state or "targeted_query" in state) and plan_active:
+        # Stash-clear after use (same pattern as multi_hop_* keys): consume once.
+        plan_update = {"target_plan": None, "targeted_query": None}
     stashed = state.get("multi_hop_chunks") or []
     stash_update: dict[str, Any] = {}
     if "multi_hop_chunks" in state or "multi_hop_query" in state or "multi_hop_followup" in state:
@@ -130,12 +150,22 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     else:
         result = run_retrieval_pipeline(
             query=retrieval_query,
-            top_k=state.get("top_k", 10),
+            top_k=eff_top_k,
             collection_name=state.get("collection_name"),
             filters=state.get("filters"),
             pipeline="agent",
         )
         chunks = result.get("chunks", [])
+        # RAG-TR-001: fold prior-round chunks in (dedup by chunk_id) so the
+        # retry augments rather than replaces evidence.
+        if plan_active:
+            prior = state.get("chunks") or []
+            seen_ids = {c.get("chunk_id") for c in chunks if isinstance(c, dict) and c.get("chunk_id")}
+            for c in prior:
+                if isinstance(c, dict) and (not c.get("chunk_id") or c.get("chunk_id") not in seen_ids):
+                    chunks.append(c)
+                    if c.get("chunk_id"):
+                        seen_ids.add(c.get("chunk_id"))
         # Preserve second-pass evidence: fold unseen stashed chunks into the
         # fresh result (fresh results stay primary).
         if stashed and state.get("multi_hop_followup"):
@@ -158,6 +188,7 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         "chunks": chunks,
         "query_type": query_type,
         "retrieval_latency_ms": retrieval_latency_ms,
+        **plan_update,
         "log_id": log_id,
         "evidence_set": evidence_set,
         "budget": budget,
@@ -281,6 +312,49 @@ def generate_node(state: dict[str, Any]) -> dict[str, Any]:
         update["claims"] = claim_report["claims"]
         update["claim_groundedness"] = claim_report["claim_groundedness"]
         update["unverified_claims"] = claim_report["unverified_claims"]
+    # SPEC-3 shadow: a retry regenerates and overwrites the answer, so the
+    # pre-retry arm has to be preserved here or there is nothing to compare at
+    # finalize. Capture is always cheap and never changes the answer.
+    try:
+        from app.rag.agent.retry_guard import capture_arm
+
+        update.update(capture_arm(state, result, claim_report))
+    except Exception as exc:  # never let telemetry break generation
+        logger.debug("retry-guard capture failed: %s", exc)
+    # RAG-TR-001 section 5: shadow hardened scores (logged, never routed on).
+    try:
+        from app.shared.config import cfg as _cfg3
+
+        shadow_on = bool(_cfg3.verifier_shadow)
+    except Exception:
+        shadow_on = False
+    if shadow_on:
+        try:
+            from app.rag.agent.sufficiency import as_retrieved_chunks
+            from app.rag.verification.citation_validator import CitationValidator
+            from app.rag.verification.claim_extractor import ClaimExtractor
+            from app.rag.verification.evidence_verifier import EvidenceVerifier
+            from app.rag.verification.hardened_scorer import shadow_report
+
+            _answer = result.get("answer", "") or ""
+            _claims = ClaimExtractor().extract(_answer)
+            _chunks = as_retrieved_chunks([c for c in (state.get("chunks") or []) if isinstance(c, dict)])
+            _verifs = EvidenceVerifier().verify_claims(_claims, _chunks)
+            # The citation result must be the real one: `hardened_citation_ratio`
+            # treats a missing result as "no citations" and returns 0.50 +
+            # the `no_citations` flag, so passing None here flagged every
+            # answer as uncited regardless of what it actually cited.  That
+            # made `citation_ratio_shadow` a constant and every shadow score
+            # wrong by construction.
+            _cit_result = CitationValidator().validate(list(result.get("citations") or []), _chunks)
+            rep = shadow_report(_answer, _chunks, _verifs, _cit_result)
+            update["groundedness_shadow"] = rep["groundedness_shadow"]
+            update["claim_groundedness_shadow"] = rep["claim_groundedness_shadow"]
+            update["citation_ratio_shadow"] = rep["citation_ratio_shadow"]
+            update["shadow_flags"] = rep["shadow_flags"]
+            update["abstained"] = bool(rep.get("abstained", False))
+        except Exception as exc:
+            logger.debug("verifier shadow failed: %s", exc)
     return update
 
 
@@ -415,28 +489,58 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
 
     planner = TargetedRetryPlanner()
     query_type = state.get("query_type", "general")
-    target = planner.target_query(
-        query=state.get("query", ""),
-        # Codes arrive as taxonomy values (classifier) or UPPERCASE rubric
-        # names (sufficiency gate); the recovery seam normalizes both.
-        failures=failures,  # type: ignore[arg-type]
-        query_type=query_type,
-        context={
-            "collection_name": state.get("collection_name"),
-            "kg_paths": state.get("kg_paths") or [],
-            "kg_capability": state.get("kg_capability", "actionable_answer"),
-        },
-    )
+    ctx = {
+        "collection_name": state.get("collection_name"),
+        "kg_paths": state.get("kg_paths") or [],
+        "kg_capability": state.get("kg_capability", "actionable_answer"),
+        "chunks": state.get("chunks") or [],
+        "answer": state.get("answer") or "",
+        "top_k": state.get("top_k", 10),
+    }
+    try:
+        from app.shared.config import cfg as _cfg
+
+        v2 = bool(_cfg.targeted_retry_v2)
+    except Exception:
+        v2 = False
+    if v2:
+        plan = planner.target_plan(
+            query=state.get("query", ""),
+            failures=failures,  # type: ignore[arg-type]
+            query_type=query_type,
+            context=ctx,
+        )
+        target = plan.query
+        plan_dict: dict[str, Any] | None = plan.to_dict()
+        arm = plan.arm
+        strategy = plan.strategy
+    else:
+        target = planner._legacy_target_query(
+            query=state.get("query", ""),
+            # Codes arrive as taxonomy values (classifier) or UPPERCASE rubric
+            # names (sufficiency gate); the recovery seam normalizes both.
+            failures=failures,  # type: ignore[arg-type]
+            query_type=query_type,
+            context={
+                "collection_name": state.get("collection_name"),
+                "kg_paths": state.get("kg_paths") or [],
+                "kg_capability": state.get("kg_capability", "actionable_answer"),
+            },
+        )
+        plan_dict = None
+        arm = "legacy"
+        strategy = "legacy"
 
     return {
         "targeted_query": target,
+        "target_plan": plan_dict,
         "retry_count": state.get("retry_count", 0) + 1,
         "audit_trail": [
             *(state.get("audit_trail") or []),
             {
                 "node": "targeted_retry",
                 "latency_ms": _ms(start),
-                "detail": {"target": target, "failures": [str(f) for f in failures]},
+                "detail": {"target": target, "arm": arm, "strategy": strategy, "failures": [str(f) for f in failures], "meta": (plan_dict or {}).get("meta", {})},
             },
         ],
     }
@@ -580,6 +684,23 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     if state.get("advisory_abstain_reason"):
         response["advisory_abstain_reason"] = state["advisory_abstain_reason"]
     response["pipeline"] = "agent"
+    # SPEC-3 shadow: record how the retry arm compared against the answer it
+    # replaced. Observational only — the served answer above is untouched,
+    # because the adopt rule needs gold-referenced scores that production
+    # does not have (see app/rag/agent/retry_guard.observe_retry_arms).
+    try:
+        from app.shared.config import cfg as _cfg4
+
+        if bool(_cfg4.verifier_shadow):
+            from app.rag.agent.retry_guard import observe_retry_arms
+
+            observation = observe_retry_arms(
+                state.get("retry_guard_baseline"), state.get("retry_guard_retry"),
+            )
+            if observation.get("available"):
+                response.setdefault("retry_guard", observation)
+    except Exception as exc:
+        logger.debug("retry-guard observation failed: %s", exc)
     response["agent"] = {
         "retry_count": state.get("retry_count", 0),
         "expanded_query": state.get("expanded_query"),
@@ -950,7 +1071,7 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         try:
             min_rank = _MULTIHOP_CONFIDENCE_RANK[settings["confidence_min"]]
             canons, n_found, def_rel, n_covered = _mined_followup_targets(
-                chunks, query, min_rank, exclude_canons=fetched_canons
+                chunks, query, min_rank, exclude_canons=fetched_canons,
             )
         except Exception as exc:
             logger.warning("multi_hop_retrieve_node: cross-ref extraction failed (%s)", exc)

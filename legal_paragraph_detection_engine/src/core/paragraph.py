@@ -149,6 +149,7 @@ class TextNormalizer:
 
         Returns:
             List of section reference strings
+
         """
         sections: list[str] = []
         # Pattern to match section references including nested patterns
@@ -165,6 +166,7 @@ class TextNormalizer:
 
         Returns:
             List of citation dictionaries with type and reference
+
         """
         citations: list[dict[str, str]] = []
 
@@ -365,6 +367,7 @@ class ParagraphBoundaryDetector:
 
         Returns:
             List of ParagraphInfo objects
+
         """
         with self._lock:
             cache_key = stable_key(text)
@@ -383,7 +386,7 @@ class ParagraphBoundaryDetector:
                     # Blank line: flush the current paragraph (if any)
                     if current_para_lines:
                         para_info = self._create_paragraph_info(
-                            current_para_lines, start_line, line_num - 1, len(paragraphs)
+                            current_para_lines, start_line, line_num - 1, len(paragraphs),
                         )
                         if para_info:
                             paragraphs.append(para_info)
@@ -394,7 +397,7 @@ class ParagraphBoundaryDetector:
                 # A new structural marker begins a new paragraph
                 if current_para_lines and self._starts_new_structure(line_stripped):
                     para_info = self._create_paragraph_info(
-                        current_para_lines, start_line, line_num - 1, len(paragraphs)
+                        current_para_lines, start_line, line_num - 1, len(paragraphs),
                     )
                     if para_info:
                         paragraphs.append(para_info)
@@ -553,7 +556,7 @@ class ParagraphBoundaryDetector:
         return any(re.match(pattern, line, re.IGNORECASE) for pattern in special_patterns)
 
     def _create_paragraph_info(
-        self, lines: list[str], start_line: int, end_line: int, para_index: int
+        self, lines: list[str], start_line: int, end_line: int, para_index: int,
     ) -> ParagraphInfo | None:
         """Create ParagraphInfo from lines."""
         text = " ".join(line.strip() for line in lines if line.strip())

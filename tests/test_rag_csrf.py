@@ -22,7 +22,7 @@ import pytest
 from tests.test_rag_routes import _setup_test_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def csrf_env():
     """Authenticated test app with CSRF protection explicitly enabled."""
     app, client, ctx = _setup_test_env()
@@ -34,7 +34,7 @@ def csrf_env():
 @pytest.fixture(autouse=True)
 def _fresh_breaker():
     """Isolate the module-level query-breaker singleton between tests."""
-    import app.rag.routes as routes
+    from app.rag import routes
 
     routes._query_breaker = None
     yield
@@ -82,7 +82,7 @@ class TestCsrfContract:
         assert resp.status_code == 400
 
     def test_post_with_session_token_passes_csrf(self, csrf_env, monkeypatch):
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         monkeypatch.setattr(
             tasks,
@@ -105,7 +105,7 @@ class TestCsrfContract:
         """The test-suite convention (WTF_CSRF_ENABLED=false) keeps working."""
         _app, client, ctx = _setup_test_env()  # disables CSRF by default
         try:
-            import app.rag.tasks as tasks
+            from app.rag import tasks
 
             monkeypatch.setattr(
                 tasks,

@@ -31,6 +31,7 @@ class DenseRetriever:
         embedding_model: Name of the sentence-transformers model to use.
         client: Optional pre-built ``QdrantClient`` (for testing).
         encoder: Optional pre-built ``SentenceTransformer`` (for testing).
+
     """
 
     def __init__(
@@ -167,7 +168,8 @@ class DenseRetriever:
     @staticmethod
     def _payload_to_chunk(point: Any) -> RetrievedChunk:
         """Convert a Qdrant ``ScoredPoint`` (or ``{"id", "score", "payload"}``
-        dict) to a :class:`RetrievedChunk`."""
+        dict) to a :class:`RetrievedChunk`.
+        """
         point_id = getattr(point, "id", None)
         if point_id is None and isinstance(point, dict):
             point_id = point.get("id")
@@ -211,6 +213,7 @@ class DenseRetriever:
 
         Returns:
             A :class:`SearchResult` with dense-retrieved chunks.
+
         """
         import time
 

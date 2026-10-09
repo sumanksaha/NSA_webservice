@@ -309,6 +309,7 @@ def attribute_sections(points: list[dict]) -> dict[str, dict]:
     Returns:
         ``{chunk_id: {"section": str|None, "title": str|None, "inherited":
         bool}}``.
+
     """
     ordered = sorted(
         (p for p in points if isinstance(p.get("payload"), dict)),
@@ -415,6 +416,7 @@ def resolve_cross_references(
          when the same-document lookup found nothing; unique target resolves,
          multiple Act chunks stay unresolved (true ambiguity).
     Zero targets => ``resolved: False`` with no ambiguity claim.
+
     """
 
     def _ids(items: list[Any]) -> list[tuple[str, int]]:
@@ -686,6 +688,7 @@ def enrich_document(
 
     Returns:
         List of deterministic enrichment records (one per chunk).
+
     """
     points = list(document_points)
     if not points:

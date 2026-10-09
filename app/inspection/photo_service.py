@@ -128,7 +128,7 @@ class InspectionPhotoService:
         # Stage 2 — save the file and persist the PENDING evidence row
         # (temp file cleaned up if the insert fails).
         image_id, _filename, _temp_path, photo_evidence = self._persist_pending_evidence(
-            inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str
+            inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str,
         )
 
         actor = request.remote_addr
@@ -144,7 +144,7 @@ class InspectionPhotoService:
         # Stage 3 — geo-verify, stamp the image, and finalize the row.
         # A stamping failure removes the PENDING row (fail closed).
         result, filepath = self._verify_and_stamp(
-            photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str
+            photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str,
         )
         audit_logger("photo").log(image_id, "VERIFICATION_RUN", actor=actor, **result)
 
@@ -167,7 +167,8 @@ class InspectionPhotoService:
 
     def _guard_upload(self, inspection_id: int):
         """Fail fast when the inspection is missing or the violation type
-        excludes photo evidence (sample-based substandard/misbranded cases)."""
+        excludes photo evidence (sample-based substandard/misbranded cases).
+        """
         from flask import current_app  # noqa: F401  (context required by caller)
 
         from app.models import Adjudication, CaseFile, Inspection
@@ -190,7 +191,8 @@ class InspectionPhotoService:
 
     def _resolve_photo_coordinates(self, file_obj) -> tuple[float, float, float, str]:
         """Extract EXIF GPS, apply the form > EXIF > 0.0 fallback, validate the
-        capture timestamp.  Requires a request context."""
+        capture timestamp.  Requires a request context.
+        """
         from flask import request
 
         exif_lat, exif_lng, exif_accuracy = self._extract_exif_gps(file_obj)
@@ -198,7 +200,7 @@ class InspectionPhotoService:
         resolved_lat = self._pick_coord(request.form.get("lat"), exif_lat)
         resolved_lng = self._pick_coord(request.form.get("lng"), exif_lng)
         resolved_acc = self._pick_coord(
-            request.form.get("accuracy"), exif_accuracy if exif_accuracy is not None else 0.0
+            request.form.get("accuracy"), exif_accuracy if exif_accuracy is not None else 0.0,
         )
 
         captured_at_str = request.form["captured_at"]
@@ -209,7 +211,7 @@ class InspectionPhotoService:
         return resolved_lat, resolved_lng, resolved_acc, captured_at_str
 
     def _persist_pending_evidence(
-        self, inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str
+        self, inspection, file_obj, resolved_lat, resolved_lng, resolved_acc, captured_at_str,
     ):
         """Save the upload to the temp dir and insert the PENDING Evidence row.
 
@@ -262,7 +264,7 @@ class InspectionPhotoService:
         return image_id, filename, temp_path, photo_evidence
 
     def _verify_and_stamp(
-        self, photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str
+        self, photo_evidence, file_obj, resolved_lat, resolved_lng, resolved_acc, actor, inspection, captured_at_str,
     ):
         """Geo-verify the coordinates, stamp the image, finalize the row.
 
@@ -305,7 +307,8 @@ class InspectionPhotoService:
 
     def _dispatch_ocr(self, filepath: str, image_id: str) -> tuple[str | None, dict | None]:
         """Best-effort OCR dispatch via QStash.  Never raises: a dispatch
-        failure (or a sync-mode exception result) leaves both outputs None."""
+        failure (or a sync-mode exception result) leaves both outputs None.
+        """
         if not _OCR_AVAILABLE:
             return None, None
 

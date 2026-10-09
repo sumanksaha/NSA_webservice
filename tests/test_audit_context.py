@@ -80,7 +80,8 @@ class TestFactoryBinding:
 
     def test_entity_id_coerced_to_str_and_details_passed_through(self):
         """entity_id is str()-coerced (core contract) and kwargs become the
-        details dict verbatim."""
+        details dict verbatim.
+        """
         with patch("app.services.audit_context._default_writer") as writer:
             audit_logger("annexure").log(42, "ANNEXURE_UPLOADED", filename="a.pdf", letter="A")
 
@@ -120,7 +121,8 @@ class TestActorNormalization:
 
     def test_actor_anonymous_when_current_user_raises(self):
         """Outside a request context (Celery task, shell) flask-login's
-        current_user can raise on attribute access — degrade, don't crash."""
+        current_user can raise on attribute access — degrade, don't crash.
+        """
 
         class Boom:
             @property
@@ -157,13 +159,15 @@ class TestBestEffortSwallowing:
     def test_real_core_failure_is_swallowed(self):
         """Patching the core ``log_audit`` itself (the lazy-import path) must
         also be contained — this is exactly the triplicated wrapper's
-        behaviour that D7 replaces."""
+        behaviour that D7 replaces.
+        """
         with patch("app.services.audit.log_audit", side_effect=RuntimeError("chain broken")):
             audit_logger("evidence").log("ev1", "EVIDENCE_DELETED")  # must not raise
 
     def test_swallowing_does_not_fail_the_caller_operation(self):
         """The route-layer motivation: a failed audit write must not abort the
-        request that triggered it."""
+        request that triggered it.
+        """
         completed = False
         with patch("app.services.audit_context._default_writer", side_effect=OSError("disk full")):
             audit_logger("annexure").log("x1", "ANNEXURE_RENAMED", caption="new")
@@ -180,7 +184,8 @@ class TestEndToEndWithCore:
     def test_row_persisted_and_details_serialized(self, test_app):
         """Real writer, real DB: the row lands with the bound entity_type,
         anonymous actor (no login in the fixture), and JSON-serialized
-        details."""
+        details.
+        """
         audit_logger("annexure").log("ann-1", "ANNEXURE_UPLOADED", filename="a.pdf", letter="A")
 
         row = AuditLog.query.filter_by(entity_id="ann-1").one()

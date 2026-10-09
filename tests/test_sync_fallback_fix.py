@@ -84,7 +84,8 @@ _VALID_FORM_DATA = {
 
 class TestCaseFileSyncFallback:
     """When QStash is not configured, generate_case_file_route must still
-    return a proper HTTP response via the synchronous inline fallback."""
+    return a proper HTTP response via the synchronous inline fallback.
+    """
 
     @pytest.fixture
     def app_client(self):
@@ -112,7 +113,8 @@ class TestCaseFileSyncFallback:
 
     def test_sync_mode_returns_200(self, app_client):
         """Force sync fallback and verify the 200 path works end to end.
-        We stub the sync and PDF task to return success."""
+        We stub the sync and PDF task to return success.
+        """
         from app.case_file_generator import routes as cfr
 
         fake_pdf_result = {
@@ -202,8 +204,8 @@ class TestCaseFileSyncFallback:
 
     def test_actual_sync_fallback_returns_proper_response(self, app_client):
         """Force the real sync fallback (qstash_configured=False) and verify
-        the route returns a proper JSON response (200 or 500)."""
-
+        the route returns a proper JSON response (200 or 500).
+        """
         with patch("app.utils.qstash_client.qstash_configured", return_value=False):
             with app_client.session_transaction() as sess:
                 sess["_user_id"] = "1"

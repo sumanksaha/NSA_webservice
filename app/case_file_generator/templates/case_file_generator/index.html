@@ -644,6 +644,15 @@
                         >
                             <i class="fa-solid fa-file-word"></i> Prayer
                         </a>
+                        {% if not c.retailer_cum_manufacturer %}
+                        <a
+                            href="{{ url_for('case_file_generator.download_prohibition_order_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Prohibition Order as Word — batch/manufacturing/expiry details; not available for prepared/loose food (retailer-cum-manufacturer)"
+                        >
+                            <i class="fa-solid fa-file-word"></i> Prohibition Order
+                        </a>
+                        {% endif %}
                         {% endif %}
                     </td>
                 </tr>

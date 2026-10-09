@@ -49,7 +49,7 @@ class FakeClient:
         return records, None
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_factory(monkeypatch):
     """Install a fake client; returns a setter taking the index mapping."""
 
@@ -80,7 +80,7 @@ ALL_INGESTED = {
 }
 
 
-@pytest.fixture()
+@pytest.fixture
 def corpus(tmp_path):
     for name in ("env_a.pdf", "env_b.pdf", "env_dup.pdf", "comm_a.pdf"):
         (tmp_path / name).write_bytes(b"%PDF-1.4")
@@ -90,7 +90,7 @@ def corpus(tmp_path):
             _doc("env_b", "env", requires_ocr=True, notes="SCANNED — 0 selectable text"),
             _doc("env_dup", "env", ingest=False, notes="byte-identical duplicate"),
             _doc("comm_a", "commercial", notes="Readable text."),
-        ]
+        ],
     }
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")

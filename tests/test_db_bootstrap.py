@@ -49,7 +49,7 @@ def _write_legacy_db(path: str, *, with_archive_columns: bool) -> None:
         conn.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def boot_env(monkeypatch):
     """Deterministic boot: skip seeds/syncs unrelated to the schema check."""
     monkeypatch.setenv("SKIP_ADMIN_SEED", "1")
@@ -87,7 +87,8 @@ def test_bootstrap_error_names_table_and_remediation(tmp_path, boot_env, caplog)
 def test_bootstrap_names_migration_less_column(tmp_path, boot_env):
     """Pins the production ``GET /case_file_generator/`` 500: a full schema
     minus the migration-less ``retailer_cum_manufacturer`` column must fail
-    loud naming that column (not serve per-page 500s)."""
+    loud naming that column (not serve per-page 500s).
+    """
     import sqlite3
 
     from app import create_app
@@ -107,7 +108,8 @@ def test_bootstrap_names_migration_less_column(tmp_path, boot_env):
 
 def test_bootstrap_bypass_repairs_drifted_db(tmp_path, boot_env, monkeypatch):
     """The whole repair path depends on the bypass: a legacy DB must boot
-    with ``SKIP_SCHEMA_CHECK=1`` so `flask db upgrade` can run against it."""
+    with ``SKIP_SCHEMA_CHECK=1`` so `flask db upgrade` can run against it.
+    """
     from app import create_app
 
     db_path = str(tmp_path / "legacy.db")
@@ -120,7 +122,8 @@ def test_bootstrap_bypass_repairs_drifted_db(tmp_path, boot_env, monkeypatch):
 
 def test_bootstrap_boots_when_columns_present(tmp_path, boot_env):
     """A database whose tables already exist with full columns boots
-    normally — the check must not false-positive on the tables-exist path."""
+    normally — the check must not false-positive on the tables-exist path.
+    """
     from app import create_app
 
     db_path = str(tmp_path / "migrated.db")

@@ -141,6 +141,12 @@ class RAGState(TypedDict, total=False):
     retry_count: int
     expanded_query: str | None
     max_retries: int
+    # Structured retry plan (RAG-TR-001): serialized TargetPlan dict, JSON-safe.
+    target_plan: dict[str, Any] | None
+    # Shadow verifier scores (RAG-TR-001 section 5): logged, never routed on.
+    groundedness_shadow: float
+    claim_groundedness_shadow: float
+    shadow_flags: list[str]
 
     # --- M5 human-in-the-loop (review node) ---
     approved: bool
@@ -255,6 +261,10 @@ def initial_state(
         "retry_count": 0,
         "expanded_query": None,
         "max_retries": max_retries,
+        "target_plan": None,
+        "groundedness_shadow": 0.0,
+        "claim_groundedness_shadow": 0.0,
+        "shadow_flags": [],
         "budget": {
             "max_tasks": 10,
             "max_retrieval_rounds": 5,

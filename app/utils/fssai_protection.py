@@ -14,6 +14,7 @@ def verify_delete_protection() -> dict:
 
     Returns:
         dict with 'protected' bool and 'details' list of table statuses
+
     """
     tables = ["fssai_licenses", "fssai_registrations"]
     results = {"protected": True, "details": []}
@@ -52,6 +53,7 @@ def count_fssai_records() -> dict:
 
     Returns:
         dict with counts per table
+
     """
     counts = {}
     tables = ["fssai_licenses", "fssai_registrations"]

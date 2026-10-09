@@ -38,7 +38,7 @@ import re
 import sys
 import warnings
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +51,7 @@ sys.path.insert(0, str(ROOT / "evaluation"))
 OUT = ROOT / "evaluation" / "out" / "ceiling_v5"
 
 # Reuse Step 0 enum + label loaders (no generation imports).
-from evaluation.step0_label_residual import (  # noqa: E402
+from evaluation.step0_label_residual import (
     STEP0_ENUM,
     load_residual_qids,
     validate_labels,
@@ -211,7 +211,7 @@ def assign_qids(
             f"missing={validation0.get('n_missing', '?')} "
             f"invalid={validation0.get('n_invalid', 0)} "
             f"labeled={validation0.get('n_labeled_valid', 0)}/"
-            f"{validation0.get('n_residual_total', '?')}"
+            f"{validation0.get('n_residual_total', '?')}",
         )
 
     residual = load_residual_qids()
@@ -219,7 +219,7 @@ def assign_qids(
     if not v_lab.get("step0_complete"):
         raise ValueError(
             f"label validation failed: missing={v_lab['n_missing']} "
-            f"invalid={v_lab['invalid_labels']}"
+            f"invalid={v_lab['invalid_labels']}",
         )
 
     payload = build_gates(labels, step0_complete=True, source=source)
@@ -233,7 +233,7 @@ def assign_qids(
     assignment = {
         "experiment": "Step 1b — qid assignment to pre-registered gates",
         "plan_ref": PLAN_REF,
-        "assigned_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "assigned_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "scorer": SCORER,
         "step0_complete": True,
         "qid_assignment": "assigned",
@@ -314,13 +314,13 @@ def build_gates(
         if union != set(residual):
             raise ValueError(
                 f"gate partition != residual: missing={sorted(set(residual)-union)} "
-                f"extra={sorted(union-set(residual))}"
+                f"extra={sorted(union-set(residual))}",
             )
 
     return {
         "experiment": "Step 1 — pre-registered per-label gates",
         "plan_ref": PLAN_REF,
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "registered_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "scorer": SCORER,
         "enum": list(STEP1_LABELS),
         "step0_complete": bool(assigned),
@@ -561,7 +561,7 @@ def render_markdown(payload: dict, validation: dict) -> str:
     for label in STEP1_LABELS:
         g = payload["gates"][label]
         lines.append(
-            f"| `{label}` | {g['intervention']} | {g['keep_if']} | {g['reject_if']} | {g['n']} |"
+            f"| `{label}` | {g['intervention']} | {g['keep_if']} | {g['reject_if']} | {g['n']} |",
         )
     lines += ["", "## Step 2 — Safety properties", ""]
     for s in SAFETY_PROPERTIES:
@@ -743,7 +743,7 @@ def main(argv: list[str] | None = None) -> int:
             + ", ".join(
                 f"{lab}: {payload['gates'][lab]['n']}" for lab in STEP1_LABELS
             )
-            + " }"
+            + " }",
         )
         for k, p in written.items():
             print(f"  wrote {k}: {p.name}")
@@ -777,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"step1_registered={v1['ok']} step0_complete={payload['step0_complete']} "
             f"qid_assignment={payload['qid_assignment']} "
-            f"label_counts={payload['label_counts']} errors={v1['errors'] or 'none'}"
+            f"label_counts={payload['label_counts']} errors={v1['errors'] or 'none'}",
         )
         for k, p in written.items():
             print(f"  wrote {k}: {p.name}")
@@ -785,7 +785,7 @@ def main(argv: list[str] | None = None) -> int:
             # Labels already complete: register also performs assignment.
             print(
                 "  note: Step 0 complete — run --assign-qids for the full Step 1b "
-                "assignment report (step1_qid_assignment.json)"
+                "assignment report (step1_qid_assignment.json)",
             )
 
     if args.require_complete:

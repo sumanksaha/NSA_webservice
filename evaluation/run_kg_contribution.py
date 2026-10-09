@@ -249,7 +249,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
     ]
     for cat, row in metrics["by_category"].items():
         lines.append(
-            f"| {cat} | {row['n']} | {row['retrieval_recall']} | {row['kg_context_recall']} | {row['kg_injected_gold']} |"
+            f"| {cat} | {row['n']} | {row['retrieval_recall']} | {row['kg_context_recall']} | {row['kg_injected_gold']} |",
         )
     lines += ["", "## Gold clauses the KG injected on its own", ""]
     if metrics["injected"]:
@@ -263,7 +263,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
             continue
         lines.append(
             f"| {r['question_id']} | {r['gold_clause']} | {len(r['retrieval_clauses'])} | {len(r['kg_clauses'])} | "
-            f"{'Y' if r['retrieval_hit'] else 'n'} | {'Y' if r['kg_hit'] else 'n'} | {'Y' if r['kg_injected'] else 'n'} |"
+            f"{'Y' if r['retrieval_hit'] else 'n'} | {'Y' if r['kg_hit'] else 'n'} | {'Y' if r['kg_injected'] else 'n'} |",
         )
     REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

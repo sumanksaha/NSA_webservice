@@ -52,6 +52,7 @@ def evidence_set_recall(
 
     Returns:
         ``EvidenceMetricResult`` with the recall score.
+
     """
     selected_set = set(s for s in selected_ids if s)
     gold_set = set(g for g in gold_ids if g)
@@ -170,6 +171,7 @@ def evaluate_evidence_set(
     Returns:
         List of metric results: recall, precision, f1, and optionally
         coverage@k.
+
     """
     results: list[EvidenceMetricResult] = []
 
@@ -225,6 +227,7 @@ def evaluate_evidence_batch(
         evidence_sets: Selected evidence sets, one per query.
         gold_sets: Gold provision IDs per query.
         ranked_lists: Optional ranked chunk lists per query (for coverage@K).
+
     """
     if not evidence_sets or not gold_sets:
         return EvidenceBatchResult(0, 0.0, 0.0, 0.0, 0.0, 0.0)

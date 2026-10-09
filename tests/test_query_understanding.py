@@ -124,7 +124,7 @@ def test_profile_weights_match_direct_lookup():
 
     u = understand("What does Section 55 say?")
     assert u.profile_weights("definition") == ProfileManager().get_query_profile("standard").rerank_weights_for(
-        "definition"
+        "definition",
     )
     # Unknown profile falls back to standard, as the historical call site did.
     assert u.profile_weights("definition", "no-such-profile") == u.profile_weights("definition")

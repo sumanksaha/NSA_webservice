@@ -479,7 +479,7 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         "credit KG evidence. This experiment repairs the fusion at the rank level — "
         "Reciprocal Rank Fusion over the dense, sparse and KG candidate lists (same "
         "k=60 constant as `HybridRetriever`) — and re-scores the **identical cached "
-        "candidates** (no corpus, embedding, KG or benchmark change, no re-retrieval)."
+        "candidates** (no corpus, embedding, KG or benchmark change, no re-retrieval).",
     )
     lines.append("")
     lines.append("Arms (all offline, from cached A/B/D/E raw results):")
@@ -490,7 +490,7 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
     lines.append(
         "- `G_ds_kg_rrf_dedup`  = G with provision-level dedup — a KG item whose "
         "(family, section) a vector chunk already covers is dropped before fusing "
-        "(frees slots for novel candidates)"
+        "(frees slots for novel candidates)",
     )
     lines.append("- `H_dense_kg_rrf_dedup` = H with the same dedup")
     lines.append("")
@@ -539,7 +539,7 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         lines.append(
             f"| {label} | {metric} | {_num(sum(va) / len(va))} | {_num(sum(vb) / len(vb))} "
             f"| {_num(ci['mean_diff'])} | [{_num(ci['ci95'][0])}, {_num(ci['ci95'][1])}] "
-            f"| {'YES' if not (ci['ci95'][0] < 0 < ci['ci95'][1]) else 'no'} |"
+            f"| {'YES' if not (ci['ci95'][0] < 0 < ci['ci95'][1]) else 'no'} |",
         )
     lines.append("")
 
@@ -571,15 +571,15 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
     lines.append(f"- Questions with KG evidence: **{n_kg}** (avg {total_prov / n_kg:.1f} provisions)")
     lines.append(
         f"- **KG help rate**: {helped} / {n_kg} = **{100 * helped / n_kg:.1f}%** "
-        "(gold units the KG covers that hybrid missed)"
+        "(gold units the KG covers that hybrid missed)",
     )
     lines.append(
         f"- **KG harm rate**: {harmed} / {n_kg} = **{100 * harmed / n_kg:.1f}%** "
-        "(KG returned provisions from a non-gold family)"
+        "(KG returned provisions from a non-gold family)",
     )
     lines.append(
         f"- **KG noise rate**: {noisy} / {n_kg} = **{100 * noisy / n_kg:.1f}%** "
-        "(questions where >=1 KG provision matched no gold unit)"
+        "(questions where >=1 KG provision matched no gold unit)",
     )
     lines.append(f"- **KG net value** (help − harm): **{(helped - harmed) / n_kg:+.3f}**")
     lines.append("")
@@ -596,24 +596,24 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         f"- **Fusion repair, same KG evidence (tail → RRF):** E R@10 {_pct(e10)} → "
         f"E_ds_kg_rrf R@10 {_pct(e_rrf10)} (n.s.) — the chunk-EXPANSION KG is "
         "largely redundant with what retrieval already returned, so fusing it "
-        "changes little."
+        "changes little.",
     )
     lines.append(
         f"- **Fusion repair, independent KG source (tail E → contract G):** "
         f"R@10 {_pct(e10)} → {_pct(g10)} (**significant**, CI excludes 0) — the "
         "KG's value appears only when its QUERY→graph provisions participate in "
-        "the ranking instead of being appended after the vector top-k."
+        "the ranking instead of being appended after the vector top-k.",
     )
     h5 = agg.get("H_dense_kg_rrf", {}).get("recall@5", 0)
     lines.append(
         f"- **KG provision precision:** RRF(dense + KG) reaches R@5 {_pct(h5)} "
         f"vs dense-only {_pct(a10 and agg.get('A_dense', {}).get('recall@5', 0))} — "
         "the contract's provision-level hits are precise and rank highly when "
-        "fused directly."
+        "fused directly.",
     )
     lines.append(
         f"- **KG under proper fusion:** G R@10 {_pct(g10)} vs hybrid C R@10 {_pct(c10)} "
-        f"and dense A R@10 {_pct(a10)} — see bootstrap CI for significance."
+        f"and dense A R@10 {_pct(a10)} — see bootstrap CI for significance.",
     )
     lines.append(
         "- **Provision-level dedup (G_ds_kg_rrf_dedup / H_dense_kg_rrf_dedup):** "
@@ -625,7 +625,7 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         "redundancy.  The finding is still consistent with the primary result: the "
         "KG-CONTRACT provisions are largely novel vs the vector top-k (which is why "
         "contract fusion improves recall), while KG-EXPANSION (chunk→graph re-surfacing "
-        "what retrieval already returned) is the redundant source."
+        "what retrieval already returned) is the redundant source.",
     )
     lines.append(
         "- **Caveat:** this experiment re-ranks cached candidates; the KG list is short "
@@ -633,7 +633,7 @@ def write_fusion_validation(data: dict[str, Any]) -> None:
         "is capped by corpus metadata (only ~22.5% of payloads carry section_number). "
         "Fusion cannot conjure gold provisions the sources never surfaced; the +7.6pp "
         "rank gain must be confirmed at the answer level (re-run of the retrieved_kg "
-        "LLM condition with the repaired fusion)."
+        "LLM condition with the repaired fusion).",
     )
     (OUT_DIR / "fusion_validation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     logger.info("fusion_validation.md written")

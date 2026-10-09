@@ -206,7 +206,7 @@ class TestEnsembleExactMatch:
                 act_name="Environment (Protection) Act, 1986",
             ),
             _chunk(
-                "c1", score=0.80, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006"
+                "c1", score=0.80, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006",
             ),
         ]
         reranker = EnsembleReranker(encoder=None, ce_head=2)
@@ -232,7 +232,8 @@ class TestEnsembleExactMatch:
 
 class TestHierarchyPreference:
     """hierarchy_level 3-5 (section/subsection/clause) get a small boost over
-    level 1-2 (document root / chapter headers)."""
+    level 1-2 (document root / chapter headers).
+    """
 
     def test_higher_hierarchy_wins_when_scores_tied(self):
         # Same base score, but c2 is at section level (3) vs c1 at document
@@ -282,7 +283,7 @@ class TestDynamicCESkipping:
         # All chunks in the head match both section + act -> CE should be skipped
         chunks = [
             _chunk(
-                "c1", score=0.95, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006"
+                "c1", score=0.95, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006",
             ),
             _chunk(
                 "c2",
@@ -308,10 +309,10 @@ class TestDynamicCESkipping:
         # c1 has exact match, c2 has section-only (no act), c3 has neither
         chunks = [
             _chunk(
-                "c1", score=0.95, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006"
+                "c1", score=0.95, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006",
             ),
             _chunk(
-                "c2", score=0.85, text="Sec 55 EPA", section_number="55", act_name="Environment (Protection) Act, 1986"
+                "c2", score=0.85, text="Sec 55 EPA", section_number="55", act_name="Environment (Protection) Act, 1986",
             ),
             _chunk("c3", score=0.75, text="generic provision"),
         ]
@@ -334,10 +335,10 @@ class TestDynamicCESkipping:
         ce = _MockCrossEncoder({"": 0.0})
         chunks = [
             _chunk(
-                "c1", score=0.9, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006"
+                "c1", score=0.9, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006",
             ),
             _chunk(
-                "c2", score=0.8, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006"
+                "c2", score=0.8, text="Sec 55 FSS", section_number="55", act_name="Food Safety and Standards Act, 2006",
             ),
         ]
         reranker = EnsembleReranker(encoder=ce, ce_head=2, ce_weight=1.0)

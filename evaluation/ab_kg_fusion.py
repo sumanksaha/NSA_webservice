@@ -102,8 +102,31 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.rescore:
-        off_rows, on_rows = _load_shards(args.rescore)
-        return _report(_rescore_rows(off_rows), _rescore_rows(on_rows), shard_out="")
+        _off, _on = _load_shards(args.rescore)
+        off_rows, off_skipped = _rescore_rows(_off)
+        on_rows, on_skipped = _rescore_rows(_on)
+        skipped = sorted(set(off_skipped) | set(on_skipped))
+        n_rescored = sum(1 for r in (*off_rows, *on_rows) if r.get("_rescored"))
+        if n_rescored == 0:
+            print(
+                "ABORT: no row could be rescored. These shards predate the "
+                "'answer'/'gold_chunk_ids' persistence, so their citation "
+                "figures are the values computed by the OLD CitationTracker. "
+                "Re-run the 150-question A/B to re-measure; --rescore cannot "
+                "recover them.",
+                file=sys.stderr,
+            )
+            return 1
+        if skipped:
+            print(
+                f"PARTIAL RESCORE: {len(skipped)} row(s) could not be rescored "
+                f"({', '.join(skipped[:10])}{'...' if len(skipped) > 10 else ''}). "
+                "For those qids citation_recall, gold_in_prompt and the "
+                "gold-gained/lost sets are STALE (old tracker), not "
+                "re-measured. Do not read them as a fresh result.",
+                file=sys.stderr,
+            )
+        return _report(off_rows, on_rows, shard_out="", rescored=n_rescored, unrescorable=skipped)
 
     if args.merge_shards:
         return _report(*_load_shards(args.merge_shards), shard_out="")
@@ -219,7 +242,7 @@ def _load_shards(paths: list[str]) -> tuple[list[dict[str, Any]], list[dict[str,
     return list(off.values()), list(on.values())
 
 
-def _rescore_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _rescore_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     """Recompute citation-derived metrics from the stored answer text.
 
     ``citation_recall``, ``gold_in_prompt`` and the gold gained/lost sets are
@@ -228,22 +251,30 @@ def _rescore_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     renders), those numbers change too — and re-deriving them must not cost
     LLM quota, so the shard keeps the answer text and gold ids needed.
 
-    Rows that lack the stored fields are returned untouched, so mixing old and
-    new shards degrades to "unchanged" rather than to a wrong number.
+    Rows that lack the stored fields are returned untouched *and their qids are
+    returned alongside*, so the caller can refuse to present a stale number as
+    a re-measurement.  That matters: a shard written before the tracker fix
+    still carries a well-formed ``m["citation_recall"]``, so a silent skip
+    yields a report whose citation columns are the original tracker-bugged
+    values, formatted exactly like a fresh re-measurement.  Reading that as
+    "the re-measurement came back and showed X" is the failure this repo has
+    already committed twice (analysis §5.3 evaluator misses; ADR-0010 §3 an
+    empty gold set reported as a citation result).
     """
     out: list[dict[str, Any]] = []
-    n_rescored = n_skipped = 0
+    skipped: list[str] = []
+    n_rescored = 0
     for row in rows:
         answer = row.get("answer")
         gold = set(row.get("gold_chunk_ids") or [])
         if not answer or "gold_chunk_ids" not in row:
-            n_skipped += 1
+            skipped.append(str(row.get("qid", "?")))
             out.append(row)
             continue
         try:
             cited = _cited_ids_from_answer(answer, row)
         except Exception:
-            n_skipped += 1
+            skipped.append(str(row.get("qid", "?")))
             out.append(row)
             continue
         m = dict(row.get("m") or {})
@@ -252,10 +283,11 @@ def _rescore_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         new_row = dict(row)
         new_row["m"] = m
         new_row["cited_chunk_ids"] = sorted(cited)
+        new_row["_rescored"] = True
         out.append(new_row)
         n_rescored += 1
-    print(f"rescored {n_rescored} row(s), skipped {n_skipped} without stored answers", file=sys.stderr)
-    return out
+    print(f"rescored {n_rescored} row(s), skipped {len(skipped)} without stored answers", file=sys.stderr)
+    return out, skipped
 
 
 def _cited_ids_from_answer(answer: str, row: dict[str, Any]) -> set[str]:
@@ -280,7 +312,14 @@ def _cited_ids_from_answer(answer: str, row: dict[str, Any]) -> set[str]:
     return {c.chunk_id for c in CitationTracker().extract(answer, chunks)}
 
 
-def _report(off_rows: list[dict[str, Any]], on_rows: list[dict[str, Any]], shard_out: str = "") -> int:
+def _report(
+    off_rows: list[dict[str, Any]],
+    on_rows: list[dict[str, Any]],
+    shard_out: str = "",
+    *,
+    rescored: int = 0,
+    unrescorable: list[str] | None = None,
+) -> int:
     A = {r["qid"]: r for r in off_rows if r.get("m")}
     B = {r["qid"]: r for r in on_rows if r.get("m")}
     common = sorted(set(A) & set(B))
@@ -320,9 +359,36 @@ def _report(off_rows: list[dict[str, Any]], on_rows: list[dict[str, Any]], shard
             "t": round(statistics.fmean(d) / (sd / len(d) ** 0.5), 3) if sd else None,
         }
 
+    stale = set(unrescorable or [])
+    stale_common = [q for q in common if q in stale]
+
+    limitations = [
+        "Single free-tier model, one run per arm, no seed replication.",
+        "Soft correctness reproduced on only 1/89 questions across two runs of the "
+        "window A/B, so answer_correctness deltas at this size are model noise.",
+        "KG fusion reorders the candidate pool via RRF, so a difference here "
+        "confounds 'KG evidence added' with 'vector ranking perturbed'.",
+    ]
+    if rescored:
+        limitations.append(
+            f"Rescored offline through the current CitationTracker ({rescored} rows). "
+            "binary_correct / answer_correctness are NOT re-derived — they come "
+            "from the original run and are unaffected by the tracker fix.",
+        )
+    if stale_common:
+        limitations.append(
+            f"STALE for {len(stale_common)}/{len(common)} paired qids "
+            f"({', '.join(stale_common[:10])}{'...' if len(stale_common) > 10 else ''}): "
+            "these shards predate answer persistence, so their citation_recall, "
+            "gold_in_prompt and gold-gained/lost values are the OLD tracker's, "
+            "not a re-measurement.",
+        )
+
     out = {
         "model": os.environ.get("RAG_LLM_MODEL"),
         "n_paired": len(common),
+        "rescored_rows": rescored,
+        "unrescorable_qids": sorted(stale),
         "kg_injected_qids": injected,
         "n_kg_injected": len(injected),
         "kg_provisions_mean": round(statistics.fmean((B[q].get("kg") or {}).get("provisions", 0) for q in common), 2),
@@ -336,13 +402,7 @@ def _report(off_rows: list[dict[str, Any]], on_rows: list[dict[str, Any]], shard
             k: paired(common, k)
             for k in ("binary_correct", "answer_correctness", "citation_recall", "groundedness_score")
         },
-        "limitations": [
-            "Single free-tier model, one run per arm, no seed replication.",
-            "Soft correctness reproduced on only 1/89 questions across two runs of the "
-            "window A/B, so answer_correctness deltas at this size are model noise.",
-            "KG fusion reorders the candidate pool via RRF, so a difference here "
-            "confounds 'KG evidence added' with 'vector ranking perturbed'.",
-        ],
+        "limitations": limitations,
     }
 
     if shard_out:
@@ -365,7 +425,7 @@ def _report(off_rows: list[dict[str, Any]], on_rows: list[dict[str, Any]], shard
     print("=" * 76)
     print(
         f"mean KG provisions/query: {out['kg_provisions_mean']}  "
-        f"questions with KG injected: {len(injected)}/{len(common)}"
+        f"questions with KG injected: {len(injected)}/{len(common)}",
     )
     print(f"gold newly in prompt: {len(changed)}  gold lost: {len(lost)}")
     print()

@@ -181,7 +181,7 @@ def main() -> int:
     for r in ts["rows"]:
         print(
             f"{r['threshold']:>7.2f} {r['evaluator_misses_recovered']:>10} "
-            f"{r['recovery_rate']:>6.2f} {r['model_wrong_falsely_credited']:>13} {r['precision']:>10.2f}"
+            f"{r['recovery_rate']:>6.2f} {r['model_wrong_falsely_credited']:>13} {r['precision']:>10.2f}",
         )
     print()
     print(ts["conclusion"])

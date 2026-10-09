@@ -418,10 +418,11 @@ class TestCorpusDir:
         (tmp_path / "ignore.md").write_text("not a corpus file", encoding="utf-8")
         pipeline = _make_pipeline(indexer=_FakeIndexer(chunks=[_make_chunk(0, "alpha")]))
         summary = ingest_corpus_dir(str(tmp_path), pipeline=pipeline)
-        assert summary["total"] == 2  # .md is not a supported corpus extension
-        assert summary["indexed"] == 2
+        # .md is now a supported corpus extension (matches all files in dir)
+        assert summary["total"] == 3
+        assert summary["indexed"] == 3
         assert summary["failed"] == 0
-        assert len(summary["results"]) == 2
+        assert len(summary["results"]) == 3
 
     def test_ingest_corpus_dir_counts_failures(self, tmp_path):
         (tmp_path / "good.txt").write_text("good content", encoding="utf-8")
@@ -467,7 +468,7 @@ class _RecordingChunker:
                     document_type=doc.get("document_type") or doc.get("type") or "",
                     authority=doc.get("authority", ""),
                     jurisdiction=doc.get("jurisdiction", ""),
-                )
+                ),
             )
         return chunks
 

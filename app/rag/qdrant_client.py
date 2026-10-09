@@ -127,6 +127,7 @@ def dense_search(
     Returns:
         List of ScoredPoint-like objects (each with ``id``, ``score``,
         ``payload``).
+
     """
     search = getattr(client, "search", None)
     if callable(search):
@@ -197,6 +198,7 @@ def sparse_search(
 
     Returns:
         List of ScoredPoint-like objects.
+
     """
     models: Any = None
     try:
@@ -268,6 +270,7 @@ class QdrantStore:
             ``DenseRetriever`` collection).
         vector_size: Vector dimensionality (defaults to ``RAG_VECTOR_SIZE``).
         client: Optional pre-built ``QdrantClient`` (for testing).
+
     """
 
     def __init__(
@@ -333,7 +336,7 @@ class QdrantStore:
         if client is None:
             raise RuntimeError(
                 "Qdrant is unavailable: qdrant-client is not installed or RAG_QDRANT_URL is not "
-                "configured. Install qdrant-client and set RAG_QDRANT_URL to enable the vector store."
+                "configured. Install qdrant-client and set RAG_QDRANT_URL to enable the vector store.",
             )
         return client
 
@@ -424,6 +427,7 @@ class QdrantStore:
 
         Returns:
             ``True`` when the collection exists after this call.
+
         """
         client = self._require_client()
         try:
@@ -527,6 +531,7 @@ class QdrantStore:
 
         Returns:
             Number of points upserted.
+
         """
         client = self._require_client()
         models = self._get_models()
@@ -542,7 +547,7 @@ class QdrantStore:
                 except Exception as exc2:
                     raise RuntimeError(
                         f"Qdrant upsert batch #{start // UPSERT_BATCH_SIZE} "
-                        f"({len(batch)} points) failed after retry: {exc2}"
+                        f"({len(batch)} points) failed after retry: {exc2}",
                     ) from exc2
             upserted += len(batch)
         return upserted
@@ -580,6 +585,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "score", "payload"}`` dicts.
+
         """
         client = self._require_client()
         filter_dict = self._build_filter(filters) if filters else None
@@ -619,6 +625,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "score", "payload"}`` dicts.
+
         """
         client = self._require_client()
         filter_dict = self._build_filter(filters) if filters else None
@@ -662,6 +669,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "score", "payload"}`` dicts, fused and ranked.
+
         """
         client = self._require_client()
         query_points = getattr(client, "query_points", None)
@@ -734,6 +742,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "score", "payload"}`` dicts.
+
         """
         client = self._require_client()
         query_points = getattr(client, "query_points", None)
@@ -789,6 +798,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "score", "payload"}`` dicts, fused and ranked.
+
         """
         client = self._require_client()
         query_points = getattr(client, "query_points", None)
@@ -843,6 +853,7 @@ class QdrantStore:
 
         Returns:
             Number of points targeted for deletion.
+
         """
         client = self._require_client()
         models = self._get_models()
@@ -870,6 +881,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "payload"}`` dicts for the first page.
+
         """
         client = self._require_client()
         kwargs: dict[str, Any] = {
@@ -903,6 +915,7 @@ class QdrantStore:
 
         Returns:
             List of ``{"id", "payload", ["vector"]}`` dicts for all points.
+
         """
         client = self._require_client()
         results: list[dict[str, Any]] = []
@@ -938,7 +951,7 @@ class QdrantStore:
             if pages >= max_pages:
                 raise RuntimeError(
                     f"scroll_all exceeded {max_pages} pages — possible non-terminating "
-                    "offset from the Qdrant client; aborting export."
+                    "offset from the Qdrant client; aborting export.",
                 )
         return results
 

@@ -109,6 +109,7 @@ class ConceptLinker:
         driver: Optional pre-built Neo4j driver (injected for tests).
         database: Neo4j database name (default from ``NEO4J_DATABASE`` env).
         batch_size: UNWIND batch size for edge writes.
+
     """
 
     def __init__(self, driver: Any | None = None, database: str | None = None, batch_size: int = 500) -> None:
@@ -147,7 +148,7 @@ class ConceptLinker:
                    coalesce(c.domains, []) AS domains,
                    count(e) AS inbound
             ORDER BY c.concept_id
-            """
+            """,
         )
         out = []
         for r in rows:
@@ -176,7 +177,7 @@ class ConceptLinker:
                    coalesce(p.provision_text, '') AS provision_text,
                    coalesce(p.legal_domain, '') AS legal_domain,
                    own_chunks
-            """
+            """,
         )
         out = []
         for r in rows:
@@ -470,7 +471,7 @@ class ConceptLinker:
             WITH c, count(e) AS inbound
             WHERE inbound = 0
             RETURN count(c) AS n
-            """
+            """,
         )
         return int(rows[0]["n"]) if rows else 0
 

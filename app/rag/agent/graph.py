@@ -491,13 +491,14 @@ def build_graph(
             flag this flag has no effect.
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
+
     """
     try:
         from langgraph.graph import END, START, StateGraph
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ImportError(
             "The LangGraph agent pipeline requires 'langgraph'. "
-            "Install it (pip install langgraph) to use /api/rag/query/agent."
+            "Install it (pip install langgraph) to use /api/rag/query/agent.",
         ) from exc
 
     from app.rag.agent import nodes
@@ -784,6 +785,7 @@ def run_agent(
     The graph comes from the flag-aware ``_get_graph`` cache, so the live
     ``ENABLE_EVIDENCE_SELECTOR`` / ``FSO_ADVISOR_ENABLED`` values are
     honoured on every call.
+
     """
     if thread_id:
         # Rebuild with a checkpointer so resume works across requests.

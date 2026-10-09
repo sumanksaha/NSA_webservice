@@ -147,13 +147,25 @@ def answer_pair_checks(current: dict[str, dict], baseline: dict[str, dict]) -> l
         ("answer binary_correct (paired)", _mean(cur_b), _mean(base_b.values())),
         ("answer soft score (paired)", _mean(cur_s), _mean(base_s)),
     ):
-        checks.append({"name": name, "current": round(cur, 4), "reference": round(ref, 4),
-                       "ok": cur >= ref, "kind": "hard", "direction": ">="})
+        checks.append({
+            "name": name,
+            "current": round(cur, 4),
+            "reference": round(ref, 4),
+            "ok": cur >= ref,
+            "kind": "hard",
+            "direction": ">=",
+        })
 
     gains = sum(1 for q in qids if current[q]["binary"] == 1 and base_b[q] == 0)
     losses = sum(1 for q in qids if current[q]["binary"] == 0 and base_b[q] == 1)
-    checks.append({"name": "answer paired flips (info)", "current": f"{gains}+ / {losses}-",
-                   "reference": "net", "ok": True, "kind": "info", "direction": "-"})
+    checks.append({
+        "name": "answer paired flips (info)",
+        "current": f"{gains}+ / {losses}-",
+        "reference": "net",
+        "ok": True,
+        "kind": "info",
+        "direction": "-",
+    })
     return checks
 
 
@@ -171,9 +183,11 @@ def answer_context_checks(label_baseline: dict, split_qids: list[str]) -> list[d
         return checks
 
     def _stats(qs: list) -> tuple[float, float, float]:
-        return (_mean([rows[q]["machine_v2_best"] for q in qs]),
-                _mean([rows[q]["corrected_binary"] for q in qs]),
-                _mean([rows[q]["machine_v2_best_soft"] for q in qs]))
+        return (
+            _mean([rows[q]["machine_v2_best"] for q in qs]),
+            _mean([rows[q]["corrected_binary"] for q in qs]),
+            _mean([rows[q]["machine_v2_best_soft"] for q in qs]),
+        )
 
     sm, sc, ss = _stats(split)
     fm, fc, fs = _stats(rows)
@@ -183,8 +197,7 @@ def answer_context_checks(label_baseline: dict, split_qids: list[str]) -> list[d
         ("answer binary - gate set (mechanical)", round(sm, 4), round(fm, 4)),
         ("answer soft - gate set", round(ss, 4), round(fs, 4)),
     ):
-        checks.append({"name": label, "current": cur, "reference": ref,
-                       "ok": True, "kind": "info", "direction": "-"})
+        checks.append({"name": label, "current": cur, "reference": ref, "ok": True, "kind": "info", "direction": "-"})
     return checks
 
 
@@ -192,7 +205,6 @@ def _passed(checks: list[dict], strict: bool) -> bool:
     """True when all effective checks (hard + enforced targets) pass."""
     effective = [c for c in checks if c["kind"] == "hard" or (strict and c["kind"] == "target")]
     return all(c["ok"] for c in effective)
-
 
 
 # --------------------------------------------------------------------------- #
@@ -324,7 +336,7 @@ def render_report(passed: bool, checks: list[dict[str, Any]], label: str, strict
         kind = {"hard": "HARD", "target": "TGT", "info": "INFO"}.get(c["kind"], c["kind"].upper())
         status = "PASS" if c["ok"] else "FAIL"
         lines.append(
-            f"{c['name']:<32} {_fmt(c['current']):>10} {_fmt(c['reference']):>10} {status + ' (' + kind + ')':>16}"
+            f"{c['name']:<32} {_fmt(c['current']):>10} {_fmt(c['reference']):>10} {status + ' (' + kind + ')':>16}",
         )
     lines.append("-" * 64)
     if strict:
@@ -381,11 +393,10 @@ def main() -> int:
         "--answers-baseline",
         type=Path,
         default=ANSWER_BASELINE_FILE,
-        help="Frozen answer baseline for paired comparison "
-             "(default: evaluation/out/ceiling_v5/answers_baseline.json)",
+        help="Frozen answer baseline for paired comparison (default: evaluation/out/ceiling_v5/answers_baseline.json)",
     )
     parser.add_argument(
-        "--force", action="store_true", help="Run even when nothing was retrained since the baseline freeze"
+        "--force", action="store_true", help="Run even when nothing was retrained since the baseline freeze",
     )
     args = parser.parse_args()
 
@@ -414,7 +425,7 @@ def main() -> int:
     if not (_models_available() and _data_available()):
         if args.skip_if_unavailable:
             print(
-                "CE-v2 gate skipped: models or training data absent (fresh checkout?) - run it on the training machine."
+                "CE-v2 gate skipped: models or training data absent (fresh checkout?) - run it on the training machine.",
             )
             return 0
         print("error: models or training data missing (evaluation/out tree not present)")
@@ -423,7 +434,7 @@ def main() -> int:
     if not args.force and not _retrained_since(baseline):
         print(
             f"CE-v2 gate skipped: nothing retrained since baseline freeze ({baseline.get('frozen_at')}). "
-            "Use --force to re-check anyway."
+            "Use --force to re-check anyway.",
         )
         return 0
 

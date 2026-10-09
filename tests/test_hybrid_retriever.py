@@ -54,10 +54,10 @@ class TestHybridRetrieverBasic:
         chunk_b = _chunk("b", 0.8)
         chunk_c = _chunk("c", 0.7)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk_a, chunk_b], total=2, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk_a, chunk_b], total=2, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk_a, chunk_c], total=2, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk_a, chunk_c], total=2, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q", top_k=10)
@@ -66,10 +66,10 @@ class TestHybridRetrieverBasic:
     def test_fusion_deduplicates_chunks(self):
         chunk = _chunk("x", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q", top_k=10)
@@ -78,10 +78,10 @@ class TestHybridRetrieverBasic:
     def test_fusion_top_k(self):
         chunks = [_chunk(f"c{i}", 0.9 - i * 0.1) for i in range(5)]
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=chunks, total=5, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=chunks, total=5, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=list(reversed(chunks)), total=5, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=list(reversed(chunks)), total=5, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q", top_k=3)
@@ -90,7 +90,7 @@ class TestHybridRetrieverBasic:
     def test_fusion_empty_results(self):
         dense = StubDenseRetriever(SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense"))
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q", top_k=10)
@@ -100,10 +100,10 @@ class TestHybridRetrieverBasic:
     def test_fusion_source_is_hybrid(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q")
@@ -112,10 +112,10 @@ class TestHybridRetrieverBasic:
     def test_fusion_latency_recorded(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense", latency_ms=10)
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense", latency_ms=10),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse", latency_ms=5)
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse", latency_ms=5),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q")
@@ -124,10 +124,10 @@ class TestHybridRetrieverBasic:
     def test_fusion_error_propagation(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense", error="dense failed")
+            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense", error="dense failed"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"),
         )
         HybridRetriever(dense=dense, sparse=sparse)
 
@@ -136,10 +136,10 @@ class TestHybridRetrieverReranker:
     def test_reranker_applied_when_provided(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"),
         )
 
         class StubReranker:
@@ -153,10 +153,10 @@ class TestHybridRetrieverReranker:
     def test_reranker_failure_falls_back(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"),
         )
 
         class FailingReranker:
@@ -175,10 +175,10 @@ class TestHybridRetrieverRRF:
         b = _chunk("b", 0.9)
         c = _chunk("c", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[b, a, c], total=3, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[b, a, c], total=3, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[a, c, b], total=3, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[a, c, b], total=3, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse, rrf_k=60.0)
         result = hybrid.retrieve("q", top_k=10)
@@ -191,10 +191,10 @@ class TestHybridRetrieverRRF:
     def test_custom_rrf_k(self):
         chunk = _chunk("a", 0.9)
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="dense"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse")
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk], total=1, source="sparse"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse, rrf_k=100.0)
         assert hybrid._rrf_k == 100.0
@@ -204,10 +204,10 @@ class TestHybridRetrieverRRF:
 
     def test_fusion_both_errors(self):
         dense = StubDenseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense", error="dense down")
+            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="dense", error="dense down"),
         )
         sparse = StubSparseRetriever(
-            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse", error="sparse down")
+            SearchResult(query="q", query_type="general_qa", chunks=[], total=0, source="sparse", error="sparse down"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("q")
@@ -310,14 +310,14 @@ class TestHybridRetrieverServerFusion:
                     "text": "Section 55 deals with penalties for adulteration.",
                     "document_title": "FSS Act 2006",
                     "section_number": "55",
-                }
+                },
             },
             store=store,
             embedder=_FakeSparseEmbedder(),
         )
         chunk_a = _chunk("a", 0.9)
         dense = _EmbeddingDenseRetriever(
-            SearchResult(query="q", query_type="", chunks=[chunk_a], total=1, source="dense")
+            SearchResult(query="q", query_type="", chunks=[chunk_a], total=1, source="dense"),
         )
         hybrid = HybridRetriever(dense=dense, sparse=sparse)
         result = hybrid.retrieve("adulteration")

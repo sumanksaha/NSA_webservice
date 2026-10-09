@@ -167,7 +167,7 @@ def main() -> int:
                 "classification",
                 "evidence",
                 "recommended_repair",
-            ]
+            ],
         ]
         classified = []
         for a in corpus_missing:

@@ -113,7 +113,7 @@ class TestHybridVsDense:
         """HybridRetriever with same inputs produces consistent ranking."""
         chunks = [
             _make_chunk(
-                f"c{i}", 0.9 - i * 0.1, "Section 55 licensing" if i < 2 else "other text", "55" if i < 2 else None
+                f"c{i}", 0.9 - i * 0.1, "Section 55 licensing" if i < 2 else "other text", "55" if i < 2 else None,
             )
             for i in range(5)
         ]

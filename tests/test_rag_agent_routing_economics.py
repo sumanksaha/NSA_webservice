@@ -62,7 +62,7 @@ def test_cross_reference_query_type_routes_multi_hop():
     # (A single cited section with no conjunction — e.g. "which rule does
     # section 12 refer to" — is a DIRECT lookup by the identifier rule.)
     d = route_strategy(
-        {"complexity": "simple"}, "cross_reference", "which rules do the labelling provisions refer to"
+        {"complexity": "simple"}, "cross_reference", "which rules do the labelling provisions refer to",
     )
     assert d["strategy"] == "multi_hop"
     assert d["tier"] == "deep"

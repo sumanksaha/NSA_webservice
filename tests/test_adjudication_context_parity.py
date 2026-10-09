@@ -21,7 +21,7 @@ class TestRendererDelegates:
         from app.document_viewer import renderer
 
         with mock.patch.object(
-            adj_routes, "_prepare_adjudication_context", wraps=adj_routes._prepare_adjudication_context
+            adj_routes, "_prepare_adjudication_context", wraps=adj_routes._prepare_adjudication_context,
         ) as spy:
             ctx = renderer.build_adjudication_context(dict(VALID_FORM))
         assert spy.call_count == 1

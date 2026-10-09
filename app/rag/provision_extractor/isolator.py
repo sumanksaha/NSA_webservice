@@ -163,6 +163,7 @@ def isolate_chunks(
     Returns:
         Provision records in document order; ``[]`` when no boundary clears
         the confidence threshold.
+
     """
     ordered = sorted(chunks, key=lambda c: int(_chunk_field(c, "chunk_index", 0) or 0))
     parts = [str(_chunk_field(c, "chunk_text", "") or "") for c in ordered]
@@ -239,7 +240,7 @@ def isolate_chunks(
                 confidence=round(decision.probability, 6),
                 extraction_tier=decision.tier,
                 source=candidate.source_pattern,
-            )
+            ),
         )
     return records
 

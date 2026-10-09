@@ -22,7 +22,7 @@ def _fresh_breaker():
     The breaker is a module-level singleton so its state survives across
     real requests — but tests must not leak circuit state into each other.
     """
-    import app.rag.routes as routes
+    from app.rag import routes
 
     routes._query_breaker = None
     yield
@@ -51,7 +51,7 @@ class TestQueryRouteBreaker:
     def test_success_passes_through_breaker(self, monkeypatch, _app_env):
         """Healthy pipeline → normal 200 response with the pipeline payload."""
         _app, client = _app_env
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         monkeypatch.setattr(
             tasks,
@@ -66,7 +66,7 @@ class TestQueryRouteBreaker:
     def test_failure_degrades_to_stub_fallback_not_500(self, monkeypatch, _app_env):
         """A failing pipeline degrades gracefully instead of raising."""
         _app, client = _app_env
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         def boom(*args, **kwargs):
             raise RuntimeError("qdrant down")
@@ -84,7 +84,7 @@ class TestQueryRouteBreaker:
     def test_circuit_opens_after_threshold_and_fails_fast(self, monkeypatch, _app_env):
         """3 consecutive failures open the circuit; later calls skip the pipeline."""
         _app, client = _app_env
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         calls = {"n": 0}
 
@@ -109,7 +109,7 @@ class TestQueryRouteBreaker:
     def test_success_resets_failure_count(self, monkeypatch, _app_env):
         """Interleaved successes stop the circuit from opening."""
         _app, client = _app_env
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         state = {"fail_next": True}
         calls = {"n": 0}
@@ -134,7 +134,7 @@ class TestQueryRouteBreaker:
         """/api/rag/query/agent (flag off) delegates through the same breaker."""
         app, client = _app_env
         app.config["RAG_USE_AGENT_PIPELINE"] = False
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         def boom(*args, **kwargs):
             raise RuntimeError("qdrant down")

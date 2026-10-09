@@ -190,28 +190,27 @@ def best_gold_rank(gold_info: dict[str, dict]) -> int | None:
 def bucketize(rank: int | None) -> str:
     if rank is None:
         return ">500 / missing"
-    elif rank == 1:
+    if rank == 1:
         return "1"
-    elif 2 <= rank <= 5:
+    if 2 <= rank <= 5:
         return "2-5"
-    elif 6 <= rank <= 10:
+    if 6 <= rank <= 10:
         return "6-10"
-    elif 11 <= rank <= 20:
+    if 11 <= rank <= 20:
         return "11-20"
-    elif 21 <= rank <= 50:
+    if 21 <= rank <= 50:
         return "21-50"
-    elif 51 <= rank <= 100:
+    if 51 <= rank <= 100:
         return "51-100"
-    elif 101 <= rank <= 150:
+    if 101 <= rank <= 150:
         return "101-150"
-    elif 151 <= rank <= 200:
+    if 151 <= rank <= 200:
         return "151-200"
-    elif 201 <= rank <= 300:
+    if 201 <= rank <= 300:
         return "201-300"
-    elif 301 <= rank <= 500:
+    if 301 <= rank <= 500:
         return "301-500"
-    else:
-        return ">500 / missing"
+    return ">500 / missing"
 
 
 # ---------------------------------------------------------------------------
@@ -553,7 +552,7 @@ def main() -> int:
     for k in [1, 20, 50, 100]:
         d = consistency["discrepancy"].get(f"R@{k}", {})
         print(
-            f"  R@{k}: prev={d.get('previous', '?')}, recomputed={d.get('recomputed', '?')}, diff={d.get('difference', '?')}"
+            f"  R@{k}: prev={d.get('previous', '?')}, recomputed={d.get('recomputed', '?')}, diff={d.get('difference', '?')}",
         )
 
     print("\n" + "=" * 70)
@@ -624,16 +623,16 @@ def write_markdown_report(output, path, prev_v2, consistency):
     lines.append("| Class | Description | Count | % |")
     lines.append("|---|---|---:|---:|")
     lines.append(
-        f"| A | Gold missing from candidate pool | {fc['A_gold_missing_pool']} | {fc['A_gold_missing_pool'] / fc['total'] * 100:.1f}% |"
+        f"| A | Gold missing from candidate pool | {fc['A_gold_missing_pool']} | {fc['A_gold_missing_pool'] / fc['total'] * 100:.1f}% |",
     )
     lines.append(
-        f"| B | Gold present but lost during RRF/fusion | {fc['B_gold_lost_in_rrf']} | {fc['B_gold_lost_in_rrf'] / fc['total'] * 100:.1f}% |"
+        f"| B | Gold present but lost during RRF/fusion | {fc['B_gold_lost_in_rrf']} | {fc['B_gold_lost_in_rrf'] / fc['total'] * 100:.1f}% |",
     )
     lines.append(
-        f"| C | Gold in CE input but ranked below top-10 | {fc['C_gold_below_top10']} | {fc['C_gold_below_top10'] / fc['total'] * 100:.1f}% |"
+        f"| C | Gold in CE input but ranked below top-10 | {fc['C_gold_below_top10']} | {fc['C_gold_below_top10'] / fc['total'] * 100:.1f}% |",
     )
     lines.append(
-        f"| D | Gold reaches CE top-10 | {fc['D_gold_in_top10']} | {fc['D_gold_in_top10'] / fc['total'] * 100:.1f}% |"
+        f"| D | Gold reaches CE top-10 | {fc['D_gold_in_top10']} | {fc['D_gold_in_top10'] / fc['total'] * 100:.1f}% |",
     )
     lines.append(f"| **Total** | | **{fc['total']}** | **100%** |")
     lines.append("")
@@ -655,7 +654,7 @@ def write_markdown_report(output, path, prev_v2, consistency):
         gold_unit = e["gold_units"][0] if e["gold_units"] else {}
         ce_score = gold_unit.get("ce_score")
         lines.append(
-            f"| {e['question_id']} | {ce_rank} | {ce_score} | {rrf_rank} | {gold_unit.get('provision_id', '-')} | {', '.join(e['domains'])} |"
+            f"| {e['question_id']} | {ce_rank} | {ce_score} | {rrf_rank} | {gold_unit.get('provision_id', '-')} | {', '.join(e['domains'])} |",
         )
     if len(boundary_qs) > 30:
         lines.append(f"\n*...and {len(boundary_qs) - 30} more*\n")
@@ -677,7 +676,7 @@ def write_markdown_report(output, path, prev_v2, consistency):
             lines.append(f"| {e['question_id']} | {ce_rank} | {gold_score_str} | {r1_score} | {r10_score} | - | - |")
     lines.append("")
     lines.append(
-        "*Note: Rank-1 and Rank-10 CE scores require the full CE-ranked list. See per-question JSON for complete CE scores.*\n"
+        "*Note: Rank-1 and Rank-10 CE scores require the full CE-ranked list. See per-question JSON for complete CE scores.*\n",
     )
 
     # 7. Score distribution analysis
@@ -713,7 +712,7 @@ def write_markdown_report(output, path, prev_v2, consistency):
             med = sorted(vals)[len(vals) // 2]
             std = (sum((x - mean) ** 2 for x in vals) / len(vals)) ** 0.5
             lines.append(
-                f"| {b} | {len(vals)} | {mean:.6f} | {med:.6f} | {std:.6f} | {min(vals):.6f} | {max(vals):.6f} |"
+                f"| {b} | {len(vals)} | {mean:.6f} | {med:.6f} | {std:.6f} | {min(vals):.6f} | {max(vals):.6f} |",
             )
         else:
             lines.append(f"| {b} | 0 | - | - | - | - | - |")
@@ -727,7 +726,7 @@ def write_markdown_report(output, path, prev_v2, consistency):
         d = consistency["discrepancy"].get(f"R@{k}", {})
         cause = d.get("likely_cause", "?")
         lines.append(
-            f"| R@{k} | {d.get('previous', '?')} | {d.get('recomputed', '?')} | {d.get('difference', '?')} | {cause} |"
+            f"| R@{k} | {d.get('previous', '?')} | {d.get('recomputed', '?')} | {d.get('difference', '?')} | {cause} |",
         )
     lines.append("")
 
@@ -736,12 +735,12 @@ def write_markdown_report(output, path, prev_v2, consistency):
     lines.append("Tracing gold IDs from benchmark → payload index → candidate generation → RRF → CE:\n")
     # Check ID types
     lines.append(
-        "- Gold IDs are benchmark provision IDs (e.g. `fssai:s16(1)`), resolved to corpus chunk UUIDs via `matches_gold()` payload matching."
+        "- Gold IDs are benchmark provision IDs (e.g. `fssai:s16(1)`), resolved to corpus chunk UUIDs via `matches_gold()` payload matching.",
     )
     lines.append("- Candidate-generation chunk IDs are Qdrant point UUIDs (8-char hex strings).")
     lines.append("- RRF keys are string chunk IDs (no type coercion).")
     lines.append(
-        "- CE does NOT use IDs — it scores (question_text, chunk_text) pairs, so ID type mismatches are not possible at this stage."
+        "- CE does NOT use IDs — it scores (question_text, chunk_text) pairs, so ID type mismatches are not possible at this stage.",
     )
     lines.append("- Ranked list uses `it['key']` consistently as strings.\n")
     lines.append("**No ID type transformations detected.** All IDs are strings throughout the pipeline.\n")
@@ -749,20 +748,20 @@ def write_markdown_report(output, path, prev_v2, consistency):
     # 10. Summary
     lines.append("## 10. Key Findings\n")
     lines.append(
-        f"1. **Candidate generation recall:** {fc_count(output, 'A')} of 150 questions have gold missing from the pool."
+        f"1. **Candidate generation recall:** {fc_count(output, 'A')} of 150 questions have gold missing from the pool.",
     )
     lines.append(f"2. **RRF loss:** {fc_count(output, 'B')} of 150 questions lose gold during RRF/fusion.")
     lines.append(
-        f"3. **CE top-10 gap:** {fc_count(output, 'C')} of 150 questions have gold in the CE input but ranked below top-10."
+        f"3. **CE top-10 gap:** {fc_count(output, 'C')} of 150 questions have gold in the CE input but ranked below top-10.",
     )
     lines.append(
-        f"4. **CE success:** {fc_count(output, 'D')} of 150 questions ({(fc_count(output, 'D') / 150 * 100):.1f}%) have gold in CE top-10."
+        f"4. **CE success:** {fc_count(output, 'D')} of 150 questions ({(fc_count(output, 'D') / 150 * 100):.1f}%) have gold in CE top-10.",
     )
     lines.append(
-        f"5. **Cumulative CE recall:** R@1={cr['1']['pct']:.4f}, R@10={cr['10']['pct']:.4f}, R@20={cr['20']['pct']:.4f}, R@50={cr['50']['pct']:.4f}, R@100={cr['100']['pct']:.4f}"
+        f"5. **Cumulative CE recall:** R@1={cr['1']['pct']:.4f}, R@10={cr['10']['pct']:.4f}, R@20={cr['20']['pct']:.4f}, R@50={cr['50']['pct']:.4f}, R@100={cr['100']['pct']:.4f}",
     )
     lines.append(
-        "6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10."
+        "6. **The primary bottleneck is CE reranking** (class C): gold is in the pool but the CE v2_K500 model fails to rank it in the top-10.",
     )
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

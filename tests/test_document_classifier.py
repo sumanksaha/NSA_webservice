@@ -128,7 +128,7 @@ class TestNormalizeType:
 class TestEnrichDocument:
     def test_fills_missing_keys(self):
         enriched = _make_classifier().enrich_document(
-            {"document_id": "doc-1"}, "The Food Safety and Standards Act, 2006"
+            {"document_id": "doc-1"}, "The Food Safety and Standards Act, 2006",
         )
         assert enriched["document_id"] == "doc-1"
         assert enriched["type"] == "act"
@@ -175,7 +175,7 @@ class _FakeChunker:
                 chunk_text=text,
                 document_type=doc.get("document_type") or doc.get("type") or "",
                 authority=doc.get("authority", ""),
-            )
+            ),
         ]
 
 
@@ -255,7 +255,7 @@ class TestRealExtractors:
     def test_notification_text_classification(self):
         classifier = DocumentClassifier()
         result = classifier.classify(
-            "NOTIFICATION\nNew Delhi, dated the 5th August, 2020\nMinistry of Health and Family Welfare\n"
+            "NOTIFICATION\nNew Delhi, dated the 5th August, 2020\nMinistry of Health and Family Welfare\n",
         )
         assert result.document_type == "notification"
         assert result.authority

@@ -129,7 +129,7 @@ def build_training_rows(
                 and candidate_base
                 and candidate_base == silver_section
                 and chunk_source != "L4_override"
-                and candidate.grammar_type != "dotted"
+                and candidate.grammar_type != "dotted",
             )
             features = extract_features(
                 text,
@@ -146,7 +146,7 @@ def build_training_rows(
                     label=1 if is_positive else 0,
                     document_id=document_id,
                     source_pattern=candidate.source_pattern,
-                )
+                ),
             )
             if is_positive and candidate_base:
                 prev_accepted = int(candidate_base)
@@ -154,7 +154,7 @@ def build_training_rows(
 
 
 def split_by_document(
-    rows: list[TrainingRow], *, test_fraction: float = 0.25, seed: int = DEFAULT_SEED
+    rows: list[TrainingRow], *, test_fraction: float = 0.25, seed: int = DEFAULT_SEED,
 ) -> tuple[list[TrainingRow], list[TrainingRow]]:
     """Group-aware split: whole documents go to train or test, never both."""
     document_ids = sorted({row.document_id for row in rows})

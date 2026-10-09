@@ -32,7 +32,6 @@ from evaluation.step2_safety_properties import (
     is_full_answer_replacement,
     main,
     quote_in_evidence,
-    register,
     validate_payload,
 )
 
@@ -166,7 +165,7 @@ def test_evaluate_safety_happy_path():
             "conclusion_fields_changed": ["remedy"],
             "new_subsection_quoted_from_evidence": True,
             "frozen_checker_accepts": True,
-        }
+        },
     )
     assert r["pass"] is True
     assert r["verdict"] == "accepted"
@@ -182,7 +181,7 @@ def test_evaluate_safety_first_failure_wins():
             "already_correct": True,
             "candidate_correct": False,
             "is_open_critic": True,
-        }
+        },
     )
     assert r["pass"] is False
     assert r["failed_property"] == "zero_regression"
@@ -200,7 +199,7 @@ def test_evaluate_safety_quote_failure():
             "candidate_correct": False,
             "cited_span": "not in context at all",
             "context": "some other evidence text",
-        }
+        },
     )
     assert r["pass"] is False
     assert r["failed_property"] == "quote_in_evidence"
@@ -215,7 +214,7 @@ def test_evaluate_safety_open_critic_after_quote_pass():
             "cited_span": "verbatim span",
             "context": "this has the verbatim span inside",
             "is_open_critic": True,
-        }
+        },
     )
     assert r["pass"] is False
     assert r["failed_property"] == "no_open_critic"
@@ -230,7 +229,7 @@ def test_evaluate_safety_gated_rewrite_failure():
             "context": "ok is here",
             "is_open_critic": False,
             "no_rewrite_sentence_deleted": True,
-        }
+        },
     )
     assert r["pass"] is False
     assert r["failed_property"] == "gated_rewrite"
@@ -365,7 +364,7 @@ def test_register_writes_artifacts(tmp_path, monkeypatch):
     import evaluation.step2_safety_properties as m
 
     monkeypatch.setattr(m, "OUT", tmp_path)
-    payload, validation, written = m.register(out_dir=tmp_path)
+    _payload, validation, written = m.register(out_dir=tmp_path)
     assert validation["ok"] is True
     assert written["json"].exists()
     assert written["md"].exists()
@@ -436,6 +435,6 @@ def test_quote_in_evidence_reexported():
 def test_safety_properties_match_step1_registration():
     # The four strings in Step 2 are exactly what Step 1 registered
     s1 = json.loads(
-        (ROOT / "evaluation" / "out" / "ceiling_v5" / "step1_preregistered_gates.json").read_text()
+        (ROOT / "evaluation" / "out" / "ceiling_v5" / "step1_preregistered_gates.json").read_text(),
     )
     assert s1["safety_properties_step2"] == list(SAFETY_PROPERTIES)

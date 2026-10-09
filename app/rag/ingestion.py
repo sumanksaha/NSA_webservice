@@ -28,7 +28,7 @@ from app.shared.config import cfg
 logger = logging.getLogger(__name__)
 
 #: Supported corpus file extensions (mirrors ``DocumentLoaderFactory``).
-_CORPUS_EXTENSIONS = {".pdf", ".docx", ".txt"}
+_CORPUS_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
 
 
 @dataclass
@@ -112,6 +112,7 @@ class IngestionPipeline:
         collection: Target Qdrant collection (Phase 1 — multi-domain).
             Threaded into the lazily-built default :class:`QdrantIndexer`
             when no ``indexer`` is injected.
+
     """
 
     def __init__(
@@ -244,7 +245,7 @@ class IngestionPipeline:
         return self.ingest_loaded(doc_result, source_uri=str(path), document=document)
 
     def ingest_loaded(
-        self, doc_result: Any, source_uri: str = "", document: dict[str, Any] | None = None
+        self, doc_result: Any, source_uri: str = "", document: dict[str, Any] | None = None,
     ) -> IngestedDocumentResult:
         """Ingest an already-loaded :class:`DocumentResult` (R0 adapter)."""
         text = getattr(doc_result, "text", "")
@@ -351,7 +352,7 @@ class IngestionPipeline:
 
     def _quality_summary(self, chunks: list[Any]) -> dict[str, Any]:
         """Aggregate per-chunk quality verdicts into a JSON-safe summary."""
-        validator = cast(Any, self._quality_validator)
+        validator = cast("Any", self._quality_validator)
         verdicts = [validator.validate_chunk(c) for c in chunks]
         ok = sum(1 for v in verdicts if v.ok)
         return {
@@ -412,6 +413,7 @@ def make_ingestion_pipeline(
             :class:`DocumentCleaner` (Phase 2 — multi-domain; e.g. a wrapper
             that strips Devanagari before chunking). When ``None`` the
             default cleaner is used.
+
     """
     if full_enrichment is None:
         full_enrichment = _full_enrichment_enabled()
@@ -452,7 +454,7 @@ def make_ingestion_pipeline(
 
 
 def run_ingest_document(
-    source: str, document: dict[str, Any] | None = None, pipeline: IngestionPipeline | None = None
+    source: str, document: dict[str, Any] | None = None, pipeline: IngestionPipeline | None = None,
 ) -> dict[str, Any]:
     """Plain entry point: ingest a file path OR raw text, returning a dict.
 

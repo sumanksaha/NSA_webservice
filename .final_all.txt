@@ -1,0 +1,172 @@
+5417	ANN201 	[ ] missing-return-type-undocumented-public-function
+4316	ANN001 	[ ] missing-type-function-argument
+3084	PLC0415	[ ] import-outside-top-level
+2969	D102   	[ ] undocumented-public-method
+2094	PLR2004	[ ] magic-value-comparison
+1291	D103   	[ ] undocumented-public-function
+1038	CPY001 	[ ] missing-copyright-notice
+ 968	ANN202 	[ ] missing-return-type-private-function
+ 807	E501   	[ ] line-too-long
+ 752	T201   	[ ] print
+ 643	BLE001 	[ ] blind-except
+ 617	D101   	[ ] undocumented-public-class
+ 532	ARG002 	[ ] unused-method-argument
+ 482	ANN401 	[ ] any-type
+ 447	SLF001 	[ ] private-member-access
+ 429	INP001 	[ ] implicit-namespace-package
+ 410	ARG001 	[ ] unused-function-argument
+ 399	ARG005 	[ ] unused-lambda-argument
+ 364	E402   	[ ] module-import-not-at-top-of-file
+ 336	PTH123 	[ ] builtin-open
+ 287	DTZ001 	[ ] call-datetime-without-tzinfo
+ 286	PT009  	[ ] pytest-unittest-assertion
+ 264	TRY003 	[ ] raise-vanilla-args
+ 243	D205   	[ ] missing-blank-line-after-summary
+ 228	ANN003 	[ ] missing-type-kwargs
+ 216	C901   	[ ] complex-structure
+ 184	FBT001 	[ ] boolean-type-hint-positional-argument
+ 184	PT018  	[ ] pytest-composite-assertion
+ 182	ANN204 	[ ] missing-return-type-special-method
+ 169	RUF002 	[ ] ambiguous-unicode-character-docstring
+ 164	FBT003 	[ ] boolean-positional-value-in-call
+ 163	PLR0913	[ ] too-many-arguments
+ 158	EM101  	[ ] raw-string-in-exception
+ 146	D107   	[ ] undocumented-public-init
+ 145	D401   	[ ] non-imperative-mood
+ 144	FBT002 	[ ] boolean-default-value-positional-argument
+ 136	PLR0915	[ ] too-many-statements
+ 127	D400   	[ ] missing-trailing-period
+ 126	PLR0912	[ ] too-many-branches
+ 120	PLR0917	[ ] too-many-positional-arguments
+ 119	EM102  	[ ] f-string-in-exception
+ 105	D415   	[ ] missing-terminal-punctuation
+ 104	Q000   	[*] bad-quotes-inline-string
+  94	TRY300 	[ ] try-consider-else
+  93	PERF401	[ ] manual-list-comprehension
+  92	TRY400 	[ ] error-instead-of-exception
+  88	PLW2901	[ ] redefined-loop-name
+  87	PLR0911	[ ] too-many-return-statements
+  69	ISC004 	[ ] implicit-string-concatenation-in-collection-literal
+  69	G004   	[ ] logging-f-string
+  61	RUF001 	[ ] ambiguous-unicode-character-string
+  61	D100   	[ ] undocumented-public-module
+  47	ANN002 	[ ] missing-type-args
+  46	ERA001 	[ ] commented-out-code
+  46	S110   	[ ] try-except-pass
+  46	TC003  	[ ] typing-only-standard-library-import
+  45	RET504 	[ ] unnecessary-assign
+  43	RUF003 	[ ] ambiguous-unicode-character-comment
+  34	TC001  	[ ] typing-only-first-party-import
+  32	PLW0603	[ ] global-statement
+  29	S112   	[ ] try-except-continue
+  27	PERF102	[ ] incorrect-dict-iterator
+  27	ANN205 	[ ] missing-return-type-static-method
+  24	UP031  	[ ] printf-string-formatting
+  23	DTZ011 	[ ] call-date-today
+  23	C401   	[ ] unnecessary-generator-set
+  20	PLW0108	[ ] unnecessary-lambda
+  19	D105   	[ ] undocumented-magic-method
+  18	PTH120 	[ ] os-path-dirname
+  17	FURB110	[-] if-exp-instead-of-or-operator
+  17	PTH100 	[ ] os-path-abspath
+  17	PTH118 	[ ] os-path-join
+  16	SIM115 	[ ] open-file-with-context-handler
+  15	PT019  	[ ] pytest-fixture-param-without-value
+  13	PT006  	[ ] pytest-parametrize-names-wrong-type
+  13	PT011  	[ ] pytest-raises-too-broad
+  13	TID252 	[ ] relative-imports
+  12	D301   	[ ] escape-sequence-in-docstring
+  12	S310   	[ ] suspicious-url-open-usage
+  12	C408   	[ ] unnecessary-collection-call
+  11	S101   	[ ] assert
+  11	PLR1714	[ ] repeated-equality-comparison
+  11	D104   	[ ] undocumented-public-package
+  10	DTZ007 	[ ] call-datetime-strptime-without-zone
+  10	PTH103 	[ ] os-makedirs
+  10	ARG004 	[ ] unused-static-method-argument
+   9	DTZ002 	[ ] call-datetime-today
+   9	PTH110 	[ ] os-path-exists
+   9	TRY301 	[ ] raise-within-try
+   9	FURB171	[ ] single-item-membership-test
+   8	FAST002	[ ] fast-api-non-annotated-dependency
+   8	S311   	[ ] suspicious-non-cryptographic-random-usage
+   8	TRY004 	[ ] type-check-without-type-error
+   8	B007   	[ ] unused-loop-control-variable
+   7	TC002  	[ ] typing-only-third-party-import
+   7	D417   	[ ] undocumented-param
+   7	C416   	[ ] unnecessary-comprehension
+   7	PIE790 	[*] unnecessary-placeholder
+   6	E741   	[ ] ambiguous-variable-name
+   6	DTZ006 	[ ] call-datetime-fromtimestamp
+   6	DTZ005 	[ ] call-datetime-now-without-tzinfo
+   6	PLC0206	[ ] dict-index-missing-items
+   6	PTH107 	[ ] os-remove
+   6	PT022  	[ ] pytest-useless-yield-fixture
+   6	PLW1510	[ ] subprocess-run-without-check
+   6	ICN001 	[ ] unconventional-import-alias
+   5	PERF402	[ ] manual-list-copy
+   5	PLC0207	[*] missing-maxsplit-arg
+   5	PTH113 	[ ] os-path-isfile
+   5	PTH105 	[ ] os-replace
+   4	W293   	[*] blank-line-with-whitespace
+   4	FURB162	[ ] fromisoformat-replace-z
+   4	PERF403	[ ] manual-dict-comprehension
+   4	SIM105 	[ ] suppressible-exception
+   3	RET503 	[ ] implicit-return
+   3	PIE810 	[ ] multiple-starts-ends-with
+   3	PT017  	[ ] pytest-assert-in-except
+   3	S607   	[ ] start-process-with-partial-path
+   3	RUF015 	[ ] unnecessary-iterable-allocation-for-first-element
+   3	F401   	[*] unused-import
+   3	B905   	[ ] zip-without-explicit-strict
+   2	A002   	[ ] builtin-argument-shadowing
+   2	SIM102 	[ ] collapsible-if
+   2	RUF005 	[ ] collection-literal-concatenation
+   2	PYI021 	[ ] docstring-in-stub
+   2	N818   	[ ] error-suffix-on-exception-name
+   2	B008   	[ ] function-call-in-default-argument
+   2	PTH207 	[ ] glob
+   2	PLR1730	[*] if-stmt-min-max
+   2	N803   	[ ] invalid-argument-name
+   2	PLW1508	[ ] invalid-envvar-default
+   2	SIM103 	[ ] needless-bool
+   2	N806   	[ ] non-lowercase-variable-in-function
+   2	PYI034 	[ ] non-self-return-type
+   2	S501   	[ ] request-with-no-cert-validation
+   2	LOG015 	[ ] root-logger-call
+   2	S605   	[ ] start-process-with-a-shell
+   2	C405   	[ ] unnecessary-literal-set
+   2	RUF059 	[ ] unused-unpacked-variable
+   2	TRY203 	[ ] useless-try-except
+   1	PYI036 	[*] bad-exit-annotation
+   1	Q001   	[*] bad-quotes-multiline-string
+   1	PLR0133	[ ] comparison-of-constant
+   1	DTZ901 	[ ] datetime-min-max
+   1	PYI016 	[*] duplicate-union-member
+   1	PYI044 	[*] future-annotations-in-stub
+   1	PLW0602	[ ] global-variable-not-assigned
+   1	SIM108 	[ ] if-else-block-instead-of-if-exp
+   1	FURB177	[ ] implicit-cwd
+   1	E731   	[ ] lambda-assignment
+   1	G201   	[ ] logging-exc-info
+   1	PLW3301	[ ] nested-min-max
+   1	NPY002 	[ ] numpy-legacy-random
+   1	PTH119 	[ ] os-path-basename
+   1	PTH202 	[ ] os-path-getsize
+   1	PTH117 	[ ] os-path-isabs
+   1	PTH116 	[ ] os-stat
+   1	PTH201 	[*] path-constructor-current-directory
+   1	PT003  	[ ] pytest-extraneous-scope-function
+   1	PT027  	[ ] pytest-unittest-raises-assertion
+   1	PLR1704	[ ] redefined-argument-from-local
+   1	PYI041 	[*] redundant-numeric-union
+   1	SIM110 	[ ] reimplemented-builtin
+   1	PLW0127	[ ] self-assigning-variable
+   1	FURB192	[ ] sorted-min-max
+   1	FLY002 	[ ] static-join-to-f-string
+   1	W291   	[*] trailing-whitespace
+   1	D106   	[ ] undocumented-public-nested-class
+   1	PLC3002	[ ] unnecessary-direct-lambda-call
+   1	D200   	[ ] unnecessary-multiline-docstring
+Found 33147 errors.
+[*] 146 fixable with the `--fix` option (7558 hidden fixes can be enabled with the `--unsafe-fixes` option).

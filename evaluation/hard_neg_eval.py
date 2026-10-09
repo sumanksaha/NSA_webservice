@@ -77,6 +77,7 @@ def evaluate_model(
 
     Returns:
         Full metric dict.
+
     """
     import torch
 

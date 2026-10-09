@@ -288,10 +288,10 @@ def main(argv: list[str] | None = None) -> int:
         usage = resource_usage_summary()
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
         (REPORT_DIR / "enrichment_progress.json").write_text(
-            json.dumps(progress, indent=2, ensure_ascii=False), encoding="utf-8"
+            json.dumps(progress, indent=2, ensure_ascii=False), encoding="utf-8",
         )
         (REPORT_DIR / "resource_usage.json").write_text(
-            json.dumps(usage, indent=2, ensure_ascii=False), encoding="utf-8"
+            json.dumps(usage, indent=2, ensure_ascii=False), encoding="utf-8",
         )
 
     tracemalloc.stop()

@@ -49,6 +49,7 @@ class RetryableEmbeddingClient:
         cooldown_seconds: How long the circuit stays open.
         sleep_fn: Injectable sleep (defaults to ``time.sleep``).
         monotonic_fn: Injectable clock (defaults to ``time.monotonic``).
+
     """
 
     def __init__(

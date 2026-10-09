@@ -1,0 +1,1432 @@
+{
+  "version": "stratified-sample-v2-combined-v3",
+  "summary": {
+    "source": "stratified_eval_sample_v2_cleaned.json + improved rejected items",
+    "n_original_cleaned": 45,
+    "n_improved_added": 35,
+    "n_total": 80,
+    "recommendation": "Combined benchmark includes original cleaned items plus improved versions of previously rejected items."
+  },
+  "questions": [
+    {
+      "qid": "fssai:s63",
+      "question": "According to Section 63 of the Food Safety and Standards Act, 2006, what punishment is prescribed for carrying on a food business without the required licence?",
+      "section": "63",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Punishment for carrying business without licence",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:labelling",
+      "question": "What requirements apply to labelling of pre-packed food under the cited FSSAI labelling instrument?",
+      "section": "Reg-Labelling",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Labelling of pre-packed food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "srf:specific_performance",
+      "question": "What does Section 10 of the Specific Relief Act, 2017 provide regarding specific performance?",
+      "section": "10",
+      "act": "Specific Relief Act, 2017",
+      "title": "Specific performance",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s33",
+      "question": "Under Section 33 of the Water (Prevention and Control of Pollution) Act, 1974, what is restricted regarding Power of Board to make application to courts for restraining apprehended pollution?",
+      "section": "33",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Power of Board to make application to courts for restraining apprehended pollution",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s26",
+      "question": "What responsibilities does Section 26 of the Food Safety and Standards Act, 2006 impose on a food business operator?",
+      "section": "26",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Responsibilities of the food business operator",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbmo:order5",
+      "question": "What does Order 5 of the West Bengal Meat Order, 1966 provide regarding slaughter only at licensed slaughter houses?",
+      "section": "Order 5",
+      "act": "West Bengal Meat Order, 1966",
+      "title": "Slaughter only at licensed slaughter houses",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s66",
+      "question": "Under Section 66 of the Food Safety and Standards Act, 2006, what is restricted regarding Offences by companies?",
+      "section": "66",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Offences by companies",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s42",
+      "question": "What procedure does Section 42 of the Food Safety and Standards Act, 2006 prescribe for initiating prosecution?",
+      "section": "42",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Prosecution to be initiated by FSO with approval of Commissioner",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s33",
+      "question": "What does Section 33 of the Food Safety and Standards Act, 2006 provide regarding prohibition orders?",
+      "section": "33",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Prohibition orders",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s92",
+      "question": "Under Section 92 of the Food Safety and Standards Act, 2006, what is restricted regarding Power of Food Authority to make regulations?",
+      "section": "92",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Power of Food Authority to make regulations",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s41",
+      "question": "What powers and procedures does Section 41 of the Food Safety and Standards Act, 2006 provide concerning sampling and analysis?",
+      "section": "41",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Sampling and analysis",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s52",
+      "question": "What is the maximum penalty under Section 52 of the Food Safety and Standards Act, 2006?",
+      "section": "52",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Punitive damages",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pwm_amendment_rules_2022_jul",
+      "question": "What is the maximum penalty under Section Rules-2022 of the Plastic Waste Management (Amendment) Rules, 2022?",
+      "section": "Rules-2022",
+      "act": "Plastic Waste Management (Amendment) Rules, 2022",
+      "title": "Plastic Waste Management (Amendment) Rules, 2022 (gazette 07-07-2022)",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_2",
+      "benchmark_status": "keep",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s58",
+      "question": "What penalty is prescribed by Section 58 of the Food Safety and Standards Act, 2006 where no specific penalty is provided?",
+      "section": "58",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Penalty for contraventions where no specific penalty",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s55",
+      "question": "What penalty is prescribed under Section 55 of the Food Safety and Standards Act, 2006 for failure to comply with directions of a Food Safety Officer?",
+      "section": "55",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Penalty for failure to comply with directions of FSO",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s67",
+      "question": "What is the maximum penalty under Section 67 of the Food Safety and Standards Act, 2006?",
+      "section": "67",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Penalty for obstructing Food Safety Officer",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:trade_licence",
+      "question": "What is the maximum penalty under Section Ch.Trade of the Kolkata Municipal Corporation Act, 1980?",
+      "section": "Ch.Trade",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Trade licensing (municipal)",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbmo:order6",
+      "question": "What is the maximum fine amount under Section Order 6 of the West Bengal Meat Order, 1966?",
+      "section": "Order 6",
+      "act": "West Bengal Meat Order, 1966",
+      "title": "Licensing of meat shops and slaughter houses",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s68",
+      "question": "What does Section 68 of the Food Safety and Standards Act, 2006 provide regarding adjudication?",
+      "section": "68",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Adjudication",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "air_act:s15",
+      "question": "What does Section 15 of the Air (Prevention and Control of Pollution) Act, 1981 provide regarding penalties?",
+      "section": "15",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "title": "Penalty",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_2",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:food_regulations",
+      "question": "According to Section Reg of the Food Safety and Standards Act, 2006, what action is required for a company?",
+      "section": "Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "FSSAI food-safety regulations - hygiene, sanitation, water and transport (instrument-level)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s7",
+      "question": "What does Section 7 of the Environment (Protection) Act, 1986 provide regarding discharge or emission of environmental pollutants?",
+      "section": "7",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Offences and penalties",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:s391",
+      "question": "What does Section 391 of the Kolkata Municipal Corporation Act, 1980 provide regarding the Municipal Building Committee?",
+      "section": "391",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Municipal Building Committee",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s76",
+      "question": "According to Section 76 of the Food Safety and Standards Act, 2006, what action is required for a company?",
+      "section": "76",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Appeal to the Food Safety Appellate Tribunal",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s32",
+      "question": "What does Section 32 of the Food Safety and Standards Act, 2006 provide regarding improvement notices?",
+      "section": "32",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Improvement notices",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s43",
+      "question": "According to Section 43 of the Food Safety and Standards Act, 2006, what action is required for any individual?",
+      "section": "43",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Food Analyst",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "sog:s20",
+      "question": "According to Section 20 of the Sale of Goods Act, 1930, what action is required for a company?",
+      "section": "20",
+      "act": "Sale of Goods Act, 1930",
+      "title": "Specific goods / risk",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "benchmark_status": "keep",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s31(2)",
+      "question": "What does Section 31(2) of the Food Safety and Standards Act, 2006 provide for petty food business operators?",
+      "section": "31(2)",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Registration of petty food business operators (exempt from licence)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s38",
+      "question": "According to Section 38 of the Food Safety and Standards Act, 2006, what action is required for any individual?",
+      "section": "38",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Analysis of food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:regs/licensing",
+      "question": "What requirements are established by the FSS (Licensing and Registration) Regulations, 2011?",
+      "section": "Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "FSS (Licensing and Registration) Regulations, 2011 (instrument-level)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pcra:s12",
+      "question": "According to Section 12 of the The Prevention of Cruelty to Animals Rules, 2017, what action is required for an organization?",
+      "section": "12",
+      "act": "The Prevention of Cruelty to Animals Rules, 2017",
+      "title": "Prohibition of cruelty",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s31(1)",
+      "question": "What does Section 31(1) of the Food Safety and Standards Act, 2006 require before carrying on a food business?",
+      "section": "31(1)",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Licensing and registration - no food business without licence",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:s330",
+      "question": "What does Section 330 of the Kolkata Municipal Corporation Act, 1980 provide regarding recovery of fees for supply of water?",
+      "section": "330",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Recovery of fees for supply of water",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_3",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "limitation:contract",
+      "question": "What limitation periods in the First Schedule of the Limitation Act, 1963 apply to contract or tort claims?",
+      "section": "First Schedule",
+      "act": "Limitation Act, 1963",
+      "title": "Limitation period for contract/tort suits",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbpt:s20",
+      "question": "What does Section 20 of the West Bengal Premises Tenancy Act, 1997 provide regarding notice of increase of rent?",
+      "section": "20",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Notice of increase of rent",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s53",
+      "question": "What penalty does Section 53 of the Food Safety and Standards Act, 2006 prescribe for misleading advertisement?",
+      "section": "53",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Penalty for misleading advertisement",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s59",
+      "question": "What punishment does Section 59 of the Food Safety and Standards Act, 2006 prescribe for unsafe food?",
+      "section": "59",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Punishment for unsafe food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbpt:s16",
+      "question": "What does Section 16 of the West Bengal Premises Tenancy Act, 1997 provide regarding determination of standard rent?",
+      "section": "16",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Determination of standard rent",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s22",
+      "question": "What does Section 22 of the Food Safety and Standards Act, 2006 provide regarding standards of articles of food?",
+      "section": "22",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Standards of articles of food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s48",
+      "question": "What does Section 48 of the Food Safety and Standards Act, 2006 provide regarding general provisions relating to offences?",
+      "section": "48",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "General provisions relating to offences",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:s172",
+      "question": "What does Section 172 of the Kolkata Municipal Corporation Act, 1980 provide regarding exemption of lands and buildings from property tax?",
+      "section": "172",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Exemption of lands and buildings from property tax",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbpt:s45",
+      "question": "What does Section 45 of the West Bengal Premises Tenancy Act, 1997 provide regarding repeal and savings?",
+      "section": "45",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Repeal and savings",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "comp:s179",
+      "question": "What powers does Section 179 of the Companies Act, 2013 confer on the Board of Directors?",
+      "section": "179",
+      "act": "Companies Act, 2013",
+      "title": "Board of Directors: powers",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:s392",
+      "question": "What does Section 392 of the Kolkata Municipal Corporation Act, 1980 provide regarding building without sanction?",
+      "section": "392",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Prohibition of building without sanction",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:s313",
+      "question": "What does Section 313 of the Kolkata Municipal Corporation Act, 1980 provide regarding sanction of a building plan and conformity of the water-supply plan?",
+      "section": "313",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Commissioner not to sanction building plan unless water-supply plan conforms",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_4",
+      "benchmark_status": "repair",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "swm_rules:segregation",
+      "question": "According to Section N/A of the Solid Waste Management Rules, 2026, what action is required for an entity?",
+      "section": "N/A",
+      "act": "Solid Waste Management Rules, 2026",
+      "title": "Segregation & door-to-door collection",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section N/A of the Solid Waste Management Rules, 2026, what is prohibited regarding Segregation & door-to-door collection?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s5",
+      "question": "Under Section 5 of the Environment (Protection) Act, 1986, what is permitted regarding Restrictions on use of forest/substrates?",
+      "section": "5",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Restrictions on use of forest/substrates",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 5 of the Environment (Protection) Act, 1986, what is allowed regarding Restrictions on use of forest/substrates?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:regs/contaminants",
+      "question": "What is the maximum fine under Section Reg of the Food Safety and Standards Act, 2006?",
+      "section": "Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "FSS (Contaminants, Toxins and Residues) Regulations, 2011 (instrument-level)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section Reg of the Food Safety and Standards Act, 2006, what is restricted regarding FSS (Contaminants, Toxins and Residues) Regulations, 2011 (instrument-level)?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "fine",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s8",
+      "question": "Under Section 8 of the Environment (Protection) Act, 1986, what is restricted regarding Cognizance of offences?",
+      "section": "8",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Cognizance of offences",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 8 of the Environment (Protection) Act, 1986, what is allowed regarding Cognizance of offences?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s75",
+      "question": "Under Section 75 of the Food Safety and Standards Act, 2006, what is prohibited regarding Establishment of Food Safety Appellate Tribunal?",
+      "section": "75",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Establishment of Food Safety Appellate Tribunal",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 75 of the Food Safety and Standards Act, 2006?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "cpa:product_liability",
+      "question": "What does Section 88-92 state about Product liability?",
+      "section": "88-92",
+      "act": "Consumer Protection Act, 2019",
+      "title": "Product liability",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine under Section 88-92 of the Consumer Protection Act, 2019?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "question",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s51",
+      "question": "Under Section 51 of the Food Safety and Standards Act, 2006, what is allowed regarding Jurisdiction of courts / summary trial?",
+      "section": "51",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Jurisdiction of courts / summary trial",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum prison term under Section 51 of the Food Safety and Standards Act, 2006?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "partnership:s22",
+      "question": "What is the maximum fine amount under Section 22 of the Indian Partnership Act, 1932?",
+      "section": "22",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Partner's authority to bind firm",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine under Section 22 of the Indian Partnership Act, 1932?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "fine",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "livestock_quarantine",
+      "question": "According to Section N/A of the The Bengal Livestock Import Quarantine Rules, 1944, what action is required for a company?",
+      "section": "N/A",
+      "act": "The Bengal Livestock Import Quarantine Rules, 1944",
+      "title": "Import quarantine of livestock",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine amount under Section N/A of the The Bengal Livestock Import Quarantine Rules, 1944?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "srf:injunction",
+      "question": "What does Section 53 state about Injunction?",
+      "section": "53",
+      "act": "Specific Relief Act, 2017",
+      "title": "Injunction",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum penalty under Section 53 of the Specific Relief Act, 2017?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "question",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbpt:s30",
+      "question": "Under Section 30 of the West Bengal Premises Tenancy Act, 1997, what is permitted regarding Prohibition of sub-letting without permission?",
+      "section": "30",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Prohibition of sub-letting without permission",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 30 of the West Bengal Premises Tenancy Act, 1997?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s2(e)",
+      "question": "According to Section 2(e) of the Environment (Protection) Act, 1986, what action is required for a person?",
+      "section": "2(e)",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Environmentally sensitive area",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 2(e) of the Environment (Protection) Act, 1986, what action is required for an organization?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s9",
+      "question": "According to Section 9 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for an entity?",
+      "section": "9",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Consent to establish/operate",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 9 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for a company?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "partnership:s30",
+      "question": "Under Section 30 of the Indian Partnership Act, 1932, what is allowed regarding Implied authority of partner?",
+      "section": "30",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Implied authority of partner",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 30 of the Indian Partnership Act, 1932, what action is required for an organization?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:meat-policy",
+      "question": "What is the maximum penalty under Section Sch/Reg of the Food Safety and Standards Act, 2006?",
+      "section": "Sch/Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Meat safety regulations (FSSAI)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section Sch/Reg state about Meat safety regulations (FSSAI)?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "penalty",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pwm_rules:epr",
+      "question": "According to Section N/A of the Plastic Waste Management Rules, what action is required for any individual?",
+      "section": "N/A",
+      "act": "Plastic Waste Management Rules",
+      "title": "Extended Producer Responsibility",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section N/A state about Extended Producer Responsibility?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s12",
+      "question": "Under Section 12 of the Water (Prevention and Control of Pollution) Act, 1974, what is restricted regarding Penalty?",
+      "section": "12",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Penalty",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section 12 state about Penalty?",
+      "improvement_reason": "Used gold standard question from gold_provisions_templates_v1.json",
+      "improvement_method": "gold_different",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pwm_amendment_rules_2022_aug",
+      "question": "What amendments does the Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022) introduce?",
+      "section": "Rules-2022",
+      "act": "Plastic Waste Management (Amendment) Rules, 2022",
+      "title": "Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022)",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section Rules-2022 of the Plastic Waste Management (Amendment) Rules, 2022, what is permitted regarding Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022)?",
+      "improvement_reason": "Changed from circular question to substantive 'what amendments does the rules introduce'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s6",
+      "question": "What power does Section 6 of the Environment (Protection) Act, 1986 confer regarding closure/demolition of industrial plants?",
+      "section": "6",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Closure/demolition powers",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 6 of the Environment (Protection) Act, 1986, what is restricted regarding Closure/demolition powers?",
+      "improvement_reason": "Section 6 grants powers, doesn't restrict them",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "power",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s60",
+      "question": "What penalty does Section 60 of the Food Safety and Standards Act, 2006 prescribe for manufacturing/substandard food?",
+      "section": "60",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Punishment for sub-standard food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 60 of the Food Safety and Standards Act, 2006, what is permitted regarding Punishment for sub-standard food?",
+      "improvement_reason": "More direct: 'what penalty does Section prescribe'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "penalty",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wb_infectious:rules",
+      "question": "What measures does the WB Prevention and Control of Infectious Diseases in Animals Rules, 2016 prescribe for disease surveillance?",
+      "section": "N/A",
+      "act": "WB Prevention and Control of Infectious Diseases in Animals Rules, 2016",
+      "title": "Infectious disease control in animals",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section N/A of the WB Prevention and Control of Infectious Diseases in Animals Rules, 2016, what is prohibited regarding Infectious disease control in animals?",
+      "improvement_reason": "Fixed invalid 'Section N/A' and circular question",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "measures",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pcra:s63",
+      "question": "What restrictions does Section 63 of the Prevention of Cruelty to Animals Rules, 2017 place on animal transportation?",
+      "section": "63",
+      "act": "The Prevention of Cruelty to Animals Rules, 2017",
+      "title": "Prevention of cruelty at slaughter",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 63 of the The Prevention of Cruelty to Animals Rules, 2017, what is restricted regarding Prevention of cruelty at slaughter?",
+      "improvement_reason": "More direct phrasing",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "restriction",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pcra:s4",
+      "question": "What constitutes an offence under Section 4 of the Prevention of Cruelty to Animals Rules, 2017?",
+      "section": "4",
+      "act": "The Prevention of Cruelty to Animals Rules, 2017",
+      "title": "Licensing of slaughter houses",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 4 of the The Prevention of Cruelty to Animals Rules, 2017?",
+      "improvement_reason": "Rules don't specify imprisonment; ask what constitutes offence",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "offence",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "sog:s16",
+      "question": "What remedy does Section 16 of the Sale of Goods Act, 1930 provide for breach of contract?",
+      "section": "16",
+      "act": "Sale of Goods Act, 1930",
+      "title": "Passing of property",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum penalty under Section 16 of the Sale of Goods Act, 1930?",
+      "improvement_reason": "Section 16 provides remedies, not penalties",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "remedy",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "contract:s74",
+      "question": "What compensation is payable under Section 74 of the Indian Contract Act, 1872 for breach of contract?",
+      "section": "74",
+      "act": "Indian Contract Act, 1872",
+      "title": "Penalty clause unenforceable",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 74 of the Indian Contract Act, 1872?",
+      "improvement_reason": "Section 74 specifies compensation, not imprisonment",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "compensation",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s69",
+      "question": "What power does Section 69 of the Food Safety and Standards Act, 2006 grant to Food Safety Authorities?",
+      "section": "69",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Power to compound offences",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum prison term under Section 69 of the Food Safety and Standards Act, 2006?",
+      "improvement_reason": "Section 69 grants powers",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "power",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "contract:consideration",
+      "question": "What constitutes valid consideration under Section 25 of the Indian Contract Act, 1872?",
+      "section": "2(1)(c)",
+      "act": "Indian Contract Act, 1872",
+      "title": "Consideration (definition)",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 2(1)(c) of the Indian Contract Act, 1872, what action is required for a person?",
+      "improvement_reason": "Fixed from max fine to valid consideration",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "general",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s13",
+      "question": "What does Section 13 of the Water (Prevention and Control of Pollution) Act, 1974 prohibit regarding water pollution?",
+      "section": "13",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Appeals",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 13 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for an entity?",
+      "improvement_reason": "Fixed from max fine to prohibition",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "prohibition",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s44",
+      "question": "What procedure does Section 44 of the Food Safety and Standards Act, 2006 establish for food sampling and analysis?",
+      "section": "44",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Designated Officer",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 44 of the Food Safety and Standards Act, 2006, what action is required for an entity?",
+      "improvement_reason": "Fixed from generic 'action required for an individual'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "procedure",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s8",
+      "question": "What power does Section 8 of the Water (Prevention and Control of Pollution) Act, 1974 grant to State Boards?",
+      "section": "8",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Water quality",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 8 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for a person?",
+      "improvement_reason": "Fixed from 'what is allowed regarding' to power-focused",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "power",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "air_act:s8",
+      "question": "What permission is required under Section 8 of the Air (Prevention and Control of Pollution) Act, 1981 for industrial operations?",
+      "section": "8",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "title": "Consent to establish/operate",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section 8 state about Consent to establish/operate?",
+      "improvement_reason": "Fixed from 'what is permitted regarding' to permission-focused",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "permission",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s65",
+      "question": "What provision does Section 65 of the Food Safety and Standards Act, 2006 make regarding penalties for false warranty?",
+      "section": "65",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Penalty for fine in addition to punishment",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section 65 state about Penalty for fine in addition to punishment?",
+      "improvement_reason": "Fixed from vague 'state about Penalty'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "provision",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "air_act:s7",
+      "question": "What consent is required under Section 7 of the Air (Prevention and Control of Pollution) Act, 1981 for operating industrial plants?",
+      "section": "7",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "title": "Closure",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section 7 state about Closure?",
+      "improvement_reason": "Fixed from 'what is permitted regarding' to consent-focused",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "consent",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "kmc:nuisance",
+      "question": "What does Section Ch.Nuisance of the Kolkata Municipal Corporation Act, 1980 define as a public nuisance?",
+      "section": "Ch.Nuisance",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Public nuisance / noxious trades",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section Ch.Nuisance state about Public nuisance / noxious trades?",
+      "improvement_reason": "Fixed from vague 'state about public nuisance'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "definition",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbmo:penalties",
+      "question": "What penalties does the West Bengal Meat Order, 1966 prescribe for violation of its provisions?",
+      "section": "Penalty",
+      "act": "West Bengal Meat Order, 1966",
+      "title": "Penalties",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section Penalty state about Penalties?",
+      "improvement_reason": "Fixed from vague 'state about Penalties'",
+      "improvement_method": "manual_rewrite",
+      "answer_type": "penalty",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    }
+  ]
+}

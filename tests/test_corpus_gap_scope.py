@@ -76,7 +76,7 @@ def test_absent_text_is_not_reported_as_untagged(monkeypatch: pytest.MonkeyPatch
     plist = [_payload("12 Something entirely different.")]
 
     out = _untagged_evidence(
-        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:s63"}}, plist, _StubFamilyMap()
+        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:s63"}}, plist, _StubFamilyMap(),
     )
 
     assert "pcra:s63" not in out
@@ -98,7 +98,7 @@ def test_sections_covered_chunk_is_excluded(monkeypatch: pytest.MonkeyPatch):
     plist = [_payload("12 Some text.", sections_covered=["12"])]
 
     out = _untagged_evidence(
-        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:s12"}}, plist, _StubFamilyMap()
+        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:s12"}}, plist, _StubFamilyMap(),
     )
 
     assert "pcra:s12" not in out
@@ -106,7 +106,7 @@ def test_sections_covered_chunk_is_excluded(monkeypatch: pytest.MonkeyPatch):
 
 def test_norm_collapses_punctuation_and_case():
     assert norm("The Prevention of Cruelty to Animals Rules, 2017") == norm(
-        "the prevention of cruelty to animals (rules) 2017"
+        "the prevention of cruelty to animals (rules) 2017",
     )
 
 
@@ -115,7 +115,7 @@ def test_unit_without_section_is_skipped(monkeypatch: pytest.MonkeyPatch):
     plist = [_payload("4 The owner shall abide.")]
 
     out = _untagged_evidence(
-        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:all"}}, plist, _StubFamilyMap()
+        {"The Prevention of Cruelty to Animals Rules, 2017": {"pcra:all"}}, plist, _StubFamilyMap(),
     )
 
     assert "pcra:all" not in out

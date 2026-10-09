@@ -53,7 +53,8 @@ class TestGenerationPlusVerification:
     @staticmethod
     def _force_stub(monkeypatch) -> None:
         """Pin stub LLM mode regardless of the local .env (a real key with
-        RAG_USE_STUB_LLM=false would otherwise make live API calls)."""
+        RAG_USE_STUB_LLM=false would otherwise make live API calls).
+        """
         monkeypatch.setenv("RAG_USE_STUB_LLM", "true")
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 

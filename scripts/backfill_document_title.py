@@ -105,13 +105,14 @@ def collections_from_config(app) -> list[str]:
             cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ])
+        ]),
     )
 
 
 def derive_changes(payloads: dict[str, dict]) -> dict[str, dict]:
     """Map point_id -> {"document_title": title} for chunks with an empty
-    title whose document has a derivable title.  Never overwrites."""
+    title whose document has a derivable title.  Never overwrites.
+    """
     uri_by_doc: dict[str, str] = {}
     for pl in payloads.values():
         did = str(pl.get("document_id") or "")
@@ -158,7 +159,8 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
 
 def mirror_db(document_titles: dict[str, str]) -> dict:
     """Mirror per-document titles into ``LegalDocument.title`` and each
-    chunk's ``LegalChunk.metadata_json`` for rows that exist locally."""
+    chunk's ``LegalChunk.metadata_json`` for rows that exist locally.
+    """
     from app.extensions import db
     from app.models.rag import LegalChunk, LegalDocument
 
@@ -212,8 +214,7 @@ def main(argv: list[str] | None = None) -> int:
             payloads = scroll_payloads(app, collections)
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             with open(CACHE, "w", encoding="utf-8") as f:
-                for pid, pl in payloads.items():
-                    f.write(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n")
+                f.writelines(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n" for pid, pl in payloads.items())
             logger.info("payload cache refreshed: %d points", len(payloads))
         else:
             payloads = {}

@@ -7,8 +7,12 @@ tests pin the single seam: taxonomy values, members, and rubric names all
 resolve, and the planner builds from the same map.
 """
 
+import re
+
 from app.rag.planning.failure_classifier import FailureClassifier, RetrievalFailure
 from app.rag.planning.targeted_retry import TargetedRetryPlanner
+
+_PSEUDO = re.compile(r"\(\s*(identifier|definition|temporal|hierarchy|authority|case_law|expand)\s*\)", re.IGNORECASE)
 
 _KNOWN_STRATEGIES = {
     "identifier_search",
@@ -51,11 +55,13 @@ def test_rubric_names_route_like_taxonomy_values():
 
 
 def test_planner_builds_from_the_single_map():
+    # Pseudo-tags must NEVER reach an emitted query (RAG-TR-001 §4 hard rule;
+    # pinned by test_targeted_retry_v2.py::test_no_pseudo_tags_anywhere).
+    # Targeting is expressed through the query text + arm, not "(tag)" suffixes.
     planner = TargetedRetryPlanner()
-    assert "(temporal)" in planner.target_query("q?", ["EVIDENCE_CONTRADICTION"], "general", {})
-    assert "(authority)" in planner.target_query("q?", ["INSUFFICIENT_AUTHORITY_SCORE"], "general", {})
-    assert "(hierarchy)" in planner.target_query("q?", ["CONFLICTING_AUTHORITIES"], "general", {})
-    assert "(expand)" in planner.target_query("q?", ["LOW_RELEVANCE"], "general", {})
+    for code in ("EVIDENCE_CONTRADICTION", "INSUFFICIENT_AUTHORITY_SCORE", "CONFLICTING_AUTHORITIES", "LOW_RELEVANCE"):
+        q = planner.target_query("q?", [code], "general", {})
+        assert not _PSEUDO.search(q), f"{code} -> {q!r}"
 
 
 def test_abstain_returns_the_query_unchanged():
@@ -66,5 +72,8 @@ def test_abstain_returns_the_query_unchanged():
 
 def test_unknown_code_falls_back_to_dense_expansion():
     planner = TargetedRetryPlanner()
-    assert planner.target_query("q?", ["no_such_failure"], "general", {}) == "q? (expand)"
+    # Unmapped strategy -> explicit no-op plan (SPEC-2), not a pseudo-tagged echo.
+    plan = planner.target_plan("q?", ["no_such_failure"], "general", {})
+    assert plan.strategy == "unmapped"
+    assert plan.query == "q?"
     assert planner.target_query("q?", [], "general", {}) == "q?"

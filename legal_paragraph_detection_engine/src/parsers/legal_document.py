@@ -217,6 +217,7 @@ class DocumentTypeClassifier:
 
         Returns:
             Classified LegalDocument object
+
         """
         # Create a normalized key for caching
         normalized_text = re.sub(r"\s+", " ", text.strip())
@@ -309,6 +310,7 @@ class DocumentTypeClassifier:
 
         Returns:
             A canonical document-type string ("unknown" for empty hints).
+
         """
         if not hint.strip():
             return "unknown"

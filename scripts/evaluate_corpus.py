@@ -207,32 +207,32 @@ def recommend_settings(results: list[dict[str, Any]]) -> dict[str, Any]:
     recommendations: list[str] = []
     if failed:
         recommendations.append(
-            f"Fix {len(failed)} extraction failures before full ingestion: {[r['file'] for r in failed]}"
+            f"Fix {len(failed)} extraction failures before full ingestion: {[r['file'] for r in failed]}",
         )
     if avg_clean < 0.7:
         recommendations.append(
             f"Cleaning removes only {avg_clean:.0%} of raw text — check OCR preset "
-            "(DocumentCleaner 'aggressive' vs 'ocr') for scanned-page PDFs."
+            "(DocumentCleaner 'aggressive' vs 'ocr') for scanned-page PDFs.",
         )
     if types.get("unknown", 0) / max(len(docs), 1) > 0.3:
         recommendations.append(
             "DocumentClassifier leaves many documents 'unknown' — supply explicit "
             "'document_type' in the ingestion document dict, or enable RAG_FULL_ENRICHMENT "
-            "so MetadataAdapter contributes type detection."
+            "so MetadataAdapter contributes type detection.",
         )
     if quality_failed / max(quality_checked, 1) > 0.2:
         recommendations.append(
             f"Chunk quality: {quality_failed}/{quality_checked} chunks failed validation — "
-            "review chunker output / enable RAG_FULL_ENRICHMENT for metadata enrichment."
+            "review chunker output / enable RAG_FULL_ENRICHMENT for metadata enrichment.",
         )
     if total_chunks:
         recommendations.append(
             f"Corpus will produce ~{total_chunks} Qdrant points — collection fssai_legal_768 "
-            "with 768-dim vectors (RAG_VECTOR_SIZE=768, all-mpnet-base-v2) is the correct shape."
+            "with 768-dim vectors (RAG_VECTOR_SIZE=768, all-mpnet-base-v2) is the correct shape.",
         )
     recommendations.append(
         "Install qdrant-client + sentence-transformers (torch) to enable embedding + Qdrant; "
-        "set RAG_QDRANT_URL, then run scripts/ingest_corpus.py <corpus_dir>."
+        "set RAG_QDRANT_URL, then run scripts/ingest_corpus.py <corpus_dir>.",
     )
 
     return {

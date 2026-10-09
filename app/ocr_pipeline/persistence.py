@@ -59,7 +59,7 @@ def persist_ocr_result(
                 unit=param.get("unit", ""),
                 source_authority="zonal_ocr",
                 confidence=param.get("confidence", 0.75),
-            )
+            ),
         )
     db.session.commit()
     logger.info(

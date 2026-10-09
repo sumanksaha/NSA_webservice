@@ -21,6 +21,7 @@ class EvalSummary:
         mrr_avg: Average Mean Reciprocal Rank.
         latency_avg_ms: Average pipeline latency in ms.
         passed: Number of queries that passed all metric thresholds.
+
     """
 
     total: int = 0
@@ -49,6 +50,7 @@ class EvalReport:
         eval_run_id: UUID identifying this evaluation run.
         results: Per-query result dicts.
         summary: Aggregate :class:`EvalSummary`.
+
     """
 
     eval_run_id: str = ""

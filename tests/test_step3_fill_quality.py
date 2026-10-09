@@ -492,7 +492,7 @@ def test_negative_control_gate_never_passes_human_rejects():
                     payload_families=[
                         fam for fam, _ in payload_to_keys(pl, deps.fam_map)
                     ],
-                )
+                ),
             )
         qg = gate_fill_proposal(gates)
         # safety property: PASS is never emitted for a human-rejected row

@@ -12,7 +12,7 @@ isotonic table — can be validated the day labels exist.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 __all__ = [
     "abstention_rate",
@@ -71,7 +71,7 @@ def reliability_bins(
                 "count": int(count),
                 "mean_confidence": round(conf_sum / count, 6),
                 "empirical_rate": round(outcome_sum / count, 6),
-            }
+            },
         )
     return bins
 

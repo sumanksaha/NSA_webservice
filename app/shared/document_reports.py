@@ -125,5 +125,5 @@ def toc_report_data(annotated_html: str) -> tuple[Any, str]:
     from app.toc_generator.engine import TocGeneratorEngine
 
     return generate_toc_data(annotated_html), TocGeneratorEngine().build_toc_html(
-        TocGeneratorEngine().extract_toc(annotated_html)
+        TocGeneratorEngine().extract_toc(annotated_html),
     )

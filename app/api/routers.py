@@ -115,11 +115,11 @@ async def v2_search_reindex(request: Request) -> Any:
 # --------------------------------------------------------------------------- #
 class AssistRequest(BaseModel):
     action: str = Field(
-        ..., description="One of: summarize, refine_legal, detect_contradictions, suggest_annexures, draft_prayers."
+        ..., description="One of: summarize, refine_legal, detect_contradictions, suggest_annexures, draft_prayers.",
     )
     content: str = Field(default="", description="Text content to process (validated by the domain function).")
     context: dict[str, Any] | None = Field(
-        default=None, description="Optional context for draft_prayers (facts/grounds)."
+        default=None, description="Optional context for draft_prayers (facts/grounds).",
     )
 
 
@@ -256,10 +256,10 @@ async def v2_validation_validate(req: ValidationRequest) -> Any:
 class IngestRequest(BaseModel):
     text: str | None = Field(default=None, description="Raw text to ingest.")
     source: str | None = Field(
-        default=None, description="Corpus file path to ingest (pdf/docx/txt). source takes precedence over text."
+        default=None, description="Corpus file path to ingest (pdf/docx/txt). source takes precedence over text.",
     )
     document: dict[str, Any] | None = Field(
-        default=None, description="Caller-provided metadata (wins over extracted values)."
+        default=None, description="Caller-provided metadata (wins over extracted values).",
     )
     full_enrichment: bool | None = Field(default=None, description="Override RAG_FULL_ENRICHMENT for this request.")
 

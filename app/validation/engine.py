@@ -61,6 +61,7 @@ class ValidationEngine:
             ``{"error": "Case not found"}`` when the case does not exist, or
             ``{score, grade, errors, warnings, suggestions, info, rules_run,
             case_id, adjudication_id, case_type, case_number}``.
+
         """
         resolved = CaseResolver().resolve(case_id, kind=case_type or None)
         if resolved is None:

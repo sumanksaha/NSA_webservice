@@ -101,7 +101,7 @@ class TestBackupCollection:
     def test_dense_only_collection_flat_vectors(self, tmp_path):
         store = _FakeStore(
             points=[
-                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}
+                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}},
             ],
             sparse=False,
         )
@@ -147,7 +147,7 @@ class TestRestoreCollection:
     def test_restore_roundtrip_dense_only(self, tmp_path):
         src = _FakeStore(
             points=[
-                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}}
+                {"id": "33333333-3333-3333-3333-333333333333", "vector": [0.3] * 768, "payload": {"document_id": "d3"}},
             ],
             sparse=False,
         )

@@ -111,7 +111,8 @@ def _violating_inspection(client, **kwargs):
 
 def _norm(html: str) -> str:
     """Collapse all whitespace runs to single spaces (template source wraps
-    sentences across lines, so text assertions must be whitespace-insensitive)."""
+    sentences across lines, so text assertions must be whitespace-insensitive).
+    """
     import re
 
     return re.sub(r"\s+", " ", html)
@@ -137,7 +138,7 @@ def _notice_url(inspection_id: int, fmt: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     app, client, app_context = _setup_test_env()
     _clean_instance(app)
@@ -146,25 +147,25 @@ def env():
     _teardown_test_env(app_context)
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(env):
     app, _client, _ctx = env
     return app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(env):
     _app, client, _ctx = env
     return client
 
 
-@pytest.fixture()
+@pytest.fixture
 def inspection(client):
     """A violating inspection (violations derivable from its checklist)."""
     return _violating_inspection(client)
 
 
-@pytest.fixture()
+@pytest.fixture
 def plain_inspection(client):
     """A violation-free inspection (no checklist)."""
     return _make_inspection(client)
@@ -350,9 +351,9 @@ class TestImprovementNoticeTemplate:
                             "task": "Calibrate dairy refrigeration unit to 3°C.",
                             "responsible_role": "Kitchen Supervisor",
                             "regulatory_ref": "Schedule 4, Part II, Sec 2.1",
-                        }
+                        },
                     ],
-                }
+                },
             ],
             "dossier_checklist_for_fso": ["7-day temperature log chart for dairy storage"],
         }
@@ -549,7 +550,7 @@ class TestViolationsDerivationFromChecklist:
             "Pest_report",
             "Water_report",
         )
-        compliant = {field: "yes" for field in regular}
+        compliant = dict.fromkeys(regular, "yes")
         insp_id = _make_inspection(client, **compliant)
         resp = client.get(_notice_url(insp_id, "html"))
         assert resp.status_code == 200

@@ -1,0 +1,12 @@
+============================= test session starts =============================
+collected 7 items
+
+tests\test_rag_tasks.py .......                                          [100%]
+
+============================== warnings summary ===============================
+tests/test_rag_tasks.py::TestRunEmbedAndIndex::test_degrades_gracefully_without_optional_deps
+  C:\github\NSA_webservice\app\rag\embedding_service.py:61: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+    return int(encoder.get_sentence_embedding_dimension())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 7 passed, 1 warning in 205.92s (0:03:25) ===================

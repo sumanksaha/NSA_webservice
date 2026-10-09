@@ -289,7 +289,8 @@ class TestWordRoute:
         """No violations → Word inspection report rendered (b216b44 report
         mode). Note: the /docx route currently freezes the record
         unconditionally, unlike /html and /pdf — see the freeze-semantics
-        follow-up."""
+        follow-up.
+        """
         _app, client, ctx = self._setup()
         try:
             insp_id = _make_inspection(client)

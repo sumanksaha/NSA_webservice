@@ -165,6 +165,7 @@ def measure_embedding(
         encoder: Optional pre-built encoder (injected for tests). When None,
             a real sentence-transformers model is loaded if available, else a
             synthetic numpy encoder is used (``mode: "synthetic"``).
+
     """
     from app.rag.embedding_service import EmbeddingService
 

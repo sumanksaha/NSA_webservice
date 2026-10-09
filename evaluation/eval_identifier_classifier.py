@@ -147,45 +147,45 @@ def main() -> int:
     print("\n--- ACT DETECTION ---")
     print(f"  Questions with gold act mention: {gold_has_act}/{total} ({gold_has_act / total * 100:.1f}%)")
     print(
-        f"  Questions where classifier detected an act: {detected_act_total}/{total} ({detected_act_total / total * 100:.1f}%)"
+        f"  Questions where classifier detected an act: {detected_act_total}/{total} ({detected_act_total / total * 100:.1f}%)",
     )
     print(
-        f"  Correct act detections: {detected_act_correct}/{detected_act_total} ({detected_act_correct / max(detected_act_total, 1) * 100:.1f}%)"
+        f"  Correct act detections: {detected_act_correct}/{detected_act_total} ({detected_act_correct / max(detected_act_total, 1) * 100:.1f}%)",
     )
     print(
-        f"  False positive act detections: {false_pos_act}/{detected_act_total} ({false_pos_act / max(detected_act_total, 1) * 100:.1f}%)"
+        f"  False positive act detections: {false_pos_act}/{detected_act_total} ({false_pos_act / max(detected_act_total, 1) * 100:.1f}%)",
     )
     print(
-        f"  Recall (detected correct / questions with gold act): {detected_act_correct}/{gold_has_act} ({detected_act_correct / max(gold_has_act, 1) * 100:.1f}%)"
+        f"  Recall (detected correct / questions with gold act): {detected_act_correct}/{gold_has_act} ({detected_act_correct / max(gold_has_act, 1) * 100:.1f}%)",
     )
 
     print("\n--- SECTION DETECTION ---")
     print(f"  Questions with gold section mention: {gold_has_section}/{total} ({gold_has_section / total * 100:.1f}%)")
     print(
-        f"  Questions where classifier detected a section: {detected_section_total}/{total} ({detected_section_total / total * 100:.1f}%)"
+        f"  Questions where classifier detected a section: {detected_section_total}/{total} ({detected_section_total / total * 100:.1f}%)",
     )
     print(
-        f"  Correct section detections: {detected_section_correct}/{detected_section_total} ({detected_section_correct / max(detected_section_total, 1) * 100:.1f}%)"
+        f"  Correct section detections: {detected_section_correct}/{detected_section_total} ({detected_section_correct / max(detected_section_total, 1) * 100:.1f}%)",
     )
     print(
-        f"  False positive section detections: {false_pos_section}/{detected_section_total} ({false_pos_section / max(detected_section_total, 1) * 100:.1f}%)"
+        f"  False positive section detections: {false_pos_section}/{detected_section_total} ({false_pos_section / max(detected_section_total, 1) * 100:.1f}%)",
     )
     print(
-        f"  Recall (detected correct / questions with gold section): {detected_section_correct}/{gold_has_section} ({detected_section_correct / max(gold_has_section, 1) * 100:.1f}%)"
+        f"  Recall (detected correct / questions with gold section): {detected_section_correct}/{gold_has_section} ({detected_section_correct / max(gold_has_section, 1) * 100:.1f}%)",
     )
 
     print("\n--- COMBINED ACT+SECTION DETECTION ---")
     print(f"  Questions with gold act+section pairs: {gold_has_both}/{total} ({gold_has_both / total * 100:.1f}%)")
     print(
-        f"  Questions where classifier detected both act+section correctly: {detected_both_correct}/{gold_has_both} ({detected_both_correct / max(gold_has_both, 1) * 100:.1f}%)"
+        f"  Questions where classifier detected both act+section correctly: {detected_both_correct}/{gold_has_both} ({detected_both_correct / max(gold_has_both, 1) * 100:.1f}%)",
     )
     print(
-        f"  Questions missed (gold has both, classifier missed at least one): {len(missed_both)}/{gold_has_both} ({len(missed_both) / max(gold_has_both, 1) * 100:.1f}%)"
+        f"  Questions missed (gold has both, classifier missed at least one): {len(missed_both)}/{gold_has_both} ({len(missed_both) / max(gold_has_both, 1) * 100:.1f}%)",
     )
 
     print("\n--- DETECTION COVERAGE ---")
     print(
-        f"  Questions where classifier detected ANY identifier: {detected_any}/{total} ({detected_any / total * 100:.1f}%)"
+        f"  Questions where classifier detected ANY identifier: {detected_any}/{total} ({detected_any / total * 100:.1f}%)",
     )
     no_gold = total - gold_has_act - gold_has_section + gold_has_both
     print(f"  Questions with NO gold act or section: {no_gold}/{total} ({no_gold / total * 100:.1f}%)")
@@ -211,12 +211,12 @@ def main() -> int:
         gold_both = sum(1 for q in diff_per_q if q["gold_act_section_pairs"])
         if gold_both > 0:
             print(
-                f"  {diff}: {len(diff_qs)} questions, {gold_both} have gold act+section, {both_correct} correctly detected ({both_correct / gold_both * 100:.1f}%)"
+                f"  {diff}: {len(diff_qs)} questions, {gold_both} have gold act+section, {both_correct} correctly detected ({both_correct / gold_both * 100:.1f}%)",
             )
 
     print("\n--- MISSED QUESTIONS (gold has act+section, classifier missed at least one) ---")
     print(
-        f"  Count: {len(missed_both)}/{gold_has_both} ({len(missed_both) / max(gold_has_both, 1) * 100:.1f}% miss rate)"
+        f"  Count: {len(missed_both)}/{gold_has_both} ({len(missed_both) / max(gold_has_both, 1) * 100:.1f}% miss rate)",
     )
     if missed_both:
         print(f"  First 10 QIDs: {missed_both[:10]}")

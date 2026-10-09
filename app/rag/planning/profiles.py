@@ -31,7 +31,7 @@ class QueryProfile:
             "legal_identity": 0.4,
             "legal_ranker": 0.4,
             "ce_reranker": 0.2,
-        }
+        },
     )
     # Retrieval behavior
     default_top_k: int = 10

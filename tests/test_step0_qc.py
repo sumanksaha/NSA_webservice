@@ -228,7 +228,7 @@ def test_run_em_triage_bucket_split():
     assert tri["ingestion_priority_by_instrument"]["wbmo"] == {"ingest_priority": 1}
     # evidence gaps outside the EM bucket are surfaced (quote-gate risk)
     assert tri["evidence_gaps_under_other_labels"] == [
-        {"qid": "Q005", "label": "model_wrong", "absent_units": ["epa:s7"], "states": {"epa:s7": "payload_gap"}}
+        {"qid": "Q005", "label": "model_wrong", "absent_units": ["epa:s7"], "states": {"epa:s7": "payload_gap"}},
     ]
 
 
@@ -242,14 +242,14 @@ class _Q:
 
 
 def _reaudit_inputs(
-    payload_text, *, label, units, ref, answer, human_correct="true", qid="Q001"
+    payload_text, *, label, units, ref, answer, human_correct="true", qid="Q001",
 ):
     """Minimal question/manifest/payload/preanno/record set for one packet."""
     questions = {qid: _Q(ref)}
     manifest = {
         "questions": {
-            qid: {"conditions": {"O3_full_support": {"context_chunk_ids": ["c1"]}}}
-        }
+            qid: {"conditions": {"O3_full_support": {"context_chunk_ids": ["c1"]}}},
+        },
     }
     payload_index = {"c1": {"chunk_text": payload_text}}
     preanno = {qid: {"primary_units": units}}
@@ -259,7 +259,7 @@ def _reaudit_inputs(
 
 
 def _run_one(
-    payload_text, *, label, units, ref, answer, human_correct="true", qid="Q001"
+    payload_text, *, label, units, ref, answer, human_correct="true", qid="Q001",
 ):
     inputs = _reaudit_inputs(
         payload_text,

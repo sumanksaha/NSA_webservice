@@ -180,7 +180,7 @@ class TestEvalBatch:
             pipeline_fn=_pipeline_factory(
                 chunks,
                 answer="Based on the context, Section 55 requires a food business license [1].",
-            )
+            ),
         )
         result = runner.evaluate_one(
             query="What does Section 55 say?",

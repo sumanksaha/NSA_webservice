@@ -47,6 +47,7 @@ def validate_record(record: dict, payload: dict | None = None) -> ValidationResu
         payload: The source Qdrant payload (for immutability + hash checks).
             When ``None``, immutability checks are skipped (callers without
             payload access may still validate the structural invariants).
+
     """
     issues: list[str] = []
     text = record.get("original_text", "")
@@ -130,9 +131,8 @@ def validate_record(record: dict, payload: dict | None = None) -> ValidationResu
             if edge in seen_edges:
                 _check(False, f"duplicate cross-reference edge {edge}", issues)
             seen_edges.add(edge)
-        else:
-            if target:
-                _check(False, "unresolved cross_reference carries target_chunk_id", issues)
+        elif target:
+            _check(False, "unresolved cross_reference carries target_chunk_id", issues)
         conf = xr.get("confidence")
         if conf is not None:
             _check(0.0 <= float(conf) <= 1.0, f"cross_reference confidence {conf} out of [0, 1]", issues)

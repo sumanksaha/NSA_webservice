@@ -44,6 +44,7 @@ class BoundaryCandidate:
         source_pattern: Which rule proposed it — ``engine_main``,
             ``engine_word``, ``dotted_clause``, or ``l4_header``.
         grammar_type: ``"section"`` or ``"dotted"``.
+
     """
 
     char_offset: int

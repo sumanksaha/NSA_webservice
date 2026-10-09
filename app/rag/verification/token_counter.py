@@ -35,6 +35,7 @@ class TokenUsage:
         completion_tokens: Estimated tokens in the response.
         total_tokens: Sum of the above.
         context_length: Estimated tokens of the assembled context (prompt only).
+
     """
 
     prompt_tokens: int = 0
@@ -66,6 +67,7 @@ class TokenCounter:
             :class:`~app.rag.generation.llm_client.GroundedLLMClient`);
             since tiktoken has no native encoding for Llama-based models,
             it will fall back to the word-count heuristic.
+
     """
 
     def __init__(self, model: str = "poolside/laguna-s-2.1:free") -> None:
@@ -101,6 +103,7 @@ class TokenCounter:
 
         Returns:
             A :class:`TokenUsage` with all counts.
+
         """
         prompt_tokens = self.estimate(context)
         completion_tokens = self.estimate(response)

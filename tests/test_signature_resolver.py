@@ -34,7 +34,7 @@ def _make_valid_jpeg() -> bytes:
             "pqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS"
             "09TV1tfa2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/"
             "AABEIAAEAAQMBgMBAAAAAAAAAAAAEQECAwAhEhNBUSFRYXGBkSIyQpH/2gAMAwEAAhEDEQA/A"
-            "K//Z"
+            "K//Z",
         )
 
 
@@ -43,7 +43,7 @@ def _make_valid_jpeg() -> bytes:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def sig_dir(tmp_path):
     """Create a temporary signature directory with a valid JPEG."""
     d = tmp_path / "signature"

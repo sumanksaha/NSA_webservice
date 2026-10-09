@@ -412,17 +412,17 @@ def analyze() -> int:
                 rec_ids = []
                 if route == "A_original":
                     rec_ids = list(a_dense.get(q.question_id, {}).get("chunk_ids", [])) + list(
-                        b_sparse.get(q.question_id, {}).get("chunk_ids", [])
+                        b_sparse.get(q.question_id, {}).get("chunk_ids", []),
                     )
                 elif route == "B_gold_text":
                     rec_ids = list(o_dense.get(q.question_id, {}).get("chunk_ids", [])) + list(
-                        o_sparse.get(q.question_id, {}).get("chunk_ids", [])
+                        o_sparse.get(q.question_id, {}).get("chunk_ids", []),
                     )
                 elif route == "K_kg":
                     pass
                 else:
                     rec_ids = list(u_caches.get(route, {}).get(pid, {}).get("chunk_ids", [])) or list(
-                        q_caches.get(route, {}).get(q.question_id, {}).get("chunk_ids", [])
+                        q_caches.get(route, {}).get(q.question_id, {}).get("chunk_ids", []),
                     )
                 for k in hits:
                     if route == "K_kg":
@@ -446,7 +446,7 @@ def analyze() -> int:
                 w.writerow(
                     [route]
                     + [f"{r[f'R@{k}']:.3f}" for k in (5, 10, 20, 50, 100, 200, 500)]
-                    + [len(recoveries.get(route, []))]
+                    + [len(recoveries.get(route, []))],
                 )
 
         # ---- Task 9: failure taxonomy per workset unit (route evidence)
@@ -642,7 +642,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.run:
         raise SystemExit(
-            run(args.scope, [r.strip() for r in args.routes.split(",") if r.strip()], args.shard, args.limit)
+            run(args.scope, [r.strip() for r in args.routes.split(",") if r.strip()], args.shard, args.limit),
         )
     if args.analyze:
         raise SystemExit(analyze())

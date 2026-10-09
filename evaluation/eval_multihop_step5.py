@@ -47,7 +47,7 @@ from app.rag.agent.nodes.linear import (
 )
 from app.rag.agent.routing_economics import route_strategy
 from app.rag.planning.query_planner import QueryPlanner
-from app.rag.retrieval import effective_query_type, normalize_query_type, understand
+from app.rag.retrieval import effective_query_type, understand
 
 BENCHMARK = PROJECT_ROOT / "benchmark" / "benchmark_v1.0.jsonl"
 OUT = PROJECT_ROOT / "evaluation" / "out" / "step5_multihop_eval.json"
@@ -149,7 +149,7 @@ def audit_question(query: str) -> dict:
     u = understand(query)
     plan = QueryPlanner().plan(query)
     decision = route_strategy(
-        {"complexity": plan.complexity.value}, u.legal_type, query
+        {"complexity": plan.complexity.value}, u.legal_type, query,
     )
     return {
         "legacy_type": u.query_type.value,
@@ -199,7 +199,7 @@ def simulate(
         if canons:
             req_check = "definition" in query.lower() and ("define" in query.lower() or "means" in query.lower())
             out[floor]["followup"] = _build_followup_query(
-                query, canons[:2], definition_flavor=req_check
+                query, canons[:2], definition_flavor=req_check,
             )
     # Round 2 (chain): mine from primary + supporting texts, excluding r1.
     if out.get("MEDIUM", {}).get("fired"):
@@ -209,7 +209,7 @@ def simulate(
             for coll in collections:
                 plus.extend(store.fetch(coll, prov, query))
         canons2, _, _, _ = _mined_followup_targets(
-            plus, query, _MULTIHOP_CONFIDENCE_RANK["MEDIUM"], exclude_canons=r1
+            plus, query, _MULTIHOP_CONFIDENCE_RANK["MEDIUM"], exclude_canons=r1,
         )
         out["round2"] = {"new_targets": canons2[:4], "n_new": len(canons2)}
     return out

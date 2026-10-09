@@ -10,6 +10,7 @@ Example:
 
     converter = ImprovementNoticeWordConverter()
     docx_bytes = converter.build(context)
+
 """
 
 from __future__ import annotations
@@ -205,7 +206,7 @@ class ImprovementNoticeWordConverter:
         p.space_before = Pt(4)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
         p.add_run(
             "Based on the following observations, an improvement notice "
-            "u/s 32 may kindly be granted on the following ground:"
+            "u/s 32 may kindly be granted on the following ground:",
         ).font.size = Pt(11)
 
         actions = ctx.get("actions") or []
@@ -223,7 +224,7 @@ class ImprovementNoticeWordConverter:
             p.space_before = Pt(8)  # type: ignore[attr-defined]  # Paragraph has no spacing attr (it's on paragraph_format); kept as no-op, no behavior change
             p.add_run(
                 "The FBO is hereby directed to comply with the above observations "
-                "and take the required corrective action on or before "
+                "and take the required corrective action on or before ",
             ).font.size = Pt(10.5)
             r = p.add_run(f"{deadline}.")
             r.bold = True

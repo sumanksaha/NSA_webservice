@@ -268,7 +268,8 @@ class TestOCRProvider:
 
     def test_extract_text_defaults_engine_when_page_results_lack_it(self):
         """Partial/error results may lack ``ocr_engine`` entirely — the engine
-        name then falls back to the plugin default instead of crashing."""
+        name then falls back to the plugin default instead of crashing.
+        """
         from types import SimpleNamespace
 
         from app.plugins.registry import PluginRegistry
@@ -288,7 +289,6 @@ class TestOCRProvider:
 
     def test_lazy_import(self):
         """OCRProvider plugin does not import OCRPipeline at module load."""
-
         # The OCRPipeline should not be imported just by importing the plugin module
         # Check that app.ocr_pipeline is not in sys.modules just from importing plugin
         # (it may already be there from app factory, so we test that the plugin
@@ -486,7 +486,6 @@ class TestBackwardCompat:
 
     def test_pdf_utils_delegates_to_registry(self):
         """app.utils.pdf_utils.generate_pdf_from_html still works via registry."""
-
         # When PDF generation is disabled, we expect graceful None
         os.environ["DISABLE_PDF_GENERATION"] = "1"
         try:

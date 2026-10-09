@@ -69,6 +69,7 @@ class EvidenceItem:
         legal_identity: Canonical identity string for this chunk.
         section_number: Section number if available.
         act_name: Act name if available.
+
     """
 
     chunk: Any
@@ -107,6 +108,7 @@ class EvidenceSet:
         items: Selected evidence items (ordered by priority).
         total_pool: Number of chunks in the input pool.
         selection_rationale: Human-readable explanation of the selection.
+
     """
 
     query: str
@@ -320,7 +322,7 @@ def _compute_complementarity(item: EvidenceItem, existing: list[EvidenceItem]) -
     if item.section_number and existing:
         existing_sections = {ex.section_number for ex in existing if ex.section_number}
         if item.section_number not in existing_sections and section_base(item.section_number) != section_base(
-            existing[0].section_number or ""
+            existing[0].section_number or "",
         ):
             return 0.75
 
@@ -391,6 +393,7 @@ def select_evidence_set(
 
     Returns:
         ``EvidenceSet`` with selected items.
+
     """
     if not ranked_chunks:
         return EvidenceSet(query=query, items=[], total_pool=0)

@@ -100,14 +100,14 @@ class TextCleaner:
         self._continuation_max_words = continuation_max_words
 
     def clean_text(self, text: str) -> str:
-        """
-        Clean and normalize legal text.
+        """Clean and normalize legal text.
 
         Args:
             text: Raw legal text
 
         Returns:
             Cleaned and normalized text
+
         """
         with self._lock:
             # Check cache first
@@ -173,9 +173,9 @@ class TextCleaner:
             if any(re.search(pattern, line, re.IGNORECASE) for pattern in patterns):
                 if category in ["legal_citations", "statutory_references"]:
                     return TextType.LEGAL_CONTENT
-                elif category == "document_markers":
+                if category == "document_markers":
                     return TextType.MARKER
-                elif category == "dates_and_numbers":
+                if category == "dates_and_numbers":
                     return TextType.DATES_AND_NUMBERS
 
         # Check for page numbers
@@ -310,14 +310,14 @@ class TextCleaner:
         return "\n".join(lines)
 
     def _segment_into_paragraphs(self, text: str) -> str:
-        """
-        Segment text into paragraphs based on legal document structure.
+        """Segment text into paragraphs based on legal document structure.
 
         Args:
             text: Cleaned text
 
         Returns:
             Text with paragraph breaks
+
         """
         lines = text.split("\n")
         paragraphs = []
@@ -366,14 +366,14 @@ class TextCleaner:
         return prev_line.endswith((".", ":", ";")) or len(current_line.split()) <= self._continuation_max_words
 
     def find_legal_sections(self, text: str) -> list[str]:
-        """
-        Find and extract legal sections from text.
+        """Find and extract legal sections from text.
 
         Args:
             text: Legal text
 
         Returns:
             List of section markers found
+
         """
         sections = []
 
@@ -392,14 +392,14 @@ class TextCleaner:
         return list(set(sections))  # Remove duplicates
 
     def extract_citations_from_text(self, text: str) -> list[dict[str, str]]:
-        """
-        Extract legal citations from text.
+        """Extract legal citations from text.
 
         Args:
             text: Legal text
 
         Returns:
             List of citation dictionaries
+
         """
         citations = []
 

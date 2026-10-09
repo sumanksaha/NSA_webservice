@@ -67,7 +67,7 @@ def test_state_is_json_serializable():
             "section_number": "50",
             "document_title": "FSS Act",
             "act_name": "FSS Act",
-        }
+        },
     ]
     state["audit_trail"].append({"node": "classify", "latency_ms": 1, "detail": {}})
     round_tripped = json.loads(json.dumps(state))

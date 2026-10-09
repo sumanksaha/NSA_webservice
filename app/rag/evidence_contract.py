@@ -12,6 +12,7 @@ previously existed **twice** — here and in
 requirement types). This module is now a thin re-export of the canonical
 definitions in :mod:`app.rag.evidence_task`; import from either location,
 but the single source of truth lives there.
+
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ def verify_answer_contract(
 
     Returns:
         Tuple of (is_satisfied, missing_fields).
+
     """
     missing = contract.missing_fields(answer)
     return not missing, missing

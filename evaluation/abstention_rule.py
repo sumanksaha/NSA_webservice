@@ -33,6 +33,22 @@ Contract
   reference says are not established) gets NO credit — the lexicon is
   deliberately negation-anchored, not "mentions the same subject".
 
+Lexicon location
+----------------
+The lexicon now lives in ``app.rag.generation.abstention`` and is imported
+here, because ``app/`` must not import from ``evaluation/`` and both sides
+must match the same negation patterns.  One definition, two consumers — the
+locality rule this module already states.  ``ABSTAIN_CREDIT_RE`` is kept as
+this module's public name and is the same object as
+``app.rag.generation.abstention.ABSTENT_MARKERS_RE``.
+
+The *length* policy intentionally differs between the two consumers and has
+not been changed on either side: this frozen scorer treats any answer under
+``_MIN_ANSWER_CHARS`` as an abstention, while
+``app.rag.generation.abstention.is_abstention`` requires a substantive
+statement so that a short degenerate answer is not laundered into
+"not a hallucination".
+
 Deterministic; 0 model calls. Imported by ``rescore_evaluator_v2`` (metric)
 and ``step3_gated_generation`` (before/after scoring) so both sides of every
 comparison use one rule (locality: one home for the lexicon).
@@ -40,58 +56,23 @@ comparison use one rule (locality: one home for the lexicon).
 
 from __future__ import annotations
 
-import re
+from app.rag.generation.abstention import ABSTENT_MARKERS_RE, strip_banned
 
-#: v1 lexicon verbatim (kept as a subset so credit ⊇ v1 detection).
-_V1_PATTERNS = (
-    r"i (?:do not|cannot|dont|can't|can not)",
-    r"cannot (?:find|answer|determine|locate)",
-    r"no relevant",
-    r"insufficient inform",
-    r"unable to",
-    r"not possible to",
-    r"cannot be (?:determine|established|reliably)",
-    r"not (?:recorded|established|stipulated|provided|specified|mentioned|available)",
-    r"no (?:evidence|information|provision|specific)",
-    r"does not (?:specify|establish|provide|state)",
-    r"the corpus does not",
-    r"no provision in the corpus",
-)
+__all__ = [
+    "ABSTAIN_CREDIT_RE",
+    "MIN_ANSWER_CHARS",
+    "abstain_credit",
+    "abstain_match",
+    "strip_banned",
+    "summarize_groundedness",
+]
 
-#: v2 extensions — inflection tolerance + the negation phrasings the residual
-#: answers actually use. Every alternative is negation-anchored.
-_V2_EXTRA = (
-    # inflection: "cannot be determined" missed v1's trailing \b after "determine"
-    r"cannot be (?:determined|determining|specified|establishing)",
-    r"can(?:not|'t) (?:be )?(?:determined|specified|established|ascertained|derived|read)",
-    # recognition / containment / enumeration phrasings
-    r"does not (?:recognise|recognize|contain|fix|determine|enumerate|prescribe|"
-    r"lay down|set out|record|stipulate|mention|identify|define)",
-    r"does not itself",
-    # bounded-gap negation: "not a distance determinable", "not readable from the Act"
-    r"not [^.;:]{0,30}(?:determinable|readable|derivable|ascertainable|enumerable)",
-    # absence-of-quantity phrasings used by fee/threshold questions
-    r"no (?:specific|exact|single|stable|clear) "
-    r"(?:threshold|limit|fee|figure|cap|list|standard|schedule|duration|maximum|"
-    r"minimum|amount|provision|figure)",
-    r"is not (?:a )?(?:specific|exact|single|stable|fixed) ",
-)
-
-ABSTAIN_CREDIT_RE = re.compile(
-    r"\b(?:" + "|".join(_V1_PATTERNS + _V2_EXTRA) + r")\b",
-    re.IGNORECASE,
-)
+#: Re-exported from the shared home (see "Lexicon location" above).
+ABSTAIN_CREDIT_RE = ABSTENT_MARKERS_RE
 
 #: same "<20 chars is not an answer" heuristic as the frozen scorer
 _MIN_ANSWER_CHARS = 20
-
-
-def strip_banned(answer: str, banned: set[str] | None) -> str:
-    """Remove overlay-banned markers (Q060/Q138) before matching."""
-    low = str(answer or "").lower()
-    for m in banned or set():
-        low = low.replace(m, " ")
-    return low
+MIN_ANSWER_CHARS = _MIN_ANSWER_CHARS
 
 
 def abstain_match(answer: str, banned: set[str] | None = None) -> bool:
@@ -115,3 +96,48 @@ def abstain_credit(
     if not insufficient_evidence:
         return False
     return abstain_match(answer, banned)
+
+
+def summarize_groundedness(rows: dict[str, dict]) -> dict:
+    """Split a groundedness aggregate by abstention.
+
+    ADR-0010 §2.5: ``groundedness_score`` is a ratio over citations, so a
+    correct refusal scores 0.0 without being ungrounded.  Averaging it across
+    an abstention-heavy population measures the abstention *rate*, not answer
+    quality — which is how a prompt change that lifted groundedness 0.98 →
+    0.78 by abstaining on 44% of answerable questions read as a regression.
+
+    A single mean is therefore not a reportable number.  This returns the
+    abstention-aware split that is: the mean over answering questions, with
+    the raw mean and the rate reported next to it so the movement is visible
+    rather than hidden.
+
+    Args:
+        rows: ``{qid: {"answer": str, "groundedness_score": float}}``.
+
+    Returns:
+        ``groundedness_all`` / ``groundedness_answering`` / ``abstention_rate``
+        / ``n`` / ``n_answering``.  ``groundedness_answering`` is ``None``
+        when every answer abstained (no answering population to score).
+
+    """
+    grounds: list[float] = []
+    answering: list[float] = []
+    for row in (rows or {}).values():
+        if not isinstance(row, dict):
+            continue
+        value = row.get("groundedness_score")
+        if value is None:
+            continue
+        grounds.append(float(value))
+        if not abstain_match(row.get("answer", "")):
+            answering.append(float(value))
+
+    n = len(grounds)
+    return {
+        "groundedness_all": (sum(grounds) / n) if n else None,
+        "groundedness_answering": (sum(answering) / len(answering)) if answering else None,
+        "abstention_rate": ((n - len(answering)) / n) if n else None,
+        "n": n,
+        "n_answering": len(answering),
+    }

@@ -158,6 +158,35 @@ raw-text jurisdiction/temporal scope, requirement extraction) stay in
 `QueryPlanner` — they serve task construction and are pinned by the
 requirement benchmark.
 
+### `FoodView` — the food-intent stage seam
+
+**Module:** `app/rag/retrieval/food_view.py`. The single deep module behind
+every food-commodity stage decision (retrieval-first landing, 2026-10-09).
+Owns:
+
+- the **canonical construction rule**: `FoodView.for_query(query)` is the
+  one parse site — it returns `None` when `RAG_FOOD_INTENT_ENABLED` is off,
+  so flag-off callers branch nowhere and keep byte-for-byte behaviour;
+- the **pool-width rule**: `view.fetch_width(top_k)` decides the candidate
+  width (wider when clause siblings will be reconstructed), replacing the
+  inline `max(top_k, 30)` special-case in `run_retrieval_pipeline`;
+- **stage 2b**: `food_stage_2b(view, result, ctx, fetch)` — legal-aware
+  rerank, dynamic identity anchor, exact clause-sibling fetch, validation,
+  fallback rounds, and §12 bundle reconstruction. The `fetch` callable and
+  the `FoodFetchContext` value are passed in, so this module never imports
+  the orchestrator (`tasks.py`) — 13 threaded parameters collapse to two
+  arguments;
+- **leverage**: the agent path inherits food handling by forwarding result
+  keys (the `evidence_set` pattern) instead of re-deriving it;
+- **locality**: the parse happens once per pipeline call instead of three
+  times (retrieval understanding, stage 2b, generation prompt).
+
+Boundary: `FoodQueryUnderstanding`
+(`retrieval/food_query_understanding.py`) stays the *pure parse value* —
+this module owns stage policy only. The generation-side consumers
+(`_generate_food_prompt`, output keys, completeness check) still re-derive
+their answers and are the planned Landing 2.
+
 ### `Provision currency` — the temporal validity seam
 
 **Module:** `app/rag/retrieval/temporal_validity.py`. The single deep module

@@ -153,7 +153,7 @@ def test_assess_task_fails_temporal_on_superseded_text():
 
 
 def test_assess_task_specificity_is_advisory():
-    """specificity failures are diagnosed but do not gate synthesis."""
+    """Specificity failures are diagnosed but do not gate synthesis."""
     verdict = SufficiencyAssessor().assess_task(
         _task(),
         [
@@ -193,7 +193,7 @@ def test_assess_task_temporal_scope_mismatch():
 
 def test_aggregate_mixed_verdicts():
     ok = SufficiencyAssessor().assess_task(
-        _task("T1"), [_chunk("c1", text="penalty is Rs. 500 under section 12", document_type="act")]
+        _task("T1"), [_chunk("c1", text="penalty is Rs. 500 under section 12", document_type="act")],
     )
     empty = SufficiencyAssessor().assess_task(_task("T2"), [])
     agg = aggregate_verdicts([ok, empty])
@@ -205,10 +205,10 @@ def test_aggregate_mixed_verdicts():
 
 def test_aggregate_all_sufficient():
     ok1 = SufficiencyAssessor().assess_task(
-        _task("T1"), [_chunk("c1", text="penalty Rs. 500 under section 12", document_type="act")]
+        _task("T1"), [_chunk("c1", text="penalty Rs. 500 under section 12", document_type="act")],
     )
     ok2 = SufficiencyAssessor().assess_task(
-        _task("T2"), [_chunk("c2", text="section 12 defines the offence", document_type="act")]
+        _task("T2"), [_chunk("c2", text="section 12 defines the offence", document_type="act")],
     )
     agg = aggregate_verdicts([ok1, ok2])
     assert agg["sufficient"] is True

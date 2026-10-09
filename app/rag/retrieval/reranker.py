@@ -36,6 +36,7 @@ class Reranker:
     Args:
         model_name: Cross-encoder model name.
         encoder: Optional pre-built cross-encoder (for testing).
+
     """
 
     def __init__(self, model_name: str | None = None, encoder: Any | None = None) -> None:

@@ -37,6 +37,7 @@ def save_saved_document(
 
     Returns:
         The timestamp string used in the filenames.
+
     """
     timestamp_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     saved_dir = Path(instance_path) / "saved"

@@ -107,6 +107,7 @@ def create_app(db_uri: str | None = None):
     db_uri:
         Optional explicit SQLAlchemy database URI. When given it overrides
         ``DATABASE_URL`` — used by tests that need an isolated database.
+
     """
     app = App(__name__)
 

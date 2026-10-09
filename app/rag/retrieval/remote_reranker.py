@@ -53,6 +53,7 @@ class RemoteRerankClient:
             directly instead of loading ``local_model``.
         transport: Optional ``httpx`` transport (testing).
         mode: ``"tei"`` (default) or ``"serverless"`` — see module docstring.
+
     """
 
     def __init__(

@@ -58,13 +58,14 @@ def _fake_chunks():
             document_type="Act",
             authority="FSSAI",
             chunk_index=0,
-        )
+        ),
     ]
 
 
 def _patched_pipeline(retrieve_mock):
     """Context-manager stack patching the network/torch touch-points of the
-    retrieval pipeline so the cache is the only thing under test."""
+    retrieval pipeline so the cache is the only thing under test.
+    """
     return (
         mock.patch.object(HybridRetriever, "retrieve", retrieve_mock),
         mock.patch.object(DenseRetriever, "_get_client", return_value=SimpleNamespace()),
@@ -100,7 +101,7 @@ class TestRetrievalCache:
                     total=1,
                     latency_ms=42,
                     source="hybrid",
-                )
+                ),
             )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
@@ -137,7 +138,7 @@ class TestRetrievalCache:
                     total=1,
                     latency_ms=42,
                     source="hybrid",
-                )
+                ),
             )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
@@ -160,7 +161,7 @@ class TestRetrievalCache:
                     total=1,
                     latency_ms=42,
                     source="hybrid",
-                )
+                ),
             )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
@@ -188,7 +189,7 @@ class TestRetrievalCache:
                     total=1,
                     latency_ms=42,
                     source="hybrid",
-                )
+                ),
             )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:

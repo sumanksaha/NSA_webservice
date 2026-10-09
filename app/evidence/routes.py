@@ -158,7 +158,7 @@ def index():
                 Evidence.tags.ilike(like),
                 Evidence.ocr_text.ilike(like),
                 Evidence.filename.ilike(like),
-            )
+            ),
         )
 
     items = query.all()
@@ -228,7 +228,7 @@ def upload():
                 explicit_type=explicit_type,
                 caption=caption,
                 tags=tags,
-            )
+            ),
         )
 
     errors = [r for r in results if r.get("status") == "error"]

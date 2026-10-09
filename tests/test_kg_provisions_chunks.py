@@ -191,7 +191,8 @@ def test_concept_keys_have_no_camelcase():
 
 def test_search_terms_drops_question_scaffolding():
     """A whole question is not a substring of any provision, so the search
-    must reduce to significant terms rather than matching the full string."""
+    must reduce to significant terms rather than matching the full string.
+    """
     terms = _search_terms("Under Section 59 of the FSS Act 2006, how is the punishment determined?")
     assert "punishment" in terms
     assert "determined" in terms

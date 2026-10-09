@@ -35,12 +35,12 @@ OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "v3_component_re
 ARMS = ("C-O3", "D2", "D3", "E1")
 
 #: Packet headers are markdown h3 ("### Q004 - EASY | ..."), not h2.
-_QID_RE = re.compile(r"^###\s+(Q\d{3})\b", re.M)
-_ARM_RE = re.compile(r"^\*\*[A-D]\.\s*([A-Za-z0-9-]+):\*\*", re.M)
+_QID_RE = re.compile(r"^###\s+(Q\d{3})\b", re.MULTILINE)
+_ARM_RE = re.compile(r"^\*\*[A-D]\.\s*([A-Za-z0-9-]+):\*\*", re.MULTILINE)
 
 
 def parse_worksheet(path: Path) -> dict[str, dict[str, str]]:
-    """qid -> {arm: answer_text} from the completed worksheet.
+    """Qid -> {arm: answer_text} from the completed worksheet.
 
     Answer bodies sit in fenced blocks directly under each arm header.  The
     split is header-driven (not fence-count-driven) so a packet with a missing
@@ -181,7 +181,7 @@ def main() -> int:
     rules = {
         "soft_threshold_0.5(v1 baseline)": lambda c: bool(c.get("score", 0) >= 1 and not c.get("critical_error")),
         "proposed_v3": lambda c: bool(
-            c.get("provision_correct") or (c.get("legal_correct") and not c.get("hallucination_detected"))
+            c.get("provision_correct") or (c.get("legal_correct") and not c.get("hallucination_detected")),
         ),
         "provision_only": lambda c: bool(c.get("provision_correct")),
         "legal_only": lambda c: bool(c.get("legal_correct")),
@@ -219,7 +219,7 @@ def main() -> int:
     for name, r in results.items():
         print(
             f"{name:<34} {r['recovery_rate']:>7.3f} {r['precision']:>7.3f} {r['f1']:>7.3f} "
-            f"{r['true_positive']:>4} {r['false_positive']:>4} {r['false_negative']:>4}"
+            f"{r['true_positive']:>4} {r['false_positive']:>4} {r['false_negative']:>4}",
         )
     print()
     for lim in out["limitations"]:

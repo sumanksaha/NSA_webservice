@@ -368,66 +368,65 @@ def classify_failure(
             "stage": 2,
             "stage_name": "Retrieval / candidate generation",
             "reason": "Gold provision not found in the union candidate pool",
-            **{
+            
                 "gold_in_pool": False,
                 "gold_in_rrf": False,
                 "gold_in_ce_top10": False,
                 "context_relevant_hit": context_hit,
-                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
-            },
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0
+            ,
         }
-    elif not gold_in_rrf:
+    if not gold_in_rrf:
         return {
             "stage": 3,
             "stage_name": "Fusion",
             "reason": "Gold provision in candidate pool but lost in RRF fusion (did not reach top-150)",
-            **{
+            
                 "gold_in_pool": True,
                 "gold_in_rrf": False,
                 "gold_in_ce_top10": False,
                 "context_relevant_hit": context_hit,
-                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
-            },
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0
+            ,
         }
-    elif not gold_in_ce_top10:
+    if not gold_in_ce_top10:
         return {
             "stage": 4,
             "stage_name": "CE reranking",
             "reason": "Gold provision in RRF top-150 but not in CE-reranked top-10",
-            **{
+            
                 "gold_in_pool": True,
                 "gold_in_rrf": True,
                 "gold_in_ce_top10": False,
                 "context_relevant_hit": context_hit,
-                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
-            },
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0
+            ,
         }
-    elif not answer_ok:
+    if not answer_ok:
         return {
             "stage": 6,
             "stage_name": "LLM generation / reasoning",
             "reason": "Gold provision in context but answer does not match expected conclusion",
-            **{
+            
                 "gold_in_pool": True,
                 "gold_in_rrf": True,
                 "gold_in_ce_top10": True,
                 "context_relevant_hit": 1,
-                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
-            },
+                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0
+            ,
         }
-    else:
-        return {
-            "stage": 0,
-            "stage_name": "No failure",
-            "reason": "Gold provision in top-10 and answer matches expected conclusion",
-            **{
-                "gold_in_pool": True,
-                "gold_in_rrf": True,
-                "gold_in_ce_top10": True,
-                "context_relevant_hit": 1,
-                "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0,
-            },
-        }
+    return {
+        "stage": 0,
+        "stage_name": "No failure",
+        "reason": "Gold provision in top-10 and answer matches expected conclusion",
+
+            "gold_in_pool": True,
+            "gold_in_rrf": True,
+            "gold_in_ce_top10": True,
+            "context_relevant_hit": 1,
+            "answer_correctness": llm_metrics.get("answer_correctness", 0) if llm_metrics else 0
+        ,
+    }
 
 
 def _gold_in_pool_by_unit(rel_units, pool, payload_index, family_map) -> bool:
@@ -977,17 +976,17 @@ def main() -> int:
             n_binary = sum(1 for e in valid if e["metrics"].get("binary_correct"))
             m["binary_correctness"] = round(n_binary / n, 4)
             m["binary_correctness_overlap_only"] = round(
-                sum(1 for e in valid if e["metrics"].get("binary_correct_overlap_only")) / n, 4
+                sum(1 for e in valid if e["metrics"].get("binary_correct_overlap_only")) / n, 4,
             )
             m["binary_abstention_credit"] = round(
-                sum(1 for e in valid if e["metrics"].get("binary_correct_abstention_credit")) / n, 4
+                sum(1 for e in valid if e["metrics"].get("binary_correct_abstention_credit")) / n, 4,
             )
             m["n_binary_correct"] = n_binary
             # Soft mean kept for reference; never the headline on its own.
             m["soft_answer_correctness"] = m["answer_correctness"]
             if sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence) > 0:
                 m["abstain_accuracy"] = round(
-                    m["abstain_correct"] / sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence), 4
+                    m["abstain_correct"] / sum(1 for e in valid if questions[e["question_id"]].insufficient_evidence), 4,
                 )
             m["n"] = n
             m["errors"] = sum(1 for e in entries if "error" in e)
@@ -1073,7 +1072,7 @@ def main() -> int:
         },
         "max_recoverable_performance": max_recoverable,
         "improvement_ranking": build_improvement_ranking(
-            retrieval_agg, stage_summary, oracle_gap, llm_agg, max_recoverable
+            retrieval_agg, stage_summary, oracle_gap, llm_agg, max_recoverable,
         ),
     }
 
@@ -1157,7 +1156,7 @@ def main() -> int:
 
 
 def compute_max_recoverable(
-    retrieval_agg: dict, stage_summary: dict, oracle_gap: dict, llm_agg: dict
+    retrieval_agg: dict, stage_summary: dict, oracle_gap: dict, llm_agg: dict,
 ) -> dict[str, Any]:
     """Estimate max recoverable performance if each bottleneck were fixed."""
     results: dict[str, Any] = {}
@@ -1185,7 +1184,7 @@ def compute_max_recoverable(
 
 
 def build_improvement_ranking(
-    retrieval_agg: dict, stage_summary: dict, oracle_gap: dict, llm_agg: dict, max_recoverable: dict
+    retrieval_agg: dict, stage_summary: dict, oracle_gap: dict, llm_agg: dict, max_recoverable: dict,
 ) -> list[dict]:
     """Produce a ranked list of improvement areas based on measured contribution."""
     ranking = []

@@ -79,7 +79,7 @@ def _print_status(path: Path) -> int:
     """Print the current training-status JSON (pollable from another process)."""
     if not path.exists():
         return 1
-    json.loads(path.read_text(encoding="utf-8"))
+    print(path.read_text(encoding="utf-8"))
     return 0
 
 
@@ -97,12 +97,12 @@ def _watch_status(path: Path, interval: float) -> int:
             except Exception:
                 data = None
             if data is not None and data != last:
-                (
+                print(
                     f"step {data.get('global_step')}/{data.get('total_steps')} "
                     f"({data.get('percent')}%) epoch {data.get('epoch')}/{data.get('epochs')} "
                     f"phase={data.get('phase')} loss={data.get('train_loss')} "
                     f"val={data.get('val_loss')} best={data.get('best_val_loss')} "
-                    f"rss={data.get('peak_rss_mb')}MB eta={_fmt_eta(data.get('eta_seconds'))}"
+                    f"rss={data.get('peak_rss_mb')}MB eta={_fmt_eta(data.get('eta_seconds'))}",
                 )
                 last = data
                 if data.get("status") in ("done", "interrupted"):

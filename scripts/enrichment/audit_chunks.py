@@ -45,7 +45,7 @@ from typing import Any
 SHORT_CHUNK_CHARS = 100  #: below this many chars => "short"
 LONG_CHUNK_CHARS = 3000  #: above this many chars => "long"
 SECTION_MARKER_RE = re.compile(
-    r"\b(?:section|sec\.?|regulation|rule|clause|sch(?:edule)?\.?)\s+[A-Z]?\d{1,4}(?:[a-z]|[A-Z])?\b", re.IGNORECASE
+    r"\b(?:section|sec\.?|regulation|rule|clause|sch(?:edule)?\.?)\s+[A-Z]?\d{1,4}(?:[a-z]|[A-Z])?\b", re.IGNORECASE,
 )
 SENTENCE_END_RE = re.compile(r"[.!?)\"'»]|[:;]\s*$")
 #: Legal chunks routinely end in clause numbers / percentages / units (e.g.
@@ -135,6 +135,7 @@ def audit_points(points: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     Returns:
         The machine-readable audit report dict (JSON-serializable).
+
     """
     total = 0
     ids: collections.Counter[str] = collections.Counter()
@@ -373,6 +374,7 @@ def iter_qdrant_points(
         batch_size: Scroll page size.
         filters: Optional flat ``{field: value}`` payload filter (e.g.
             ``{"document_id": ...}`` to page through a single document).
+
     """
     from app.rag.qdrant_client import QdrantStore
 

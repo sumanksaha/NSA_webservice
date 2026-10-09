@@ -109,7 +109,7 @@ lines: list[str] = [
     "# Full-150 Human Review Worksheet (evaluator v2 context)",
     "",
     "This worksheet covers **all 150 benchmark questions** across the four final systems.",
-    f"Prior section-20 judgments prefilled where available; otherwise blank.",
+    "Prior section-20 judgments prefilled where available; otherwise blank.",
     f"**Step 0 residual set: {len(RESIDUAL)} packets marked [STEP0-RESIDUAL]** "
     "(D2 still incorrect on III, plus F1 recovered-but-still-wrong).",
     "",

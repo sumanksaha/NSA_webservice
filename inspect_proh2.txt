@@ -1,0 +1,66 @@
+1: ////
+2: // ─────────────────────────────────────────────────────────────────────────
+3: // Prohibition Order — letter to the FBO manufacturer (ADR-001 .adoc template).
+4: //
+5: // This is the SECOND document for an UNSAFE sample. It is rendered by its own
+6: // endpoint (download_prohibition_order_docx) and is addressed to the food
+7: // business operator (manufacturer). It is NOT issued for retailer-cum-manufacturer
+8: // (prepared/loose food) cases — the route returns 403 for those, because the
+9: // product has no separate manufacturer and no batch/manufacturing/expiry
+10: // details. The prayer (Unsafe_file.adoc) is still generated for RCM cases.
+11: //
+12: // The first document for an unsafe case is the prayer (Unsafe_file.adoc). This
+13: // letter repeats the first paragraph of the prayer (the sample description) so
+14: // that the prohibition letter is self-contained.
+15: //
+16: // Variable mapping (template var → CaseFile column / UI form field):
+17: //   sample_code        → sample_code            / sample_code
+18: //   sample_name        → product_name           / product_name       (aliased)
+19: //   fso_name           → food_safety_officer_name / food_safety_officer_name (aliased)
+20: //   packet_count       → packet_count           / packet_count
+21: //   sample_quantity    → sample_quantity        / sample_quantity
+22: //   per_packet_sample_quantity → computed in routes.py (sample_quantity / packet_count)
+23: //   batch_no           → batch_no               / batch_no
+24: //   mfg_date           → mfg_date               / mfg_date
+25: //   expiry_date        → expiry_date            / expiry_date
+26: //   retailer_cum_manufacturer → retailer_cum_manufacturer (bool; route rejects RCM)
+27: //   case_number        → case_number            / case_number
+28: //   inspection_date    → inspection_date        / inspection_date        (sampling date)
+29: //   authorization_date → authorization_date     / authorization_date
+30: //   manufacturer_*     → manufacturer_*         / manufacturer_*
+31: //   retailer_*         → retailer_*             / retailer_*
+32: //   analyst_report_no/date → analyst_report_no / analyst_report_date
+33: //   directive_letter_no/date → directive_letter_no / directive_letter_date
+34: //   retailer/manufacturer_report_receive_date → *_report_receive_date
+35: // ─────────────────────────────────────────────────────────────────────────
+36: //
+37: 
+38: F.S. & S Case No. {{ case_number }}
+39: 
+40: To,
+41: The Food Business Operator (Manufacturer),
+42: {{ manufacturer_name }} ({{ manufacturer_fbo_name }}),
+43: {{ manufacturer_address }},
+44: FSSAI License No - {{ manufacturer_fssai }}
+45: 
+46: *Sub:* Prohibition of Sale of Unsafe Food in respect of Sample No : {{ sample_code }}
+47: 
+48: First paragraph of the Prayer (sample description):
+49: 
+50: [.justify]
+51: Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles ({{ per_packet_sample_quantity }} X {{ packet_count }} = {{ sample_quantity }} ){% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }}{% endif %} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
+52: 
+53: <<<
+54: 
+55: [.bold]#PROHIBITION ORDER — DIRECTED TO THE FOOD BUSINESS OPERATOR#
+56: 
+57: [.justify]
+58: Under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, read with Section 18(1)(2) of the said Act, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name),{% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }},{% endif %} with immediate effect.
+59: 
+60: [.justify]
+61: This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.
+62: 
+63: [.legal-notice-box]
+64: Pursuant to Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, a draft Prohibition Order (marked D) is enclosed herewith. The concerned FBO may submit representations, if any, within the time and manner prescribed under the applicable rules.
+65: 
+66: <<<

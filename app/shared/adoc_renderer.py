@@ -51,6 +51,7 @@ def render_adoc_to_docx(template_dir: Path | str, template_name: str, context: d
 
     Raises:
         FileNotFoundError: if the template does not exist.
+
     """
     adoc_path = Path(template_dir) / template_name
     if not adoc_path.exists():

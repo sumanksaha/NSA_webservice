@@ -105,7 +105,7 @@ def main() -> int:
                 "benchmark disambiguation = 1.00 (definition never outranks rows)",
                 t4_ok,
                 f"disambig={report['disambiguation_accuracy']:.2f}",
-            )
+            ),
         )
 
         # T5 - sampling ask must retrieve a sampling provision (not a standard).
@@ -113,7 +113,7 @@ def main() -> int:
         texts = " || ".join(str(c.get("text", ""))[:200] for c in chunks[:5]).lower()
         t5_ok = bool(
             re.search(r"\bsampl(?:e|es|ing)\b", texts)
-            and re.search(r"\bprocedure\b|\bmanner\b|\bseal", texts)
+            and re.search(r"\bprocedure\b|\bmanner\b|\bseal", texts),
         )
         results.append(("T5", "sampling ask -> sampling provision in top-5", t5_ok, texts[:120]))
 

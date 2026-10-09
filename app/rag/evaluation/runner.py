@@ -50,6 +50,7 @@ class EvalRunner:
             (list[RetrievedChunk] or list[dict]), ``cited_chunk_ids``
             (list[str]), and optionally ``retrieval_mrr``.
         storage: Eval storage backend (defaults to :class:`EvalStorage`).
+
     """
 
     def __init__(
@@ -84,6 +85,7 @@ class EvalRunner:
             ``cited_chunk_ids``, ``metrics`` (per-metric scores),
             ``metric_details``, ``metric_explanations``, ``coverage``,
             ``retrieval_mrr``, ``latency_ms``.
+
         """
         start = time.perf_counter()
         pipeline_result = self.pipeline_fn(query)
@@ -113,7 +115,7 @@ class EvalRunner:
         # RAGAS-style reference metrics (Phase 4) — deterministic, no LLM.
         # The metric interface accepts RetrievedChunk | dict (invariant list);
         # cast the homogeneous chunk list once (type-level only, no copy).
-        metric_chunks = cast(list[RetrievedChunk | dict[Any, Any]], chunks)
+        metric_chunks = cast("list[RetrievedChunk | dict[Any, Any]]", chunks)
         metric_scores: dict[str, EvalScore] = {
             "faithfulness": FaithfulnessMetric().compute(answer, metric_chunks, query=query),
             "answer_relevance": AnswerRelevanceMetric().compute(answer, query, expected_answer),
@@ -156,6 +158,7 @@ class EvalRunner:
         Returns:
             An :class:`EvalReport`-like dict with per-query results and
             aggregate summary statistics (latency_avg_ms, mrr_avg).
+
         """
         eval_run_id = eval_run_id or str(uuid.uuid4())
         results: list[dict[str, Any]] = []
@@ -174,7 +177,7 @@ class EvalRunner:
 
             try:
                 result = self.evaluate_one(
-                    query=cast(str, query),
+                    query=cast("str", query),
                     expected_answer=expected_answer,
                     expected_citations=expected_citations,
                     query_type=query_type,
@@ -184,7 +187,7 @@ class EvalRunner:
                 if persist:
                     self.storage.save_result(
                         eval_run_id=eval_run_id,
-                        query=cast(str, query),
+                        query=cast("str", query),
                         expected_answer=expected_answer,
                         expected_citations=expected_citations,
                         actual_answer=result.get("answer", ""),

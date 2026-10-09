@@ -170,7 +170,7 @@ def evaluate_food_intent(
     by_id = {q["question_id"]: q for q in questions}
 
     detail: dict[str, dict[str, Any]] = {}
-    counts = {name: {k: 0 for k in ks} for name in ("entity", "standard", "provision", "parameter", "source")}
+    counts = {name: dict.fromkeys(ks, 0) for name in ("entity", "standard", "provision", "parameter", "source")}
     disambig_hits = 0
     disambig_total = 0
     parameter_eligible = 0
@@ -265,6 +265,6 @@ def failure_examples(
                     "gold_top1": q.get("gold_top1_chunks"),
                     "gold_all": q["gold_source_chunks"],
                     "traps": q.get("trap_chunks", []),
-                }
+                },
             )
     return failures

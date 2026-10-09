@@ -173,7 +173,8 @@ class TestIssue:
 
     def test_missing_tr_date_rejected(self, app):
         """TR_date / Submission_date are NOT NULL columns — missing values
-        must yield a clean "invalid" result, not an IntegrityError 500."""
+        must yield a clean "invalid" result, not an IntegrityError 500.
+        """
         _seed_samples()
         form = {**FORM, "TR_date": ""}
         result = issue("2026-01-15", "2026-01-16", form)

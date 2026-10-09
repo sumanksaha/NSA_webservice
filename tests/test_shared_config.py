@@ -16,7 +16,7 @@ from flask import Flask
 from app.shared.config import Setting, cfg, seed_config_from_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_ctx():
     """A bare Flask app + context (config readable via current_app)."""
     app = Flask(__name__)
@@ -105,7 +105,8 @@ def test_config_wins_inside_app_context(app_ctx, monkeypatch):
 
 def test_env_ignored_inside_app_context_when_key_unset(app_ctx, monkeypatch):
     """Pattern A: in-context, an unset config key falls to the declared
-    default — env is only consulted outside an app context."""
+    default — env is only consulted outside an app context.
+    """
     monkeypatch.setenv("RAG_KG_MAX_PROVISIONS", "9")
     assert cfg.kg_max_provisions == 5
 
@@ -169,7 +170,8 @@ def test_seed_config_from_env_seeds_and_skips(monkeypatch):
 def test_seed_sets_defaults_when_env_unset():
     """Every declared key lands in config even without env — soft readers
     (current_app.config.get) inside an app context must see the same value
-    an out-of-context caller resolves under Pattern A (env-or-default)."""
+    an out-of-context caller resolves under Pattern A (env-or-default).
+    """
     app = Flask(__name__)
     seed_config_from_env(app)
     for setting in cfg.table():

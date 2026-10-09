@@ -61,12 +61,11 @@ def _calculate_evidence_strength(case_data: dict) -> EvidenceStrengthScore:
     # Determine strength based on count and critical evidence
     if num_evidence == 0:
         return EvidenceStrengthScore.NONE
-    elif num_evidence >= 5 and has_critical:
+    if num_evidence >= 5 and has_critical:
         return EvidenceStrengthScore.STRONG
-    elif num_evidence >= 3 and has_critical:
+    if num_evidence >= 3 and has_critical:
         return EvidenceStrengthScore.MODERATE
-    else:
-        return EvidenceStrengthScore.WEAK
+    return EvidenceStrengthScore.WEAK
 
 
 def _calculate_traceability(case_data: dict) -> float:
@@ -89,10 +88,9 @@ def _calculate_traceability(case_data: dict) -> float:
     # Updated thresholds: 1 type = 0.3, 2 types = 0.6, 3+ types = 0.9
     if len(evidence_types) <= 1:
         return 0.3
-    elif len(evidence_types) <= 2:
+    if len(evidence_types) <= 2:
         return 0.6
-    else:
-        return 0.9
+    return 0.9
 
 
 def _calculate_readiness_score(case_data: dict) -> ReadinessScore:
@@ -138,15 +136,13 @@ def _calculate_readiness_score(case_data: dict) -> ReadinessScore:
     # Return corresponding readability
     if score >= 80:
         return ReadinessScore.READY
-    elif score >= 50:
+    if score >= 50:
         return ReadinessScore.NEEDS_ATTENTION
-    else:
-        return ReadinessScore.NOT_READY
+    return ReadinessScore.NOT_READY
 
 
 def calculate_intelligence_scores(case_id: int, case_type: str | None = None) -> dict:
-    """
-    Calculate evidence strength, traceability, and readiness scores for a case.
+    """Calculate evidence strength, traceability, and readiness scores for a case.
 
     Args:
         case_id: The case ID to analyze.
@@ -158,6 +154,7 @@ def calculate_intelligence_scores(case_id: int, case_type: str | None = None) ->
         - traceability: float (0.0 to 1.0)
         - readiness: ReadinessScore
         - scores: dict with individual numeric scores
+
     """
     # Resolve the case to get case data
     resolver = CaseResolver()

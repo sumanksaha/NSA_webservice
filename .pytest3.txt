@@ -1,0 +1,19 @@
+============================= test session starts =============================
+collected 4675 items / 3 skipped
+
+tests\inspection\test_geocoding_adapter.py ....                          [  0%]
+tests\inspection\test_inspection_code_generator.py ..........            [  0%]
+tests\inspection\test_ip_adapter.py ......                               [  0%]
+tests\inspection\test_lookup_adapter.py ...                              [  0%]
+tests\test_ab_parity_gate.py .............                               [  0%]
+tests\test_abstention_aware_scoring.py .........                         [  0%]
+tests\test_abstention_awareness.py ......................                [  1%]
+tests\test_abstention_rule.py .......                                    [  1%]
+tests\test_actions_summary.py ......                                     [  1%]
+tests\test_adjudication_context_parity.py ....                           [  1%]
+tests\test_adjudication_docx_routes.py .........E.....EEFEEEE            [  2%]
+tests\test_adjudication_form_visibility.py EE.....                       [  2%]
+tests\test_adjudication_generate_all.py ...E..                           [  2%]
+tests\test_advisor_confidence.py ...............                         [  2%]
+tests\test_ai_assistant.py .....E.........EF.................            [  3%]
+tests\test_analytics.py ...

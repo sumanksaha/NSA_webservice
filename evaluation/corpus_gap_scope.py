@@ -135,7 +135,7 @@ def main() -> int:
     print(f"payloads indexed : {out['corpus']['payloads_indexed']}")
     print(
         f"questions        : {s['questions_total']}  (covered {s['covered']}, "
-        f"not_in_corpus {s['not_in_corpus']}, no_gold {s['no_gold']})"
+        f"not_in_corpus {s['not_in_corpus']}, no_gold {s['no_gold']})",
     )
     print(f"question gap rate: {s['question_gap_rate']:.1%}")
     print(f"gold units       : {s['gold_units_missing']}/{s['gold_units_total']} missing ({s['unit_gap_rate']:.1%})")
@@ -159,7 +159,7 @@ def main() -> int:
             print(
                 f"  {pid:<10} section {d['section']:>3}  "
                 f"{d['chunks_opening_with_section']} chunk(s) open with the section "
-                f"of {d['untagged_chunks_in_act']} unstamped in this act"
+                f"of {d['untagged_chunks_in_act']} unstamped in this act",
             )
         print("  -> remedy is re-OCR + section backfill, NOT procurement.")
         print("  -> the chunk text may still be corrupt OCR; verify before trusting a match.")

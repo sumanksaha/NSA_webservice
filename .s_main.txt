@@ -1,0 +1,41 @@
+322	T201  	[ ] print
+ 33	F401  	[*] unused-import
+ 27	I001  	[*] unsorted-imports
+ 20	UP031 	[ ] printf-string-formatting
+ 16	RUF100	[*] unused-noqa
+ 12	S310  	[ ] suspicious-url-open-usage
+ 11	W292  	[*] missing-newline-at-end-of-file
+ 10	SIM115	[ ] open-file-with-context-handler
+ 10	RUF022	[-] unsorted-dunder-all
+ 10	RUF059	[ ] unused-unpacked-variable
+  9	F541  	[*] f-string-missing-placeholders
+  8	F821  	[ ] undefined-name
+  7	UP017 	[*] datetime-timezone-utc
+  7	F841  	[ ] unused-variable
+  5	E741  	[ ] ambiguous-variable-name
+  5	SIM105	[ ] suppressible-exception
+  4	UP037 	[*] quoted-annotation
+  3	UP035 	[*] deprecated-import
+  3	SIM108	[ ] if-else-block-instead-of-if-exp
+  3	SIM114	[*] if-with-same-arms
+  3	N806  	[ ] non-lowercase-variable-in-function
+  3	S311  	[ ] suspicious-non-cryptographic-random-usage
+  3	RUF015	[ ] unnecessary-iterable-allocation-for-first-element
+  3	B905  	[ ] zip-without-explicit-strict
+  2	RUF005	[ ] collection-literal-concatenation
+  2	N803  	[ ] invalid-argument-name
+  2	      	[ ] invalid-syntax
+  2	E401  	[*] multiple-imports-on-one-line
+  2	SIM103	[ ] needless-bool
+  2	S501  	[ ] request-with-no-cert-validation
+  2	F822  	[ ] undefined-export
+  2	B007  	[ ] unused-loop-control-variable
+  1	SIM102	[ ] collapsible-if
+  1	E731  	[ ] lambda-assignment
+  1	RUF012	[ ] mutable-class-default
+  1	B904  	[ ] raise-without-from-inside-except
+  1	F811  	[ ] redefined-while-unused
+  1	UP009 	[*] utf8-encoding-declaration
+  1	SIM300	[*] yoda-conditions
+Found 560 errors.
+[*] 125 fixable with the `--fix` option (371 hidden fixes can be enabled with the `--unsafe-fixes` option).

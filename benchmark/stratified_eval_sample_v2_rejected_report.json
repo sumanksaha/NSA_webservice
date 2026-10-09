@@ -1,0 +1,169 @@
+{
+  "version": "stratified-sample-v2-rejected-report",
+  "rejected_items": [
+    {
+      "qid": "pwm_amendment_rules_2022_aug",
+      "question": "Under Section Rules-2022 of the Plastic Waste Management (Amendment) Rules, 2022, what is permitted regarding Plastic Waste Management (Amendment) Rules, 2022 (gazette 23-08-2022)?",
+      "act": "Plastic Waste Management (Amendment) Rules, 2022",
+      "section": "Rules-2022",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "epa:s6",
+      "question": "Under Section 6 of the Environment (Protection) Act, 1986, what is restricted regarding Closure/demolition powers?",
+      "act": "Environment (Protection) Act, 1986",
+      "section": "6",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "fssai:s60",
+      "question": "Under Section 60 of the Food Safety and Standards Act, 2006, what is permitted regarding Punishment for sub-standard food?",
+      "act": "Food Safety and Standards Act, 2006",
+      "section": "60",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "wb_infectious:rules",
+      "question": "Under Section N/A of the WB Prevention and Control of Infectious Diseases in Animals Rules, 2016, what is prohibited regarding Infectious disease control in animals?",
+      "act": "WB Prevention and Control of Infectious Diseases in Animals Rules, 2016",
+      "section": "N/A",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "pcra:s63",
+      "question": "Under Section 63 of the The Prevention of Cruelty to Animals Rules, 2017, what is restricted regarding Prevention of cruelty at slaughter?",
+      "act": "The Prevention of Cruelty to Animals Rules, 2017",
+      "section": "63",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "pcra:s4",
+      "question": "What is the maximum imprisonment term under Section 4 of the The Prevention of Cruelty to Animals Rules, 2017?",
+      "act": "The Prevention of Cruelty to Animals Rules, 2017",
+      "section": "4",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "sog:s16",
+      "question": "What is the maximum penalty under Section 16 of the Sale of Goods Act, 1930?",
+      "act": "Sale of Goods Act, 1930",
+      "section": "16",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "contract:s74",
+      "question": "What is the maximum imprisonment term under Section 74 of the Indian Contract Act, 1872?",
+      "act": "Indian Contract Act, 1872",
+      "section": "74",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "fssai:s69",
+      "question": "What is the maximum prison term under Section 69 of the Food Safety and Standards Act, 2006?",
+      "act": "Food Safety and Standards Act, 2006",
+      "section": "69",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "contract:consideration",
+      "question": "According to Section 2(1)(c) of the Indian Contract Act, 1872, what action is required for a person?",
+      "act": "Indian Contract Act, 1872",
+      "section": "2(1)(c)",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "water_act:s13",
+      "question": "According to Section 13 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for an entity?",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "section": "13",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "fssai:s44",
+      "question": "According to Section 44 of the Food Safety and Standards Act, 2006, what action is required for an entity?",
+      "act": "Food Safety and Standards Act, 2006",
+      "section": "44",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "water_act:s8",
+      "question": "According to Section 8 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for a person?",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "section": "8",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "air_act:s8",
+      "question": "What does Section 8 state about Consent to establish/operate?",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "section": "8",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "fssai:s65",
+      "question": "What does Section 65 state about Penalty for fine in addition to punishment?",
+      "act": "Food Safety and Standards Act, 2006",
+      "section": "65",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "air_act:s7",
+      "question": "What does Section 7 state about Closure?",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "section": "7",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "kmc:nuisance",
+      "question": "What does Section Ch.Nuisance state about Public nuisance / noxious trades?",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "section": "Ch.Nuisance",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    },
+    {
+      "qid": "wbmo:penalties",
+      "question": "What does Section Penalty state about Penalties?",
+      "act": "West Bengal Meat Order, 1966",
+      "section": "Penalty",
+      "reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "improvement_blocker": "Gold question identical to rejected question",
+      "recommendation": "Requires manual review and human-written improved question"
+    }
+  ],
+  "already_cleaned": [],
+  "no_matching_gold": []
+}

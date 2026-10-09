@@ -28,6 +28,7 @@ class ScheduledJob:
     default_cron: Schedule used when ``cron_key`` is unset/default.
     enabled_by_default: When True the job runs unless explicitly disabled.
     description: One-line human description (documentation/introspection).
+
     """
 
     name: str

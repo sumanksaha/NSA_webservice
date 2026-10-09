@@ -234,6 +234,11 @@ ignore = [
 "evaluation/ce_v2_error_analysis.py" = ["T201"]
 "evaluation/ce_v2_gate.py" = ["T201"]
 "evaluation/publish_ce_v2_assets.py" = ["T201"]
+# CE trainer CLIs: stdout IS the interface (`--status` dumps the pollable status
+# JSON, `--watch` streams progress), so print is deliberate here. Without this
+# exemption the output gets deleted instead, leaving a flag that exits 0 silently.
+"evaluation/train_legal_ce_v2.py" = ["T201"]
+"evaluation/train_legal_ce_v3.py" = ["T201"]
 # Step 0-3 gated evaluation CLI: stdout IS the run report (mirrored to
 # evaluation/out/*.md), so print is deliberate in these harnesses.
 "evaluation/step0_label_residual.py" = ["T201"]

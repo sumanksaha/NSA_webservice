@@ -147,6 +147,7 @@ class Disambiguator:
         model_path: Path to the joblib artifact (hybrid mode only).
         min_confidence: Acceptance threshold; falls back to the
             ``PROVISION_EXTRACTOR_MIN_CONFIDENCE`` config value.
+
     """
 
     def __init__(

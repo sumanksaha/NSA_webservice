@@ -43,10 +43,10 @@ def test_corpus_body_present_stub_stays_false():
 
 def test_corpus_body_present_boundary_at_min_chars():
     assert not corpus_body_present(
-        has_corpus_hits=True, section="63", corpus_probe_hits=0, resolved_chars=MIN_RESOLVED_BODY_CHARS - 1
+        has_corpus_hits=True, section="63", corpus_probe_hits=0, resolved_chars=MIN_RESOLVED_BODY_CHARS - 1,
     )
     assert corpus_body_present(
-        has_corpus_hits=True, section="63", corpus_probe_hits=0, resolved_chars=MIN_RESOLVED_BODY_CHARS
+        has_corpus_hits=True, section="63", corpus_probe_hits=0, resolved_chars=MIN_RESOLVED_BODY_CHARS,
     )
 
 

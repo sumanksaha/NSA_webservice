@@ -77,6 +77,7 @@ class RetrievalLogger:
         Returns:
             The created :class:`RAGQueryLog` row, or ``None`` if DB write
             failed (best-effort — never raises).
+
         """
         try:
             retrieved_ids = [c.chunk_id for c in result.chunks]
@@ -150,6 +151,7 @@ class RetrievalAuditLog:
 
         Returns:
             ``True`` on success, ``False`` on failure (best-effort).
+
         """
         details: dict[str, Any] = {
             "pipeline": "rag_retrieval",

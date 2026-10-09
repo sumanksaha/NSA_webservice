@@ -182,7 +182,7 @@ class TestSmokeClassification:
         result = classifier.classify(
             "The Food Safety and Standards Act, 2006\n\n"
             "An Act to consolidate the laws relating to food safety and standards.\n"
-            "Ministry of Health and Family Welfare, Government of India.\n"
+            "Ministry of Health and Family Welfare, Government of India.\n",
         )
         assert result.document_type in {"act", "rule", "regulation", "notification", "circular", "case_law"}
         assert "Ministry of Health" in result.authority

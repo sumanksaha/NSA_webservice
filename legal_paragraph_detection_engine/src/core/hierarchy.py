@@ -194,6 +194,7 @@ class HierarchyDetector:
 
         Returns:
             List of LegalNode objects in hierarchical order
+
         """
         with self._lock:
             # Check cache first
@@ -266,7 +267,7 @@ class HierarchyDetector:
             return result
 
     def _detect_section(
-        self, line: str, line_num: int, current_section: SectionInfo | None, text: str | None = None
+        self, line: str, line_num: int, current_section: SectionInfo | None, text: str | None = None,
     ) -> SectionInfo | None:
         """Detect if line is a section marker."""
         section_patterns = self.HIERARCHICAL_PATTERNS["section"]
@@ -321,6 +322,7 @@ class HierarchyDetector:
 
         Returns:
             The line number where the section should end (inclusive)
+
         """
         lines = text.split("\n")
         if start_line >= len(lines):

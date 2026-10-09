@@ -37,7 +37,7 @@ def _argument(**overrides: object) -> StructuredLegalArgument:
                 "fact_reference": "retail shop stated",
                 "status": "satisfied",
                 "explanation": "retail sale qualifies",
-            }
+            },
         ],
         "cross_references_followed": [],
         "conflicts_or_hierarchy": [],
@@ -148,8 +148,8 @@ class TestAuditorDefects:
                     "fact_reference": "",
                     "status": "satisfied",
                     "explanation": "assumed",
-                }
-            ]
+                },
+            ],
         )
         result = audit_argument(arg, EVIDENCE)
         assert any(d.defect_type == "unsupported_application" for d in result.defects)

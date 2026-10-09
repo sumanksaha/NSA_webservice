@@ -312,7 +312,7 @@ def main() -> int:
     for name in ce_models:
         a = agg[name]
         print(
-            f"{name:<20} {a['R@1']:>7.4f} {a['R@20']:>7.4f} {a['R@50']:>7.4f} {a['R@100']:>7.4f} {a['MRR']:>7.4f} {a['NDCG@10']:>8.4f}"
+            f"{name:<20} {a['R@1']:>7.4f} {a['R@20']:>7.4f} {a['R@50']:>7.4f} {a['R@100']:>7.4f} {a['MRR']:>7.4f} {a['NDCG@10']:>8.4f}",
         )
 
     print("\n--- Unit-level Recall@K (fraction of gold units in top-K) ---")
@@ -321,7 +321,7 @@ def main() -> int:
     for name in ce_models:
         a = agg[name]
         print(
-            f"{name:<20} {a['recall_unit@1']:>7.4f} {a['recall_unit@20']:>7.4f} {a['recall_unit@50']:>7.4f} {a['recall_unit@100']:>7.4f}"
+            f"{name:<20} {a['recall_unit@1']:>7.4f} {a['recall_unit@20']:>7.4f} {a['recall_unit@50']:>7.4f} {a['recall_unit@100']:>7.4f}",
         )
 
     print("\n--- vs legal_ce_v1 baseline deltas (legal_ce_v2_K500) ---")

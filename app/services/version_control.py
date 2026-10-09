@@ -1,5 +1,4 @@
-"""
-Version Control Service
+"""Version Control Service
 
 Handles version history management for document snapshots, including:
 - Creating version snapshots when documents are saved
@@ -61,8 +60,7 @@ class VersionService:
         branch_name: str | None = None,
         branch_of: int | None = None,
     ) -> Version:
-        """
-        Create a new version snapshot.
+        """Create a new version snapshot.
 
         Args:
             case_id: CaseFile ID or None for adjudication
@@ -80,6 +78,7 @@ class VersionService:
 
         Raises:
             VersionError: If version creation fails
+
         """
         try:
             # Calculate content hash
@@ -110,7 +109,7 @@ class VersionService:
             self.logger.info(
                 f"Created version {version_number} for {doc_type} "
                 f"(case_id={case_id}, adjudication_id={adjudication_id}, "
-                f"branch={branch_name!r})"
+                f"branch={branch_name!r})",
             )
 
             return version
@@ -241,8 +240,7 @@ class VersionService:
         version_b: int,
         branch_name: str | None = None,
     ) -> dict:
-        """
-        Compare two versions and return diff information.
+        """Compare two versions and return diff information.
 
         Args:
             case_id: CaseFile ID or None
@@ -254,6 +252,7 @@ class VersionService:
 
         Returns:
             Dict with diff information
+
         """
         versions = self.get_case_versions(case_id, adjudication_id, doc_type, branch_name=branch_name)
 
@@ -324,7 +323,7 @@ class VersionService:
                     fromfile="version_a",
                     tofile="version_b",
                     lineterm="",
-                )
+                ),
             ),
         }
 
@@ -389,7 +388,7 @@ class VersionService:
         self.logger.info(
             f"Version {version_id} restored for {doc_type} "
             f"(case_id={case_id}, adjudication_id={adjudication_id}) "
-            f"by user {user_id}"
+            f"by user {user_id}",
         )
 
         return restored
@@ -466,7 +465,7 @@ class VersionService:
         self.logger.info(
             f"Branch '{branch_name}' created from version {from_version} "
             f"for {doc_type} (case_id={case_id}, adjudication_id={adjudication_id}) "
-            f"by user {user_id}"
+            f"by user {user_id}",
         )
 
         return {

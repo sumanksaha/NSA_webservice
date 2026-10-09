@@ -185,7 +185,7 @@ class TestGoldResolution:
                 "summary": "",
                 "text": '(o) "food business operator" in relation to food business means a person by whom the business is carried on.',
                 "document_id": "docA",
-            }
+            },
         }
         gold, unmatched = resolve_gold(q, enrichment)
         assert gold == {"c9"}
@@ -257,7 +257,8 @@ class TestSyntheticRetrieval:
     def _make_corpus(self):
         """4 docs; the answer chunk's *text* is unrelated to the query but its
         enrichment keywords contain the query terms — so only the enriched
-        lexical path can find it."""
+        lexical path can find it.
+        """
         texts = [
             "Alpha beta gamma delta epsilon zeta eta theta",  # c0 (noise)
             "iota kappa lambda mu nu xi omicron pi rho",  # c1 (noise)
@@ -334,7 +335,8 @@ class TestSyntheticRetrieval:
     def test_features_gate_lexical_credit(self):
         """Phase 15: without the keywords feature the lexical tie-break must not
         fire; with it, the keyword-rich chunk must be re-ranked above the
-        baseline."""
+        baseline.
+        """
         matrix, ids, _payloads, enrichment, _texts = self._make_corpus()
         kw_phrases, kw_idf, sum_phrases, sum_idf = build_lexical_index(ids, enrichment)
         qvec = np.random.default_rng(2).normal(size=(16,)).astype(np.float32)
@@ -372,7 +374,8 @@ class TestSyntheticRetrieval:
 
     def test_ablation_variants_declared(self):
         """Every declared variant must map to a feature subset; baseline must
-        be empty and full must be all features."""
+        be empty and full must be all features.
+        """
         assert ABLATION_VARIANTS["baseline"] == frozenset()
         assert ABLATION_VARIANTS["full"] == ALL_FEATURES
         for name, feats in ABLATION_VARIANTS.items():

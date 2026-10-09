@@ -33,6 +33,7 @@ EXTENSION_MAP: dict[str, type[BaseLoader]] = {
     ".pdf": PDFLoader,
     ".docx": DOCXLoader,
     ".txt": TXTLoader,
+    ".md": TXTLoader,  # Reuse TXTLoader for markdown files
 }
 
 

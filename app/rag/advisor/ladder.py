@@ -41,15 +41,15 @@ class ActionProfile:
 ACTION_PROFILES: dict[EscalationLevel, ActionProfile] = {
     EscalationLevel.INSPECT_WARN: ActionProfile(EscalationLevel.INSPECT_WARN, "Inspect & Warn", 1.0, 0.2, 1.0, 1.0),
     EscalationLevel.SAMPLE_LAB_TEST: ActionProfile(
-        EscalationLevel.SAMPLE_LAB_TEST, "Sample & Lab-Test", 0.9, 1.0, 3.0, 4.0
+        EscalationLevel.SAMPLE_LAB_TEST, "Sample & Lab-Test", 0.9, 1.0, 3.0, 4.0,
     ),
     EscalationLevel.IMPROVEMENT_NOTICE: ActionProfile(
-        EscalationLevel.IMPROVEMENT_NOTICE, "Issue Improvement Notice u/s 32", 0.8, 0.7, 2.0, 6.0
+        EscalationLevel.IMPROVEMENT_NOTICE, "Issue Improvement Notice u/s 32", 0.8, 0.7, 2.0, 6.0,
     ),
     EscalationLevel.PENALTY_DIRECTION: ActionProfile(
-        EscalationLevel.PENALTY_DIRECTION, "Show-Cause / Penalty Direction u/s 55", 0.5, 0.4, 4.0, 8.0
+        EscalationLevel.PENALTY_DIRECTION, "Show-Cause / Penalty Direction u/s 55", 0.5, 0.4, 4.0, 8.0,
     ),
     EscalationLevel.PROSECUTION: ActionProfile(
-        EscalationLevel.PROSECUTION, "Prosecution / Licence Action u/s 63/64", 0.0, 0.1, 10.0, 10.0
+        EscalationLevel.PROSECUTION, "Prosecution / Licence Action u/s 63/64", 0.0, 0.1, 10.0, 10.0,
     ),
 }

@@ -330,12 +330,12 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     low_text = chunk_text.lower()
     identity.has_exception = any(_marker_hit(m, low_text, chunk_text) for m in _EXCEPTION_PATTERNS)
     identity.has_definition = any(m in low_text for m in _DEFINITION_MARKERS) or bool(
-        _QUOTED_MEANS_RE.search(chunk_text)
+        _QUOTED_MEANS_RE.search(chunk_text),
     )
     identity.cross_references = sorted(
         set(_CROSS_REF_RE.findall(chunk_text))
         | {f"Rule {r}" for r in _RULE_REF_RE.findall(chunk_text)}
-        | {f"Schedule {s}" for s in _SCHEDULE_REF_RE.findall(chunk_text)}
+        | {f"Schedule {s}" for s in _SCHEDULE_REF_RE.findall(chunk_text)},
     )
     identity.has_cross_reference = bool(identity.cross_references)
 

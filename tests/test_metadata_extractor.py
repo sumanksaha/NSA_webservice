@@ -246,12 +246,13 @@ class TestExtractors:
     def test_policy_pattern_does_not_match_commission(self):
         """Regression (2026-08-09): "Commission" contains "MISSION" as a
         substring — the policy keyword group is word-boundaried so the FSS Act's
-        "...the Commission" text is NOT labelled Policy (it must stay Act)."""
+        "...the Commission" text is NOT labelled Policy (it must stay Act).
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(
             "The Food Safety and Standards Act, 2006\n\n"
             "Food Safety and Standards Authority of India ... the Commission shall\n"
-            "ensure that the Authority functions in accordance with this Act.\n"
+            "ensure that the Authority functions in accordance with this Act.\n",
         )
         assert results[0][0] == "Act"
         assert not any(r[0] == "Policy" for r in results)
@@ -259,7 +260,8 @@ class TestExtractors:
     def test_policy_pattern_matches_uppercase_heading_only(self):
         """Only a proper uppercase legal heading triggers Policy — never
         title-case or lowercase body text (both fail the case-sensitive +
-        line-anchored pattern)."""
+        line-anchored pattern).
+        """
         ex = DocumentTypeExtractor()
         # Uppercase gazette-style heading -> Policy.
         assert any(r[0] == "Policy" for r in ex.extract("NATIONAL FOOD POLICY, 2023\n\nObjectives."))
@@ -269,7 +271,8 @@ class TestExtractors:
 
     def test_document_type_instrument_outranks_gazette(self):
         """§2.4.1 (2026-08-09): a gazette carrying a real instrument title line
-        is classified by the instrument, not by its publication wrapper."""
+        is classified by the instrument, not by its publication wrapper.
+        """
         ex = DocumentTypeExtractor()
         text = (
             "THE GAZETTE OF INDIA : EXTRAORDINARY [PART III—SEC. 4]\n"
@@ -285,7 +288,8 @@ class TestExtractors:
 
     def test_document_type_instrument_outranks_notification(self):
         """§2.4.1: even with a NOTIFICATION heading, an all-caps instrument
-        title line wins — the notification merely publishes the instrument."""
+        title line wins — the notification merely publishes the instrument.
+        """
         ex = DocumentTypeExtractor()
         text = (
             "Notification\n"
@@ -297,14 +301,16 @@ class TestExtractors:
 
     def test_document_type_bare_act_fragment(self):
         """§2.4.1: a wrapped-title fragment on its own line ("ACT, 2026" from a
-        gazette whose title broke across lines) is still an Act title."""
+        gazette whose title broke across lines) is still an Act title.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract("ACT, 2026\n")
         assert results[0][0] == "Act"
 
     def test_document_type_bare_regulations_fragment(self):
         """§2.4.1: "REGULATIONS 2011" (the continuation of a wrapped title with
-        no comma) matches the all-caps branch."""
+        no comma) matches the all-caps branch.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract("REGULATIONS 2011\n")
         assert results[0][0] == "Regulation"
@@ -312,39 +318,43 @@ class TestExtractors:
     def test_document_type_body_reference_not_act(self):
         """§2.4.1 regression: a wrapped body continuation ("Standards Act, 2006"
         = the tail of "...of the Food Safety and Standards Act, 2006") has only
-        a one-word lead-in, so it must NOT be read as an Act title."""
+        a one-word lead-in, so it must NOT be read as an Act title.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(
-            "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the Food\nStandards Act, 2006\n"
+            "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the Food\nStandards Act, 2006\n",
         )
         assert not any(r[0] == "Act" for r in results)
 
     def test_document_type_wrapped_preamble_continuation_not_act(self):
         """§2.4.1 regression: "Safety and Standards Act, 2006, the Food ..." is a
-        wrapped preamble continuation (year NOT at line end) — must not win."""
+        wrapped preamble continuation (year NOT at line end) — must not win.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(
             "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the Food\n"
             "Safety and Standards Act, 2006, the Food Safety and Standards Authority of\n"
-            "India hereby makes the following regulations.\n"
+            "India hereby makes the following regulations.\n",
         )
         assert not any(r[0] == "Act" for r in results)
 
     def test_document_type_mid_line_reference_not_instrument(self):
         """§2.4.1: an instrument reference mid-line (not line-anchored) never
         classifies — e.g. "...section 92 of the Food Safety and Standards Act,
-        2006" inside a preamble paragraph."""
+        2006" inside a preamble paragraph.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(
             "In exercise of the powers conferred by section 92 of the Food Safety and\n"
             "Standards Act, 2006, the Food Safety and Standards Authority of India hereby\n"
-            "makes the following regulations.\n"
+            "makes the following regulations.\n",
         )
         assert not any(r[0] == "Act" for r in results)
 
     def test_document_type_amendment_act(self):
         """§2.4.1: "THE FOOD SAFETY AND STANDARDS (AMENDMENT) ACT, 2020" is an
-        Act, not a Gazette Notification — instrument outranks publication format."""
+        Act, not a Gazette Notification — instrument outranks publication format.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(_FSSAI_AMENDMENT_SAMPLE)
         assert results[0][0] == "Act"
@@ -352,7 +362,8 @@ class TestExtractors:
     def test_document_type_paren_tail_regulation(self):
         """§2.4.1 (2026-08-09): a paren-terminated lead-in — the wrapped tail of
         an instrument title like "(Organic Foods) Regulations, 2017." breaking
-        across lines — is a Regulation title line, not body text."""
+        across lines — is a Regulation title line, not body text.
+        """
         ex = DocumentTypeExtractor()
         text = (
             "THE GAZETTE OF INDIA : EXTRAORDINARY\n"
@@ -367,7 +378,8 @@ class TestExtractors:
 
     def test_document_type_paren_tail_all_caps(self):
         """§2.4.1: paren-tail matches must also work in ALL-CAPS form
-        ("FOODS) REGULATIONS, 2011")."""
+        ("FOODS) REGULATIONS, 2011").
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract("FOODS) REGULATIONS, 2011\n")
         assert results[0][0] == "Regulation"
@@ -375,19 +387,21 @@ class TestExtractors:
     def test_document_type_paren_tail_notification_docs_clean(self):
         """§2.4.1 regression: the must-stay-Notification corpus docs have zero
         paren-tail lines — a bare paren clause followed by an instrument word
-        without a year (mid-line) must not classify."""
+        without a year (mid-line) must not classify.
+        """
         ex = DocumentTypeExtractor()
         results = ex.extract(
             "S.O. 1234(E).—In exercise of the powers conferred by section 92 of the\n"
             "Food Safety and Standards Act, 2006, the Food Authority hereby makes\n"
-            "the following regulations, namely:—\n"
+            "the following regulations, namely:—\n",
         )
         assert not any(r[0] in ("Regulation", "Act") for r in results)
 
     def test_document_type_title_region_boost(self):
         """§2.4.1 (2026-08-09): an instrument title in the header region scores
         0.95 (title-region boost) — it must outrank a deep body reference and
-        a generic publication-format match."""
+        a generic publication-format match.
+        """
         ex = DocumentTypeExtractor()
         text = (
             "THE FOOD SAFETY AND STANDARDS (AMENDMENT) ACT, 2020\n"
@@ -403,7 +417,8 @@ class TestExtractors:
         backtracked in the nested-quantifier instrument patterns — one 63K-char
         regulation PDF hung ``DocumentClassifier`` for >25 minutes and froze the
         corpus ingestion.  The linearised patterns must classify a dense
-        non-matching document in well under a second."""
+        non-matching document in well under a second.
+        """
         import time
 
         ex = DocumentTypeExtractor()
@@ -424,7 +439,8 @@ class TestExtractors:
         the title-region boost is scoped to the first 10% only.  The deep
         paren-tail Regulation ("Foods) Regulations, 2017.") still outranks the
         NOTIFICATION heading via insertion-order priority, but neither is
-        boosted above 0.90."""
+        boosted above 0.90.
+        """
         ex = DocumentTypeExtractor()
         text = (
             "NOTIFICATION\n"

@@ -1,0 +1,7 @@
+============================= test session starts =============================
+collected 108 items
+
+tests\test_food_intent_retrieval.py .................................... [ 33%]
+...................................                                      [ 65%]
+tests\test_rag_generation_characterization.py ..........                 [ 75%]
+tests\test_query_understanding.py 

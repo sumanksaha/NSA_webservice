@@ -58,7 +58,7 @@ class Audit:
         from neo4j import GraphDatabase
 
         self.driver = GraphDatabase.driver(
-            os.environ["NEO4J_URI"], auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"])
+            os.environ["NEO4J_URI"], auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]),
         )
         return True
 
@@ -103,7 +103,7 @@ class Audit:
         dbs = self.run("SHOW DATABASES YIELD name, currentStatus RETURN name, currentStatus")
         out["database"]["databases"] = dbs
         cons = self.run(
-            "SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties, type RETURN name, labelsOrTypes, properties, type"
+            "SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties, type RETURN name, labelsOrTypes, properties, type",
         )
         out["constraints"] = [
             {
@@ -116,7 +116,7 @@ class Audit:
             if self._ok([c])
         ]
         idx = self.run(
-            "SHOW INDEXES YIELD name, labelsOrTypes, properties, type, state RETURN name, labelsOrTypes, properties, type, state"
+            "SHOW INDEXES YIELD name, labelsOrTypes, properties, type, state RETURN name, labelsOrTypes, properties, type, state",
         )
         out["indexes"] = [
             {
@@ -131,7 +131,7 @@ class Audit:
         ]
         out["labels"] = self.run("CALL db.labels() YIELD label RETURN collect(label) AS labels")[0].get("labels", [])
         out["relationship_types"] = self.run(
-            "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rt"
+            "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rt",
         )[0].get("rt", [])
         out["total_nodes"] = self._count("MATCH (n) RETURN count(n) AS c")
         out["total_relationships"] = self._count("MATCH ()-[r]->() RETURN count(r) AS c")
@@ -145,11 +145,11 @@ class Audit:
         out: dict[str, Any] = {}
         out["nodes_by_label"] = self.run(
             "CALL db.labels() YIELD label WITH label MATCH (n) WHERE any(l IN labels(n) WHERE l = label) "
-            "RETURN label, count(n) AS c ORDER BY c DESC"
+            "RETURN label, count(n) AS c ORDER BY c DESC",
         )
         out["rels_by_type"] = self.run(
             "CALL db.relationshipTypes() YIELD relationshipType WITH relationshipType AS rt "
-            "MATCH ()-[r]->() WHERE type(r) = rt RETURN rt AS rel_type, count(r) AS c ORDER BY c DESC"
+            "MATCH ()-[r]->() WHERE type(r) = rt RETURN rt AS rel_type, count(r) AS c ORDER BY c DESC",
         )
 
         legal_labels = [
@@ -195,39 +195,39 @@ class Audit:
         out["domains"] = self.run(
             "MATCH (d:LegalDomain) OPTIONAL MATCH (d)<-[:BELONGS_TO_DOMAIN]-(n) "
             "RETURN d.domain_name AS domain, d.priority AS priority, d.jurisdiction AS jurisdiction, "
-            "count(DISTINCT n) AS nodes ORDER BY d.priority"
+            "count(DISTINCT n) AS nodes ORDER BY d.priority",
         )
         out["instruments_by_domain"] = self.run(
             "MATCH (i) WHERE i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment "
             "MATCH (i)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain) "
             "RETURN d.domain_name AS domain, count(i) AS instruments, min(d.priority) AS priority "
-            "ORDER BY priority"
+            "ORDER BY priority",
         )
         out["provisions_by_domain"] = self.run(
             "MATCH (p:LegalProvision)-[:BELONGS_TO_DOMAIN]->(d:LegalDomain) "
             "RETURN d.domain_name AS domain, count(DISTINCT p) AS provisions, min(d.priority) AS priority "
-            "ORDER BY priority"
+            "ORDER BY priority",
         )
         out["chunks_by_domain"] = self.run(
             "MATCH (ch:Chunk) OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(doc:Document) "
             "WITH ch, coalesce(doc.legal_domain, ch.legal_domain, 'UNKNOWN') AS dom "
-            "RETURN dom AS domain, count(ch) AS chunks ORDER BY chunks DESC"
+            "RETURN dom AS domain, count(ch) AS chunks ORDER BY chunks DESC",
         )
         out["documents_by_domain"] = self.run(
-            "MATCH (d:Document) RETURN coalesce(d.legal_domain, 'UNKNOWN') AS domain, count(d) AS c ORDER BY c DESC"
+            "MATCH (d:Document) RETURN coalesce(d.legal_domain, 'UNKNOWN') AS domain, count(d) AS c ORDER BY c DESC",
         )
         out["instruments_by_type"] = self.run(
             "MATCH (i) WHERE i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment "
             "WITH labels(i) AS ls UNWIND ls AS l WITH l WHERE l IN "
             "['Act','Rule','Regulation','Notification','Order','Circular','Guideline','Judgment'] "
-            "RETURN l AS instrument_type, count(*) AS c ORDER BY c DESC"
+            "RETURN l AS instrument_type, count(*) AS c ORDER BY c DESC",
         )
         out["instruments_by_jurisdiction"] = self.run(
             "MATCH (i) WHERE i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment "
-            "RETURN coalesce(i.jurisdiction, 'UNKNOWN') AS jurisdiction, count(i) AS c ORDER BY c DESC"
+            "RETURN coalesce(i.jurisdiction, 'UNKNOWN') AS jurisdiction, count(i) AS c ORDER BY c DESC",
         )
         return out
 
@@ -239,65 +239,65 @@ class Audit:
         out: dict[str, Any] = {}
         out["total_provisions"] = self._count("MATCH (p:LegalProvision) RETURN count(p) AS c")
         out["provisions_with_source_marker"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.source IS NOT NULL RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.source IS NOT NULL RETURN count(p) AS c",
         )
         out["provisions_with_supported_by_chunk"] = self._count(
-            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk) RETURN count(DISTINCT p) AS c"
+            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk) RETURN count(DISTINCT p) AS c",
         )
         out["chunks_with_document_id"] = self._count(
-            "MATCH (ch:Chunk) WHERE ch.document_id IS NOT NULL AND ch.document_id <> '' RETURN count(ch) AS c"
+            "MATCH (ch:Chunk) WHERE ch.document_id IS NOT NULL AND ch.document_id <> '' RETURN count(ch) AS c",
         )
         out["chunks_with_qdrant_point_id"] = self._count(
-            "MATCH (ch:Chunk) WHERE ch.qdrant_point_id IS NOT NULL AND ch.qdrant_point_id <> '' RETURN count(ch) AS c"
+            "MATCH (ch:Chunk) WHERE ch.qdrant_point_id IS NOT NULL AND ch.qdrant_point_id <> '' RETURN count(ch) AS c",
         )
         out["documents_total"] = self._count("MATCH (d:Document) RETURN count(d) AS c")
         out["documents_with_uri"] = self._count(
-            "MATCH (d:Document) WHERE d.source_uri IS NOT NULL AND d.source_uri <> '' RETURN count(d) AS c"
+            "MATCH (d:Document) WHERE d.source_uri IS NOT NULL AND d.source_uri <> '' RETURN count(d) AS c",
         )
         out["sources_total"] = self._count("MATCH (s:Source) RETURN count(s) AS c")
         out["chunks_total"] = self._count("MATCH (ch:Chunk) RETURN count(ch) AS c")
         out["provisions_with_evidence_rel"] = self._count(
             "MATCH (p:LegalProvision)-[r:SUPPORTED_BY]->() WHERE r.evidence IS NOT NULL OR r.evidence_type IS NOT NULL "
-            "RETURN count(DISTINCT p) AS c"
+            "RETURN count(DISTINCT p) AS c",
         )
         out["documents"] = self.run(
             "MATCH (d:Document) RETURN d.document_id AS document_id, d.title AS title, "
             "coalesce(d.source_uri, d.source_type, '') AS source, d.legal_domain AS legal_domain "
-            "ORDER BY d.document_id LIMIT 60"
+            "ORDER BY d.document_id LIMIT 60",
         )
         return out
 
     def temporal(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
         out["provision_status_distribution"] = self.run(
-            "MATCH (p:LegalProvision) RETURN coalesce(p.status, 'MISSING') AS status, count(p) AS c ORDER BY c DESC"
+            "MATCH (p:LegalProvision) RETURN coalesce(p.status, 'MISSING') AS status, count(p) AS c ORDER BY c DESC",
         )
         out["instrument_status_distribution"] = self.run(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment) "
-            "RETURN coalesce(i.status, 'MISSING') AS status, count(i) AS c ORDER BY c DESC"
+            "RETURN coalesce(i.status, 'MISSING') AS status, count(i) AS c ORDER BY c DESC",
         )
         out["provisions_with_effective_from"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.effective_from IS NOT NULL RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.effective_from IS NOT NULL RETURN count(p) AS c",
         )
         out["provisions_with_effective_to"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.effective_to IS NOT NULL RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.effective_to IS NOT NULL RETURN count(p) AS c",
         )
         out["provisions_with_version"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.version IS NOT NULL RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.version IS NOT NULL RETURN count(p) AS c",
         )
         out["instruments_with_repeal_info"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment) AND (i.repeal_date IS NOT NULL OR i.repealed_by IS NOT NULL) "
-            "RETURN count(i) AS c"
+            "RETURN count(i) AS c",
         )
         out["amends_repeals_edges"] = self.run(
-            "MATCH ()-[r:AMENDS|REPEALS|REPLACES|MADE_UNDER]->() RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
+            "MATCH ()-[r:AMENDS|REPEALS|REPLACES|MADE_UNDER]->() RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC",
         )
         out["non_current_instruments"] = self.run(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment) AND coalesce(i.status,'') <> 'current' "
-            "RETURN i.instrument_id AS instrument_id, i.title AS title, coalesce(i.status,'MISSING') AS status LIMIT 20"
+            "RETURN i.instrument_id AS instrument_id, i.title AS title, coalesce(i.status,'MISSING') AS status LIMIT 20",
         )
         return out
 
@@ -327,21 +327,21 @@ class Audit:
             rows.append({"rel": t, "count": r[0]["c"] if self._ok(r) else -1})
         out: dict[str, Any] = {"semantic_edge_counts": rows}
         out["provision_concept_edges"] = self.run(
-            "MATCH (p:LegalProvision)-[r]->(c:LegalConcept) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
+            "MATCH (p:LegalProvision)-[r]->(c:LegalConcept) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC",
         )
         out["provision_authority_edges"] = self.run(
-            "MATCH (p:LegalProvision)-[r]->(a:Authority) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
+            "MATCH (p:LegalProvision)-[r]->(a:Authority) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC",
         )
         out["concepts_total"] = self._count("MATCH (c:LegalConcept) RETURN count(c) AS c")
         out["concept_edge_coverage"] = self.run(
             "MATCH (p:LegalProvision) OPTIONAL MATCH (p)-[r]->(c:LegalConcept) "
             "RETURN count(DISTINCT p) AS provisions, "
-            "count(DISTINCT CASE WHEN c IS NOT NULL THEN p END) AS with_concepts"
+            "count(DISTINCT CASE WHEN c IS NOT NULL THEN p END) AS with_concepts",
         )
         out["authorities_total"] = self._count("MATCH (a:Authority) RETURN count(a) AS c")
         out["provisions_with_authority_edge"] = self._count(
             "MATCH (p:LegalProvision)-[:ENFORCED_BY|GRANTS_POWER_TO|REQUIRES_AUTHORIZATION_FROM]->(:Authority) "
-            "RETURN count(DISTINCT p) AS c"
+            "RETURN count(DISTINCT p) AS c",
         )
         out["semantic_edge_sample"] = self.run(
             "MATCH (p:LegalProvision)-[r]->(c) WHERE type(r) IN ['APPLIES_TO','IMPOSES_DUTY','CREATES_OFFENCE',"
@@ -349,7 +349,7 @@ class Audit:
             "RETURN p.provision_id AS src, type(r) AS rel, coalesce(labels(c)[0], '?') AS tgt_label, "
             "coalesce(c.name, c.concept_id, c.authority_id, '?') AS tgt, "
             "left(coalesce(r.evidence, ''), 120) AS evidence, r.confidence AS confidence "
-            "LIMIT 40"
+            "LIMIT 40",
         )
         return out
 
@@ -359,34 +359,34 @@ class Audit:
             "MATCH (i) WHERE i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment "
             "WITH coalesce(i.canonical_name, i.title) AS title, count(*) AS cnt WHERE cnt > 1 "
-            "RETURN title, cnt ORDER BY cnt DESC LIMIT 30"
+            "RETURN title, cnt ORDER BY cnt DESC LIMIT 30",
         )
         out["duplicate_provision_keys"] = self.run(
             "MATCH (p:LegalProvision) WHERE p.instrument_id IS NOT NULL AND p.provision_number IS NOT NULL "
             "WITH p.instrument_id AS inst, p.provision_number AS pnum, count(*) AS cnt WHERE cnt > 1 "
-            "RETURN inst, pnum, cnt ORDER BY cnt DESC LIMIT 30"
+            "RETURN inst, pnum, cnt ORDER BY cnt DESC LIMIT 30",
         )
         out["provision_id_collisions"] = self.run(
             "MATCH (p:LegalProvision) WITH p.provision_id AS pid, count(*) AS cnt WHERE cnt > 1 "
-            "RETURN pid, cnt LIMIT 20"
+            "RETURN pid, cnt LIMIT 20",
         )
         out["stub_instruments"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
-            "OR i:Guideline OR i:Judgment) AND coalesce(i.source_type, '') = 'stub' RETURN count(i) AS c"
+            "OR i:Guideline OR i:Judgment) AND coalesce(i.source_type, '') = 'stub' RETURN count(i) AS c",
         )
         out["instruments_without_source"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
-            "OR i:Guideline OR i:Judgment) AND (i.source_url IS NULL OR i.source_url = '') RETURN count(i) AS c"
+            "OR i:Guideline OR i:Judgment) AND (i.source_url IS NULL OR i.source_url = '') RETURN count(i) AS c",
         )
         out["canonical_name_missing"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
-            "OR i:Guideline OR i:Judgment) AND i.canonical_name IS NULL RETURN count(i) AS c"
+            "OR i:Guideline OR i:Judgment) AND i.canonical_name IS NULL RETURN count(i) AS c",
         )
         out["instruments_manual_stub_type"] = self.run(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment) RETURN i.instrument_id AS instrument_id, "
             "coalesce(i.instrument_type,'?') AS itype, coalesce(i.legal_domain,'?') AS domain, "
-            "coalesce(i.source_url,'') AS source_url ORDER BY i.instrument_id"
+            "coalesce(i.source_url,'') AS source_url ORDER BY i.instrument_id",
         )
         return out
 
@@ -399,28 +399,28 @@ class Audit:
             "OR b:Order OR b:Circular OR b:Guideline OR b:Judgment) "
             "AND a.legal_domain <> b.legal_domain "
             "RETURN type(r) AS rel, count(r) AS c, a.legal_domain AS from_domain, b.legal_domain AS to_domain "
-            "ORDER BY c DESC LIMIT 40"
+            "ORDER BY c DESC LIMIT 40",
         )
         out["provision_interdomain_edges"] = self.run(
             "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) "
             "WHERE p.legal_domain <> q.legal_domain "
             "RETURN type(r) AS rel, count(r) AS c, p.legal_domain AS from_domain, q.legal_domain AS to_domain "
-            "ORDER BY c DESC LIMIT 40"
+            "ORDER BY c DESC LIMIT 40",
         )
         out["provision_interdomain_edges_all"] = self.run(
-            "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC"
+            "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) RETURN type(r) AS rel, count(r) AS c ORDER BY c DESC",
         )
         out["cross_domain_edges_with_evidence"] = self._count(
             "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) WHERE p.legal_domain <> q.legal_domain "
-            "AND r.evidence IS NOT NULL RETURN count(r) AS c"
+            "AND r.evidence IS NOT NULL RETURN count(r) AS c",
         )
         out["cross_domain_edges_total"] = self._count(
             "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) WHERE p.legal_domain <> q.legal_domain "
-            "RETURN count(r) AS c"
+            "RETURN count(r) AS c",
         )
         out["shared_concepts_by_domain_count"] = self._count(
             "MATCH (c:LegalConcept)-[:RELEVANT_IN]->(d:LegalDomain) WITH c, count(d) AS nd WHERE nd > 1 "
-            "RETURN count(c) AS c"
+            "RETURN count(c) AS c",
         )
         return out
 
@@ -429,41 +429,41 @@ class Audit:
         out["orphan_provisions"] = self._count(
             "MATCH (p:LegalProvision) WHERE NOT (p)<-[:CONTAINS]-(:Act) AND NOT (p)<-[:CONTAINS]-(:Rule) "
             "AND NOT (p)<-[:CONTAINS]-(:Regulation) AND NOT (p)<-[:CONTAINS]-(:Notification) "
-            "RETURN count(p) AS c"
+            "RETURN count(p) AS c",
         )
         out["provisions_without_domain"] = self._count(
-            "MATCH (p:LegalProvision) WHERE NOT (p)-[:BELONGS_TO_DOMAIN]->(:LegalDomain) RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE NOT (p)-[:BELONGS_TO_DOMAIN]->(:LegalDomain) RETURN count(p) AS c",
         )
         out["instruments_without_domain"] = self._count(
             "MATCH (i) WHERE (i:Act OR i:Rule OR i:Regulation OR i:Notification OR i:Order OR i:Circular "
             "OR i:Guideline OR i:Judgment) AND NOT (i)-[:BELONGS_TO_DOMAIN]->(:LegalDomain) "
-            "RETURN count(i) AS c"
+            "RETURN count(i) AS c",
         )
         out["chunks_without_document"] = self._count(
-            "MATCH (ch:Chunk) WHERE NOT (ch)<-[:HAS_CHUNK]-(:Document) RETURN count(ch) AS c"
+            "MATCH (ch:Chunk) WHERE NOT (ch)<-[:HAS_CHUNK]-(:Document) RETURN count(ch) AS c",
         )
         out["documents_without_chunks"] = self._count(
-            "MATCH (d:Document) WHERE NOT (d)-[:HAS_CHUNK]->(:Chunk) RETURN count(d) AS c"
+            "MATCH (d:Document) WHERE NOT (d)-[:HAS_CHUNK]->(:Chunk) RETURN count(d) AS c",
         )
         out["chunks_without_provision_link"] = self._count(
-            "MATCH (ch:Chunk) WHERE NOT (ch)<-[:SUPPORTED_BY]-(:LegalProvision) RETURN count(ch) AS c"
+            "MATCH (ch:Chunk) WHERE NOT (ch)<-[:SUPPORTED_BY]-(:LegalProvision) RETURN count(ch) AS c",
         )
         out["generic_relationship_edges"] = self._count("MATCH ()-[r:RELATED_TO]->() RETURN count(r) AS c")
         out["legal_concepts_orphaned"] = self._count(
             "MATCH (c:LegalConcept) WHERE NOT (c)<-[:APPLIES_TO|RELATES_TO|REQUIRES|RELEVANT_IN|IMPOSES_DUTY|"
             "CREATES_OFFENCE|CREATES_PROHIBITION|GRANTS_PERMISSION|PRESCRIBES_PENALTY|GRANTS_POWER_TO|ENFORCED_BY]-() "
-            "RETURN count(c) AS c"
+            "RETURN count(c) AS c",
         )
         out["nodes_without_domain_prop"] = self._count(
             "MATCH (n) WHERE (n:Act OR n:Rule OR n:Regulation OR n:Notification OR n:Order OR n:Circular "
             "OR n:Guideline OR n:Judgment OR n:LegalProvision OR n:Document) "
-            "AND n.legal_domain IS NULL RETURN count(n) AS c"
+            "AND n.legal_domain IS NULL RETURN count(n) AS c",
         )
         out["provisions_missing_text"] = self._count(
-            "MATCH (p:LegalProvision) WHERE p.provision_text IS NULL OR size(p.provision_text) = 0 RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE p.provision_text IS NULL OR size(p.provision_text) = 0 RETURN count(p) AS c",
         )
         out["provisions_title_only_text"] = self._count(
-            "MATCH (p:LegalProvision) WHERE size(coalesce(p.provision_text, '')) < 40 RETURN count(p) AS c"
+            "MATCH (p:LegalProvision) WHERE size(coalesce(p.provision_text, '')) < 40 RETURN count(p) AS c",
         )
         return out
 
@@ -479,7 +479,7 @@ class Audit:
             "RETURN i.instrument_id AS instrument_id, i.title AS title, i.instrument_type AS type, "
             "coalesce(i.legal_domain,'MISSING') AS domain, coalesce(i.jurisdiction,'MISSING') AS jurisdiction, "
             "coalesce(i.status,'MISSING') AS status, coalesce(i.source_type,'MISSING') AS source_type, "
-            "coalesce(i.source_url,'') AS source_url ORDER BY i.instrument_id LIMIT 30"
+            "coalesce(i.source_url,'') AS source_url ORDER BY i.instrument_id LIMIT 30",
         )
         out["provisions_sample"] = self.run(
             "MATCH (p:LegalProvision) "
@@ -488,7 +488,7 @@ class Audit:
             "coalesce(p.legal_domain,'MISSING') AS legal_domain, coalesce(p.status,'MISSING') AS status, "
             "coalesce(p.source,'MISSING') AS source, "
             "CASE WHEN p.provision_text IS NOT NULL AND size(p.provision_text) > 0 THEN 'text' ELSE 'NO_TEXT' END AS has_text "
-            "ORDER BY rand() LIMIT 50"
+            "ORDER BY rand() LIMIT 50",
         )
         out["relationship_sample"] = self.run(
             "MATCH (n)-[r]->(m) WHERE (n:LegalProvision OR n:Act OR n:Rule OR n:Regulation OR n:Notification "
@@ -496,20 +496,20 @@ class Audit:
             "RETURN coalesce(n.provision_id, n.instrument_id, n.name, labels(n)[0]) AS src, "
             "type(r) AS rel, coalesce(m.provision_id, m.instrument_id, m.name, labels(m)[0]) AS tgt, "
             "left(coalesce(r.evidence,''),80) AS evidence, r.confidence AS confidence "
-            "ORDER BY rand() LIMIT 50"
+            "ORDER BY rand() LIMIT 50",
         )
         out["cross_domain_relationship_sample"] = self.run(
             "MATCH (p:LegalProvision)-[r]->(q:LegalProvision) WHERE p.legal_domain <> q.legal_domain "
             "RETURN p.provision_id AS src, p.legal_domain AS src_domain, type(r) AS rel, "
             "q.provision_id AS tgt, q.legal_domain AS tgt_domain, "
             "left(coalesce(r.evidence,''),100) AS evidence, r.confidence AS confidence "
-            "ORDER BY rand() LIMIT 25"
+            "ORDER BY rand() LIMIT 25",
         )
         out["authority_relationship_sample"] = self.run(
             "MATCH (p:LegalProvision)-[r:ENFORCED_BY|GRANTS_POWER_TO|REQUIRES_AUTHORIZATION_FROM]->(a:Authority) "
             "RETURN p.provision_id AS provision, type(r) AS rel, a.name AS authority, "
             "left(coalesce(r.evidence,''),100) AS evidence, r.confidence AS confidence "
-            "ORDER BY rand() LIMIT 25"
+            "ORDER BY rand() LIMIT 25",
         )
         out["provenance_chain_sample"] = self.run(
             "MATCH (p:LegalProvision)-[r:SUPPORTED_BY]->(ch:Chunk) "
@@ -519,7 +519,7 @@ class Audit:
             "ch.chunk_id AS chunk, ch.qdrant_point_id AS qdrant_point_id, "
             "CASE WHEN d IS NULL THEN 'NO_DOCUMENT' ELSE coalesce(d.document_id,'NO_ID') END AS document, "
             "CASE WHEN p.provision_text IS NOT NULL THEN left(p.provision_text,80) ELSE 'NO_TEXT' END AS text_snip "
-            "ORDER BY rand() LIMIT 25"
+            "ORDER BY rand() LIMIT 25",
         )
         return out
 

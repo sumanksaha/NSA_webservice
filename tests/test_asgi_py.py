@@ -260,7 +260,8 @@ class TestAsgiAgentRoute:
 
     def test_resume_passes_approved_false_through(self, client, monkeypatch):
         """The human's rejection must reach resume_agent (regression: v2 used
-        to hardcode approved=True, silently defeating rejections)."""
+        to hardcode approved=True, silently defeating rejections).
+        """
         captured: dict = {}
 
         def fake_resume(thread_id, approved):
@@ -297,7 +298,7 @@ class TestAsgiAgentRoute:
 
     def test_agent_forwards_fso_advisory_fields(self, asgi_app, monkeypatch):
         """v2 agent route forwards advisory flags to the shared service core."""
-        import app.rag.agent.service as service
+        from app.rag.agent import service
 
         captured: dict = {}
 
@@ -324,7 +325,7 @@ class TestAsgiAgentRoute:
 
     def test_agent_advisory_defaults_to_env_flag(self, asgi_app, monkeypatch):
         """No body override → service gets None (live FSO_ADVISOR_ENABLED)."""
-        import app.rag.agent.service as service
+        from app.rag.agent import service
 
         captured: dict = {}
 
@@ -350,7 +351,7 @@ class TestAsgiAgentRoute:
 
     def test_resume_forwards_fso_advisory(self, client, monkeypatch):
         """v2 resume forwards fso_advisory so HITL resume keeps the topology."""
-        import app.rag.agent.service as service
+        from app.rag.agent import service
 
         captured: dict = {}
 
@@ -409,7 +410,8 @@ class TestAsgiSearch:
 
     def test_search_reindex_has_no_rag_gate(self, client, monkeypatch):
         """Reindexing is a search concern — RAG_ENABLED must NOT gate it
-        (regression: v2 used to 503 on a false RAG flag; Flask never did)."""
+        (regression: v2 used to 503 on a false RAG flag; Flask never did).
+        """
 
         def fake_index_all():
             return 7

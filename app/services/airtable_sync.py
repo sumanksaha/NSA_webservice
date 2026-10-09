@@ -172,7 +172,7 @@ def _rotate_base(module: str) -> str | None:
                         "fields": fields_spec,
                         "primaryFieldName": primary_field,
                         "primaryFieldType": {"type": "autonumber", "options": {}},
-                    }
+                    },
                 ],
             },
             timeout=30,
@@ -224,6 +224,7 @@ def sync_to_airtable(module: str, row_dict: dict, db_record_id: int | None = Non
 
     Returns:
         bool: True if sync succeeded, False otherwise.
+
     """
     # Gate on feature flag — dormant when ENABLE_AIRTABLE_SYNC is false
     if not current_app.config.get("ENABLE_AIRTABLE_SYNC", False):
@@ -349,5 +350,5 @@ def is_configured() -> bool:
     """Return True if Airtable API key and base ID are configured."""
     return bool(
         (current_app.config.get("AIRTABLE_API_KEY") or _env("AIRTABLE_API_KEY"))
-        and (current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID"))
+        and (current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")),
     )

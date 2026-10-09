@@ -38,6 +38,7 @@ class SparseEmbeddingService:
         model_name: fastembed sparse model name; defaults to the
             ``RAG_SPARSE_MODEL`` config value (``Qdrant/bm25``).
         embedder: Optional pre-built ``TextSparseEmbedding`` (for testing).
+
     """
 
     def __init__(self, model_name: str | None = None, embedder: Any | None = None) -> None:
@@ -74,7 +75,7 @@ class SparseEmbeddingService:
             except ImportError:
                 logger.warning(
                     "SparseEmbeddingService: fastembed not installed; sparse (BM25) "
-                    "embeddings unavailable. Install it to enable hybrid retrieval."
+                    "embeddings unavailable. Install it to enable hybrid retrieval.",
                 )
                 return None
         try:
@@ -90,7 +91,7 @@ class SparseEmbeddingService:
         if embedder is None:
             raise RuntimeError(
                 "fastembed is not installed; cannot generate sparse (BM25) vectors. "
-                "Install it and set RAG_SPARSE_MODEL (default Qdrant/bm25)."
+                "Install it and set RAG_SPARSE_MODEL (default Qdrant/bm25).",
             )
         return embedder
 
@@ -119,6 +120,7 @@ class SparseEmbeddingService:
         Returns:
             ``{"indices": [int, ...], "values": [float, ...]}`` (JSON-safe,
             Qdrant ``SparseVector``-compatible).
+
         """
         embedder = self._require_embedder()
         result = embedder.embed([text])

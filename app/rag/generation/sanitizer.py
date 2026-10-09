@@ -17,6 +17,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+from app.rag.generation.abstention import is_abstention
 from app.rag.retrieval.result import Citation, RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -35,15 +36,20 @@ class SanitizedResponse:
         valid_citations: Citations that map to retrieved chunks.
         invalid_citations: Citations that could not be verified.
         groundedness_score: Fraction of cited sources backed by evidence (0-1).
+        abstained: True when the answer declines instead of asserting.  Read
+            ``groundedness_score`` together with this: an abstention cites
+            nothing, so it scores 0.0 without being ungrounded.
         hallucination_detected: True if any invalid citation or low groundedness.
         hallucinated_claims: Heuristically flagged unverifiable claims.
         confidence: Overall confidence (0.0-1.0).
+
     """
 
     response_text: str = ""
     valid_citations: list[Citation] = field(default_factory=list)
     invalid_citations: list[Citation] = field(default_factory=list)
     groundedness_score: float = 0.0
+    abstained: bool = False
     hallucination_detected: bool = False
     hallucinated_claims: list[str] = field(default_factory=list)
     confidence: float = 0.0
@@ -55,6 +61,7 @@ class ResponseSanitizer:
     Args:
         groundedness_threshold: Minimum groundedness score (0-1) before
             hallucination is flagged.
+
     """
 
     def __init__(self, groundedness_threshold: float = _GROUNDEDNESS_THRESHOLD) -> None:
@@ -85,6 +92,7 @@ class ResponseSanitizer:
         Returns:
             A :class:`SanitizedResponse` with validated citations and
             a groundedness score.
+
         """
         valid_chunk_ids = {c.chunk_id for c in chunks}
 
@@ -101,8 +109,20 @@ class ResponseSanitizer:
         total = len(citations)
         groundedness = len(valid) / total if total > 0 else 0.0
 
-        # Hallucination flag — any invalid citation or low groundedness.
-        hallucination = len(invalid) > 0 or groundedness < self.groundedness_threshold
+        # Abstention-awareness (ADR-0010 §2.5).  An answer that declines
+        # because the evidence does not establish the conclusion cites
+        # nothing, so the ratio above is 0.0 — which used to flag every
+        # *correct* refusal as a hallucination.  Score abstention separately
+        # rather than folding it into groundedness: `groundedness_score` keeps
+        # its measured value, `abstained` carries the distinction.
+        #
+        # A fabricated citation is still a fabrication, so the suppression
+        # applies only when the abstention cites nothing at all.
+        abstained = is_abstention(response_text)
+        if abstained and total == 0:
+            hallucination = False
+        else:
+            hallucination = len(invalid) > 0 or groundedness < self.groundedness_threshold
 
         # Simple claim flagging for obviously unverifiable statements.
         hallucinated_claims = self._flag_unverifiable_claims(response_text, valid, chunks)
@@ -115,6 +135,7 @@ class ResponseSanitizer:
             valid_citations=valid,
             invalid_citations=invalid,
             groundedness_score=round(groundedness, 4),
+            abstained=abstained,
             hallucination_detected=hallucination,
             hallucinated_claims=hallucinated_claims,
             confidence=round(confidence, 4),

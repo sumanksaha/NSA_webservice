@@ -193,8 +193,8 @@ def classify_failure(
     # Family match
     neg_fams = set(
         family_map.family_s_for_act(
-            str(negative_payload.get("act_name") or negative_payload.get("document_title") or "")
-        )
+            str(negative_payload.get("act_name") or negative_payload.get("document_title") or ""),
+        ),
     )
     same_family = gold_unit.family in neg_fams
 
@@ -346,7 +346,7 @@ def main() -> int:
 
     (OUT / "failure_taxonomy.json").write_text(json.dumps(all_failures, indent=2, ensure_ascii=False), encoding="utf-8")
     (OUT / "failure_taxonomy_summary.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8",
     )
     return 0
 

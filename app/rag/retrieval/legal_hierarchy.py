@@ -139,8 +139,7 @@ def _relationship(a: str | None, b: str | None) -> SectionRelationship:
     if common_len == min(len(ca), len(cb)) and len(ca) != len(cb):
         if len(ca) < len(cb):
             return SectionRelationship("parent", len(cb) - len(ca), ca)
-        else:
-            return SectionRelationship("child", len(ca) - len(cb), cb)
+        return SectionRelationship("child", len(ca) - len(cb), cb)
 
     # Same family (same base section)
     if section_base(a) == section_base(b) and common_len >= 1:

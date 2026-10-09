@@ -27,12 +27,16 @@ from typing import Any
 
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
 from app.rag.retrieval.parent_reconstruction import _completeness, clause_commodity_for  # reuse flags
-from app.rag.retrieval.provision_metadata import commodity_agrees, commodity_phrase_match
-from app.rag.retrieval.provision_metadata import is_definition_chunk, is_standard_chunk
+from app.rag.retrieval.provision_metadata import (
+    commodity_agrees,
+    commodity_phrase_match,
+    is_definition_chunk,
+    is_standard_chunk,
+)
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ValidationReport", "validate_retrieval", "fallback_queries", "kg_fallback_queries"]
+__all__ = ["ValidationReport", "fallback_queries", "kg_fallback_queries", "validate_retrieval"]
 
 
 class ValidationReport(dict):
@@ -173,10 +177,9 @@ def validate_retrieval(
         if not any(is_definition_chunk(c) for c in ranked_chunks):
             valid = False
             reasons.append("no definition-shaped chunk in retrieved evidence")
-    else:
-        if not ranked_chunks:
-            valid = False
-            reasons.append("no evidence retrieved")
+    elif not ranked_chunks:
+        valid = False
+        reasons.append("no evidence retrieved")
 
     return ValidationReport(
         valid=valid,
@@ -275,6 +278,6 @@ def kg_fallback_queries(
                 "title": p.get("title") or "",
                 "instrument_title": p.get("instrument_title") or "",
                 "relationship": relations[0],
-            }
+            },
         )
     return out

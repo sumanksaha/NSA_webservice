@@ -85,7 +85,8 @@ def client(app):
 def auth_client(app):
     """Authenticated test client — /tasks/status and /tasks/download are
     login-gated (they serve PDFs and error details), so the test client must
-    log in first."""
+    log in first.
+    """
     c = app.test_client()
     _login(c)
     return c

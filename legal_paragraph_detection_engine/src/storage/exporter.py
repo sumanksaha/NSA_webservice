@@ -43,7 +43,6 @@ class ParagraphExporter:
 
     def export_to_json(self, paragraphs: list[dict[str, Any]], filename: str = "output.json") -> str:
         """Export paragraphs to JSON format with complete metadata."""
-
         output_path = Path(self.output_dir) / f"{filename}.json"
 
         with open(str(output_path), "w", encoding="utf-8") as f:
@@ -53,7 +52,6 @@ class ParagraphExporter:
 
     def export_to_compact_json(self, paragraphs: list[dict[str, Any]], filename: str = "compact.json") -> str:
         """Export paragraphs in compact JSON format (optimized for RAG indexing)."""
-
         # Create compact representation focusing on RAG-relevant fields
         compact_data = []
 
@@ -82,7 +80,6 @@ class ParagraphExporter:
 
     def export_hierarchy_report(self, paragraphs: list[dict[str, Any]], filename: str = "hierarchy.json") -> str:
         """Export detailed hierarchy information for analysis."""
-
         hierarchy_data: dict[str, Any] = {
             "summary": {
                 "total_paragraphs": len(paragraphs),
@@ -129,10 +126,9 @@ class ParagraphExporter:
         return str(output_path)
 
     def export_with_metadata(
-        self, paragraphs: list[dict[str, Any]], filename: str = "output_with_metadata.json"
+        self, paragraphs: list[dict[str, Any]], filename: str = "output_with_metadata.json",
     ) -> str:
         """Export paragraphs with complete processing metadata."""
-
         export_data = {
             "metadata": {
                 "export_timestamp": datetime.now(UTC).isoformat(),

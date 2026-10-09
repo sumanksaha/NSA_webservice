@@ -502,7 +502,7 @@ def render_triage_md(tri: dict) -> str:
     for fam, cnt in tri["ingestion_priority_by_instrument"].items():
         lines.append(
             f"| {fam} | {cnt.get('index_gap', 0)} | {cnt.get('ingest_priority', 0)} "
-            f"| {cnt.get('payload_gap', 0)} | {cnt.get('evidence_present', 0)} |"
+            f"| {cnt.get('payload_gap', 0)} | {cnt.get('evidence_present', 0)} |",
         )
     lines += ["", "## Per-qid class", "", "| qid | class | absent units |", "|---|---|---|"]
     for qid, info in sorted(tri["per_qid"].items()):
@@ -872,7 +872,7 @@ def publish_reaudit(ra: dict, residual_qids: list[str], preanno: dict) -> Path:
                 "Step 3 per-label counts were published on the registered partition; "
                 "both partitions are reported in step0_analysis.md"
             ),
-        }
+        },
     }
     return s0.publish(validation, "step0_qc.py --publish-reaudit", preanno, extra=extra)
 
@@ -946,7 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         _write(QC_MD, render_qc_md(qc))
         print(
             f"qc: {qc['n_findings']} findings on {qc['n_flagged_qids']}/{qc['n_residual']} qids "
-            f"({qc['n_findings_by_severity']}) -> {QC_JSON.name}, {QC_MD.name}"
+            f"({qc['n_findings_by_severity']}) -> {QC_JSON.name}, {QC_MD.name}",
         )
         for f in qc["findings"]:
             print(f"  [{f['severity']}] {f['code']}: {f['n']}")
@@ -990,7 +990,7 @@ def main(argv: list[str] | None = None) -> int:
         _write(REAUDIT_MD, render_reaudit_md(ra))
         print(
             f"reaudit: examined {ra['n_examined']} packets, {ra['n_changed']} changes "
-            f"{ra['counts_before']} -> {ra['counts_after']} -> {REAUDIT_JSON.name}, {REAUDIT_MD.name}"
+            f"{ra['counts_before']} -> {ra['counts_after']} -> {REAUDIT_JSON.name}, {REAUDIT_MD.name}",
         )
         for qid, ch in ra["changes"].items():
             print(f"  {qid}: {ch['from']} -> {ch['to']}")

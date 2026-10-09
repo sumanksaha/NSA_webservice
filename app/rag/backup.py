@@ -97,6 +97,7 @@ def backup_collection(
     Raises:
         RuntimeError: When Qdrant is unavailable or the export yields no
             points (likely wrong collection name).
+
     """
     start = time.monotonic()
     client = store._get_client()
@@ -112,7 +113,7 @@ def backup_collection(
     if not points:
         raise RuntimeError(
             f"collection {store.collection_name!r} has no points — refusing to write an "
-            "empty archive (check RAG_QDRANT_COLLECTION)."
+            "empty archive (check RAG_QDRANT_COLLECTION).",
         )
 
     archive: dict[str, object] = {
@@ -151,7 +152,7 @@ def load_archive(archive_path: str) -> dict[str, object]:
         actual = _archive_sha(points)
         if actual != expected:
             raise ValueError(
-                f"archive {archive_path!r} failed integrity check (sha256 mismatch — corrupted or truncated file)"
+                f"archive {archive_path!r} failed integrity check (sha256 mismatch — corrupted or truncated file)",
             )
     return archive
 
@@ -183,6 +184,7 @@ def restore_collection(
 
     Raises:
         ValueError: For a corrupt/empty archive or an id/vector shape error.
+
     """
     start = time.monotonic()
     archive = load_archive(archive_path)
@@ -194,7 +196,7 @@ def restore_collection(
         if client is None:
             logger.warning(
                 "restore: drop_existing requested but Qdrant is unavailable — "
-                "continuing (restore will fail at collection creation if unconfigured)."
+                "continuing (restore will fail at collection creation if unconfigured).",
             )
         else:
             try:
@@ -221,7 +223,7 @@ def restore_collection(
             if "dense" not in vector:
                 errors.append(
                     f"point {point_id} has a named-vector dict without a 'dense' "
-                    f"entry (keys={sorted(vector)}) — skipped"
+                    f"entry (keys={sorted(vector)}) — skipped",
                 )
                 continue
             sparse = vector.get("text_sparse")
@@ -231,11 +233,11 @@ def restore_collection(
                     vector=[float(v) for v in vector["dense"]],
                     sparse_vector=dict(sparse) if sparse else None,
                     payload=dict(item.get("payload") or {}),
-                )
+                ),
             )
         else:
             structs.append(
-                Point(id=point_id, vector=[float(v) for v in vector], payload=dict(item.get("payload") or {}))
+                Point(id=point_id, vector=[float(v) for v in vector], payload=dict(item.get("payload") or {})),
             )
 
     restored = 0

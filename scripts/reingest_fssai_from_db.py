@@ -91,6 +91,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
         db_path: Optional explicit database path (tests). ``None`` resolves the
             production default ``instance/app.db`` (falling back to the sole
             ``instance/*.db`` if absent).
+
     """
     import sqlite3
 
@@ -115,7 +116,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
                    effective_date, enactment_date, amended_date, is_current,
                    qdrant_collection, chunk_count, created_at
             FROM legal_document ORDER BY created_at
-            """
+            """,
         ):
             docs.append(dict(r))
         for r in con.execute(
@@ -125,7 +126,7 @@ def load_corpus(db_path: str | Path | None = None) -> tuple[list[dict[str, Any]]
                    citations, "references", entities, metadata_json, content_hash,
                    qdrant_point_id, created_at
             FROM legal_chunk ORDER BY document_id, chunk_index
-            """
+            """,
         ):
             chunks.setdefault(r["document_id"], []).append(dict(r))
     finally:
@@ -167,7 +168,7 @@ def build_payload(chunk: dict[str, Any], doc: dict[str, Any]) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Rebuild fssai_legal_768 from the local DB (identity-preserving, P1-4)."
+        description="Rebuild fssai_legal_768 from the local DB (identity-preserving, P1-4).",
     )
     parser.add_argument("--dry-run", action="store_true", help="Build + validate payloads only; NO Qdrant writes.")
     parser.add_argument(

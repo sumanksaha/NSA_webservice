@@ -57,6 +57,7 @@ class LegalKGIngestionEngine:
     Args:
         driver: Optional pre-built Neo4j driver (injected for tests).
         database: Neo4j database name (default from NEO4J_DATABASE env).
+
     """
 
     def __init__(
@@ -349,7 +350,7 @@ class LegalKGIngestionEngine:
         with app.app_context():
             # Get the FSS Act document
             fss_doc = db.session.execute(
-                db.select(LegalDocument).filter(LegalDocument.source_uri.like("%Food_Safety%Act_2006%"))
+                db.select(LegalDocument).filter(LegalDocument.source_uri.like("%Food_Safety%Act_2006%")),
             ).scalar_one_or_none()
             if fss_doc is None:
                 logger.warning("FSS Act document not found in DB — skipping FSSAI provision load")
@@ -368,7 +369,7 @@ class LegalKGIngestionEngine:
                         LegalChunk.section_number.isnot(None),
                         LegalChunk.section_number != "0",
                     )
-                    .distinct()
+                    .distinct(),
                 )
                 .scalars()
                 .all()
@@ -389,7 +390,7 @@ class LegalKGIngestionEngine:
                         LegalChunk.section_number == sec_num,
                         LegalChunk.hierarchy_level == 1,
                     )
-                    .limit(1)
+                    .limit(1),
                 ).scalar_one_or_none()
 
                 section_text = header_chunk.text[:2000] if header_chunk and header_chunk.text else ""
@@ -428,7 +429,7 @@ class LegalKGIngestionEngine:
                         LegalChunk.document_id == doc_id,
                         LegalChunk.section_number.isnot(None),
                         LegalChunk.section_number != "0",
-                    )
+                    ),
                 )
                 .scalars()
                 .all()

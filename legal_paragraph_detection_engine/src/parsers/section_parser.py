@@ -146,6 +146,7 @@ class SectionParser:
 
         Returns:
             List of SectionData objects
+
         """
         with self._lock:
             # Check cache
@@ -220,20 +221,20 @@ class SectionParser:
         # generic paragraph token so "subparagraph" is never swallowed)
         if re.search(r"\b(?:section|sec\.|§)\s*\d+", line_lower):
             return SectionType.MAIN_SECTION
-        elif re.search(r"\bsub[- ]?paragraph\b", line_lower):
+        if re.search(r"\bsub[- ]?paragraph\b", line_lower):
             return SectionType.SUBPARAGRAPH
-        elif re.search(r"\b(?:paragraph|para)\b", line_lower):
+        if re.search(r"\b(?:paragraph|para)\b", line_lower):
             return SectionType.PARAGRAPH
         # Subsection-marker chains (``(1)(a)``, ``3(1)(a)``, ``(i)(ii)``) are
         # classified by their deepest marker — never as a main section
         # (RAG_AGENT_A_SCOPE §2.3).
-        elif self._has_deep_marker_chain(line):
+        if self._has_deep_marker_chain(line):
             return self._marker_chain_section_type(line)
-        elif re.match(r"^\s*\(\s*\d+\s*\)", line):
+        if re.match(r"^\s*\(\s*\d+\s*\)", line):
             return SectionType.SUBSECTION
-        elif re.match(r"^\s*\([a-zA-Z]\)", line) or re.match(r"^\s*[a-zA-Z]\s*\.\s", line):
+        if re.match(r"^\s*\([a-zA-Z]\)", line) or re.match(r"^\s*[a-zA-Z]\s*\.\s", line):
             return SectionType.SUBSUBSECTION
-        elif re.match(r"^\s*[ivxIVX]{1,4}\s+", line) or re.match(r"^\s*[ivxIVX]{1,4}\s*\.", line):
+        if re.match(r"^\s*[ivxIVX]{1,4}\s+", line) or re.match(r"^\s*[ivxIVX]{1,4}\s*\.", line):
             return SectionType.ROMAN_SECTION
 
         # Default to main section
@@ -250,7 +251,7 @@ class SectionParser:
         return bool(
             re.match(r"^\(\s*\d+\s*\)\s*\(", stripped)
             or re.match(r"^\d+\s*\(\s*\d+\s*\)\s*\(", stripped)
-            or re.match(r"^\(\s*[ivxIVX]+\s*\)\s*\(", stripped)
+            or re.match(r"^\(\s*[ivxIVX]+\s*\)\s*\(", stripped),
         )
 
     def _marker_chain_section_type(self, line: str) -> SectionType:

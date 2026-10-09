@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "evaluation"))
 
+from evaluation.step0_label_residual import STEP0_ENUM, load_residual_qids
 from evaluation.step1_preregister_gates import (
     BUDGET_CAP,
     EVALUATORS,
@@ -20,18 +21,14 @@ from evaluation.step1_preregister_gates import (
     SAFETY_PROPERTIES,
     SCORER,
     STEP1_LABELS,
-    assign_qids,
     build_gates,
     evaluate_candidate,
     evaluate_evidence_missing,
     evaluate_model_wrong,
     evaluate_reference_narrow,
-    main,
-    publish,
     quote_in_evidence,
     validate_prereg,
 )
-from evaluation.step0_label_residual import STEP0_ENUM, load_residual_qids
 
 
 def _complete_labels() -> dict[str, str]:
@@ -98,12 +95,12 @@ def test_build_gates_assigns_partition_when_complete():
         union |= s
         assert payload["gates"][label]["n"] == len(s)
     assert union == set(residual)
-    assert sum(payload["gates"][l]["n"] for l in STEP1_LABELS) == len(residual)
+    assert sum(payload["gates"][label]["n"] for label in STEP1_LABELS) == len(residual)
 
 
 def test_validate_prereg_detects_drift():
     residual = load_residual_qids()
-    labels = {qid: "model_wrong" for qid in residual}
+    labels = dict.fromkeys(residual, "model_wrong")
     payload = build_gates(labels, step0_complete=True, source="test")
     payload["gates"]["model_wrong"]["keep_if"] = "tampered"
     v = validate_prereg(payload)
@@ -126,7 +123,7 @@ def test_validate_prereg_detects_drift():
 
 def test_validate_prereg_detects_partition_break():
     residual = load_residual_qids()
-    labels = {qid: "model_wrong" for qid in residual}
+    labels = dict.fromkeys(residual, "model_wrong")
     payload = build_gates(labels, step0_complete=True, source="test")
     # Drop one qid from its bucket without re-deriving from labels
     payload["gates"]["model_wrong"]["qids"] = payload["gates"]["model_wrong"]["qids"][:-1]
@@ -197,15 +194,15 @@ def test_model_wrong_gate():
 
 def test_reference_narrow_gate():
     r = evaluate_reference_narrow(
-        old_score_reported=True, new_score_reported=True, generation_call_spent=False
+        old_score_reported=True, new_score_reported=True, generation_call_spent=False,
     )
     assert r["keep"] is True
     r = evaluate_reference_narrow(
-        old_score_reported=True, new_score_reported=True, generation_call_spent=True
+        old_score_reported=True, new_score_reported=True, generation_call_spent=True,
     )
     assert r["keep"] is False and "generation_call" in r["reason"]
     r = evaluate_reference_narrow(
-        old_score_reported=True, new_score_reported=False, generation_call_spent=False
+        old_score_reported=True, new_score_reported=False, generation_call_spent=False,
     )
     assert r["keep"] is False
 
@@ -328,7 +325,7 @@ def test_assign_qids_partitions_and_writes(tmp_path, monkeypatch):
         # Nonzero for round-robin on 124 residual
         assert payload["gates"][label]["n"] > 0
     assert union == set(residual)
-    assert sum(payload["gates"][l]["n"] for l in STEP1_LABELS) == len(residual)
+    assert sum(payload["gates"][label]["n"] for label in STEP1_LABELS) == len(residual)
 
     # Artifacts
     assert written["json"].exists()
@@ -340,12 +337,12 @@ def test_assign_qids_partitions_and_writes(tmp_path, monkeypatch):
     assert assign["step0_complete"] is True
     assert assign["qid_assignment"] == "assigned"
     assert assign["n_residual_total"] == len(residual)
-    assert sum(assign["buckets"][l]["n"] for l in STEP1_LABELS) == len(residual)
+    assert sum(assign["buckets"][label]["n"] for label in STEP1_LABELS) == len(residual)
     assert assign["budget_cap"] == BUDGET_CAP
 
     targets = json.loads(written["targets"].read_text())
     assert targets["step0_complete"] is True
-    assert sum(targets["buckets"][l]["n"] for l in STEP1_LABELS) == len(residual)
+    assert sum(targets["buckets"][label]["n"] for label in STEP1_LABELS) == len(residual)
 
     # Mirrored step0_*_targets.json rewritten with assigned qids
     for label in STEP1_LABELS:

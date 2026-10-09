@@ -44,8 +44,7 @@ def _kind_param():
 @version_control_bp.route("/save-version", methods=["POST"])
 @login_required
 def save_version():
-    """
-    Create a version snapshot when a document is saved or auto-saved.
+    """Create a version snapshot when a document is saved or auto-saved.
 
     Expected JSON body:
     {
@@ -64,6 +63,7 @@ def save_version():
         "version_number": 3,
         "content_hash": "sha256_hash"
     }
+
     """
     try:
         data = request.get_json()
@@ -122,8 +122,7 @@ def compare_versions(
     version_a: int,
     version_b: int,
 ):
-    """
-    Compare two versions and return diff information.
+    """Compare two versions and return diff information.
 
     Returns:
     {
@@ -139,6 +138,7 @@ def compare_versions(
         },
         "deltas": {...}
     }
+
     """
     try:
         if doc_type not in _VALID_DOC_TYPES:
@@ -176,8 +176,7 @@ def restore_version(
     doc_type: str,
     version_id: int,
 ):
-    """
-    Restore a document to a specific version.
+    """Restore a document to a specific version.
 
     Restoring writes the snapshot HTML back to ``instance/saved/`` (making it
     the current document) and records an append-only "Restored to version N"
@@ -193,6 +192,7 @@ def restore_version(
         "status": "success",
         "restored_version": {...}
     }
+
     """
     try:
         if doc_type not in _VALID_DOC_TYPES:
@@ -236,8 +236,7 @@ def restore_version(
 @version_control_bp.route("/branch", methods=["POST"])
 @login_required
 def create_branch():
-    """
-    Create a branch/draft from a specific version.
+    """Create a branch/draft from a specific version.
 
     Expected JSON body:
     {
@@ -254,6 +253,7 @@ def create_branch():
         "status": "success",
         "branch": {...}
     }
+
     """
     try:
         data = request.get_json()
@@ -305,6 +305,7 @@ def get_version_history(case_id_or_adjudication_id: int):
         "permission": [...],
         "branches": [...]
     }
+
     """
     try:
         resolved = CaseResolver().resolve(case_id_or_adjudication_id, kind=_kind_param())

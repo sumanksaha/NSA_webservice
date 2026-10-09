@@ -76,7 +76,7 @@ def verify_photo_location(
         lookup_res = _license_adapter.lookup(fbo.license_number, source="fssai")
         result["license_valid"] = (
             getattr(lookup_res, "found", False)
-            or (getattr(lookup_res, "__getitem__", None) and cast(Any, lookup_res).get("found"))
+            or (getattr(lookup_res, "__getitem__", None) and cast("Any", lookup_res).get("found"))
             or False
         )
 

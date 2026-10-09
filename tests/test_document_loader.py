@@ -240,11 +240,13 @@ class TestDocumentLoaderFactory:
         assert ".pdf" in exts
         assert ".docx" in exts
         assert ".txt" in exts
+        assert ".md" in exts
 
     def test_is_supported(self):
         assert DocumentLoaderFactory.is_supported("doc.pdf")
         assert DocumentLoaderFactory.is_supported("doc.docx")
         assert DocumentLoaderFactory.is_supported("doc.txt")
+        assert DocumentLoaderFactory.is_supported("doc.md")
         assert not DocumentLoaderFactory.is_supported("doc.csv")
         assert not DocumentLoaderFactory.is_supported("doc")
 

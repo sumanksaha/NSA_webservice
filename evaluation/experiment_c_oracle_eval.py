@@ -37,7 +37,7 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from types import SimpleNamespace
+from typing import Any
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -54,21 +54,18 @@ except Exception:
     pass
 os.environ["RAG_USE_STUB_LLM"] = "false"  # real client for budget runs
 
-from evaluation.eval_e2e_v2 import load_payload_index, _SSLBypassLLMClient  # noqa: E402
+from evaluation.eval_e2e_v2 import load_payload_index, _SSLBypassLLMClient
 
-from evaluation.benchmark import (  # noqa: E402
-    BenchmarkQuestion,
+from evaluation.benchmark import (
     GoldUnit,
-    load_gold_registry,
     load_questions,
 )
-from evaluation.resolution import (  # noqa: E402
+from evaluation.resolution import (
     FamilyMap,
     matches_gold,
     norm_section,
-    payload_to_keys,
 )
-from evaluation.experiment_b_topk_eval import (  # noqa: E402
+from evaluation.experiment_b_topk_eval import (
     _mean,
     _pctl,
     build_gold_index,
@@ -76,16 +73,16 @@ from evaluation.experiment_b_topk_eval import (  # noqa: E402
     gold_chunk_ids_for_units,
     to_retrieved_chunk,
 )
-from app.rag.generation.context_builder import BuiltContext, ContextBuilder  # noqa: E402
-from app.rag.generation.grounded_service import GroundedGenerationService  # noqa: E402
-from app.rag.generation.llm_client import GroundedLLMResponse  # noqa: E402
+from app.rag.generation.context_builder import ContextBuilder
+from app.rag.generation.grounded_service import GroundedGenerationService
+from app.rag.generation.llm_client import GroundedLLMResponse
 
-import torch  # noqa: E402
+import torch
 torch.set_num_threads(2)
 
-import matplotlib  # noqa: E402
+import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
 # --------------------------------------------------------------------------- #
 # Paths + constants
@@ -1133,10 +1130,10 @@ def phase_report(stub: bool) -> int:
     W(f"| Model | {LLM_MODEL} (OpenRouter free) |")
     W(f"| Temperature | {LLM_TEMPERATURE} |")
     W(f"| Max output tokens | {LLM_MAX_TOKENS} |")
-    W(f"| System prompt | grounded_qa (FSSAI default; FIXED) |")
+    W("| System prompt | grounded_qa (FSSAI default; FIXED) |")
     W(f"| Max context chars | {MAX_CTX_CHARS} |")
-    W(f"| Max chunks | O1=200, O2=400, O3=2000 |")
-    W(f"| Concurrency | 8 (main phase) → 1 (resume; avoids burst-empties under free-tier 429 storms) |")
+    W("| Max chunks | O1=200, O2=400, O3=2000 |")
+    W("| Concurrency | 8 (main phase) → 1 (resume; avoids burst-empties under free-tier 429 storms) |")
     W(f"| Retry policy | none for answer-generation (one attempt per qid,cond; `retries`=0). Transport-only backoff ({MAX_TRANSPORT_RETRIES}x, up to {RETRY_AFTER_CAP:.0f}s, honouring Retry-After) recovers free-tier 429/empty-200 rejections — the LLM is never invoked on a rejected request, so these are rate-limit recoveries, not generation retries. |")
     W("")
     W("## 6. Metric Definitions (identical to Experiment B — §10/§12)")
@@ -1207,21 +1204,21 @@ def phase_report(stub: bool) -> int:
                      f"{agg.get('O3_full_support',{}).get('n_questions',0)}/{QUESTIONS_PER_COND} O3). "
                      f"{MAX_CALLS - ac.get('calls_succeeded', 0)} pairs remain unrun (free-tier daily quota exhausted mid-run). "
                      "Re-`--resume` after reset for the final value.") if _remaining else ""
-    W(f"With retrieval uncertainty removed and validated legal evidence supplied, answer")
+    W("With retrieval uncertainty removed and validated legal evidence supplied, answer")
     if _partial_note:
         W(_partial_note)
     W(f"correctness is **O1={o1}** → **O2={o2}** → **O3={o3}** ({'PARTIAL' if _remaining else 'final'}). The O1→O3 delta is")
     W(f"{round(o3-o1,4)}; O1→O2 (local continuity) is {round(o2-o1,4)}; O2→O3 (full provisions)")
     W(f"is {round(o3-o2,4)}. Against Experiment B's CE K=100 retrieval ceiling this is an oracle")
     W(f"gain of {cap.get('oracle_gain_over_ce_k100')} — i.e. the remaining correctness gap at K=100 is")
-    W(f"retrieval-bound vs generation-bound. (See plots 01–06 and the per-question manifest.)")
+    W("retrieval-bound vs generation-bound. (See plots 01–06 and the per-question manifest.)")
     W("")
     W("## 20–24 / 28 / 33. Artifacts & Reproducibility")
     W(f"- Benchmark sha256: `{manifest['benchmark_sha256']}`; model/temp/max_tokens: {LLM_MODEL}/{LLM_TEMPERATURE}/{LLM_MAX_TOKENS}.")
     W(f"- Context builder: `{manifest['context_builder']}` (answerability rejection DISABLED).")
-    W(f"- Manifests: `experiment_C_context_manifest.json`, `experiment_C_checkpoint.jsonl`,")
-    W(f"  `experiment_C_aggregate.json`, `experiment_C_per_question.json`,")
-    W(f"  `experiment_C_call_accounting.json`, `experiment_C_run_meta.json`, `experiment_C_summary.md`, `plots/experiment_c_01..06_*.png`.")
+    W("- Manifests: `experiment_C_context_manifest.json`, `experiment_C_checkpoint.jsonl`,")
+    W("  `experiment_C_aggregate.json`, `experiment_C_per_question.json`,")
+    W("  `experiment_C_call_accounting.json`, `experiment_C_run_meta.json`, `experiment_C_summary.md`, `plots/experiment_c_01..06_*.png`.")
     W("- Contamination: PASS — contexts are pure corpus chunk_text; the acceptable conclusion is")
     W("  grading rubric only, never injected into the LLM context; no retrieval/LLM was used to")
     W("  assemble oracle contexts.")

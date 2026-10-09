@@ -19,7 +19,7 @@ import pytest
 from tests.test_rag_routes import _setup_test_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_env(monkeypatch):
     """Test app + client, with LLM-key env vars cleared for determinism."""
     for var in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "RAG_USE_STUB_LLM", "RAG_LLM_MODEL"):
@@ -133,7 +133,8 @@ class TestRemoteInferenceWiringVisibility:
 
     def test_health_hides_urls_and_paths_from_anonymous_callers(self, app_env):
         """Modal web endpoints have no auth of their own — a public health
-        page must prove the wiring without advertising the URLs."""
+        page must prove the wiring without advertising the URLs.
+        """
         app, _ = app_env
         self._wire_modal(app)
         anon = app.test_client()  # no session
@@ -172,9 +173,9 @@ def _interrupt_result() -> dict:
                     "message": "Review the grounded answer before release.",
                     "query": "penalty",
                     "answer": "draft answer",
-                }
-            )
-        ]
+                },
+            ),
+        ],
     }
 
 

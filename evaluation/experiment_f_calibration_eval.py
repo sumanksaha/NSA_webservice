@@ -450,7 +450,7 @@ def analyze(stub: bool) -> dict:
         for qid in sorted(per_q):
             f.write(json.dumps({"qid": qid, **per_q[qid]}, ensure_ascii=False) + "\n")
     (OUT_DIR / f"experiment_F_results{suffix}.json").write_text(
-        json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8",
     )
     return results
 
@@ -561,11 +561,11 @@ def check_provision_binding(
     for gp in analysis.get("governing_provisions") or []:
         if isinstance(gp, dict):
             pid = str(gp.get("provision_id") or "")
-            for m in _re.finditer(r"section\s+(\d{1,3}(?:\([0-9A-Za-z]+\))*)", pid, _re.I):
+            for m in _re.finditer(r"section\s+(\d{1,3}(?:\([0-9A-Za-z]+\))*)", pid, _re.IGNORECASE):
                 cited.append((m.group(1), f"governing_provisions:{pid[:60]}"))
             for m in _re.finditer(r"\b(\d{1,3}\([0-9A-Za-z]+(?:\([0-9A-Za-z]+\))*\))", pid):
                 cited.append((m.group(1), f"governing_provisions:{pid[:60]}"))
-    for m in _re.finditer(r"section\s+(\d{1,3}(?:\([0-9A-Za-z]+\))*)", answer or "", _re.I):
+    for m in _re.finditer(r"section\s+(\d{1,3}(?:\([0-9A-Za-z]+\))*)", answer or "", _re.IGNORECASE):
         cited.append((m.group(1), "answer"))
 
     # -- check 1: subsection mismatch against the bound chunk inventory --
@@ -589,11 +589,11 @@ def check_provision_binding(
         if not _sections_match(exact, hit_secs, str(hit.get("text") or "")):
             # parent present, exact subsection absent -> demonstrable mismatch
             reasons.append(
-                f"subsection_mismatch: cites {ident} in {where}; chunk [#{hit['index']}] shows section {base} but not {ident}"
+                f"subsection_mismatch: cites {ident} in {where}; chunk [#{hit['index']}] shows section {base} but not {ident}",
             )
             diagnostics.append(
                 f"Cited '{ident}' ({where}) not found in the cited chunk; sections present for {base} in that chunk: "
-                f"{sorted(s for s in hit_secs if s.split('(')[0] == base)[:6]}"
+                f"{sorted(s for s in hit_secs if s.split('(')[0] == base)[:6]}",
             )
 
     # -- check 2: role/section conflicts --
@@ -605,7 +605,7 @@ def check_provision_binding(
     for role, sec_map in role_table.items():
         if role.lower() not in (text_all or "").lower():
             continue
-        for m in _re.finditer(r"section\s+(\d{1,3})", text_all, _re.I):
+        for m in _re.finditer(r"section\s+(\d{1,3})", text_all, _re.IGNORECASE):
             sec = m.group(1)
             other_roles = (
                 {r2 for s2, cids in sec_map.items() if s2 == sec for r3 in (None,) for cids2 in [cids] for r2 in [role]}
@@ -615,14 +615,14 @@ def check_provision_binding(
         # simpler: for each section the table binds to OTHER roles, check whether
         # the analysis binds THIS role to that section
         for sec, _cids in sec_map.items():
-            if _re.search(rf"{_re.escape(role)}[^.\n]{{0,200}}?section\s+{sec}\b", text_all, _re.I):
+            if _re.search(rf"{_re.escape(role)}[^.\n]{{0,200}}?section\s+{sec}\b", text_all, _re.IGNORECASE):
                 conflicting = {r2 for r2, m2 in role_table.items() if r2 != role and sec in m2}
                 if conflicting:
                     reasons.append(
-                        f"role_section_conflict: analysis binds {role} to section {sec}; evidence binds section {sec} to {sorted(conflicting)}"
+                        f"role_section_conflict: analysis binds {role} to section {sec}; evidence binds section {sec} to {sorted(conflicting)}",
                     )
                     diagnostics.append(
-                        f"In the evidence, section {sec} is bound to: {sorted(conflicting)}. Verify the {role} binding."
+                        f"In the evidence, section {sec} is bound to: {sorted(conflicting)}. Verify the {role} binding.",
                     )
                 break
 
@@ -637,10 +637,10 @@ def check_provision_binding(
             na = norm_act_name(str(act))
             if na and na in norm_act_name(answer or ""):
                 reasons.append(
-                    f"act_family_discrepancy: answer names '{act}' (family {fam}) outside gold families {sorted(gold_families)}"
+                    f"act_family_discrepancy: answer names '{act}' (family {fam}) outside gold families {sorted(gold_families)}",
                 )
                 diagnostics.append(
-                    f"The answer invokes the {act}; the question's governing regimes are {sorted(gold_families)}."
+                    f"The answer invokes the {act}; the question's governing regimes are {sorted(gold_families)}.",
                 )
                 break
 
@@ -816,7 +816,7 @@ def _f1_deterministic_nomination(qid: str, d2_rec: dict, manifest_q: dict, paylo
 
 
 def _f2_deterministic_nomination(
-    qid: str, d2_rec: dict, manifest_q: dict, payload_index: dict, q: Any, role_table: dict, family_map: Any
+    qid: str, d2_rec: dict, manifest_q: dict, payload_index: dict, q: Any, role_table: dict, family_map: Any,
 ) -> bool:
     """Cheap deterministic F2 nomination (check_provision_binding, 0 calls)."""
     if d2_rec.get("error"):
@@ -836,7 +836,7 @@ def _f2_deterministic_nomination(
     ]
     gold_families = {u.family for u in q.recall_units()}
     return check_provision_binding(
-        d2_rec.get("analysis"), str(d2_rec.get("answer") or ""), citations, gold_families, family_map, role_table
+        d2_rec.get("analysis"), str(d2_rec.get("answer") or ""), citations, gold_families, family_map, role_table,
     )["flagged"]
 
 
@@ -916,14 +916,14 @@ def main() -> None:  # pragma: no cover - CLI entry
     def _f1_det_hit(qid: str) -> bool:
         if qid not in _f1_det_cache:
             _f1_det_cache[qid] = _f1_deterministic_nomination(
-                qid, d2_by_qid[qid], manifest_q, payload_index, questions[qid]
+                qid, d2_by_qid[qid], manifest_q, payload_index, questions[qid],
             )
         return _f1_det_cache[qid]
 
     def _f2_det_hit(qid: str) -> bool:
         if qid not in _f2_det_cache:
             _f2_det_cache[qid] = _f2_deterministic_nomination(
-                qid, d2_by_qid[qid], manifest_q, payload_index, questions[qid], role_table, family_map
+                qid, d2_by_qid[qid], manifest_q, payload_index, questions[qid], role_table, family_map,
             )
         return _f2_det_cache[qid]
 
@@ -943,7 +943,7 @@ def main() -> None:  # pragma: no cover - CLI entry
     call_counter = {"ok": 0}
 
     print(
-        f"[F] targets={len(targets)} todo={len(todo)} (f1: {len(todo_f1)}, f2: {len(todo_f2)}) stub={stub}", flush=True
+        f"[F] targets={len(targets)} todo={len(todo)} (f1: {len(todo_f1)}, f2: {len(todo_f2)}) stub={stub}", flush=True,
     )
 
     from concurrent.futures import ThreadPoolExecutor, as_completed

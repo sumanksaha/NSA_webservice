@@ -116,7 +116,7 @@ class DecompositionBenchmark:
                 gold_answer=gold_answer,
                 query_class=query_class,
                 domain=domain,
-            )
+            ),
         )
 
     def add_gold_entry(self, entry: GoldEntry) -> QueryBenchmark:
@@ -137,7 +137,7 @@ class DecompositionBenchmark:
                 gold_requirements=list(entry.get("gold_requirements") or []),
                 gold_answer_types=dict(entry.get("gold_answer_types") or {}),
                 gold_mandatory=set(entry.get("gold_mandatory") or []),
-            )
+            ),
         )
         return self.queries[-1]
 
@@ -148,6 +148,7 @@ class DecompositionBenchmark:
         Args:
             entries: Gold entries; defaults to the full
                 :data:`app.rag.evaluation.gold_dataset.GOLD_DECOMPOSITION`.
+
         """
         if entries is None:
             from app.rag.evaluation.gold_dataset import GOLD_DECOMPOSITION
@@ -326,5 +327,5 @@ class DecompositionBenchmark:
                     }
                     for cls, stats in class_stats.items()
                 },
-            }
+            },
         }

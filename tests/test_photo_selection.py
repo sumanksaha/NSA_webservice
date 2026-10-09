@@ -18,7 +18,7 @@ from app.models import Evidence, User
 from app.shared import photo_selection
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_ctx():
     from app import create_app
 
@@ -51,7 +51,7 @@ def _photo(**kwargs):
     return photo
 
 
-@pytest.fixture()
+@pytest.fixture
 def seeded(app_ctx):
     _photo(id="pass-case", case_id=1, captured_at=datetime(2026, 1, 10))
     _photo(id="flag-case", case_id=1, verification_status="FLAG", captured_at=datetime(2026, 1, 11))

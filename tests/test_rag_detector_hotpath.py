@@ -24,7 +24,7 @@ def _chunk() -> dict:
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_env():
     """App + pushed context so cfg resolves through Flask config."""
     app, _client, ctx = _setup_test_env()
@@ -33,7 +33,7 @@ def app_env():
 
 
 def _patch_retrieval(monkeypatch):
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     monkeypatch.setattr(
         tasks,

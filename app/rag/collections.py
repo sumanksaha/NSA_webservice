@@ -54,6 +54,7 @@ def collection_for_domain(domain: str | None, config: dict[str, Any] | None = No
 
     Returns:
         The collection name.
+
     """
     key = str(domain or "").strip().lower()
     canonical = _DOMAIN_ALIASES.get(key, key)

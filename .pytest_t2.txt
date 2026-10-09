@@ -1,0 +1,37 @@
+============================= test session starts =============================
+collected 174 items
+
+tests\test_corpus_discovery.py .......................................   [ 22%]
+tests\test_rag_rl_controller.py ...............                          [ 31%]
+tests\test_rag_rl_integration.py .F.....                                 [ 35%]
+tests\test_rag_rl_policy.py .........                                    [ 40%]
+tests\test_step0_human_review.py ...............                         [ 48%]
+tests\test_step2_safety_properties.py ........................           [ 62%]
+tests\test_step1_preregister_gates.py ...................                [ 73%]
+tests\test_experiment_d_helpers.py ...............................       [ 91%]
+tests\test_advisor_confidence.py ...............                         [100%]
+
+================================== FAILURES ===================================
+_______ TestRLIntegrationFlow.test_controller_disabled_when_rl_flag_off _______
+tests\test_rag_rl_integration.py:61: in test_controller_disabled_when_rl_flag_off
+    ???
+E   assert True is False
+E    +  where True = <app.rag.rl.controller.RLController object at 0x000001E686D209E0>.enabled
+---------------------------- Captured stderr setup ----------------------------
+WARNI [app.services.scheduled_jobs] Schedule create_daily_db_snapshot NOT active: QStash unconfigured, no snapshots will run
+WARNI [app.services.scheduled_jobs] Schedule cleanup_rag_query_logs NOT active: QStash unconfigured, no runs will run
+----------------------------- Captured log setup ------------------------------
+WARNING  app.services.scheduled_jobs:scheduled_jobs.py:109 Schedule create_daily_db_snapshot NOT active: QStash unconfigured, no snapshots will run
+WARNING  app.services.scheduled_jobs:scheduled_jobs.py:109 Schedule cleanup_rag_query_logs NOT active: QStash unconfigured, no runs will run
+============================== warnings summary ===============================
+tests/test_rag_rl_integration.py::TestRLIntegrationFlow::test_controller_disabled_when_rl_flag_off
+tests/test_rag_rl_integration.py::TestRLIntegrationFlow::test_controller_select_params_returns_valid_actions
+tests/test_rag_rl_integration.py::TestRLIntegrationFlow::test_controller_report_reward_updates_stats
+tests/test_rag_rl_integration.py::TestRLIntegrationFlow::test_monitoring_endpoint_has_required_fields
+  C:\github\NSA_webservice\app\db_bootstrap.py:171: SADeprecationWarning: The argument signature for the "ConnectionEvents.before_execute" event listener has changed as of version 1.4, and conversion for the old argument signature will be removed in a future release.  The new signature is "def before_execute(conn, clauseelement, multiparams, params, execution_options)"
+    db_version = conn.execute(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_rag_rl_integration.py::TestRLIntegrationFlow::test_controller_disabled_when_rl_flag_off
+============ 1 failed, 173 passed, 4 warnings in 157.21s (0:02:37) ============

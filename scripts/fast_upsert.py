@@ -53,7 +53,7 @@ for s in sources:
         # Temp table
         cur.execute("DROP TABLE IF EXISTS tmp_kmc")
         cur.execute(
-            "CREATE TEMP TABLE tmp_kmc (license_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)"
+            "CREATE TEMP TABLE tmp_kmc (license_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)",
         )
 
         # COPY CSV data into temp table using copy_expert (handles quoted fields)

@@ -111,6 +111,7 @@ class KnowledgeGraphEngine:
             ``nodes`` (list of ``{data: {id, label, type, ...}}``), and
             ``edges`` (list of ``{data: {source, target, type, label}}``)
             in Cytoscape.js element format.
+
         """
         from app.shared.case_resolver import CaseResolver
 
@@ -287,7 +288,7 @@ class KnowledgeGraphEngine:
                         "file_size": ev.file_size,
                         "uploaded_at": _iso(ev.uploaded_at),
                     },
-                )
+                ),
             )
             edges.append(KGEdge(source=case_node_id, target=node_id, type=SUPPORTED_BY, weight=0.9))
         return nodes, edges
@@ -316,7 +317,7 @@ class KnowledgeGraphEngine:
                         "mime_type": annex.mime_type,
                         "annexure_letter": annex.annexure_letter,
                     },
-                )
+                ),
             )
             edges.append(KGEdge(source=case_node_id, target=node_id, type=REFERENCES))
         return nodes, edges
@@ -349,7 +350,7 @@ class KnowledgeGraphEngine:
                                 "total_bill": _safe_float(getattr(bill, "Total_bill", None)),
                                 "submission_date": _iso(bill.Submission_date),
                             },
-                        )
+                        ),
                     )
                     edges.append(KGEdge(source=case_node_id, target=node_id, type=REFERENCES))
         return nodes, edges
@@ -400,7 +401,7 @@ class KnowledgeGraphEngine:
                         target_id=tgt,
                         relationship_type=edge.type,
                         weight=edge.weight,
-                    )
+                    ),
                 )
 
             db.session.commit()
@@ -436,7 +437,7 @@ class KnowledgeGraphEngine:
                     "shape": style["shape"],
                     "icon": style["icon"],
                     **(n.metadata or {}),
-                }
+                },
             })
 
         cy_edges = []
@@ -449,7 +450,7 @@ class KnowledgeGraphEngine:
                     "label": e.label or e.type,
                     "weight": e.weight,
                     "color": _EDGE_STYLE.get(e.type, "#607d8b"),
-                }
+                },
             })
 
         return {

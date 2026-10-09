@@ -304,14 +304,14 @@ def main() -> int:
     print("\n=== Per-Query Analysis ===\n")
     print(
         f"{'QID':<6} {'Dom':<11} {'Diff':<12} {'Pairs':>6} {'V1_rk':>6} {'V2_rk':>6} "
-        f"{'Type':<22} {'RetFail':>7} {'RerankFail':>10}"
+        f"{'Type':<22} {'RetFail':>7} {'RerankFail':>10}",
     )
     print("-" * 90)
     for r in per_query:
         print(
             f"{r['qid']:<6} {r['domain']:<11} {r['difficulty']:<12} {r['pairs']:>6} "
             f"{r['v1_rank']!s:>6} {r['v2_rank']!s:>6} {r['type']:<22} "
-            f"{r['ret_fail']:>7} {r['rerank_fail']:>10}"
+            f"{r['ret_fail']:>7} {r['rerank_fail']:>10}",
         )
 
     print("\n=== Failure Taxonomy ===\n")
@@ -319,14 +319,14 @@ def main() -> int:
     print(f"Total failures (pos not at rank 1): {n_fail}")
     print(
         f"{'Category':<22} {'Count':>5} {'%Total':>7} {'%Fail':>6} {'R10_delta':>10} "
-        f"{'MRR_delta':>10} {'NDCG_delta':>11} {'V2+':>4} {'V2-':>4}"
+        f"{'MRR_delta':>10} {'NDCG_delta':>11} {'V2+':>4} {'V2-':>4}",
     )
     print("-" * 90)
     for t in taxonomy:
         print(
             f"{t['category']:<22} {t['count']:>5} {t['pct_total']:>7.4f} {t['pct_fail']:>6.4f} "
             f"{t['r10_delta']:>+10.4f} {t['mrr_delta']:>+10.4f} {t['ndcg_delta']:>+11.4f} "
-            f"{t['v2_plus']:>4} {t['v2_minus']:>4}"
+            f"{t['v2_plus']:>4} {t['v2_minus']:>4}",
         )
     print(f"\nOutput: {ERR_OUT}")
     return 0

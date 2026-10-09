@@ -121,7 +121,7 @@ def _patch_sync_fns():
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     app, client, app_context = _setup_test_env()
     _clean_instance(app)
@@ -130,13 +130,13 @@ def env():
     _teardown_test_env(app_context)
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample(env):
     _app, _client, _ctx = env
     return _make_sample()
 
 
-@pytest.fixture()
+@pytest.fixture
 def intimation(sample):
     from app.food_cell.services import generate_and_forward_do_intimation
 
@@ -144,13 +144,13 @@ def intimation(sample):
     return generate_and_forward_do_intimation(sample.id, sample=sample)
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(env):
     app, _client, _ctx = env
     return app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(env):
     _app, client, _ctx = env
     return client

@@ -51,6 +51,7 @@ class CoverageMetrics:
 
         Returns:
             Self for chaining.
+
         """
         tasks = evidence_tasks or []
         self.total_tasks = len(tasks)

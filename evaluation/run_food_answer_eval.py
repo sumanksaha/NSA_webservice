@@ -342,7 +342,7 @@ def aggregate(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "faithfulness_judge_mean": _mean([r["faithfulness_judge"] for r in rows]),
                 "completeness_judge_mean": _mean([r["completeness_judge"] for r in rows]),
                 "answer_complete_rate": _mean(
-                    [1.0 if r["deterministic"].get("answer_complete") else 0.0 for r in rows]
+                    [1.0 if r["deterministic"].get("answer_complete") else 0.0 for r in rows],
                 ),
             }
         return out
@@ -360,7 +360,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
     lines.append("# Answer-level (LLM) quality eval — food-intent benchmark v1.1\n")
     lines.append(
         f"Live-LLM run of the full generation pipeline (S4_full config) over "
-        f"{o['n']} benchmark questions. Judge = the same live model as generation.\n"
+        f"{o['n']} benchmark questions. Judge = the same live model as generation.\n",
     )
     lines.append("## Overall\n")
     lines.append(f"- **Faithfulness (judge mean):** {o['faithfulness_judge_mean']}")
@@ -372,14 +372,14 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
     lines.append(f"- Pipeline hallucination rate: {o['hallucination_rate']}")
     if o.get("parameter_complete_rate") is not None:
         lines.append(
-            f"- Parameter-complete rate ({o['n_parameter_eligible']} parameter asks): {o['parameter_complete_rate']}"
+            f"- Parameter-complete rate ({o['n_parameter_eligible']} parameter asks): {o['parameter_complete_rate']}",
         )
     if o.get("judge_scored") is not None and o["judge_scored"] < o["n"]:
         lines.append(f"- (judge parsed for {o['judge_scored']}/{o['n']} questions)")
     if o.get("n_degenerate_answers"):
         lines.append(
             f"- **{o['n_degenerate_answers']} degenerate answers** (empty or bare refusal — the upstream "
-            "LLM call failed) are excluded from the judge means; see `--retry-incomplete`."
+            "LLM call failed) are excluded from the judge means; see `--retry-incomplete`.",
         )
 
     lines.append("\n## By category\n")
@@ -388,7 +388,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
     for name, g in metrics["by_category"].items():
         lines.append(
             f"| {name} | {g['n']} | {g['faithfulness_judge_mean']} | "
-            f"{g['completeness_judge_mean']} | {g['answer_complete_rate']} |"
+            f"{g['completeness_judge_mean']} | {g['answer_complete_rate']} |",
         )
 
     lines.append("\n## By intent\n")
@@ -397,7 +397,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
     for name, g in metrics["by_intent"].items():
         lines.append(
             f"| {name} | {g['n']} | {g['faithfulness_judge_mean']} | "
-            f"{g['completeness_judge_mean']} | {g['answer_complete_rate']} |"
+            f"{g['completeness_judge_mean']} | {g['answer_complete_rate']} |",
         )
 
     # Lowest-completeness questions: where the answer layer still leaks.
@@ -411,7 +411,7 @@ def _write_report(metrics: dict[str, Any], records: list[dict[str, Any]]) -> Non
             lines.append(
                 f"- **{r['question_id']}** ({r['category']}) faith={r['faithfulness_judge']} "
                 f"complete={r['completeness_judge']} — {r['question']}\n"
-                f"  - judge: {(r.get('judge_raw') or {}).get('completeness_note', '')}"
+                f"  - judge: {(r.get('judge_raw') or {}).get('completeness_note', '')}",
             )
     REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -503,7 +503,7 @@ def main() -> int:
                     rec["completeness_judge"] = None
                 else:
                     judge = _judge_answer(
-                        client, q["question"], answer, evidence, q.get("acceptable_conclusion", "")
+                        client, q["question"], answer, evidence, q.get("acceptable_conclusion", ""),
                     )
                     rec["judge_raw"] = judge
                     rec["faithfulness_judge"] = _coerce_score(judge.get("faithfulness"))
@@ -532,7 +532,7 @@ def main() -> int:
         if client.use_stub:
             raise SystemExit(
                 "LLM client is in STUB mode — refusing to measure answer quality against a stub. "
-                "Set OPENROUTER_API_KEY and RAG_USE_STUB_LLM=false."
+                "Set OPENROUTER_API_KEY and RAG_USE_STUB_LLM=false.",
             )
         logger.info("live LLM: model=%s", client.model)
 

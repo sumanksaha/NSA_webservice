@@ -81,7 +81,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -90,11 +90,11 @@ from app.shared.config import cfg
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "SCHEMA_VERSION",
     "DiscoveryReport",
     "GapAnalyzer",
     "IngestionRequest",
     "ProvisionGap",
-    "SCHEMA_VERSION",
     "SourceDocumentGap",
     "classify_provision_gap",
     "discover_corpus_gaps",
@@ -153,6 +153,7 @@ class ProvisionGap:
         severity: ``high`` / ``medium`` / ``low``.
         question_refs: Sorted list of benchmark QIDs that reference this
             provision as a gold unit (populated when questions are loaded).
+
     """
 
     provision_id: str
@@ -199,6 +200,7 @@ class SourceDocumentGap:
         provision_count: Total provisions registered for this document.
         missing: Missing provisions belonging to this document.
         indexed: Provision-level records for indexed (non-missing) provisions.
+
     """
 
     document_id: str
@@ -255,6 +257,7 @@ class IngestionRequest:
         total_provision_count: Registry count for this document.
         reason: Human-readable summary of why this document needs ingestion.
         gap_types: Breakdown of gap types among the missing provisions.
+
     """
 
     document_id: str
@@ -296,6 +299,7 @@ class DiscoveryReport:
         timestamp: ISO-8601 UTC when the run completed.
         schema_version: Report schema version string.
         summary: Aggregate counts by gap_type + severity.
+
     """
 
     total_provisions: int
@@ -684,6 +688,7 @@ def group_provisions_by_document(
 
     Returns:
         List of :class:`SourceDocumentGap` sorted by missing count desc.
+
     """
     by_doc: dict[str, list[tuple[str, str, str, dict[str, Any]]]] = {}
     for provision_id, gap_type, evidence, rec in gaps:
@@ -719,7 +724,7 @@ def group_provisions_by_document(
                 domain=meta.get("domain", ""),
                 provision_count=meta.get("provision_count", 0),
                 missing=gap_list,
-            )
+            ),
         )
 
     result.sort(key=lambda g: g.missing_count, reverse=True)
@@ -797,7 +802,7 @@ def _build_ingestion_requests(
                 total_provision_count=gap.provision_count,
                 reason="; ".join(reason_parts),
                 gap_types=gap_type_counts,
-            )
+            ),
         )
         if len(requests) >= max_requests:
             logger.warning(
@@ -860,7 +865,7 @@ class GapAnalyzer:
         self._by_qid: dict[str, Any] = {q.question_id: q for q in self._questions}
 
     @classmethod
-    def run(cls) -> "GapAnalyzer":
+    def run(cls) -> GapAnalyzer:
         """Convenience: load all data, run discovery, return a GapAnalyzer.
 
         Equivalent to ``discover_corpus_gaps()`` + ``GapAnalyzer(report, questions)``
@@ -877,7 +882,7 @@ class GapAnalyzer:
             return cls(
                 DiscoveryReport(
                     total_provisions=0,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     summary={
                         "error": "RAG_RESEARCH_ENABLED is off; autonomous discovery skipped",
                         "by_gap_type": {},
@@ -893,7 +898,7 @@ class GapAnalyzer:
             return cls(
                 DiscoveryReport(
                     total_provisions=0,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     summary={
                         "error": "RAG_RESEARCH_CORPUS_DISCOVERY is off; registry scan skipped",
                         "by_gap_type": {},
@@ -945,6 +950,7 @@ class GapAnalyzer:
             targets_path: Path to ``step0_corpus_fill_targets.json``.  When
                 ``None``, defaults to
                 ``evaluation/out/ceiling_v5/step0_corpus_fill_targets.json``.
+
         """
         if not self._by_qid:
             return {
@@ -1066,6 +1072,7 @@ def discover_corpus_gaps(
       (severity + question_refs populated when questions are available).
     * ``source_gaps`` — gaps grouped by source document.
     * ``ingestion_requests`` — bounded list for the research orchestrator.
+
     """
     import_errors: list[str] = []
 
@@ -1100,7 +1107,7 @@ def discover_corpus_gaps(
         logger.warning("corpus discovery: no gold provisions loaded -- returning empty report")
         return DiscoveryReport(
             total_provisions=0,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             summary={
                 "error": "no gold provisions loaded",
                 "by_gap_type": {},
@@ -1139,7 +1146,7 @@ def discover_corpus_gaps(
     # --- Enrich severity (now we know per-doc question impact) ---
     for sg in source_gaps:
         doc_missing = sg.missing_count
-        for idx, g in enumerate(sg.missing):
+        for g in sg.missing:
             refs = sorted(question_ref_map.get(g.provision_id, []))
             g.question_refs = refs
             g.severity = _severity_for(refs, doc_missing)
@@ -1168,7 +1175,7 @@ def discover_corpus_gaps(
                 evidence=evidence,
                 severity=_severity_for(refs, doc_missing),
                 question_refs=refs,
-            )
+            ),
         )
 
     # --- Build ingestion requests (circuit-breaker bounded) ---
@@ -1194,7 +1201,7 @@ def discover_corpus_gaps(
         source_gaps=source_gaps,
         ingestion_requests=requests,
         payload_index_size=len(payload_index or {}),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         summary=summary,
     )
 

@@ -150,7 +150,7 @@ class MandatorySectionsRule(BaseRule):
                         field_name="section_55",
                         suggestion="Tick at least one applicable section — use the "
                         "'Suggest sections' helper on the adjudication form.",
-                    )
+                    ),
                 )
         else:
             cited = _split_sections(fields.get("applicable_sections"))
@@ -163,7 +163,7 @@ class MandatorySectionsRule(BaseRule):
                         field_name="applicable_sections",
                         suggestion="Record the analysis result (substandard / misbranded) "
                         "so the applicable sections are derived.",
-                    )
+                    ),
                 )
         return results
 
@@ -184,7 +184,7 @@ class SignaturePlaceholderRule(BaseRule):
                     self.rule_id,
                     INFO,
                     "Documents could not be rendered — signature check skipped.",
-                )
+                ),
             ]
 
         has_signature = any(marker in html for marker in _SIGNATURE_MARKERS) or any(
@@ -199,7 +199,7 @@ class SignaturePlaceholderRule(BaseRule):
                     field_name="document",
                     suggestion="Ensure the document template includes a signature block "
                     "(e.g. 'Signature of Food Safety Officer: ______').",
-                )
+                ),
             ]
         return []
 
@@ -248,7 +248,7 @@ class NumberingFormatRule(BaseRule):
                         field_name=field_name,
                         suggestion=f"Use only uppercase letters, digits, dashes and slashes "
                         f"(e.g. '{self._EXAMPLE.get(field_name, 'A1/B2')}').",
-                    )
+                    ),
                 )
         return results
 
@@ -281,7 +281,7 @@ class StatutoryReferenceRule(BaseRule):
                         f"Checklist evidence suggests Section {section}, but it is not selected on the form.",
                         field_name=f"section_{section}",
                         suggestion=reasoning.get(section),
-                    )
+                    ),
                 )
             # Selected sections with no checklist support (manual-only exempt).
             for section in sorted(selected - suggested - _MANUAL_ONLY_SECTIONS):
@@ -292,7 +292,7 @@ class StatutoryReferenceRule(BaseRule):
                         f"Section {section} is selected but no checklist item supports it.",
                         field_name=f"section_{section}",
                         suggestion="Confirm the violation is evidenced in the inspection checklist.",
-                    )
+                    ),
                 )
         else:
             cited = set(_split_sections(fields.get("applicable_sections")))
@@ -306,7 +306,7 @@ class StatutoryReferenceRule(BaseRule):
                             "sections (55, 56, 58, 63, 64).",
                             field_name="applicable_sections",
                             suggestion="Verify the section citation against the FSS Act, 2006.",
-                        )
+                        ),
                     )
 
         # Every cited section must have statutory text available on file.
@@ -324,7 +324,7 @@ class StatutoryReferenceRule(BaseRule):
                         f"No statutory text is on file for Section {section}.",
                         field_name="applicable_sections",
                         suggestion="Add the section text to fss_sections.md.",
-                    )
+                    ),
                 )
         return results
 
@@ -354,7 +354,7 @@ class DuplicateEvidenceRule(BaseRule):
                         f"({digest[:12]}…) — possible duplicate upload.",
                         field_name="file_hash",
                         suggestion=f"Files: {names}. Keep one record and delete the duplicates.",
-                    )
+                    ),
                 )
         return results
 
@@ -390,7 +390,7 @@ class TimelineConsistencyRule(BaseRule):
                     self.rule_id,
                     INFO,
                     "No key dates are recorded — timeline consistency cannot be checked.",
-                )
+                ),
             ]
 
         if len(present) < len(chain):
@@ -399,7 +399,7 @@ class TimelineConsistencyRule(BaseRule):
                     self.rule_id,
                     INFO,
                     f"Timeline is incomplete ({len(present)} of {len(chain)} key dates recorded).",
-                )
+                ),
             )
 
         for (_left_field, left_label, left_dt), (right_field, right_label, right_dt) in pairwise(present):
@@ -412,7 +412,7 @@ class TimelineConsistencyRule(BaseRule):
                         f"{left_label} ({left_dt.date().isoformat()}).",
                         field_name=right_field,
                         suggestion="Correct the dates so the proceeding steps run in chronological order.",
-                    )
+                    ),
                 )
         return results
 
@@ -436,7 +436,7 @@ class DocumentCompletenessRule(BaseRule):
                         f"Annexure '{label}' is not linked to any case.",
                         field_name="annexure",
                         suggestion="Attach the annexure to its case file or adjudication.",
-                    )
+                    ),
                 )
             if not str(annexure.get("caption") or "").strip():
                 results.append(
@@ -446,7 +446,7 @@ class DocumentCompletenessRule(BaseRule):
                         "An annexure has an empty caption.",
                         field_name="caption",
                         suggestion="Give every annexure a descriptive caption.",
-                    )
+                    ),
                 )
 
         evidence = case_data.get("evidence") or []
@@ -457,7 +457,7 @@ class DocumentCompletenessRule(BaseRule):
                     INFO,
                     "No evidence records are attached to this case.",
                     suggestion="Attach photos, lab reports, or other supporting evidence.",
-                )
+                ),
             )
         for item in evidence:
             if not item.get("file_hash"):
@@ -468,7 +468,7 @@ class DocumentCompletenessRule(BaseRule):
                         f"Evidence '{item.get('filename') or item.get('id')}' is missing its content hash.",
                         field_name="file_hash",
                         suggestion="Re-upload the file so a SHA-256 hash can be recorded.",
-                    )
+                    ),
                 )
         return results
 

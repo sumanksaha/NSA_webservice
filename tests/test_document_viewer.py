@@ -585,10 +585,10 @@ class TestSessionRestore:
         second_html = "<p>Second save</p>"
 
         test_client.post(
-            "/document_viewer/save/100", json={"html": first_html, "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/save/100", json={"html": first_html, "doc_type": "permission"}, follow_redirects=False,
         )
         test_client.post(
-            "/document_viewer/save/100", json={"html": second_html, "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/save/100", json={"html": second_html, "doc_type": "permission"}, follow_redirects=False,
         )
 
         resp = test_client.get("/document_viewer/saved/100/permission", follow_redirects=False)
@@ -720,7 +720,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/100", json={"html": "", "doc_type": "permission"}, follow_redirects=False
+            "/document_viewer/autosave/100", json={"html": "", "doc_type": "permission"}, follow_redirects=False,
         )
         assert resp.status_code == 400
 
@@ -731,7 +731,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/100", json={"html": "<p>test</p>", "doc_type": "invalid"}, follow_redirects=False
+            "/document_viewer/autosave/100", json={"html": "<p>test</p>", "doc_type": "invalid"}, follow_redirects=False,
         )
         assert resp.status_code == 400
 
@@ -742,7 +742,7 @@ class TestAutosave:
             sess["_fresh"] = True
 
         resp = test_client.post(
-            "/document_viewer/autosave/100", data="not json", content_type="text/plain", follow_redirects=False
+            "/document_viewer/autosave/100", data="not json", content_type="text/plain", follow_redirects=False,
         )
         assert resp.status_code == 400
 

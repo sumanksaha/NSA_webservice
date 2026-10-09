@@ -42,8 +42,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from app.rag.retrieval.legal_identity import detect_provision_type
-
 __all__ = [
     "DOCUMENT_ROLES",
     "ProvisionMetadata",
@@ -67,7 +65,7 @@ DOCUMENT_ROLES: frozenset[str] = frozenset(
         "scope",
         "explanation",
         "general",
-    }
+    },
 )
 
 #: Clause-number style of the FSSAI commodity standards (e.g. "2.9.8 Cumin").
@@ -97,7 +95,7 @@ _MEASUREMENT_RE = re.compile(
 #: "2.9.8: Cumin (Zeera, Kalonji) 1. Cumin (Safed Zeera) whole means …"
 #: → the text between the clause number and the first sentence marker.
 _HEADING_TAIL_RE = re.compile(
-    r"^(?P<tail>[A-Z][A-Za-z ()/&,\-']{2,60}?)(?=\s+\d\s*\.|\s+means\b|\s+shall\b|$)"
+    r"^(?P<tail>[A-Z][A-Za-z ()/&,\-']{2,60}?)(?=\s+\d\s*\.|\s+means\b|\s+shall\b|$)",
 )
 
 #: Words that terminate a commodity phrase (relative clauses / generic
@@ -117,7 +115,7 @@ _NOT_PHRASE_WORDS: frozenset[str] = frozenset(
         "with",
         "are",
         "is",
-    }
+    },
 )
 
 #: Known Indian-commodity words that may appear inside a clause heading.
@@ -214,14 +212,14 @@ def _load_harvested_commodities() -> tuple[str, ...]:
 #: chunk-side commodity derivation cover every product family indexed in
 #: the corpus (dairy 2.1, beverages 2.3, bakery 2.4, spices 2.9, ...).
 _KNOWN_COMMODITIES: tuple[str, ...] = tuple(
-    dict.fromkeys((*_KNOWN_COMMODITIES, *_load_harvested_commodities()))
+    dict.fromkeys((*_KNOWN_COMMODITIES, *_load_harvested_commodities())),
 )
 
 #: Form words — when they follow a commodity name the phrase is the SAME
 #: commodity in another physical form ("Cumin whole" / "Cumin powder" share
 #: clause 2.9.8's identity).
 _FORM_WORDS: frozenset[str] = frozenset(
-    {"whole", "powder", "ground", "dried", "seeds", "seed", "fresh", "frozen", "extract", "oleoresin"}
+    {"whole", "powder", "ground", "dried", "seeds", "seed", "fresh", "frozen", "extract", "oleoresin"},
 )
 
 #: Modifier words — when they follow a commodity name the phrase is a
@@ -231,7 +229,7 @@ _COMMODITY_MODIFIERS: frozenset[str] = frozenset({"black", "white", "green", "re
 #: Product-type words — "Ginger Cocktail" / "Ginger Paste" are distinct
 #: products with their own clauses, NOT the commodity "ginger".
 _PRODUCT_WORDS: frozenset[str] = frozenset(
-    {"cocktail", "beer", "ale", "paste", "sauce", "juice", "drink", "beverage", "mix", "squash", "bar"}
+    {"cocktail", "beer", "ale", "paste", "sauce", "juice", "drink", "beverage", "mix", "squash", "bar"},
 )
 
 #: Compound heads — when one of these immediately PRECEDES a commodity word
@@ -241,7 +239,7 @@ _PRODUCT_WORDS: frozenset[str] = frozenset(
 #: the clause 3.1.3 gazette blob matched "masala" only via "Pan Masala
 #: 8000 ppm" and beat the MIXED MASALA standard clause).
 _COMPOUND_HEADS: frozenset[str] = frozenset(
-    {"pan", "garam", "chai", "chaat", "chat", "sambhar", "sambar", "tandoori", "fruit", "meat", "chicken", "mutton", "fish", "egg", "vegetable"}
+    {"pan", "garam", "chai", "chaat", "chat", "sambhar", "sambar", "tandoori", "fruit", "meat", "chicken", "mutton", "fish", "egg", "vegetable"},
 )
 
 
@@ -332,12 +330,12 @@ def commodity_phrase_match(text: str, entity: str) -> bool:
 
 #: Role markers for the non-standard documents (licensing/sampling/penalty…).
 _ROLE_MARKERS: tuple[tuple[str, tuple[Any, ...]], ...] = (
-    ("sampling", (re.compile(r"\bsampl(?:e|es|ing)\b", re.I), "sealed", "divided into")),
-    ("licensing", (re.compile(r"\blicen[cs]e\b|\bregistration\b", re.I),)),
-    ("penalty", (re.compile(r"\bpenalt(?:y|ies)\b|\bpunish\w*\b|\bfine\b|\bimprisonment\b", re.I),)),
-    ("prohibition", (re.compile(r"\bprohibit\w*\b|\bno\s+person\s+shall\b", re.I),)),
-    ("procedure", (re.compile(r"\bprocedure\b|\bmanner\s+of\b", re.I),)),
-    ("scope", (re.compile(r"\bapplies\s+to\b|\bextend\w*\s+to\b", re.I),)),
+    ("sampling", (re.compile(r"\bsampl(?:e|es|ing)\b", re.IGNORECASE), "sealed", "divided into")),
+    ("licensing", (re.compile(r"\blicen[cs]e\b|\bregistration\b", re.IGNORECASE),)),
+    ("penalty", (re.compile(r"\bpenalt(?:y|ies)\b|\bpunish\w*\b|\bfine\b|\bimprisonment\b", re.IGNORECASE),)),
+    ("prohibition", (re.compile(r"\bprohibit\w*\b|\bno\s+person\s+shall\b", re.IGNORECASE),)),
+    ("procedure", (re.compile(r"\bprocedure\b|\bmanner\s+of\b", re.IGNORECASE),)),
+    ("scope", (re.compile(r"\bapplies\s+to\b|\bextend\w*\s+to\b", re.IGNORECASE),)),
 )
 
 
@@ -458,7 +456,8 @@ def derive_provision_metadata(chunk: Any) -> dict[str, Any]:
 def _derive_role(low: str, raw: str) -> str:
     """Document-role from operative language.  definition wins over standard
     only for *pure* definition shapes; table fragments with measurements are
-    ``limit``; the rest map through the marker table."""
+    ``limit``; the rest map through the marker table.
+    """
     means = bool(_MEANS_RE.search(low))
     std = bool(_STANDARD_LANGUAGE_RE.search(low))
     rows = _TABLE_ROW_RE.findall(raw)
@@ -480,7 +479,8 @@ def _derive_role(low: str, raw: str) -> str:
 def _derive_provision_type(low: str, role: str, has_clause: bool) -> str:
     """Coarse provision_type for the §3 schema (distinct from operative
     provision_type).  Commodity-standard context: a standard/limit role inside
-    a dotted-clause regulation document is a ``food_standard``."""
+    a dotted-clause regulation document is a ``food_standard``.
+    """
     if role == "standard":
         return "food_standard" if has_clause else "standard"
     if role == "definition":

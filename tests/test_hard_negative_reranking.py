@@ -588,7 +588,7 @@ class TestPairwiseDataset:
                 },
                 ensure_ascii=False,
             )
-            + "\n"
+            + "\n",
         )
         monkeypatch.setattr("evaluation.pairwise_dataset.MINING_FILE", mining_file)
 

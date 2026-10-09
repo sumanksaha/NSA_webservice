@@ -26,7 +26,7 @@ def load_doc(did: str) -> list[dict]:
 
 
 def header_of(text: str) -> str:
-    m = re.match(r"^\s*(?:section|sec\.?|§|s\.)\s*[\dA-Za-z.\-]+\s*[:.\-]?\s*(.{0,100})", text, re.I | re.S)
+    m = re.match(r"^\s*(?:section|sec\.?|§|s\.)\s*[\dA-Za-z.\-]+\s*[:.\-]?\s*(.{0,100})", text, re.IGNORECASE | re.DOTALL)
     return m.group(1).strip() if m else ""
 
 

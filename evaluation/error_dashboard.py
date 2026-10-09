@@ -182,7 +182,7 @@ def build_dashboard() -> dict:
         })
 
     dashboard["improvement_opportunities"] = sorted(
-        opportunities, key=lambda x: {"HIGH": 0, "MEDIUM": 1, "LOW": 2}.get(x["impact"], 3)
+        opportunities, key=lambda x: {"HIGH": 0, "MEDIUM": 1, "LOW": 2}.get(x["impact"], 3),
     )
 
     return dashboard

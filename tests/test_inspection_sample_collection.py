@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     """App + logged-in client + in-memory schema with an FSO."""
     from app import create_app

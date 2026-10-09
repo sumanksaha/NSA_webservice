@@ -50,7 +50,8 @@ def test_nothing_registered_when_all_flags_off(monkeypatch):
 def test_snapshot_schedule_on_by_default(monkeypatch):
     """The nightly snapshot is enabled by default (as the old Celery beat
     was always on). It only *runs* once QStash is configured — without
-    credentials the schedule registers as disabled and logs a warning."""
+    credentials the schedule registers as disabled and logs a warning.
+    """
     monkeypatch.setenv("RAG_ENABLE_LOG_CLEANUP_SCHEDULE", "false")
     calls = []
     results = register_all(app=None, publisher=lambda *a, **k: calls.append((a, k)))
@@ -60,7 +61,8 @@ def test_snapshot_schedule_on_by_default(monkeypatch):
 
 def test_log_cleanup_schedule_on_by_default(monkeypatch):
     """The RAG log cleanup runs by default (retention should never silently
-    never-run); explicitly disabled via RAG_ENABLE_LOG_CLEANUP_SCHEDULE=false."""
+    never-run); explicitly disabled via RAG_ENABLE_LOG_CLEANUP_SCHEDULE=false.
+    """
     from app.utils.qstash_client import resolve_task
 
     assert resolve_task("cleanup_rag_query_logs").__name__ == "cleanup_rag_query_logs"

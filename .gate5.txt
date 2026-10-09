@@ -1,0 +1,7 @@
+============================= test session starts =============================
+collected 963 items
+
+tests\test_coverage_audit.py ..............                              [  1%]
+tests\test_dense_retriever.py ..............                             [  2%]
+tests\test_food_cell_improvement_notice.py .E.E.E.E.E.E.E.E.E.E.E.E.E.E. [  4%]
+E.E.E.E.E.E.E.E.E.E....E

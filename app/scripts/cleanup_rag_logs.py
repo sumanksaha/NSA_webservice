@@ -25,6 +25,7 @@ def cleanup_rag_query_logs(days: int = RETENTION_DAYS) -> dict[str, int]:
 
     Returns:
         {"deleted": int, "retained": int, "days": days}
+
     """
     cutoff = datetime.now(UTC) - timedelta(days=days)
     try:

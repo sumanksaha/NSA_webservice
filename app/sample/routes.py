@@ -42,7 +42,7 @@ def validate_sample_code(code: str, sample_type: str) -> str | None:
         return "sample_code is required"
     if sample_type == "enforcement" and not ENFORCEMENT_CODE_PATTERN.match(code):
         return "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
-    elif sample_type == "surveillance" and not SURVEILLANCE_CODE_PATTERN.match(code):
+    if sample_type == "surveillance" and not SURVEILLANCE_CODE_PATTERN.match(code):
         return "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY (e.g. FSO/Br-02/SS/INF/05/26-27)"
     return None
 
@@ -107,7 +107,7 @@ def list_samples():
     sample_case_map: dict[int, int] = {}
     if sample_ids:
         sample_case_map = dict(
-            db.session.query(CaseFile.sample_id, CaseFile.id).filter(CaseFile.sample_id.in_(sample_ids)).all()
+            db.session.query(CaseFile.sample_id, CaseFile.id).filter(CaseFile.sample_id.in_(sample_ids)).all(),
         )
 
     # Get all FSO names for filter dropdown
@@ -363,7 +363,7 @@ def update_sample(sample_id):
     except StaleDataError:
         db.session.rollback()
         return jsonify({
-            "error": "Conflict: this sample was modified by another user. Please reload and try again."
+            "error": "Conflict: this sample was modified by another user. Please reload and try again.",
         }), 409
     except Exception as e:
         db.session.rollback()
@@ -384,7 +384,7 @@ def delete_sample(sample_id):
     except StaleDataError:
         db.session.rollback()
         return jsonify({
-            "error": "Conflict: this sample was modified by another user. Please reload and try again."
+            "error": "Conflict: this sample was modified by another user. Please reload and try again.",
         }), 409
     except Exception as e:
         db.session.rollback()

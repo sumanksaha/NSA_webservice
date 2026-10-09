@@ -84,7 +84,8 @@ def test_zero_sum_best_response_is_row_argmin():
 
 def test_best_responses_are_computed_not_assumed():
     """The argmin varies across acts — the game is genuinely solved, not a
-    hardcoded 'FBO always defects' assumption."""
+    hardcoded 'FBO always defects' assumption.
+    """
     responses = {level: fbo_best_response(profile)[0] for level, profile in ACTION_PROFILES.items()}
     assert len(set(responses.values())) > 1
     for level, strategy in EXPECTED_BEST_RESPONSES.items():
@@ -120,7 +121,8 @@ def test_floor_act_maximizes_robust_score():
     """Generalized ADR-0006 invariant: for every reachable statutory floor,
     the floor act is the robust-score argmax among admissible acts (ties →
     least escalatory). Fails loudly if payoff retuning breaks the ordering
-    the blueprint §6 spec Acts depend on."""
+    the blueprint §6 spec Acts depend on.
+    """
     selector = DeterministicActSelector()
     for floor in _reachable_floors():
         admissible = [lvl for lvl in sorted(EscalationLevel) if lvl >= floor]
@@ -133,7 +135,8 @@ def test_floor_act_maximizes_robust_score():
 
 def test_floor_is_a_constraint_not_the_answer():
     """§51 without a lab report: four acts are admissible, the floor only
-    bounds them from below, and the winner is flagged inside the payload."""
+    bounds them from below, and the winner is flagged inside the payload.
+    """
     out = DeterministicActSelector().select_act(retrieved_sections=["51"], lab_report_available=False)
     act = out["fso_act"]
     assert act["binding_constraint"] == {
@@ -156,7 +159,8 @@ def test_floor_is_a_constraint_not_the_answer():
 
 def test_prosecution_floor_binds_despite_worst_robust_score():
     """§63: the law leaves no alternative — the floor decides even though
-    prosecution has the worst robust score on the ladder."""
+    prosecution has the worst robust score on the ladder.
+    """
     out = DeterministicActSelector().select_act(retrieved_sections=["63"])
     act = out["fso_act"]
     assert act["escalation_level"] == "PROSECUTION"
@@ -217,7 +221,8 @@ def test_game_theory_basis_renders_computed_facts_and_fits_ui():
 def test_selection_stable_across_omega(omega: float):
     """Robust-value and optionality orderings align below the floor, so the
     spec Acts hold for any ω ≥ 0 (the v-tie between NOTICE and PENALTY
-    resolves to the least-escalatory act)."""
+    resolves to the least-escalatory act).
+    """
     selector = DeterministicActSelector(omega_optionality=omega)
     assert selector.select_act(retrieved_sections=["51"])["fso_act"]["escalation_level"] == "SAMPLE_LAB_TEST"
     assert selector.select_act(retrieved_sections=["32"])["fso_act"]["escalation_level"] == "IMPROVEMENT_NOTICE"

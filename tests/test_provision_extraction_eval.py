@@ -247,13 +247,13 @@ class TestBootstrapSignificance:
             "per_document": {
                 "d0": self._per_doc(recall=0.3, tp=3, fn=7),
                 "d1": self._per_doc(recall=0.5, tp=5, fn=5),
-            }
+            },
         }
         hybrid_report = {
             "per_document": {
                 "d0": self._per_doc(recall=0.9, tp=7, fn=3),
                 "d1": self._per_doc(recall=0.9, tp=7, fn=3),
-            }
+            },
         }
         # N=2 paired docs with a large per-doc gap: the percentile CI of
         # (hybrid - rules) mean difference should exclude 0.
@@ -273,13 +273,13 @@ class TestBootstrapSignificance:
             "per_document": {
                 "d0": self._per_doc(recall=0.8, tp=8, fn=2),
                 "d1": self._per_doc(recall=0.8, tp=4, fn=1),
-            }
+            },
         }
         hybrid_report = {
             "per_document": {
                 "d0": self._per_doc(recall=0.81, tp=8, fn=2),
                 "d1": self._per_doc(recall=0.82, tp=4, fn=1),
-            }
+            },
         }
         result = bootstrap_significance(
             rules_report,
@@ -295,12 +295,12 @@ class TestBootstrapSignificance:
         rules_report = {
             "per_document": {
                 "d0": self._per_doc(recall=0.4, tp=4, fn=6),
-            }
+            },
         }
         hybrid_report = {
             "per_document": {
                 "d0": self._per_doc(recall=0.9, tp=9, fn=1),
-            }
+            },
         }
         predictions_rules = []
         predictions_hybrid = []

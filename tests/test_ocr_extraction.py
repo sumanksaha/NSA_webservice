@@ -25,7 +25,7 @@ from app.services.page_splitter import split_pdf_bundle
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def single_page_pdf(tmp_path):
     """Create a minimal single-page PDF using PyMuPDF."""
     import fitz
@@ -42,7 +42,7 @@ def single_page_pdf(tmp_path):
     return pdf_path
 
 
-@pytest.fixture()
+@pytest.fixture
 def multi_page_pdf(tmp_path):
     """Create a 3-page PDF simulating a multi-sample lab report bundle."""
     import fitz
@@ -174,7 +174,7 @@ class TestOcrExtraction:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def ocr_task_db():
     """In-memory app + DB for task persistence tests."""
     from app import create_app

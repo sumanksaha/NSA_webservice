@@ -36,7 +36,7 @@ class _FakeFile:
             fh.write(b"fake-image-bytes")
 
 
-@pytest.fixture()
+@pytest.fixture
 def photo_env(test_app, inspection):
     """App context + request context with form fields, service, inspection."""
     inspection_obj, _adj = inspection

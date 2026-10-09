@@ -124,7 +124,7 @@ def _make_case_file(db, **overrides):
             filepath="/tmp/lab.pdf",
             filename="lab_report.pdf",
             annexure_letter="A",
-        )
+        ),
     )
     # Evidence linked to case_file
     db.session.add(
@@ -133,7 +133,7 @@ def _make_case_file(db, **overrides):
             filepath="/tmp/photo.jpg",
             filename="inspection.jpg",
             case_id=case.id,
-        )
+        ),
     )
     db.session.commit()
     return case

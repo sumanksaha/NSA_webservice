@@ -213,6 +213,7 @@ class ClauseParser:
 
         Returns:
             List of ClauseData objects in hierarchical order
+
         """
         with self._lock:
             # Check cache
@@ -294,13 +295,13 @@ class ClauseParser:
         # Check pattern type first
         if "explanation" in pattern_type:
             return ClauseType.EXPLANATION
-        elif "proviso" in pattern_type:
+        if "proviso" in pattern_type:
             return ClauseType.PROVISO
-        elif "exception" in pattern_type:
+        if "exception" in pattern_type:
             return ClauseType.EXCEPTION
-        elif "reference" in pattern_type:
+        if "reference" in pattern_type:
             return ClauseType.REFERENCE
-        elif "schedule" in pattern_type or "table" in pattern_type:
+        if "schedule" in pattern_type or "table" in pattern_type:
             return ClauseType.SCHEDULE if "schedule" in pattern_type else ClauseType.TABLE
 
         # Check line content
@@ -308,21 +309,21 @@ class ClauseParser:
 
         if any(word in line_lower for word in ["explanation", "illustration", "example"]):
             return ClauseType.EXPLANATION
-        elif any(word in line_lower for word in ["provided", "proviso", "unless"]):
+        if any(word in line_lower for word in ["provided", "proviso", "unless"]):
             return ClauseType.PROVISO
-        elif any(word in line_lower for word in ["except", "unless", "save and save"]):
+        if any(word in line_lower for word in ["except", "unless", "save and save"]):
             return ClauseType.EXCEPTION
-        elif any(word in line_lower for word in ["schedule", "table"]):
+        if any(word in line_lower for word in ["schedule", "table"]):
             return ClauseType.SCHEDULE if "schedule" in line_lower else ClauseType.TABLE
-        elif "note" in line_lower or "important" in line_lower:
+        if "note" in line_lower or "important" in line_lower:
             return ClauseType.NOTE
 
         # Check pattern
         if re.search(r"\(\s*[a-zA-Z]\s*\)", line):
             return ClauseType.SUBCLAUSE
-        elif re.search(r"\(\s*[i-ivIVX]{1,4}\s*\)", line):
+        if re.search(r"\(\s*[i-ivIVX]{1,4}\s*\)", line):
             return ClauseType.SUBSUBCLAUSE
-        elif re.search(r"^\s*\d+\s*\(\s*\d+\s*\)", line):
+        if re.search(r"^\s*\d+\s*\(\s*\d+\s*\)", line):
             return ClauseType.MAIN_CLAUSE
 
         return ClauseType.MAIN_CLAUSE
@@ -331,17 +332,17 @@ class ClauseParser:
         """Extract hierarchy label from matched line."""
         if pattern_type == "main_arabic":
             return f"{match.group(1)}."
-        elif pattern_type == "main_parentheses":
+        if pattern_type == "main_parentheses":
             return f"{match.group(1)}({match.group(2)})"
-        elif pattern_type == "subclause_letter":
+        if pattern_type == "subclause_letter":
             return f"({match.group(1)})"
-        elif pattern_type == "subclause_bracket":
+        if pattern_type == "subclause_bracket":
             return f"[{match.group(1)}]"
-        elif pattern_type == "subclause_roman":
+        if pattern_type == "subclause_roman":
             return f"({match.group(1)})"
-        elif pattern_type == "nested_complex":
+        if pattern_type == "nested_complex":
             return self._extract_nested_label(line)
-        elif pattern_type in ["explanation", "proviso", "exception"]:
+        if pattern_type in ["explanation", "proviso", "exception"]:
             return line.strip()
 
         return line.strip()

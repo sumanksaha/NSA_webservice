@@ -80,6 +80,7 @@ class ProvisionVersion:
         provision_family_id: ID grouping all versions of this provision.
         is_current: True when this is the latest version still in force.
         evidence: Text snippet supporting the version determination.
+
     """
 
     document_id: str | None = None
@@ -218,6 +219,7 @@ def extract_provision_version(
 
     Returns:
         ``ProvisionVersion`` with all detectable fields populated.
+
     """
 
     # Resolve chunk attributes (support both objects and dicts)
@@ -292,6 +294,7 @@ def group_versions(chunks: list[Any]) -> dict[str, VersionFamily]:
 
     Returns:
         Dict mapping ``family_id`` → ``VersionFamily``.
+
     """
     families: dict[str, VersionFamily] = {}
     for chunk in chunks:
@@ -319,6 +322,7 @@ def is_current_version(
 
     Returns:
         ``True`` if current, ``False`` if historical, ``None`` if ambiguous.
+
     """
     if family is None:
         families = group_versions([chunk])
@@ -327,7 +331,7 @@ def is_current_version(
         return None
     document_id = getattr(chunk, "chunk_id", None) or getattr(chunk, "document_id", None)
     # cast() is type-only (returns the value unchanged); the id stays unvalidated as before.
-    return family.is_current(cast(str, document_id))
+    return family.is_current(cast("str", document_id))
 
 
 # --------------------------------------------------------------------------- #

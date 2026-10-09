@@ -176,8 +176,8 @@ def _fix_sequences(tables) -> None:
                     text(
                         f"SELECT setval('{sequence}', "  # noqa: S608
                         f"GREATEST((SELECT COALESCE(MAX({column.name}), 1) "
-                        f"FROM {table.name}), 1))"
-                    )
+                        f"FROM {table.name}), 1))",
+                    ),
                 )
             except Exception:
                 logger.warning("Could not reset sequence %s", sequence)

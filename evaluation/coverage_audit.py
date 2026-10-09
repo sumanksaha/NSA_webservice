@@ -67,7 +67,7 @@ CLAUSE_TYPES = ("regulation", "rule", "notification", "circular")
 _PAREN_RE = re.compile(r"^\s*\([^)]*\)")
 _DOTTED_RE = re.compile(r"^\s*\d{1,3}(?:\.\d{1,2}){1,3}(?=[\s.:])")
 _NUMHEAD_RE = re.compile(r"^\s*\d{1,4}(?:\.\s+|\s+)[A-Z]")
-_GAZETTE_RE = re.compile(r"^(?:\d+\s+)?(THE GAZETTE|GAZETTE OF INDIA|\[PART|PART [IVXLC]+|Sec\.?\s*\d)", re.I)
+_GAZETTE_RE = re.compile(r"^(?:\d+\s+)?(THE GAZETTE|GAZETTE OF INDIA|\[PART|PART [IVXLC]+|Sec\.?\s*\d)", re.IGNORECASE)
 _STRIPPED_RE = re.compile(r"^[A-Za-z]{8,}[a-z]{4,}(?:,[a-z]+){2,}")  # space-stripped OCR prose
 
 
@@ -135,7 +135,7 @@ def load_payloads(live: bool) -> list[dict]:
                 app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
                 app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
                 app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-            ])
+            ]),
         )
         index = build_payload_index(
             lambda coll: QdrantStore(collection_name=coll),
@@ -246,11 +246,11 @@ def render(report: dict) -> str:
     lines.append("=" * 76)
     lines.append(
         f"  identified (act-sec + reg-clause) : {report['identified']:,}/{report['n_chunks']:,} "
-        f"({report['pct_identified']}%)"
+        f"({report['pct_identified']}%)",
     )
     lines.append(
         f"  substantive (hl>=2) identified    : {report['substantive_identified']:,}/"
-        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)"
+        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)",
     )
     lines.append(f"  hl1 header/boilerplate floor      : {report['hl1_chunks']:,} (semantically N/A)")
     lines.append("")
@@ -267,7 +267,7 @@ def render(report: dict) -> str:
     for r in report["documents"][:14]:
         lines.append(
             f"{r['uri'][:32]:<34}{r['document_type']!s:<13}{r['substantive']:>6}"
-            f"{r['identified']:>6}{r['unidentified_substantive']:>6}{r['pct']:>5.0f}%{r['hl1']:>6}"
+            f"{r['identified']:>6}{r['unidentified_substantive']:>6}{r['pct']:>5.0f}%{r['hl1']:>6}",
         )
     lines.append("")
     lines.append("Remaining gap buckets (unidentified substantive chunks):")
@@ -276,7 +276,7 @@ def render(report: dict) -> str:
     lines.append("")
     lines.append(
         f"document_title missing: {report['document_title_missing']:,} "
-        f"(recoverable from document_uri: {report['document_title_recoverable_from_uri']:,})"
+        f"(recoverable from document_uri: {report['document_title_recoverable_from_uri']:,})",
     )
     return "\n".join(lines)
 

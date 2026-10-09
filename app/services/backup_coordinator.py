@@ -136,7 +136,7 @@ def record_backup_result(results: dict) -> None:
                 value=datetime.now(UTC).isoformat(),
                 value_type="string",
                 description="UTC timestamp of the last redundant-backup run (S10c).",
-            )
+            ),
         )
         db.session.merge(
             Settings(
@@ -144,7 +144,7 @@ def record_backup_result(results: dict) -> None:
                 value=json.dumps(per_target),
                 value_type="json",
                 description="Per-target success flags of the last redundant-backup run (S10c).",
-            )
+            ),
         )
         db.session.commit()
         logger.info("Backup bookkeeping recorded (%s)", per_target)

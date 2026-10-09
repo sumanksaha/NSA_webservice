@@ -79,7 +79,7 @@ class TestEvidenceSelection:
             FakeChunk(chunk_id="c2", text="Definition: 'food' means any article", section_number=None, score=0.8),
             FakeChunk(chunk_id="c3", text="Section 31(2) except not applies", section_number="31", score=0.85),
             FakeChunk(
-                chunk_id="c4", text="Section 31 is about penalties and fine", section_number="31", score=0.88
+                chunk_id="c4", text="Section 31 is about penalties and fine", section_number="31", score=0.88,
             ),  # duplicate-ish
         ]
         es = select_evidence_set("What does Section 31 say about 'food'?", chunks)

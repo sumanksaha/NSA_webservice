@@ -33,6 +33,7 @@ def lookup_fbo_issues(
         A list of result dicts sorted by ``created_at`` descending. Each dict
         carries the issue summary plus a source-specific ``prefill`` mapping
         for the bill form (sample / inspection / generic).
+
     """
     from app.models.issue import FboIssue
 

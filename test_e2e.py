@@ -152,7 +152,7 @@ for it in top10:
             chunk_index=p.get("chunk_index", 0),
             hierarchy_level=p.get("hierarchy_level", 0),
             parent_chunk_id=p.get("parent_chunk_id"),
-        )
+        ),
     )
 
 # Find gold chunks
@@ -265,7 +265,7 @@ for unit in q.relevant_units():
                     act_name=payload.get("act_name", ""),
                     document_type=payload.get("document_type", ""),
                     authority=payload.get("authority", ""),
-                )
+                ),
             )
             break
 

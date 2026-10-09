@@ -80,6 +80,7 @@ class DocumentCaseManager:
         prepare_context_fn: Converts form data dict to a template-render context.
         validate_form_fn: Validates form data, returning ``{field: error}``.
         templates: Dict mapping logical names to template paths.
+
     """
 
     def __init__(

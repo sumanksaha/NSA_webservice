@@ -113,7 +113,7 @@ ANCHOR_RANKED_TOP_K = 4
 ANCHOR_GOLD_MIN_SCORE = 0.12   # gold text must cover at least this of the query
 ANCHOR_GOLD_RELATIVE = 1.5     # ranked must beat gold by this factor to take over
 _STOPWORDS = frozenset(
-    ["the", "a", "an", "of", "and", "or", "to", "in", "for", "is", "are", "be", "shall", "must", "may", "with", "on", "by", "that", "this", "it", "as", "at", "from", "any", "its", "not", "no", "if", "or", "other", "under", "within", "act", "section", "any", "all", "being", "having", "here", "there", "when", "where", "which", "who", "whom", "what", "how", "why", "does", "do", "done"]
+    ["the", "a", "an", "of", "and", "or", "to", "in", "for", "is", "are", "be", "shall", "must", "may", "with", "on", "by", "that", "this", "it", "as", "at", "from", "any", "its", "not", "no", "if", "or", "other", "under", "within", "act", "section", "any", "all", "being", "having", "here", "there", "when", "where", "which", "who", "whom", "what", "how", "why", "does", "do", "done"],
 )
 
 
@@ -142,7 +142,8 @@ def _anchor_overlap(query: set[str], text: str, weights: dict[str, float] | None
 def _anchor_idf_weights(o3_ids: list[str], payload_index: dict[str, dict], query: set[str]) -> dict[str, float]:
     """Rare query tokens weigh more, so a chunk carrying the operative term
     ("noxious", "single-use plastic") beats chunks with boilerplate overlap
-    ("Corporation", "premises") that appear in every section."""
+    ("Corporation", "premises") that appear in every section.
+    """
     import math
 
     df: dict[str, int] = {}
@@ -167,8 +168,8 @@ def _anchor_query(question: Any) -> set[str]:
                     getattr(question, "acceptable_conclusion", None) or "",
                     raw.get("question") or "",
                 ],
-            )
-        )
+            ),
+        ),
     )
 
 
@@ -214,7 +215,8 @@ def load_o3_chunk_ids(manifest: dict, qid: str) -> list[str]:
 def _fill_anchor(anchor_ids: list[str], ranked: list[tuple[float, str]], payload_index: dict[str, dict]) -> list[str]:
     """Append best-ranked payload chunks not already anchored until the cap is
     roughly reached. Order within ``anchor_ids`` is preserved (gold/priority
-    first), so the fill only ever adds headroom text."""
+    first), so the fill only ever adds headroom text.
+    """
     chosen = set(anchor_ids)
     total = sum(len(s0._chunk_text(payload_index.get(cid) or {})) for cid in anchor_ids)
     if total >= ANCHOR_TEXT_CAP:
@@ -436,7 +438,7 @@ def build_worksheet(anchors: dict[str, dict]) -> tuple[Path, Path]:
             "---",
             "",
         ]
-        rows.append(f"{qid},,\"\",")
+        rows.append(f'{qid},,"",')
     WORKSHEET.write_text("\n".join(lines), encoding="utf-8")
     CSV_TEMPLATE.write_text("\n".join(rows), encoding="utf-8")
     return WORKSHEET, CSV_TEMPLATE
@@ -503,7 +505,7 @@ def validate_widening(
     elif anchor.get("anchor_text") and not quote_in_evidence(quote, anchor["anchor_text"]):
         reasons.append(
             "anchor_quote is NOT a verbatim substring of the O3 payload — if the text truly "
-            "is not in the payload, the label is evidence_missing, not reference_narrow"
+            "is not in the payload, the label is evidence_missing, not reference_narrow",
         )
     if anchor.get("anchor_is_fallback"):
         reasons.append("anchor was fallback (gold unit not in O3) — verify the label is not evidence_missing")
@@ -516,7 +518,7 @@ def validate_widening(
         if ov > INDEPENDENCE_MAX_OVERLAP:
             reasons.append(
                 f"add paraphrases the stored D2 answer (overlap {ov:.2f} > {INDEPENDENCE_MAX_OVERLAP}) "
-                "— widening must come from the statute, not from the candidate"
+                "— widening must come from the statute, not from the candidate",
             )
     if reasons:
         return {"qid": qid, "status": "invalid", "reasons": reasons}
@@ -641,7 +643,7 @@ def build_report() -> dict:
                 "per_condition_v2_correct": {
                     c: (((rec.get(c) or {}).get("v2") or {}).get("correct")) for c in CONDITIONS
                 },
-            }
+            },
         )
     n_widened = sum(1 for r in rows if r["widened"])
     report = {
@@ -679,7 +681,7 @@ def build_report() -> dict:
             f"| {r['v1_soft'] if r['v1_soft'] is not None else 'n/a'} "
             f"| {r['v2_soft'] if r['v2_soft'] is not None else 'n/a'} "
             f"| {'Y' if r['v1_correct'] else 'N'} | {'Y' if r['v2_correct'] else 'N'} "
-            f"| {'FLIP' if r['v2_flipped_to_correct'] else ''} |"
+            f"| {'FLIP' if r['v2_flipped_to_correct'] else ''} |",
         )
     REPORT_JSON.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
     REPORT_MD.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -693,7 +695,7 @@ def build_report() -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description="Step 0b — draft + validate + merge widened references (no LLM)"
+        description="Step 0b — draft + validate + merge widened references (no LLM)",
     )
     ap.add_argument("--worksheet", action="store_true", help="write statute worksheet + CSV template")
     ap.add_argument("--from-csv", type=Path, default=None, metavar="PATH", help="filled drafts CSV")
@@ -735,14 +737,14 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"validated: {validation['n_drafts']} drafts -> "
             f"valid {validation['n_valid']}, invalid {validation['n_invalid']}, "
-            f"already_widened {validation['n_already_widened']}"
+            f"already_widened {validation['n_already_widened']}",
         )
         for r in validation["results"]:
             if r["status"] != "valid":
                 for reason in r["reasons"]:
                     print(f"  {r['qid']} [{r['status']}]: {reason}")
         (OUT / "step0_dual_score_validation.json").write_text(
-            json.dumps(validation, indent=1, ensure_ascii=False), encoding="utf-8"
+            json.dumps(validation, indent=1, ensure_ascii=False), encoding="utf-8",
         )
 
     if args.merge:
@@ -769,7 +771,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"dual-score report: targets {rep['n_targets']} | widened {rep['n_widened']} | "
             f"D2 v1 {rep['d2_v1_correct']} -> v2 {rep['d2_v2_correct']} correct "
-            f"(flips {rep['d2_v2_flip_to_correct']})"
+            f"(flips {rep['d2_v2_flip_to_correct']})",
         )
         print(f"wrote {REPORT_JSON.name} + {REPORT_MD.name}")
     return 0

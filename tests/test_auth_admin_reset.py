@@ -498,7 +498,7 @@ class TestAdminDeleteUser:
                     action="login_success",
                     record_type="auth",
                     record_id=str(target_id),
-                )
+                ),
             )
             db.session.commit()
         resp = test_client.post(

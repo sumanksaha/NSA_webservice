@@ -127,7 +127,7 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "provision",
         re.compile(
-            r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE
+            r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE,
         ),
     ),
     # Penalty queries — fines, imprisonment, penalty amounts
@@ -330,6 +330,7 @@ def _fuzzy_match_authority(query: str, authorities: frozenset[str], threshold: i
 
     Returns:
         Matching authority name or None
+
     """
     q = query.lower()
     for auth in authorities:
@@ -536,7 +537,7 @@ class JurisdictionQueryParser:
 
         # 2. State abbreviation / alias match
         for alias, full_name in sorted(
-            JurisdictionQueryParser._STATE_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True
+            JurisdictionQueryParser._STATE_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True,
         ):
             pattern = re.compile(r"\b" + re.escape(alias) + r"\b", re.IGNORECASE)
             if pattern.search(query):

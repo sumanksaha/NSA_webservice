@@ -562,7 +562,7 @@ def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date")
+            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date"),
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -706,8 +706,8 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
         db.session.rollback()
         abort(
             make_response(
-                jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409
-            )
+                jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409,
+            ),
         )
     except Exception as exc:
         # Any other persistence failure must still be JSON, never an HTML
@@ -792,7 +792,7 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
 
 
 def _select_adjudication_photos(
-    adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict
+    adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict,
 ) -> list:
     """Select photo evidence for the documents, auditing flagged inclusions.
 
@@ -834,7 +834,7 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date")
+            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date"),
         )
         if not access.allowed:
             abort(make_response(jsonify(access.payload()), access.status))
@@ -854,7 +854,7 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
                         "error": f"PDF generation failed: {error}. Documents cannot be generated without WeasyPrint.",
                     }),
                     500,
-                )
+                ),
             )
 
     zip_prefix = "PermissionLetter" if is_pre_authorization else "Petition"
@@ -922,7 +922,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -934,7 +934,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             download_name=download_name,
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-    elif doc_type == "permission":
+    if doc_type == "permission":
         docx_bytes = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
         download_name = f"Permission_Letter_{adj.case_number or case_id}.docx"
         return send_file(
@@ -943,14 +943,14 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             download_name=download_name,
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-    elif doc_type == "zip":
+    if doc_type == "zip":
         if str(adj.pre_authorization or "no").strip().lower() == "yes":
             return (
                 jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="both", authorization_date=adj.authorization_date
+            case_type="adjudication", doc_type="both", authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -968,8 +968,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             download_name=f"Adjudication_{label}_Word.zip",
             mimetype="application/zip",
         )
-    else:
-        return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
+    return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
 
 
 _ADJUDICATION_PETITION_REQUIRED: dict[str, str] = {
@@ -1009,7 +1008,7 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
         )
 
     access = check_generation_allowed(
-        case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+        case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
     )
     if not access.allowed:
         return jsonify(access.payload()), access.status
@@ -1094,7 +1093,7 @@ def copy_letter(case_id: int, doc_type: str):
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date
+            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status

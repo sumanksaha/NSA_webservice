@@ -115,7 +115,7 @@ def rrf_scores(item_lists: list[list[dict]], rrf_k: float = 60.0) -> dict[str, f
 
 
 def build_pool(
-    dense_rec, sparse_rec, kg_rec, payload_index, family_map, slice_depth: int | None = None, kg_slice: int = 200
+    dense_rec, sparse_rec, kg_rec, payload_index, family_map, slice_depth: int | None = None, kg_slice: int = 200,
 ) -> list[dict]:
     """Union pool items with kind/key/payload access; dedup by key.
 

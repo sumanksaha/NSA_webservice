@@ -40,34 +40,32 @@ changing call sites.
 from __future__ import annotations
 
 import logging
-import math
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
+from app.rag.retrieval.parent_reconstruction import clause_commodity_for
 from app.rag.retrieval.provision_metadata import (
     _CLAUSE_LEAD_RE,
     _KNOWN_COMMODITIES,
     commodity_agrees,
     commodity_phrase_match,
-)
-from app.rag.retrieval.parent_reconstruction import clause_commodity_for
-from app.rag.retrieval.provision_metadata import (
+    derive_provision_metadata_cached,
     is_definition_chunk,
     is_standard_chunk,
-    derive_provision_metadata_cached,
 )
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LegalAwareWeights", "LegalAwareReranker", "default_weights"]
+__all__ = ["LegalAwareReranker", "LegalAwareWeights", "default_weights"]
 
 
-def default_weights() -> "LegalAwareWeights":
+def default_weights() -> LegalAwareWeights:
     """Initial weights — deliberately conservative (semantic signals dominate;
     legal features break ties).  Tuned by the ablation study, not guessed as
-    final."""
+    final.
+    """
     return LegalAwareWeights(
         w_ce=0.40,
         w_dense=0.15,
@@ -108,7 +106,7 @@ class LegalAwareWeights:
         }
 
     @classmethod
-    def from_env(cls, cfg: Any) -> "LegalAwareWeights":
+    def from_env(cls, cfg: Any) -> LegalAwareWeights:
         """Read overrides from the config seam (RAG_FOOD_LEGAL_W_*)."""
         w = cls()
         try:
@@ -190,9 +188,7 @@ def _entity_match(chunk: Any, entity: str | None) -> float:
         for v in _entity_variants(entity):
             if len(v) < _ENTITY_TOKEN_MIN:
                 continue
-            if commodity_phrase_match(title, v):
-                best = max(best, 1.0)
-            elif commodity_phrase_match(text, v):
+            if commodity_phrase_match(title, v) or commodity_phrase_match(text, v):
                 best = max(best, 1.0)
     if best == 0.0:
         # Clause-sibling inheritance: the parent-reconstruction grouping pass
@@ -315,7 +311,8 @@ def _provision_type_match(chunk: Any, fq: FoodQueryUnderstanding) -> float:
 def _legal_identifier_match(chunk: Any, fq: FoodQueryUnderstanding) -> float:
     """Chunk anchored to a legal identifier (clause/section) — the §4
     hierarchy-preservation signal.  Parameter-specific queries additionally
-    reward the exact clause the parameter row hangs from."""
+    reward the exact clause the parameter row hangs from.
+    """
     meta = derive_provision_metadata_cached(chunk)
     section = str(meta.get("section", "unknown"))
     if section == "unknown":
@@ -351,7 +348,8 @@ def _clause_top_position(chunk: Any) -> int:
 
 def _parent_context_match(chunk: Any, parent_context: list[Any]) -> float:
     """1.0 when the chunk IS part of the reconstructed parent bundle, or is
-    the parent itself (a heading chunk with children in the pool)."""
+    the parent itself (a heading chunk with children in the pool).
+    """
     cid = str(getattr(chunk, "chunk_id", "") or (chunk.get("chunk_id", "") if isinstance(chunk, dict) else ""))
     if not cid:
         return 0.0
@@ -483,6 +481,7 @@ class LegalAwareReranker:
         weights: feature weights (default: :func:`default_weights`).
         enabled: when False, :meth:`rerank` returns the input order unchanged
             (ablation arm / flag-off path).
+
     """
 
     def __init__(
@@ -517,6 +516,7 @@ class LegalAwareReranker:
         Returns:
             The re-ranked chunk list (same objects, ``score`` updated to the
             final blended score).
+
         """
         if not chunks:
             return []
@@ -552,7 +552,7 @@ class LegalAwareReranker:
                     parent=_parent_context_match(chunk, self.parent_context),
                     lex=_provision_lexical_signal(chunk, fq),
                     param=_param_match(chunk, fq),
-                )
+                ),
             )
 
         # Stage-1 soft gate (relative form): the cap applies only when the
@@ -565,7 +565,7 @@ class LegalAwareReranker:
         # clause map) — a verbatim mention is decisive for pool identity.
         anchor_present = [f.entity >= 1.0 for f in feats]
         finals: list[float] = []
-        for i, chunk in enumerate(chunks):
+        for i, _chunk in enumerate(chunks):
             f = feats[i]
             score = (
                 w.w_ce * ce_norm[i]
@@ -607,9 +607,7 @@ class LegalAwareReranker:
         # anchor, unknown-identity rows keep their original hybrid
         # scores (no information = no cap).
         for i, f in enumerate(feats):
-            if fq.entity and any(anchor_present) and f.entity == 0.0:
-                finals[i] = min(finals[i], 0.45)
-            elif fq.entity and not any(anchor_present) and any_entity_match:
+            if (fq.entity and any(anchor_present) and f.entity == 0.0) or (fq.entity and not any(anchor_present) and any_entity_match):
                 finals[i] = min(finals[i], 0.45)
 
         # Stable tie-break: among equal-scoring sibling rows prefer the

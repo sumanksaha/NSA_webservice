@@ -34,6 +34,7 @@ class EmbeddingService:
         model_name: sentence-transformers model name; defaults to the
             ``RAG_EMBEDDING_MODEL`` config value.
         encoder: Optional pre-built ``SentenceTransformer`` (for testing).
+
     """
 
     def __init__(self, model_name: str | None = None, encoder: Any | None = None) -> None:
@@ -79,7 +80,7 @@ class EmbeddingService:
         except ImportError:
             logger.warning(
                 "EmbeddingService: sentence-transformers not installed; embeddings unavailable. "
-                "Install it (with a matching model) to enable dense retrieval."
+                "Install it (with a matching model) to enable dense retrieval.",
             )
             return None
         # Bound the torch thread pools before the model is built so a single
@@ -96,7 +97,7 @@ class EmbeddingService:
         if encoder is None:
             raise RuntimeError(
                 "sentence-transformers is not installed; cannot generate embeddings. "
-                "Install it and set RAG_EMBEDDING_MODEL to a model matching RAG_VECTOR_SIZE."
+                "Install it and set RAG_EMBEDDING_MODEL to a model matching RAG_VECTOR_SIZE.",
             )
         return encoder
 
@@ -149,6 +150,7 @@ class EmbeddingService:
             ``True`` when the encoder is unavailable (nothing to validate) or
             the dimensions match; logs a warning and returns ``False`` on
             mismatch (e.g. a 384-dim MiniLM model against a 768-dim index).
+
         """
         encoder = self._get_encoder()
         if encoder is None:

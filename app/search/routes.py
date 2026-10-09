@@ -41,6 +41,7 @@ def api_search():
         Fuzzy results carry an extra ``score`` key (0-100 confidence).
         Snippets wrap matched terms in ``<mark>`` tags (both FTS5 and
         fuzzy results).
+
     """
     q = request.args.get("q", "").strip()
     entity_type = request.args.get("type", None)

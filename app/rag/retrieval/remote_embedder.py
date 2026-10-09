@@ -45,6 +45,7 @@ class RemoteEmbedClient:
         local_encoder: Optional pre-built local encoder (testing) — injected
             directly instead of loading ``local_model``.
         transport: Optional ``httpx`` transport (testing).
+
     """
 
     def __init__(

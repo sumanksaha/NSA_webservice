@@ -34,7 +34,7 @@ try:
     # Create temp table
     cur.execute("DROP TABLE IF EXISTS tmp_reg")
     cur.execute(
-        "CREATE TEMP TABLE tmp_reg (registration_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)"
+        "CREATE TEMP TABLE tmp_reg (registration_number TEXT, company_name TEXT, full_address TEXT, expiry_date TEXT)",
     )
     print("Temp table created")
 

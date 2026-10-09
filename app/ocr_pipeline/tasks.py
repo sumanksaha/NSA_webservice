@@ -28,6 +28,7 @@ def process_ocr_document_async(file_path: str, sample_id: int | None = None) -> 
 
     Returns:
         The ``OCRDocument.id`` of the persisted extraction record ("" on failure).
+
     """
     logger.info("process_ocr_document_async: starting for %s", file_path)
 

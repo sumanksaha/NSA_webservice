@@ -43,6 +43,7 @@ class CircuitBreaker:
         last_failure: Timestamp of the most recent failure.
         failure_count: Consecutive failures recorded.
         state: Current circuit state.
+
     """
 
     failure_threshold: int = 3

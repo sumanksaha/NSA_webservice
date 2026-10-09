@@ -22,8 +22,8 @@ model produced a given number and historical outputs stay reproducible.
 from __future__ import annotations
 
 from bisect import bisect_right
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 __all__ = [
     "ConfidenceAssessment",
@@ -131,7 +131,7 @@ def fit_isotonic_confidence(
                     (lower[0] * lower[2] + upper[0] * upper[2]) / (lower[2] + upper[2]),
                     lower[1] + upper[1],
                     lower[2] + upper[2],
-                ]
+                ],
             )
 
     breakpoints = tuple((x, total_y / weight) for x, total_y, weight in stack)

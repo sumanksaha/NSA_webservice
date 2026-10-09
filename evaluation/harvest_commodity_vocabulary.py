@@ -62,7 +62,7 @@ _STOP_NAME_WORDS: frozenset[str] = frozenset(
         "shall", "may", "means", "standard", "standards", "product", "products",
         "packaging", "labelling", "regulation", "regulations", "appendix",
         "part", "sl", "name", "article", "food", "chapter", "column",
-    }
+    },
 )
 
 #: Words that, when the *whole* candidate is just them, are furniture.
@@ -73,7 +73,7 @@ _BARE_FURNITURE: frozenset[str] = frozenset(
         "carriage", "freight", "cases", "packing", "package", "packages",
         "label", "labelled", "declaration", "restrictions", "restriction",
         "hygiene", "contaminants", "toxins", "residues", "other", "miscellaneous",
-    }
+    },
 )
 
 #: Administrative/provision words — a candidate containing ANY of these is a
@@ -103,7 +103,7 @@ _ADMIN_WORDS: frozenset[str] = frozenset(
         "return", "procurement", "premises", "rooms", "packaging",
         "labelling", "labeling", "standards", "wrapping", "effect",
         "effects", "clothing", "support", "supports", "altogether",
-    }
+    },
 )
 
 #: A candidate STARTING with one of these is a sentence fragment, not a name.
@@ -112,7 +112,7 @@ _FIRST_WORD_REJECT: frozenset[str] = frozenset(
         "in", "for", "the", "of", "at", "on", "with", "as", "these",
         "this", "all", "other", "such", "any", "and", "or", "to", "by",
         "from", "their", "where", "when", "use", "used", "per",
-    }
+    },
 )
 
 
@@ -148,7 +148,6 @@ def _valid_name(name: str) -> bool:
 def harvest(index_path: Path = INDEX_PATH) -> dict:
     """Extract commodity names from clause-lead headings across all collections."""
     from app.rag.retrieval.provision_metadata import (
-        _COMPOUND_HEADS,
         _COMMODITY_MODIFIERS,
         _FORM_WORDS,
         _PRODUCT_WORDS,

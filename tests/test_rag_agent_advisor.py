@@ -255,7 +255,7 @@ def test_finalize_omits_fso_act_when_disabled():
 
 
 def _patch_grounded_pipeline(monkeypatch):
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     chunks = [{"chunk_id": "c1", "score": 0.9, "text": "Section 51 text", "section_number": "51"}]
     monkeypatch.setattr(
@@ -314,7 +314,7 @@ def test_end_to_end_attaches_act(monkeypatch):
 
 def test_end_to_end_dag_path_gate_after_quality(monkeypatch):
     """DAG queries route execute_task → evidence_sufficiency (no hint hop)."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
     from app.rag.agent.graph import run_agent
     from app.rag.agent.state import initial_state
 
@@ -324,7 +324,7 @@ def test_end_to_end_dag_path_gate_after_quality(monkeypatch):
             "score": 0.9,
             "text": "Section 52 misbranded food penalty text with sufficient detail",
             "section_number": "52",
-        }
+        },
     ]
     monkeypatch.setattr(
         tasks,

@@ -88,6 +88,7 @@ class DocumentSaveCoordinator:
         Returns:
             :class:`SaveResult` with the on-disk timestamp, version info,
             and success flag.
+
         """
         # --- 1. Content persistence ---
         try:

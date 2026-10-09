@@ -52,6 +52,7 @@ class ResilientRAGPipeline:
         failure_threshold: Consecutive failures that open the circuit.
         cooldown_seconds: How long the circuit stays open before
             attempting a half-open probe.
+
     """
 
     def __init__(

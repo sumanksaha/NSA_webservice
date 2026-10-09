@@ -51,6 +51,7 @@ class CitationAdapter:
     Args:
         extractor: Optional pre-built ``CitationExtractor`` (injected for
             tests; the real one is built lazily).
+
     """
 
     def __init__(self, extractor: Any | None = None) -> None:
@@ -93,7 +94,7 @@ class CitationAdapter:
                     reference=reference,
                     details=dict(getattr(citation, "details", None) or {}),
                     confidence=float(getattr(citation, "confidence", 0.0) or 0.0),
-                )
+                ),
             )
         return adapted
 

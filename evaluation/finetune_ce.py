@@ -131,7 +131,7 @@ def main() -> int:
         "notes": "drop-in via RAG_RERANKER_MODEL=<out_dir>",
     }
     (PROJECT_ROOT / "evaluation" / "out" / "models" / "ce_finetune_summary.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
+        json.dumps(summary, indent=2), encoding="utf-8",
     )
     return 0
 

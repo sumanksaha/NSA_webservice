@@ -63,6 +63,7 @@ class CrossRefAdapter:
     Args:
         engine: Optional pre-built ``CrossReferenceEngine`` (injected for
             tests; the real one is built lazily).
+
     """
 
     def __init__(self, engine: Any | None = None) -> None:
@@ -90,6 +91,7 @@ class CrossRefAdapter:
             text: Chunk/document text to scan.
             act_name: Optional owning Act (payload ``act_name``); when given,
                 the ``known`` flag resolves against that act's sections.
+
         """
         refs = self._get_engine().extract_references(text)
         adapted: list[AdaptedReference] = []
@@ -109,7 +111,7 @@ class CrossRefAdapter:
                     raw=raw,
                     confidence=float(getattr(ref, "confidence", 0.0) or 0.0),
                     known=known,
-                )
+                ),
             )
         return adapted
 
@@ -155,6 +157,7 @@ class CrossRefAdapter:
         against the base section number ``26``.  Without an ``act_name`` the
         FSS Act default is used (backward compatible — existing callers pin
         FSS semantics).
+
         """
         if act_name:
             return is_known_section_for_act(target, act_name)

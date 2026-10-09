@@ -85,6 +85,7 @@ class PluginRegistry:
             category: Provider category (``"ocr"``, ``"ai"``, ``"rules"``, ``"pdf"``).
             name: The plugin's unique name within the category.
             cls: The plugin class (must subclass the appropriate ``*Provider`` ABC).
+
         """
         if category not in self._plugins:
             self._plugins[category] = {}
@@ -96,6 +97,7 @@ class PluginRegistry:
 
         Raises:
             KeyError: If no plugin is registered under that name.
+
         """
         try:
             cls = self._plugins[category][name]

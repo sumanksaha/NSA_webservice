@@ -22,6 +22,7 @@ class KGValidator:
     Args:
         driver: Optional pre-built Neo4j driver (injected for tests).
         database: Neo4j database name.
+
     """
 
     def __init__(self, driver: Any | None = None, database: str | None = None):

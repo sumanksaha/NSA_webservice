@@ -98,7 +98,6 @@ def upload_photo_evidence():
 @inspection_bp.route("/<int:adjudication_id>/photos", methods=["POST"])
 def upload_adjudication_photo(adjudication_id):
     """Upload a photo for an adjudication via R2/B2 storage."""
-
     if "photo" not in request.files:
         return jsonify({"error": 'No photo file provided. Use field name "photo".'}), 400
 
@@ -108,7 +107,7 @@ def upload_adjudication_photo(adjudication_id):
 
     try:
         result = _photo_service.upload_adjudication_photo(
-            adjudication_id, file, caption=request.form.get("caption", "")
+            adjudication_id, file, caption=request.form.get("caption", ""),
         )
     except FileNotFoundError:
         return jsonify({"error": f"Adjudication with id {adjudication_id} not found"}), 404

@@ -605,7 +605,8 @@ class TestFuzzySearch:
 
     def test_fuzzy_typo_anchors_on_whole_word(self, test_client):
         """A typo should anchor on the closest whole word, not a partial
-        substring of a longer unrelated token."""
+        substring of a longer unrelated token.
+        """
         with test_client.application.app_context():
             cf = db.session.execute(db.select(CaseFile)).scalars().first()
             cf.manufacturer_address = "XAcmezzzz Industrial Estate"

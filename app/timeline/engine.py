@@ -128,7 +128,7 @@ def generation_allowed_from(retailer_receive_date, manufacturer_receive_date) ->
 
 
 def generation_gate(
-    retailer_receive_date, manufacturer_receive_date, now: datetime | None = None
+    retailer_receive_date, manufacturer_receive_date, now: datetime | None = None,
 ) -> dict:
     """Evaluate the 30-day appeal-window gate for petition/permission files.
 
@@ -179,6 +179,7 @@ class TimelineEngine:
 
         Returns:
             Chronologically sorted list of :class:`TimelineEntry`.
+
         """
         from app.models import Adjudication, CaseFile
 
@@ -207,7 +208,7 @@ class TimelineEngine:
                     EVENT_INSPECTION,
                     case.inspection_date,
                     "Inspection conducted by " + (case.food_safety_officer_name or "FSO"),
-                )
+                ),
             )
 
         # Linked Sample (case_file.sample_id) — collection/dispatch milestones.
@@ -220,7 +221,7 @@ class TimelineEngine:
                     EVENT_SAMPLING,
                     sample.collection_date,
                     f"Sample collected — {sample.sample_name or sample.sample_code}",
-                )
+                ),
             )
         if sample is not None and sample.submission_date:
             entries.append(
@@ -228,7 +229,7 @@ class TimelineEngine:
                     EVENT_LAB_DISPATCH,
                     sample.submission_date,
                     f"Sample {sample.sample_code} dispatched to laboratory",
-                )
+                ),
             )
 
         if case.sample_submission_date:
@@ -237,11 +238,11 @@ class TimelineEngine:
                     EVENT_SAMPLING,
                     case.sample_submission_date,
                     "Sample submitted to laboratory",
-                )
+                ),
             )
         if case.do_receipt_date:
             entries.append(
-                TimelineEntry(EVENT_LAB_RECEIPT, case.do_receipt_date, "Laboratory received sample (DO receipt)")
+                TimelineEntry(EVENT_LAB_RECEIPT, case.do_receipt_date, "Laboratory received sample (DO receipt)"),
             )
         if case.analyst_report_date:
             entries.append(
@@ -249,7 +250,7 @@ class TimelineEngine:
                     EVENT_LAB_REPORT,
                     case.analyst_report_date,
                     "Analyst report issued" + (f" — {case.analyst_report_no}" if case.analyst_report_no else ""),
-                )
+                ),
             )
         if case.directive_letter_date:
             entries.append(
@@ -257,7 +258,7 @@ class TimelineEngine:
                     EVENT_NOTICE,
                     case.directive_letter_date,
                     "Directive letter issued" + (f" — {case.directive_letter_no}" if case.directive_letter_no else ""),
-                )
+                ),
             )
         if getattr(case, "authorization_date", None):
             entries.append(
@@ -265,13 +266,13 @@ class TimelineEngine:
                     EVENT_AUTHORIZATION,
                     case.authorization_date,
                     "Authorization issued by the Designated Officer",
-                )
+                ),
             )
         if case.retailer_report_receive_date:
             entries.append(TimelineEntry(EVENT_REPLY, case.retailer_report_receive_date, "Retailer reply received"))
         if case.manufacturer_report_receive_date:
             entries.append(
-                TimelineEntry(EVENT_REPLY, case.manufacturer_report_receive_date, "Manufacturer reply received")
+                TimelineEntry(EVENT_REPLY, case.manufacturer_report_receive_date, "Manufacturer reply received"),
             )
         entries.extend(self._deadline_entries(case))
         return entries
@@ -294,7 +295,7 @@ class TimelineEngine:
                     deadline,
                     f"Petition must be filed by {deadline.strftime('%d-%m-%Y')} "
                     f"(365 days from analyst report {base_str})".strip(),
-                )
+                ),
             )
         earliest = generation_allowed_from(
             getattr(case, "retailer_report_receive_date", None),
@@ -312,7 +313,7 @@ class TimelineEngine:
                     earliest,
                     f"Permission/petition may be generated on/after {earliest.strftime('%d-%m-%Y')} "
                     f"(30 days after report handover {handover_str})".strip(),
-                )
+                ),
             )
         return entries
 
@@ -329,7 +330,7 @@ class TimelineEngine:
                     EVENT_COMPLAINT,
                     adj.Complaint_date,
                     "Complaint lodged" + (f" — {adj.fbo_name}" if adj.fbo_name else ""),
-                )
+                ),
             )
         if adj.authorization_date:
             entries.append(TimelineEntry(EVENT_AUTHORIZATION, adj.authorization_date, "Authorization issued"))
@@ -339,7 +340,7 @@ class TimelineEngine:
                     EVENT_INSPECTION,
                     adj.First_inspection_date,
                     "First inspection conducted",
-                )
+                ),
             )
         if adj.inspection_date:
             entries.append(
@@ -347,7 +348,7 @@ class TimelineEngine:
                     EVENT_INSPECTION,
                     adj.inspection_date,
                     "Inspection conducted by " + (adj.food_safety_officer or "FSO"),
-                )
+                ),
             )
         if adj.compliance_deadline:
             entries.append(TimelineEntry(EVENT_COMPLIANCE, adj.compliance_deadline, "Compliance deadline"))
@@ -361,7 +362,7 @@ class TimelineEngine:
                         EVENT_INSPECTION,
                         inspection.inspection_date,
                         f"Inspection {inspection.inspection_code} — {inspection.fbo_name or adj.fbo_name or 'FBO'}",
-                    )
+                    ),
                 )
             if inspection.compliance_deadline:
                 entries.append(
@@ -369,7 +370,7 @@ class TimelineEngine:
                         EVENT_COMPLIANCE,
                         inspection.compliance_deadline,
                         f"Compliance deadline (inspection {inspection.inspection_code})",
-                    )
+                    ),
                 )
         return entries
 
@@ -389,7 +390,7 @@ class TimelineEngine:
                     f"Annexure{letter} uploaded — {annexure.caption}",
                     document_ref=f"annexure:{annexure.id}",
                     document_label=f"Annexure{letter}: {annexure.caption}",
-                )
+                ),
             )
         return entries
 
@@ -409,7 +410,7 @@ class TimelineEngine:
                     f"{evidence.evidence_type.replace('_', ' ').title()} — {label}",
                     document_ref=f"evidence:{evidence.id}",
                     document_label=label,
-                )
+                ),
             )
         return entries
 
@@ -508,7 +509,7 @@ class TimelineEngine:
                         timestamp=entry.timestamp,
                         document_ref=entry.document_ref,
                         description=entry.description,
-                    )
+                    ),
                 )
             db.session.commit()
         except Exception as exc:

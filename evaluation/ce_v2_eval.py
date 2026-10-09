@@ -573,12 +573,12 @@ def main() -> int:
         print(
             f"{'R@' + str(k):<10} {agg['v1']['r_at'][str(k)]:>14.4f} "
             f"{agg['v2']['r_at'][str(k)]:>12.4f} "
-            f"{agg['v2']['r_at'][str(k)] - agg['v1']['r_at'][str(k)]:>+10.4f}"
+            f"{agg['v2']['r_at'][str(k)] - agg['v1']['r_at'][str(k)]:>+10.4f}",
         )
     for metric, label in (("mrr", "MRR@10"), ("ndcg", "nDCG@10")):
         print(
             f"{label:<10} {agg['v1'][metric]:>14.4f} {agg['v2'][metric]:>12.4f} "
-            f"{agg['v2'][metric] - agg['v1'][metric]:>+10.4f}"
+            f"{agg['v2'][metric] - agg['v1'][metric]:>+10.4f}",
         )
 
     print("\n=== Bootstrap CIs (95% over queries, 1000 resamples) ===")
@@ -619,7 +619,7 @@ def freeze_baseline(eval_result: dict[str, Any]) -> int:
 
     try:
         rev = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=10
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=10,
         ).stdout.strip()
     except Exception:
         rev = "unknown"

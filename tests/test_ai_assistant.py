@@ -83,7 +83,6 @@ def _setup_unauthenticated_client():
 
 def _mock_httpx_response(content, tokens=42, status_code=200):
     """Create a mock httpx.Response compatible object."""
-
     mock_resp = mock.MagicMock()
     mock_resp.status_code = status_code
     mock_resp.json.return_value = {
@@ -349,7 +348,7 @@ class TestServiceErrors:
             err_resp = mock.MagicMock()
             err_resp.status_code = 429
             err_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "rate limited", request=mock.MagicMock(), response=err_resp
+                "rate limited", request=mock.MagicMock(), response=err_resp,
             )
             ok_resp = _mock_httpx_response("Success after retry", tokens=60)
 
@@ -477,7 +476,6 @@ class TestAssistRoute:
 
     def test_draft_prayers_uses_context(self):
         """draft_prayers uses context.facts and context.grounds in the prompt."""
-
         app, client, _ctx = _setup_test_env()
         app.config["AI_ASSISTANT_PROVIDER"] = "openrouter"
         app.config["AI_ASSISTANT_API_KEY"] = "fake-key"

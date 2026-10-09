@@ -283,7 +283,7 @@ class TestSyncService:
                     "compliance_deadline": "2025-07-01T10:00:00+00:00",
                     "fso_name": "Test FSO",
                     "local_id": None,
-                }
+                },
             ]
             mock_client.table().select().execute.return_value = mock.MagicMock(data=remote_rows)
 
@@ -312,7 +312,7 @@ class TestSyncService:
             mock_client = mock.MagicMock()
             # Remote has version 5 (diverges from local 2).
             mock_client.table().select().in_().execute.return_value = mock.MagicMock(
-                data=[{"local_id": insp.id, "sync_version": 5}]
+                data=[{"local_id": insp.id, "sync_version": 5}],
             )
             mock_client.table().select().eq().execute.return_value = mock.MagicMock(data=[{"sync_version": 5}])
             mock_client.table().select().execute.return_value = mock.MagicMock(data=[])

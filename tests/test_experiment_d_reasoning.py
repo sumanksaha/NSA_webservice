@@ -46,7 +46,7 @@ ARG_CLEAN = """{
 }"""
 
 ARG_NO_EXCEPTIONS = ARG_CLEAN.replace(
-    '[{"rule": "Section 31", "exception": "petty-retailer exemption", "applies": false}]', "[]"
+    '[{"rule": "Section 31", "exception": "petty-retailer exemption", "applies": false}]', "[]",
 )
 
 EVIDENCE_TEXTS = {
@@ -106,7 +106,8 @@ def test_final_answer_shares_system_prompt_across_conditions():
 
 def test_condition_a_uses_grounded_qa_user_contract():
     """Roadmap §21: condition A keeps the citation/prompt contract — same
-    grounded_qa user shape (tagged context, question last) as production."""
+    grounded_qa user shape (tagged context, question last) as production.
+    """
     llm = ScriptedLLM(["Answer [1]."])
     run_condition("Q?", CONTEXT, EVIDENCE_TEXTS, llm, "A_direct")
     assert "<legal_context>" in llm.users[0]
@@ -132,7 +133,7 @@ def test_condition_c_defect_triggers_single_revision():
 def test_budget_guard():
     with pytest.raises(LLMBudgetExceeded):
         run_condition(
-            "Q?", CONTEXT, EVIDENCE_TEXTS, ScriptedLLM([ARG_CLEAN, "Final [1]."]), "B_structured", max_calls=1
+            "Q?", CONTEXT, EVIDENCE_TEXTS, ScriptedLLM([ARG_CLEAN, "Final [1]."]), "B_structured", max_calls=1,
         )
 
 

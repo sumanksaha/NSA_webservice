@@ -22,7 +22,7 @@ import boto3
 import pytest
 from botocore.exceptions import ClientError
 
-import app.utils.storage as storage
+from app.utils import storage
 from app.utils.storage import (
     MAX_FILE_SIZE,
     _build_url,
@@ -165,7 +165,8 @@ class TestGetBucket:
 class TestClientRetryConfig:
     def test_client_built_with_retry_config(self, monkeypatch):
         """The boto3 client must carry the documented retry policy so transient
-        failures (throttling / 5xx) are retried by botocore."""
+        failures (throttling / 5xx) are retried by botocore.
+        """
         captured = {}
 
         def fake_client(service, **kwargs):
@@ -393,7 +394,8 @@ class TestUploadPhotoCloudinaryPath:
 
     def test_falls_back_to_r2_when_sdk_missing(self, monkeypatch):
         """When Cloudinary is configured but the SDK is absent, upload_photo
-        must transparently fall back to the R2/B2 backend."""
+        must transparently fall back to the R2/B2 backend.
+        """
         _cloudinary_env_set(monkeypatch)
         _break_cloudinary_sdk(monkeypatch)
 
@@ -445,7 +447,8 @@ class TestDeletePhotoRouting:
 
 class TestDeletePhotoIdempotency:
     """delete_photo treats an already-absent object as success — this is the
-    retry-safe behaviour for concurrent/retried deletes."""
+    retry-safe behaviour for concurrent/retried deletes.
+    """
 
     @pytest.mark.parametrize("code", ["NoSuchKey", "404"])
     def test_absent_object_is_success(self, monkeypatch, code):
@@ -477,7 +480,8 @@ class TestDeletePhotoIdempotency:
 class TestUploadPhotoR2Retry:
     def test_put_object_failure_reraises(self, monkeypatch):
         """A hard failure from put_object is logged and re-raised so the caller
-        (and the botocore retry policy) can act on it."""
+        (and the botocore retry policy) can act on it.
+        """
 
         class ExplodingClient:
             def put_object(self, **kwargs):

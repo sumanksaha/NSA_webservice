@@ -84,7 +84,7 @@ class TestLookupCeNeverRaises:
         assert out.data["identity"]["licNo"] == "K1"
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 

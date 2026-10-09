@@ -235,11 +235,12 @@ def push_to_neo4j(
         RuntimeError: when ``NEO4J_ALLOW_WRITE`` is not ``1`` — this function
             clears the case-file graph before pushing, so it must be
             explicitly opted into (fail-closed).
+
     """
     if not neo4j_writes_allowed():
         raise RuntimeError(
             "Neo4j writes are disabled: set NEO4J_ALLOW_WRITE=1 to allow "
-            "push_to_neo4j() (it clears the case-file graph before pushing)."
+            "push_to_neo4j() (it clears the case-file graph before pushing).",
         )
 
     payload = build_cypher_payload()

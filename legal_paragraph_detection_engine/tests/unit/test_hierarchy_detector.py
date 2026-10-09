@@ -115,7 +115,6 @@ class TestHierarchyDetector(unittest.TestCase):
 
     def test_thred_safety(self):
         """Test thread safety."""
-
         text = "Section 3\n\n3(1)\n\n3(1)(a)"
 
         results = []

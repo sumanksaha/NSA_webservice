@@ -69,6 +69,7 @@ class ChunkQualityValidator:
         validator: Optional pre-built ``Validator`` (injected for tests; the
             real R2 one is built lazily).
         scorer: Optional ``score_field`` callable (injected for tests).
+
     """
 
     def __init__(self, validator: Any | None = None, scorer: Any | None = None) -> None:

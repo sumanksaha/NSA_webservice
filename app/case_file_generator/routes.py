@@ -13,6 +13,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 """
 
 import io
+import re
 from datetime import date, datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
@@ -431,7 +432,7 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.mfg_date = parse_date(form_data.get("mfg_date", ""))
     case_file.expiry_date = parse_date(form_data.get("expiry_date", ""))
     case_file.manufacturer_report_receive_date = parse_date(
-        form_data.get("manufacturer_report_receive_date", "")
+        form_data.get("manufacturer_report_receive_date", ""),
     )
     case_file.other_food_articles = form_data.get("other_food_articles", "")
     case_file.total_cost = form_data.get("total_cost", "")
@@ -669,7 +670,7 @@ def preview_case_file_route():
         _generation_gate_info(
             form_data.get("retailer_report_receive_date", ""),
             form_data.get("manufacturer_report_receive_date", ""),
-        )
+        ),
     )
     return jsonify(response)
 
@@ -1052,7 +1053,7 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
             case_data.get("retailer_name", ""),
             case_data.get("retailer_address", ""),
             case_data.get("retailer_fssai", ""),
-        )
+        ),
     ]
     if separate:
         offenders.append(
@@ -1060,7 +1061,7 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
                 case_data.get("manufacturer_name", ""),
                 case_data.get("manufacturer_address", ""),
                 case_data.get("manufacturer_fssai", ""),
-            )
+            ),
         )
 
     rows = []
@@ -1081,9 +1082,41 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
                 "forwarded": "",
                 "lab_result": "",
                 "remarks": "seeking permission u/s 42(3) of FS&S Act, 2006",
-            }
+            },
         )
     return rows
+
+
+def _compute_per_packet_sample_quantity(
+    sample_quantity: str | None, packet_count: str | int | None,
+) -> str:
+    """Derive per-packet sample quantity for the (per_packet X packet_count = sample_quantity) equation.
+
+    Expects ``sample_quantity`` like ``1000g`` (numeric value + unit suffix) and ``packet_count``
+    as an integer. Returns the computed quantity with the same unit (``sample_quantity /
+    packet_count``), or returns the raw ``sample_quantity`` string unchanged when it cannot be
+    parsed, the packet count is missing/non-positive, or inputs are empty — the template is then
+    rendered safely rather than leaking an unresolved placeholder.
+    """
+    if not sample_quantity or packet_count is None:
+        return sample_quantity or ""
+    try:
+        pc = int(packet_count)
+    except (TypeError, ValueError):
+        return sample_quantity or ""
+    if pc <= 0:
+        return sample_quantity or ""
+    m = re.match(r"^([0-9.]+)\s*(.*)$", str(sample_quantity).strip())
+    if not m:
+        return sample_quantity or ""
+    try:
+        qty = float(m.group(1))
+    except ValueError:
+        return sample_quantity or ""
+    per_packet = qty / pc
+    if per_packet == int(per_packet):
+        return f"{int(per_packet)}{m.group(2)}"
+    return f"{per_packet:g}{m.group(2)}"
 
 
 @case_file_generator_bp.route("/case/<int:case_id>/docx/unsafe_file")
@@ -1124,6 +1157,65 @@ def download_unsafe_file_docx(case_id: int):
     )
 
 
+@case_file_generator_bp.route("/case/<int:case_id>/docx/prohibition_order")
+@login_required
+def download_prohibition_order_docx(case_id: int):
+    # Download the prohibition-order letter to the FBO manufacturer as Word (.docx).
+    #
+    # This is the SECOND document for an UNSAFE sample. It is generated only for
+    # non-RCM cases (a separate manufacturer exists and batch/manufacturing/expiry
+    # details are present). RCM (prepared/loose food) cases cannot have a
+    # prohibition order issued — the endpoint returns 403 and invites the user to
+    # download the Prayer instead. The letter repeats the first paragraph of the
+    # Prayer (the sample description) so that it is self-contained.
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+
+    # Unsafe_file.adoc / Prohibition_order.adoc template variables that differ
+    # from the canonical CaseFile column names — alias them so the .adoc renders
+    # from UI-entered data.
+    case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
+    case_data.setdefault("sample_name", case_data.get("product_name", ""))
+
+    # Per-packet sample quantity is derived (not a UI field): sample_quantity /
+    # packet_count, formatted for the
+    # "(per_packet X packet_count = sample_quantity)" equation in the letter.
+    case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
+        case_data.get("sample_quantity"), case_data.get("packet_count"),
+    )
+
+    # A prohibition order is issued only to a separate manufacturer. Prepared/
+    # loose food (retailer-cum-manufacturer) has no separate manufacturer and no
+    # batch/manufacturing/expiry details, so no prohibition order can be issued.
+    if case_data.get("retailer_cum_manufacturer"):
+        return (
+            jsonify(
+                {
+                    "error": "Prohibition order cannot be issued for prepared/loose "
+                    "food (retailer-cum-manufacturer). The product has no separate "
+                    "manufacturer and no batch/manufacturing/expiry details. "
+                    "Download the Prayer to the Designated Officer instead.",
+                },
+            ),
+            403,
+        )
+
+    docx_bytes = render_docx("prohibition_order", case_data)
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Prohibition_Order_{case.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
 @case_file_generator_bp.route("/case/<int:case_id>/docx/zip")
 @login_required
 def download_both_docx(case_id: int):
@@ -1142,8 +1234,8 @@ def download_both_docx(case_id: int):
             jsonify(
                 {
                     "error": "Petition/permission not available for unsafe cases; "
-                    "download the unsafe file instead"
-                }
+                    "download the unsafe file instead",
+                },
             ),
             403,
         )

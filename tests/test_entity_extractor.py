@@ -84,7 +84,7 @@ class TestRuleBased:
 
     def test_extracts_organization(self):
         result = LegalEntityExtractor().extract(
-            "Nestle India Pvt. Ltd. and the Food Safety and Standards Authority of India agreed."
+            "Nestle India Pvt. Ltd. and the Food Safety and Standards Authority of India agreed.",
         )
         names = {e.name for e in result.entities if e.entity_type == "organization"}
         assert any("Nestle India Pvt. Ltd." in n for n in names)

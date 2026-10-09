@@ -157,7 +157,7 @@ class TestExpandChunks:
                 "rel_type": "COMPLEMENTS",
                 "evidence": "Cross-references environmental directions.",
                 "related_domain": "ENVIRONMENT_POLLUTION",
-            }
+            },
         ]
         driver = FakeDriver(chunk_rows=chunk_rows, related_rows=related)
         expander = KGContextExpander(driver=driver, database="neo4j")

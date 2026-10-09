@@ -75,6 +75,7 @@ class OpenRouterAIPlugin(AIProvider):
 
         Raises:
             RuntimeError: When the service is not configured (``is_enabled() == False``).
+
         """
         service = self._service()
         if not service.is_enabled():

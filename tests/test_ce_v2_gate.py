@@ -31,7 +31,7 @@ def baseline() -> dict:
     return json.loads(BASELINE.read_text(encoding="utf-8"))
 
 
-@pytest.fixture()
+@pytest.fixture
 def fixtures(baseline):
     """Deep copies of the baseline's eval + error-analysis sections."""
     return copy.deepcopy(baseline["eval"]), copy.deepcopy(baseline["error_analysis"])

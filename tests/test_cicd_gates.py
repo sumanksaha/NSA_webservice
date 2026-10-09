@@ -76,7 +76,8 @@ def _worker_services() -> list:
 class TestDeployGating:
     def test_render_auto_deploy_disabled_on_all_services(self):
         """No service in render.yaml should auto-deploy — deploys go through
-        deploy.yml which gates on green CI."""
+        deploy.yml which gates on green CI.
+        """
         for svc in _render()["services"]:
             assert svc.get("autoDeploy") is False, (
                 f"{svc['name']}: autoDeploy is {svc.get('autoDeploy')}, expected false"
@@ -114,7 +115,8 @@ class TestDeployGating:
         skipped. GitHub Actions skips any job whose `needs` didn't succeed,
         so the deploy job's `if:` must include !cancelled() and a
         needs.deploy_staging.result guard or manual production deploys are
-        silently unreachable."""
+        silently unreachable.
+        """
         job = _workflow("deploy.yml")["jobs"]["deploy"]
         cond = str(job.get("if", ""))
         assert "!cancelled()" in cond, "deploy if must use !cancelled()"
@@ -133,7 +135,8 @@ class TestRenderHealthAndMigrations:
 
     def test_no_worker_service(self):
         """QStash topology: background work needs no worker service — only
-        the web service(s) migrate, so there is nothing that could."""
+        the web service(s) migrate, so there is nothing that could.
+        """
         assert _worker_services() == [], "render.yaml must not define a worker service"
 
     def test_web_service_uses_pre_deploy_command(self):
@@ -142,9 +145,10 @@ class TestRenderHealthAndMigrations:
         assert "flask db upgrade" in cmd, "preDeployCommand must run migrations"
 
     def test_start_command_has_migration_fallback(self):
-        """preDeployCommand needs a paid Render plan; on free tier it is ignored.
+        """PreDeployCommand needs a paid Render plan; on free tier it is ignored.
         Each web service's startCommand must therefore retain an idempotent
-        boot-time `flask db upgrade` fallback so migrations always run."""
+        boot-time `flask db upgrade` fallback so migrations always run.
+        """
         for svc in _render()["services"]:
             if svc.get("type") == "web":
                 assert "db upgrade" in svc.get("startCommand", ""), (
@@ -153,7 +157,8 @@ class TestRenderHealthAndMigrations:
 
     def test_health_endpoint_registered_as_public(self):
         """app/health/routes.py::health must be in public_endpoints so the
-        Render healthCheckPath probe works without auth."""
+        Render healthCheckPath probe works without auth.
+        """
         init_py = _read_text(ROOT / "app" / "__init__.py")
         assert "health.health" in init_py, "health endpoint must be in public_endpoints"
         assert "healthCheckPath" in _read_text(ROOT / "render.yaml")
@@ -187,7 +192,8 @@ class TestSecurityGates:
     def test_security_scans_are_blocking(self):
         """G5: Bandit and Safety scan steps must be blocking (continue-on-error
         absent/False) — no longer advisory. The SARIF *upload* step remains
-        non-blocking. pip-audit is already blocking (see test above)."""
+        non-blocking. pip-audit is already blocking (see test above).
+        """
         wf = _workflow("validation.yml")
         for step in wf["jobs"]["security"]["steps"]:
             name = step.get("name", "")
@@ -363,7 +369,8 @@ class TestStagingEnvironment:
 
     def test_staging_service_has_pre_deploy_command(self):
         """G2: staging service must run migrations in preDeployCommand (G3 parity),
-        with the same idempotent boot-time fallback in startCommand."""
+        with the same idempotent boot-time fallback in startCommand.
+        """
         staging = _staging_service()
         cmd = staging.get("preDeployCommand", "")
         assert "flask db upgrade" in cmd, "staging preDeployCommand must run migrations"
@@ -371,7 +378,8 @@ class TestStagingEnvironment:
 
     def test_staging_service_uses_default_branch(self):
         """G2: staging service tracks main — deploy.yml pins validated main SHAs
-        via the deploy hook (?ref=<sha>); an off-branch pin would be rejected."""
+        via the deploy hook (?ref=<sha>); an off-branch pin would be rejected.
+        """
         staging = _staging_service()
         assert staging.get("branch") == "main", "staging service must branch: main"
 
@@ -473,9 +481,10 @@ class TestPreCommitConfig:
         assert (ROOT / ".pre-commit-config.yaml").exists(), ".pre-commit-config.yaml is missing"
 
     def test_mypy_hook_is_non_blocking(self):
-        """mypy hook must not hard-block commits — mirrors CI's
+        """Mypy hook must not hard-block commits — mirrors CI's
         continue-on-error: true. The entry must have a `|| true` fallback so
-        that type errors don't prevent commits (the codebase is transitional)."""
+        that type errors don't prevent commits (the codebase is transitional).
+        """
         content = _read_text(ROOT / ".pre-commit-config.yaml")
         # Find the mypy hook section
         mypy_section = content[content.index("id: mypy") :]
@@ -485,8 +494,9 @@ class TestPreCommitConfig:
         )
 
     def test_pytest_hook_runs_fast_subset(self):
-        """pytest pre-commit hook must skip slow tests (Qdrant/network/heavy
-        inference) to keep commit latency low — the full suite runs in CI."""
+        """Pytest pre-commit hook must skip slow tests (Qdrant/network/heavy
+        inference) to keep commit latency low — the full suite runs in CI.
+        """
         content = _read_text(ROOT / ".pre-commit-config.yaml")
         pytest_section = content[content.index("id: pytest") :]
         pytest_section = pytest_section[: pytest_section.index("id: ce-v2-gate")]
@@ -500,7 +510,8 @@ class TestPreCommitConfig:
 
     def test_ce_v2_gate_is_file_scoped(self):
         """ce-v2-gate hook must only run when evaluation/ files change, not
-        on every commit (always_run: true would force a ~3-5 min check per commit)."""
+        on every commit (always_run: true would force a ~3-5 min check per commit).
+        """
         content = _read_text(ROOT / ".pre-commit-config.yaml")
         gate_section = content[content.index("id: ce-v2-gate") :]
         # Ce-v2-gate section ends at the next hook or end of file

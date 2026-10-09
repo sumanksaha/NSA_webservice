@@ -15,7 +15,7 @@ import pytest
 from app.shared.document_case_manager import DocumentCaseManager, PDFResult
 
 
-@pytest.fixture()
+@pytest.fixture
 def callbacks():
     return {
         "model_to_dict_fn": MagicMock(side_effect=lambda inst: {"id": inst.id}),
@@ -28,7 +28,7 @@ def callbacks():
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def manager(callbacks):
     return DocumentCaseManager(
         model=MagicMock(),

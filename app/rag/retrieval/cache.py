@@ -29,6 +29,7 @@ class RetrievalCache:
             evicted (0 disables the cache entirely).
         ttl_seconds: Time-to-live for each entry.  Expired entries are
             lazily removed on read.
+
     """
 
     def __init__(self, max_size: int = 512, ttl_seconds: float = 600) -> None:

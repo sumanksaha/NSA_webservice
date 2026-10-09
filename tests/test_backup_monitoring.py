@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     """App + client + clean backup-bookkeeping keys (anonymous client)."""
     from app import create_app
@@ -154,7 +154,7 @@ class TestCspReportCollector:
                 "document-uri": "https://example.test/",
                 "violated-directive": "script-src",
                 "blocked-uri": "https://evil.example/x.js",
-            }
+            },
         }
         records, handler, log, was_disabled = self._capture_records(None)
         try:

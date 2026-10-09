@@ -388,7 +388,7 @@ with (OUT / "human_audit_answers.jsonl").open("w", encoding="utf-8") as f:
                 },
                 ensure_ascii=False,
             )
-            + "\n"
+            + "\n",
         )
 
 print(f"selected {len(SAMPLE)} questions (target {TARGET})")

@@ -30,6 +30,7 @@ def get_legal_engine() -> Any:
     Raises:
         ImportError: If the legal paragraph detection engine package is not
             installed.
+
     """
     from legal_paragraph_detection_engine import LegalParagraphEngine
 
@@ -51,6 +52,7 @@ def analyze_legal_text(text: str, doc_type: str | None = None) -> dict[str, Any]
         ImportError: If the engine package cannot be imported.
         ValueError: If ``text`` is empty/blank.
         RuntimeError: If the engine fails to process the text.
+
     """
     if not text or not text.strip():
         raise ValueError("No text provided to analyze.")
@@ -78,6 +80,7 @@ def extract_section_references(analysis: dict[str, Any]) -> list[str]:
 
     Returns:
         e.g. ``['26', '52']`` (sorted list of strings).
+
     """
     refs: set[str] = set()
     for para in analysis.get("paragraphs") or []:

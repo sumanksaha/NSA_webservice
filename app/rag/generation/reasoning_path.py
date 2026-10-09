@@ -100,7 +100,7 @@ def defect_notes(defects: Any) -> str:
     for defect in defects or []:
         lines.append(
             f"- {_defect_field(defect, 'defect_type')}: {_defect_field(defect, 'explanation')}"
-            f" => {_defect_field(defect, 'required_correction')}"
+            f" => {_defect_field(defect, 'required_correction')}",
         )
     return "\n".join(lines)
 
@@ -127,6 +127,6 @@ def reasoning_user_content(question: str, argument_json: str, context: str | Non
         parts.append(f"Evidence context:\n{context}")
     parts.append(
         "Final answer (cite sources with [n] markers; "
-        "qualify conclusions the reasoning marks unknown):"
+        "qualify conclusions the reasoning marks unknown):",
     )
     return "\n\n".join(parts)

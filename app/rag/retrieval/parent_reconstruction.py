@@ -39,7 +39,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Any
 
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
 from app.rag.retrieval.provision_metadata import (
@@ -50,7 +50,7 @@ from app.rag.retrieval.provision_metadata import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["EvidenceBundle", "reconstruct_evidence_bundle", "group_by_clause"]
+__all__ = ["group_by_clause", "reconstruct_evidence_bundle"]
 
 
 _CLAUSE_LEAD_RE = re.compile(r"^\s*(\d{1,2}\.\d{1,3}(?:\.\d{1,3})?)\s*[:.]?\s*")
@@ -265,7 +265,8 @@ def reconstruct_evidence_bundle(
 
 def _legal_source(primary: list[Any], parent_context: list[Any]) -> dict[str, Any]:
     """Legal location of the evidence — first non-unknown value per field,
-    preferring parent-context (heading) chunks which carry the clause."""
+    preferring parent-context (heading) chunks which carry the clause.
+    """
     source: dict[str, Any] = {}
     for field in _SOURCE_FIELDS:
         for chunk in [*parent_context, *primary]:
@@ -327,7 +328,7 @@ def _empty_bundle(fq: FoodQueryUnderstanding) -> dict[str, Any]:
         "primary_evidence": [],
         "parent_context": [],
         "related_evidence": [],
-        "legal_source": {f: "unknown" for f in _SOURCE_FIELDS},
+        "legal_source": dict.fromkeys(_SOURCE_FIELDS, "unknown"),
         "completeness": {
             "entity_found": False,
             "intent_satisfied": False,

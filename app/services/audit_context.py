@@ -75,6 +75,7 @@ class AuditLogger:
             actor: Explicit actor override; resolved from the request
                 context when omitted.
             **details: Structured event details, stored as JSON.
+
         """
         try:
             (self._writer or _default_writer)(
@@ -118,7 +119,8 @@ class AuditLogger:
 def _default_writer(**kwargs: Any) -> None:
     """Import the hash-chained core lazily to avoid import cycles at app
     factory bootstrap (blueprints import this module before extensions are
-    fully wired)."""
+    fully wired).
+    """
     from app.services.audit import log_audit
 
     log_audit(**kwargs)

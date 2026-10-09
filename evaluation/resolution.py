@@ -164,8 +164,7 @@ def build_payload_index(store_factory: Any, collections: list[str], force: bool 
         logger.info("  %s -> %d points", coll, len(points))
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with open(_PAYLOAD_INDEX_CACHE, "w", encoding="utf-8") as f:
-        for pid, payload in index.items():
-            f.write(json.dumps({"id": pid, "payload": payload}, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps({"id": pid, "payload": payload}, ensure_ascii=False) + "\n" for pid, payload in index.items())
     logger.info("payload index built: %d points", len(index))
     return index
 

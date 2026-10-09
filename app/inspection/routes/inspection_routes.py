@@ -37,6 +37,7 @@ def _apply_inspection_sorting(query, sort_by, sort_order):
 
     Returns:
         Sorted query.
+
     """
     order_map = {
         "inspection_code": Inspection.inspection_code,
@@ -424,7 +425,7 @@ def update_inspection(inspection_id):
     except StaleDataError:
         db.session.rollback()
         return jsonify({
-            "error": "Conflict: this inspection was modified by another user. Please reload and try again."
+            "error": "Conflict: this inspection was modified by another user. Please reload and try again.",
         }), 409
     except Exception as e:
         db.session.rollback()
@@ -445,7 +446,7 @@ def delete_inspection(inspection_id):
     except StaleDataError:
         db.session.rollback()
         return jsonify({
-            "error": "Conflict: this inspection was modified by another user. Please reload and try again."
+            "error": "Conflict: this inspection was modified by another user. Please reload and try again.",
         }), 409
     except Exception as e:
         db.session.rollback()
@@ -487,7 +488,7 @@ def premises_search():
                 resp = conn.execute(
                     text(
                         "SELECT license_no, company_name, full_address, expiry_date "
-                        "FROM fssai_licenses WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50"
+                        "FROM fssai_licenses WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50",
                     ),
                     {"name": f"%{query}%"},
                 )
@@ -498,7 +499,7 @@ def premises_search():
                 resp = conn.execute(
                     text(
                         "SELECT registration_no, company_name, full_address, expiry_date "
-                        "FROM fssai_registrations WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50"
+                        "FROM fssai_registrations WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50",
                     ),
                     {"name": f"%{query}%"},
                 )

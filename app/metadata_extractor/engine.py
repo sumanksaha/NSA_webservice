@@ -138,28 +138,28 @@ class LegalMetadataEngine:
         return LegalMetadata(
             title=field_values.get("title", FieldConfidence(value="", score=0.0, method="default", detail=None)),
             version=field_values.get(
-                "version", FieldConfidence(value="Latest", score=0.3, method="default", detail=None)
+                "version", FieldConfidence(value="Latest", score=0.3, method="default", detail=None),
             ),
             date=field_values.get("date", FieldConfidence(value="", score=0.0, method="default", detail=None)),
             authority=field_values.get(
-                "authority", FieldConfidence(value="", score=0.0, method="default", detail=None)
+                "authority", FieldConfidence(value="", score=0.0, method="default", detail=None),
             ),
             gazette_number=field_values.get(
-                "gazette_number", FieldConfidence(value="", score=0.0, method="default", detail=None)
+                "gazette_number", FieldConfidence(value="", score=0.0, method="default", detail=None),
             ),
             notification_number=field_values.get(
                 "notification_number",
                 FieldConfidence(value="", score=0.0, method="default", detail=None),
             ),
             language=field_values.get(
-                "language", FieldConfidence(value="english", score=0.5, method="default", detail=None)
+                "language", FieldConfidence(value="english", score=0.5, method="default", detail=None),
             ),
             jurisdiction=field_values.get(
-                "jurisdiction", FieldConfidence(value="India", score=0.6, method="default", detail=None)
+                "jurisdiction", FieldConfidence(value="India", score=0.6, method="default", detail=None),
             ),
             state=field_values.get("state", FieldConfidence(value="", score=0.0, method="default", detail=None)),
             country=field_values.get(
-                "country", FieldConfidence(value="India", score=0.6, method="default", detail=None)
+                "country", FieldConfidence(value="India", score=0.6, method="default", detail=None),
             ),
             document_type=field_values.get(
                 "document_type",
@@ -170,7 +170,7 @@ class LegalMetadataEngine:
                 FieldConfidence(value="Original", score=0.5, method="default", detail=None),
             ),
             effective_date=field_values.get(
-                "effective_date", FieldConfidence(value="", score=0.0, method="default", detail=None)
+                "effective_date", FieldConfidence(value="", score=0.0, method="default", detail=None),
             ),
         )
 

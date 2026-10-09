@@ -59,10 +59,11 @@ def test_answer_pair_checks_passes_improvement(fixture_answers):
 
 
 def test_answer_pair_checks_fails_regression():
-    base = {"Q1": {"soft": 0.8, "binary": 1, "abstain_credit": 0},
-            "Q2": {"soft": 0.6, "binary": 1, "abstain_credit": 0}}
-    cur = {"Q1": {"soft": 0.3, "binary": 0, "abstain_credit": 0},
-           "Q2": {"soft": 0.2, "binary": 0, "abstain_credit": 0}}
+    base = {
+        "Q1": {"soft": 0.8, "binary": 1, "abstain_credit": 0},
+        "Q2": {"soft": 0.6, "binary": 1, "abstain_credit": 0},
+    }
+    cur = {"Q1": {"soft": 0.3, "binary": 0, "abstain_credit": 0}, "Q2": {"soft": 0.2, "binary": 0, "abstain_credit": 0}}
     checks = answer_pair_checks(cur, base)
     hard = [c for c in checks if c["kind"] == "hard"]
     assert not all(c["ok"] for c in hard)

@@ -26,6 +26,7 @@ class ProvisionExtractorAdapter:
     Args:
         disambiguator: Optional pre-built :class:`Disambiguator` (injected for
             tests); built lazily from config otherwise.
+
     """
 
     def __init__(self, disambiguator: Disambiguator | None = None) -> None:

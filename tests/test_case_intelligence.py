@@ -66,7 +66,7 @@ def test_calculate_evidence_strength_few_items():
         evidence=[
             {"type": "annexure"},
             {"type": "evidence"},
-        ]
+        ],
     )
     result = _calculate_evidence_strength(case_data)
     assert result == EvidenceStrengthScore.WEAK
@@ -81,7 +81,7 @@ def test_calculate_evidence_strength_many_items():
             {"type": "evidence"},
             {"type": "evidence"},
             {"type": "evidence"},
-        ]
+        ],
     )
     result = _calculate_evidence_strength(case_data)
     assert result == EvidenceStrengthScore.STRONG
@@ -100,7 +100,7 @@ def test_calculate_traceability_single_type():
         evidence=[
             {"type": "annexure"},
             {"type": "annexure"},
-        ]
+        ],
     )
     result = _calculate_traceability(case_data)
     assert result == 0.3
@@ -114,7 +114,7 @@ def test_calculate_traceability_multiple_types():
             {"type": "annexure"},
             {"type": "evidence"},
             {"type": "annexure"},
-        ]
+        ],
     )
     result = _calculate_traceability(case_data)
     assert result == 0.9
@@ -137,7 +137,7 @@ def test_calculate_readiness_score_with_errors():
         validation_results=[
             {"severity": "ERROR"},
             {"severity": "WARNING"},
-        ]
+        ],
     )
     result = _calculate_readiness_score(case_data)
     # 100 - 15*1 - 5*1 = 80, then evidence weak = -10 = 70, timeline_issues none -> 70 -> NEEDS_ATTENTION
@@ -161,7 +161,7 @@ def test_calculate_intelligence_scores_valid_case():
             {"type": "statutory_reference"},
             {"type": "annexure"},
             {"type": "evidence"},
-        ]
+        ],
     )
     # This tests the helper functions directly rather than the full pipeline
     evidence_strength = _calculate_evidence_strength(case_data)

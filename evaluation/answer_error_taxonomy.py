@@ -184,7 +184,7 @@ def _classify_impl(record: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
 
     verdict = record.get("correct", record.get("answer_correctness"))
     if not is_failure_verdict(verdict):
-        return kept, {m: "human label" for m in kept}
+        return kept, dict.fromkeys(kept, "human label")
 
     found: list[str] = []
     reasons: dict[str, str] = {}

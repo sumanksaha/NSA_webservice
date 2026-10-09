@@ -396,7 +396,7 @@
     {
       "file": "163310009503PCA SH Amendment Rules, 2010-Eng.pdf",
       "document_id": "pca_sh_amendment_rules_2010",
-      "title": "The Prevention of Cruelty to Animals (Amendment) Rules, 2010",
+      "title": "The Prevention of Cruelty to Animals (Slaughter House) Amendment Rules, 2010",
       "document_type": "rule",
       "requires_ocr": true,
       "authority": "Ministry of Environment, Forest and Climate Change",
@@ -406,7 +406,7 @@
       "act_name": "Prevention of Cruelty to Animals Act, 1960",
       "enactment_date": "2010-07-27",
       "is_current": true,
-      "notes": "SCANNED PDF — 0 selectable text (1 pp); EasyOCR applied at ingest. OCR confirms G.S.R. notification dated 27-07-2010 (File No. 27-1/2009-AwD) amending the PCA Rules (references 'State Animal Welfare Board' under s.38). Filename token 'SH' unresolved; title from content + filename."
+      "notes": "SCANNED PDF — 0 selectable text (1 pp); EasyOCR applied at ingest. OCR confirms G.S.R. notification dated 27-07-2010 (File No. 27-1/2009-AwD) amending the PCA Rules (references 'State Animal Welfare Board' under s.38). Filename token 'SH' resolved by re-OCR of the source PDF: these are the PCA (Slaughter House) Amendment Rules, 2010, amending the base PCA (Slaughter House) Rules, 2001."
     },
     {
       "file": "163310014038Care and case Property Rules 2017 English.pdf",
@@ -507,6 +507,48 @@
       "enactment_date": "1950-03-30",
       "is_current": true,
       "notes": "SCANNED PDF — 0 selectable text (48 pp). DONE 2026-10-03: OCR'd with EasyOCR (all 48 pages, 124,592 chars, avg confidence 0.788, no empty pages) and indexed as 141 chunks in wb_state_legal_768. OCR runs at 200 DPI with the ImagePreprocessor upscale capped at 2400 px (~65s/page vs ~150s at 300 DPI/4000 px, quality comparable); EasyOCR returns hard-wrapped lines, so text was reflowed and regrouped into ~300-char paragraphs before chunking — without that the chunker emitted 1839 fragments (~38/page). Act XVIII of 1950, enacted 30-03-1950. Parent act of the 2022 amendment. Expect typical scan noise ('eflfect', 'scction')."
+    },
+    {
+      "file": "WEST-BENGAL-ANIMAL-SLAUGHTER-CONTROL-ACT-1950.pdf",
+      "document_id": "wb_animal_slaughter_control_act_1950",
+      "title": "The West Bengal Animal Slaughter Control Act, 1950",
+      "document_type": "act",
+      "authority": "West Bengal Legislature",
+      "jurisdiction": "India",
+      "state": "West Bengal",
+      "domain": "animal",
+      "act_name": "West Bengal Animal Slaughter Control Act, 1950",
+      "enactment_date": "1950-04-06",
+      "is_current": true,
+      "notes": "Act No. 22 of 1950. Selectable text (5 pp, Manupatra print). s4 prohibits slaughter without a fitness certificate issued jointly by the municipal President/Panchayat Samiti and the Veterinary Surgeon (animal over 14 years and unfit for work/breeding, or permanently incapacitated); s5 restricts slaughter to prescribed places; s6 power to enter/inspect; s7 penalty (imprisonment up to 6 months, or fine up to Rs 1,000, or both); s8 offences cognizable; s12 exemptions for religious/medicinal/research purposes. Added to the folder 2026-10-06; registered here for ingestion into animal_legal_768."
+    },
+    {
+      "file": "1663154982.1387808558.pdf",
+      "document_id": "prevention_cruelty_animals_act_1960",
+      "title": "The Prevention of Cruelty to Animals Act, 1960",
+      "document_type": "act",
+      "authority": "Parliament of India",
+      "jurisdiction": "India",
+      "state": "",
+      "domain": "animal",
+      "act_name": "Prevention of Cruelty to Animals Act, 1960",
+      "enactment_date": "1960-12-26",
+      "is_current": true,
+      "notes": "Act No. 59 of 1960. Clean selectable text (22 pp). Parent Act for all the PCA Rules in this domain and for the pcra:* provisions; Chapter III 'Cruelty to animals generally' (s11 treating animals cruelly, s12 phooka/doom dev, s13 destruction of suffering animals). Added to the folder 2026-10-06."
+    },
+    {
+      "file": "The_Bengal_Animal_Slaughter_Control_Rules_1950.pdf",
+      "document_id": "bengal_animal_slaughter_control_rules_1950",
+      "title": "The Bengal Animal Slaughter Control Rules, 1950",
+      "document_type": "rule",
+      "authority": "Government of West Bengal",
+      "jurisdiction": "India",
+      "state": "West Bengal",
+      "domain": "animal",
+      "act_name": "West Bengal Animal Slaughter Control Act, 1950",
+      "enactment_date": "1950",
+      "is_current": true,
+      "notes": "Rules under the WB Animal Slaughter Control Act, 1950: application/certificate in Form I, certificate in Form II (valid for a set number of days), fee of one rupee per animal, slaughter only at the municipal slaughter house, branding of animals fit for slaughter, religious/medicinal/research exemption conditions, control of slaughter by Veterinary Officers, and fortnightly statements. Source ind199240.pdf carried a garbled legacy OCR text layer that the per-page OCR decision would not replace, so this file is a fresh Tesseract (400 dpi) searchable-PDF re-OCR of ind199240.pdf; the original scan is retained as ind199240.pdf."
     }
   ]
 }

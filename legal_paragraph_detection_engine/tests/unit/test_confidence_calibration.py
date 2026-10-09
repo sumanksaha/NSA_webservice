@@ -100,7 +100,7 @@ class TestConfidenceCalibration(unittest.TestCase):
     def test_custom_weights_change_overall_blend(self) -> None:
         """A config with citation-only weight must reflect it in the overall."""
         engine = LegalParagraphEngine(
-            ProcessingConfig(confidence_weights={"structure": 0.0, "quality": 0.0, "citation": 1.0})
+            ProcessingConfig(confidence_weights={"structure": 0.0, "quality": 0.0, "citation": 1.0}),
         )
         para = engine.process_document(SAMPLE_TEXT)[0]
         scores = para["confidence_scores"]

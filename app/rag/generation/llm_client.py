@@ -35,6 +35,7 @@ class GroundedLLMResponse:
         usage: Token usage dict (prompt_tokens, completion_tokens, total_tokens).
         latency: Wall-clock seconds for the API call.
         error: Error message if the call failed (None on success).
+
     """
 
     text: str = ""
@@ -68,6 +69,7 @@ class GroundedLLMClient:
         base_url: Optional OpenAI-compatible API base URL.  Defaults to
             the OpenRouter endpoint.
         stub_response: Text to return when the stub is active.
+
     """
 
     #: Default model for grounded RAG generation (OpenRouter free tier).
@@ -139,6 +141,7 @@ class GroundedLLMClient:
 
         Returns:
             A :class:`GroundedLLMResponse`.
+
         """
         if self._use_stub:
             return self._stub_call()

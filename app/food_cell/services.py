@@ -61,6 +61,7 @@ def generate_and_forward_do_intimation(
     -------
     DoIntimation | None
         The persisted intimation record, or None if the sample was not found.
+
     """
     sample = _resolve_sample(sample_id, sample)
     if sample is None:

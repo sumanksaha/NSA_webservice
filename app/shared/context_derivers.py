@@ -173,28 +173,111 @@ SPECIAL_VIOLATION_RULES: dict[str, tuple[str, str]] = {
 # =============================================================================
 
 
+SECTION_TO_CLAUSE: dict[str, str] = {
+    "51": "clause (zx) of subsection (1) of Section 3",
+    "52": "clause (zf) of subsection (1) of Section 3",
+    "59": "clause (zz) of subsection (1) of Section 21, sub-clauses (v) and (viii)",
+}
+
+
+def clause_citation_for_section(section: str) -> str:
+    """Return the statutory clause citation for a penalty section.
+
+    Args:
+        section: Penalty section number as a string (e.g. "51", "52", "59").
+
+    Returns:
+        Statutory clause citation string, or a safe fallback for unknown
+        sections so a future section never renders a blank citation.
+
+    """
+    return SECTION_TO_CLAUSE.get(section, f"clause(s) under Section {section}")
+
+
+def _clause_citation_for_sections(sections: list[str]) -> str:
+    """Join per-section clause citations into one readable string.
+
+    One section  -> 'clause (zx) of subsection (1) of Section 3'
+    Two sections -> 'clause (zx) and clause (zf) of subsection (1) of Section 3'
+    Three        -> 'clause (zz) of subsection (1) of Section 21, sub-clauses (v)
+                     and (viii) and clause (zx) and clause (zf) of subsection (1) of
+                     Section 3'
+
+    Each section keeps its own full citation, joined by " and ", so the clause
+    text stays unambiguous when a sample carries two or three violations (e.g.
+    unsafe + sub-standard, or all three).
+    """
+    if not sections:
+        return ""
+    if len(sections) == 1:
+        return clause_citation_for_section(sections[0])
+    return " and ".join(clause_citation_for_section(s) for s in sections)
+
+
 def derive_applicable_sections_from_case_file(
     is_substandard: bool = False,
     is_misbranded: bool = False,
+    is_unsafe: bool = False,
 ) -> list[str]:
-    """Derive applicable sections for case file (sample-based) cases.
+    """Derive applicable penalty sections for case file (sample-based) cases.
 
-    Sample cases use sections 51 (substandard) and 52 (misbranded).
+    Sample cases use:
+      - Section 51 (sub-standard, clause (zx))
+      - Section 52 (mis-branded, clause (zf))
+      - Section 59 (unsafe, clause (zz)(v) and (viii)) — added when the sample
+        was found unsafe. Unsafe cases generate only the prohibition-order file,
+        but the section list still carries 59 so the clause citation and the
+        liability paragraph in that document can enumerate it.
 
     Args:
-        is_substandard: True if sample was found substandard
-        is_misbranded: True if sample was found misbranded
+        is_substandard: True if sample was found sub-standard
+        is_misbranded: True if sample was found mis-branded
+        is_unsafe: True if sample was found unsafe
 
     Returns:
-        List of section numbers as strings (e.g., ["51", "52"])
+        List of section numbers as strings (e.g., ["51", "52"], or
+        ["51", "59"] when a sample is both sub-standard and unsafe).
 
     """
     sections = []
+    if is_unsafe:
+        sections.append("59")
     if is_substandard:
         sections.append("51")
     if is_misbranded:
         sections.append("52")
     return sorted(sections)
+
+
+def derive_clause_citation_from_verdicts(
+    is_substandard: bool = False,
+    is_misbranded: bool = False,
+    is_unsafe: bool = False,
+) -> str:
+    """Derive the combined statutory clause citation from the sample verdicts.
+
+    Mirrors :func:`derive_applicable_sections_from_case_file` so the clause text
+    always matches the section list: every selected verdict contributes its fixed
+    statutory clause, composed in section order (51, 52, 59). The caller renders
+    this string in the document's analysis paragraph and/or liability block.
+
+    Args:
+        is_substandard: True if sample was found sub-standard
+        is_misbranded: True if sample was found mis-branded
+        is_unsafe: True if sample was found unsafe
+
+    Returns:
+        Combined clause citation string, e.g. ``'clause (zz) of subsection (1) of
+        Section 21, sub-clauses (v) and (viii) and clause (zx) of subsection (1)
+        of Section 3'`` when a sample is both unsafe and sub-standard.
+
+    """
+    sections = derive_applicable_sections_from_case_file(
+        is_substandard=is_substandard,
+        is_misbranded=is_misbranded,
+        is_unsafe=is_unsafe,
+    )
+    return _clause_citation_for_sections(sections)
 
 
 def derive_applicable_sections_from_adjudication(
@@ -396,11 +479,13 @@ __all__ = [
     "CHECKLIST_RULES",
     "REMEDIATION_ACTIONS",
     "SPECIAL_VIOLATION_RULES",
+    "clause_citation_for_section",
     "derive_actions",
     "derive_applicable_sections_from_adjudication",
     # Individual derivations
     "derive_applicable_sections_from_case_file",
     "derive_case_track",
+    "derive_clause_citation_from_verdicts",
     "derive_same_entity",
     "derive_sections_display",
     "derive_violations",

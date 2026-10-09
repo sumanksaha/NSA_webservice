@@ -288,7 +288,8 @@ def to_retrieved_chunk(key: str, payload: dict, score: float = 0.0) -> Retrieved
 
 def ce_topk_chunks(ce_ranked, k: int):
     """Top-K CE items -> (chunk_items, kg_items).  KG items cannot be supplied
-    as chunk context and are reported as discarded."""
+    as chunk context and are reported as discarded.
+    """
     topk = ce_ranked[:k]
     chunk_items = [it for it in topk if it.get("kind") == "chunk"]
     kg_items = [it for it in topk if it.get("kind") == "kg"]
@@ -340,7 +341,7 @@ def abstain_check(answer: str) -> bool:
 
 
 def compute_metrics(
-    resp, built, question, ce_topk_chunk_ids, context_chunk_ids, gold_chunk_ids, gold_units, payload_index, family_map
+    resp, built, question, ce_topk_chunk_ids, context_chunk_ids, gold_chunk_ids, gold_units, payload_index, family_map,
 ) -> dict[str, Any]:
     """Primary LLM metrics (spec section 6) for one (question, K)."""
     answer = resp.answer or ""
@@ -380,7 +381,7 @@ def compute_metrics(
     evidence_texts = {cid: str((payload_index.get(cid) or {}).get("chunk_text") or "") for cid in ce_topk_chunk_ids}
     try:
         g = grade_answer(
-            question, answer, list(cited_chunk_ids), list(ce_topk_chunk_ids), evidence_texts, payload_index, family_map
+            question, answer, list(cited_chunk_ids), list(ce_topk_chunk_ids), evidence_texts, payload_index, family_map,
         )
         grader_score = int(g.get("score", 0))
     except Exception as exc:
@@ -603,8 +604,8 @@ def phase_build(dry: bool):
                             and rank_of(head150, u, payload_index, family_map) <= kk
                         )
                         for u in gold_units
-                    )
-                )
+                    ),
+                ),
             )
 
         ce_cache["questions"][qid] = {
@@ -810,7 +811,7 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else ce_topk_chunk_ids
     m = compute_metrics(
-        resp, built, question, ce_topk_chunk_ids, context_ids, gold_chunk_ids, gold_units, payload_index, family_map
+        resp, built, question, ce_topk_chunk_ids, context_ids, gold_chunk_ids, gold_units, payload_index, family_map,
     )
     m.update({
         "question_id": qid,
@@ -929,7 +930,7 @@ def _oracle_task(qid, question, qd, payload_index, family_map, gold_index, clien
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else []
     m = compute_metrics(
-        resp, built, question, gold_ids, context_ids, set(gold_ids), gold_units, payload_index, family_map
+        resp, built, question, gold_ids, context_ids, set(gold_ids), gold_units, payload_index, family_map,
     )
     m.update({
         "question_id": qid,
@@ -1225,9 +1226,8 @@ def phase_analyze():
         curve = [llm_recs.get((qid, k), {}).get("answer_correctness", 0.0) for k in K_VALUES]
         if all(curve[i] <= curve[i + 1] + 1e-9 for i in range(len(curve) - 1)):
             mono += 1
-        else:
-            if len(mon_examples) < 15:
-                mon_examples.append({"qid": qid, "curve": [round(c, 3) for c in curve]})
+        elif len(mon_examples) < 15:
+            mon_examples.append({"qid": qid, "curve": [round(c, 3) for c in curve]})
     monotonic = {"fully_monotonic": mono, "non_monotonic": total_qs - mono, "total": total_qs, "examples": mon_examples}
 
     # --- Transitions (section 18): per-question K-by-K correctness ---
@@ -1625,7 +1625,7 @@ def phase_report():
     A(
         f"Holds CE v2_K500, retrieval, RRF, context assembly, prompts, and the LLM model fixed; "
         f"varies only K (CE-ranked candidates supplied to the LLM) over all 150 questions, "
-        f"K ∈ {{{', '.join(map(str, ks))}}}, plus a gold-context oracle."
+        f"K ∈ {{{', '.join(map(str, ks))}}}, plus a gold-context oracle.",
     )
     A("")
     A(
@@ -1633,21 +1633,21 @@ def phase_report():
         f"{k100 * 100:.1f}% (K=100); the oracle reaches {o['answer_correctness'] * 100:.1f}%. "
         f"Retrieval ceiling R@100 = {ret.get('100', 0) * 100:.1f}% (MRR@10={agg['mrr_at_10']}, "
         f"NDCG@10={agg['ndcg_at_10']}). The diagnostic conclusion is: "
-        f"{diag['q6']['interpretation']}."
+        f"{diag['q6']['interpretation']}.",
     )
     A("")
     A("## 2. Objective & Experimental Design")
     A("")
     A(
         "Determine whether, *once CE v2 has ranked the evidence*, giving the LLM more of that "
-        "ranked evidence improves answer quality -- and isolate the cause if it does not."
+        "ranked evidence improves answer quality -- and isolate the cause if it does not.",
     )
     A("")
     A("The only experimental variable is **K = number of CE-ranked candidates supplied to the LLM**.")
     A("")
     A(
         "NOT done (spec section 3): no CE retraining/weight modification; no change to retrieval arms, "
-        "RRF, benchmark, gold labels, LLM model, prompts, citation mechanism, sanitizer, or abstention logic."
+        "RRF, benchmark, gold labels, LLM model, prompts, citation mechanism, sanitizer, or abstention logic.",
     )
     A("")
     A("## 3. Benchmark")
@@ -1656,14 +1656,14 @@ def phase_report():
         f"{agg['n_questions']} questions carry a CE ranking. Gold resolution uses Experiment A's "
         f"corrected provision-level mapping via `matches_gold` / `rank_of` (NOT the prior E2E gold-ID "
         f"implementation). Gold chunk IDs = all payload point IDs where `matches_gold(payload, unit)` "
-        f"is true (find_all_gold_chunk_ids semantics)."
+        f"is true (find_all_gold_chunk_ids semantics).",
     )
     A("")
     A("## 4. Fixed Pipeline & Configuration")
     A("")
     cfg = agg.get("config", {})
     for row in _tbl(
-        ["Item", "Value"], [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)] for k, v in cfg.items()]
+        ["Item", "Value"], [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)] for k, v in cfg.items()],
     ):
         A(row)
     A("")
@@ -1671,7 +1671,7 @@ def phase_report():
     A("")
     A(
         f"K ∈ {{{', '.join(map(str, K_VALUES))}}}. CE scored over the RRF top-500 (complete CE top-K "
-        "ranking cached once; all K contexts derived from it)."
+        "ranking cached once; all K contexts derived from it).",
     )
     A("")
     A("## 6. Primary LLM Metrics (per K)")
@@ -1680,7 +1680,7 @@ def phase_report():
     A("|---|---|")
     A(
         "| Answer correctness | token-overlap (jaccard+coverage)/2 over acceptable_conclusion "
-        "(mirrors eval_e2e_v2.compute_question_metrics) |"
+        "(mirrors eval_e2e_v2.compute_question_metrics) |",
     )
     A("| Coverage | |answer ∩ conclusion| / |conclusion| |")
     A("| Jaccard | |answer ∩ conclusion| / |answer ∪ conclusion| |")
@@ -1722,7 +1722,7 @@ def phase_report():
     A(
         f"Oracle: correctness={o['answer_correctness'] * 100:.1f}%, grader-correct="
         f"{o['grader_correct_rate'] * 100:.1f}%, citation_recall={o['citation_recall'] * 100:.1f}%, "
-        f"groundedness={o['groundedness'] * 100:.1f}%."
+        f"groundedness={o['groundedness'] * 100:.1f}%.",
     )
     A("")
     A("## 8. Retrieval Recall by K")
@@ -1811,14 +1811,14 @@ def phase_report():
             f"Mean context chunks={nm['mean_total_context_chunks']}, gold-in-context="
             f"{nm['mean_gold_chunks_in_context']} ({nm['frac_gold'] * 100:.1f}%), "
             f"non-gold={nm['mean_non_gold_chunks']} ({nm['frac_non_gold'] * 100:.1f}%), "
-            f"KG={nm['mean_kg_items']} ({nm['frac_kg'] * 100:.1f}%)."
+            f"KG={nm['mean_kg_items']} ({nm['frac_kg'] * 100:.1f}%).",
         )
     A("")
     A("## 14. Monotonicity")
     mo = agg["monotonicity"]
     A(
         f"Correctness non-decreasing in K for {mo['fully_monotonic']}/{mo['total']} questions "
-        f"({(mo['fully_monotonic'] / max(mo['total'], 1)) * 100:.1f}%)."
+        f"({(mo['fully_monotonic'] / max(mo['total'], 1)) * 100:.1f}%).",
     )
     if mo.get("examples"):
         A("")
@@ -1838,7 +1838,7 @@ def phase_report():
         f"Per-question K-curves + oracle written to `{PER_QUESTION_JSON}`. "
         f"Each record: correctness/coverage/jaccard, citation recall/precision, "
         f"groundedness, abstention, latency, context tokens/chars, grader score (0/1/2), "
-        f"failure-relevant flags, and cited chunk IDs."
+        f"failure-relevant flags, and cited chunk IDs.",
     )
     A("")
     A("## 17. Plot Gallery")
@@ -1856,7 +1856,7 @@ def phase_report():
     A(
         f"Total correctness transitions across consecutive K values: "
         f"{tr['total_transitions']} "
-        f"(incl->excl: {tr['correct_to_incorrect']}, excl->incl: {tr['incorrect_to_correct']})."
+        f"(incl->excl: {tr['correct_to_incorrect']}, excl->incl: {tr['incorrect_to_correct']}).",
     )
     A("")
     A("## 19. Failure Classification (A-E) at K=max(K)")
@@ -1866,7 +1866,7 @@ def phase_report():
         f"B(gold present, wrong)={fk['B_gold_present_wrong']}, "
         f"C(correct)={fk['C_correct']}, "
         f"D(recoverable via oracle)={fk['D_recoverable']}, "
-        f"E(LLM/rec limit, oracle also wrong)={fk['E_llm_limit']}."
+        f"E(LLM/rec limit, oracle also wrong)={fk['E_llm_limit']}.",
     )
     A("")
     A("## 20 / 21. Diagnostic Questions & Answers")
@@ -1891,19 +1891,19 @@ def phase_report():
     A(
         "- Token-overlap correctness is harsh (needs paraphrase of the exact "
         "`acceptable_conclusion`); the protocol §13 grader (`grade_answer`, 0/1/2) is "
-        "reported alongside as a richer legal signal, but citation-dependent."
+        "reported alongside as a richer legal signal, but citation-dependent.",
     )
     A(
         "- The FSSAI `grounded_qa` system prompt is fixed for all questions (including "
-        "non-FSSAI domains); prompt tuning between K is forbidden by the spec."
+        "non-FSSAI domains); prompt tuning between K is forbidden by the spec.",
     )
     A(
         "- Citation metrics require the LLM to emit `[n]` / `Section N` markers; if it does "
-        "not, citation rates are ~0 and grader provision_correct becomes citation-dependent."
+        "not, citation rates are ~0 and grader provision_correct becomes citation-dependent.",
     )
     A(
         "- The answerability-rejection heuristic is disabled to isolate K (fixed config); "
-        "its real-world effect (truncating context to ~1.5 chunks) is a separate finding."
+        "its real-world effect (truncating context to ~1.5 chunks) is a separate finding.",
     )
     A("- `poolside/laguna-s-2.1:free` free-tier OpenRouter model; latency/rates are free-tier-limited.")
     A("")
@@ -1914,17 +1914,17 @@ def phase_report():
         A(
             "The oracle corrects a meaningful portion of the gap -> the ceiling is retrieval/CE-selection "
             "limited. **Next experiment:** tune CE reranker legal weights (sec/act/exact/lex) and/or "
-            "add a 2nd-stage reranker; re-run Experiment B at the new operating point."
+            "add a 2nd-stage reranker; re-run Experiment B at the new operating point.",
         )
     elif "LLM" in interp:
         A(
             "The oracle does NOT correct the gap -> ceiling is LLM reasoning/generation. **Next experiment:** "
-            "query-type-aware prompts + domain-matched system prompts + longer context window; re-run B."
+            "query-type-aware prompts + domain-matched system prompts + longer context window; re-run B.",
         )
     else:
         A(
             "Mixed -- both contribute. **Next experiment (A):** CE legal-weight sweep; "
-            "(B): domain-aware prompts; re-run B under each."
+            "(B): domain-aware prompts; re-run B under each.",
         )
     A("")
     A("---")
@@ -1932,7 +1932,7 @@ def phase_report():
         f"*Generated {time.strftime('%Y-%m-%d %H:%M:%S')} from "
         f"`evaluation/experiment_b_topk_eval.py`. "
         f"LLM calls={agg['llm_record_count'] + agg['oracle_record_count']} "
-        f"(K-curve={agg['llm_record_count']}, oracle={agg['oracle_record_count']}).*"
+        f"(K-curve={agg['llm_record_count']}, oracle={agg['oracle_record_count']}).*",
     )
 
     SUMMARY_MD.write_text("\n".join(L), encoding="utf-8")
@@ -1997,7 +1997,7 @@ def phase_validate():
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Experiment B -- CE Top-K -> LLM answer-quality curve")
     ap.add_argument(
-        "--phase", default="all", choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"]
+        "--phase", default="all", choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"],
     )
     ap.add_argument("--dry", action="store_true", help="build in dry mode (no LLM, with verification + context math)")
     ap.add_argument("--stub", action="store_true", help="use stub LLM (validate pipeline, no real API calls)")

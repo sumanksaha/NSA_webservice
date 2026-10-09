@@ -33,8 +33,6 @@ from app.rag.retrieval.reference_extractor import CONFIDENCE_MEDIUM, extract_ref
 
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    pass
 
 
 class Intent(StrEnum):
@@ -357,10 +355,9 @@ def _assess_complexity(query: str) -> ComplexityLevel:
 
     if conjunction_count >= 2 or section_refs >= 2 or multi_hop_hits >= 2:
         return ComplexityLevel.MULTI_HOP
-    elif conjunction_count >= 1 or section_refs >= 1 or evidence_type_hits >= 2:
+    if conjunction_count >= 1 or section_refs >= 1 or evidence_type_hits >= 2:
         return ComplexityLevel.MULTI_PART
-    else:
-        return ComplexityLevel.SIMPLE
+    return ComplexityLevel.SIMPLE
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +400,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                     jurisdiction=jurisdiction,
                     temporal_scope=temporal_scope,
                     entities=[side],
-                )
+                ),
             )
         return requirements
 
@@ -454,7 +451,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
             jurisdiction=jurisdiction,
             temporal_scope=temporal_scope,
             entities=list(entities.values()),
-        )
+        ),
     )
 
     # Detect additional requirements from keywords (plural-tolerant,
@@ -471,7 +468,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for exception mentions
@@ -489,7 +486,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for procedure mentions (Part A: Intent.PROCEDURE previously had
@@ -497,7 +494,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
     # entry and _extract_intent never returns it, so procedure asks degraded
     # to plain provision lookups).
     if _mentions_any(
-        q, ["procedure", "appeal", "hearing", "tribunal", "compounding", "how to", "apply for"]
+        q, ["procedure", "appeal", "hearing", "tribunal", "compounding", "how to", "apply for"],
     ) and not any(r.evidence_type == EvidenceRequirement.PROCEDURE for r in requirements):
         req_id += 1
         requirements.append(
@@ -510,7 +507,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for cross-references
@@ -526,7 +523,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for definitions
@@ -544,7 +541,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Adversarial permission questions ("Does Section X permit Y?") hinge on
@@ -567,7 +564,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for amendment/repeal chains (Phase 3: temporal queries decompose
@@ -598,7 +595,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Check for enforcement-authority mentions ("who can enforce it",
@@ -628,7 +625,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Yes/no offence questions ("Has he committed an offence ...?") need an
@@ -651,7 +648,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     # Yes/no permission questions ("Does Section X permit Y?") are answered
@@ -673,7 +670,7 @@ def _extract_requirements(query: str) -> list[Requirement]:
                 jurisdiction=jurisdiction,
                 temporal_scope=temporal_scope,
                 entities=list(entities.values()),
-            )
+            ),
         )
 
     return requirements
@@ -756,7 +753,7 @@ def _construct_tasks(
                 question=_question_for_requirement(req, query),
                 requirement=req,
                 dependency=[],
-            )
+            ),
         )
 
     wave2_tasks: list[EvidenceTask] = []
@@ -1123,6 +1120,7 @@ class QueryPlanner:
 
         Returns:
             List of Evidence Tasks with dependencies.
+
         """
         result = self.plan(query)
         return result.tasks
@@ -1135,6 +1133,7 @@ class QueryPlanner:
 
         Returns:
             DecompositionResult containing tasks, DAG, and coverage info.
+
         """
         if not query or not query.strip():
             return DecompositionResult(
@@ -1233,7 +1232,7 @@ class QueryPlanner:
 
 
 def _build_requirement_graph(
-    requirements: list[Requirement], tasks: list[EvidenceTask], query: str
+    requirements: list[Requirement], tasks: list[EvidenceTask], query: str,
 ) -> AnswerRequirementGraph:
     """Build an AnswerRequirementGraph from extracted requirements + derived tasks.
 
@@ -1266,7 +1265,7 @@ def _build_requirement_graph(
                 conditions=list(req.conditions),
                 jurisdiction=req.jurisdiction,
                 temporal_scope=req.temporal_scope,
-            )
+            ),
         )
 
     # Requirement dependencies mirror task dependencies: if task T2 depends on

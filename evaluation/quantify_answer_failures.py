@@ -125,7 +125,7 @@ def sample_worksheet(rows: list[dict[str, Any]], n_total: int = 40, seed: int = 
     for members in buckets.values():
         rng.shuffle(members)
     picked: dict[str, dict[str, Any]] = {}
-    indices = {cat: 0 for cat in ranked}
+    indices = dict.fromkeys(ranked, 0)
     while len(picked) < n_total and any(indices[c] < len(buckets[c]) for c in ranked):
         for cat in ranked:
             if len(picked) >= n_total or indices[cat] >= len(buckets[cat]):

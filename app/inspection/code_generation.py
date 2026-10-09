@@ -24,6 +24,7 @@ class InspectionCodeGenerator:
 
         Returns:
             str: Generated inspection code (e.g., 'INSP-2026-00001')
+
         """
         year = datetime.now(UTC).year
         seq_key = f"inspection:{year}"

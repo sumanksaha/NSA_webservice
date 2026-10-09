@@ -31,21 +31,18 @@ sys.path.insert(0, str(ROOT / "evaluation"))
 
 from app.rag.research.corpus_discovery import (
     BODY_PRESENT_MIN_CHARS,
-    BODY_PROBE_MIN_HITS,
+    SCHEMA_VERSION,
     DiscoveryReport,
     GapAnalyzer,
     IngestionRequest,
     ProvisionGap,
     SourceDocumentGap,
+    classify_provision_gap,
+    discover_corpus_gaps,
+    group_provisions_by_document,
 )
-from app.rag.research.corpus_discovery import SCHEMA_VERSION
-from app.rag.research.corpus_discovery import classify_provision_gap
-from app.rag.research.corpus_discovery import discover_corpus_gaps
-from app.rag.research.corpus_discovery import group_provisions_by_document
-
 from evaluation.benchmark import load_gold_registry as _load_gold_registry
 from evaluation.benchmark import load_gold_sources as _load_gold_sources
-
 
 # --------------------------------------------------------------------------- #
 # Test fixtures
@@ -83,6 +80,7 @@ def _make_payload_index(
 
     Args:
         entries: list of ``(chunk_id, act_name, text, section_number)`` tuples.
+
     """
     index: dict[str, dict] = {}
     if entries:
@@ -121,7 +119,7 @@ def _make_mock_question(qid: str, provision_ids: list[str]) -> SimpleNamespace:
                 document_id=rec.get("document_id"),
                 gain=2.0,
                 role="primary",
-            )
+            ),
         )
 
     def primary_units(units=units):
@@ -146,7 +144,7 @@ def _step0_targets_file(path: Path, qids: list[str]) -> None:
                 "intervention": "manual_corpus_fill",
                 "keep_if": "retrieval_failure_not_corpus_absence",
                 "reject_if": "corpus_discovery_covers_gap",
-            }
+            },
         ),
         encoding="utf-8",
     )
@@ -203,7 +201,7 @@ class TestClassifyProvisionGap:
         assert "chunk_X" in evidence
 
     def test_body_missing_when_chunk_has_empty_text(self):
-        """chunk exists but body text is empty → body_missing."""
+        """Chunk exists but body text is empty → body_missing."""
         prov = _make_provision(pid="test:s1", chunk_id="chunk_A", section="1")
         payload_index = _make_payload_index([("chunk_A", "Test Act", "", "1")])
         gap_type, evidence = classify_provision_gap(prov, payload_index, None)
@@ -226,7 +224,7 @@ class TestClassifyProvisionGap:
         text = "Section 1 of the Act deals with this matter. See also s.1 for details."
         prov = _make_provision(pid="test:s1", chunk_id="chunk_A", section="1")
         payload_index = _make_payload_index([("chunk_A", "Test Act", text, "1")])
-        gap_type, evidence = classify_provision_gap(prov, payload_index, None)
+        gap_type, _evidence = classify_provision_gap(prov, payload_index, None)
         assert gap_type == "present"
 
     def test_present_at_min_resolved_chars_boundary(self):
@@ -237,7 +235,7 @@ class TestClassifyProvisionGap:
         body = "A" * BODY_PRESENT_MIN_CHARS
         prov = _make_provision(pid="test:s9999", chunk_id="chunk_A", section="9999")
         payload_index = _make_payload_index([("chunk_A", "Test Act", body, "9999")])
-        gap_type, evidence = classify_provision_gap(prov, payload_index, None)
+        gap_type, _evidence = classify_provision_gap(prov, payload_index, None)
         assert gap_type == "present"
 
     def test_body_missing_below_min_chars_no_probes(self):
@@ -245,7 +243,7 @@ class TestClassifyProvisionGap:
         body = "A" * (BODY_PRESENT_MIN_CHARS - 1)
         prov = _make_provision(pid="test:s9999", chunk_id="chunk_A", section="9999")
         payload_index = _make_payload_index([("chunk_A", "Test Act", body, "9999")])
-        gap_type, evidence = classify_provision_gap(prov, payload_index, None)
+        gap_type, _evidence = classify_provision_gap(prov, payload_index, None)
         assert gap_type == "body_missing"
 
     def test_instrument_level_section_none(self):
@@ -424,25 +422,9 @@ class TestDiscoverCorpusGaps:
         act = prov.get("act", "")
         family = pid.split(":", 1)[0]
 
-        # All provisions: classify with and without the payload index.
-        report_no_index = discover_corpus_gaps(
-            provisions=provisions,
-            payload_index=None,
-            sources=_load_gold_sources(),
-            questions=[],
-        )
-        report_with_index = discover_corpus_gaps(
-            provisions=provisions,
-            payload_index=_make_payload_index([(f"chunk_{pid}", act, f"Section {section} body text here and more", section)]),
-            sources=_load_gold_sources(),
-            questions=[],
-        )
-        # We can't easily build a coverage_index through the public API,
-        # but with chunk_id=None the coverage_index path requires FamilyMap.
-        # Instead, test the pure classify_provision_gap directly.
         # Verify that the coverage_index path correctly marks it present.
         coverage_index = {(family, section): [f"chunk_{pid}"]}
-        gap_type, evidence = classify_provision_gap(prov, _make_payload_index([(f"chunk_{pid}", act, f"Section {section} body text here and more", section)]), coverage_index)
+        gap_type, _evidence = classify_provision_gap(prov, _make_payload_index([(f"chunk_{pid}", act, f"Section {section} body text here and more", section)]), coverage_index)
         assert gap_type == "present"
         # And without coverage_index, it's unindexed (chunk_id is null).
         gap_type2, _ = classify_provision_gap(prov, _make_payload_index([(f"chunk_{pid}", act, f"Section {section} body text here and more", section)]), None)
@@ -454,7 +436,7 @@ class TestDiscoverCorpusGaps:
 
         monkeypatch.setattr(mod, "_load_gold_provisions", lambda: (_ for _ in ()).throw(FileNotFoundError("no file")))
         monkeypatch.setattr(mod, "_load_gold_sources", lambda: {"collections": {}})
-        monkeypatch.setattr(mod, "_load_benchmark_questions", lambda: [])
+        monkeypatch.setattr(mod, "_load_benchmark_questions", list)
 
         report = discover_corpus_gaps()
         assert report.total_provisions == 0
@@ -503,11 +485,11 @@ class TestGapAnalyzer:
     def test_step0_cross_reference_covered_targets(self, tmp_path):
         """Step 0 targets whose primary units are all missing → covered by discovery."""
         provisions = _load_gold_registry()
-        pid = list(provisions.keys())[0]
+        pid = next(iter(provisions.keys()))
         q = _make_mock_question("QTEST1", [pid])
 
         report = discover_corpus_gaps(
-            provisions={pid: provisions[pid]},
+            provisions={pid: next(iter(provisions.values()))},
             payload_index={},
             sources=_load_gold_sources(),
             questions=[q],
@@ -535,10 +517,10 @@ class TestGapAnalyzer:
     def test_step0_cross_reference_missing_file(self, tmp_path):
         """When the step0 targets file doesn't exist, return a safe empty result."""
         provisions = _load_gold_registry()
-        pid = list(provisions.keys())[0]
+        pid = next(iter(provisions.keys()))
         q = _make_mock_question("QTEST1", [pid])
         report = discover_corpus_gaps(
-            provisions={pid: provisions[pid]},
+            provisions={pid: next(iter(provisions.values()))},
             payload_index={},
             sources=_load_gold_sources(),
             questions=[q],
@@ -576,14 +558,14 @@ class TestGapAnalyzer:
     def test_severity_assignment(self):
         """Provisions referenced by >= 3 questions get 'high' severity."""
         provisions = _load_gold_registry()
-        pid = list(provisions.keys())[0]
+        pid = next(iter(provisions.keys()))
         # 3 questions all reference the same provision.
         q1 = _make_mock_question("Q1", [pid])
         q2 = _make_mock_question("Q2", [pid])
         q3 = _make_mock_question("Q3", [pid])
 
         report = discover_corpus_gaps(
-            provisions={pid: provisions[pid]},
+            provisions={pid: next(iter(provisions.values()))},
             payload_index={},
             sources=_load_gold_sources(),
             questions=[q1, q2, q3],
@@ -689,7 +671,7 @@ class TestDataclassSerialization:
                     chunk_id=None,
                     gap_type="unindexed",
                     evidence="test",
-                )
+                ),
             ],
         )
         d = g.to_dict()
@@ -735,7 +717,7 @@ class TestDataclassSerialization:
                     chunk_id=None,
                     gap_type="unindexed",
                     evidence="e",
-                )
+                ),
             ],
             source_gaps=[],
             ingestion_requests=[],

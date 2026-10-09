@@ -15,7 +15,7 @@ import pytest
 from app.bill_generator.lookup import lookup_fbo_issues
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_session():
     """Real Flask-SQLAlchemy session against a throwaway SQLite DB."""
     from app import create_app

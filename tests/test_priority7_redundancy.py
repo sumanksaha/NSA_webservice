@@ -295,7 +295,7 @@ class TestTriggerBackup:
         from app.utils.sync import trigger_backup
 
         with patch(
-            "app.services.backup_coordinator.run_backup", return_value={"sheets": True, "airtable": True, "excel": True}
+            "app.services.backup_coordinator.run_backup", return_value={"sheets": True, "airtable": True, "excel": True},
         ) as m:
             r = trigger_backup()
             assert m.call_count == 1

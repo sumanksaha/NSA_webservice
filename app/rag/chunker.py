@@ -166,6 +166,7 @@ class Chunk:
             chunk_index: Sequential index of this chunk within the document.
             parent_chunk_id: Chunk id of the parent paragraph (chunk hierarchy).
             embedding_model: Embedding model name stamped on the payload.
+
         """
         doc = document or {}
         text_raw = paragraph.get("text", "")
@@ -182,33 +183,33 @@ class Chunk:
         covered = _l4_section_headers(text, act_name)
         if not section and covered:
             section = covered[0]
-        citations_raw = cast(list[Any], paragraph.get("citations") or [])
-        references_raw = cast(list[Any], doc.get("references") or [])
-        confidence_raw = cast(dict[Any, Any], paragraph.get("confidence_scores") or {})
+        citations_raw = cast("list[Any]", paragraph.get("citations") or [])
+        references_raw = cast("list[Any]", doc.get("references") or [])
+        confidence_raw = cast("dict[Any, Any]", paragraph.get("confidence_scores") or {})
         return cls(
             chunk_id=str(uuid.uuid4()),
             document_id=str(doc.get("document_id") or uuid.uuid4()),
             chunk_index=chunk_index,
             chunk_text=text,
             chunk_char_count=len(text),
-            word_count=int(cast(int, paragraph.get("word_count", 0))),
-            document_uri=cast(str, doc.get("document_uri", "")),
-            document_title=cast(str, doc.get("title") or doc.get("document_title") or ""),
-            document_type=cast(str, paragraph.get("document_type") or doc.get("type") or "unknown"),
-            authority=cast(str, doc.get("authority", "")),
-            jurisdiction=cast(str, doc.get("jurisdiction", "")),
-            state=cast(str, doc.get("state", "")),
-            act_name=cast(str, doc.get("act_name") or ""),
+            word_count=int(cast("int", paragraph.get("word_count", 0))),
+            document_uri=cast("str", doc.get("document_uri", "")),
+            document_title=cast("str", doc.get("title") or doc.get("document_title") or ""),
+            document_type=cast("str", paragraph.get("document_type") or doc.get("type") or "unknown"),
+            authority=cast("str", doc.get("authority", "")),
+            jurisdiction=cast("str", doc.get("jurisdiction", "")),
+            state=cast("str", doc.get("state", "")),
+            act_name=cast("str", doc.get("act_name") or ""),
             effective_date=_as_iso(doc.get("effective_date")),
             enactment_date=_as_iso(doc.get("enactment_date")),
             amended_date=_as_iso(doc.get("amended_date")),
             is_current=bool(doc.get("is_current", True)),
             section_number=str(section) if section else None,
             sections_covered=covered,
-            section_title=_extract_section_title(text),
+            section_title=_extract_markdown_section_title(text) or _extract_section_title(text),
             subsection=_extract_subsection_markers(text),
             clause_number=_extract_clause_number(text),
-            hierarchy_level=int(cast(int, paragraph.get("hierarchy_depth", 0) or 0)),
+            hierarchy_level=int(cast("int", paragraph.get("hierarchy_depth", 0) or 0)),
             parent_chunk_id=parent_chunk_id,
             citations=[c.get("reference", "") for c in citations_raw if c.get("reference")],
             references=list(references_raw),
@@ -265,6 +266,7 @@ def _propagate_sections(chunks: list[Chunk]) -> int:
 
     Returns:
         The number of chunks that gained an inherited section.
+
     """
     active_number: str | None = None
     active_title: str | None = None
@@ -294,6 +296,7 @@ class Chunker:
             ``app.services.legal_engine.get_legal_engine``.
         embedding_model: Model name to stamp on chunks; when omitted the
             ``RAG_EMBEDDING_MODEL`` config value is used if available.
+
     """
 
     def __init__(self, engine: Any | None = None, embedding_model: str | None = None) -> None:
@@ -330,6 +333,7 @@ class Chunker:
 
         Returns:
             List of chunks in document order; empty for empty/blank input.
+
         """
         if not text or not text.strip():
             return []
@@ -377,6 +381,17 @@ def _as_iso(value: Any) -> str | None:
     if hasattr(value, "isoformat"):
         return str(value.isoformat())
     return str(value)
+
+
+def _extract_markdown_section_title(text: str) -> str | None:
+    """Extract a section title from a markdown heading, e.g. ``## Seizure`` → ``Seizure``."""
+    match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", text)
+    if match:
+        title = match.group(1).strip()
+        # Remove trailing markdown markers like * or _
+        title = re.sub(r"[*_]+$", "", title).strip()
+        return title
+    return None
 
 
 def _extract_section_title(text: str) -> str | None:

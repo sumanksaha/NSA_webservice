@@ -55,7 +55,8 @@ def _cached_ids(arm: str) -> set[str]:
 def _oracle_query(question, registry: dict) -> tuple[str, str]:
     """Gold provision text query (§13).  The registry carries provision
     *titles* (full provision text is not stored in the frozen gold registry);
-    the title is used verbatim.  Returns (query, source_id)."""
+    the title is used verbatim.  Returns (query, source_id).
+    """
     units = question.primary_units() or question.relevant_units()
     if not units:
         return question.question, ""

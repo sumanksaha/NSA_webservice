@@ -1,5 +1,4 @@
-"""
-Example usage of the Legal Paragraph Detection Engine.
+"""Example usage of the Legal Paragraph Detection Engine.
 
 This file contains practical examples demonstrating how to use the engine
 to process various types of legal documents.

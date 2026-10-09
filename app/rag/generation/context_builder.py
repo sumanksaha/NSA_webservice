@@ -65,6 +65,7 @@ class ContextBuilder:
     Args:
         max_context_chars: Maximum total characters for the context text.
         max_chunks: Maximum number of chunks to include.
+
     """
 
     # 2.6: Per-query-type context budgets, as CAPS relative to the operator's
@@ -231,6 +232,7 @@ class ContextBuilder:
 
         Returns:
             (enough_evidence: bool, missing: list of requirement IDs)
+
         """
         covered_types: set[str] = set()
 

@@ -200,7 +200,7 @@ def _resolve_units(raw: dict[str, Any], registry: dict[str, dict[str, Any]]) -> 
                 document_id=rec.get("document_id"),
                 gain=gain,
                 role=role,
-            )
+            ),
         )
 
     for pid in raw.get("primary_provisions", []):

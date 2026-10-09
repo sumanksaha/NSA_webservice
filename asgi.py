@@ -63,7 +63,7 @@ class QueryAgentRequest(BaseModel):
     filters: dict[str, Any] | None = Field(default=None, description="Metadata filters.")
     thread_id: str | None = Field(default=None, description="Resume a paused HITL run (M5).")
     fso_advisory: bool | None = Field(
-        default=None, description="Per-request override of FSO_ADVISOR_ENABLED (ADR-0003)."
+        default=None, description="Per-request override of FSO_ADVISOR_ENABLED (ADR-0003).",
     )
     is_repeat_offender: bool = Field(default=False, description="Repeat-offender flag for the FSO selector.")
     has_lab_report: bool = Field(default=False, description="Lab-report flag for the FSO selector.")
@@ -317,5 +317,5 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000))
+        "asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000)),
     )  # pi-lens-ignore: ast-grep:unchecked-throwing-call-python

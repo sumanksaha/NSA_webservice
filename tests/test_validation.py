@@ -195,14 +195,14 @@ class TestMandatorySectionsRule:
 
     def test_case_file_without_sections_errors(self):
         results = MandatorySectionsRule().evaluate(
-            _base_case_data(case_type="case_file", fields={"applicable_sections": None})
+            _base_case_data(case_type="case_file", fields={"applicable_sections": None}),
         )
         assert len(results) == 1
         assert results[0].severity == "ERROR"
 
     def test_case_file_with_sections_clean(self):
         results = MandatorySectionsRule().evaluate(
-            _base_case_data(case_type="case_file", fields={"applicable_sections": "55, 56"})
+            _base_case_data(case_type="case_file", fields={"applicable_sections": "55, 56"}),
         )
         assert results == []
 
@@ -350,7 +350,7 @@ class TestDuplicateEvidenceRule:
             evidence=[
                 {"id": "a", "file_hash": "h" * 64, "filename": "photo.jpg"},
                 {"id": "b", "file_hash": "h" * 64, "filename": "copy.jpg"},
-            ]
+            ],
         )
         results = DuplicateEvidenceRule().evaluate(case_data)
         assert len(results) == 1
@@ -361,7 +361,7 @@ class TestDuplicateEvidenceRule:
             evidence=[
                 {"id": "a", "file_hash": "a" * 64, "filename": "one.jpg"},
                 {"id": "b", "file_hash": "b" * 64, "filename": "two.jpg"},
-            ]
+            ],
         )
         assert DuplicateEvidenceRule().evaluate(case_data) == []
 
@@ -427,7 +427,7 @@ class TestTimelineConsistencyRule:
 class TestDocumentCompletenessRule:
     def test_unlinked_annexure_errors(self):
         case_data = _base_case_data(
-            annexures=[{"id": "x", "caption": "Report", "case_id": None, "adjudication_id": None}]
+            annexures=[{"id": "x", "caption": "Report", "case_id": None, "adjudication_id": None}],
         )
         results = DocumentCompletenessRule().evaluate(case_data)
         assert any(r.severity == "ERROR" and "not linked" in r.message for r in results)

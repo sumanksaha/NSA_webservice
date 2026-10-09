@@ -43,7 +43,7 @@ _ALIASES: tuple[tuple[str, str], ...] = tuple(
         ((family, alias) for family, aliases in _FAMILY_ALIASES for alias in aliases),
         key=lambda pair: len(pair[1]),
         reverse=True,
-    )
+    ),
 )
 
 _PUNCT_RE = re.compile(r"[^a-z0-9]+")

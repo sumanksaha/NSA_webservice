@@ -141,7 +141,7 @@ class TestCrossRefAdapterActAware:
                         position=0,
                         context="",
                         confidence=0.9,
-                    )
+                    ),
                 ]
 
         adapter = CrossRefAdapter(engine=_FakeEngine())
@@ -164,7 +164,7 @@ class TestCrossRefAdapterActAware:
                         position=0,
                         context="",
                         confidence=0.9,
-                    )
+                    ),
                 ]
 
         class _Chunk:
@@ -241,7 +241,7 @@ class TestDeterministicActResolution:
     def test_regulation_without_act_name_defaults_to_fss(self):
         # Backward compatible: the FSSAI corpus carries no act_name.
         pl = _point(
-            "a", "reg-1", doc_type="regulation", title="Food Safety and Standards (Licensing) Regulations, 2011"
+            "a", "reg-1", doc_type="regulation", title="Food Safety and Standards (Licensing) Regulations, 2011",
         )["payload"]
         assert legal_act_of(pl) == "Food Safety and Standards Act, 2006"
 
@@ -258,10 +258,10 @@ class TestDeterministicActResolution:
 
     def test_record_build_uses_act_name(self):
         pl = _point(
-            "a", "reg-1", doc_type="regulation", title="PWM Rules", act_name="Environment (Protection) Act, 1986"
+            "a", "reg-1", doc_type="regulation", title="PWM Rules", act_name="Environment (Protection) Act, 1986",
         )["payload"]
         rec = build_deterministic_record(
-            {"id": "a", "payload": pl}, {"section": None, "title": "", "inherited": False}, []
+            {"id": "a", "payload": pl}, {"section": None, "title": "", "inherited": False}, [],
         )
         assert rec["legal_location"]["act"]["value"] == "Environment (Protection) Act, 1986"
 

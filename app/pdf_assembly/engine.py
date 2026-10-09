@@ -161,7 +161,7 @@ class PDFAssemblyEngine:
         """
         try:
             html_content = CrossReferenceEngine().annotate_html(
-                html_content, case_id=case_id, adjudication_id=adjudication_id
+                html_content, case_id=case_id, adjudication_id=adjudication_id,
             )
         except Exception as exc:
             self.logger.warning("Cross-reference post-processing skipped: %s", exc)
@@ -543,7 +543,7 @@ class PDFAssemblyEngine:
             """
 
             html_content = html_content.replace(
-                '<table class="footer-table">', f'{qr_code_html}<table class="footer-table">'
+                '<table class="footer-table">', f'{qr_code_html}<table class="footer-table">',
             )
             return html_content
         except Exception as exc:
@@ -590,7 +590,7 @@ class PDFAssemblyEngine:
         """
 
         html_content = html_content.replace(
-            '<table class="footer-table">', f'{signature_html}<table class="footer-table">'
+            '<table class="footer-table">', f'{signature_html}<table class="footer-table">',
         )
         return html_content
 
@@ -715,7 +715,6 @@ class PDFAssemblyEngine:
         Delegates to the ``pdf_assembly/index_page.html`` Jinja2 template,
         eliminating the 155-line f-string that previously lived inline.
         """
-
         from flask import render_template
 
         now = datetime.now(UTC)

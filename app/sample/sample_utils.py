@@ -16,6 +16,7 @@ def generate_sample_code() -> str:
 
     Raises:
         RuntimeError: Always — sample codes are FSO-entered, never generated.
+
     """
     raise RuntimeError("Sample codes are manually entered by the FSO. Use validate_sample_code() to check the format.")
 
@@ -35,6 +36,7 @@ def sample_to_sync_row(sample: Any, synced_at: str = "") -> dict:
     Returns:
         Dict keyed to ``app.services.sheets_sync.SHEET_COLUMNS`` column order
         for the ``sample_repo`` module.
+
     """
     return {
         "id": sample.id,

@@ -82,7 +82,7 @@ def load_payloads(live: bool) -> list[dict]:
                 app.config.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
                 app.config.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
                 app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-            ])
+            ]),
         )
         index = build_payload_index(
             lambda coll: QdrantStore(collection_name=coll),
@@ -191,18 +191,18 @@ def render(report: dict) -> str:
     lines.append("=" * 72)
     lines.append(
         f"  overall subsection coverage : {report['subsection_overall']:,}/{report['n_chunks']:,} "
-        f"({report['pct_overall']}%)"
+        f"({report['pct_overall']}%)",
     )
     lines.append(
         f"  substantive (hl>=2)         : {report['substantive_with_subsection']:,}/"
-        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)"
+        f"{report['substantive_chunks']:,} ({report['pct_substantive']}%)",
     )
     lines.append(
-        f"  hl1 header/boilerplate      : {report['hl1_with_subsection']:,}/{report['hl1_chunks']:,} (semantically N/A)"
+        f"  hl1 header/boilerplate      : {report['hl1_with_subsection']:,}/{report['hl1_chunks']:,} (semantically N/A)",
     )
     lines.append(f"  distinct subsection values  : {report['distinct_subsection_values']}")
     lines.append(
-        f"  cross-section collisions    : {report['cross_section_colliding_values']} values appear in >=2 sections"
+        f"  cross-section collisions    : {report['cross_section_colliding_values']} values appear in >=2 sections",
     )
     lines.append(f"  degenerate sections         : {report['degenerate_sections']} (all chunks share one value)")
     lines.append("")
@@ -211,7 +211,7 @@ def render(report: dict) -> str:
         lines.append(
             f"{d:<12}{row['chunks']:>8}{row['with_subsection']:>6}{row['pct_overall']:>6.1f}%"
             f"{row['substantive_chunks']:>8}{row['substantive_with_subsection']:>10}"
-            f"{row['pct_substantive']:>6.1f}%"
+            f"{row['pct_substantive']:>6.1f}%",
         )
     rec = report["clause_number_recovery"]
     lines.append("")

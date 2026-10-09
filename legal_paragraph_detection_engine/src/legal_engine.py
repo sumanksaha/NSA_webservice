@@ -84,8 +84,7 @@ class ProcessingConfig:
 
 
 class LegalParagraphEngine:
-    """
-    Main engine for processing legal documents and extracting structured paragraphs.
+    """Main engine for processing legal documents and extracting structured paragraphs.
 
     Features:
     - Hierarchical numbering detection
@@ -121,8 +120,7 @@ class LegalParagraphEngine:
         }
 
     def process_document(self, text: str, doc_type_info: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """
-        Process a legal document and extract structured paragraphs.
+        """Process a legal document and extract structured paragraphs.
 
         Args:
             text: Legal document text
@@ -141,6 +139,7 @@ class LegalParagraphEngine:
             cached object (shared — treat as read-only). Cached hits skip
             :meth:`get_processing_stats`, so ``total_documents`` counts actual
             parses, not calls.
+
         """
         with self._lock:
             start_time = datetime.now()
@@ -189,7 +188,7 @@ class LegalParagraphEngine:
 
                 # Step 7: Build hierarchical structure
                 structured_output = self._build_hierarchical_structure(
-                    sections, clauses_data, citations, paragraphs, document_type
+                    sections, clauses_data, citations, paragraphs, document_type,
                 )
 
                 # Step 8: Update statistics
@@ -374,7 +373,7 @@ class LegalParagraphEngine:
         return relevant
 
     def _calculate_confidence_scores(
-        self, paragraph: ParagraphInfo, citations: list[LegalCitation]
+        self, paragraph: ParagraphInfo, citations: list[LegalCitation],
     ) -> dict[str, float]:
         """Calculate calibrated confidence scores for an extracted paragraph.
 

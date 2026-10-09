@@ -55,6 +55,7 @@ class SparseRetriever:
             (``Qdrant/bm25`` — no local fastembed at query time).  Gated by
             ``RAG_QDRANT_BM25``; requires qdrant-client >= 1.12 and a cluster
             with BM25-in-cluster support (verified on the provisioned one).
+
     """
 
     def __init__(
@@ -133,6 +134,7 @@ class SparseRetriever:
 
         Returns:
             A :class:`SearchResult` with sparse-retrieved chunks.
+
         """
         import time
 
@@ -167,7 +169,7 @@ class SparseRetriever:
                         search = getattr(self._store, "search_sparse_text", None)
                         if not callable(search):
                             raise RuntimeError(
-                                "store lacks search_sparse_text (RAG_QDRANT_BM25 requires qdrant-client >= 1.12)"
+                                "store lacks search_sparse_text (RAG_QDRANT_BM25 requires qdrant-client >= 1.12)",
                             )
                         points = search(query, top_k=top_k, filters=filters)
                     else:

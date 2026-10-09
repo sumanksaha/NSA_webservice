@@ -45,7 +45,7 @@ def _print_benchmark_report(report: dict, per_entry_rows: list[dict] | None = No
                     f"{row['f1']:.2f}",
                     f"{row['dep_accuracy']:.2f}",
                     row["query"][:52],
-                )
+                ),
             )
         print("-" * 72)
     for key in (

@@ -173,7 +173,6 @@ class TestCitationExtractor(unittest.TestCase):
 
     def test_extractor_thread_safety(self):
         """Test thread safety."""
-
         text = "See (2020 SC 123/456) and (2021 HC 789/123)."
 
         results = []

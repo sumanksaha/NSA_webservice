@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Improved script to convert HTML legal document templates to AsciiDoc format.
+"""Improved script to convert HTML legal document templates to AsciiDoc format.
 
 Better HTML parsing and AsciiDoc generation for maintainability while
 preserving HTML templates as reference.
@@ -186,7 +185,7 @@ def convert_html_to_asciidoc(html_path: Path, adoc_path: Path, html_ref_dir: Pat
 
         with open(ref_path, "w", encoding="utf-8") as f:
             f.write(
-                f"<!DOCTYPE html>\n<html>\n<head>\n<title>HTML Reference: {html_path.name}</title>\n</head>\n<body>\n"
+                f"<!DOCTYPE html>\n<html>\n<head>\n<title>HTML Reference: {html_path.name}</title>\n</head>\n<body>\n",
             )
             f.write(f"<h1>HTML Reference for {title}</h1>\n")
             f.write(f"<p><strong>Original File:</strong> {html_path}</p>\n")

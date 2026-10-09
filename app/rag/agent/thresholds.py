@@ -47,3 +47,16 @@ SUFFICIENCY_SIGNAL_THRESHOLDS: dict[str, float] = {
     "contradiction": 0.0,  # conflict ratio must stay below this
     "temporal": 0.0,  # temporal-restriction conflict ratio below this
 }
+
+#: Retry-adoption guard (SPEC-3): the retry answer is adopted only when
+#: measurably better than baseline.  These margins live next to the existing
+#: gates so the selector has a single tuning point.
+
+#: Minimum soft-score improvement (``answer_correctness`` delta) required to
+#: adopt the retry arm when binary correctness is tied.
+RETRY_ADOPT_SOFT_DELTA_AT_LEAST: float = 0.05
+
+#: Maximum groundedness regression tolerated when adopting the retry arm.
+#: The retry may be slightly less grounded if it is substantially more
+#: correct, but not arbitrarily so.
+RETRY_ADOPT_GROUNDEDNESS_SLACK: float = 0.10

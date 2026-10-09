@@ -11,8 +11,8 @@ conn = e.connect()
 # Check existing triggers
 result = conn.execute(
     text(
-        "SELECT trigger_name, event_manipulation, event_object_table FROM information_schema.triggers WHERE event_manipulation='DELETE' AND event_object_table IN ('fssai_licenses', 'fssai_registrations')"
-    )
+        "SELECT trigger_name, event_manipulation, event_object_table FROM information_schema.triggers WHERE event_manipulation='DELETE' AND event_object_table IN ('fssai_licenses', 'fssai_registrations')",
+    ),
 ).fetchall()
 print(f"Existing DELETE triggers: {result}")
 
@@ -32,7 +32,7 @@ conn.execute(
             TG_TABLE_NAME;
     END;
     $$ LANGUAGE plpgsql;
-""")
+"""),
 )
 conn.commit()
 print("Function created")
@@ -45,7 +45,7 @@ conn.execute(
     BEFORE DELETE ON fssai_licenses
     FOR EACH ROW
     EXECUTE FUNCTION prevent_fssai_delete();
-""")
+"""),
 )
 conn.commit()
 print("Trigger created on fssai_licenses")
@@ -58,7 +58,7 @@ conn.execute(
     BEFORE DELETE ON fssai_registrations
     FOR EACH ROW
     EXECUTE FUNCTION prevent_fssai_delete();
-""")
+"""),
 )
 conn.commit()
 print("Trigger created on fssai_registrations")
@@ -66,8 +66,8 @@ print("Trigger created on fssai_registrations")
 # Verify
 result = conn.execute(
     text(
-        "SELECT trigger_name, event_manipulation, event_object_table FROM information_schema.triggers WHERE event_manipulation='DELETE' AND event_object_table IN ('fssai_licenses', 'fssai_registrations')"
-    )
+        "SELECT trigger_name, event_manipulation, event_object_table FROM information_schema.triggers WHERE event_manipulation='DELETE' AND event_object_table IN ('fssai_licenses', 'fssai_registrations')",
+    ),
 ).fetchall()
 print(f"DELETE triggers after creation: {result}")
 

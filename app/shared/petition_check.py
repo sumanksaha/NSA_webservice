@@ -38,6 +38,7 @@ def missing_required_fields(required_labels: dict[str, str], context: dict) -> d
     Args:
         required_labels: Mapping of context key → human-readable label.
         context: Template render context.
+
     """
     missing: dict[str, str] = {}
     for field, label in required_labels.items():

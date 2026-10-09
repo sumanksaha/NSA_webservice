@@ -37,6 +37,7 @@ class FSSAIRuleSuggesterPlugin(RuleProvider):
         Returns:
             Dict with ``sections`` (list[str]) and ``reasoning`` (dict) keys,
             matching the return type of :func:`suggest_sections`.
+
         """
         from app.utils.suggester import suggest_sections  # lazy
 

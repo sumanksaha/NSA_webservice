@@ -1,0 +1,349 @@
+{
+  "version": "stratified-sample-v2-improved",
+  "summary": {
+    "source": "stratified_eval_sample_v2_audit.json",
+    "n_original_rejected": 35,
+    "n_improved": 17,
+    "n_not_improvable": 18,
+    "n_already_cleaned": 0,
+    "n_no_matching_gold": 0,
+    "n_existing_cleaned": 45,
+    "n_total_after": 62,
+    "recommendation": "Improved items are added to the cleaned benchmark with 'improved' status. Not-improvable items remain in the rejection pool for future human review.",
+    "scoring": {
+      "2": "Correct legal answer that directly addresses the cited provision.",
+      "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+      "0": "Incorrect answer or unsupported legal assertion.",
+      "NA": "Invalid benchmark question."
+    }
+  },
+  "not_improvable_reasons": {
+    "no_gold_standard": "No corresponding gold standard question in gold_provisions_templates_v1.json",
+    "identical_question": "Gold question identical to rejected question - no actual improvement possible"
+  },
+  "questions": [
+    {
+      "qid": "swm_rules:segregation",
+      "question": "According to Section N/A of the Solid Waste Management Rules, 2026, what action is required for an entity?",
+      "section": "N/A",
+      "act": "Solid Waste Management Rules, 2026",
+      "title": "Segregation & door-to-door collection",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section N/A of the Solid Waste Management Rules, 2026, what is prohibited regarding Segregation & door-to-door collection?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s5",
+      "question": "Under Section 5 of the Environment (Protection) Act, 1986, what is permitted regarding Restrictions on use of forest/substrates?",
+      "section": "5",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Restrictions on use of forest/substrates",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 5 of the Environment (Protection) Act, 1986, what is allowed regarding Restrictions on use of forest/substrates?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:regs/contaminants",
+      "question": "What is the maximum fine under Section Reg of the Food Safety and Standards Act, 2006?",
+      "section": "Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "FSS (Contaminants, Toxins and Residues) Regulations, 2011 (instrument-level)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section Reg of the Food Safety and Standards Act, 2006, what is restricted regarding FSS (Contaminants, Toxins and Residues) Regulations, 2011 (instrument-level)?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "fine",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s8",
+      "question": "Under Section 8 of the Environment (Protection) Act, 1986, what is restricted regarding Cognizance of offences?",
+      "section": "8",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Cognizance of offences",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "benchmark_status": "improved",
+      "original_rejected_question": "Under Section 8 of the Environment (Protection) Act, 1986, what is allowed regarding Cognizance of offences?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s75",
+      "question": "Under Section 75 of the Food Safety and Standards Act, 2006, what is prohibited regarding Establishment of Food Safety Appellate Tribunal?",
+      "section": "75",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Establishment of Food Safety Appellate Tribunal",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 75 of the Food Safety and Standards Act, 2006?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "cpa:product_liability",
+      "question": "What does Section 88-92 state about Product liability?",
+      "section": "88-92",
+      "act": "Consumer Protection Act, 2019",
+      "title": "Product liability",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine under Section 88-92 of the Consumer Protection Act, 2019?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "question",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:s51",
+      "question": "Under Section 51 of the Food Safety and Standards Act, 2006, what is allowed regarding Jurisdiction of courts / summary trial?",
+      "section": "51",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Jurisdiction of courts / summary trial",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum prison term under Section 51 of the Food Safety and Standards Act, 2006?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "partnership:s22",
+      "question": "What is the maximum fine amount under Section 22 of the Indian Partnership Act, 1932?",
+      "section": "22",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Partner's authority to bind firm",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine under Section 22 of the Indian Partnership Act, 1932?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "fine",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "livestock_quarantine",
+      "question": "According to Section N/A of the The Bengal Livestock Import Quarantine Rules, 1944, what action is required for a company?",
+      "section": "N/A",
+      "act": "The Bengal Livestock Import Quarantine Rules, 1944",
+      "title": "Import quarantine of livestock",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum fine amount under Section N/A of the The Bengal Livestock Import Quarantine Rules, 1944?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "srf:injunction",
+      "question": "What does Section 53 state about Injunction?",
+      "section": "53",
+      "act": "Specific Relief Act, 2017",
+      "title": "Injunction",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum penalty under Section 53 of the Specific Relief Act, 2017?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "question",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "wbpt:s30",
+      "question": "Under Section 30 of the West Bengal Premises Tenancy Act, 1997, what is permitted regarding Prohibition of sub-letting without permission?",
+      "section": "30",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Prohibition of sub-letting without permission",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_2",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What is the maximum imprisonment term under Section 30 of the West Bengal Premises Tenancy Act, 1997?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "epa:s2(e)",
+      "question": "According to Section 2(e) of the Environment (Protection) Act, 1986, what action is required for a person?",
+      "section": "2(e)",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Environmentally sensitive area",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 2(e) of the Environment (Protection) Act, 1986, what action is required for an organization?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s9",
+      "question": "According to Section 9 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for an entity?",
+      "section": "9",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Consent to establish/operate",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 9 of the Water (Prevention and Control of Pollution) Act, 1974, what action is required for a company?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "partnership:s30",
+      "question": "Under Section 30 of the Indian Partnership Act, 1932, what is allowed regarding Implied authority of partner?",
+      "section": "30",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Implied authority of partner",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "benchmark_status": "improved",
+      "original_rejected_question": "According to Section 30 of the Indian Partnership Act, 1932, what action is required for an organization?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "fssai:meat-policy",
+      "question": "What is the maximum penalty under Section Sch/Reg of the Food Safety and Standards Act, 2006?",
+      "section": "Sch/Reg",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Meat safety regulations (FSSAI)",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section Sch/Reg state about Meat safety regulations (FSSAI)?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "penalty",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "pwm_rules:epr",
+      "question": "According to Section N/A of the Plastic Waste Management Rules, what action is required for any individual?",
+      "section": "N/A",
+      "act": "Plastic Waste Management Rules",
+      "title": "Extended Producer Responsibility",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section N/A state about Extended Producer Responsibility?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "duty_operator",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    },
+    {
+      "qid": "water_act:s12",
+      "question": "Under Section 12 of the Water (Prevention and Control of Pollution) Act, 1974, what is restricted regarding Penalty?",
+      "section": "12",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Penalty",
+      "domain": "ENVIRONMENT_POLLUTION,PUBLIC_HEALTH",
+      "source_template": "make_question_4",
+      "benchmark_status": "improved",
+      "original_rejected_question": "What does Section 12 state about Penalty?",
+      "improvement_reason": "The supplied section/title/question type is internally unreliable or the question asks for a quantity (penalty/imprisonment) not supported by the cited provision.",
+      "answer_type": "penalty",
+      "answer_scoring": {
+        "2": "Correct legal answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      }
+    }
+  ]
+}

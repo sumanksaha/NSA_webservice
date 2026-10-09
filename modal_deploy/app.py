@@ -119,7 +119,8 @@ class Inference:
     @modal.fastapi_endpoint(method="POST", label="embed")
     def embed(self, body: EmbedRequest) -> dict:
         """Dense embeddings — plain ``encode()``, no normalization, matching
-        how the collection was indexed."""
+        how the collection was indexed.
+        """
         vectors = self.emb.encode(body.texts)
         return {"vectors": [v.tolist() for v in vectors]}
 

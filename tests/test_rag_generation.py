@@ -11,6 +11,7 @@ DB-dependent tests (GenerationLogger) spin up in-memory SQLite.
 from __future__ import annotations
 
 import hashlib
+import typing
 
 from app.rag.generation import (
     CitationTracker,
@@ -147,7 +148,7 @@ class TestContextBuilder:
                 text='"licence" means a grant of authority to manufacture or sell.',
                 section_number="2",
                 document_title="FSS Act 2006",
-            )
+            ),
         ]
         built = ContextBuilder().build("what is a licence", chunks, query_type="definition")
         assert built.enough_evidence is True
@@ -193,7 +194,7 @@ class TestContextBuilder:
         chunks = _make_chunks(3)
         built = ContextBuilder(max_chunks=10).build("q", chunks)
         assert [c["chunk_id"] for c in built.citations] == ["c0", "c1", "c2"]
-        assert 'role=' not in built.context
+        assert "role=" not in built.context
 
     def test_no_evidence_set_output_is_byte_identical(self):
         # Regression guard: the default path must not change at all.
@@ -271,7 +272,6 @@ class TestContextBuilder:
     # the prompt, not from the corpus. These lock in the window fix.
 
     def test_per_type_budget_does_not_exceed_configured_ceiling(self):
-        from app.shared.config import cfg
         from app.rag.generation.context_builder import ContextBuilder
 
         small = ContextBuilder(query_type="general", max_context_chars=8_000, max_chunks=6)
@@ -393,7 +393,8 @@ class TestGroundedLLMClient:
 
 class TestLLMRateLimitRetry:
     """§6.1.1: 429s used to exhaust 3 attempts in ~3s and surface as an empty
-    answer.  The client now backs off properly and honours Retry-After."""
+    answer.  The client now backs off properly and honours Retry-After.
+    """
 
     def _client(self, monkeypatch, **env):
         monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
@@ -468,7 +469,7 @@ class TestLLMRateLimitRetry:
 
         class FakeResp:
             status_code = 429
-            headers = {"Retry-After": "7"}
+            headers: typing.ClassVar[dict[str, str]] = {"Retry-After": "7"}
             request = object()
 
             def raise_for_status(self):
@@ -751,7 +752,7 @@ class TestRunGenerationPipeline:
                 "document_title": "FSS Act",
                 "document_type": "act",
                 "authority": "FSSAI",
-            }
+            },
         ]
         result = run_generation_pipeline(query="Section 55?", chunks=chunks, query_type="section_lookup")
         assert result["query"] == "Section 55?"
@@ -774,7 +775,8 @@ class TestRunGenerationPipeline:
 
     def test_kg_contract_fusion_disabled_when_flag_false(self, monkeypatch):
         """RAG_KG_FUSION=false: no KG contract provisions injected, and
-        no KG call is made (off-path for the now-activated .env default)."""
+        no KG call is made (off-path for the now-activated .env default).
+        """
         monkeypatch.setenv("RAG_KG_FUSION", "false")
         chunks = [
             {
@@ -785,7 +787,7 @@ class TestRunGenerationPipeline:
                 "document_title": "FSS Act",
                 "document_type": "act",
                 "authority": "FSSAI",
-            }
+            },
         ]
         called = []
 
@@ -801,7 +803,8 @@ class TestRunGenerationPipeline:
     def test_kg_contract_fusion_injects_and_fuses(self, monkeypatch):
         """RAG_KG_FUSION on: the retrieval contract's provisions become KG
         chunks and are RRF-fused into the context; the response reports the
-        injection."""
+        injection.
+        """
         chunks = [
             {
                 "chunk_id": "c1",
@@ -811,7 +814,7 @@ class TestRunGenerationPipeline:
                 "document_title": "FSS Act",
                 "document_type": "act",
                 "authority": "FSSAI",
-            }
+            },
         ]
 
         def _fake_provisions_for_query(query, kg_queries, limit=10):
@@ -827,7 +830,7 @@ class TestRunGenerationPipeline:
                     "legal_domain": "ENVIRONMENT_POLLUTION",
                     "status": "current",
                     "text": "Provision 3 body",
-                }
+                },
             ]
 
         monkeypatch.setattr("kg.queries.provisions_for_query", _fake_provisions_for_query)
@@ -852,7 +855,7 @@ class TestRunGenerationPipeline:
                 "document_title": "FSS Act",
                 "document_type": "act",
                 "authority": "FSSAI",
-            }
+            },
         ]
 
         def _boom(*a, **k):
@@ -900,7 +903,7 @@ class TestGenerationLogger:
         db.session.add(FSO(fso_name="Test Officer"))
         db.session.commit()
         log = RAGQueryLog(
-            query="What is Section 55?", query_type="section_lookup", content_hash=hashlib.sha256(b"test").hexdigest()
+            query="What is Section 55?", query_type="section_lookup", content_hash=hashlib.sha256(b"test").hexdigest(),
         )
         db.session.add(log)
         db.session.commit()
@@ -1007,7 +1010,7 @@ class TestGenerateRoute:
                             "text": "Section 1 text.",
                             "section_number": "1",
                             "document_title": "FSS Act",
-                        }
+                        },
                     ],
                 },
             )

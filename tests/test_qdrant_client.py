@@ -271,7 +271,7 @@ class TestQdrantStorePoints:
                 vector=[0.1] * 768,
                 sparse_vector={"indices": [1, 5], "values": [0.9, 0.3]},
                 payload={"document_id": "d1"},
-            )
+            ),
         ]
         store.upsert_points(points)
         structs = client.calls["upserted"][0]["points"]
@@ -323,7 +323,7 @@ class TestQdrantStorePoints:
                 vector=[0.1] * 768,
                 sparse_vector={"indices": [1, 5], "values": [0.9, 0.4]},
                 payload={"document_id": "d1"},
-            )
+            ),
         ])
         struct = client.calls["upserted"][0]["points"][0]
         assert struct.vector["dense"] == [0.1] * 768
@@ -355,7 +355,8 @@ class TestQdrantStorePoints:
     def test_upsert_points_batches_large_payloads(self, monkeypatch):
         """Regression (2026-08-09): a single giant upsert (2523 hybrid points)
         was dropped by Qdrant Cloud ("connection forcibly closed").  Points are
-        now upserted in small request batches."""
+        now upserted in small request batches.
+        """
         monkeypatch.setattr("app.rag.qdrant_client.UPSERT_BATCH_SIZE", 40)
         client = _make_mock_client()
         store = QdrantStore(client=client)
@@ -371,7 +372,8 @@ class TestQdrantStorePoints:
 
     def test_upsert_points_batch_retries_once_then_succeeds(self):
         """A transient failure on one batch is retried in place and does not
-        abort the remaining batches."""
+        abort the remaining batches.
+        """
         attempts = {"n": 0}
         real = _make_mock_client()
 
@@ -543,7 +545,7 @@ class TestQdrantStorePoints:
                     "with_payload": True,
                     "with_vectors": False,
                 },
-            )
+            ),
         ]
         assert results[0].id == "c1"
 
@@ -618,7 +620,7 @@ class TestQdrantStorePoints:
         received = {}
 
         def query_points(
-            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw,
         ):
             received.update(
                 collection_name=collection_name,
@@ -655,7 +657,7 @@ class TestQdrantStorePoints:
         received = {}
 
         def query_points(
-            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw,
         ):
             received.update(prefetch=prefetch, query=query)
             return SimpleNamespace(points=points)
@@ -760,7 +762,7 @@ class TestBuildFilter:
             "must": [
                 {"key": "section_number", "match": {"value": "55"}},
                 {"key": "is_current", "match": {"value": True}},
-            ]
+            ],
         }
 
     def test_empty_filter_yields_empty_dict(self):

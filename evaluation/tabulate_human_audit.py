@@ -36,12 +36,12 @@ blocks = re.split(r"\n### (Q\d{3}) ", text)
 records: list[dict] = []
 for i in range(1, len(blocks), 2):
     qid, body = blocks[i], blocks[i + 1]
-    jz = re.search(r"\*\*Your judgment:\*\*(.*?)(?=\n---|\Z)", body, re.S)
+    jz = re.search(r"\*\*Your judgment:\*\*(.*?)(?=\n---|\Z)", body, re.DOTALL)
     j = jz.group(1) if jz else ""
 
     def grab(label: str) -> str:
         # [ \t]* (not \s*) so the pattern cannot cross into the next judgment line
-        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
+        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.IGNORECASE | re.MULTILINE)
         if not m:
             return ""
         return m.group(1).split("#", 1)[0].strip()
@@ -214,7 +214,7 @@ lines = [
 print("evaluator_miss:", verdicts["evaluator_miss"], "| model_wrong:", verdicts["model_wrong"])
 print("ceiling stratum:", dict(ceiling_split))
 print(
-    "random-III evaluator_miss rate:", f"{iii_evaluator_miss_rate:.1%}", "-> ~", round(iii_evaluator_miss_est), "of 130"
+    "random-III evaluator_miss rate:", f"{iii_evaluator_miss_rate:.1%}", "-> ~", round(iii_evaluator_miss_est), "of 130",
 )
 print("rescored C-O3 binary rate: ~", round(sample_rescored_rate, 4))
 print("wrote human_audit_tabulation.json + human_audit_tabulation.md")

@@ -195,7 +195,7 @@ def _guard(results: dict[str, dict[str, Any]], raw: dict[str, list]) -> None:
             errs = [r.get("exception") for r in raw.get(cond, []) if r.get("exception")]
             raise SystemExit(
                 f"ABORT: condition {cond!r} produced 0 scored results "
-                f"({len(errs)} exceptions). First error: {errs[0] if errs else 'n/a'}"
+                f"({len(errs)} exceptions). First error: {errs[0] if errs else 'n/a'}",
             )
     if any(res.get("n_errors", 0) > 0 for res in results.values()):
         print(f"  WARNING: partial results {broken}", flush=True)
@@ -238,10 +238,10 @@ def main() -> int:
 
     print(f"A/B on {len(tasks)} questions, arm={ARM}, model={os.environ.get('RAG_LLM_MODEL')}", flush=True)
     off = run_condition(
-        "packing_off", tasks, False, compute_question_metrics, questions, gold_index, family_map, payload_index
+        "packing_off", tasks, False, compute_question_metrics, questions, gold_index, family_map, payload_index,
     )
     on = run_condition(
-        "packing_on", tasks, True, compute_question_metrics, questions, gold_index, family_map, payload_index
+        "packing_on", tasks, True, compute_question_metrics, questions, gold_index, family_map, payload_index,
     )
 
     a_off, a_on = _agg(off), _agg(on)

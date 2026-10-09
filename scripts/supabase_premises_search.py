@@ -17,7 +17,7 @@ def search_premises(name: str):
         for table in ("fssai_licenses", "fssai_registrations"):
             pk_col = "license_no" if table == "fssai_licenses" else "registration_no"
             stmt = text(
-                f"SELECT {pk_col}, company_name, full_address, expiry_date FROM {table} WHERE company_name ILIKE :name"
+                f"SELECT {pk_col}, company_name, full_address, expiry_date FROM {table} WHERE company_name ILIKE :name",
             )
             resp = conn.execute(stmt, {"name": f"%{name}%"})
             for row in resp.mappings():

@@ -128,7 +128,8 @@ def test_templates_do_not_reference_fictional_nodes():
 
 def test_section_pattern_targets_legal_provision():
     """``$section`` is substituted with a ``provision_id``, so the template
-    must match that property on the real label."""
+    must match that property on the real label.
+    """
     cypher = generate_cypher("permission", {"section": "FSS_ACT_2006_SEC_31"})
     assert cypher is not None
     assert ":LegalProvision" in cypher

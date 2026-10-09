@@ -431,7 +431,7 @@ def derive_targets(q: Any) -> dict[str, Any]:
     }
     instrument_families = sorted({str(u.family) for u in units if getattr(u, "section", None) is None})
     mention_secs = section_mentions(getattr(q, "question", "")) | section_mentions(
-        getattr(q, "acceptable_conclusion", "")
+        getattr(q, "acceptable_conclusion", ""),
     )
     return {
         "families": families,
@@ -442,7 +442,7 @@ def derive_targets(q: Any) -> dict[str, Any]:
 
 
 def _ordered_target_chunks(
-    pairs: set[tuple[str, str]], deps: Deps
+    pairs: set[tuple[str, str]], deps: Deps,
 ) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -455,7 +455,7 @@ def _ordered_target_chunks(
 
 
 def load_fill_decisions() -> dict[str, str]:
-    """qid -> 'approved' | 'rejected' from the human fill-decision artifact."""
+    """Qid -> 'approved' | 'rejected' from the human fill-decision artifact."""
     if not FILL_APPROVAL_JSON.exists():
         return {}
     try:
@@ -562,7 +562,7 @@ def find_ref_fill(qid: str, deps: Deps) -> dict[str, Any]:
                 "overlap": round(ov, 4),
                 "snippet": re.sub(r"\s+", " ", txt).strip()[:240],
                 "gate": g,
-            }
+            },
         )
         if len(out["candidates"]) >= REF_FILL_K:
             break
@@ -818,7 +818,7 @@ def cut_contrastive_options(
                 continue
             seen.add(key)
             score = (2 if OPERATIVE_RE.search(sent) else 0) + token_overlap(
-                question, sent
+                question, sent,
             )["correctness"]
             cands.append(
                 {
@@ -827,7 +827,7 @@ def cut_contrastive_options(
                     "authority": str(authority),
                     "sentence": sent,
                     "score": round(score, 4),
-                }
+                },
             )
     cands.sort(key=lambda c: (-c["score"], c["chunk_id"]))
     out = cands[: max(options_max, 1)]
@@ -1013,7 +1013,7 @@ class Ledger:
         with self._lock:
             if label == RN_LABEL:
                 raise RuntimeError(
-                    f"budget violation: generation call attempted on {RN_LABEL} qid {qid}"
+                    f"budget violation: generation call attempted on {RN_LABEL} qid {qid}",
                 )
             if int(self.data.get("spent_total", 0)) >= self.cap:
                 return False
@@ -1050,7 +1050,7 @@ class _StubClient:
                 "authority": "stub authority",
                 "remedy": "stub remedy",
                 "missing_element_if_any": None,
-            }
+            },
         )
         return types.SimpleNamespace(
             text=text,
@@ -1104,14 +1104,14 @@ def check_registrations() -> dict[str, Any]:
 
         payload = json.loads(PREREG_JSON.read_text(encoding="utf-8"))
         prereg_ok = bool(validate_prereg(payload).get("ok")) and payload.get(
-            "qid_assignment"
+            "qid_assignment",
         ) == "assigned"
     checks["step1_registered"] = prereg_ok
 
     safety_ok = False
     if SAFETY_JSON.exists():
         safety_ok = bool(
-            validate_safety_payload(json.loads(SAFETY_JSON.read_text(encoding="utf-8"))).get("ok")
+            validate_safety_payload(json.loads(SAFETY_JSON.read_text(encoding="utf-8"))).get("ok"),
         )
     checks["step2_registered"] = safety_ok
 
@@ -1139,7 +1139,7 @@ def preflight(deps: Deps) -> dict[str, Any]:
                     "reason": "contrastive_options_cut",
                     "n_options": len(opts),
                     "options_preview": [o["sentence"][:80] for o in opts[:3]],
-                }
+                },
             )
         else:
             records.append(
@@ -1149,7 +1149,7 @@ def preflight(deps: Deps) -> dict[str, Any]:
                     "verdict": "not_run",
                     "reason": "no_contrastive_span",
                     "n_options": 0,
-                }
+                },
             )
 
     by_label: dict[str, dict[str, int]] = {}
@@ -1216,7 +1216,7 @@ def render_plan_md(plan: dict) -> str:
                 codes = (r.get("fill_gate") or {}).get("reason_codes") or []
                 extra = f" — {', '.join(codes[:5])}"
             lines.append(
-                f"- **{r['qid']}** (`{r['label']}`) — {r['verdict']}: {r.get('reason')}{extra}"
+                f"- **{r['qid']}** (`{r['label']}`) — {r['verdict']}: {r.get('reason')}{extra}",
             )
     lines += ["", "## Eligible qids", ""]
     for r in plan["records"]:
@@ -1661,7 +1661,7 @@ def build_report(checkpoint: dict[str, dict], deps: Deps) -> dict[str, Any]:
             (json.loads(assign_path.read_text(encoding="utf-8")).get("buckets") or {})
             .get(RN_LABEL, {})
             .get("qids")
-            or []
+            or [],
         )
 
     counts: dict[str, dict[str, int]] = {}
@@ -1675,7 +1675,7 @@ def build_report(checkpoint: dict[str, dict], deps: Deps) -> dict[str, Any]:
     for qid, rec in checkpoint.items():
         label = rec.get("label") or labels.get(qid) or "unknown"
         status = rec.get("status") or "not_run"
-        counts.setdefault(label, {s: 0 for s in STATUS_ORDER})
+        counts.setdefault(label, dict.fromkeys(STATUS_ORDER, 0))
         counts[label][status] = counts[label].get(status, 0) + 1
         reasons.setdefault(label, Counter())[str(rec.get("reason"))] += 1
         if rec.get("step1") and not rec["step1"].get("keep"):
@@ -1745,7 +1745,7 @@ def build_report(checkpoint: dict[str, dict], deps: Deps) -> dict[str, Any]:
             set(checkpoint)
             | set(buckets.get("evidence_missing", {}).get("qids") or [])
             | set(buckets.get("model_wrong", {}).get("qids") or [])
-            | set(buckets.get(RN_LABEL, {}).get("qids") or [])
+            | set(buckets.get(RN_LABEL, {}).get("qids") or []),
         )
     n_total = n_registered or (n_tabulated + n_rn)
     rn_share = (n_rn / n_total) if n_total else 0.0
@@ -1754,7 +1754,7 @@ def build_report(checkpoint: dict[str, dict], deps: Deps) -> dict[str, Any]:
     # step1 queue — must be tabulated before §5.3 recovery rules may fire.
     # RN qids are never run, so they are excluded.
     queue_non_rn = set(buckets.get("evidence_missing", {}).get("qids") or []) | set(
-        buckets.get("model_wrong", {}).get("qids") or []
+        buckets.get("model_wrong", {}).get("qids") or [],
     )
     labels_non_rn = {q for q, lab in labels.items() if lab != RN_LABEL}
     registered_non_rn = queue_non_rn | labels_non_rn
@@ -1877,11 +1877,11 @@ def render_report_md(report: dict) -> str:
         tot = sum(c.values())
         lines.append(
             f"| `{label}` | {c.get('recovered', 0)} | {c.get('rejected', 0)} | "
-            f"{c.get('unchanged', 0)} | {c.get('not_run', 0)} | {tot} |"
+            f"{c.get('unchanged', 0)} | {c.get('not_run', 0)} | {tot} |",
         )
     rn = report["reference_narrow"]
     lines.append(
-        f"| `{RN_LABEL}` | — | — | {rn['n']} | — | {rn['n']} |"
+        f"| `{RN_LABEL}` | — | — | {rn['n']} | — | {rn['n']} |",
     )
     completeness = (
         "**complete** — all queued qids tabulated"
@@ -1930,7 +1930,7 @@ def render_report_md(report: dict) -> str:
     lines += ["", "## Aggregate soft scores (after per-label counts)", "", "| Label | n | soft before | soft after |", "|---|---:|---:|---:|"]
     for label, s in report["soft_scores"].items():
         lines.append(
-            f"| `{label}` | {s['n']} | {s['soft_before_mean']} | {s['soft_after_mean']} |"
+            f"| `{label}` | {s['n']} | {s['soft_before_mean']} | {s['soft_after_mean']} |",
         )
     lines += [
         "",
@@ -2004,7 +2004,7 @@ def render_fill_review_md(payload: dict) -> str:
             lines.append(
                 f"| {i} | {c['section'] or '—'} | {c['overlap']} | "
                 f"{cg.get('decision', 'n/a')} | {cg.get('reference_quality_score', 'n/a')} | "
-                f"{cg.get('semantic_anchor', 'n/a')} | {codes} | {snip}… |"
+                f"{cg.get('semantic_anchor', 'n/a')} | {codes} | {snip}… |",
             )
         lines.append("")
     return "\n".join(lines)
@@ -2027,7 +2027,7 @@ def build_fill_review(deps: Deps) -> dict[str, Any]:
                 "approved": decisions.get(qid) == "approved",
                 "gate": pre.get("fill_gate") or fill.get("gate") or {},
                 "current_reason": pre.get("reason"),
-            }
+            },
         )
     return {
         "experiment": "Step 3 — EM reference-anchored fill review (0 calls)",
@@ -2088,7 +2088,7 @@ def build_gate_report(review: dict[str, Any]) -> dict[str, Any]:
                     "question_sections": cg.get("question_sections"),
                     "candidate_sections": cg.get("candidate_sections"),
                     "snippet": c.get("snippet"),
-                }
+                },
             )
     return {
         "experiment": "Step 3 — EM fill quality gate report (0 calls)",
@@ -2163,7 +2163,7 @@ def render_gate_report_md(report: dict[str, Any]) -> str:
             f"| {c['qid']} | {c['candidate_index']} | {c['section'] or '—'} | "
             f"**{c['decision']}** | {c['reference_quality_score']} | "
             f"{c['semantic_anchor']} | {c['raw_overlap']} | {c['overlap_inflation']} | "
-            f"{'ok' if c['margin_ok'] else 'fail'} | {codes} |"
+            f"{'ok' if c['margin_ok'] else 'fail'} | {codes} |",
         )
     lines += [
         "",
@@ -2216,7 +2216,7 @@ def write_approval(
         ),
     }
     FILL_APPROVAL_JSON.write_text(
-        json.dumps(payload, indent=1, ensure_ascii=False), encoding="utf-8"
+        json.dumps(payload, indent=1, ensure_ascii=False), encoding="utf-8",
     )
     return FILL_APPROVAL_JSON
 
@@ -2253,7 +2253,7 @@ def load_fill_decisions_csv(path) -> tuple[set[str], set[str], dict[str, str], i
     qid_i = _col("qid", "question_id", "question id")
     status_i = _col("final status", "status", "verdict", "decision", "review")
     finding_i = _col(
-        "validation / truthfulness finding", "finding", "notes", "note", "reason"
+        "validation / truthfulness finding", "finding", "notes", "note", "reason",
     )
     if qid_i is None or status_i is None:
         raise ValueError(f"fill-decisions CSV must have qid + status columns (got: {rows[0]})")
@@ -2333,26 +2333,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.review_fills or args.gate_report:
         payload = build_fill_review(deps)
         FILL_REVIEW_JSON.write_text(
-            json.dumps(payload, indent=1, ensure_ascii=False, default=str), encoding="utf-8"
+            json.dumps(payload, indent=1, ensure_ascii=False, default=str), encoding="utf-8",
         )
         FILL_REVIEW_MD.write_text(render_fill_review_md(payload), encoding="utf-8")
         print(
             f"fill review: {payload['n_proposals']} proposal(s), "
             f"{len(payload['approved_qids'])} approved, "
             f"{len(payload['rejected_qids'])} rejected, "
-            f"{payload['n_proposals'] - len(payload['approved_qids']) - len(payload['rejected_qids'])} pending"
+            f"{payload['n_proposals'] - len(payload['approved_qids']) - len(payload['rejected_qids'])} pending",
         )
         print(f"  wrote {FILL_REVIEW_JSON.name}, {FILL_REVIEW_MD.name}")
         if args.gate_report:
             greport = build_gate_report(payload)
             GATE_REPORT_JSON.write_text(
-                json.dumps(greport, indent=1, ensure_ascii=False, default=str), encoding="utf-8"
+                json.dumps(greport, indent=1, ensure_ascii=False, default=str), encoding="utf-8",
             )
             GATE_REPORT_MD.write_text(render_gate_report_md(greport), encoding="utf-8")
             gs = greport["gate_summary"]
             print(
                 f"gate: PASS={gs['PASS']} REVIEW={gs['REVIEW']} REJECT={gs['REJECT']} "
-                f"(candidate-level: {greport['n_candidates']} total)"
+                f"(candidate-level: {greport['n_candidates']} total)",
             )
             print(f"  wrote {GATE_REPORT_JSON.name}, {GATE_REPORT_MD.name}")
         return 0
@@ -2402,7 +2402,7 @@ def main(argv: list[str] | None = None) -> int:
             f"imported: approved={sorted(wanted_ok) or '[]'} "
             f"rejected={len(wanted_no)} "
             f"gate_REJECT_refused={sorted(gate_rejected) or 'none'} "
-            f"undecided_in_csv={n_csv_rows - len(wanted_ok) - len(wanted_no) - len(gate_rejected)}"
+            f"undecided_in_csv={n_csv_rows - len(wanted_ok) - len(wanted_no) - len(gate_rejected)}",
         )
         print(f"  wrote {path.name}")
         return 0
@@ -2473,7 +2473,7 @@ def main(argv: list[str] | None = None) -> int:
             f"approved: +{sorted(wanted - already) or '[]'} "
             f"(total {len(merged)}/{len(proposed)}; "
             f"gate-REJECT refused: {sorted(gate_rejected) or 'none'}; "
-            f"human rejections preserved: {sorted(skipped_human) or 'none'})"
+            f"human rejections preserved: {sorted(skipped_human) or 'none'})",
         )
         print(f"  wrote {path.name}")
         return 0
@@ -2485,7 +2485,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"preflight: eligible={plan['n_eligible_for_generation']} "
             f"projected_spend={plan['projected_spend']}/{plan['budget_cap']} "
-            f"within_budget={plan['within_budget']} rn_queued={plan['reference_narrow_queued']}"
+            f"within_budget={plan['within_budget']} rn_queued={plan['reference_narrow_queued']}",
         )
         print(f"  wrote {RUN_PLAN_JSON.name}, {RUN_PLAN_MD.name}")
         return 0 if plan["within_budget"] else 1
@@ -2495,7 +2495,7 @@ def main(argv: list[str] | None = None) -> int:
         # instead of executing a stale plan written before --approve-fills.
         plan = preflight(deps)
         RUN_PLAN_JSON.write_text(
-            json.dumps(plan, indent=1, ensure_ascii=False, default=str), encoding="utf-8"
+            json.dumps(plan, indent=1, ensure_ascii=False, default=str), encoding="utf-8",
         )
         RUN_PLAN_MD.write_text(render_plan_md(plan), encoding="utf-8")
         print(
@@ -2530,7 +2530,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(
             f"done: processed={result['n_processed']} spent={result['spent']}/{result['cap']} "
-            f"transport_failures={result['transport_failures']}"
+            f"transport_failures={result['transport_failures']}",
         )
         # auto-report after a run
         checkpoint = load_checkpoint(out_jsonl)

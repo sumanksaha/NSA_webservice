@@ -46,7 +46,7 @@ _AUTHORITY_RE = re.compile(
 #: Act") does not match; a leading "The" is allowed.
 _STATUTE_RE = re.compile(
     r"\b[A-Z][A-Za-z0-9&.,()\-]*(?:\s+[A-Z][A-Za-z0-9&.,()\-]*|\s*\([^()]*\)){0,4}\s+"
-    r"(?:Act|Rules?|Regulations?)\b"
+    r"(?:Act|Rules?|Regulations?)\b",
 )
 
 
@@ -60,6 +60,7 @@ class ExtractedClaim:
         entities: Dict of entity-type -> list of extracted values
             (e.g. ``{"section": ["55", "3(1)(a)"], "percent": ["100"]}``).
         section_numbers: Flattened list of section numbers (convenience).
+
     """
 
     text: str
@@ -106,6 +107,7 @@ class ClaimExtractor:
 
         Returns:
             A list of :class:`ExtractedClaim`, in order of appearance.
+
         """
         if not response_text or not response_text.strip():
             return []
@@ -125,7 +127,7 @@ class ClaimExtractor:
                     text=sent.strip(),
                     index=len(claims),
                     entities=entities,
-                )
+                ),
             )
 
         return claims

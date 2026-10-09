@@ -41,6 +41,7 @@ class ClaimVerification:
         authority_score: Best authority weight among supporting evidence.
         temporal_valid: Whether the supporting evidence is temporally consistent.
         contradictions: Contradictions raised against this claim, if any.
+
     """
 
     def __init__(
@@ -228,6 +229,7 @@ class EvidenceTask:
         retrieval: How this task should be retrieved.
         source_requirement_id: Id of the AnswerRequirement this task was
             derived from (planner bookkeeping; ``None`` for external tasks).
+
     """
 
     task_id: str
@@ -280,6 +282,7 @@ class EvidenceTask:
 
         Raises:
             ValueError: when *data* is not a dict or carries no ``task_id``.
+
         """
         if not isinstance(data, dict) or not data.get("task_id"):
             raise ValueError("EvidenceTask dict requires a 'task_id'")
@@ -447,9 +450,8 @@ class TaskDAG:
                 if remaining:
                     # Remaining tasks have circular deps or unresolved deps
                     break
-                else:
-                    # All tasks are completed
-                    break
+                # All tasks are completed
+                break
 
             ready.extend(new_ready)
 
@@ -461,7 +463,6 @@ class TaskDAG:
 
     def topological_order(self) -> list[EvidenceTask]:
         """Return tasks in topological order (dependencies first)."""
-
         visited: set[str] = set()
         order: list[EvidenceTask] = []
 
@@ -483,7 +484,6 @@ class TaskDAG:
 
     def has_cycle(self) -> bool:
         """Check if the DAG has any cycles (should not happen with valid data)."""
-
         visited: set[str] = set()
         rec_stack: set[str] = set()
 
@@ -527,6 +527,7 @@ class AnswerRequirement:
         conditions: Extra conditions shaping retrieval/answer.
         jurisdiction: Optional jurisdiction constraint.
         temporal_scope: Optional time window.
+
     """
 
     id: str
@@ -729,7 +730,7 @@ def requirement_graph_from_tasks(
                 conditions=list(task.retrieval.lexical_queries or []),
                 jurisdiction=task.jurisdiction,
                 temporal_scope=task.temporal_scope,
-            )
+            ),
         )
 
     dependencies: list[tuple[str, str]] = []
@@ -911,6 +912,7 @@ def build_claim_verification(
     - ``verified=True`` otherwise → PARTIALLY_SUPPORTED
     - ``verified=False`` + own-evidence contradiction → CONTRADICTED
     - ``verified=False`` otherwise → UNSUPPORTED
+
     """
     contradiction_pairs = [c for c in (contradictions or []) if isinstance(c, dict)]
     chunk_authority = dict(chunk_authority or {})
@@ -945,9 +947,8 @@ def build_claim_verification(
                 status = ClaimVerificationStatus.SUPPORTED
             else:
                 status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
-        else:
-            if claim_contradictions:
-                status = ClaimVerificationStatus.CONTRADICTED
+        elif claim_contradictions:
+            status = ClaimVerificationStatus.CONTRADICTED
 
         # Temporal cap: a claim standing on temporally invalid text (repealed/
         # superseded) cannot be fully SUPPORTED, even when textually verified.
@@ -965,7 +966,7 @@ def build_claim_verification(
                 authority_score=authority_score,
                 temporal_valid=temporal_valid,
                 contradictions=claim_contradictions,
-            )
+            ),
         )
     return out
 

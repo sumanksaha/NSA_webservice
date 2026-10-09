@@ -25,7 +25,7 @@ __all__ = [
 
 
 def generate_xref_report_data(
-    html_content: str, case_id: int | None = None, adjudication_id: int | None = None
+    html_content: str, case_id: int | None = None, adjudication_id: int | None = None,
 ) -> dict:
     """Render the xref report data for a case or adjudication document.
 

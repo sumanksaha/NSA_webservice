@@ -106,7 +106,7 @@ class TestFullEnrichmentFlag:
             lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment),
         )
         monkeypatch.setattr(
-            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY
+            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY,
         )
         code = cli.main(["/corpus", "--full-enrichment"])
         assert code == 0
@@ -119,7 +119,7 @@ class TestFullEnrichmentFlag:
             lambda full_enrichment=None: seen.setdefault("full_enrichment", full_enrichment),
         )
         monkeypatch.setattr(
-            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY
+            "scripts.ingest_corpus.ingest_corpus_dir", lambda corpus_dir, document=None, pipeline=None: _SUCCESS_SUMMARY,
         )
         cli.main(["/corpus"])
         assert seen["full_enrichment"] is None  # resolve flag normally
@@ -172,7 +172,7 @@ class TestExitCodes:
         monkeypatch.setattr(
             "scripts.ingest_corpus.run_ingest_document",
             lambda source, document=None, pipeline=None: (_ for _ in ()).throw(
-                FileNotFoundError("File not found: /nope.pdf")
+                FileNotFoundError("File not found: /nope.pdf"),
             ),
         )
         monkeypatch.setattr("scripts.ingest_corpus.make_ingestion_pipeline", lambda full_enrichment=None: "pipeline")

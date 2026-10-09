@@ -63,7 +63,7 @@ _PERSON_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "Hon'ble Justice S. Ravindra Bhat", "Mr. Justice Sharma", "Dr. A. K. Rao"
     re.compile(
         r"(?:Hon'?ble\s+)?(?:Justice|Shri|Smt\.?|Mr\.?|Mrs\.?|Ms\.?|Dr\.?)\s+"
-        r"([A-Z][A-Za-z]*(?:\.?\s+[A-Z][A-Za-z]*\.?)+)"
+        r"([A-Z][A-Za-z]*(?:\.?\s+[A-Z][A-Za-z]*\.?)+)",
     ),
 )
 
@@ -71,7 +71,7 @@ _ORG_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "Hindustan Unilever Pvt. Ltd.", "Nestle India Limited", "Tata Chemicals Ltd."
     re.compile(
         r"([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,5})\s+"
-        r"(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Limited|Ltd\.?|LLP|Corporation|Corp\.?|Inc\.?)"
+        r"(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Limited|Ltd\.?|LLP|Corporation|Corp\.?|Inc\.?)",
     ),
     # "Food Safety and Standards Authority of India", "Ministry of Health and Family Welfare"
     # (title-case words may be adjacent OR separated by lowercase connectors
@@ -80,7 +80,7 @@ _ORG_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"([A-Z][a-zA-Z]+(?:\s+(?:(?:of|and|for|the|in|on|to|with|by|at)\s+)?[A-Z][a-zA-Z]+){0,5})\s+"
         r"(?:Authority|Commission|Board|Ministry|Association|Council|Institute|Department|Regulator)"
-        r"(?:\s+of\s+(?:the\s+)?[A-Z][a-zA-Z]+)?\b"
+        r"(?:\s+of\s+(?:the\s+)?[A-Z][a-zA-Z]+)?\b",
     ),
 )
 
@@ -90,7 +90,7 @@ _CASE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"\b(?:(?:Criminal|Civil|Writ|Special|Regular|First|Second|Company|Misc\.?)\s+)?"
         r"(?:Appeal|Petition|Suit|Application|Case|W\.?P\.?)\s*"
-        r"(?:\([A-Z]\)\s*)?(?:No\.?|No)?\s*\d+(?:/\d{2,4})?(?:\s+of\s+\d{4})?\b"
+        r"(?:\([A-Z]\)\s*)?(?:No\.?|No)?\s*\d+(?:/\d{2,4})?(?:\s+of\s+\d{4})?\b",
     ),
     # "AIR 2004 SC 1234", "2004 (2) SCC 567"
     re.compile(r"\bAIR\s+\d{4}\s+[A-Z]{2,4}\s+\d+\b"),
@@ -102,7 +102,7 @@ _STATUTE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"\b(?:Section|Sec\.?|Â§|Rule|Regulation|Clause|Schedule|Article)\s+"
         r"(\d+[A-Za-z]?(?:\([^)]*\))*)"
-        r"(?:\s+of\s+(?:the\s+)?([A-Z][A-Za-z\s,]+?(?:Act|Rules?|Regulations?|Code)))?"
+        r"(?:\s+of\s+(?:the\s+)?([A-Z][A-Za-z\s,]+?(?:Act|Rules?|Regulations?|Code)))?",
     ),
 )
 
@@ -165,6 +165,7 @@ class LegalEntityExtractor:
         ner: Optional pre-built spaCy-style NER extractor with
             ``extract_entities(text) -> {label: [(text, confidence)]}``
             (tests); the real spaCy backend is built lazily.
+
     """
 
     def __init__(
@@ -324,7 +325,7 @@ class LegalEntityExtractor:
                         continue
                     confidence = self._score(name, entity_type, len(text))
                     entities.append(
-                        LegalEntity(name=name, entity_type=entity_type, confidence=confidence, method="regex")
+                        LegalEntity(name=name, entity_type=entity_type, confidence=confidence, method="regex"),
                     )
         return entities
 
@@ -353,7 +354,7 @@ class LegalEntityExtractor:
                         entity_type=entity_type,
                         confidence=float(confidence or 0.0),
                         method="ner",
-                    )
+                    ),
                 )
         return entities
 

@@ -71,6 +71,7 @@ def sync_neo4j(case_id: int | None = None):
 
     Args:
         case_id: Optional case ID - if omitted, syncs the entire graph.
+
     """
     from app.services.neo4j_graph import neo4j_configured
     from app.utils.qstash_client import publish_task
@@ -95,9 +96,8 @@ def sync_neo4j(case_id: int | None = None):
             "message_id": result["message_id"],
             "task": "sync_kg_to_neo4j",
         })
-    else:
-        return jsonify({
-            "status": "complete",
-            "message": "Knowledge graph synced to Neo4j",
-            "result": result.get("result", {}),
-        })
+    return jsonify({
+        "status": "complete",
+        "message": "Knowledge graph synced to Neo4j",
+        "result": result.get("result", {}),
+    })

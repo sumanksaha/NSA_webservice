@@ -28,6 +28,7 @@ def get_case_intelligence_scores(case_id: int):
         - traceability: float (0.0 to 1.0)
         - readiness: one of [ready, needs_attention, not_ready]
         - scores: dict with numeric representations
+
     """
     case_type = request.args.get("case_type")
     result = calculate_intelligence_scores(case_id, case_type)
@@ -46,6 +47,7 @@ def get_intelligence_summary(case_id: int):
 
     Returns:
         JSON payload with a human-readable summary of the case intelligence.
+
     """
     case_type = request.args.get("case_type")
     result = calculate_intelligence_scores(case_id, case_type)

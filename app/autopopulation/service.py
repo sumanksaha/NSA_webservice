@@ -189,7 +189,8 @@ def _db():
 
 def _augment_counts(record: dict, sample_id: int) -> dict:
     """Fill the synthetic lab.__enf_count__/__surv_count__ paths used by the
-    bill mapping (enforcement/surveillance parameter counts)."""
+    bill mapping (enforcement/surveillance parameter counts).
+    """
     params = _lab_parameters(sample_id)
     counts: dict[str, int] = {}
     for p in params:

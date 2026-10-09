@@ -184,7 +184,7 @@ class TestServerlessMode:
 
         handler = _handler
         client = RemoteRerankClient(
-            "https://api-inference.huggingface.co/models/m", mode="serverless", transport=_transport(handler)
+            "https://api-inference.huggingface.co/models/m", mode="serverless", transport=_transport(handler),
         )
         assert client.predict([("q", "a"), ("q", "b")]) == [0.0, 1.0]
         assert len(handler.requests) == 2
@@ -326,7 +326,7 @@ class TestBuildRerankerRemoteWiring:
         from app.rag.tasks import _build_reranker
 
         monkeypatch.setenv(
-            "RAG_RERANKER_ENDPOINT", "https://api-inference.huggingface.co/models/sumanksaha/Foodmultidomain"
+            "RAG_RERANKER_ENDPOINT", "https://api-inference.huggingface.co/models/sumanksaha/Foodmultidomain",
         )
         monkeypatch.setenv("RAG_RERANKER_MODE", "serverless")
         monkeypatch.delenv("RAG_ENSEMBLE_RERANK", raising=False)

@@ -28,7 +28,7 @@ class TestDeriveActions:
                 "title": "Unclean Premises",
                 "observation": UNCLEAN_OBSERVATION,
                 "field": "clean_premise",
-            }
+            },
         ]
         assert derive_actions(violations) == [UNCLEAN_DIRECTIVE]
 
@@ -73,5 +73,5 @@ class TestExpiredItemPolarity:
         assert [v["title"] for v in violations] == ["Expired Items Present"]
         assert derive_actions(violations) == [
             "Remove all expired food articles from the premises immediately and "
-            "institute first-expiry-first-out stock rotation."
+            "institute first-expiry-first-out stock rotation.",
         ]

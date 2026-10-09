@@ -64,7 +64,7 @@ def test_lookup_endpoints_reachable_anonymously():
                     company_name="Regression Test Foods Pvt Ltd",
                     full_address="12 Test Street, Kolkata",
                     expiry_date="31-12-2027",
-                )
+                ),
             )
             db.session.commit()
 

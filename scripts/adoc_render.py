@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Convert .adoc templates to HTML (for WeasyPrint PDF) and DOCX (for Word).
+"""Convert .adoc templates to HTML (for WeasyPrint PDF) and DOCX (for Word).
 
 Pipeline:
   1. Map .adoc -> archived HTML (has valid Jinja2 syntax)

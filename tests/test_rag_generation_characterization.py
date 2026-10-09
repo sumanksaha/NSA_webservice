@@ -44,7 +44,7 @@ def _chunk(cid: str, score: float) -> dict:
     return d
 
 
-@pytest.fixture()
+@pytest.fixture
 def no_kg(monkeypatch):
     """Keep both KG paths inert regardless of ambient env."""
     monkeypatch.delenv("RAG_KG_FUSION", raising=False)
@@ -143,7 +143,6 @@ class TestHallucinationVerification:
 
     def test_detector_escalates_missed_claims(self, no_kg, monkeypatch):
         """Claims the sanitizer missed are appended, flagged, and counted."""
-
         fake_report = SimpleNamespace(
             detected=True,
             groundedness_score=0.42,

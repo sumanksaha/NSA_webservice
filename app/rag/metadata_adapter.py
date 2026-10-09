@@ -26,7 +26,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 #: §5.1 document_type enum.
-VALID_DOCUMENT_TYPES = frozenset({"act", "rule", "regulation", "notification", "circular", "case_law"})
+# Added "workflow" to support the FSSAI workflow document.
+VALID_DOCUMENT_TYPES = frozenset({"act", "rule", "regulation", "notification", "circular", "case_law", "workflow"})
 
 #: Map raw metadata document-type values onto the §5.1 enum.
 _DOC_TYPE_ALIASES = {
@@ -92,6 +93,7 @@ class MetadataAdapter:
     Args:
         engine: Optional pre-built ``LegalMetadataEngine`` (injected for
             tests; the real one is built lazily).
+
     """
 
     def __init__(self, engine: Any | None = None) -> None:

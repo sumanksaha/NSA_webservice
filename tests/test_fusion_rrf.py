@@ -156,7 +156,8 @@ class TestReserveKgSlots:
 
     def test_dedupe_kg_drops_redundant_kg_chunk(self):
         """A KG-Provision chunk covering (act, section) a vector chunk already
-        covers is dropped before scoring — it must not occupy a fused slot."""
+        covers is dropped before scoring — it must not occupy a fused slot.
+        """
         from kg.hybrid import rrf_fuse_chunks
 
         vec = RetrievedChunk(
@@ -234,7 +235,8 @@ class TestReserveKgSlots:
 
     def test_kg_interleaves_by_rrf_rank_not_tail(self):
         """A rank-1 KG chunk ties the rank-1 vector chunk and outranks ranks 2+ —
-        it is interleaved by merit, never tail-appended after all chunks."""
+        it is interleaved by merit, never tail-appended after all chunks.
+        """
         from kg.hybrid import rrf_fuse_chunks
 
         dense = [_chunk(f"v{i}", 0.9) for i in range(20)]
@@ -248,7 +250,8 @@ class TestReserveKgSlots:
     def test_equal_rrf_tie_breaks_by_input_list_order(self):
         """Tie policy: equal RRF scores keep first-appearance order (vector
         lists first), so a KG item never displaces an equally-ranked vector
-        item — deterministic across runs."""
+        item — deterministic across runs.
+        """
         from kg.hybrid import rrf_fuse_chunks
 
         dense = [_chunk("d1"), _chunk("d2")]  # rank 1, 2
@@ -339,7 +342,7 @@ class TestBuildRankedItemsFused:
                     "provision_id": "KG_1",
                     "provision_number": "9",
                     "instrument_title": "Food Safety and Standards Act, 2006",
-                }
+                },
             ],
         }
 
@@ -389,7 +392,7 @@ class TestBuildRankedItemsFused:
                     "provision_id": "KG_1",
                     "provision_number": "9",
                     "instrument_title": "Food Safety and Standards Act, 2006",
-                }
+                },
             ],
             "fused_items": [{"kind": "kg", "key": "KG_1", "family": "fssai", "section": "9"}],
         }

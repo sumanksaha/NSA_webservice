@@ -24,9 +24,7 @@ import pytest
 
 from app.rag.retrieval.food_query_understanding import (
     FoodQueryUnderstanding,
-    detect_food_intent,
     extract_entity,
-    extract_parameters,
 )
 from app.rag.retrieval.legal_reranker import LegalAwareReranker, LegalAwareWeights
 from app.rag.retrieval.parent_reconstruction import (
@@ -44,7 +42,6 @@ from app.rag.retrieval.validation import (
     kg_fallback_queries,
     validate_retrieval,
 )
-
 
 # ---------------------------------------------------------------------------
 # Corpus-shaped fixtures (real cumin clause 2.9.8 shapes)
@@ -258,7 +255,8 @@ class TestProvisionMetadata:
 class TestLegalReranker:
     def test_definition_does_not_anchor_standard_query(self):
         """THE acceptance behaviour: for 'standard for cumin', a requirement
-        row must outrank the definition heading."""
+        row must outrank the definition heading.
+        """
         heading = _chunk(CUMIN_HEADING, chunk_id="heading", clause="2.9.8", score=0.9)
         rows = _chunk(CUMIN_ROWS, chunk_id="rows", clause="2.9.8", score=0.6)
         other = _chunk(OTHER_COMMODITY_ROWS, chunk_id="other", clause="4.1.2", score=0.8)
@@ -355,7 +353,8 @@ class TestParentReconstruction:
 
     def test_bundle_synthetic_context_without_heading(self):
         """Rows retrieved without their heading chunk still reconstruct a
-        verified-fields context (never the definition, never invented text)."""
+        verified-fields context (never the definition, never invented text).
+        """
         rows = _chunk(CUMIN_ROWS, chunk_id="rows", clause="2.9.8", score=0.7)
         bundle = reconstruct_evidence_bundle("What is the standard for cumin?", [rows])
         assert bundle["parent_context"], "synthetic context expected"
@@ -495,7 +494,8 @@ class TestFoodAnswer:
     def test_parameter_prompt_does_not_encourage_refusal(self):
         """Regression: an over-cautious row-matching clause made the model
         decline limits that were present in the retrieved table (FI003,
-        FI018, FI025) whenever the clause heading was missing."""
+        FI018, FI025) whenever the clause heading was missing.
+        """
         from app.rag.generation.food_answer import build_food_system_prompt
 
         prompt = build_food_system_prompt("parameter_specific_standard")
@@ -546,7 +546,7 @@ class TestFoodAnswer:
         from app.rag.generation.food_answer import check_answer_completeness
 
         heading_only = reconstruct_evidence_bundle(
-            "What is the standard for cumin?", [_chunk(CUMIN_HEADING, clause="2.9.8")]
+            "What is the standard for cumin?", [_chunk(CUMIN_HEADING, clause="2.9.8")],
         )
         verdict = check_answer_completeness("What is the standard for cumin?", "The evidence is insufficient.", heading_only)
         assert verdict["standard_found"] is False

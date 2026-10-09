@@ -520,9 +520,9 @@ def parse_residual_worksheet(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     for i in range(1, len(blocks), 2):
         qid, body = blocks[i], blocks[i + 1]
-        jz = re.search(r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.S)
+        jz = re.search(r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.DOTALL)
         j = jz.group(1) if jz else ""
-        m = re.search(r"^[ \t]*-\s*verdict\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
+        m = re.search(r"^[ \t]*-\s*verdict\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.IGNORECASE | re.MULTILINE)
         if not m:
             continue
         lab = m.group(1).split("#", 1)[0].strip()
@@ -762,7 +762,7 @@ def main(argv: list[str] | None = None) -> int:
             f"step0_complete={validation['step0_complete']} "
             f"labeled={validation['n_labeled_valid']}/{validation['n_residual_total']} "
             f"counts={validation['label_counts']} missing={validation['n_missing']} "
-            f"invalid={validation['n_invalid']}"
+            f"invalid={validation['n_invalid']}",
         )
         print(f"wrote {out_path.name} + gate targets")
         if args.require_complete and not validation["step0_complete"]:
@@ -779,7 +779,7 @@ def main(argv: list[str] | None = None) -> int:
         validation = validate_labels(labels, residual_qids)
         print(
             f"labels loaded: {validation['n_labeled_valid']}/{validation['n_residual_total']} "
-            f"complete={validation['step0_complete']} counts={validation['label_counts']}"
+            f"complete={validation['step0_complete']} counts={validation['label_counts']}",
         )
 
     return 0

@@ -87,7 +87,7 @@ class TestGoldBenchmark:
                 question="What is Section 12?",
                 evidence_requirement=EvidenceRequirement.PROVISION,
                 dependency=[],
-            )
+            ),
         ]
         entry = bench.record_prediction(GOLD_DECOMPOSITION[4]["query"], decomp)
         assert entry is not None
@@ -111,7 +111,7 @@ class TestGoldBenchmark:
                 question="q1",
                 evidence_requirement=EvidenceRequirement.CONDITION,
                 dependency=[],
-            )
+            ),
         ]
         bench.record_prediction("q", decomp)
         report = bench.evaluate()
@@ -242,7 +242,8 @@ class TestCoverageMetricsEvidenceAware:
 
     def test_chunk_without_entity_metadata_still_matches(self):
         """Regression: the old entity-overlap heuristic could never match a
-        chunk with no ``entities`` metadata; text matching does not care."""
+        chunk with no ``entities`` metadata; text matching does not care.
+        """
         cov = CoverageMetrics()
         cov.update(
             evidence_tasks=[_task("What penalty applies to late filing?", entities=["annual return"])],
@@ -274,7 +275,7 @@ class TestRagasMetricsSmoke:
 
     def test_answer_relevance_expected_answer_mode(self):
         score = AnswerRelevanceMetric().compute(
-            "Section 55 governs licensing.", "irrelevant query", "Section 55 deals with licensing."
+            "Section 55 governs licensing.", "irrelevant query", "Section 55 deals with licensing.",
         )
         assert score.score > 0.3
         assert score.detail["mode"] == "expected"

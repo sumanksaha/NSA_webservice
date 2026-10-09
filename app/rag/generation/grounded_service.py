@@ -48,6 +48,7 @@ class GroundedGenerationService:
         citation_tracker: Citation tracker.  Defaults to a new instance.
         sanitizer: Response sanitiser.  Defaults to a new instance.
         generation_logger: Generation logger.  Defaults to a new instance.
+
     """
 
     def __init__(
@@ -93,6 +94,7 @@ class GroundedGenerationService:
 
         Returns:
             A :class:`RAGResponse` with answer, citations, and groundedness.
+
         """
         total_start = time.perf_counter()
 

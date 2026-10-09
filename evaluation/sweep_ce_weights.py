@@ -294,7 +294,7 @@ def sweep_refetch(args, weights, heads):
                         except Exception:
                             ce_per_head[h] = None
             else:
-                ce_per_head = {h: None for h in heads}
+                ce_per_head = dict.fromkeys(heads)
 
             pool_data[qid] = {"chunks": chunks_data, "ce_per_head": ce_per_head, "q": q}
 

@@ -21,7 +21,7 @@ from app.workdiary.engine import PURPOSE_COMPLAINT, PURPOSE_ROUTINE, WorkDiaryEn
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     """App + logged-in client + in-memory schema with two FSOs."""
     from app import create_app
@@ -85,7 +85,7 @@ def _make_inspection(
             inspection_date=datetime(year, month, day, 10, 30),
             compliance_deadline=datetime(year, month, day, 0, 0),
             is_dismissed=False,
-        )
+        ),
     )
     db.session.commit()
 
@@ -119,7 +119,7 @@ def _make_diary_day(
             notes=notes,
             place_of_visit=place or None,
             summary=_summary_line(work_date, activity, premises, samples, notes, place),
-        )
+        ),
     )
     db.session.commit()
 
@@ -435,12 +435,13 @@ class TestRoutes:
     def test_preview_drops_complaint_filter(self, env):
         """No Monthly row carries Complaint purpose: preview with
         purpose=complaint renders the unfiltered monthly report with an
-        explicit notice — never a blank signed document, never silent."""
+        explicit notice — never a blank signed document, never silent.
+        """
         _, client = env
         _make_diary_day("Officer B", 11, "field", place="Monthly Market")
         _make_inspection("INSP-WD-70C", "Officer B", 11, problem="adulteration")
         resp = client.get(
-            "/workdiary/preview", query_string={"fso_name": "Officer B", "purpose": "complaint"}
+            "/workdiary/preview", query_string={"fso_name": "Officer B", "purpose": "complaint"},
         )
         assert resp.status_code == 200
         body = resp.get_data(as_text=True)

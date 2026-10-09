@@ -208,7 +208,7 @@ class TestE2EPipeline:
         try:
             with (
                 mock.patch.object(
-                    DenseRetriever, "_get_encoder", return_value=SimpleNamespace(encode=lambda t: [0.5] * 768)
+                    DenseRetriever, "_get_encoder", return_value=SimpleNamespace(encode=lambda t: [0.5] * 768),
                 ),
                 mock.patch.object(
                     DenseRetriever,
@@ -216,7 +216,7 @@ class TestE2EPipeline:
                     return_value=SimpleNamespace(
                         search=lambda **kw: [
                             _mock_qdrant_point(f"dense_{i}", str(50 + i), 0.95 - i * 0.05) for i in range(5)
-                        ]
+                        ],
                     ),
                 ),
             ):

@@ -1,0 +1,301 @@
+{
+  "version": "gold-answers-phase1-top15",
+  "generated_at": "2026-10-06T07:45:00+00:00",
+  "source_provisions": "benchmark/gold_provisions_v1.0.json",
+  "source_questions": "benchmark/benchmark_v1.0.jsonl (150 questions; 85 already covered by v3 gold answers)",
+  "purpose": "Gold answers for the 15 highest-usage provisions that currently have no gold answer. These 15 provisions power 65+ of the 150 v1 benchmark questions, including all the high-frequency ones not yet covered.",
+  "scoring_rule": {
+    "2": "Gold-equivalent: materially correct answer and correct legal proposition.",
+    "1": "Partially correct: captures the core proposition but omits a material qualification or detail.",
+    "0": "Incorrect or contradicts the cited provision.",
+    "NA": "Question is invalid/under-specified and should not be used to penalize retrieval."
+  },
+  "note": "Answers are written at provision level. Where a v1 question asks for a figure or detail not traceable to the cited provision text, the gold answer states what the provision does say and the question's insufficient_evidence flag handles the rest.",
+  "questions": [
+    {
+      "qid": "fssai:s31",
+      "question": "Under the FSS Act 2006, what is the licensing and registration requirement for carrying on a food business, and what exemption regime exists for petty food business operators?",
+      "section": "31",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Licensing and registration of food business",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 31 requires that no person shall commence or carry on any food business except under a licence issued in accordance with the Act and the regulations made thereunder. The licensing regime is tiered by turnover and scale: a petty food business operator meeting the prescribed conditions is exempt from the licence requirement and is instead required to register under Section 31(2). The Central Government may also, by notification, exempt any class of food business operator from all or any of the provisions of the Act (including the licensing/registration requirement) if it is satisfied that public health and food-safety can otherwise be maintained, subject to such conditions as may be specified.",
+      "answer_type": "licensing_registration",
+      "validity": "valid",
+      "note": "This provision-level answer reconciles s31 (licence required), s31(1) (no business without licence), s31(2) (petty operator registration), and the Central Government exemption power. Specific questions that ask for the exact turnover threshold, exact fee, or exact validity period of a licence tier are not determinable from the s31 text alone; those questions are flagged as insufficient_evidence in the v1 benchmark and should be scored NA where the figure cannot be sourced."
+    },
+    {
+      "qid": "epa:s3",
+      "question": "Under the Environment (Protection) Act, 1986, what overarching power does Section 3 vest in the Central Government, and when may it be exercised?",
+      "section": "3",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Power to take requisite measures",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 3 vests the Central Government with wide power to take all such measures as it deems necessary or expedient for the purpose of protecting and improving the quality of the environment and preventing, controlling and abating environmental pollution. The measures may be taken in all matters relating to the safeguard of public health and welfare and the prevention and control of environmental pollution, and may include coordination of actions by State Governments, agencies and authorities, laying down standards, prescribing safeguards, and issuing directions to officers and authorities.",
+      "answer_type": "power",
+      "validity": "valid",
+      "note": "Section 3 is an enabling/umbrella power. It does not itself fix numeric standards such as river-setback distances, effluent pH values, ambient PM2.5 limits, statutory caps on industries in a Critically Polluted Area, or exact licence-fee figures. Where a v1 question asks for such a figure, the correct answer is that the figure is not determinable from the Section 3 text; those questions are flagged as insufficient_evidence in the v1 benchmark."
+    },
+    {
+      "qid": "epa:s6",
+      "question": "Under the Environment (Protection) Act, 1986, what closure and demolition powers exist, and who may be directed under Section 6?",
+      "section": "6",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Closure/demolition powers",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 6 empowers the Central Government (or an authority authorised by it) to issue orders to close, prohibit or regulate any industry, operation or process, or to stop or restrict the supply of electricity, water or any other service, where it is satisfied that such industry/operation/process is causing or is likely to cause environmental pollution. The provision is coupled with the power to direct the dismissal or removal of persons handling the industry/operation/process and, in appropriate cases, to direct the demolition or removal of structures or the stoppage of services. The power is exercisable where the statutory conditions are satisfied and is not itself limited to pollution of a single medium; it is a mobile, situation-specific power rather than a fixed numeric standard.",
+      "answer_type": "power_procedure",
+      "validity": "valid",
+      "note": "Section 6 authorises closure/demolition/regulatory directions for polluting industry, operation or process. The specific procedural steps, the identity of the authorised officer in a given case, and any numeric trigger thresholds are matters of the statutory scheme and rules/orders made under it, not a single fixed number in the section text."
+    },
+    {
+      "qid": "kmc:nuisance",
+      "question": "Under the Kolkata Municipal Corporation Act, 1980, what powers and duties relate to public nuisance, noxious or dangerous trades, and drainage/noxious liquid discharge?",
+      "section": "Ch.Nuisance",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Public nuisance / noxious trades",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "The Kolkata Municipal Corporation Act, 1980, as a municipal-corporation statute, gives the Corporation power to deal with noxious or dangerous trades and with public-nuisance conditions affecting adjacent premises and users, including power to regulate, restrict orrequire the stopping of such trades or conditions. It also imposes duties regarding drainage and the discharge of noxious liquids, and empowers the Corporation (and in appropriate cases the Commissioner) to order the removal of obstructions from public places and to recover the cost from the person responsible. The statute does not, in the nuisance/provisions relied on here, fix a single universal penalty figure for every nuisance scenario; the consequence in a given case depends on the specific provision invoked and the facts.",
+      "answer_type": "power_procedure",
+      "validity": "valid_but_source_limited",
+      "note": "The KMC Act nuisance chapter is a powers/duties chapter, not a single penalty clause. Where a v1 question asks for the exact monetary fine for a particular nuisance (for example, a specific waste-dumping fine amount), that figure is not reliably readable from the chapter title or the provisions summarised here; such questions should be treated as source-limited rather than answered with an invented number."
+    },
+    {
+      "qid": "contract:s73",
+      "question": "Under the Indian Contract Act, 1872, what does Section 73 provide regarding compensation for loss or damage caused by breach of contract, and how does it treat penalty clauses?",
+      "section": "73",
+      "act": "Indian Contract Act, 1872",
+      "title": "Compensation for loss or damage caused by breach of contract",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 73 provides that when a contract has been broken, the party who suffers by the breach is entitled to receive compensation from the party who has broken the contract for any loss or damage caused to him thereby, and which naturally arose in the usual course of things from such breach, or which the parties knew, when they made the contract, to be likely to result from the breach. Such compensation does not extend to any remote or indirect loss or damage sustained by reason of the breach. The provision is commonly read alongside the principle that a stipulation for compensation for breach (as distinct from a true penalty) is enforceable to the extent of reasonable compensation, with a true penalty-type stipulation generally not enforceable as a penalty.",
+      "answer_type": "rule",
+      "validity": "valid",
+      "note": "Section 73 governs compensatory damages for breach and excludes remote/indirect loss. It does not itself set a fixed formula or cap; the recoverable amount depends on the proven loss within the statutory limits. Where a v1 question asks for an exact rupee figure for a hypothetical breach, that figure is a fact question, not a statutory constant."
+    },
+    {
+      "qid": "wb_infectious:rules",
+      "question": "Under the West Bengal Prevention and Control of Infectious Diseases in Animals Rules, when must a suspected notifiable disease be reported, and what measures may be taken against an affected animal or premises?",
+      "section": "N/A (rules-level)",
+      "act": "West Bengal Prevention and Control of Infectious Diseases in Animals Rules, 2016",
+      "title": "Infectious disease control in animals",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "The West Bengal Prevention and Control of Infectious Diseases in Animals Rules establish a framework for reporting, control and disposal measures in respect of animals affected by, or suspected of being affected by, notifiable infectious diseases. An animal keeper/owner is required to report a suspected notifiable disease to the prescribed authority (the local authority/police/veterinary authority as prescribed) without delay. On notification or suspicion of a notifiable disease, the rules empower the competent authority to take measures including isolation, segregation, disinfection, quarantine, restriction of movement, and, where necessary, the humane destruction/slaughter of affected animals and disinfection or restriction of affected premises, in order to prevent spread of the disease.",
+      "answer_type": "procedure",
+      "validity": "valid_but_source_limited",
+      "note": "The rules create a reporting-and-control regime for notifiable animal diseases. The exact reporting timeline, the precise list of notifiable diseases, and the exact measure imposed in a given case depend on the rule text and the specific disease notification in force; a single universal answer cannot be given for every factual variation."
+    },
+    {
+      "qid": "fssai:s44",
+      "question": "Under the FSS Act 2006, who is the Designated Officer, and what is that officer's role in the enforcement and adjudication pathway?",
+      "section": "44",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Designated Officer",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 44 provides for the appointment of a Designated Officer by the Food Authority or the State Government. The Designated Officer is the nodal officer for the enforcement process at the district/local level: the Designated Officer receives the Food Safety Officer's recommendations and the Food Analyst's report, determines whether the contravention is punishable with imprisonment or with fine only, and where imprisonment is involved sends recommendations to the Commissioner of Food Safety for sanctioning prosecution. The Designated Officer is also the officer through whom prohibition orders and certain regulatory directions (such as improvement notices) are initiated or transmitted, acting as the interface between the field Food Safety Officer and the prosecution/adjudication machinery.",
+      "answer_type": "institutional_procedure",
+      "validity": "valid",
+      "note": "Section 44 is about the Designated Officer's role as the enforcement/adjudication gateway. The exact title of the Designated Officer in a given district is a matter of designation by the Authority/State Government, not a universal fixed job title."
+    },
+    {
+      "qid": "fssai:s25",
+      "question": "Under the FSS Act 2006, what is the position regarding the import of articles of food, and what is the legal consequence of importing food that does not comply with the Act?",
+      "section": "25",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "All imports of articles of food",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 25 provides that no person shall import into India any article of food in contravention of any provision of the Act or of any rule or regulation made thereunder. The section is a prohibition on non-compliant import and is supported by the enforcement, seizure, penalty and adjudication machinery of the Act. Import of food is therefore subject to the FSSAI framework: the food must comply with the standards and other requirements of the Act and regulations, and food imported in contravention is liable to be dealt with as offending food under the Act (including seizure, prohibition of sale, and penalty).",
+      "answer_type": "prohibition",
+      "validity": "valid",
+      "note": "Section 25 prohibits import of non-compliant food. Whether a specific 'Food Safety and Standards Approval' or separate import clearance is required in a particular instance is a matter of the regulations and procedures made under the Act rather than a single figure or phrase stated in Section 25 itself."
+    },
+    {
+      "qid": "wbmo:order4",
+      "question": "Under the West Bengal Meat Order, 1966, which animals are prohibited from being slaughtered, and on what legal basis?",
+      "section": "Order 4",
+      "act": "West Bengal Meat Order, 1966",
+      "title": "Prohibition of slaughter of certain animals",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Order 4 of the West Bengal Meat Order, 1966, prohibits the slaughter of certain animals. The Order provides that no animal shall be slaughtered except in a slaughter house approved/licensed under the Order and except in accordance with the conditions of the licence and the provisions of the Order. Animals below the prescribed age (including, in particular, calves and other young animals covered by the prohibition) are protected from slaughter except where permitted under the law, and slaughter of animals for food is restricted to the licensed slaughter-house regime rather than being permitted in an unlicensed or open setting.",
+      "answer_type": "prohibition_requirement",
+      "validity": "valid",
+      "note": "Order 4 is the prohibition/slaughter-control order. The specific list of animals and the exact age threshold are matters of the Order's operative text and the licensing conditions; where a question asks for a precise age number, that figure should not be guessed from the order title alone."
+    },
+    {
+      "qid": "bda:s480",
+      "question": "Under the Bengal Diseases of Animals (Amendment) Act, 2008, what is the penalty for contravening the Act or its rules regarding disease control?",
+      "section": "16",
+      "act": "The Bengal Diseases of Animals (Amendment) Act, 2008",
+      "title": "Penalty",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 16 of the Bengal Diseases of Animals (Amendment) Act, 2008, prescribes the penalty for contravention of the Act or any rule or order made thereunder. A person who contravenes the Act, or any rule or order made under it, is punishable with the penalty provided by that section. The section is the penalty-clutch for the disease-control regime; the specific quantum of penalty is whatever the section prescribes (and, where relevant, is supplemented by the general penalty provisions of the parent Act).",
+      "answer_type": "penalty",
+      "validity": "valid_question_repaired",
+      "note": "The metadata title 'Penalty' for s480 aligns with a penalty-bearing provision. If a v1 question asks for a specific rupee maximum, the answer should not invent a figure; it should state the penalty regime and, only where verifiable, the amount. This entry is marked valid_question_repaired because the question type around 'what is the maximum penalty' must be matched to what the section actually provides."
+    },
+    {
+      "qid": "water_act:s9",
+      "question": "Under the Water (Prevention and Control of Pollution) Act, 1974, what consent must an occupier obtain before establishing or operating an effluent-discharging activity, and from whom?",
+      "section": "9",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Consent to establish/operate",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 9 of the Water (Prevention and Control of Pollution) Act, 1974, provides that no person shall, without the consent of the State Board, establish or take any steps to establish any industry, operation or process, or any disposal system or treatment or disposal system, or make any addition, alteration or enlargement of any of them, which is likely to discharge water or sewage effluent into a stream or well or sewer or land, or likely to cause or tend to cause a change in the water quality. The consent is obtained from the State Pollution Control Board, and the Board may grant or refuse consent subject to conditions; failure to obtain consent or contravention of the conditions attracts the enforcement and penalty provisions of the Act.",
+      "answer_type": "procedure",
+      "validity": "valid",
+      "note": "Section 9 is the consent-to-establish/operate provision. The exact conditions attached to a given consent, and the specific protected downstream user in a particular scenario, are factual/regulatory matters within the Board's consent regime rather than a single fixed statutory phrase."
+    },
+    {
+      "qid": "pwm_rules:epr",
+      "question": "Under the Plastic Waste Management Rules, what is the Extended Producer Responsibility obligation, and how did the 2022 amendments affect single-use plastics?",
+      "section": "N/A (rules-level)",
+      "act": "Plastic Waste Management Rules, 2016 (as amended up to 2022)",
+      "title": "Extended Producer Responsibility",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "The Plastic Waste Management Rules, 2016, as amended, introduce Extended Producer Responsibility (EPR) as the obligation of producers, importers and brand-owners to manage the plastic waste generated by their products. The EPR framework requires the responsible entity to ensure that the plastic waste generated from its products is collected and disposed of in an environmentally sound manner, typically through registration, filing of a plan, meeting collection/recycling targets, and reporting, as prescribed by the Rules and the EPR guidelines. The 2022 amendments to the Rules significantly restricted single-use plastics: they prohibited the manufacture, import, sale and use of identified single-use plastic items (with effect from the notified date), and addressed the phase-out and extended producer responsibility for such items, including concessions/phase-in for small enterprises (MSMEs) where prescribed.",
+      "answer_type": "obligation",
+      "validity": "valid",
+      "note": "The EPR obligation and the single-use plastic restriction are the two operative ideas. The exact list of prohibited single-use items, the precise effective dates of each prohibition, and the MSME phase-in details are rules-level specifics; a question asking for an exhaustive list or an exact date should not be answered with an invented figure if the rule text is not in hand."
+    },
+    {
+      "qid": "air_act:s6",
+      "question": "Under the Air (Prevention and Control of Pollution) Act, 1981, what powers do the Pollution Boards have to protect public health from air pollution?",
+      "section": "6",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "title": "Powers of Boards",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 6 of the Air (Prevention and Control of Pollution) Act, 1981, gives the State Boards powers to protect and improve the quality of the air and to prevent, control and abate air pollution. Those powers include the authority to advise on matter,furnish information, inspect, take samples, issue standards, serve notices, and take the measures necessary to secure compliance with the standards and directions under the Act, including, where appropriate, directing the closure, prohibition or regulation of an industry, operation or process or the stoppage of a service in the manner provided by the Act. The Board's powers are medium-specific to air pollution and are exercised through the procedural and enforcement machinery of the Act.",
+      "answer_type": "power",
+      "validity": "valid",
+      "note": "Section 6 vests the Board with powers to protect air quality and control air pollution. It is not the source of a specific numeric ambient-air standard (such as a 24-hour PM2.5 limit); a question asking for a precise numeric ambient limit should not be answered by attributing that figure to Section 6 unless the figure is textually fixed in the provision actually relied on."
+    },
+    {
+      "qid": "kmc:s196",
+      "question": "Under the Kolkata Municipal Corporation Act, 1980, in how many instalments may property tax be paid, and what power does the Corporation have to recover arrears?",
+      "section": "196",
+      "act": "Kolkata Municipal Corporation Act, 1980",
+      "title": "Payment of property tax in quarterly instalments",
+      "domain": "MUNICIPAL",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 196 of the Kolkata Municipal Corporation Act, 1980, provides for the payment of property tax in instalments. The section establishes that the property tax leviable under the Act may be paid in quarterly instalments (subject to the provisions of the Act and the rules made thereunder), and it deals with the consequences of non-payment. The Corporation has the power to recover arrears of property tax and related dues as arrears of public revenue, and the Act provides the municipal recovery mechanism for such dues, including the Corporation's powers to recover and, where authorised, to enforce recovery through the means provided by the Act.",
+      "answer_type": "municipal_recovery",
+      "validity": "valid_but_source_limited",
+      "note": "Section 196 is about instalment payment and recovery of arrears. The exact number of instalments and the exact recovery mechanism (including whether disconnection of water supply is specifically authorised in a given case) are matters of the statutory text and rules; where a question asks for a precise number or a definite disconnect power, that should not be inferred from the section title alone."
+    },
+    {
+      "qid": "wbpt:s30",
+      "question": "Under the West Bengal Premises Tenancy Act, 1997, what does Section 30 prohibit regarding sub-letting, and under what authority may it be permitted?",
+      "section": "30",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Prohibition of sub-letting without permission",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "Legally correct answer that directly addresses the cited provision.",
+        "1": "Substantially correct but incomplete or minor wording/qualification issue.",
+        "0": "Incorrect answer or unsupported legal assertion.",
+        "NA": "Use only if later source verification establishes that the question itself is invalid."
+      },
+      "gold_answer": "Section 30 of the West Bengal Premises Tenancy Act, 1997, prohibits sub-letting of the premises by the tenant without the permission of the landlord or, where the Act so provides, without the authority of the competent authority. The section is a prohibition on unauthorised sub-letting: a tenant may not sublet the premises, or any part thereof, otherwise than in accordance with the Act and the terms of the tenancy, and any sub-letting in contravention is without legal effect to the extent prohibited. Permission to sub-let may be granted where the Act or the competent authority permits it on the prescribed terms.",
+      "answer_type": "prohibition_requirement",
+      "validity": "valid",
+      "note": "Section 30 is the sub-letting prohibition. The specific procedure and the precise authority whose permission is required in a given case, and the consequences of sub-letting in breach, are within the statutory scheme; the core proposition is that sub-letting without the required permission is prohibited."
+    }
+  ]
+}

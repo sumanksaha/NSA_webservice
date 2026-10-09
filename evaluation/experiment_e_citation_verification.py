@@ -115,18 +115,18 @@ MAX_REPAIR_ATTEMPTS = 3  # hard-fail a qid after this many generation attempts
 # Deterministic citation check (design sec 4) — NO LLM
 # --------------------------------------------------------------------------- #
 _SRC_RE = re.compile(r"\[(\d{1,2})\]")
-_SEC_RE = re.compile(r"\bsection\s+(\d+[A-Z]?(?:\([0-9A-Za-z]+\))*)", re.I)
+_SEC_RE = re.compile(r"\bsection\s+(\d+[A-Z]?(?:\([0-9A-Za-z]+\))*)", re.IGNORECASE)
 _SEC_BARE_RE = re.compile(
-    r"\b(\d{1,3}[A-Z]?(?:\([0-9A-Za-z]+\))+)"
+    r"\b(\d{1,3}[A-Z]?(?:\([0-9A-Za-z]+\))+)",
 )  # e.g. 42(5), 68(1)(b); no trailing \b — ')\b' never matches
 _HEADING_NUM_RE = re.compile(
-    r"(?:^|(?<=[.\n]))\s*(\d{1,3})\.\s+[A-Z]"
+    r"(?:^|(?<=[.\n]))\s*(\d{1,3})\.\s+[A-Z]",
 )  # numbered headings: "49. 69. Power to compound offences."
 _GAZETTE_HEADER_RE = re.compile(
-    r"PART\s+[IVXLC]+\s*[—\-]\s*Section\s+\d+", re.I
+    r"PART\s+[IVXLC]+\s*[—\-]\s*Section\s+\d+", re.IGNORECASE,
 )  # Gazette page headers, not Act sections
 _CLAUSE_MARKER_RE = re.compile(
-    r"(?:^|\n)\s*(\([0-9A-Za-z]+\))"
+    r"(?:^|\n)\s*(\([0-9A-Za-z]+\))",
 )  # definition/clause markers at line start: "(za) \"licence\" means ..."
 
 
@@ -913,7 +913,7 @@ class _EStubClient:
             "final_answer": "Stub repair answer for pipeline validation only. [1]",
         }
         return GroundedLLMResponse(
-            text=json.dumps(payload), model="stub", latency=0.01, usage={"prompt_tokens": 0, "completion_tokens": 0}
+            text=json.dumps(payload), model="stub", latency=0.01, usage={"prompt_tokens": 0, "completion_tokens": 0},
         )
 
 
@@ -973,7 +973,7 @@ def phase_analyze(stub: bool) -> int:
                 total_latency_ms=int(rec.get("latency_ms", 0)),
             )
             m = compute_metrics(
-                resp, built, q, cid_list, context_ids, gold_chunk_ids, gold_units, payload_index, family_map
+                resp, built, q, cid_list, context_ids, gold_chunk_ids, gold_units, payload_index, family_map,
             )
             m.update({
                 "question_id": qid,
@@ -1261,7 +1261,7 @@ def phase_summary(stub: bool) -> int:
             continue
         lines.append(
             f"| {cond} | {a['n']} | {a['answer_correctness']} | {a['correct_rate']} | {a['citation_recall']} | "
-            f"{a['citation_precision']} | {a['groundedness']} | {a['abstain_rate']} | {a.get('median_latency_ms', '-')} |"
+            f"{a['citation_precision']} | {a['groundedness']} | {a['abstain_rate']} | {a.get('median_latency_ms', '-')} |",
         )
     lines += [
         "",
@@ -1308,7 +1308,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.phase == "run":
         return phase_run_e(
-            stub=args.stub, resume=args.resume, limit=args.limit, concurrency=args.concurrency, only=args.only
+            stub=args.stub, resume=args.resume, limit=args.limit, concurrency=args.concurrency, only=args.only,
         )
     if args.phase == "analyze":
         return phase_analyze(stub=args.stub)

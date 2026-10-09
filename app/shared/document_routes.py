@@ -237,7 +237,7 @@ def register_document_routes(
         except StaleDataError:
             db.session.rollback()
             return jsonify({
-                "error": "Conflict: this case was modified by another user. Please reload and try again."
+                "error": "Conflict: this case was modified by another user. Please reload and try again.",
             }), 409
         except Exception as exc:
             db.session.rollback()
@@ -266,7 +266,7 @@ def register_document_routes(
         except StaleDataError:
             db.session.rollback()
             return jsonify({
-                "error": "Conflict: this case was modified by another user. Please reload and try again."
+                "error": "Conflict: this case was modified by another user. Please reload and try again.",
             }), 409
         except Exception as exc:
             db.session.rollback()
@@ -295,7 +295,7 @@ def register_document_routes(
         except StaleDataError:
             db.session.rollback()
             return jsonify({
-                "error": "Conflict: this case was modified by another user. Please reload and try again."
+                "error": "Conflict: this case was modified by another user. Please reload and try again.",
             }), 409
         except Exception as exc:
             db.session.rollback()

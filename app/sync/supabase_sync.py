@@ -275,6 +275,7 @@ class SupabaseSyncService:
             conflict_id: PK of the ``SyncConflict`` row.
             winner: ``"local"`` to keep local changes, ``"remote"`` to
                 accept the remote version.
+
         """
         result = SyncResult()
         conflict = db.session.get(SyncConflict, conflict_id)
@@ -392,7 +393,7 @@ class SupabaseSyncService:
 
         local_ids_stmt = select(SyncState.local_id).where(SyncState.table_name == table_name)
         # Records with no SyncState row -> never synced -> dirty.
-        never_synced = db.session.query(model).filter(~cast(Any, model).id.in_(local_ids_stmt)).all()
+        never_synced = db.session.query(model).filter(~cast("Any", model).id.in_(local_ids_stmt)).all()
         # Records with a SyncState row but stale (updated since last sync).
         stale: list[Any] = []
         for state in (
@@ -409,7 +410,7 @@ class SupabaseSyncService:
         from sqlalchemy import select
 
         local_ids_stmt = select(SyncState.local_id).where(SyncState.table_name == table_name)
-        never_synced = db.session.query(model).filter(~cast(Any, model).id.in_(local_ids_stmt)).count()
+        never_synced = db.session.query(model).filter(~cast("Any", model).id.in_(local_ids_stmt)).count()
         stale = (
             db.session.query(SyncState).filter_by(table_name=table_name).filter(SyncState.synced_at.is_(None)).count()
         )
@@ -498,7 +499,7 @@ class SupabaseSyncService:
     def _model_to_payload(self, record: Any, model: type) -> dict[str, Any]:
         """Convert a SQLAlchemy model instance to a Supabase upsert payload."""
         payload: dict[str, Any] = {}
-        for col in cast(Any, model).__table__.columns:
+        for col in cast("Any", model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS:
                 continue
             val = getattr(record, col.name, None)
@@ -518,7 +519,7 @@ class SupabaseSyncService:
             db.session.add(existing)
             db.session.flush()
 
-        for col in cast(Any, model).__table__.columns:
+        for col in cast("Any", model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS or col.name == "id":
                 continue
             if col.name not in row:
@@ -540,7 +541,7 @@ class SupabaseSyncService:
     def _insert_remote_row(self, model: type, table_name: str, row: dict[str, Any]) -> None:
         """Insert a brand-new remote row as a local model instance."""
         instance = model()
-        for col in cast(Any, model).__table__.columns:
+        for col in cast("Any", model).__table__.columns:
             if col.name in _SYNC_SKIP_COLUMNS or col.name == "id":
                 continue
             if col.name not in row:

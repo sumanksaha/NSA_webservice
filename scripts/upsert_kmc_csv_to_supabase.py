@@ -1,5 +1,4 @@
-"""
-Upsert KMC License/Registration CSV data to Supabase Postgres.
+"""Upsert KMC License/Registration CSV data to Supabase Postgres.
 
 Usage:
     python scripts/upsert_kmc_csv_to_supabase.py [--dry-run] [--batch-size 5000]

@@ -165,7 +165,6 @@ class TestDeleteMethod:
 
     def test_delete_nonexistent_photo_raises_filenotfound(self, service, test_app):
         """Deleting a photo ID that doesn't exist raises FileNotFoundError."""
-
         with pytest.raises(FileNotFoundError):
             service.delete("nonexistent-id")
 

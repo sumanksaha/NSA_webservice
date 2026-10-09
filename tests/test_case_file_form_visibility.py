@@ -24,7 +24,7 @@ from app.extensions import db
 from app.models import CaseFile, User
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 
@@ -65,7 +65,7 @@ def client():
                     directive_letter_no="DL-7",
                     directive_letter_date=dt,
                     retailer_report_receive_date=dt,
-                )
+                ),
             )
             db.session.commit()
         yield client

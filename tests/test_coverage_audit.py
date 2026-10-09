@@ -32,7 +32,7 @@ class TestIsIdentified:
 
     def test_rule_notification_circular_use_clause(self):
         for dt in ("rule", "notification", "circular"):
-            assert is_identified({**{"document_type": dt}, "clause_number": "4"})
+            assert is_identified({"document_type": dt, "clause_number": "4"})
             assert not is_identified({"document_type": dt, "section_number": "4"})
 
     def test_unknown_accepts_either(self):

@@ -48,7 +48,7 @@ class TestTemporalValidity:
 
     def test_query_after_expiry(self):
         r = is_valid(
-            "p5", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01"
+            "p5", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01",
         )
         assert r.status == VALIDITY_INVALID
 
@@ -87,7 +87,7 @@ class TestTemporalValidity:
     def test_overlapping_version_dates(self):
         """When effective_to < effective_from, should still handle gracefully."""
         r = is_valid(
-            "p9", "2025-01-01", provision_status="current", effective_from="2023-01-01", effective_to="2022-01-01"
+            "p9", "2025-01-01", provision_status="current", effective_from="2023-01-01", effective_to="2022-01-01",
         )
         # effective_to is before effective_from — treat as unknown (bad data)
         # or invalid (date after effective_to)
@@ -124,7 +124,7 @@ class TestProvisionVersions:
 
     def test_extract_version_from_explicit_status(self):
         chunk = FakeChunk(
-            chunk_id="c1", text="Section 31", act_name="FSS Act, 2006", status="current", section_number="31"
+            chunk_id="c1", text="Section 31", act_name="FSS Act, 2006", status="current", section_number="31",
         )
         v = extract_provision_version(chunk)
         assert v.is_current is True
@@ -133,7 +133,7 @@ class TestProvisionVersions:
 
     def test_extract_version_repealed(self):
         chunk = FakeChunk(
-            chunk_id="c2", text="Section 31", act_name="FSS Act, 2006", status="repealed", effective_to="2023-06-01"
+            chunk_id="c2", text="Section 31", act_name="FSS Act, 2006", status="repealed", effective_to="2023-06-01",
         )
         v = extract_provision_version(chunk)
         assert v.is_current is False

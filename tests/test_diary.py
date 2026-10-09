@@ -31,7 +31,7 @@ MONTH = "2026-03"  # 31 days
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     """App + logged-in clients for two officers, clean schema.
 
@@ -118,7 +118,7 @@ def _row(app, fso_name: str, day: int, duty_seq: int = 1):
 
     with app.app_context():
         return db.session.get(
-            WorkDiaryEntry, {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}", "duty_seq": duty_seq}
+            WorkDiaryEntry, {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}", "duty_seq": duty_seq},
         )
 
 
@@ -381,7 +381,7 @@ class TestRetiredActivity:
                     samples=1,
                     notes="Market",
                     summary="legacy line",
-                )
+                ),
             )
             db.session.commit()
 
@@ -403,7 +403,7 @@ class TestRetiredActivity:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def admin_env(env):
     """The diary ``env`` plus a logged-in admin bound to Officer A."""
     from app.models import User

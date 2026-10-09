@@ -38,6 +38,7 @@ class GroundednessScore:
         claim_verifications: Per-claim verification results.
         citation_result: The citation validation result (or None).
         detail: Free-form breakdown for debugging.
+
     """
 
     score: float = 0.0
@@ -89,6 +90,7 @@ class GroundednessScorer:
 
         Returns:
             A :class:`GroundednessScore`.
+
         """
         # Claim support ratio.
         if claim_verifications:

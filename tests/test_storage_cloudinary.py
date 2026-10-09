@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 import pytest
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_fixed
 
-import app.utils.storage as storage
+from app.utils import storage
 
 # ENV-6 (2026-08-24): the Cloudinary storage implementation is being reworked
 # in a parallel stream and `_cloudinary_credentials` is temporarily absent
@@ -61,7 +61,7 @@ def _reset_cloudinary(monkeypatch):
     storage._cloudinary = None
 
 
-@pytest.fixture()
+@pytest.fixture
 def fast_retrying(monkeypatch):
     """Replace the exponential-backoff policy with a zero-wait equivalent.
 
@@ -254,7 +254,7 @@ class TestExtractPublicId:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_env():
     """Full app + client (the endpoint is auth-exempt, so no login needed)."""
     from tests.test_rag_routes import _setup_test_env

@@ -49,7 +49,7 @@ def make_db(tmp_path) -> str:
             citations TEXT, "references" TEXT, entities TEXT, metadata_json TEXT,
             content_hash TEXT, qdrant_point_id TEXT, created_at TEXT
         );
-        """
+        """,
     )
     con.execute(
         "INSERT INTO legal_document VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",

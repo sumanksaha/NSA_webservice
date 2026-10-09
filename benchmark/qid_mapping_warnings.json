@@ -1,0 +1,144 @@
+{
+  "version": "qid-mapping-warnings-v1",
+  "generated_at": "2026-10-06T00:00:00+00:00",
+  "source": "benchmark/gold_provisions_v1.0.json vs evaluation/out/cache/payload_index.jsonl",
+  "purpose": "During the Phase 2 gold-answer expansion, each benchmark primary provision was grounded against the indexed corpus. Several benchmark qids pair a provision with a title/section that the corpus does not support. This file records those mismatches in machine-readable form so they can be triaged or repaired without re-deriving them. It does not modify benchmark_v1.0.jsonl.",
+  "warnings": [
+    {
+      "qid": "epa:s2(e)",
+      "questions": ["Q058", "Q085"],
+      "benchmark_title": "Environmentally sensitive area",
+      "corpus_actual": "hazardous substance",
+      "corpus_document_id": "environment_protection_act_1986",
+      "corpus_evidence": "(e) \"hazardous substance\" means any substance or preparation which, by reason of its chemical or physico-chemical properties or handling, is liable to cause harm to human beings, other living creatures, plant, micro-organism, property or the environment",
+      "type": "wrong_provision_title",
+      "recommended_action": "Re-point the question to the correct provision/definition, or reword to test the environment-protection power under s3/s6; the Act defines no 'environmentally sensitive area'."
+    },
+    {
+      "qid": "epa:s5",
+      "questions": ["Q058", "Q085"],
+      "benchmark_title": "Restrictions on use of forest/substrates",
+      "corpus_actual": "power to give directions (closure/prohibition/regulation of industry; stoppage/regulation of a service)",
+      "corpus_document_id": "environment_protection_act_1986",
+      "corpus_evidence": "5. POWER TO GIVE DIRECTIONS ... the power to issue directions under this section includes the power to direct (a) the closure, prohibition or regulation of any industry, operation or process; or (b) stoppage or regulation of the supply of electricity or water or any other service",
+      "type": "wrong_provision_title",
+      "recommended_action": "Retitle to the directions power, or move the restriction question to the notification/rules regime (s3/s6)."
+    },
+    {
+      "qid": "air_act:s8",
+      "questions": ["Q048"],
+      "benchmark_title": "Consent to establish/operate",
+      "corpus_actual": "disqualifications for membership of a State Board",
+      "corpus_document_id": "air_act_1981",
+      "corpus_evidence": "8. Disqualifications. (1) No person shall be a member of a State Board constituted under this Act, who ...",
+      "type": "wrong_provision_number",
+      "correct_provision": "s21 (Restrictions on use of certain industrial plants) - previous consent of the State Board before establishing/operating an industrial plant in an air pollution control area",
+      "recommended_action": "Change primary_provisions to air_act:s21 (and supporting to s22/s31 for the closure consequences)."
+    },
+    {
+      "qid": "water_act:s12",
+      "questions": ["Q052", "Q088"],
+      "benchmark_title": "Penalty",
+      "corpus_actual": "not a penalty provision (falls among the Board-functions provisions)",
+      "corpus_document_id": "water_act_1974",
+      "corpus_evidence": "penalties appear as s42 (Penalty for certain acts), s43, s44, s45, s45A (residual; 3 months / Rs 10,000, continuing Rs 5,000/day); cognizance restricted by s49",
+      "type": "wrong_provision_number",
+      "correct_provision": "s45A (general penalty) / s44 (consent contravention); benchmark's 3-month/5-month and Rs 2,000-per-day 'cognizable' figures are not traceable to the indexed Act",
+      "recommended_action": "Repair the penalty figures to the corpus values and re-point the question to the penalties chapter."
+    },
+    {
+      "qid": "water_act:s8",
+      "questions": ["Q082"],
+      "benchmark_title": "Water quality",
+      "corpus_actual": "meetings of Board",
+      "corpus_document_id": "water_act_1974",
+      "corpus_evidence": "8. Meetings of Board. A Board shall meet at least once in every three months ...",
+      "type": "wrong_provision_number",
+      "correct_provision": "Board-functions provisions (lay down/modify/annul effluent standards and standards for the quality of receiving waters, and classify waters of the State)",
+      "recommended_action": "Re-point to the Board-functions provision, or state that drinking-water standards are notified under the EPA framework."
+    },
+    {
+      "qid": "wbpt:s46",
+      "questions": ["Q079", "Q080"],
+      "benchmark_title": "Recovery of possession",
+      "corpus_actual": "transitional/interpretation provision (proceedings pending at commencement to be deemed continued)",
+      "corpus_document_id": "wb_premises_tenancy_act_1997",
+      "corpus_evidence": "46. For the removal of doubt it is hereby declared that ... any proceeding pending at the commencement of this Act ...",
+      "type": "wrong_provision_number",
+      "correct_provision": "s6 (Protection of tenant against eviction; grounds and the one-month notice under s6(4)); execution under s8(14); Chapter V (s10) for restoration of possession",
+      "recommended_action": "Re-point the notice/grounds question to wbpt:s6 (supporting s8), and the execution question to s8/Ch. V."
+    },
+    {
+      "qid": "fssai:s75",
+      "questions": ["Q021"],
+      "benchmark_title": "Establishment of Food Safety Appellate Tribunal",
+      "corpus_actual": "power to transfer cases to regular courts",
+      "corpus_document_id": "60939e3b253847b9990a93fc10f5d723",
+      "corpus_evidence": "75. Power to transfer cases to regular courts. Where ... a Special Court is of the opinion that the offence is not triable by it ...",
+      "type": "wrong_provision_number",
+      "correct_provision": "s70 (Establishment of Food Safety Appellate Tribunal, appeals from decisions of the Adjudicating Officer under s68); appeal to the High Court under s76",
+      "recommended_action": "Re-point the FSSAIT question to fssai:s70."
+    },
+    {
+      "qid": "partnership:s30",
+      "questions": ["Q093"],
+      "benchmark_title": "Implied authority of partner",
+      "corpus_actual": "minors admitted to the benefits of partnership",
+      "corpus_document_id": "indian_partnership_act_1932",
+      "corpus_evidence": "30. Minors admitted to the benefits of partnership. (1) A person who is a minor ... may not be a partner in a firm, but ... may be admitted to the benefits of partnership.",
+      "type": "wrong_provision_title",
+      "correct_provision": "s19 (implied authority of a partner as agent of the firm) read with s20 (extension and restriction of implied authority); s22 (mode of doing act to bind firm)",
+      "recommended_action": "Re-point the implied-authority question to partnership:s19/s20 (with s22)."
+    },
+    {
+      "qid": "cpa:product_liability",
+      "questions": ["Q096"],
+      "benchmark_section": "88-92",
+      "corpus_actual": "product liability is Chapter VI, ss.82-87 (s.88 onwards is offences/penalties)",
+      "corpus_document_id": "consumer_protection_act_2019",
+      "corpus_evidence": "CHAPTER VI PRODUCT LIABILITY 82. Application of Chapter ... 83. ... 84. Liability of product manufacturer ... 85. ... 86. ... 87. Exceptions to product liability action",
+      "type": "wrong_section_range",
+      "recommended_action": "Update the section to 82-87."
+    },
+    {
+      "qid": "contract:consideration",
+      "questions": ["Q100"],
+      "benchmark_section": "2(1)(c)",
+      "corpus_actual": "consideration is defined in s2(d); the exceptions to the no-consideration rule are in s25",
+      "corpus_document_id": "indian_contract_act_1872",
+      "corpus_evidence": "(d) When, at the desire of the promisor, the promisee or any other person has done or abstained from doing ... is called a consideration for the promise; 25. Agreement without consideration, void, unless ...",
+      "type": "wrong_section_number",
+      "recommended_action": "Update the section to 2(d) (with s25 for the exceptions)."
+    },
+    {
+      "qid": "fssai:s69",
+      "questions": ["Q020"],
+      "benchmark_assertion": "compounding may impose a penalty not exceeding the maximum penalty for the offence (or an equivalent monetary penalty)",
+      "corpus_actual": "the composition sum shall not be more than one lakh rupees, and an offence punishable with imprisonment cannot be compounded",
+      "corpus_document_id": "60939e3b253847b9990a93fc10f5d723",
+      "corpus_evidence": "(4) The sum of money accepted or agreed to be accepted as composition ... shall not be more than one lakh rupees ... no offence, for which punishment of imprisonment has been prescribed under this Act, shall be compounded",
+      "type": "wrong_acceptable_conclusion",
+      "recommended_action": "Correct the acceptable_conclusion to the one-lakh ceiling and the imprisonment-offence exclusion."
+    },
+    {
+      "qid": "swm_rules:segregation",
+      "questions": ["Q057", "Q086"],
+      "benchmark_assertion": "segregation into biodegradable / recyclable / dry",
+      "corpus_actual": "four streams at source: wet waste, dry waste, sanitary waste and special care waste",
+      "corpus_document_id": "swm_rules_2026",
+      "corpus_evidence": "(b) segregate and store the waste generated by them in four separate streams at source namely wet waste, dry waste, sanitary waste and special care waste",
+      "type": "outdated_terminology",
+      "recommended_action": "Update the acceptable_conclusion to the four-stream terminology of the 2026 Rules."
+    },
+    {
+      "qid": "wbmo:penalties",
+      "questions": ["Q036", "Q045"],
+      "benchmark_title": "Penalties",
+      "corpus_actual": "the indexed Meat Order runs to orders 1-8 and contains no penalty clause and no general licensing requirement",
+      "corpus_document_id": "wb_meat_order_1966",
+      "corpus_evidence": "order 3 (prohibition on prohibited days), order 4 (powers of entry), order 5 (seizure), order 6 (custody/sale pending trial), order 7 (religious-occasion exemption), order 8 (military exemption)",
+      "type": "provision_not_present",
+      "recommended_action": "Attribute the penalty to the Essential Commodities Act, 1955, s7; drop the unsupported 'meat trade licence' premise."
+    }
+  ]
+}

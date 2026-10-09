@@ -102,7 +102,7 @@ class FakeDriver:
         self.label_count = label_count
         self.session_calls: list[tuple[str, dict]] = []
         self.txs: list[FakeTx] = []
-        self._seen = {k: 0 for k in self.counts}
+        self._seen = dict.fromkeys(self.counts, 0)
 
     def ret_count(self, cypher: str) -> int:
         for key, val in self.counts.items():
@@ -140,7 +140,7 @@ class TestTemporalRemediation:
                 "i.effective_date = f.effective_date": 1,  # instrument fix
                 "SET p.status = i.status": 5,  # propagation
                 "p.effective_from = i.effective_date": 75,  # backfill
-            }
+            },
         )
         summary = remediate(drv, "neo4j", dry_run=False)
         assert summary["risk_before"] == 5
@@ -158,7 +158,7 @@ class TestTemporalRemediation:
                 "i.effective_date = f.effective_date": 1,
                 "SET p.status = i.status": 5,
                 "p.effective_from = i.effective_date": 75,
-            }
+            },
         )
         summary = remediate(drv, "neo4j", dry_run=True)
         assert summary["dry_run"] is True
@@ -298,7 +298,7 @@ class TestConceptLinking:
                             "name": "Business Civil Law",
                             "domains": ["BUSINESS_CIVIL"],
                             "inbound": 0,
-                        })
+                        }),
                     ])
                 if "collect(DISTINCT coalesce(c.chunk_text, ''))" in cypher:
                     return FakeResult()
@@ -347,7 +347,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Section 496, subsection (1) of unwholesome wells, pools, etc. Failure to maintain land effectively One thousand One hundred rupees"
+            "Section 496, subsection (1) of unwholesome wells, pools, etc. Failure to maintain land effectively One thousand One hundred rupees",
         )
         assert {t["rel_type"] for t in tags} == {"PRESCRIBES_PENALTY"}
 
@@ -355,7 +355,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Section 498 Unlawful removal 500/- of earth, sand or other material from any land vested in the Corporation."
+            "Section 498 Unlawful removal 500/- of earth, sand or other material from any land vested in the Corporation.",
         )
         assert {t["rel_type"] for t in tags} == {"PRESCRIBES_PENALTY"}
 
@@ -363,7 +363,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Whoever,exceptinthecaseprovidedforbysub-section(2)ofsection122,voluntarilycausesgrievoushurt,shallbepunishedwithimprisonmentofeitherdescriptionforatermwhichmayextendtosevenyears,andshallalsobeliabletofine."
+            "Whoever,exceptinthecaseprovidedforbysub-section(2)ofsection122,voluntarilycausesgrievoushurt,shallbepunishedwithimprisonmentofeitherdescriptionforatermwhichmayextendtosevenyears,andshallalsobeliabletofine.",
         )
         assert {t["rel_type"] for t in tags} == {"PRESCRIBES_PENALTY"}
 
@@ -371,7 +371,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "offencepunishableunder section64, section65,section66, section67,section68,"
+            "offencepunishableunder section64, section65,section66, section67,section68,",
         )
         assert "CREATES_OFFENCE" in {t["rel_type"] for t in tags}
 
@@ -385,7 +385,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Whoever commits this offence shall be punished with imprisonment for a term which may extend to seven years."
+            "Whoever commits this offence shall be punished with imprisonment for a term which may extend to seven years.",
         )
         assert "PRESCRIBES_PENALTY" in {t["rel_type"] for t in tags}
 
@@ -396,7 +396,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "s hereby pleased to levy a non-refundable processing fee of Rs. 1,000/- (Rupees one thousand only) for processing the documents for registratio"
+            "s hereby pleased to levy a non-refundable processing fee of Rs. 1,000/- (Rupees one thousand only) for processing the documents for registratio",
         )
         assert not any(t["rel_type"] == "PRESCRIBES_PENALTY" for t in tags)
 
@@ -415,7 +415,7 @@ class TestExtendedRules:
         tags = LegalSemanticEnricher.tag_text(
             "349 PART II – STATEMENT OF PROFIT AND LOSS Name of the Non-Banking Financial Company. "
             "Statement of Profit and Loss for the period ended ........ (Rupees in ........) "
-            "Particulars Note No. Figures for the current reporting period Revenue from operations"
+            "Particulars Note No. Figures for the current reporting period Revenue from operations",
         )
         assert not any(t["rel_type"] == "PRESCRIBES_PENALTY" for t in tags)
 
@@ -423,7 +423,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "the company shall be liable to a penalty of one hundred rupees for every day during which the default continues"
+            "the company shall be liable to a penalty of one hundred rupees for every day during which the default continues",
         )
         assert "PRESCRIBES_PENALTY" in {t["rel_type"] for t in tags}
 
@@ -433,7 +433,7 @@ class TestExtendedRules:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Section 498 Unlawful removal 500/- of earth, sand or other material or deposit of any matter or making of any encroachment from any land vested in the Corporation."
+            "Section 498 Unlawful removal 500/- of earth, sand or other material or deposit of any matter or making of any encroachment from any land vested in the Corporation.",
         )
         assert {t["rel_type"] for t in tags} == {"PRESCRIBES_PENALTY"}
 
@@ -475,7 +475,8 @@ class TestNotApplicableClassifier:
 
     def test_structural_patterns_do_not_swallow_substantive_text(self):
         """A real provision that merely contains digits, a chapter word or an
-        "illustration" example must not be filed as front-matter."""
+        "illustration" example must not be filed as front-matter.
+        """
         from kg.enrichment import _not_applicable_reason
 
         substantive = [
@@ -558,7 +559,8 @@ class TestEnrichClassTagging:
 
     def test_definitional_provision_gets_defines_edge(self):
         """A definition is substantive law: it must yield a typed edge, not
-        be left unclassified (2026-10-03 ontology extension)."""
+        be left unclassified (2026-10-03 ontology extension).
+        """
         from kg.enrichment import LegalSemanticEnricher
 
         cases = {
@@ -581,7 +583,8 @@ class TestEnrichClassTagging:
 
     def test_new_rules_do_not_steal_existing_semantics(self):
         """DEFINES/EXEMPTS are additive categories; duty/penalty/prohibition
-        tagging must be unchanged by them."""
+        tagging must be unchanged by them.
+        """
         from kg.enrichment import LegalSemanticEnricher
 
         duty = "Every food business operator shall maintain the prescribed records."
@@ -599,7 +602,8 @@ class TestEnrichClassTagging:
     def test_new_concepts_are_registered_in_domain_manifest(self):
         """Every concept the enricher emits must exist in the controlled
         vocabulary, or load_vocabularies will not MERGE it and the edge
-        silently targets nothing."""
+        silently targets nothing.
+        """
         from kg.domain_manifest import CONCEPTS
 
         for concept in ("Definition", "Exemption"):

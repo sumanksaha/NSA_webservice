@@ -141,7 +141,7 @@ def qstash_configured() -> bool:
         os.environ.get("QSTASH_TOKEN")
         and os.environ.get("QSTASH_CURRENT_SIGNING_KEY")
         and os.environ.get("QSTASH_NEXT_SIGNING_KEY")
-        and os.environ.get("PUBLIC_BASE_URL")
+        and os.environ.get("PUBLIC_BASE_URL"),
     )
 
 
@@ -257,6 +257,7 @@ def publish_recurring(
     Returns:
         ``{"mode": "scheduled", "schedule_id": str}`` on success,
         ``{"mode": "disabled"}`` if QStash is not configured.
+
     """
     if task_name not in TASK_REGISTRY:
         raise ValueError(f"Unknown task: {task_name}")

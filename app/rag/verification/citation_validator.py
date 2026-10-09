@@ -45,6 +45,7 @@ class CitationValidationResult:
             the chunk's own ``section_number``.
         score: Overall validation score (valid + partial / total).
         detail: Per-citation validation detail dicts.
+
     """
 
     valid: list[Citation] = field(default_factory=list)
@@ -77,6 +78,7 @@ class CitationValidator:
 
         Returns:
             A :class:`CitationValidationResult`.
+
         """
         chunk_by_id = {c.chunk_id: c for c in chunks}
         total = len(citations)

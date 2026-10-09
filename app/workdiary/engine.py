@@ -86,6 +86,7 @@ class WorkDiaryEngine:
                 (Monthly rows have no dismissed state and are always kept).
             include_inspections: When false, skip the Inspection query and
                 return Monthly rows only (official report buildup).
+
         """
         norm_purpose = (purpose or "").strip().lower()
         entries: list[dict[str, Any]] = []
@@ -118,7 +119,7 @@ class WorkDiaryEngine:
                             Inspection.visit_purpose.is_(None),
                             db.or_(Inspection.problem.is_(None), Inspection.problem == ""),
                         ),
-                    )
+                    ),
                 )
             elif norm_purpose == "complaint":
                 query = query.filter(
@@ -129,7 +130,7 @@ class WorkDiaryEngine:
                             Inspection.problem.isnot(None),
                             Inspection.problem != "",
                         ),
-                    )
+                    ),
                 )
             elif norm_purpose in ("vvip", "meeting"):
                 query = query.filter(db.text("1 = 0"))  # no Inspection matches these
@@ -147,14 +148,14 @@ class WorkDiaryEngine:
                 date_from=date_from,
                 date_to=date_to,
                 purpose=norm_purpose or None,
-            )
+            ),
         )
         entries.sort(
             key=lambda e: (
                 e["date"].date() if e["date"] else datetime.min.date(),
                 0 if e.get("inspection_id") else 1,
                 e.get("duty_seq") or 0,
-            )
+            ),
         )
         self._annotate_date_groups(entries)
         return entries

@@ -57,7 +57,7 @@ G_NAMES = {
     "G12": "OTHER",
 }
 _SEC_PATTERNS = [
-    re.compile(r"(?:^|\n)\s*(?:section|sec\.)?\s*(\d{1,4})\b", re.I),
+    re.compile(r"(?:^|\n)\s*(?:section|sec\.)?\s*(\d{1,4})\b", re.IGNORECASE),
     re.compile(r"(?:^|\n)\s*(\d{1,4})\.\s+[A-Z]"),
     re.compile(r"(?:^|\n)\s*(\d{1,4})\)\s+[A-Z]"),
 ]
@@ -221,7 +221,7 @@ def classify_gap_unit(u, payload_idx, fm, registry):
     if section and section.isdigit():
         for pid in fam_pids[:200]:
             ct = str(payload_idx[pid].get("chunk_text", ""))
-            if re.search(rf"section\s{re.escape(section)}\b", ct, re.I):
+            if re.search(rf"section\s{re.escape(section)}\b", ct, re.IGNORECASE):
                 sec_in_text = True
                 break
     stamped = sum(1 for pid in fam_pids if payload_idx[pid].get("section_number") is not None)
@@ -313,7 +313,7 @@ def run_phase4(gap_units, payload_idx, fm):
         if u.section and u.section.isdigit():
             for pid in fam_pids[:100]:
                 ct = str(payload_idx[pid].get("chunk_text", ""))
-                if re.search(rf"section\s{re.escape(u.section)}\b", ct, re.I):
+                if re.search(rf"section\s{re.escape(u.section)}\b", ct, re.IGNORECASE):
                     sec_in_text = True
                     break
         rows.append({
@@ -914,7 +914,7 @@ def main():
     ]
     with open(V7_DIR / "v7_candidate_gap.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(
-            f, fieldnames=["gold_unit", "family", "gold_section", "gold_document", "best_rank", "in_pool"]
+            f, fieldnames=["gold_unit", "family", "gold_section", "gold_document", "best_rank", "in_pool"],
         )
         w.writeheader()
         w.writerows(gap_rows)
@@ -996,7 +996,7 @@ def run_phase20(gap_units, payload_idx, fm):
             for vpat in [rf"section\s+{gold_sec}\b", rf"{gold_sec}\.\s", rf"{gold_sec}\)", rf"Sec\.?\s+{gold_sec}"]:
                 for pid in fam_pids[:50]:
                     ct = str(payload_idx[pid].get("chunk_text", ""))
-                    if re.search(vpat, ct, re.I):
+                    if re.search(vpat, ct, re.IGNORECASE):
                         variants.append(vpat.replace("\\s", " ").replace("\\.", ".").replace("\\b", ""))
                         break
         recommendation = "re-stamp section metadata" if variants else "add query route + corpus repair"

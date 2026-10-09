@@ -28,7 +28,7 @@ from app.models import User
 from tests.test_preview_adjudication import VALID_FORM
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 

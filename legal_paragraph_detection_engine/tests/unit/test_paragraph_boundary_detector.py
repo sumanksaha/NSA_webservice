@@ -190,7 +190,6 @@ class TestParagraphBoundaryDetector(unittest.TestCase):
 
     def test_detector_locking(self):
         """Test thread safety."""
-
         text = "Section 3\n\n3(1)"
 
         results = []

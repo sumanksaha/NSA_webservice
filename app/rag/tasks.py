@@ -138,15 +138,12 @@ def run_retrieval_pipeline(
     # Stage 1 — understand the query: classify, parse, legal typing,
     # identifier route, and (food-intent flag) the food-commodity view.
     query_type, legal_qt, identifier, identifier_query, form_query, merged_filters = _retrieval_understand_query(query, filters)
-    food_understanding = _retrieval_food_understanding(query)
+    food_view = _retrieval_food_view(query)
 
     # Stage 2 — fetch evidence through the hybrid retriever with the
-    # §12.1 cache in front of it.  When the food view wants a specific
-    # provision (standard/limit), a wider candidate pool is fetched so the
-    # legal-aware reranker has clause siblings to reconstruct from.
-    fetch_k = top_k
-    if food_understanding is not None and (cfg.food_legal_rerank or cfg.food_parent_reconstruct):
-        fetch_k = max(top_k, 30)
+    # §12.1 cache in front of it. The food view resolves its own pool
+    # width (wider when it wants clause siblings to reconstruct from).
+    fetch_k = food_view.fetch_width(top_k) if food_view is not None else top_k
 
     # Phase 4: RL parameter selection — override top_k and rrf_k when the
     # contextual bandit controller is active.  When disabled, the fallback
@@ -185,24 +182,28 @@ def run_retrieval_pipeline(
         rrf_k=eff_rrf_k,
     )
 
-    # Stage 2b — legal-aware reranking + validation + fallback (food-intent
-    # flags; each stage is error-isolated so a failure degrades to the
-    # hybrid ranking exactly as before).
+    # Stage 2b — food-intent reranking + validation + fallback. The view
+    # carries the fetch context, so the stage asks one narrow question.
     trace: dict[str, Any] | None = None
     fallback_rounds_used = 0
-    if food_understanding is not None:
-        result, trace, fallback_rounds_used = _retrieval_food_rerank_validate(
-            query,
+    if food_view is not None:
+        from app.rag.retrieval.food_view import FoodFetchContext, food_stage_2b
+
+        result, trace, fallback_rounds_used = food_stage_2b(
+            food_view,
             result,
-            food_understanding,
-            top_k=top_k,
-            collection_name=collection_name,
-            merged_filters=merged_filters,
-            query_type=query_type,
-            legal_qt=legal_qt,
-            identifier=identifier,
-            identifier_query=identifier_query,
-            cache=cache,
+            FoodFetchContext(
+                top_k=top_k,
+                collection_name=collection_name,
+                merged_filters=merged_filters,
+                query_type=query_type,
+                legal_qt=legal_qt,
+                identifier=identifier,
+                identifier_query=identifier_query,
+                form_query=None,
+                cache=cache,
+            ),
+            _retrieval_fetch,
         )
 
     # Stage 3 — audit log (runs on every call — cache hits included — so
@@ -248,217 +249,28 @@ def run_retrieval_pipeline(
             "rrf_k": rl_params.rrf_k,
             "is_exploration": rl_params.is_exploration,
         }
-    if food_understanding is not None:
-        out["food_understanding"] = food_understanding.to_dict()
+    if food_view is not None:
+        out["food_understanding"] = food_view.to_result_dict()
         if trace is not None:
             out["retrieval_trace"] = trace
         out["fallback_rounds"] = fallback_rounds_used
     return out
 
 
-def _retrieval_food_understanding(query: str) -> Any | None:
+def _retrieval_food_view(query: str) -> Any | None:
     """Food-commodity view of the query (RAG_FOOD_INTENT_ENABLED), or None.
 
-    Error-isolated: a parse failure degrades to the pre-existing pipeline.
+    Single construction site: the query is parsed once and every food
+    stage reads its answers off the returned view. Error-isolated: a
+    parse failure degrades to the pre-existing pipeline.
     """
-    if not cfg.food_intent_enabled:
-        return None
+    from app.rag.retrieval.food_view import FoodView
+
     try:
-        from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
-
-        return FoodQueryUnderstanding.from_query(query)
+        return FoodView.for_query(query)
     except Exception as exc:
-        logger.warning("_retrieval_food_understanding failed: %s", exc)
+        logger.warning("_retrieval_food_view failed: %s", exc)
         return None
-
-
-def _retrieval_food_rerank_validate(
-    query: str,
-    result: Any,
-    food: Any,
-    *,
-    top_k: int,
-    collection_name: str | None,
-    merged_filters: dict[str, Any],
-    query_type: Any,
-    legal_qt: Any | None,
-    identifier: dict[str, Any] | None,
-    identifier_query: str | None,
-    cache: RetrievalCache,
-) -> tuple[Any, dict[str, Any] | None, int]:
-    """Stage 2b — legal-aware rerank + validation + fallback retrieval.
-
-    Returns ``(result, trace, fallback_rounds_used)``.  Every step is
-    best-effort: any failure returns the incoming result unchanged.
-    """
-    trace: dict[str, Any] | None = None
-    fallback_rounds_used = 0
-    anchor_budget = [1]  # one dynamic anchor fetch per pipeline call
-    sibling_budget = [1]  # one exact clause-sibling fetch per pipeline call
-    try:
-        from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
-        from app.rag.retrieval.legal_reranker import LegalAwareReranker
-        from app.rag.retrieval.parent_reconstruction import reconstruct_evidence_bundle
-        from app.rag.retrieval.validation import fallback_queries, validate_retrieval
-
-        assert isinstance(food, FoodQueryUnderstanding)
-        reranker = LegalAwareReranker(enabled=cfg.food_legal_rerank)
-        chunks = list(result.chunks)
-        ranked = reranker.rerank(query, chunks, food=food)
-
-        # Dynamic identity anchor (ablation iteration 4): a pool of bare rows
-        # ("(i) Moisture …") never names its commodity — no sibling heading
-        # was retrieved — so the reranker cannot verify entity identity and
-        # validation runs blind.  When the pool lacks an identity anchor for
-        # a known-commodity entity, deterministically fetch the entity's
-        # definition heading ("{entity} means") and merge it into the pool;
-        # the grouping pass then registers the clause→commodity identity and
-        # every sibling row inherits it.  Best-effort, fire at most once.
-        if food.entity and food.entity != "unknown":
-            from app.rag.retrieval.provision_metadata import commodity_phrase_match
-
-            has_anchor = any(commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity) for c in ranked)
-            if not has_anchor and anchor_budget[0] > 0:
-                anchor_budget[0] -= 1
-                anchor_result = _retrieval_fetch(
-                    f"{food.entity} means",
-                    top_k=5,
-                    collection_name=collection_name,
-                    merged_filters=merged_filters,
-                    query_type=query_type,
-                    legal_qt=legal_qt,
-                    identifier=identifier,
-                    identifier_query=identifier_query,
-                    form_query=None,
-                    cache=cache,
-                )
-                seen_ids = {c.chunk_id for c in ranked}
-                fresh = [c for c in anchor_result.chunks if c.chunk_id not in seen_ids]
-                if fresh:
-                    ranked = reranker.rerank(query, [*fresh, *ranked], food=food)
-
-        # Exact clause-sibling fetch (ablation iteration 5): when the pool's
-        # identity anchor is the clause heading but the clause's table-row
-        # fragments were not retrieved (the standard/limit ask has no
-        # lexical overlap with commodity-name-free rows), fetch the clause's
-        # siblings by their exact payload identity — document_id +
-        # clause_number — which the anchor provides.  This is the structural
-        # fix for "rows never repeat the commodity name"; no amount of
-        # lexical query engineering can find these rows.
-        if food.entity and food.entity != "unknown" and sibling_budget[0] > 0:
-            from app.rag.retrieval.parent_reconstruction import group_by_clause as _gbc
-            from app.rag.retrieval.provision_metadata import (
-                commodity_phrase_match,
-            )
-            from app.rag.retrieval.provision_metadata import (
-                derive_provision_metadata_cached as _dpm,
-            )
-
-            _gbc(ranked)
-            heading = next(
-                (
-                    c
-                    for c in ranked
-                    if _dpm(c).get("commodity") == food.entity
-                    and str(_dpm(c).get("section", "unknown")) != "unknown"
-                    and commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity)
-                ),
-                None,
-            )
-            if heading is not None:
-                doc_id = str(_dpm(heading).get("document_id", "") or "")
-                clause_no = str(_dpm(heading).get("section") or "")
-                pool_ids = {c.chunk_id for c in ranked}
-                clause_pool_size = sum(
-                    1
-                    for c in ranked
-                    if str(getattr(c, "document_id", "") or "") == doc_id
-                    and str(getattr(c, "clause_number", "") or getattr(c, "section_number", "") or "") == clause_no
-                )
-                if clause_pool_size < 3:  # heading + <2 rows: the table is not in the pool
-                    sibling_budget[0] -= 1
-                    try:
-                        from app.rag.qdrant_client import QdrantStore
-
-                        store = QdrantStore(collection_name=collection_name)
-                        # Server-side payload filter (§6 item 3): a keyword
-                        # index on clause_number exists on the live cluster,
-                        # so strict mode accepts the filter and Qdrant
-                        # paginates only the matching points (index lookup)
-                        # instead of scrolling the whole collection locally.
-                        points = store.scroll_all(
-                            batch_size=500,
-                            filters={"document_id": doc_id, "clause_number": clause_no},
-                        )
-                        seen_ids = {c.chunk_id for c in ranked}
-                        fresh = []
-                        for p in points:
-                            payload = p.get("payload") or {}
-                            pid = str(p.get("id"))
-                            if pid in seen_ids:
-                                continue
-                            fresh.append(_point_to_chunk(p, pid, payload))
-                        if fresh:
-                            ranked = reranker.rerank(query, [*fresh, *ranked], food=food)
-                    except Exception as exc:
-                        logger.warning("clause-sibling fetch failed (non-fatal): %s", exc)
-
-        validation = validate_retrieval(query, ranked, food=food)
-        if not validation.get("valid") and cfg.food_validate and cfg.food_fallback_rounds > 0:
-            # Fallback retrieval (§10): run the deterministic fallback arms
-            # through the same hybrid retriever, merge into the pool, and
-            # re-rank.  Stop at the first round whose merged pool validates.
-            for round_no in range(1, cfg.food_fallback_rounds + 1):
-                fb_queries = fallback_queries(query, food=food)
-                fb_query = fb_queries[min(round_no - 1, len(fb_queries) - 1)] if fb_queries else None
-                if not fb_query:
-                    break
-                fb_result = _retrieval_fetch(
-                    fb_query,
-                    top_k=max(top_k, 20),
-                    collection_name=collection_name,
-                    merged_filters=merged_filters,
-                    query_type=query_type,
-                    legal_qt=legal_qt,
-                    identifier=identifier,
-                    identifier_query=identifier_query,
-                    form_query=None,
-                    cache=cache,
-                )
-                fallback_rounds_used = round_no
-                seen_ids = {c.chunk_id for c in ranked}
-                merged = list(ranked)
-                for c in fb_result.chunks:
-                    if c.chunk_id not in seen_ids:
-                        merged.append(c)
-                        seen_ids.add(c.chunk_id)
-                ranked = reranker.rerank(fb_query, merged, food=food)
-                validation = validate_retrieval(query, ranked, food=food)
-                if validation.get("valid"):
-                    break
-
-        # Trim to the caller's top_k after reranking.
-        result.chunks = ranked[:top_k]
-        result.total = len(result.chunks)
-
-        if cfg.food_parent_reconstruct:
-            bundle = reconstruct_evidence_bundle(query, result.chunks, food=food)
-            result.evidence_bundle = bundle  # type: ignore[attr-defined]
-            if trace is None:
-                trace = {}
-            trace["evidence_complete"] = bool((bundle.get("completeness") or {}).get("intent_satisfied"))
-            trace["completeness"] = bundle.get("completeness")
-            trace["legal_source"] = bundle.get("legal_source")
-
-        if trace is None:
-            trace = {}
-        trace["fallback_triggered"] = fallback_rounds_used > 0
-        trace["fallback_rounds"] = fallback_rounds_used
-        trace["validation"] = dict(validation)
-    except Exception as exc:
-        logger.warning("_retrieval_food_rerank_validate failed (%s) — hybrid ranking kept", exc)
-        trace = {"error": str(exc)}
-    return result, trace, fallback_rounds_used
 
 
 def _retrieval_understand_query(

@@ -153,7 +153,6 @@ class TestLegalParagraphEngine(unittest.TestCase):
 
     def test_engine_thread_safety(self):
         """Test engine thread safety."""
-
         text = "Section 3(1)(a)\n3(1)(b) Second clause."
 
         results = []
@@ -181,7 +180,7 @@ class TestLegalParagraphEngine(unittest.TestCase):
         """Test error handling."""
         # Test with invalid input
         with self.assertRaises(RuntimeError):
-            self.engine.process_document(cast(str, None))
+            self.engine.process_document(cast("str", None))
 
     def test_engine_configuration(self):
         """Test engine configuration."""

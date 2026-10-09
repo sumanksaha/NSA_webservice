@@ -13,6 +13,7 @@ Note:
     The engine is not yet pip-installable (T-42 open), so this script adds the
     repository root to ``sys.path`` to make the package importable when run
     directly.
+
 """
 
 import sys

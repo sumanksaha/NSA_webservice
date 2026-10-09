@@ -87,6 +87,7 @@ class ChunkDeduper:
     Args:
         hasher: Optional :class:`ContentHasher` (injected for tests).
         store: Optional :class:`SeenHashStore` (default in-memory).
+
     """
 
     def __init__(

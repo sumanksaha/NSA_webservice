@@ -269,7 +269,7 @@ class TestHallucinationDetector:
                 url=None,
                 snippet="t",
                 confidence=0.85,
-            )
+            ),
         ]
         report = HallucinationDetector().detect(response, chunks, citations=cits)
         assert not report.detected

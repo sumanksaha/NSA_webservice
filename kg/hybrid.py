@@ -48,6 +48,7 @@ class KGContextExpander:
         driver: Optional pre-built Neo4j driver (injected for tests).
         database: Neo4j database name (default from ``NEO4J_DATABASE`` env).
         max_chunk_ids: Cap on chunk IDs expanded per call.
+
     """
 
     def __init__(
@@ -77,7 +78,7 @@ class KGContextExpander:
     def configured() -> bool:
         """Whether Neo4j credentials are present (cheap pre-check)."""
         return bool(
-            os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_USERNAME") and os.environ.get("NEO4J_PASSWORD")
+            os.environ.get("NEO4J_URI") and os.environ.get("NEO4J_USERNAME") and os.environ.get("NEO4J_PASSWORD"),
         )
 
     def _execute(self, cypher: str, params: dict | None = None) -> list[dict]:
@@ -316,6 +317,7 @@ def rrf_fuse_chunks(
     preserved by Python's stable sort.  This keeps the fusion reproducible
     from the same cached candidate lists and never lets a KG item displace
     an equally-ranked vector item.
+
     """
     if dedupe_kg:
         chunk_lists = _dedupe_kg_over_chunks(list(chunk_lists))
@@ -419,6 +421,7 @@ def provisions_to_retrieved_chunks(
 
     Returns:
         List of ``RetrievedChunk`` — empty when no provisions are given.
+
     """
     from app.rag.retrieval.result import RetrievedChunk
 
@@ -459,7 +462,7 @@ def provisions_to_retrieved_chunks(
                 document_title=instrument or title,
                 document_type="KG-Provision",
                 authority=auth,
-            )
+            ),
         )
     return chunks
 

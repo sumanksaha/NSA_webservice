@@ -284,7 +284,7 @@ NOT_APPLICABLE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "cross_reference_fragment",
         re.compile(
-            r"^(?:of|in|under|for|to|by|with|on|from|as|and|or|that|which|whose)\s|^\([A-Za-z]\)\s", re.IGNORECASE
+            r"^(?:of|in|under|for|to|by|with|on|from|as|and|or|that|which|whose)\s|^\([A-Za-z]\)\s", re.IGNORECASE,
         ),
     ),
     # Financial-statement format rows (Companies Act Schedule III style:
@@ -337,6 +337,7 @@ class LegalSemanticEnricher:
         database: Neo4j database name (default from ``NEO4J_DATABASE`` env).
         min_confidence: Minimum rule confidence to write an edge.
         batch_size: UNWIND batch size for edge writes.
+
     """
 
     def __init__(
@@ -707,6 +708,7 @@ def _rupees_match_not_fee(text: str, pattern: re.Pattern[str] | None = None) -> 
         text: Provision text to scan.
         pattern: The pre-compiled ``_RUPEES_RULE_PATTERN`` from the caller
             (avoids re-compiling per provision).
+
     """
     rule = pattern if pattern is not None else re.compile(_RUPEES_RULE_PATTERN, re.IGNORECASE)
     for m in rule.finditer(text):

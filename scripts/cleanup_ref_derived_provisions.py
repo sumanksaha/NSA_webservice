@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
                 WHERE p.provision_id CONTAINS '_SEC_'
                   AND NOT p.provision_id CONTAINS '_CLAUSE_'
                 DELETE e
-                """
+                """,
             )
             print(f"deleted {len(provisions)} provisions and {edges} edges")
             print("now re-run: python scripts/build_kg_corpus.py --no-clear")

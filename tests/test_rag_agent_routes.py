@@ -22,7 +22,7 @@ def _app_env():
 
 def _patch_legacy_query(monkeypatch, app):
     """Point the legacy query route's generation call at a fake."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     monkeypatch.setattr(
         tasks,
@@ -49,7 +49,7 @@ def _patch_agent_graph(monkeypatch, result=None):
             "query_type": "offence",
             "pipeline": "agent",
             "agent": {"retry_count": 0, "expanded_query": None, "audit_trail": []},
-        }
+        },
     }
     monkeypatch.setattr(graph_mod, "run_agent", lambda state, **kw: fake)
 

@@ -68,7 +68,7 @@ def app_ctx():
                     manufacturer_report_receive_date=datetime(2026, 7, 8),
                     applicable_regulation="Regulation No 5(9)",
                     applicable_clause="Clause (zf) of subsection 1 of section 3 of the FSSA,2006",
-                )
+                ),
             )
             db.session.commit()
         yield client
@@ -106,7 +106,7 @@ class TestVersionService:
             service.create_version(case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>v1</p>")
             service.create_version(case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>v2</p>")
             third = service.create_version(
-                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>v3</p>"
+                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>v3</p>",
             )
             assert third.version_number == 3
 
@@ -117,13 +117,13 @@ class TestVersionService:
         with app_ctx.application.app_context():
             html = "<p>Same content</p>"
             first = service.create_version_if_changed(
-                case_id=1, adjudication_id=None, doc_type="petition", html_content=html
+                case_id=1, adjudication_id=None, doc_type="petition", html_content=html,
             )
             assert first is not None
             # Identical content must NOT create a second snapshot.
             assert (
                 service.create_version_if_changed(
-                    case_id=1, adjudication_id=None, doc_type="petition", html_content=html
+                    case_id=1, adjudication_id=None, doc_type="petition", html_content=html,
                 )
                 is None
             )
@@ -135,10 +135,10 @@ class TestVersionService:
         service = VersionService()
         with app_ctx.application.app_context():
             service.create_version_if_changed(
-                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>old</p>"
+                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>old</p>",
             )
             second = service.create_version_if_changed(
-                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>new</p>"
+                case_id=1, adjudication_id=None, doc_type="petition", html_content="<p>new</p>",
             )
             assert second is not None
             assert second.version_number == 2
@@ -299,7 +299,8 @@ def _add_adjudication(app):
 
 class TestRestoreVersion:
     """restore_version now writes the snapshot back to instance/saved/ and
-    records an append-only "Restored to version N" snapshot."""
+    records an append-only "Restored to version N" snapshot.
+    """
 
     def test_restore_writes_snapshot_and_appends_version(self, app_ctx):
         from pathlib import Path
@@ -390,7 +391,7 @@ class TestBranching:
 
         with app_ctx.application.app_context():
             branch_root = Version.query.filter_by(
-                case_id=1, doc_type="petition", branch_name="draft-a", version_number=1
+                case_id=1, doc_type="petition", branch_name="draft-a", version_number=1,
             ).first()
             assert branch_root is not None
             assert branch_root.html_snapshot == "<p>v1</p>"

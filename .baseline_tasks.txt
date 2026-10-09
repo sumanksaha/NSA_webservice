@@ -1,0 +1,4 @@
+============================= test session starts =============================
+collected 9 items
+
+tests\test_rag_tasks.py ...

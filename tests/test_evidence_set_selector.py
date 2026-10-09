@@ -82,7 +82,7 @@ def _chunk(
 
 
 def _kg(
-    pid, score=0.5, rank=21, text="", family="fssai", section="92", instrument="Food Safety and Standards Act, 2006"
+    pid, score=0.5, rank=21, text="", family="fssai", section="92", instrument="Food Safety and Standards Act, 2006",
 ):
     sk = [(family, section)] if family else [(None, section)]
     provision = {
@@ -266,7 +266,8 @@ class TestTopK:
 class TestMMR:
     def test_diversity_over_relevance(self):
         """Chunk 2 has higher score than chunk 3, but chunk 2 is textually
-        identical to chunk 1 — MMR should prefer chunk 3."""
+        identical to chunk 1 — MMR should prefer chunk 3.
+        """
         ta = "Section 31 adjudication of penalties food safety requirements"
         tb = "Section 31 adjudication of penalties food safety requirements"
         tc = "Section 92 grant of licence for food businesses"
@@ -339,7 +340,8 @@ class TestLegalStructureDiversity:
 class TestHierarchyAware:
     def test_preserves_section_subsection_chain(self):
         """Chunks forming section->subsection chain (HL 1->2->3):
-        selecting deepest child pulls in parent."""
+        selecting deepest child pulls in parent.
+        """
         cands = [
             _chunk(
                 "parent",
@@ -431,7 +433,7 @@ class TestHybrid:
     def test_chunk_then_kg_ordering(self):
         """Chunks should be preferred over KG (higher upstream scores)."""
         cands = [_chunk(f"c{i}", score=0.5 - i * 0.02, rank=i + 1, section=f"{i}") for i in range(10)] + [
-            _kg("kg1", score=0.10, rank=11, section="99")
+            _kg("kg1", score=0.10, rank=11, section="99"),
         ]
         sel = HybridEvidenceSetSelector().select(cands, 8)
         assert len(sel) == 8

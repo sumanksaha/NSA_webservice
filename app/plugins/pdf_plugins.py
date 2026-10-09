@@ -53,6 +53,7 @@ class WeasyPrintPDFPlugin(PDFProvider):
         Raises:
             RuntimeError: When WeasyPrint is unavailable or PDF generation
                 is disabled.
+
         """
         engine = self._engine()
         pdf_bytes, error = engine.generate_from_html(html_content)

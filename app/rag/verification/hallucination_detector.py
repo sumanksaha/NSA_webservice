@@ -22,6 +22,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.rag.generation.abstention import is_abstention
 from app.rag.generation.llm_client import GroundedLLMClient
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.verification.citation_validator import CitationValidator
@@ -44,7 +45,10 @@ class HallucinationReport:
 
     Attributes:
         detected: True if hallucination is likely (groundedness < threshold).
-        groundedness_score: 0.0–1.0 (see :class:`GroundednessScore`).
+        groundedness_score: 0.0–1.0 (see :class:`GroundednessScore`).  An
+            abstention scores 0.0 by construction — it cites nothing — so read
+            it together with ``abstained``.
+        abstained: True when the answer declines instead of asserting.
         claims: All extracted claims.
         verified_claims: Claims backed by evidence.
         unverified_claims: Claims with no supporting evidence (candidates).
@@ -52,10 +56,12 @@ class HallucinationReport:
         citation_result: Citation validation result.
         llm_verified: Whether the LLM-based double-check ran.
         confidence: Overall 0.0–1.0 confidence in the detection result.
+
     """
 
     detected: bool = False
     groundedness_score: float = 0.0
+    abstained: bool = False
     claims: list[ExtractedClaim] = field(default_factory=list)
     verified_claims: list[ExtractedClaim] = field(default_factory=list)
     unverified_claims: list[ExtractedClaim] = field(default_factory=list)
@@ -80,6 +86,7 @@ class HallucinationDetector:
             flagging a hallucination.
         use_llm: Whether to attempt the LLM-based double-check.  Auto-disabled
             when no API key is available.
+
     """
 
     def __init__(
@@ -124,6 +131,7 @@ class HallucinationDetector:
 
         Returns:
             A :class:`HallucinationReport`.
+
         """
         if not response_text or not chunks:
             GroundednessScore(score=0.0)
@@ -161,9 +169,22 @@ class HallucinationDetector:
             else [c.text for c in unverified]
         )
 
+        # Abstention-awareness (ADR-0010 §2.5).  A refusal asserts nothing, so
+        # it cannot hallucinate — but it extracts no citations, so the ratio
+        # scorer returns 0.0 and `detected` was True for every correct
+        # refusal.  Suppress the *groundedness-derived* flag only; a fabricated
+        # citation on an abstention is still a fabrication and still surfaces
+        # through ``hallucinated_claims`` / ``citation_result``.
+        abstained = is_abstention(response_text)
+        fabricated = bool(citation_result is not None and getattr(citation_result, "invalid", None))
+        detected = grounding.score < self.groundedness_threshold
+        if abstained and not fabricated:
+            detected = False
+
         report = HallucinationReport(
-            detected=grounding.score < self.groundedness_threshold,
+            detected=detected,
             groundedness_score=grounding.score,
+            abstained=abstained,
             claims=claims,
             verified_claims=verified,
             unverified_claims=unverified,
@@ -178,6 +199,7 @@ class HallucinationDetector:
                 "citation_validity_ratio": (grounding.citation_validity_ratio if citation_result is not None else None),
                 "claim_support_ratio": grounding.claim_support_ratio,
                 "threshold": self.groundedness_threshold,
+                "abstained": abstained,
             },
         )
         return report

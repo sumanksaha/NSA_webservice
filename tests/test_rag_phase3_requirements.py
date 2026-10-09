@@ -134,7 +134,7 @@ class TestPlannerRequirementIdentity:
 
     def test_task_dependencies_mirror_into_requirement_dependencies(self):
         plan = QueryPlanner().plan(
-            "What is the penalty for operating without a licence under the FSS Act, and who can initiate action?"
+            "What is the penalty for operating without a licence under the FSS Act, and who can initiate action?",
         )
         graph = plan.requirement_graph
         dep_task = next(t for t in plan.tasks if t.dependency)
@@ -167,7 +167,7 @@ class TestPlannerSecondaryRequirements:
     def test_enforcement_query_yields_authority_requirement(self):
         plan = QueryPlanner().plan(
             "What is prohibited under Section 31 of the FSS Act, who can enforce it, "
-            "what is the penalty, and what exceptions apply?"
+            "what is the penalty, and what exceptions apply?",
         )
         types = [r.type for r in plan.requirement_graph.requirements]
         assert EvidenceRequirement.AUTHORITY in types
@@ -179,7 +179,7 @@ class TestPlannerSecondaryRequirements:
     def test_multi_hop_rule_query_typed_cross_reference(self):
         plan = QueryPlanner().plan(
             "Which provision authorizes the recall order prescribed by Rule 2.3.1 "
-            "of the FSS Regulations, and what penalty follows from non-compliance?"
+            "of the FSS Regulations, and what penalty follows from non-compliance?",
         )
         types = [r.type for r in plan.requirement_graph.requirements]
         assert EvidenceRequirement.CROSS_REFERENCE in types
@@ -196,7 +196,7 @@ class TestPlannerSecondaryRequirements:
     def test_yes_no_offence_question_yields_fact_application(self):
         plan = QueryPlanner().plan(
             "A food business operator continued operations after his licence was "
-            "suspended. Has he committed an offence under the FSS Act?"
+            "suspended. Has he committed an offence under the FSS Act?",
         )
         types = [r.type for r in plan.requirement_graph.requirements]
         assert EvidenceRequirement.FACT_APPLICATION in types
@@ -407,7 +407,7 @@ class TestAtomicityAndEfficiency:
                 objective="o",
                 question="What penalty applies to late filing?",
                 evidence_requirement=EvidenceRequirement.PENALTY,
-            )
+            ),
         ]
         assert atomicity_score(tasks) == 1.0
 
@@ -418,7 +418,7 @@ class TestAtomicityAndEfficiency:
                 objective="o",
                 question="What is prohibited and what is the penalty?",
                 evidence_requirement=EvidenceRequirement.PROVISION,
-            )
+            ),
         ]
         assert atomicity_score(tasks) == 0.0
 

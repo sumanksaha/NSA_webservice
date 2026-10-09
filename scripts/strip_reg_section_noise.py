@@ -105,7 +105,7 @@ def collections_from_config(app) -> list[str]:
             cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ])
+        ]),
     )
 
 
@@ -139,7 +139,8 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
 def mirror_metadata_json_removal(ids: list[str], keys: tuple[str, ...]) -> int:
     """Remove *keys* from ``LegalChunk.metadata_json`` for rows that exist
     in the local DB (mirror of the Qdrant payload deletion — a later
-    DB-driven re-ingest must not resurrect the noise)."""
+    DB-driven re-ingest must not resurrect the noise).
+    """
     from app.extensions import db
     from app.models.rag import LegalChunk
 
@@ -167,7 +168,8 @@ def mirror_metadata_json_removal(ids: list[str], keys: tuple[str, ...]) -> int:
 
 def verify_removed(app, collections, document_types: tuple[str, ...]) -> dict:
     """Re-scroll Qdrant after --apply and count remaining section_number on
-    stripped document types (safety net for the null-delete semantics)."""
+    stripped document types (safety net for the null-delete semantics).
+    """
     from app.rag.qdrant_client import QdrantStore
 
     residue = 0
@@ -218,8 +220,7 @@ def main(argv: list[str] | None = None) -> int:
             payloads = scroll_payloads(app, collections)
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             with open(CACHE, "w", encoding="utf-8") as f:
-                for pid, pl in payloads.items():
-                    f.write(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n")
+                f.writelines(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n" for pid, pl in payloads.items())
             logger.info("payload cache refreshed: %d points", len(payloads))
         else:
             payloads = {}
@@ -253,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
                 for p in store.scroll_all(batch_size=500):
                     prov[str(p["id"])] = coll
         else:
-            prov = {pid: "cache" for pid in deletions}
+            prov = dict.fromkeys(deletions, "cache")
 
         by_coll: Counter = Counter(prov.get(pid, "?") for pid in deletions)
 

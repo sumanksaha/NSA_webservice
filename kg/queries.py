@@ -30,6 +30,7 @@ class LegalKGQueries:
     Args:
         driver: Optional pre-built Neo4j driver (injected for tests).
         database: Neo4j database name (default from NEO4J_DATABASE env).
+
     """
 
     def __init__(self, driver: Any | None = None, database: str | None = None):
@@ -620,7 +621,7 @@ class LegalKGQueries:
                    d.jurisdiction AS jurisdiction,
                    d.priority AS priority
             ORDER BY d.priority ASC
-            """
+            """,
         )
         return [
             {

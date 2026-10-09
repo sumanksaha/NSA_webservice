@@ -58,7 +58,7 @@ _MANUAL_ONLY_SECTIONS = frozenset({"58", "64"})
 if not _MANUAL_ONLY_SECTIONS <= VALID_SECTION_IDS:
     raise ValueError(
         f"Manual-only sections {sorted(_MANUAL_ONLY_SECTIONS)} not a subset of "
-        f"VALID_SECTION_IDS {sorted(VALID_SECTION_IDS)}"
+        f"VALID_SECTION_IDS {sorted(VALID_SECTION_IDS)}",
     )
 
 # Checklist items indicating failure to comply with FSO directions -> Sec 55

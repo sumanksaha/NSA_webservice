@@ -54,7 +54,7 @@ def _ensure_matplotlib_stub() -> None:
 
 
 def _ensure_torch_stubs() -> None:
-    """torch / sentence_transformers are absent from ./venv; stub for import.
+    """Torch / sentence_transformers are absent from ./venv; stub for import.
 
     Only stub when the real package is missing: a bare ``ModuleType``
     has ``__spec__ = None``, so installing it over a real install
@@ -145,12 +145,12 @@ def _valid_analysis() -> dict:
                 "source": "[1]",
                 "status": "satisfied",
                 "supporting_fact": "vendor operates [3]",
-            }
+            },
         ],
         "exceptions_and_provisos": [{"exception": "petty retailer exemption", "source": "[4]", "applicable": False}],
         "facts": [{"fact": "vendor sells food", "source": "question"}],
         "fact_condition_mapping": [
-            {"condition": "operating", "fact": "vendor sells food", "determination": "satisfied", "reason": "stated"}
+            {"condition": "operating", "fact": "vendor sells food", "determination": "satisfied", "reason": "stated"},
         ],
         "cross_references": [],
         "conflicts_or_hierarchy": [],
@@ -416,7 +416,7 @@ def test_rendered_prompts_never_contain_acceptable_conclusion(d):
 
 def test_answer_prompt_does_not_include_context(d):
     """The final-answer generator must see the analysis only (spec sec 4)."""
-    sys_p, user_p = d.render_answer_prompts("Q?", '{"legal_conclusion": "x"}')
+    _sys_p, user_p = d.render_answer_prompts("Q?", '{"legal_conclusion": "x"}')
     assert "Legal evidence sources:" not in user_p
     assert "structured legal analysis" in user_p.lower()
 

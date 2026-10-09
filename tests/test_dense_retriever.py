@@ -74,7 +74,7 @@ class TestDenseRetrieverSearch:
     def test_search_returns_chunks(self):
         points = [_make_mock_point("c1", 0.91), _make_mock_point("c2", 0.78)]
         retriever = DenseRetriever(
-            collection_name="test", client=_make_mock_client(points), encoder=_make_mock_encoder()
+            collection_name="test", client=_make_mock_client(points), encoder=_make_mock_encoder(),
         )
         result = retriever.search("Section 55", top_k=10)
         assert result.total == 2
@@ -85,7 +85,7 @@ class TestDenseRetrieverSearch:
 
     def test_search_empty_results(self):
         retriever = DenseRetriever(
-            collection_name="test", client=_make_mock_client(points=[]), encoder=_make_mock_encoder()
+            collection_name="test", client=_make_mock_client(points=[]), encoder=_make_mock_encoder(),
         )
         result = retriever.search("nonexistent", top_k=10)
         assert result.total == 0
@@ -196,7 +196,7 @@ class TestDenseRetrieverPayloadConversion:
             return [_make_mock_point("c1")]
 
         retriever = DenseRetriever(
-            collection_name="test", client=SimpleNamespace(search=search), encoder=_make_mock_encoder()
+            collection_name="test", client=SimpleNamespace(search=search), encoder=_make_mock_encoder(),
         )
         retriever.search("test", top_k=5, filters={"section_number": "55"})
         assert received["search_filter"]["must"][0]["key"] == "section_number"
@@ -220,7 +220,7 @@ class TestDenseRetrieverPayloadConversion:
             parent_chunk_id="parent_1",
         )
         retriever = DenseRetriever(
-            collection_name="test", client=_make_mock_client([point]), encoder=_make_mock_encoder()
+            collection_name="test", client=_make_mock_client([point]), encoder=_make_mock_encoder(),
         )
         result = retriever.search("test")
         chunk = result.chunks[0]

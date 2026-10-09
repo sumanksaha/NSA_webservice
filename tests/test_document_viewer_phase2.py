@@ -234,7 +234,7 @@ class TestMarkdownExportEndpoint:
                 {"insert": "Hello", "attributes": {"bold": True}},
                 {"insert": " world"},
                 {"insert": "\n"},
-            ]
+            ],
         }
         resp = test_client.post("/document_viewer/export_markdown", json={"delta": delta})
         assert resp.status_code == 200
@@ -297,7 +297,7 @@ class TestDeltaToMarkdown:
                 {"insert": "H2"},
                 {"insert": "\n", "attributes": {"header": 2}},
                 {"insert": "body\n"},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert md == "# H1\n## H2\nbody"
@@ -309,7 +309,7 @@ class TestDeltaToMarkdown:
                 {"insert": " and "},
                 {"insert": "ital", "attributes": {"italic": True}},
                 {"insert": "\n"},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert "**bold**" in md
@@ -320,7 +320,7 @@ class TestDeltaToMarkdown:
             "ops": [
                 {"insert": "site", "attributes": {"link": "https://example.com"}},
                 {"insert": "\n"},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert md == "[site](https://example.com)"
@@ -337,7 +337,7 @@ class TestDeltaToMarkdown:
                 {"insert": "\n", "attributes": {"list": "bullet"}},
                 {"insert": "b"},
                 {"insert": "\n", "attributes": {"list": "bullet"}},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert md == "- a\n- b"
@@ -349,7 +349,7 @@ class TestDeltaToMarkdown:
                 {"insert": "\n", "attributes": {"list": "ordered"}},
                 {"insert": "two"},
                 {"insert": "\n", "attributes": {"list": "ordered"}},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert md == "1. one\n1. two"
@@ -361,7 +361,7 @@ class TestDeltaToMarkdown:
                 {"insert": "\n", "attributes": {"blockquote": True}},
                 {"insert": "print(1)"},
                 {"insert": "\n", "attributes": {"code-block": True}},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert "> quoted" in md
@@ -374,7 +374,7 @@ class TestDeltaToMarkdown:
                 {"insert": "gone", "attributes": {"strike": True}},
                 {"insert": " under", "attributes": {"underline": True}},
                 {"insert": "\n"},
-            ]
+            ],
         }
         md = delta_to_markdown(delta)
         assert "~~gone~~" in md

@@ -91,7 +91,8 @@ class TestChecklistCapture:
     def test_violation_defaults_follow_adjudication_conventions(self):
         """artificial_colour / Expired_item default 'no' (= violation when 'yes');
         the other ten default 'yes' (= violation when 'no'). Unspecified items
-        are not force-filled — absence means not assessed."""
+        are not force-filled — absence means not assessed.
+        """
         _app, client, ctx = _setup_test_env()
         try:
             resp = client.post("/inspection/create", data=_base_form())

@@ -120,8 +120,8 @@ def test_build_fbo_context_defaults():
 
 
 def test_search_adapter_maps_chunks_to_evidence(monkeypatch):
-    import app.rag.tasks as tasks
     from app.auditor.search_adapter import search_regulations
+    from app.rag import tasks
 
     monkeypatch.setattr(
         tasks,
@@ -133,8 +133,8 @@ def test_search_adapter_maps_chunks_to_evidence(monkeypatch):
                     "text": "Schedule 4 hygiene requirements",
                     "section_number": "56",
                     "document_title": "FSS Act",
-                }
-            ]
+                },
+            ],
         },
     )
     evidence = search_regulations("pest control hygiene", top_k=3)
@@ -142,8 +142,8 @@ def test_search_adapter_maps_chunks_to_evidence(monkeypatch):
 
 
 def test_search_adapter_degrades_to_empty_on_rag_failure(monkeypatch):
-    import app.rag.tasks as tasks
     from app.auditor.search_adapter import search_regulations
+    from app.rag import tasks
 
     def boom(query, **kw):
         raise RuntimeError("Qdrant down")
@@ -328,7 +328,7 @@ def test_inspection_trigger_persists_plan(monkeypatch):
     _app, client, ctx = _setup_test_env()
     try:
         inspection = _make_inspection(
-            db, Inspection, {"Pest_report": "no", "Water_report": "no", "clean_premise": "yes"}
+            db, Inspection, {"Pest_report": "no", "Water_report": "no", "clean_premise": "yes"},
         )
         monkeypatch.setattr(
             auditor_service.FBOAuditorAgent,

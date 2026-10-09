@@ -294,7 +294,7 @@ def _instrument_hits(text: str, fam_map: Any) -> list[str]:
 
 
 def extract_legal_identifiers(
-    text: str, fam_map: Any = None, payload: dict | None = None
+    text: str, fam_map: Any = None, payload: dict | None = None,
 ) -> LegalIdentifiers:
     """Extract provision numbers and legal instruments from text.
 
@@ -557,7 +557,7 @@ def gate_fill_candidate(
 
     # ---- question-side identifiers (question text + reference + gold units)
     q_text_ids = extract_legal_identifiers(
-        f"{question} {frozen_reference}", fam_map=fam_map
+        f"{question} {frozen_reference}", fam_map=fam_map,
     )
     q_sections = set(q_text_ids.sections)
     for fam in set(question_families) | set(reference_families):

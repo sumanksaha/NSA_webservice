@@ -85,7 +85,7 @@ class TestDocMeta:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture()
+@pytest.fixture
 def corpus(tmp_path):
     """A 2-doc manifest: one clean English txt, one with Hindi header lines."""
     (tmp_path / "clean.txt").write_text(
@@ -168,7 +168,7 @@ def test_exit_1_when_document_failed(corpus, monkeypatch, capsys):
     from app.rag.ingestion import IngestedDocumentResult
 
     failed = IngestedDocumentResult(
-        document_id="x", chunk_count=0, points_upserted=0, errors=["Qdrant upsert failed"], latency_ms=5
+        document_id="x", chunk_count=0, points_upserted=0, errors=["Qdrant upsert failed"], latency_ms=5,
     )
 
     class FakeIndexer:

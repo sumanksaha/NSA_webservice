@@ -59,7 +59,8 @@ class TestTextCleanerDates(unittest.TestCase):
 
     def test_full_month_date_classified_as_legal_content(self):
         """Full-month dates don't match the abbreviated-month regex — they are
-        treated as plain legal content but still preserved verbatim."""
+        treated as plain legal content but still preserved verbatim.
+        """
         line_type = self.cleaner._classify_line_type("12 January 2020")
         self.assertEqual(line_type, TextType.LEGAL_CONTENT)
 

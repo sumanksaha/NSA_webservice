@@ -247,6 +247,6 @@ def write_freeze(app) -> dict:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     freeze = collect_freeze(app)
     (OUT_DIR / "run_config.json").write_text(
-        json.dumps(freeze, indent=2, sort_keys=True, default=str), encoding="utf-8"
+        json.dumps(freeze, indent=2, sort_keys=True, default=str), encoding="utf-8",
     )
     return freeze

@@ -151,7 +151,8 @@ def _app_context():
 
 def _env_collection_config() -> dict[str, str]:
     """Map ``RAG_QDRANT_COLLECTION_<DOMAIN>`` env vars to the config shape
-    ``collection_for_domain`` expects, so env overrides work outside Flask."""
+    ``collection_for_domain`` expects, so env overrides work outside Flask.
+    """
     return {key: val for key, val in os.environ.items() if key.startswith("RAG_QDRANT_COLLECTION_")}
 
 
@@ -446,10 +447,10 @@ def main(argv: list[str] | None = None) -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         for domain, dsum in master["domains"].items():
             (out_dir / f"ingest_multidomain_{domain}.json").write_text(
-                json.dumps(dsum, indent=2, default=str), encoding="utf-8"
+                json.dumps(dsum, indent=2, default=str), encoding="utf-8",
             )
         (out_dir / "ingest_multidomain_summary.json").write_text(
-            json.dumps(master, indent=2, default=str), encoding="utf-8"
+            json.dumps(master, indent=2, default=str), encoding="utf-8",
         )
     except OSError:
         pass

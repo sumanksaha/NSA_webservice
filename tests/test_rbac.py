@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     """App + clean schema (no users/roles) for RBAC tests."""
     from app import create_app
@@ -280,7 +280,7 @@ def _make_fso(name: str):
     return user, client
 
 
-@pytest.fixture()
+@pytest.fixture
 def two_officers(env):
     from app.extensions import db
     from app.models import FSO
@@ -434,7 +434,7 @@ def _make_inspection_for(officer: str, code: str, address: str = "12 MG Road"):
             inspection_date=datetime(2026, 3, 5, 10, 30, tzinfo=UTC),
             compliance_deadline=datetime(2026, 4, 4, tzinfo=UTC),
             is_dismissed=False,
-        )
+        ),
     )
     db.session.commit()
 

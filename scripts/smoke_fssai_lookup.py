@@ -11,8 +11,8 @@ import sys
 
 sys.path.insert(0, ".")
 
-from app import create_app  # noqa: E402
-from app.utils.lookup import lookup_fssai  # noqa: E402
+from app import create_app
+from app.utils.lookup import lookup_fssai
 
 
 def main() -> int:

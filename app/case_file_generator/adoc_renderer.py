@@ -28,6 +28,7 @@ ADOC_TEMPLATES = {
     "petition": "petition.adoc",
     "permission": "permission_letter.adoc",
     "unsafe_file": "Unsafe_file.adoc",
+    "prohibition_order": "Prohibition_order.adoc",
 }
 
 # Letter portrait in twips — matches Word's and pandoc's effective default

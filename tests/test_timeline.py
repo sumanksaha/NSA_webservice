@@ -484,7 +484,7 @@ class TestTimelineRoutes:
                     filepath="/tmp/evidence.pdf",
                     filename="evidence.pdf",
                     case_id=case.id,
-                )
+                ),
             )
             db.session.add(
                 Inspection(
@@ -493,7 +493,7 @@ class TestTimelineRoutes:
                     inspection_date=_dt(10, 1),
                     compliance_deadline=_dt(10, 2),
                     adjudication_id=adj.id,
-                )
+                ),
             )
             db.session.commit()
 
@@ -557,7 +557,8 @@ class TestTimelineRoutes:
 
     def test_cases_json_feed_shape(self):
         """The picker's datalist depends on /cases returning a bare array
-        with id / case_number / party fields — lock that contract in."""
+        with id / case_number / party fields — lock that contract in.
+        """
         from app.extensions import db
 
         _app, client, ctx = _setup_test_env()

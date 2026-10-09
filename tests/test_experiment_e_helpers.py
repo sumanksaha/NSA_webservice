@@ -146,8 +146,8 @@ def test_check_flags_out_of_range_marker():
 def test_check_uses_claim_window_not_whole_field():
     analysis = {
         "supporting_evidence": [
-            {"claim": "Source [1] defines X under section 37; [2] provides the mechanism", "source": "[1]"}
-        ]
+            {"claim": "Source [1] defines X under section 37; [2] provides the mechanism", "source": "[1]"},
+        ],
     }
     citations = [
         {"index": 1, "chunk_id": "c1", "text": "Definition of X: an officer appointed under section 37."},
@@ -177,7 +177,7 @@ def test_e2_removes_only_fully_misattributed_markers():
             "index": 1,
             "chunk_id": "c1",
             "text": "Under section 44 no licence shall be required for such petty retailers.",
-        }
+        },
     ]
     check = _check_from(analysis, citations)
     assert check["labels"].get("misattributed", 0) >= 1
@@ -273,7 +273,7 @@ def test_render_repair_prompts_contains_flagged_json():
         "CONTEXT",
         '{"legal_conclusion": "x"}',
         json.dumps([
-            {"claim": "c", "marker": "[4]", "checker_reason": "no section", "cited_chunk_text_excerpt": "..."}
+            {"claim": "c", "marker": "[4]", "checker_reason": "no section", "cited_chunk_text_excerpt": "..."},
         ]),
     )
     assert sys_p == REPAIR_SYSTEM_PROMPT
@@ -352,7 +352,7 @@ def test_run_e_one_no_flag_skips_call(tmp_path, monkeypatch):
                 "label": "supported",
                 "reason": "ok",
                 "chunk_id": "c1",
-            }
+            },
         ],
     }
     fake_built = types.SimpleNamespace(citations=[], context="CTX")

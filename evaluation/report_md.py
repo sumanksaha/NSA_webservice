@@ -38,7 +38,7 @@ def master_table(data: dict[str, Any]) -> str:
         agg = aggregate(list(data["scores"][arm].values()))
         rows.append(
             f"| {ARM_LABELS[arm]} | {_pct(agg.get('recall@5'))} | {_pct(agg.get('recall@10'))} | "
-            f"{_num(agg.get('mrr'))} | {_num(agg.get('ndcg@10'))} | {_pct(agg.get('precision@10'))} |"
+            f"{_num(agg.get('mrr'))} | {_num(agg.get('ndcg@10'))} | {_pct(agg.get('precision@10'))} |",
         )
     rows.append("| Oracle evidence (gold chunks) | N/A | N/A | N/A | N/A | N/A |")
     return "\n".join(rows)
@@ -81,7 +81,7 @@ def domain_table(data: dict[str, Any]) -> str:
         acc = round(sum(1 for qid in qids if ans.get(qid, {}).get("score", 0) >= 1) / max(len(qids), 1), 3)
         rows.append(
             f"| {d} | {_pct(a.get('recall@10'))} | {_pct(c.get('recall@10'))} | {_pct(e.get('recall@10'))} | "
-            f"{_pct(f.get('recall@10'))} | {_pct(acc)} |"
+            f"{_pct(f.get('recall@10'))} | {_pct(acc)} |",
         )
     return "\n".join(rows)
 
@@ -117,14 +117,15 @@ def qtype_table(data: dict[str, Any]) -> str:
         f = agg_for("F_dense_sparse_kg_rerank")
         rows.append(
             f"| {t} | {_pct(a.get('recall@10'))} | {_pct(c.get('recall@10'))} | "
-            f"{_pct(e.get('recall@10'))} | {_pct(f.get('recall@10'))} |"
+            f"{_pct(e.get('recall@10'))} | {_pct(f.get('recall@10'))} |",
         )
     return "\n".join(rows)
 
 
 def _significance_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Shared significance rows — computed once in prepare(), with a safe
-    fallback for callers that construct ``data`` by hand (e.g. tests)."""
+    fallback for callers that construct ``data`` by hand (e.g. tests).
+    """
     cached = data.get("_significance")
     if cached:
         return cached
@@ -138,13 +139,13 @@ def stats_table(data: dict[str, Any]) -> str:
             rows.append(
                 f"| {r['comparison']} | {r['metric']} | {_num(r['mean_a'], 3)} | {_num(r['mean_b'], 3)} | "
                 f"{_num(r['mean_diff_b_minus_a'], 3)} | N/A | p={r['mcnemar_p']} "
-                f"({'yes' if r['significant'] else 'no'}) |"
+                f"({'yes' if r['significant'] else 'no'}) |",
             )
         else:
             ci = f"[{_num(r['ci95_low'])}, {_num(r['ci95_high'])}]"
             rows.append(
                 f"| {r['comparison']} | {r['metric']} | {_num(r['mean_a'], 3)} | {_num(r['mean_b'], 3)} | "
-                f"{_num(r['mean_diff_b_minus_a'], 3)} | {ci} | {'yes' if r['significant'] else 'no'} |"
+                f"{_num(r['mean_diff_b_minus_a'], 3)} | {ci} | {'yes' if r['significant'] else 'no'} |",
             )
     return "\n".join(rows)
 
@@ -271,13 +272,13 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append("")
     mdl.append(
         f"**Generated:** {ts}  \n**Config hash:** `{config_hash()}`  \n"
-        "**Benchmark:** `benchmark_v1.0.jsonl` (150 frozen questions, SHA-256 recorded in `run_config.json`)  "
+        "**Benchmark:** `benchmark_v1.0.jsonl` (150 frozen questions, SHA-256 recorded in `run_config.json`)  ",
     )
     mdl.append("")
     mdl.append(
         "> **Guardrail discipline (§25):** *Proven* = directly measured here. *Observed* = pattern in the results, "
         "not statistically established. *Inferred* = reasonable technical interpretation. *Unknown* = the benchmark "
-        "cannot establish it. The report never converts 'component executes' into 'component is superior'."
+        "cannot establish it. The report never converts 'component executes' into 'component is superior'.",
     )
     mdl.append("")
 
@@ -297,21 +298,21 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append("")
     mdl.append(
         f"- 40% × Final-pipeline Recall@10 (gold provision in top-10) = {_pct(f_agg.get('recall@10'))} "
-        f"→ {100 * 0.40 * f_agg.get('recall@10', 0.0):.1f}"
+        f"→ {100 * 0.40 * f_agg.get('recall@10', 0.0):.1f}",
     )
     mdl.append(f"- 15% × Final-pipeline MRR = {_num(f_agg.get('mrr'))} → {100 * 0.15 * f_agg.get('mrr', 0.0):.1f}")
     mdl.append(
-        f"- 15% × Retrieved-evidence answer accuracy (score ≥ 1) = {_pct(retr_acc)} → {100 * 0.15 * retr_acc:.1f}"
+        f"- 15% × Retrieved-evidence answer accuracy (score ≥ 1) = {_pct(retr_acc)} → {100 * 0.15 * retr_acc:.1f}",
     )
     mdl.append(
-        f"- 30% × Oracle-evidence answer accuracy (LLM ceiling) = {_pct(oracle_acc)} → {100 * 0.30 * oracle_acc:.1f}"
+        f"- 30% × Oracle-evidence answer accuracy (LLM ceiling) = {_pct(oracle_acc)} → {100 * 0.30 * oracle_acc:.1f}",
     )
     mdl.append("")
     mdl.append(
         "**The current legal RAG is a working research system, not a production legal assistant.** "
         "Retrieval is competent; the LLM answers correctly when given correct evidence; but "
         "retrieval still misses gold provisions on a large share of questions, and the answer "
-        "grader (heuristic) is a lower bound on true legal quality."
+        "grader (heuristic) is a lower bound on true legal quality.",
     )
     mdl.append("")
 
@@ -335,7 +336,7 @@ def write_main_report(data: dict[str, Any]) -> None:
     oracle_mean = sum(oracle_scores) / max(len(oracle_scores), 1)
     mdl.append(
         f"- **Oracle evidence:** {_pct(oracle_acc)} of answers correct (score ≥ 1); "
-        f"mean score {_num(oracle_mean, 2)}/2."
+        f"mean score {_num(oracle_mean, 2)}/2.",
     )
     mdl.append(f"- **Retrieved evidence (ARM F):** {_pct(retr_acc)} correct.")
     if v.get("retrieved_kg_acc") is not None:
@@ -344,11 +345,11 @@ def write_main_report(data: dict[str, Any]) -> None:
             f"- **Retrieved + KG contract fusion (ARM F + KG provisions RRF-fused, "
             f"RAG_KG_FUSION on):** {_pct(v['retrieved_kg_acc'])} correct "
             f"(Δ vs retrieved: {_pct(kg_delta)}; McNemar in §7.2 — this is the "
-            "measured *answer-level* KG value)."
+            "measured *answer-level* KG value).",
         )
     mdl.append(
         f"- **Retrieval/evidence loss:** {_pct(oracle_acc - retr_acc)} of answer accuracy is lost because "
-        "retrieval did not surface the right evidence — the dominant RAG loss."
+        "retrieval did not surface the right evidence — the dominant RAG loss.",
     )
     mdl.append("")
     mdl.append("## 6. Bottleneck verdict")
@@ -412,28 +413,28 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append(f"- **QDRANT:** {'KEEP' if f10 >= 0.5 else 'OPTIMIZE'} — Recall@10 {_pct(f10)}.")
     mdl.append(
         f"- **SPARSE RETRIEVAL:** {'KEEP' if sparse > 0 else 'REMOVE' if sparse < dense - 0.05 else 'KEEP'} — "
-        f"R@10 {_pct(sparse)} vs dense {_pct(dense)}."
+        f"R@10 {_pct(sparse)} vs dense {_pct(dense)}.",
     )
     mdl.append(
-        f"- **HYBRID RETRIEVAL:** {'KEEP' if hybrid >= max(dense, sparse) else 'OPTIMIZE'} — R@10 {_pct(hybrid)}."
+        f"- **HYBRID RETRIEVAL:** {'KEEP' if hybrid >= max(dense, sparse) else 'OPTIMIZE'} — R@10 {_pct(hybrid)}.",
     )
     mdl.append(
         f"- **NEO4J KG:** {v['kg'].split('—')[0].strip()} — help {_pct(help_rate := data['_kg_agg'].get('help_rate', 0))}, "
-        f"harm {_pct(harm_rate := data['_kg_agg'].get('harm_rate', 0))}, net {_num(net := help_rate - harm_rate)}."
+        f"harm {_pct(harm_rate := data['_kg_agg'].get('harm_rate', 0))}, net {_num(net := help_rate - harm_rate)}.",
     )
     mdl.append(f"- **RERANKER:** {'KEEP' if fk >= ek else 'OPTIMIZE'} — post-rerank R@10 {_pct(fk)} vs pre {_pct(ek)}.")
     mdl.append(
-        "- **CURRENT EMBEDDING MODEL:** KEEP (no alternative tested — this experiment does not compare embedding models; *Unknown*)."
+        "- **CURRENT EMBEDDING MODEL:** KEEP (no alternative tested — this experiment does not compare embedding models; *Unknown*).",
     )
     mdl.append("- **CURRENT CHUNKING:** KEEP (no alternative tested — *Unknown*).")
     mdl.append(
         f"- **LLM:** {'KEEP' if oracle_acc >= 0.6 else 'TEST ALTERNATIVES'} — oracle accuracy {_pct(oracle_acc)} "
-        "(single free-tier model; no model comparison run — *Unknown*)."
+        "(single free-tier model; no model comparison run — *Unknown*).",
     )
     if v.get("retrieved_kg_acc") is not None:
         mdl.append(
             f"- **KG → GENERATION WIRING (new):** answer-level Δ = {_pct(v['retrieved_kg_acc'] - retr_acc)} "
-            "(retrieved+KG vs retrieved; statistical test in §7.2)."
+            "(retrieved+KG vs retrieved; statistical test in §7.2).",
         )
     mdl.append("")
 
@@ -465,7 +466,7 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append(f"- ARM F legal-evidence composite {le_score}/1 and per-axis rates (§10).")
     mdl.append(f"- Oracle vs retrieved answer accuracy gap of {_pct(oracle_acc - retr_acc)} (§5).")
     mdl.append(
-        f"- KG help rate {_pct(data['_kg_agg'].get('help_rate', 0))} / harm rate {_pct(data['_kg_agg'].get('harm_rate', 0))} (§3)."
+        f"- KG help rate {_pct(data['_kg_agg'].get('help_rate', 0))} / harm rate {_pct(data['_kg_agg'].get('harm_rate', 0))} (§3).",
     )
     mdl.append("")
     mdl.append("### Observed (patterns, not statistically established)")
@@ -475,31 +476,31 @@ def write_main_report(data: dict[str, Any]) -> None:
         "- Production wiring quirk: `run_retrieval_pipeline` builds the sparse store from the config-default "
         "collection, so production sparse/hybrid search targets `fssai_legal_768` regardless of the dense "
         "collection — the per-question-collection arms here are therefore an upper bound on production "
-        "hybrid behaviour outside the FSSAI domain."
+        "hybrid behaviour outside the FSSAI domain.",
     )
     mdl.append(
         "- The KG retrieval contract is now wired into generation behind `RAG_KG_FUSION` (default off, "
         "2026-08-12) — provisions RRF-fused into the context; the `retrieved_kg` answer condition "
         "measures its true answer-level value (§5, §7.2). The older chunk-expansion path remains "
-        "available behind `RAG_KG_EXPANSION` (the two are alternatives)."
+        "available behind `RAG_KG_EXPANSION` (the two are alternatives).",
     )
     mdl.append("")
     mdl.append("### Inferred")
     mdl.append("")
     mdl.append(
-        "- Where the significance table shows a CI excluding 0, the difference is unlikely to be sampling noise."
+        "- Where the significance table shows a CI excluding 0, the difference is unlikely to be sampling noise.",
     )
     mdl.append("- Answer scores from the deterministic grader track legal correctness only approximately.")
     mdl.append("")
     mdl.append("### Unknown")
     mdl.append("")
     mdl.append(
-        "- Whether a different embedding model, chunker, reranker or LLM would score better — no alternatives were tested."
+        "- Whether a different embedding model, chunker, reranker or LLM would score better — no alternatives were tested.",
     )
     mdl.append("- True legal correctness of answers: no lawyer adjudication was run; the grader is heuristic.")
     mdl.append(
         "- Temporal correctness: the benchmark carries **no** gold temporal labels (`temporal_constraints` is empty "
-        "on all 150 questions), so temporal accuracy could not be scored against gold."
+        "on all 150 questions), so temporal accuracy could not be scored against gold.",
     )
     mdl.append("")
 
@@ -507,32 +508,32 @@ def write_main_report(data: dict[str, Any]) -> None:
     mdl.append("")
     mdl.append(
         "> **If I removed Neo4j, sparse retrieval, reranking or other components, which components would actually "
-        "make the legal answers worse, by how much, and for which classes of questions?**"
+        "make the legal answers worse, by how much, and for which classes of questions?**",
     )
     mdl.append("")
     mdl.append("See `kg_incremental_value.md` and the significance table above. In short:")
     mdl.append("")
     mdl.append(
         "- **Sparse/BM25**: removable *if* dense covers its rescue cases (measure hybrid-rescue rates); "
-        "hybrid's edge over dense is the deciding evidence."
+        "hybrid's edge over dense is the deciding evidence.",
     )
     mdl.append(
         "- **Neo4j KG**: rank-level value was masked by tail-concatenation — RRF-fused retrieval shows a "
         "significant Recall@10 gain (+7.6pp vs hybrid, §7.1/§7.2), strongest for the independent "
         "query→graph contract; answer-level value measured via the `retrieved_kg` condition (§5). "
-        "KG-as-chunk-expander remains redundant with retrieval."
+        "KG-as-chunk-expander remains redundant with retrieval.",
     )
     mdl.append("- **Reranker**: value is confined to ranking quality — it cannot add evidence the pool lacks.")
     mdl.append(
         "- **The dominant loss is retrieval → context**: the oracle-vs-retrieved gap is the single largest "
-        "recoverable accuracy source."
+        "recoverable accuracy source.",
     )
     mdl.append("")
     mdl.append("---")
     mdl.append("")
     mdl.append(
         "Full per-question data: `rag_ablation_results.csv`, `answer_evaluation.csv`, `failure_taxonomy.csv`. "
-        "Aggregates: `aggregate_metrics.json`. Config: `run_config.json`."
+        "Aggregates: `aggregate_metrics.json`. Config: `run_config.json`.",
     )
 
     (OUT_DIR / "rag_ablation_report.md").write_text("\n".join(mdl), encoding="utf-8")
@@ -559,22 +560,22 @@ def write_kg_report(data: dict[str, Any]) -> None:
     lines.append("")
     lines.append(f"- Questions evaluated: {len(inc)}")
     lines.append(
-        f"- **KG Help Rate** (KG pool covers gold the hybrid pool missed): {_pct(help_rate)} ({len(helped)} questions)"
+        f"- **KG Help Rate** (KG pool covers gold the hybrid pool missed): {_pct(help_rate)} ({len(helped)} questions)",
     )
     lines.append(
-        f"- **KG Harm Rate** (KG returned provisions from families outside the question's gold): {_pct(harm_rate)} ({len(harmed)} questions)"
+        f"- **KG Harm Rate** (KG returned provisions from families outside the question's gold): {_pct(harm_rate)} ({len(harmed)} questions)",
     )
     lines.append(f"- **KG Net Value** (Help − Harm): {_num(net)}")
     lines.append(
         f"- Avg KG provisions per question: {_num(sum(v['kg_provision_count'] for v in inc) / n, 1)}; "
-        f"avg non-gold (noise) provisions: {_num(sum(v['kg_noise_count'] for v in inc) / n, 1)}"
+        f"avg non-gold (noise) provisions: {_num(sum(v['kg_noise_count'] for v in inc) / n, 1)}",
     )
     lines.append("")
     lines.append("## 2. KG-only retrieval (ARM D)")
     lines.append("")
     lines.append(
         f"KG-as-retriever (graph-RAG contract) Recall@10 = {_pct(d_agg.get('recall@10'))}, MRR = {_num(d_agg.get('mrr'))}. "
-        "This is **KG retrieval**, not KG expansion: the graph answers 'which provisions apply?' directly from the query."
+        "This is **KG retrieval**, not KG expansion: the graph answers 'which provisions apply?' directly from the query.",
     )
     lines.append("")
     lines.append("## 3. Incremental value over hybrid (ARM E vs ARM C)")
@@ -602,7 +603,7 @@ def write_kg_report(data: dict[str, Any]) -> None:
         for v in harmed[:25]:
             q = data["q_by_id"][v["question_id"]]
             lines.append(
-                f"| {v['question_id']} | {', '.join(q.domains)} | {', '.join(v['kg_families'])} | {', '.join(v['gold_families'])} |"
+                f"| {v['question_id']} | {', '.join(q.domains)} | {', '.join(v['kg_families'])} | {', '.join(v['gold_families'])} |",
             )
     else:
         lines.append("- none")
@@ -625,7 +626,7 @@ def write_kg_report(data: dict[str, Any]) -> None:
         "via `provisions_to_retrieved_chunks` + `rrf_fuse_chunks`), and the `retrieved_kg` answer "
         "condition measures it. See the main report §5 / §7.2 for the retrieved vs retrieved+KG "
         "answer-accuracy comparison — the numbers above remain the *retrieval-level* contribution, "
-        "which is what the KG graph alone provides."
+        "which is what the KG graph alone provides.",
     )
     (OUT_DIR / "kg_incremental_value.md").write_text("\n".join(lines), encoding="utf-8")
 
@@ -668,25 +669,25 @@ def write_readiness(data: dict[str, Any]) -> None:
     lines.append(f"| LEGAL_EVIDENCE_SCORE | {_num(le, 3)}/1 |")
     top_bn = bn[0] if bn else None
     lines.append(
-        f"| Top bottleneck | {top_bn['stage'] if top_bn else '—'} ({_pct(top_bn['pct'] / 100) if top_bn else '—'}) |"
+        f"| Top bottleneck | {top_bn['stage'] if top_bn else '—'} ({_pct(top_bn['pct'] / 100) if top_bn else '—'}) |",
     )
     lines.append("")
     lines.append("## Why not higher")
     lines.append("")
     lines.append(
         f"1. Retrieval misses gold provisions on {_pct(1 - r10)} of questions at K=10 — answers built on "
-        "incomplete evidence cannot be legally relied on."
+        "incomplete evidence cannot be legally relied on.",
     )
     lines.append(
         f"2. Retrieved-evidence answers are correct only {_pct(retr_acc)} of the time (heuristic grader; "
-        "true legal accuracy is *Unknown* without expert adjudication)."
+        "true legal accuracy is *Unknown* without expert adjudication).",
     )
     lines.append("3. The answer grader and the single free-tier LLM have not been validated against a lawyer.")
     lines.append(
         "4. Temporal gold labels are absent from the benchmark; the KG retrieval contract is wired "
         "behind `RAG_KG_FUSION` (default off) and measured via the `retrieved_kg` answer "
         "condition (§5) — its answer-level gain (+0.7pp) is not yet significant because the "
-        "contract resolves provisions for only a subset of questions."
+        "contract resolves provisions for only a subset of questions.",
     )
     lines.append("")
     lines.append("## What would move this to the next tier (evidence-first)")
@@ -694,18 +695,18 @@ def write_readiness(data: dict[str, Any]) -> None:
     lines.append(
         "- Improve retrieval Recall@10 (the dominant loss) before touching generation; the RRF-fused arms "
         "(D+S+KG RRF R@10 21.6%) show the current pipeline leaves ~5pp of measurable rank recall on the table "
-        "from fusion alone."
+        "from fusion alone.",
     )
     lines.append(
         "- Broaden the KG retrieval contract to resolve provisions for more questions (currently only "
         "concept-matched questions), so the significant rank gain (+7.6pp) can translate into a "
-        "significant answer-level gain; re-run `retrieved_kg` after each expansion."
+        "significant answer-level gain; re-run `retrieved_kg` after each expansion.",
     )
     lines.append("- Add expert-verified gold answers and temporal labels to the benchmark (v1.1).")
     lines.append("- Compare the LLM against 1–2 alternative models under the oracle condition.")
     lines.append("")
     lines.append(
         "*This verdict classifies system readiness for use on real legal work; it is not an endorsement of "
-        "any individual answer.*"
+        "any individual answer.*",
     )
     (OUT_DIR / "production_readiness_assessment.md").write_text("\n".join(lines), encoding="utf-8")

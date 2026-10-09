@@ -108,7 +108,7 @@ def _readme(manifest: dict[str, Any]) -> str:
     ]
     for f in manifest["files"]:
         lines.append(
-            f"| {f['filename']} | `{f['sha256'][:12]}...` | {f['size_bytes']:,} | `{f['source']}` | `{f['regen']}` |"
+            f"| {f['filename']} | `{f['sha256'][:12]}...` | {f['size_bytes']:,} | `{f['source']}` | `{f['regen']}` |",
         )
     lines += [
         "",

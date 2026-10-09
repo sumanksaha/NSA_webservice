@@ -52,6 +52,7 @@ class Setting:
             be ``"true"`` to enable. ``False`` (opt-out): any string except
             ``"false"`` enables. Ignored for non-bool types.
         help: One-line description (kept for documentation/introspection).
+
     """
 
     key: str
@@ -95,6 +96,70 @@ _TABLE: tuple[Setting, ...] = (
         True,
         opt_in=False,
         help="Phase 3 claim-level HallucinationDetector in run_generation_pipeline.",
+    ),
+    # --- Reinforcement learning (Phase 4: RL-augmented retrieval) ---------------
+    Setting(
+        "RAG_RL_ENABLED",
+        "rl_enabled",
+        bool,
+        False,
+        help="Contextual multi-armed bandit for retrieval parameter selection (top_k, rrf_k). Off by default.",
+    ),
+    Setting(
+        "RAG_RL_EXPLORATION_EPSILON",
+        "rl_exploration_epsilon",
+        float,
+        0.1,
+        help="Epsilon for epsilon-greedy exploration in the RL retrieval policy (0=always greedy).",
+    ),
+    Setting(
+        "RAG_RL_LEARNING_RATE",
+        "rl_learning_rate",
+        float,
+        0.05,
+        help="Step size for the linear contextual-bandit weight updates.",
+    ),
+    Setting(
+        "RAG_RL_MIN_OBSERVATIONS",
+        "rl_min_observations",
+        int,
+        10,
+        help="Minimum observations per context before the RL policy goes greedy (exploration buffer).",
+    ),
+    Setting(
+        "RAG_RL_OFFLINE_TRAIN",
+        "rl_offline_train",
+        bool,
+        False,
+        help="Run offline policy pre-training from RAGEvalResult rows at startup (Phase 4 bootstrap).",
+    ),
+    Setting(
+        "RAG_RL_REWARD_FAITHFULNESS_WEIGHT",
+        "rl_reward_faithfulness_weight",
+        float,
+        0.35,
+        help="Reward weight for the faithfulness metric component.",
+    ),
+    Setting(
+        "RAG_RL_REWARD_GROUNDEDNESS_WEIGHT",
+        "rl_reward_groundedness_weight",
+        float,
+        0.35,
+        help="Reward weight for the groundedness metric component.",
+    ),
+    Setting(
+        "RAG_RL_REWARD_CITATION_RECALL_WEIGHT",
+        "rl_reward_citation_recall_weight",
+        float,
+        0.20,
+        help="Reward weight for the citation-recall metric component.",
+    ),
+    Setting(
+        "RAG_RL_REWARD_LATENCY_WEIGHT",
+        "rl_reward_latency_weight",
+        float,
+        0.10,
+        help="Reward weight for the inverse-latency component (penalises slow retrieval).",
     ),
     # --- Retrieval pipeline flags -------------------------------------------
     Setting(
@@ -163,6 +228,20 @@ _TABLE: tuple[Setting, ...] = (
         help="Evidence Task planning for task-aware retrieval (default off).",
     ),
     # --- Autonomous research (Phase 1+: corpus discovery + gap analysis) ---
+    Setting(
+        "RAG_TARGETED_RETRY_V2",
+        "targeted_retry_v2",
+        bool,
+        False,
+        help="Arm-aware TargetPlan retry path (RAG-TR-001). Off = legacy string path.",
+    ),
+    Setting(
+        "RAG_VERIFIER_SHADOW",
+        "verifier_shadow",
+        bool,
+        False,
+        help="Compute/log hardened verifier shadow scores without routing on them (RAG-TR-001).",
+    ),
     Setting(
         "RAG_RESEARCH_ENABLED",
         "research_enabled",
@@ -286,7 +365,7 @@ _TABLE: tuple[Setting, ...] = (
         help="Post-sec_act head size the CE scores (validated h=30).",
     ),
     Setting(
-        "RAG_ENSEMBLE_CE_WEIGHT", "ensemble_ce_weight", float, 0.5, help="Bonus weight for normalized CE head scores."
+        "RAG_ENSEMBLE_CE_WEIGHT", "ensemble_ce_weight", float, 0.5, help="Bonus weight for normalized CE head scores.",
     ),
     # --- Remote dense embeddings ---------------------------------------------
     Setting(
@@ -475,7 +554,7 @@ _TABLE: tuple[Setting, ...] = (
         ),
     ),
     Setting(
-        "RAG_KG_MAX_PROVISIONS", "kg_max_provisions", int, 5, help="Max KG provisions injected into the LLM context."
+        "RAG_KG_MAX_PROVISIONS", "kg_max_provisions", int, 5, help="Max KG provisions injected into the LLM context.",
     ),
     Setting(
         "RAG_RETRIEVAL_CACHE_TTL_SECONDS",
@@ -765,7 +844,7 @@ class _Cfg:
             _parse(
                 Setting(key, key, bool, default, opt_in=opt_in),
                 _resolve_raw(key),
-            )
+            ),
         )
 
     def get_str(self, key: str, default: str = "") -> str:

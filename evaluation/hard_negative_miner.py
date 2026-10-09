@@ -140,7 +140,7 @@ def legal_similarity_score(
 
     # Family match
     neg_fams = set(
-        family_map.family_s_for_act(str(neg_payload.get("act_name") or neg_payload.get("document_title") or ""))
+        family_map.family_s_for_act(str(neg_payload.get("act_name") or neg_payload.get("document_title") or "")),
     )
     same_family = gold_unit.family in neg_fams
     same_section = bool(gold_sec and neg_sec and gold_sec == neg_sec)
@@ -253,6 +253,7 @@ def mine_question(
 
     Returns a dict with query, positives, tiered negatives, and metadata.
     Returns None if no gold provision is resolvable.
+
     """
     from evaluation.resolution import matches_gold
 
@@ -659,7 +660,7 @@ def main() -> int:
         help="Torch intra-op thread cap for live mode (default 4; offline mode is pure Python)",
     )
     parser.add_argument(
-        "--limit", type=int, default=None, help="Only mine this many questions (testing/spot checks on a laptop)"
+        "--limit", type=int, default=None, help="Only mine this many questions (testing/spot checks on a laptop)",
     )
     parser.add_argument(
         "--subsection-filter",

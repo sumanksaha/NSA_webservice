@@ -112,7 +112,8 @@ def norm_docid(value: str) -> str:
     """Token-normalised document id: lowercase, split on non-alphanumerics,
     drop article tokens (act/the/a/an/of).  Used by the L3 whitelist so exact
     slugs and corpus variants compare equal; anything still differing is a
-    genuinely different document (e.g. srf 2017 vs 1963) and is excluded."""
+    genuinely different document (e.g. srf 2017 vs 1963) and is excluded.
+    """
     tokens = [t for t in re.split(r"[^a-z0-9]+", str(value).lower()) if t and t not in _DOCID_STOP]
     return " ".join(tokens)
 
@@ -136,7 +137,8 @@ _INSTRUMENT_OVERRIDES: dict[str, tuple[str, ...]] = {
 def _load_registry_docids() -> dict[str, set[str]]:
     """Canonical-document whitelist: gold-registry document_ids (normalised)
     merged with any instrument_id overrides.  Fail-closed: no registry/override
-    -> no L3 stamps for that family."""
+    -> no L3 stamps for that family.
+    """
     out: dict[str, set[str]] = {}
     try:
         for fam, docids in registry_document_ids().items():
@@ -180,7 +182,7 @@ def base_digits(value) -> str | None:
 # Sources
 # --------------------------------------------------------------------------- #
 def registry_document_ids() -> dict[str, set[str]]:
-    """family -> canonical Act document_ids from the gold provision registry.
+    """Family -> canonical Act document_ids from the gold provision registry.
 
     This is the L3 discriminator that keeps sub-instrument chunks (rules,
     regulations, amendments, draft notifications, forms — and *other Acts*
@@ -211,7 +213,7 @@ def kg_mapping() -> dict[str, dict]:
         "OPTIONAL MATCH (i)-[:CONTAINS]->(p) "
         "RETURN c.chunk_id AS chunk_id, c.qdrant_point_id AS qp, "
         "p.provision_number AS number, p.title AS provision_title, "
-        "i.title AS instrument_title"
+        "i.title AS instrument_title",
     )
     out: dict[str, dict] = {}
     for r in rows:
@@ -229,14 +231,15 @@ def kg_mapping() -> dict[str, dict]:
 
 def family_max_sections(family_map, payloads: dict[str, dict]) -> dict[str, int]:
     """Max provision number per family — from KG instruments AND existing
-    payload section_numbers (validation ceiling for the L3 regex)."""
+    payload section_numbers (validation ceiling for the L3 regex).
+    """
     from kg.queries import LegalKGQueries
 
     maxima: dict[str, int] = {}
     try:
         q = LegalKGQueries()
         rows = q._execute(
-            "MATCH (i)-[:CONTAINS]->(p:LegalProvision) RETURN i.title AS instrument_title, p.provision_number AS number"
+            "MATCH (i)-[:CONTAINS]->(p:LegalProvision) RETURN i.title AS instrument_title, p.provision_number AS number",
         )
         for r in rows:
             for fam in family_map.family_s_for_act(r.get("instrument_title")):
@@ -280,7 +283,7 @@ def collections_from_config(app) -> list[str]:
             cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ])
+        ]),
     )
 
 
@@ -288,7 +291,7 @@ def collections_from_config(app) -> list[str]:
 # Derivation
 # --------------------------------------------------------------------------- #
 def derive_section(
-    point_id: str, payload: dict, kg_map: dict, maxima: dict, family_map
+    point_id: str, payload: dict, kg_map: dict, maxima: dict, family_map,
 ) -> tuple[str | None, str | None]:
     """Return (section_number, section_title) for a point, or (None, None).
 
@@ -358,7 +361,7 @@ def derive_section(
 
 
 def family_ranges(family_map) -> dict[str, tuple[int, int]]:
-    """family -> (lo, hi) from ``app.rag.legal_sections.ACT_SECTION_RANGES``.
+    """Family -> (lo, hi) from ``app.rag.legal_sections.ACT_SECTION_RANGES``.
 
     Resolves each registered act name to its family(s) via the FamilyMap;
     families without a registry range are absent (L4 then falls back to the
@@ -693,7 +696,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="write to Qdrant (default: dry-run)")
     parser.add_argument(
-        "--rebuild-index", action="store_true", help="rebuild evaluation/out/cache/payload_index.jsonl after apply"
+        "--rebuild-index", action="store_true", help="rebuild evaluation/out/cache/payload_index.jsonl after apply",
     )
     parser.add_argument(
         "--snapshot-dir",

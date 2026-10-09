@@ -71,17 +71,16 @@ def filter_by_variant(pairs: list[dict], variant: str) -> list[dict]:
     if variant in ("baseline", "model_a"):
         # Model A: all tiers (ordinary negatives)
         return pairs
-    elif variant == "model_b":
+    if variant == "model_b":
         # Model B: semantic hard negatives only (Tier 2)
         return [p for p in pairs if p["tier"] == 2]
-    elif variant == "model_c":
+    if variant == "model_c":
         # Model C: adversarial legal negatives only (Tier 3)
         return [p for p in pairs if p["tier"] == 3]
-    elif variant == "model_d":
+    if variant == "model_d":
         # Model D: mixed curriculum (all tiers, progressive)
         return pairs
-    else:
-        return pairs
+    return pairs
 
 
 def configure_threads(threads: int | None = None) -> None:
@@ -391,6 +390,7 @@ class MarginRankingLossTrainer:
                 this many steps (default 5).
             status_file: where to write the pollable status JSON (defaults
                 to ``output_dir/training_status.json``).
+
         """
         import torch
         from torch.utils.data import DataLoader, Dataset
@@ -1047,10 +1047,10 @@ def main() -> int:
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--loss", choices=["margin", "contrastive", "pointwise"], default="margin")
     parser.add_argument(
-        "--curriculum", action="store_true", help="Use progressive curriculum training (T1->T2->T3) for model_d"
+        "--curriculum", action="store_true", help="Use progressive curriculum training (T1->T2->T3) for model_d",
     )
     parser.add_argument(
-        "--max-steps", type=int, default=None, help="Max training steps (for calibration; breaks early)"
+        "--max-steps", type=int, default=None, help="Max training steps (for calibration; breaks early)",
     )
     parser.add_argument(
         "--device",
@@ -1059,7 +1059,7 @@ def main() -> int:
         help="Override device auto-detection (e.g. 'cpu', 'privateuseone:0', 'cuda:0')",
     )
     parser.add_argument(
-        "--threads", type=int, default=4, help="Torch intra-op thread cap (default 4; the measured sweet spot)"
+        "--threads", type=int, default=4, help="Torch intra-op thread cap (default 4; the measured sweet spot)",
     )
     args = parser.parse_args()
 

@@ -195,3 +195,48 @@ class LegalChunk(db.Model):
         db.Index("idx_legal_chunk_content_hash", "content_hash"),
         db.UniqueConstraint("document_id", "chunk_index", name="uq_chunk_doc_index"),
     )
+
+
+class RLEGPolicyLog(db.Model):
+    """Reinforcement-learning policy trajectory log (Phase 4: RL-augmented retrieval).
+
+    Stores one (context, action, reward) tuple per query so that offline
+    policy updates and experience replay can learn contextual bandit policies
+    for retrieval parameter selection (``top_k``, ``rrf_k``).
+
+    The context is a coarse bucketing of query features — ``query_type``,
+    ``legal_confidence`` bucket, whether an identifier was detected, and
+    query-length bucket — so the table stays small and indexable without
+    full-text storage of every query.
+    """
+
+    __tablename__ = "rag_rl_policy_log"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    # Context features (bucketed for indexing).
+    query_type = db.Column(db.String(32), nullable=False, index=True)
+    legal_confidence_bucket = db.Column(db.String(16), nullable=False, index=True)  # "low" | "med" | "high"
+    has_identifier = db.Column(db.Boolean, default=False, index=True)
+    query_length_bucket = db.Column(db.String(16), nullable=False, index=True)  # "short" | "medium" | "long"
+    # Action taken.
+    top_k = db.Column(db.Integer, nullable=False)
+    rrf_k = db.Column(db.Float, nullable=False)
+    # Reward signal.
+    reward = db.Column(db.Float, nullable=False)
+    # Decomposed reward components (for offline analysis).
+    faithfulness = db.Column(db.Float, nullable=True)
+    groundedness = db.Column(db.Float, nullable=True)
+    citation_recall = db.Column(db.Float, nullable=True)
+    latency_ms = db.Column(db.Integer, nullable=True)
+    # Whether the action was an exploration pick (epsilon-greedy).
+    is_exploration = db.Column(db.Boolean, default=False, index=True)
+    # Traceability.
+    query_hash = db.Column(db.String(64), nullable=False)  # SHA-256 prefix of the raw query
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.Index("idx_rl_policy_created", "created_at"),
+        db.Index(
+            "idx_rl_policy_context", "query_type", "legal_confidence_bucket", "has_identifier", "query_length_bucket"
+        ),
+    )

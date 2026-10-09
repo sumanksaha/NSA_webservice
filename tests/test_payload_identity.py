@@ -105,7 +105,7 @@ def fake_manifest(tmp_path: Path) -> Path:
                 "act_name": "Kolkata Municipal Corporation Act, 1980",
                 "is_current": True,
             },
-        ]
+        ],
     }
     p = tmp_path / "manifest.json"
     p.write_text(json.dumps(manifest), encoding="utf-8")
@@ -165,7 +165,7 @@ def make_points() -> dict[str, list[dict]]:
                     "document_id": "kmc_act_1980",
                     "section_number": "6",
                 },
-            }
+            },
         ],
     }
 
@@ -218,7 +218,7 @@ class TestDocIdentity:
 class TestFieldsForPoint:
     def test_full_stamp_for_manifest_doc(self, stamper):
         fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "5"}
+            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "5"},
         )
         assert fields == {
             "provision_id": "ENV_PROTECTION_ACT_1986_SEC_5",
@@ -229,20 +229,20 @@ class TestFieldsForPoint:
 
     def test_section_outside_act_range_no_provision(self, stamper):
         fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "27"}
+            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "27"},
         )
         assert "provision_id" not in fields
         assert fields["instrument_id"] == "ENV_PROTECTION_ACT_1986"
 
     def test_year_like_section_rejected(self, stamper):
         fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "1986"}
+            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "1986"},
         )
         assert "provision_id" not in fields
 
     def test_draft_status_flows(self, stamper):
         fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "pwm_draft_rules_2022", "section_number": "10"}
+            "env_legal_768", {"document_id": "pwm_draft_rules_2022", "section_number": "10"},
         )
         assert fields["status"] == "draft"
 
@@ -252,7 +252,7 @@ class TestFieldsForPoint:
 
     def test_subsection_cleaned(self, stamper):
         fields = stamper._fields_for_point(
-            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "5(2)(ii)"}
+            "env_legal_768", {"document_id": "environment_protection_act_1986", "section_number": "5(2)(ii)"},
         )
         assert fields["provision_id"] == "ENV_PROTECTION_ACT_1986_SEC_5"
 

@@ -143,7 +143,7 @@ def main() -> int:
         return 1
 
     print(
-        f"A/B window width on {len(tasks)} model_wrong questions (model={os.environ.get('RAG_LLM_MODEL')})", flush=True
+        f"A/B window width on {len(tasks)} model_wrong questions (model={os.environ.get('RAG_LLM_MODEL')})", flush=True,
     )
 
     def run(wide: bool) -> list[dict[str, Any]]:
@@ -224,7 +224,8 @@ def main() -> int:
 
 def _load_shards(paths: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Rebuild the two arm row lists from shard files so the summary can be
-    recomputed without re-running the LLM (backgrounded runs do not survive)."""
+    recomputed without re-running the LLM (backgrounded runs do not survive).
+    """
     N: dict[str, Any] = {}
     W: dict[str, Any] = {}
     for path in paths:
@@ -349,7 +350,7 @@ def _report(narrow: list[dict[str, Any]], wide_rows: list[dict[str, Any]], shard
     print("=" * 76)
     print(
         f"mean prompt chunks: narrow={out['prompt_chunks_mean']['window_narrow']} "
-        f"wide={out['prompt_chunks_mean']['window_wide']}"
+        f"wide={out['prompt_chunks_mean']['window_wide']}",
     )
     print(f"causally changed (gold newly in prompt): {len(changed)}  gold lost: {len(lost)}")
     print()
@@ -370,13 +371,13 @@ def _report(narrow: list[dict[str, Any]], wide_rows: list[dict[str, Any]], shard
     pa = out["paired_all"]
     print(
         f"paired binary (all n={pa['n']}): improved {pa['improved']}, regressed {pa['regressed']}, "
-        f"net {pa['net']}, t={pa['t']}"
+        f"net {pa['net']}, t={pa['t']}",
     )
     if changed:
         pc = out["paired_changed"]
         print(
             f"paired binary (changed n={pc['n']}): improved {pc['improved']}, "
-            f"regressed {pc['regressed']}, net {pc['net']}, t={pc['t']}"
+            f"regressed {pc['regressed']}, net {pc['net']}, t={pc['t']}",
         )
     print()
     print(f"written: {OUT_FILE}")

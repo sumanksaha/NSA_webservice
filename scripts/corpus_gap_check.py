@@ -58,7 +58,8 @@ _INGEST_CLAIM_RE = re.compile(
 
 def _env_collection_config() -> dict[str, str]:
     """Map ``RAG_QDRANT_COLLECTION_<DOMAIN>`` env vars to the config shape
-    ``collection_for_domain`` expects, so env overrides work outside Flask."""
+    ``collection_for_domain`` expects, so env overrides work outside Flask.
+    """
     return {k: v for k, v in os.environ.items() if k.startswith("RAG_QDRANT_COLLECTION_")}
 
 
@@ -252,7 +253,7 @@ def render(report: dict[str, Any]) -> str:
             lines.append(f"    - {r.get('document_id')}  ({r.get('reason')})")
     lines.append("")
     lines.append(
-        "RESULT: " + ("OK — nothing missing" if t["missing"] == 0 else f"{t['missing']} document(s) need ingest")
+        "RESULT: " + ("OK — nothing missing" if t["missing"] == 0 else f"{t['missing']} document(s) need ingest"),
     )
     return "\n".join(lines)
 

@@ -165,7 +165,7 @@ def _is_untouched_stored(entry: dict | None, premises: int, samples: int, notes:
 
 
 def _is_unchanged_stored(
-    entry: dict | None, activity: str, premises: int, samples: int, notes: str, summary: str, place: str = ""
+    entry: dict | None, activity: str, premises: int, samples: int, notes: str, summary: str, place: str = "",
 ) -> bool:
     """True when a submitted row already matches the stored row exactly.
 
@@ -375,7 +375,7 @@ def _save_slot(
         return "noop"  # unknown activity values are ignored
     if not activity:
         if _is_blank_day(premises, samples, notes, place) or _is_untouched_stored(
-            stored, premises, samples, notes, place
+            stored, premises, samples, notes, place,
         ):
             return "deleted" if _delete(owner, work_date, duty_seq) else "noop"
         activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
@@ -462,7 +462,7 @@ def bulk():
             }
             if not present[1] and present[2]:
                 survivor = db.session.get(
-                    WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": 2}
+                    WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": 2},
                 )
                 if survivor is not None:
                     db.session.add(WorkDiaryEntry(
@@ -522,14 +522,14 @@ def bulk():
         month_entries.extend(day_entries.values())
     total_premises = sum(e["premises"] for e in month_entries)
     total_samples = sum(e["samples"] for e in month_entries)
-    days_per_activity = {key: 0 for key in ACTIVITIES}
+    days_per_activity = dict.fromkeys(ACTIVITIES, 0)
     for e in month_entries:
         if e["activity"] in days_per_activity:
             days_per_activity[e["activity"]] += 1
     daily_activity = [
         e["summary"]
         or _summary_line(
-            e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"], e.get("place_of_visit", "")
+            e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"], e.get("place_of_visit", ""),
         )
         for e in sorted(month_entries, key=lambda e: (e["work_date"], e.get("duty_seq", 1)))
     ]

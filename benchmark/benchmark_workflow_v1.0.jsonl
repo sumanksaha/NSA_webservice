@@ -1,0 +1,101 @@
+# Workflow QA benchmark — gold answers for FSO seizure & sampling workflow questions
+
+## Dataset: benchmark_workflow_v1.0.jsonl
+
+Each line is a JSON object with:
+- "question": user question
+- "answer": gold answer (ordered steps with Form/regulation citations)
+- "intent": expected query understanding intent
+- "documents": doc types expected in context (e.g., ["workflow"])
+- "query_type": expected classifier type (e.g., "procedure")
+- "evidence": brief description of evidence needed
+
+---
+
+{"question": "When a food safety officer seizes an item, which forms does he provide?",
+ "answer": "The FSO provides three documents during seizure:\n\n1. **Receipt** — Form II, Regulation 2.3.1\n2. **Order** — Form III, Regulation 2.3.2(1)\n3. **Bond** — Form IV, Regulation 2.3.2(2)",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Seizure section (## Seizure) contains Forms II, III, IV with their regulation references."}
+
+---
+
+{"question": "What happens after the FSO takes a sample?",
+ "answer": "When the FSO takes a sample:\n\n1. He submits it to the lab\n2. The lab performs the analysis and provides a result\n3. If the result is OK, then no action is taken\n4. If the result is not OK, the FBO will face a penalty\n5. After a non-satisfactory result, the FBO can appeal to the designated officer in Form VIII",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section (## Sampling) describes the full procedure from submission through appeal."}
+
+---
+
+{"question": "Which form does the FSO give to the business operator as a notice?",
+ "answer": "The FSO gives a notice to the business operator in **Form V**, Regulation 2.4.1.3.",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section contains the Form V reference with Regulation 2.4.1.3."}
+
+---
+
+{"question": "Which form does the analyst report go in?",
+ "answer": "The analyst report should be in **Form VIIA**, Regulation 2.4.2.5.",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section contains the Form VIIA reference with Regulation 2.4.2.5."}
+
+---
+
+{"question": "Which form can the FBO use to appeal to the designated officer?",
+ "answer": "The FBO can appeal to the designated officer in **Form VIII**, Regulation 2.4.6.",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section contains the Form VIII reference with Regulation 2.4.6."}
+
+---
+
+{"question": "What is the procedure after receiving a non-satisfactory lab result?",
+ "answer": "After a non-satisfactory result:\n\n1. The FBO will face a penalty\n2. The FBO can appeal to the designated officer\n3. The appeal is made using **Form VIII**, Regulation 2.4.6",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section describes the sequence: penalty → appeal → Form VIII."}
+
+---
+
+{"question": "What documents are exchanged during the sampling process?",
+ "answer": "During sampling, the FSO provides:\n\n1. **Notice to business operator** — Form V, Regulation 2.4.1.3\n2. **Memorandum to analyst** — Form VI, Regulation 2.4.1.10(i)\n3. Analyst report should be in **Form VIIA**, Regulation 2.4.2.5\n4. **FBO appeal** — Form VIII, Regulation 2.4.6\n5. FBO can analyse the food — Regulation 2.4.5",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section lists all forms with their regulation references."}
+
+---
+
+{"question": "What happens when the lab provides a satisfactory result?",
+ "answer": "If the lab result is OK, then **no action** is taken.",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section describes the OK result → no action branch."}
+
+---
+
+{"question": "What is the order of documents during seizure?",
+ "answer": "When food safety officer seizes some item, he provides:\n\n1. **Receipt** — Form II, Regulation 2.3.1\n2. **Order** — Form III, Regulation 2.3.2(1)\n3. **Bond** — Form IV, Regulation 2.3.2(2)",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Seizure section lists the three forms in order."}
+
+---
+
+{"question": "Which form does the FSO submit to the lab?",
+ "answer": "When the FSO takes a sample, he submits it in the lab. The specific form for the sample submission is not explicitly named in the workflow; the analyst report is Form VIIA.",
+ "intent": "procedure",
+ "documents": ["workflow"],
+ "query_type": "procedure",
+ "evidence": "The Sampling section mentions sample submission but doesn't name a specific submission form."}

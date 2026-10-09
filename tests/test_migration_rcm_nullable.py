@@ -15,13 +15,13 @@ import sqlite3
 
 import pytest
 import sqlalchemy as sa
+from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
-from alembic.config import Config
 
 
-@pytest.fixture()
+@pytest.fixture
 def old_shape_db(tmp_path):
     """Scratch DB mimicking production: RCM-exempt columns NOT NULL."""
     path = tmp_path / "prodlike.db"
@@ -32,7 +32,7 @@ def old_shape_db(tmp_path):
         "batch_no VARCHAR(100) NOT NULL, "
         "mfg_date DATETIME NOT NULL, "
         "expiry_date DATETIME NOT NULL, "
-        "manufacturer_report_receive_date DATETIME NOT NULL)"
+        "manufacturer_report_receive_date DATETIME NOT NULL)",
     )
     con.commit()
     con.close()
@@ -77,7 +77,7 @@ class TestRcmNullableMigration:
         try:
             con.execute(
                 "INSERT INTO case_files (batch_no, mfg_date, expiry_date, "
-                "manufacturer_report_receive_date) VALUES ('', NULL, NULL, NULL)"
+                "manufacturer_report_receive_date) VALUES ('', NULL, NULL, NULL)",
             )
             con.commit()
             assert con.execute("SELECT COUNT(*) FROM case_files").fetchone()[0] == 1
@@ -92,7 +92,8 @@ class TestRcmNullableMigration:
 
     def test_single_head_is_rcm_nullable(self):
         """The new migration must remain the sole alembic head so
-        ``flask db upgrade`` on deploy actually applies it."""
+        ``flask db upgrade`` on deploy actually applies it.
+        """
         from pathlib import Path
 
         repo_root = Path(__file__).resolve().parent.parent

@@ -32,10 +32,10 @@ from enum import Enum
 from app.rag.advisor.ladder import ACTION_PROFILES, ActionProfile, EscalationLevel
 
 __all__ = [
-    "FSO_RESPONSE_COST",
-    "RETENTION",
     "DELTA_FIRST_TIME",
     "DELTA_REPEAT",
+    "FSO_RESPONSE_COST",
+    "RETENTION",
     "FboStrategy",
     "continuation_discount",
     "escalation_subgame_values",

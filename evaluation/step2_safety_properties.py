@@ -33,7 +33,7 @@ import json
 import re
 import sys
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +51,7 @@ SCORER = (
 )
 
 # Reuse Step 1's frozen property strings + quote_in_evidence (no drift).
-from evaluation.step1_preregister_gates import (  # noqa: E402
+from evaluation.step1_preregister_gates import (
     SAFETY_PROPERTIES,
     quote_in_evidence,
 )
@@ -94,7 +94,7 @@ def check_zero_regression(*, already_correct: bool, candidate_correct: bool) -> 
 
 
 def check_quote_in_evidence(
-    *, cited_span: str = "", context: str = "", rewrite: bool = True
+    *, cited_span: str = "", context: str = "", rewrite: bool = True,
 ) -> dict:
     """Property 2 — rewrite failing quote-in-evidence is discarded; D2 stands."""
     if not rewrite:
@@ -120,7 +120,7 @@ def check_quote_in_evidence(
 
 
 def check_no_open_critic(
-    *, is_open_critic: bool = False, is_full_answer_replacement: bool = False
+    *, is_open_critic: bool = False, is_full_answer_replacement: bool = False,
 ) -> dict:
     """Property 3 — no open critic replaces a full answer."""
     if is_open_critic:
@@ -282,7 +282,7 @@ def evaluate_safety(fields: dict) -> dict:
         no_rewrite_sentence_deleted=bool(f.get("no_rewrite_sentence_deleted", False)),
         conclusion_fields_changed=list(f.get("conclusion_fields_changed") or []),
         new_subsection_quoted_from_evidence=bool(
-            f.get("new_subsection_quoted_from_evidence", False)
+            f.get("new_subsection_quoted_from_evidence", False),
         ),
         frozen_checker_accepts=bool(f.get("frozen_checker_accepts", False)),
         is_full_answer_replacement=bool(f.get("is_full_answer_replacement", False)),
@@ -413,7 +413,7 @@ def gate_answers(
             context=context,
             cited_span=cited_span,
             is_open_critic=is_open_critic,
-        )
+        ),
     )
 
 
@@ -465,12 +465,12 @@ def build_payload() -> dict[str, Any]:
                 "text": text,
                 "check": SAFETY_CHECKS[pid].__name__,
                 "action_on_fail": "keep_d2",
-            }
+            },
         )
     return {
         "experiment": "Step 2 — keep the safety properties that already passed",
         "plan_ref": PLAN_REF,
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "registered_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "scorer": SCORER,
         "n_properties": len(properties),
         "properties": properties,
@@ -531,7 +531,7 @@ def render_markdown(payload: dict, validation: dict) -> str:
     ]
     for i, p in enumerate(payload["properties"], 1):
         lines.append(
-            f"| {i} | `{p['id']}` | {p['text']} | `{p['check']}` | {p['action_on_fail']} |"
+            f"| {i} | `{p['id']}` | {p['text']} | `{p['check']}` | {p['action_on_fail']} |",
         )
     lines += [
         "",
@@ -588,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
         "--candidates",
         type=Path,
         default=None,
-        help="JSON list of candidate records (or {\"candidates\": [...]})",
+        help='JSON list of candidate records (or {"candidates": [...]})',
     )
     ap.add_argument(
         "--gate-answers",
@@ -647,7 +647,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"step2_registered={validation['ok']} "
             f"n_properties={payload['n_properties']} "
-            f"errors={validation['errors'] or 'none'}"
+            f"errors={validation['errors'] or 'none'}",
         )
         for k, p in written.items():
             print(f"  wrote {k}: {p.name}")
@@ -660,7 +660,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
             v = validate_payload(existing)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"REGISTERED BUT INVALID: {exc}", file=sys.stderr)
             return 2
         if not v["ok"]:

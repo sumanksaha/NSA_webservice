@@ -127,7 +127,7 @@ def remediate(drv, database: str, dry_run: bool = False) -> dict:
             tx = s.begin_transaction()
             try:
                 result["instrument_dates_fixed"] = int(
-                    tx.run(_FIX_INSTRUMENT_EFFECTIVE_CYPHER, fixes=fixes).single()["n"]
+                    tx.run(_FIX_INSTRUMENT_EFFECTIVE_CYPHER, fixes=fixes).single()["n"],
                 )
                 result["propagated"] = int(tx.run(_PROPAGATE_CYPHER).single()["n"])
                 result["effective_backfilled"] = int(tx.run(_BACKFILL_CYPHER).single()["n"])
@@ -144,7 +144,7 @@ def remediate(drv, database: str, dry_run: bool = False) -> dict:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="P3 temporal remediation of the legal KG (status propagation + effective_from)."
+        description="P3 temporal remediation of the legal KG (status propagation + effective_from).",
     )
     p.add_argument("--dry-run", action="store_true", help="Preview counts in a rolled-back transaction — no writes.")
     p.add_argument("--out-dir", type=Path, default=Path("reports"), help="Where to write the summary JSON.")

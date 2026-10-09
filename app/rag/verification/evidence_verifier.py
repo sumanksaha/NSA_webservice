@@ -64,6 +64,7 @@ class Contradiction:
         kind: ``"numeric"`` (different amounts for the same provision)
             or ``"prohibition"`` (conflicting prohibition/permission).
         values: The conflicting values (numeric kind).
+
     """
 
     a: RetrievedChunk
@@ -91,6 +92,7 @@ class EvidenceVerification:
         method: How the claim was verified
             (``"section"`` | ``"text"`` | ``"none"``).
         evidence_snippet: The best-matching chunk text (truncated).
+
     """
 
     verified: bool = False
@@ -107,6 +109,7 @@ class EvidenceVerifier:
         similarity_threshold: rapidfuzz ``partial_ratio`` threshold
             (0–100) below which a chunk is not considered supporting
             evidence for a claim without a section match.
+
     """
 
     def __init__(self, similarity_threshold: int = _SIMILARITY_THRESHOLD) -> None:
@@ -263,7 +266,7 @@ class EvidenceVerifier:
                 b_vals = self._numeric_values(b.text)
                 if same_provision and a_vals and b_vals and set(a_vals).isdisjoint(b_vals):
                     conflicts.append(
-                        Contradiction(a=a, b=b, kind="numeric", values=sorted(set(a_vals) | set(b_vals))[:4])
+                        Contradiction(a=a, b=b, kind="numeric", values=sorted(set(a_vals) | set(b_vals))[:4]),
                     )
                     continue
                 if not same_provision:

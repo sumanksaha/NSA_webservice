@@ -69,7 +69,7 @@ class TestIntegration(unittest.TestCase):
         for paragraph in result:
             for field in required_fields:
                 self.assertIn(
-                    field, paragraph, f"Missing field: {field} in paragraph {paragraph.get('paragraph_id', 'unknown')}"
+                    field, paragraph, f"Missing field: {field} in paragraph {paragraph.get('paragraph_id', 'unknown')}",
                 )
 
         # Check hierarchy structure
@@ -125,7 +125,6 @@ class TestIntegration(unittest.TestCase):
 
     def test_performance_with_complex_document(self):
         """Test performance with a complex hierarchical document."""
-
         engine = LegalParagraphEngine()
 
         # Create a complex nested document
@@ -246,7 +245,6 @@ class TestIntegration(unittest.TestCase):
 
     def test_large_document_processing(self):
         """Test processing of large documents."""
-
         engine = LegalParagraphEngine()
 
         # Create a large document with many sections

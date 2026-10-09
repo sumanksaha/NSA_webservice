@@ -31,7 +31,7 @@ def _fail_audit() -> dict:
                 "defect_type": "missed_exception",
                 "explanation": "proviso ignored",
                 "required_correction": "address the proviso",
-            }
+            },
         ],
     }
 

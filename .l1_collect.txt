@@ -1,0 +1,21 @@
+============================= test session starts =============================
+collected 9 items
+
+<Dir NSA_webservice>
+  <Dir tests>
+    <Module test_rag_tasks.py>
+      <Class TestRunEmbedAndIndex>
+        <Function test_invokes_indexer_and_returns_result_dict>
+        <Function test_document_id_injected_when_not_in_metadata>
+        <Function test_empty_text_returns_ok_zero_chunk_result>
+        <Function test_degrades_gracefully_without_optional_deps>
+      <Class TestEmbedAndIndexTask>
+        <Function test_task_delegates_to_pipeline_and_is_registered>
+      <Class TestIngestCorpusTask>
+        <Function test_run_ingest_corpus_delegates_and_returns_summary>
+        <Function test_task_registered_and_dispatches>
+      <Class TestDecompositionGate>
+        <Function test_simple_query_skips_decomposer>
+        <Function test_compound_query_still_decomposes>
+
+========================= 9 tests collected in 4.98s ==========================

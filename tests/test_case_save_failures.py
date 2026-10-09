@@ -34,7 +34,7 @@ from tests.test_preview_adjudication import VALID_FORM as ADJ_VALID_FORM
 from tests.test_sync_fallback_fix import _VALID_FORM_DATA as CASE_VALID_FORM
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 
@@ -115,7 +115,8 @@ class TestSaveCommitFailuresReturnJson:
 class TestCaseFileEditPersistsAllFields:
     def test_put_persists_retailer_quantity_and_packet_count(self, client, monkeypatch):
         """Retailer identity, sample quantity, and packet count edited on
-        the edit page must be written back (previously silently dropped)."""
+        the edit page must be written back (previously silently dropped).
+        """
         _login(client)
         _stub_case_file_pdf(monkeypatch)
         client.post("/case_file_generator/generate_case_file", data=dict(CASE_VALID_FORM))
@@ -147,7 +148,8 @@ class TestCaseFileEditPersistsAllFields:
 class TestAdjudicationCreatePersistsCeFields:
     def test_generate_all_persists_trade_license_details(self, client, monkeypatch):
         """KMC trade-license details entered on the create form must reach
-        the record (the inputs previously lacked ``name`` attributes)."""
+        the record (the inputs previously lacked ``name`` attributes).
+        """
         _login(client)
         _stub_adjudication_pdf(monkeypatch)
         form = dict(
@@ -171,7 +173,8 @@ class TestAdjudicationCreatePersistsCeFields:
 
     def test_create_page_ce_inputs_are_submitted(self, client):
         """Pin the template contract: the ce_* inputs carry names so the
-        browser includes them in the POST."""
+        browser includes them in the POST.
+        """
         _login(client)
         html = client.get("/adjudication/").get_data(as_text=True)
         for field in ("ce_license_no", "ce_trade_name", "ce_proprietor", "ce_address", "ce_status"):

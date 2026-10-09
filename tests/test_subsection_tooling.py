@@ -332,7 +332,7 @@ class TestStripRegSectionNoise:
 
     def test_configurable_types(self):
         assert derive_strip({"document_type": "circular", "section_number": "1"}, ("circular",)) == {
-            "section_number": None
+            "section_number": None,
         }
 
 

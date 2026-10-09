@@ -30,6 +30,7 @@ def authorization_gate_response(authorization_date):
 
     Returns:
         ``(jsonify(...), 403)`` when blocked, else ``None``.
+
     """
     normalized = _normalize(authorization_date)
     if normalized:

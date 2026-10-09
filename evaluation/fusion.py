@@ -84,7 +84,7 @@ def rrf_fuse_items(*item_lists, rrf_k: float = RRF_K, top_k: int = FUSED_TOP_K) 
     from app.rag.retrieval.rrf import reciprocal_rank_fuse
 
     scores = reciprocal_rank_fuse(
-        item_lists, rrf_k=rrf_k, key_fn=lambda item: (item.kind, item.key, item.family, item.section)
+        item_lists, rrf_k=rrf_k, key_fn=lambda item: (item.kind, item.key, item.family, item.section),
     )
     first: dict[tuple, RankedItem] = {}
     for items in item_lists:
@@ -190,7 +190,7 @@ def main() -> int:
             app.config.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
         ]
         payload_index = build_payload_index(
-            lambda coll: _store(coll), list(dict.fromkeys(collections)), force=args.force
+            lambda coll: _store(coll), list(dict.fromkeys(collections)), force=args.force,
         )
         family_map = FamilyMap()
         questions = load_questions()

@@ -185,7 +185,7 @@ STUB_QUESTIONS: list[dict[str, Any]] = [
         "question": "Does Section 31 require a licence for a retail food shop?",
         "context": "Section 31 requires food businesses to obtain a licence. Provided that petty retailers are exempt.",
         "evidence_texts": {
-            "FSS_ACT::31": "Section 31 requires food businesses to obtain a licence. Provided that petty retailers are exempt."
+            "FSS_ACT::31": "Section 31 requires food businesses to obtain a licence. Provided that petty retailers are exempt.",
         },
     },
     {
@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     for item in STUB_QUESTIONS:
         for cond in CONDITIONS:
             rec = run_condition(
-                item["question"], item["context"], item["evidence_texts"], llm, cond, max_calls=HARD_BUDGET - spent
+                item["question"], item["context"], item["evidence_texts"], llm, cond, max_calls=HARD_BUDGET - spent,
             )
             spent += rec["llm_calls"]
             rec["question_id"] = item["question_id"]
@@ -231,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         out = Path(args.out_dir)
         out.mkdir(parents=True, exist_ok=True)
         (out / "experiment_D_checkpoint.jsonl").write_text(
-            "\n".join(json.dumps(r, default=str) for r in records), encoding="utf-8"
+            "\n".join(json.dumps(r, default=str) for r in records), encoding="utf-8",
         )
         (out / "experiment_D_aggregate.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(f"wrote {out / 'experiment_D_checkpoint.jsonl'} + {out / 'experiment_D_aggregate.json'}")

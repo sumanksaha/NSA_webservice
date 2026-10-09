@@ -1,0 +1,6 @@
+============================= test session starts =============================
+collected 37 items
+
+tests\test_rag_generation_characterization.py ..........                 [ 27%]
+tests\test_query_understanding.py ..................                     [ 75%]
+tests\test_rag_tasks.py ...

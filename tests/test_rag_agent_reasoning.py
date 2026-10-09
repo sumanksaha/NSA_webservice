@@ -75,7 +75,7 @@ class TestStructuredReasonerNode:
                         "defect_type": "missed_exception",
                         "explanation": "ex",
                         "required_correction": "check the proviso",
-                    }
+                    },
                 ],
             },
         }
@@ -172,12 +172,12 @@ class TestReasoningTopology:
 
 class TestGenerateConsumesArgument:
     def test_argument_prepended_to_generation_query(self, monkeypatch):
-        import app.rag.tasks as tasks
+        from app.rag import tasks
         from app.rag.agent.nodes.linear import generate_node
 
         captured = {}
         monkeypatch.setattr(
-            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1]
+            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1],
         )
         state = {
             "query": "Licence?",
@@ -195,23 +195,23 @@ class TestGenerateConsumesArgument:
         assert "A licence is required." in captured["query"]
 
     def test_query_unchanged_without_argument(self, monkeypatch):
-        import app.rag.tasks as tasks
+        from app.rag import tasks
         from app.rag.agent.nodes.linear import generate_node
 
         captured = {}
         monkeypatch.setattr(
-            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1]
+            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1],
         )
         generate_node({"query": "Licence?", "chunks": [], "query_type": "general"})
         assert captured["query"] == "Licence?"
 
     def test_fallback_skeleton_still_flows_through(self, monkeypatch):
-        import app.rag.tasks as tasks
+        from app.rag import tasks
         from app.rag.agent.nodes.linear import generate_node
 
         captured = {}
         monkeypatch.setattr(
-            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1]
+            tasks, "run_generation_pipeline", lambda query, **kw: (captured.update(query=query), {"answer": "A."})[1],
         )
         generate_node({
             "query": "Licence?",
@@ -226,7 +226,7 @@ class TestReasoningPathInvoke:
     """Stub-validated end-to-end regression (S4): no network, no Qdrant."""
 
     def _fake_pipelines(self, monkeypatch, chunks):
-        import app.rag.tasks as tasks
+        from app.rag import tasks
 
         monkeypatch.setattr(
             tasks,

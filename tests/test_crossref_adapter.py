@@ -52,7 +52,7 @@ class TestCrossRefAdapterMapping:
                 _ref(ReferenceKind.SECTION, "55", "Section 55"),
                 _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
                 _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
-            ])
+            ]),
         )
         extracted = adapter.extract("text")
         assert len(extracted) == 3
@@ -81,7 +81,7 @@ class TestPayloadReferences:
             engine=_FakeEngine([
                 _ref(ReferenceKind.SECTION, "55", "Section 55"),
                 _ref(ReferenceKind.ANNEXURE, "A", "Annexure A"),
-            ])
+            ]),
         )
         assert adapter.payload_references("text") == ["Section 55", "Annexure A"]
 
@@ -92,7 +92,7 @@ class TestStructuredReferences:
             engine=_FakeEngine([
                 _ref(ReferenceKind.SECTION, "55", "Section 55"),
                 _ref(ReferenceKind.PARAGRAPH, "3", "paragraph 3"),
-            ])
+            ]),
         )
         structured = adapter.structured_references("text")
         assert structured == [

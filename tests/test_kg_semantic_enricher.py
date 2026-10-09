@@ -103,7 +103,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "No person shall commence or carry on any food business except under a licence."
+            "No person shall commence or carry on any food business except under a licence.",
         )
         rels = {t["rel_type"] for t in tags}
         assert "PROHIBITS" in rels
@@ -113,7 +113,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Whoever contravenes this section shall be punishable with imprisonment for six months and also with fine."
+            "Whoever contravenes this section shall be punishable with imprisonment for six months and also with fine.",
         )
         rels = {t["rel_type"] for t in tags}
         assert "PRESCRIBES_PENALTY" in rels
@@ -126,7 +126,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "Any person who commits an offence under this Act is liable to punishment."
+            "Any person who commits an offence under this Act is liable to punishment.",
         )
         assert {t["rel_type"] for t in tags} == {"CREATES_OFFENCE"}
 
@@ -134,7 +134,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "The Food Safety Officer is empowered to take samples and is authorized to inspect any premises."
+            "The Food Safety Officer is empowered to take samples and is authorized to inspect any premises.",
         )
         rels = {t["rel_type"] for t in tags}
         assert "GRANTS_POWER_TO" in rels
@@ -148,7 +148,7 @@ class TestTagText:
         from kg.enrichment import LegalSemanticEnricher
 
         tags = LegalSemanticEnricher.tag_text(
-            "No person shall commence or carry on any food business except under a licence."
+            "No person shall commence or carry on any food business except under a licence.",
         )
         prohibition = next(t for t in tags if t["rel_type"] == "PROHIBITS")
         assert "shall" in prohibition["evidence"].lower()
@@ -237,7 +237,8 @@ class TestEnrich:
         """Regression: the 2026-08-11 run reported 2526 edges written while
         297 of them (DEFINES/EXEMPTS/DECLARES) were dropped, because the
         enricher's ``MATCH (c:LegalConcept)`` silently matched nothing — the
-        vocabulary is only loaded by ``run_rebuild``, never by this CLI."""
+        vocabulary is only loaded by ``run_rebuild``, never by this CLI.
+        """
         from kg.domain_manifest import CONCEPTS
         from kg.enrichment import LegalSemanticEnricher
 
@@ -255,7 +256,8 @@ class TestEnrich:
 
     def test_reports_edges_that_failed_to_materialise(self, provisions):
         """A row whose MATCH finds no target must be reported as a shortfall,
-        not counted as written."""
+        not counted as written.
+        """
         from kg.enrichment import LegalSemanticEnricher
 
         class DroppingDriver(FakeDriver):

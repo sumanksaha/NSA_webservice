@@ -197,10 +197,10 @@ class TestRAGEvalDatasetModel:
 
     def test_query_by_active_index(self, env):
         db.session.add(
-            RAGEvalDataset(name="active1", query="q1", query_type="general_qa", expected_answer="a1", is_active=True)
+            RAGEvalDataset(name="active1", query="q1", query_type="general_qa", expected_answer="a1", is_active=True),
         )
         db.session.add(
-            RAGEvalDataset(name="inactive1", query="q2", query_type="general_qa", expected_answer="a2", is_active=False)
+            RAGEvalDataset(name="inactive1", query="q2", query_type="general_qa", expected_answer="a2", is_active=False),
         )
         db.session.commit()
         assert db.session.query(RAGEvalDataset).filter_by(is_active=True).count() == 1

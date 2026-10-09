@@ -35,6 +35,7 @@ class PageText:
         text: Extracted text for this page (may be empty).
         confidence: Engine confidence for this page (0.0–1.0).
         engine: Name of the engine that produced this page's text.
+
     """
 
     page: int = 1
@@ -57,6 +58,7 @@ class OCRResult:
         ocr_engine_used: Name of the engine that produced the result.
         page_count: Number of pages processed.
         page_results: Typed per-page detail (:class:`PageText`).
+
     """
 
     text: str = ""
@@ -74,6 +76,7 @@ class AIResponse:
         content: The generated text.
         tokens_used: Total tokens consumed (for monitoring).
         model: Model identifier used.
+
     """
 
     content: str = ""
@@ -105,6 +108,7 @@ class OCRProvider(ABC):
 
         Returns:
             An :class:`OCRResult` with the extracted text and metadata.
+
         """
         ...
 
@@ -135,6 +139,7 @@ class AIProvider(ABC):
 
         Returns:
             The generated text string.
+
         """
         ...
 
@@ -156,6 +161,7 @@ class RuleProvider(ABC):
 
         Returns:
             A dict with ``sections`` (list[str]) and ``reasoning`` (dict) keys.
+
         """
         ...
 
@@ -169,6 +175,7 @@ class PDFProvider(ABC):
 
         Raises:
             RuntimeError: When the rendering backend is unavailable.
+
         """
         ...
 

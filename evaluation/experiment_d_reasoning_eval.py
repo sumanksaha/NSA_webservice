@@ -82,7 +82,7 @@ except ModuleNotFoundError:
     _pyplot = types.ModuleType("matplotlib.pyplot")
     _pyplot.subplots = lambda *a, **k: (
         types.SimpleNamespace(
-            suptitle=lambda *a, **k: None, tight_layout=lambda *a, **k: None, savefig=lambda *a, **k: None
+            suptitle=lambda *a, **k: None, tight_layout=lambda *a, **k: None, savefig=lambda *a, **k: None,
         ),
         types.SimpleNamespace(
             bar=lambda *a, **k: None,
@@ -470,7 +470,8 @@ class _StubDClient(_SSLBypassLLMClient):
 
     def call(self, system_prompt, user_prompt, *, temperature=0.1, max_tokens=1024, **extra):
         """Bypass the parent's RAG_USE_STUB_LLM short-circuit so the stage-aware
-        JSON stub is actually reached during pipeline validation."""
+        JSON stub is actually reached during pipeline validation.
+        """
         return self._real_call(system_prompt, user_prompt, temperature=temperature, max_tokens=max_tokens, **extra)
 
     def _real_call(self, system_prompt, user_prompt, *, temperature, max_tokens, **extra):
@@ -499,17 +500,17 @@ _STUB_REASONING_JSON = json.dumps({
     "structured_analysis": {
         "issue": "Stub issue for pipeline validation only.",
         "governing_provisions": [
-            {"provision_id": "stub:s1", "description": "stub provision", "reason": "governs the issue [1]"}
+            {"provision_id": "stub:s1", "description": "stub provision", "reason": "governs the issue [1]"},
         ],
         "definitions": [{"term": "stub term", "definition": "stub definition", "source": "[1]"}],
         "legal_rules": [{"rule": "stub rule", "source": "[1]"}],
         "conditions": [
-            {"condition": "stub condition", "source": "[1]", "status": "satisfied", "supporting_fact": "stub fact"}
+            {"condition": "stub condition", "source": "[1]", "status": "satisfied", "supporting_fact": "stub fact"},
         ],
         "exceptions_and_provisos": [{"exception": "stub exception", "source": "[2]", "applicable": False}],
         "facts": [{"fact": "stub fact", "source": "question"}],
         "fact_condition_mapping": [
-            {"condition": "stub condition", "fact": "stub fact", "determination": "satisfied", "reason": "stub [1]"}
+            {"condition": "stub condition", "fact": "stub fact", "determination": "satisfied", "reason": "stub [1]"},
         ],
         "cross_references": [{"from": "[1]", "to": "[2]", "relevance": "stub"}],
         "conflicts_or_hierarchy": [],
@@ -532,7 +533,7 @@ _STUB_AUDIT_JSON = json.dumps({
 _STUB_REVISED_JSON = json.dumps({
     "issue": "Stub issue (revised).",
     "governing_provisions": [
-        {"provision_id": "stub:s1", "description": "stub provision", "reason": "governs the issue [1]"}
+        {"provision_id": "stub:s1", "description": "stub provision", "reason": "governs the issue [1]"},
     ],
     "definitions": [],
     "legal_rules": [{"rule": "stub rule (revised)", "source": "[1]"}],
@@ -954,7 +955,7 @@ def repair_citation_markers(
 # Call accounting (spec sec 9)
 # --------------------------------------------------------------------------- #
 def _log_call(
-    calls_path: Path | None, lock: threading.Lock, qid: str = "", condition: str = "", stage: str = "", **fields
+    calls_path: Path | None, lock: threading.Lock, qid: str = "", condition: str = "", stage: str = "", **fields,
 ) -> None:
     if calls_path is None:
         return
@@ -1143,7 +1144,7 @@ def run_d3_one(
             candidate_correct=False,
             context=context,
             is_open_critic=False,
-        )
+        ),
     )
     if not safety["pass"]:
         # keep_d2: re-render from the PASS path so the D2 conclusion stands.
@@ -1307,7 +1308,7 @@ def phase_run_d3(stub: bool, resume: bool, limit: int | None, concurrency: int =
     )
     print(f"  checkpoint: {ckpt_path}", flush=True)
     print(
-        f"  gen so far: {_CALL_COUNT[0]} | to run: {len(tasks)} qids (1 combined audit+revision call each)", flush=True
+        f"  gen so far: {_CALL_COUNT[0]} | to run: {len(tasks)} qids (1 combined audit+revision call each)", flush=True,
     )
     print("=" * 70, flush=True)
     ckpt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1544,7 +1545,7 @@ def phase_analyze(stub: bool) -> int:
                     ensure_ascii=False,
                     default=str,
                 )
-                + "\n"
+                + "\n",
             )
 
     # Aggregates per condition
@@ -1734,26 +1735,26 @@ def phase_analyze(stub: bool) -> int:
         "comparisons": {
             "C-O3_vs_D2": {
                 "answer_correctness_delta": round(
-                    aggregates["D2"].get("answer_correctness", 0) - aggregates["C-O3"].get("answer_correctness", 0), 4
+                    aggregates["D2"].get("answer_correctness", 0) - aggregates["C-O3"].get("answer_correctness", 0), 4,
                 ),
                 "binary_delta": round(
-                    aggregates["D2"].get("correct_rate", 0) - aggregates["C-O3"].get("correct_rate", 0), 4
+                    aggregates["D2"].get("correct_rate", 0) - aggregates["C-O3"].get("correct_rate", 0), 4,
                 ),
             },
             "D2_vs_D3": {
                 "answer_correctness_delta": round(
-                    aggregates["D3"].get("answer_correctness", 0) - aggregates["D2"].get("answer_correctness", 0), 4
+                    aggregates["D3"].get("answer_correctness", 0) - aggregates["D2"].get("answer_correctness", 0), 4,
                 ),
                 "binary_delta": round(
-                    aggregates["D3"].get("correct_rate", 0) - aggregates["D2"].get("correct_rate", 0), 4
+                    aggregates["D3"].get("correct_rate", 0) - aggregates["D2"].get("correct_rate", 0), 4,
                 ),
             },
             "C-O3_vs_D3": {
                 "answer_correctness_delta": round(
-                    aggregates["D3"].get("answer_correctness", 0) - aggregates["C-O3"].get("answer_correctness", 0), 4
+                    aggregates["D3"].get("answer_correctness", 0) - aggregates["C-O3"].get("answer_correctness", 0), 4,
                 ),
                 "binary_delta": round(
-                    aggregates["D3"].get("correct_rate", 0) - aggregates["C-O3"].get("correct_rate", 0), 4
+                    aggregates["D3"].get("correct_rate", 0) - aggregates["C-O3"].get("correct_rate", 0), 4,
                 ),
             },
         },
@@ -2277,7 +2278,7 @@ def phase_build() -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Experiment D — structured legal reasoning + auditor")
     p.add_argument(
-        "--phase", required=True, choices=["build", "run-d2", "run-d3", "analyze", "plots", "summary", "stub-smoke"]
+        "--phase", required=True, choices=["build", "run-d2", "run-d3", "analyze", "plots", "summary", "stub-smoke"],
     )
     p.add_argument("--limit", type=int, default=None, help="run only the first N pending questions (smoke tests)")
     p.add_argument("--resume", action="store_true", help="resume from checkpoints (skip successful qids)")

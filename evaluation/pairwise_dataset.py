@@ -118,6 +118,7 @@ def build_pairwise_examples(
 
     Returns:
         List of pairwise training examples.
+
     """
     if not MINING_FILE.exists():
         return []
@@ -357,8 +358,7 @@ def main() -> int:
 
     # Write training data (all examples for the training script to split)
     with open(OUT_FILE, "w", encoding="utf-8") as f:
-        for ex in examples:
-            f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(ex, ensure_ascii=False) + "\n" for ex in examples)
 
     # Write splits
     SPLIT_FILE.write_text(json.dumps(split_info, indent=2), encoding="utf-8")
@@ -384,10 +384,10 @@ def main() -> int:
         "section_prefix": args.section_prefix,
         "domain_balanced": args.domain_balanced,
         "positive_section_coverage": round(
-            sum(1 for e in examples if e.get("positive_section")) / max(len(examples), 1), 4
+            sum(1 for e in examples if e.get("positive_section")) / max(len(examples), 1), 4,
         ),
         "positive_clause_coverage": round(
-            sum(1 for e in examples if e.get("positive_clause")) / max(len(examples), 1), 4
+            sum(1 for e in examples if e.get("positive_clause")) / max(len(examples), 1), 4,
         ),
         "prefix_coverage": round(
             sum(1 for e in examples if (e.get("positive_section") or e.get("positive_clause"))) / max(len(examples), 1),
@@ -400,8 +400,8 @@ def main() -> int:
                 Counter(
                     str(ex.get("gold_unit") or "").split(":", 1)[0] if ":" in str(ex.get("gold_unit") or "") else "?"
                     for ex in examples
-                ).items()
-            )
+                ).items(),
+            ),
         )
         if args.domain_balanced
         else None,

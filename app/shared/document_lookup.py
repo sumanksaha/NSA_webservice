@@ -19,12 +19,12 @@ def get_case(model: type, case_id: int) -> Any | None:
 
 def get_case_by_number(model: type, case_number: str) -> Any | None:
     """Fetch one record by its human case number."""
-    return cast(Any, model).query.filter_by(case_number=case_number).first()
+    return cast("Any", model).query.filter_by(case_number=case_number).first()
 
 
 def list_cases(model: type, case_type: str) -> list[dict]:
     """All cases, newest first, as summary dicts."""
-    cases = cast(Any, model).query.order_by(cast(Any, model).created_at.desc()).all()
+    cases = cast("Any", model).query.order_by(cast("Any", model).created_at.desc()).all()
     return [case_summary(case_type, c) for c in cases]
 
 
@@ -38,8 +38,8 @@ def case_kwarg(case_type: str, case_id: int) -> dict:
 def officer_column(model: type, case_type: str):
     """The model attribute holding the responsible officer's name."""
     if case_type == "case_file":
-        return cast(Any, model).food_safety_officer_name
-    return cast(Any, model).food_safety_officer
+        return cast("Any", model).food_safety_officer_name
+    return cast("Any", model).food_safety_officer
 
 
 def visible_to_current_user(model: type, case_type: str, case) -> bool:
@@ -66,6 +66,9 @@ def case_summary(case_type: str, case) -> dict:
             "created_at": case.created_at.isoformat() if case.created_at else None,
             "is_archived": archived,
             "is_unsafe": bool(getattr(case, "is_unsafe", False)),
+            "retailer_cum_manufacturer": bool(
+                getattr(case, "retailer_cum_manufacturer", False),
+            ),
         }
     return {
         "id": case.id,

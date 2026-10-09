@@ -157,7 +157,7 @@ def analyze() -> int:
             return out
 
         p0_r500 = p1_r500 = 0.0
-        p1_recall = {k: 0.0 for k in DEPTHS}
+        p1_recall = dict.fromkeys(DEPTHS, 0.0)
         n = 0
         workset_rows = []  # per workset unit: recovered by P1?
         recovered_p1 = set()

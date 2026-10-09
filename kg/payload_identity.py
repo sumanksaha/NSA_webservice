@@ -62,6 +62,7 @@ class QdrantPayloadStamper:
             for tests; built from the manifest by default).
         batch_size: Points per ``set_payload`` call (grouped by identical
             payload so one request covers many points).
+
     """
 
     def __init__(self, engine: Any | None = None, batch_size: int = 500) -> None:

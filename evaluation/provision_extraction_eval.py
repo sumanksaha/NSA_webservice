@@ -163,7 +163,7 @@ def boundary_prf(predicted: set[tuple[str, str]], reference: set[tuple[str, str]
 
 
 def per_family_prf(
-    predicted: set[tuple[str, str]], reference: set[tuple[str, str]]
+    predicted: set[tuple[str, str]], reference: set[tuple[str, str]],
 ) -> dict[str, dict[str, float | int]]:
     """Macro P/R/F1 broken out by family prefix."""
     families = sorted({family for family, _ in predicted | reference})
@@ -244,7 +244,7 @@ def noise_stamp_rate(predictions: Mapping[str, list[Any]], groups: Mapping[str, 
 
 
 def gold_resolution(
-    predictions: Mapping[str, list[Any]], gold_records: Mapping[str, Mapping[str, Any]]
+    predictions: Mapping[str, list[Any]], gold_records: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Share of gold provisions whose emitted id round-trips to the gold section."""
     resolved = 0

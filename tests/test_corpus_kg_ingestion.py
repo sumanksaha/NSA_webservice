@@ -76,7 +76,7 @@ class FakeQdrant:
         return type("R", (), {"collections": self.collections})()
 
     def scroll(
-        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None
+        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None,
     ):
         points = {
             "env_legal_768": [
@@ -189,7 +189,7 @@ def fake_manifest(tmp_path: Path) -> Path:
                 "is_current": False,
                 "notes": "DRAFT — not current law",
             },
-        ]
+        ],
     }
     p = tmp_path / "manifest.json"
     p.write_text(json.dumps(manifest), encoding="utf-8")
@@ -284,7 +284,7 @@ class FakeFssQdrant:
         return type("R", (), {"collections": [type("C", (), {"name": "fssai_legal_768"})]})()
 
     def scroll(
-        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None
+        self, collection_name=None, limit=None, with_payload=None, with_vectors=None, offset=None, scroll_filter=None,
     ):
         if collection_name != "fssai_legal_768":
             return [], None
@@ -325,7 +325,8 @@ class TestMappings:
         domain edge: ``load_vocabularies`` MERGEs only the registry, and the
         write step ``MATCH``es a ``LegalDomain`` by that name. An unregistered
         name therefore fails silently, so assert the registry covers every
-        mapping this module can produce."""
+        mapping this module can produce.
+        """
         from kg.corpus_ingestion import MANIFEST_DOMAIN_TO_KG, WB_STATE_DOMAIN_MAP
         from kg.domain_manifest import DOMAINS
 
@@ -433,7 +434,8 @@ class TestProvisionBuilding:
     def test_provision_text_accumulates_across_chunks(self, engine):
         """Regression: the header chunk of a section carries only the section
         number, so taking text from the first chunk left 476 provisions with a
-        one-character body (``'9'``) and a ``skipped_short_text`` class."""
+        one-character body (``'9'``) and a ``skipped_short_text`` class.
+        """
         chunks = [
             {
                 "chunk_id": "h",
@@ -464,7 +466,8 @@ class TestProvisionBuilding:
 
     def test_bare_section_stub_alone_gives_no_body(self, engine):
         """A section with nothing but its header stub still yields a provision,
-        but an empty body rather than a misleading one-character body."""
+        but an empty body rather than a misleading one-character body.
+        """
         chunks = [{"chunk_id": "h", "chunk_index": 0, "chunk_text": "9", "section_number": "9"}]
         provs = engine.build_provisions("AIR_ACT_1981", "Air (Prevention and Control of Pollution) Act, 1981", chunks)
         assert [p["provision_id"] for p in provs] == ["AIR_ACT_1981_SEC_9"]
@@ -473,7 +476,8 @@ class TestProvisionBuilding:
     def test_declared_section_propagates_to_following_chunks(self, engine):
         """Regression: the chunker writes ``section_number`` only on a
         section's header chunk, leaving 10,505 continuation chunks unlinked.
-        A continuation chunk belongs to the section declared before it."""
+        A continuation chunk belongs to the section declared before it.
+        """
         chunks = [
             {"chunk_id": "h9", "chunk_index": 0, "chunk_text": "9", "section_number": "9"},
             {"chunk_id": "b1", "chunk_index": 1, "chunk_text": "The price may be fixed.", "section_number": None},
@@ -495,7 +499,8 @@ class TestProvisionBuilding:
 
     def test_chunks_before_any_declaration_stay_unlinked(self, engine):
         """No declaration, no evidence — guessing is what made the registry-ref
-        fallback unsafe, so a leading run of undeclared chunks stays out."""
+        fallback unsafe, so a leading run of undeclared chunks stays out.
+        """
         chunks = [
             {"chunk_id": "a", "chunk_index": 0, "chunk_text": "Preamble.", "section_number": None},
             {"chunk_id": "b", "chunk_index": 1, "chunk_text": "More preamble.", "section_number": None},
@@ -508,7 +513,8 @@ class TestProvisionBuilding:
         """Regression: ``provision_ids`` / ``provision_spans`` are frequently a
         single degenerate constant repeated over hundreds of chunks (``sog:s66``
         on 130 of 141 Sale of Goods chunks; ``epa:s26.5`` on 1,625 chunks).
-        Resolving sections from them fabricated mega-provisions."""
+        Resolving sections from them fabricated mega-provisions.
+        """
         chunks = [
             {"chunk_id": "h", "chunk_index": 0, "chunk_text": "5", "section_number": "5"},
             {
@@ -545,7 +551,8 @@ class TestProvisionBuilding:
 
     def test_map_chunks_agrees_with_build_provisions(self, engine):
         """The mapping and the provision builder must never disagree — that
-        disagreement is what produced chunks pointing at nothing."""
+        disagreement is what produced chunks pointing at nothing.
+        """
         chunks = [
             {"chunk_id": "a", "chunk_index": 0, "chunk_text": "Body A.", "section_number": "12"},
             {"chunk_id": "b", "chunk_index": 1, "chunk_text": "Body B.", "section_number": None},
@@ -615,7 +622,7 @@ class TestFssProvisions:
 
     def test_chunk_without_provision_id_falls_back_to_clause(self, engine):
         provs = engine.build_fss_provisions(
-            "FSS_FAR4", [{"chunk_id": "x", "chunk_text": "t", "clause_number": "2.9.8"}]
+            "FSS_FAR4", [{"chunk_id": "x", "chunk_text": "t", "clause_number": "2.9.8"}],
         )
         assert provs[0]["provision_id"] == "FSS_FAR4_CLAUSE_2.9.8"
         assert provs[0]["provision_ref"] == "fssai:s2.9.8"
@@ -710,7 +717,7 @@ class TestEngine:
         collected = engine.collect()
         written, skipped = [], []
         for src, rel, tgt, _ev in __import__(
-            "kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"]
+            "kg.corpus_ingestion", fromlist=["CORPUS_CROSS_DOMAIN_EDGES"],
         ).CORPUS_CROSS_DOMAIN_EDGES:
             if src in collected["provision_ids"] and tgt in collected["provision_ids"]:
                 written.append((src, rel, tgt))
@@ -736,7 +743,7 @@ class TestEngine:
         assert any("UNWIND $rows" in c["cypher"] for c in calls)
         # every provision gets a BELONGS_TO_DOMAIN row batch
         domain_batch = next(
-            (c for c in calls if "BELONGS_TO_DOMAIN" in c["cypher"] and "LegalProvision" in c["cypher"]), None
+            (c for c in calls if "BELONGS_TO_DOMAIN" in c["cypher"] and "LegalProvision" in c["cypher"]), None,
         )
         assert domain_batch is not None
         assert all("legal_domain" in r for r in domain_batch["params"]["rows"])

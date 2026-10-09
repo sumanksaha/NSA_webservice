@@ -231,7 +231,7 @@ class TestQueries:
                 "instrument_title": "FSS Act",
                 "authority": "FSSAI",
                 "source_uri": "/doc.pdf",
-            }
+            },
         ])
         result = kg_queries.get_domain_provisions("FOOD_SAFETY")
         assert isinstance(result, list)
@@ -249,7 +249,7 @@ class TestQueries:
                 "instrument_id": "FSS_ACT_2006",
                 "legal_domain": "FOOD_SAFETY",
                 "source_uri": "/doc.pdf",
-            }
+            },
         ])
         result = kg_queries.search_provisions("inspection", domain="FOOD_SAFETY")
         assert len(result) == 1
@@ -329,7 +329,7 @@ class TestValidation:
 
     def test_check_cross_domain_retrieval_multi_domain(self, kg_validator):
         kg_validator._driver.set_return(
-            "domains", [{"domains": ["FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION", "MUNICIPAL"]}]
+            "domains", [{"domains": ["FOOD_SAFETY", "ANIMAL_SLAUGHTER", "ENVIRONMENT_POLLUTION", "MUNICIPAL"]}],
         )
         result = kg_validator.check_cross_domain_retrieval("Slaughterhouse")
         assert result["passed"]
@@ -530,19 +530,19 @@ class TestNeo4jIntegration:
         for dom in required:
             provisions = query_neo4j(
                 f"MATCH (p:LegalProvision)-[:BELONGS_TO_DOMAIN]->(:LegalDomain {{domain_name: '{dom}'}})"
-                " RETURN count(p) AS c"
+                " RETURN count(p) AS c",
             )
             assert provisions[0]["c"] > 0, f"No provisions found in domain {dom}"
 
         # Verify cross-domain relationships exist
         cross_rels = query_neo4j(
             "MATCH (p1:LegalProvision)-[r:INTERACTS_WITH|COMPLEMENTS|CROSS_REFERENCES]->(p2:LegalProvision)"
-            " WHERE p1 <> p2 RETURN count(*) AS c"
+            " WHERE p1 <> p2 RETURN count(*) AS c",
         )
         assert cross_rels[0]["c"] > 0, "Should have cross-domain relationships"
 
         # Verify provenance chain: at least one provision → chunk → document
         provenance = query_neo4j(
-            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk)<-[:HAS_CHUNK]-(doc:Document) RETURN count(*) AS c"
+            "MATCH (p:LegalProvision)-[:SUPPORTED_BY]->(ch:Chunk)<-[:HAS_CHUNK]-(doc:Document) RETURN count(*) AS c",
         )
         assert provenance[0]["c"] > 0, "Should have provenance chains"

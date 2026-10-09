@@ -151,7 +151,7 @@ def _metrics_row(
             "same_document_concentration": redundancy["same_document_concentration"],
             "n_items": n_items,
             "n_ranked_items": metrics.n_items,
-        }
+        },
     ]
 
 
@@ -282,7 +282,7 @@ def _write_report(
         beats = sum(1 for r in by_strat.get(name, []) if r["recall_at_10"] > bl_r10)
         total = len(by_strat.get(name, []))
         lines.append(
-            f"| {name} | {r10:.4f} | {mrr:.4f} | {ndcg:.4f} | {dup:.4f} | {sec_c:.4f} | {doc_c:.4f} | {beats}/{total} |"
+            f"| {name} | {r10:.4f} | {mrr:.4f} | {ndcg:.4f} | {dup:.4f} | {sec_c:.4f} | {doc_c:.4f} | {beats}/{total} |",
         )
 
     lines.extend([

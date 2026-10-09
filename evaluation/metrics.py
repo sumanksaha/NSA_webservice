@@ -76,7 +76,7 @@ def build_ranked_items(
                     key=str(d.get("key", "")),
                     family=d.get("family"),
                     section=d.get("section"),
-                )
+                ),
             )
         return items
 

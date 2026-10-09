@@ -47,6 +47,7 @@ def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = N
 
     Raises:
         RuntimeError: if pandoc not available or conversion fails
+
     """
     adoc_path = TEMPLATE_DIR / template_name
     if not adoc_path.exists():
@@ -62,7 +63,7 @@ def render_adoc_to_docx(template_name: str, context: dict, app: Flask | None = N
             rendered_adoc = render_template_string(adoc_source, **context)
     else:
         rendered_adoc = render_template_string(
-            adoc_source, **context
+            adoc_source, **context,
         )  # Pandoc: docx is a ZIP (binary) — no text-mode stdout/stderr decoding.
     try:
         # Fixed argv, no shell: the only variable element is the resolved binary path.

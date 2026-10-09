@@ -22,7 +22,6 @@ def prefill_for_sample(sample_id: int):
 @autopopulation_bp.route("/draft-fbo-issue/<int:sample_id>", methods=["POST"])
 def draft_issue(sample_id: int):
     """Auto-draft an FBO issue for a non-conforming lab report (idempotent)."""
-
     if sample_exists(sample_id) is False:
         return jsonify({"error": f"Sample {sample_id} not found"}), 404
 

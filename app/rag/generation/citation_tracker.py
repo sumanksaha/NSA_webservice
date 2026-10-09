@@ -73,6 +73,7 @@ class CitationTracker:
         Returns:
             A list of :class:`Citation` objects with ``confidence`` set
             based on how strongly the chunk supports the response.
+
         """
         if not response_text or not chunks:
             return []
@@ -138,7 +139,7 @@ class CitationTracker:
                     url=None,
                     snippet=snippet,
                     confidence=confidence,
-                )
+                ),
             )
 
         return results
@@ -171,7 +172,7 @@ class CitationTracker:
                             url=None,
                             snippet=snippet,
                             confidence=confidence,
-                        )
+                        ),
                     )
 
         return results

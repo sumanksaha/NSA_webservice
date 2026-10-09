@@ -228,7 +228,7 @@ class TestIsolator:
                 "chunk_id": "c0",
                 "chunk_index": 0,
                 "chunk_text": "Section 31(2) Licensing.— A licence shall be issued by the Authority.",
-            }
+            },
         ]
         records = isolate_chunks(chunks, act_name=FSS_ACT, document_title=FSS_ACT)
         assert len(records) == 1

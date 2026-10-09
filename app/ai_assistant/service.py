@@ -79,6 +79,7 @@ class AIAssistantService:
     Args:
         provider: Override the provider ('openrouter' or 'openai'). When
             ``None``, reads ``AI_ASSISTANT_PROVIDER`` from config.
+
     """
 
     def __init__(self, provider: str | None = None) -> None:
@@ -431,6 +432,7 @@ def dispatch_ai_action(
     Returns:
         ``{"result": str, "tokens_used": int, "action": str}`` — list-valued
         results are ``json.dumps``-ed to match the established contract.
+
     """
     if action not in ACTION_METHODS:
         raise ValueError(f"Invalid action. Must be one of: {', '.join(sorted(ACTION_METHODS))}.")

@@ -62,7 +62,7 @@ def app():
     yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app):
     import contextlib
 
@@ -82,7 +82,7 @@ def client(app):
     return c
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_session(app):
     import contextlib
 

@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "FOOD_STANDARD_SYSTEM_PROMPT",
     "PARAMETER_SYSTEM_PROMPT",
-    "render_food_user_prompt",
     "build_food_system_prompt",
     "check_answer_completeness",
     "parameter_rows_from_evidence",
+    "render_food_user_prompt",
 ]
 
 
@@ -154,12 +154,12 @@ def render_food_user_prompt(query: str, bundle: dict[str, Any]) -> str:
     if source:
         lines.append(
             "Legal location (verified from evidence metadata): "
-            + ", ".join(f"{k}={v}" for k, v in source.items())
+            + ", ".join(f"{k}={v}" for k, v in source.items()),
         )
     lines.append("")
     lines.append(
         "First quote the passages that bear on the question, then answer using those "
-        "quotes, citing specific sources with [n] markers."
+        "quotes, citing specific sources with [n] markers.",
     )
     lines.append("")
     lines.append(f"Question: {query}")

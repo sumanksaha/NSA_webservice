@@ -179,7 +179,7 @@ class FakeEmbedder:
 
 
 def _make_pipeline(
-    client: InMemoryQdrantClient, **pipeline_kwargs: Any
+    client: InMemoryQdrantClient, **pipeline_kwargs: Any,
 ) -> tuple[IngestionPipeline, QdrantStore, QdrantIndexer]:
     store = QdrantStore(client=client, collection_name="fssai_legal_768", vector_size=_DIM)
     indexer = QdrantIndexer(store=store, embedder=FakeEmbedder(), chunker=None)

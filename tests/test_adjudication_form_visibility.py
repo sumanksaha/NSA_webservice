@@ -26,7 +26,7 @@ from app.extensions import db
 from app.models import Adjudication, User
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 

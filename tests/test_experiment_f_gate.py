@@ -39,7 +39,7 @@ def test_abstain_check_passes_substantive_answer():
     assert not abstain_check(
         "Under section 16(1) of the Food Safety and Standards Act, the Food Authority "
         "shall regulate and monitor the manufacture, processing, distribution, sale "
-        "and import of food [2]."
+        "and import of food [2].",
     )
 
 

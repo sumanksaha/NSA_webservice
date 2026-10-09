@@ -30,7 +30,8 @@ def _fake_gdrive_export():
 class TestCanonicalMap:
     def test_canonical_map_has_expected_modules(self):
         """The canonical map maps module keys to table names — adding a
-        synced module edits once here."""
+        synced module edits once here.
+        """
         assert BACKUP_MODULE_TO_TABLE["non_sample"] == "adjudications"
         assert BACKUP_MODULE_TO_TABLE["sample"] == "case_files"
         assert BACKUP_MODULE_TO_TABLE["billing"] == "bills"

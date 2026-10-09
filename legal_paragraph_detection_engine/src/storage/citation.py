@@ -146,6 +146,7 @@ class CitationExtractor:
 
         Args:
             cache_size: Maximum number of entries to cache
+
         """
         self._cache: dict[str, list[LegalCitation]] = {}
         self._cache_size = cache_size
@@ -176,6 +177,7 @@ class CitationExtractor:
 
         Returns:
             List of LegalCitation objects found in the text
+
         """
         # Create cache key
         normalized_text = re.sub(r"\s+", " ", text.strip())
@@ -210,6 +212,7 @@ class CitationExtractor:
 
         Returns:
             Context string around the match
+
         """
         start = max(0, match.start() - window)
         end = min(len(text), match.end() + window)
@@ -346,8 +349,7 @@ class CitationExtractor:
         as the same statute.
         """
         key = matched_text.strip().lower()
-        if key.startswith("the "):
-            key = key[4:]
+        key = key.removeprefix("the ")
         return key
 
     def _extract_section(self, text: str) -> list[LegalCitation]:

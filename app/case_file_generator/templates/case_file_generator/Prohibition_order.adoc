@@ -1,0 +1,93 @@
+////
+// ─────────────────────────────────────────────────────────────────────────
+// Prohibition Order — letter to the FBO manufacturer (ADR-001 .adoc template).
+//
+// This is the SECOND document for an UNSAFE sample. It is rendered by its own
+// endpoint (download_prohibition_order_docx) and is addressed to the food
+// business operator (manufacturer). It is NOT issued for retailer-cum-manufacturer
+// (prepared/loose food) cases — the route returns 403 for those, because the
+// product has no separate manufacturer and no batch/manufacturing/expiry
+// details. The prayer (Unsafe_file.adoc) is still generated for RCM cases.
+//
+// The first document for an unsafe case is the prayer (Unsafe_file.adoc). This
+// letter repeats the first paragraph of the prayer (the sample description) so
+// that the prohibition letter is self-contained.
+//
+// Variable mapping (template var → CaseFile column / UI form field):
+//   sample_code        → sample_code            / sample_code
+//   sample_name        → product_name           / product_name       (aliased)
+//   fso_name           → food_safety_officer_name / food_safety_officer_name (aliased)
+//   packet_count       → packet_count           / packet_count
+//   sample_quantity    → sample_quantity        / sample_quantity
+//   per_packet_sample_quantity → computed in routes.py (sample_quantity / packet_count)
+//   batch_no           → batch_no               / batch_no
+//   mfg_date           → mfg_date               / mfg_date
+//   expiry_date        → expiry_date            / expiry_date
+//   retailer_cum_manufacturer → retailer_cum_manufacturer (bool; route rejects RCM)
+//   case_number        → case_number            / case_number
+//   inspection_date    → inspection_date        / inspection_date        (sampling date)
+//   authorization_date → authorization_date     / authorization_date
+//   manufacturer_*     → manufacturer_*         / manufacturer_*
+//   retailer_*         → retailer_*             / retailer_*
+//   analyst_report_no/date → analyst_report_no / analyst_report_date
+//   directive_letter_no/date → directive_letter_no / directive_letter_date
+//   retailer/manufacturer_report_receive_date → *_report_receive_date
+// ─────────────────────────────────────────────────────────────────────────
+//
+
+F.S. & S Case No. {{ case_number }}
+
+To,
+The Food Business Operator (Manufacturer),
+{{ manufacturer_name }} ({{ manufacturer_fbo_name }}),
+{{ manufacturer_address }},
+FSSAI License No - {{ manufacturer_fssai }}
+
+*Sub:* Prohibition of Sale of Unsafe Food in respect of Sample No : {{ sample_code }}
+
+First paragraph of the Prayer (sample description):
+
+[.justify]
+Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles ({{ per_packet_sample_quantity }} X {{ packet_count }} = {{ sample_quantity }} ){% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }}{% endif %} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
+
+<<<
+
+[.bold]#PROHIBITION ORDER — DIRECTED TO THE FOOD BUSINESS OPERATOR#
+
+[.justify]
+Under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, read with Section 18(1)(2) of the said Act, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name),{% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }},{% endif %} with immediate effect.
+
+[.justify]
+This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.
+
+[.legal-notice-box]
+Pursuant to Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, a draft Prohibition Order (marked D) is enclosed herewith. The concerned FBO may submit representations, if any, within the time and manner prescribed under the applicable rules.
+
+<<<
+[.justify]
+In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):
+
+Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets{% if not retailer_cum_manufacturer %} (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}){% endif %} are attached herewith (marked F) for the following:
+d. Initiation of Prohibition on Sale of Unsafe food.
+e. Grant of Sanction for Prosecution,
+f. Initiation of Product Recall, if applicable.
+
+*Enclosures:*
+. Attachment A — copy of {{ directive_letter_no }} dated {{ directive_letter_date }} and Food Analyst Report No. {{ analyst_report_no }} dated {{ analyst_report_date }}, duly received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }}.
+. Attachment B — Entry of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, Lic No - {{ manufacturer_fssai }}.
+. Attachment C — Reply of the manufacturer dated {{ manufacturer_report_receive_date }}.
+. Attachment D — Draft prohibition order.
+. Attachment E — Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025.
+. Attachment F — Documents regarding the collection of the sample of {{ sample_name }} vide Sample Code {{ sample_code }} dated {{ inspection_date }}.
+  i. Copy of Form of Notice to the FBO (Form VA dated {{ inspection_date }}).
+  ii. Copy of Form of Memorandum to the Food Analyst (Form VI dated {{ inspection_date }}).
+  iii. Copy of sample coupon form dated {{ inspection_date }}.
+  iv. Copy of Lab &amp; DO picon book dated {{ inspection_date }}.
+
+[.signature]
+{{ food_safety_officer_name }}
+Food Safety Officer
+Kolkata Municipal Corporation
+
+[.header]
+Date - {{ authorization_date }}

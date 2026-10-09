@@ -36,7 +36,7 @@ def upgrade():
         batch_op.alter_column("mfg_date", existing_type=sa.DateTime(), nullable=True)
         batch_op.alter_column("expiry_date", existing_type=sa.DateTime(), nullable=True)
         batch_op.alter_column(
-            "manufacturer_report_receive_date", existing_type=sa.DateTime(), nullable=True
+            "manufacturer_report_receive_date", existing_type=sa.DateTime(), nullable=True,
         )
         batch_op.alter_column("batch_no", existing_type=sa.String(100), nullable=True)
 
@@ -49,6 +49,6 @@ def downgrade():
         batch_op.alter_column("mfg_date", existing_type=sa.DateTime(), nullable=False)
         batch_op.alter_column("expiry_date", existing_type=sa.DateTime(), nullable=False)
         batch_op.alter_column(
-            "manufacturer_report_receive_date", existing_type=sa.DateTime(), nullable=False
+            "manufacturer_report_receive_date", existing_type=sa.DateTime(), nullable=False,
         )
         batch_op.alter_column("batch_no", existing_type=sa.String(100), nullable=False)

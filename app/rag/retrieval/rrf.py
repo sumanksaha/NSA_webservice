@@ -61,6 +61,7 @@ def reciprocal_rank_fuse(
 
     Returns:
         ``dict`` mapping each key to its fused RRF score.
+
     """
     if key_fn is None:
         key_fn = _default_key_fn

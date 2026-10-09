@@ -1,5 +1,4 @@
-"""
-Legal Paragraph Detection Engine
+"""Legal Paragraph Detection Engine
 """
 
 from __future__ import annotations
@@ -45,8 +44,7 @@ __all__ = [
 
 # Simple function for quick usage
 def process_legal_document(text: str, config: ProcessingConfig | None = None) -> list[dict[str, Any]]:
-    """
-    Quick function to process legal document text.
+    """Quick function to process legal document text.
 
     Args:
         text: Legal document text to process
@@ -54,6 +52,7 @@ def process_legal_document(text: str, config: ProcessingConfig | None = None) ->
 
     Returns:
         List of processed paragraphs
+
     """
     from .src.legal_engine import LegalParagraphEngine
 

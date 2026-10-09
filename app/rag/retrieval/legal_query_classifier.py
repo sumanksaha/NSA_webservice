@@ -72,6 +72,7 @@ class QueryTypeConfig:
         skip_ce: If True, never run CE for this query type (pure sec_act).
         min_ce_score: Minimum CE score (post-normalization) threshold for a
             chunk to receive a CE bonus.  Chunks below this get 0 bonus.
+
     """
 
     ce_weight: float = 0.5

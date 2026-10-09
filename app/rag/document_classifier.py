@@ -88,6 +88,7 @@ class DocumentClassifier:
             tests; the real one is built lazily).
         authority_extractor: Optional ``AuthorityExtractor`` (injected for
             tests; the real one is built lazily).
+
     """
 
     def __init__(

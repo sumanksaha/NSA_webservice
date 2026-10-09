@@ -224,7 +224,7 @@ def build_candidates(
                 instrument_id=inst_id,
                 text_tokens=_tokenize(text),
                 payload=payload,
-            )
+            ),
         )
 
     # --- KG provisions ---
@@ -263,7 +263,7 @@ def build_candidates(
                 instrument_id=inst_id,
                 text_tokens=_tokenize(text),
                 payload=prov,
-            )
+            ),
         )
 
     return candidates

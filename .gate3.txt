@@ -1,0 +1,18 @@
+============================= test session starts =============================
+collected 978 items / 1 error
+
+=================================== ERRORS ====================================
+____________ ERROR collecting tests/test_retrieval_answer_link.py _____________
+ImportError while importing test module 'C:\github\NSA_webservice\tests\test_retrieval_answer_link.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_retrieval_answer_link.py:17: in <module>
+    from evaluation.build_train_pool import apply_pool_weights, classify, qid_weight_map
+E   ModuleNotFoundError: No module named 'evaluation.build_train_pool'
+=========================== short test summary info ===========================
+ERROR tests/test_retrieval_answer_link.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+============================== 1 error in 26.34s ==============================

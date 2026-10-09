@@ -228,7 +228,7 @@ def build_packets(residual_qids: list[str]) -> tuple[list[dict], dict]:
                 "suggestion": pre.get("suggested_label"),
                 "answers": s0.answers_for(qid, d_perq, e_perq, c_perq),
                 "v2row": v2_perq.get(qid, {}),
-            }
+            },
         )
     return packets, preanno
 
@@ -264,7 +264,7 @@ def format_packet(packet: dict, short: bool, note: str | None) -> str:
         v2, v1 = rec.get("v2") or {}, rec.get("v1") or {}
         lines.append(
             f"[{letter}. {cond}] (v2: {s0._fmt(v2.get('correct'))}, soft {s0._fmt(v2.get('soft'))}"
-            f" | v1: {s0._fmt(v1.get('correct'))}, soft {s0._fmt(v1.get('answer_correctness'))})"
+            f" | v1: {s0._fmt(v1.get('correct'))}, soft {s0._fmt(v1.get('answer_correctness'))})",
         )
         body = (packet["answers"].get(cond) or "(empty)").strip()
         lines.append(truncate_text(body, limit))
@@ -343,11 +343,11 @@ def main(argv: list[str] | None = None) -> int:
         save_state(state)
         records_path = OUT / "step0_human_records.json"
         records_path.write_text(
-            json.dumps(records, indent=1, ensure_ascii=False), encoding="utf-8"
+            json.dumps(records, indent=1, ensure_ascii=False), encoding="utf-8",
         )
         print(
             f"imported from {args.from_csv.name}: {len(emit_labels(state)) - n0} new verdicts"
-            f" ({len(records)} rows parsed, {len(skipped)} skipped)"
+            f" ({len(records)} rows parsed, {len(skipped)} skipped)",
         )
         for line in skipped:
             print(f"  skipped: {line}")
@@ -421,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 note = input("note: ").strip()
             except (EOFError, KeyboardInterrupt):
-                print("")
+                print()
                 continue
             history.append((qid, verdicts.get(qid)))
             verdicts[qid] = {"verdict": rec.get("verdict"), "notes": note, "ts": now()}
@@ -460,7 +460,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\nAll residual qids labeled. Publish the Step 0 gates with:")
         print(
             f"  SKIP_SCHEMA_CHECK=1 .venv/Scripts/python.exe evaluation/step0_label_residual.py"
-            f" --labels {labels_rel} --publish --require-complete"
+            f" --labels {labels_rel} --publish --require-complete",
         )
     else:
         remaining = [q for q in order if not (verdicts.get(q) or {}).get("verdict")]

@@ -22,6 +22,10 @@ REQUIRED_SETTINGS = (
     "kg_max_provisions",
     "hallucination_detector",
     "rag_log_retention_days",
+    "rl_enabled",
+    "rl_exploration_epsilon",
+    "rl_learning_rate",
+    "rl_min_observations",
 )
 
 # Type mapping for each setting (for mypy stub generation)
@@ -34,6 +38,10 @@ SETTING_TYPES = {
     "kg_max_provisions": "int",
     "hallucination_detector": "bool",
     "rag_log_retention_days": "int",
+    "rl_enabled": "bool",
+    "rl_exploration_epsilon": "float",
+    "rl_learning_rate": "float",
+    "rl_min_observations": "int",
 }
 
 
@@ -58,6 +66,7 @@ def validate_settings() -> list[str]:
 
     Returns:
         List of missing setting names (empty if all present).
+
     """
     missing = []
     try:

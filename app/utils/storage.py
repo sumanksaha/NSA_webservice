@@ -325,7 +325,8 @@ def _delete_from_cloudinary(file_url):
     Idempotent: an already-absent asset is treated as success (mirrors
     R2's "NoSuchKey -> success" behaviour).  Transient network failures
     are retried (``_CLOUDINARY_RETRYING``); exhaustion returns ``False``
-    instead of raising."""
+    instead of raising.
+    """
     cld = _get_cloudinary()
     if cld is None:
         logger.warning("Cloudinary URL present but SDK not installed; cannot delete %s", file_url)

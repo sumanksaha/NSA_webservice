@@ -248,7 +248,7 @@ def _upsert_row(entity_type, entity_id, title, content):
     db.session.execute(
         text(
             "INSERT INTO " + _FTS_TABLE + "(entity_type, entity_id, title, content) "
-            "VALUES (:etype, :eid, :title, :content)"
+            "VALUES (:etype, :eid, :title, :content)",
         ),
         {"etype": entity_type, "eid": entity_id, "title": title, "content": content},
     )
@@ -340,7 +340,7 @@ def index_all():
             db.session.execute(
                 text(
                     "INSERT INTO " + _FTS_TABLE + "(entity_type, entity_id, title, content) "
-                    "VALUES (:etype, :eid, :title, :content)"
+                    "VALUES (:etype, :eid, :title, :content)",
                 ),
                 {
                     "etype": entity_type,

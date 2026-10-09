@@ -115,7 +115,7 @@ def main() -> int:
                     already_correct=False,
                     candidate_correct=False,
                     context=context,
-                )
+                ),
             )
             if not safety["pass"]:
                 n_gated += 1
@@ -133,7 +133,7 @@ def main() -> int:
     ckpt.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
     print(
         f"records: {len(out_lines)} | answers re-rendered: {n_fixed} | "
-        f"audits hardened: {n_hardened} | step2-gated: {n_gated}"
+        f"audits hardened: {n_hardened} | step2-gated: {n_gated}",
     )
     return 0
 

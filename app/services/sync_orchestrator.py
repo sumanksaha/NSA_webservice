@@ -29,6 +29,7 @@ def sync_row(module: str, row_dict: dict, entity_id: int | None = None) -> None:
 
     Raises:
         RuntimeError: If Sheets sync fails.
+
     """
     from app.services.sheets_sync import sync_to_sheets
 

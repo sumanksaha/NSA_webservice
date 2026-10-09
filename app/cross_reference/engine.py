@@ -51,7 +51,7 @@ _SECTION_SUBCLAUSE_RE = re.compile(
 _PARA_WORD_RE = re.compile(r"\b(?:paragraph|para\.?|clause)\s+(\d{1,3})", re.IGNORECASE)
 # Numbered list markers at line starts: "1. ...", "(1) ..."
 _LIST_MARKER_RE = re.compile(
-    r"(?m)^(?P<lead>\s*)(?:\((?P<paren>\d+)\)|(?P<dot>\d+)\.|(?P<letter>[A-Za-z])\.)(?P<sep>\s+)(?=\S)"
+    r"(?m)^(?P<lead>\s*)(?:\((?P<paren>\d+)\)|(?P<dot>\d+)\.|(?P<letter>[A-Za-z])\.)(?P<sep>\s+)(?=\S)",
 )
 
 # --- HTML renumbering patterns ------------------------------------------------------
@@ -194,7 +194,7 @@ class CrossReferenceEngine:
                     position=match.start(),
                     context=_context_around(text, match.start(), match.end()),
                     confidence=0.9,
-                )
+                ),
             )
         return refs
 
@@ -215,7 +215,7 @@ class CrossReferenceEngine:
                         position=match.start(),
                         context=_context_around(text, match.start(), match.end()),
                         confidence=0.9,
-                    )
+                    ),
                 )
         # Sub-clause refs: "Section 26(2)(ii)" (deduped against the run refs).
         for match in _SECTION_SUBCLAUSE_RE.finditer(text):
@@ -230,7 +230,7 @@ class CrossReferenceEngine:
                     position=match.start(),
                     context=_context_around(text, match.start(), match.end()),
                     confidence=0.85,
-                )
+                ),
             )
         return refs
 
@@ -245,7 +245,7 @@ class CrossReferenceEngine:
                     position=match.start(),
                     context=_context_around(text, match.start(), match.end()),
                     confidence=0.8,
-                )
+                ),
             )
         # Numbered list markers — each is a paragraph reference.
         for match in _LIST_MARKER_RE.finditer(text):
@@ -260,7 +260,7 @@ class CrossReferenceEngine:
                     position=match.start(),
                     context=_context_around(text, match.start(), match.end()),
                     confidence=0.7,
-                )
+                ),
             )
         return refs
 
@@ -425,7 +425,7 @@ class CrossReferenceEngine:
     # Annexure letter renumbering (DB-backed)
     # ------------------------------------------------------------------
     def renumber_annexures(
-        self, case_id: int | None = None, adjudication_id: int | None = None
+        self, case_id: int | None = None, adjudication_id: int | None = None,
     ) -> list[dict[str, Any]]:
         """Reassign A/B/C... letters to annexures in upload order.
 
@@ -463,7 +463,7 @@ class CrossReferenceEngine:
                 page_note = f", {annexure.page_count} page{'s' if annexure.page_count != 1 else ''}"
             items.append(
                 f"<li>Copy of {_esc(annexure.caption)} — Annexure "
-                f"{_esc(annexure.annexure_letter or '?')}{page_note}</li>"
+                f"{_esc(annexure.annexure_letter or '?')}{page_note}</li>",
             )
         return '<ol class="justify">\n' + "\n".join(items) + "\n</ol>"
 

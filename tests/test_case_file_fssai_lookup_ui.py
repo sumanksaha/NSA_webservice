@@ -34,12 +34,12 @@ def _render_page(app) -> str:
 
     with app.test_request_context("/"):
         return render_template(
-            TEMPLATE, cases=[], case_type="case_file", show_archived=False
+            TEMPLATE, cases=[], case_type="case_file", show_archived=False,
         )
 
 
 def _inline_script_blocks(html: str) -> list[str]:
-    return re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.S)
+    return re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.DOTALL)
 
 
 def _getelementbyid_ids(html: str) -> set[str]:
@@ -93,5 +93,5 @@ def test_lookup_button_wiring(app, lk_type):
 
     # The handler must resolve that exact input id (contract as fixed).
     assert re.search(
-        r'getElementById\(\s*`\$\{type\}_fssai`\s*\)', html
+        r"getElementById\(\s*`\$\{type\}_fssai`\s*\)", html,
     ), "lookup JS must read the '<type>_fssai' input"

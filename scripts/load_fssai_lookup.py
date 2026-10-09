@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None, sources: list[dict] | None = None) -> in
     parser = argparse.ArgumentParser(description="Idempotent FSSAI lookup loader: SQLite files -> Postgres.")
     parser.add_argument("--dry-run", action="store_true", help="Count/report only; write nothing.")
     parser.add_argument(
-        "--batch-size", type=int, default=5000, help="Rows per upsert batch (5000 = ~16 round-trips for 80k rows)."
+        "--batch-size", type=int, default=5000, help="Rows per upsert batch (5000 = ~16 round-trips for 80k rows).",
     )
     parser.add_argument("--db-url", default=None, help="Target DB URL (default: DATABASE_URL or app config).")
     args = parser.parse_args(argv)

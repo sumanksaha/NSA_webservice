@@ -66,6 +66,7 @@ class ReferenceEdge:
         evidence: The raw text snippet that triggered the edge.
         target_provision_id: Provision ID if resolvable.
         depth: Traversal depth (0 = direct, 1 = via one edge, etc.).
+
     """
 
     source_document: str | None = None
@@ -99,6 +100,7 @@ class GraphExpansion:
         depth: Traversal depth.
         edges: List of reference edges found at this depth.
         candidates: New document IDs discovered through expansion.
+
     """
 
     source_document: str | None = None
@@ -153,6 +155,7 @@ class ReferenceGraph:
 
         Returns:
             Number of HIGH-confidence edges added.
+
         """
         count = 0
         for chunk in chunks:
@@ -293,6 +296,7 @@ def expand_references(
 
     Returns:
         List of ``ReferenceEdge`` objects, ordered by depth then source order.
+
     """
     if not _reference_expansion_enabled():
         return []
@@ -347,6 +351,7 @@ def expand_candidates(
 
     Returns:
         List of target document IDs discovered through expansion.
+
     """
     if not _reference_expansion_enabled() or not chunks:
         return []

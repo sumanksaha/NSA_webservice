@@ -199,7 +199,7 @@ def as_retrieved_chunks(chunks: list[dict[str, Any]]) -> list[Any]:
                     section_number=c.get("section_number"),
                     document_type=str(c.get("document_type") or ""),
                     authority=str(c.get("authority") or ""),
-                )
+                ),
             )
         except (TypeError, ValueError):
             continue
@@ -285,6 +285,7 @@ class TaskSufficiency:
         failures: Sorted names of failed signals that are *recoverable*
             (drive targeted retry diagnosis).
         conflicts: Contradiction records (empty when none found).
+
     """
 
     task_id: str
@@ -478,6 +479,7 @@ def aggregate_verdicts(
         the evidence set itself is wrong), ``has_conflicts``, per-task
         ``verdicts`` (for the audit trail / ``task_sufficiency`` channel)
         and the union of ``failure_codes`` for diagnosis.
+
     """
     if not verdicts:
         return {

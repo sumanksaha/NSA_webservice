@@ -105,6 +105,7 @@ class QdrantIndexer:
         collection_name: Target Qdrant collection (Phase 1 — multi-domain).
             When no ``store`` is injected, the default store is built against
             this collection instead of ``RAG_QDRANT_COLLECTION``.
+
     """
 
     def __init__(
@@ -131,7 +132,7 @@ class QdrantIndexer:
 
     def ping(self) -> bool:
         """Health probe through the underlying store."""
-        return cast(bool, self._store.ping())
+        return cast("bool", self._store.ping())
 
     @property
     def sparse_enabled(self) -> bool:
@@ -155,7 +156,7 @@ class QdrantIndexer:
                 create_payload_indexes=create_payload_indexes,
                 sparse_enabled=self.sparse_enabled,
             )
-        return cast(bool, self._store.ensure_collection(create_payload_indexes=create_payload_indexes))
+        return cast("bool", self._store.ensure_collection(create_payload_indexes=create_payload_indexes))
 
     # ------------------------------------------------------------------ #
     # Ingestion
@@ -177,6 +178,7 @@ class QdrantIndexer:
         Returns:
             :class:`ChunkIngestionResult` — ``ok`` False (with ``errors``)
             when chunking, embedding, or the Qdrant upsert fails.
+
         """
         chunks = self._chunker.chunk_text(text, document)
         result = self.sync_chunks(chunks)
@@ -211,7 +213,7 @@ class QdrantIndexer:
         if not self._embedder.validate_vector_size():
             result.errors.append(
                 "embedding model vector size does not match RAG_VECTOR_SIZE "
-                "(the Qdrant collection dimension) — aborting sync"
+                "(the Qdrant collection dimension) — aborting sync",
             )
             result.latency_ms = int((time.monotonic() - start) * 1000)
             return result
@@ -246,11 +248,11 @@ class QdrantIndexer:
 
     def remove_chunks(self, point_ids: list[str]) -> int:
         """Delete points by chunk/point id."""
-        return cast(int, self._store.delete_points(point_ids=list(point_ids)))
+        return cast("int", self._store.delete_points(point_ids=list(point_ids)))
 
     def remove_document(self, document_id: str) -> int:
         """Delete every point belonging to a document."""
-        return cast(int, self._store.delete_points(document_id=document_id))
+        return cast("int", self._store.delete_points(document_id=document_id))
 
     # ------------------------------------------------------------------ #
     # Internals
@@ -502,6 +504,7 @@ def register_qdrant_hooks(indexer: QdrantIndexer | None = None) -> None:
         indexer: Optional indexer to use instead of the default.  Only honoured
             on the FIRST registration (the Session listener is attached once
             per process); later callers should use :func:`set_default_indexer`.
+
     """
     global _registered_hooks
     if _registered_hooks:

@@ -21,6 +21,7 @@ def send_do_intimation(sample_id: int) -> int | None:
     -------
     int | None
         The ``DoIntimation.id`` on success, None if the sample was not found.
+
     """
     logger.info("send_do_intimation: starting for sample_id=%s", sample_id)
     from app.food_cell.services import generate_and_forward_do_intimation

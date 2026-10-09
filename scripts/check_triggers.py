@@ -15,7 +15,7 @@ result = conn.execute(
     FROM pg_trigger tg
     JOIN pg_class c ON tg.tgrelid = c.oid
     WHERE c.relname IN ('fssai_licenses', 'fssai_registrations')
-""")
+"""),
 ).fetchall()
 print("All triggers:")
 for r in result:

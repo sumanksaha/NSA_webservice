@@ -30,7 +30,7 @@ _AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 _IMPRISONMENT_RE = re.compile(
-    r"imprisonment\s*for\s*a\s*term|imprisonment|fine\s*(?:not\s*less|which\s*may\s*extend)", re.IGNORECASE
+    r"imprisonment\s*for\s*a\s*term|imprisonment|fine\s*(?:not\s*less|which\s*may\s*extend)", re.IGNORECASE,
 )
 _ABSTAIN_PHRASES = (
     "not establish",

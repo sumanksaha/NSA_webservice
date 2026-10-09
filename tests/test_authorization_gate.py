@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from datetime import date
 
-
 _VALID_FORM_NO_AUTH = {
     "case_number": "2026/FSS/201",
     "food_safety_officer_name": "Test Officer",
@@ -349,9 +348,9 @@ class TestAdjudicationAuthorizationGate:
         try:
             _make_adjudication(db)
             with mock.patch(
-                "app.adjudication.routes.sync_row", mock.Mock()
+                "app.adjudication.routes.sync_row", mock.Mock(),
             ), mock.patch(
-                "app.adjudication.routes.generate_pdf_from_html", mock.Mock(return_value=(b"pdf", None))
+                "app.adjudication.routes.generate_pdf_from_html", mock.Mock(return_value=(b"pdf", None)),
             ):
                 for bad in ("   ", "not-a-date"):
                     resp = client.post(

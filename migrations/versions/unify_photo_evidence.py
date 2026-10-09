@@ -57,8 +57,8 @@ def _migrate_photo_evidence(bind) -> int:
             sa.text(
                 "SELECT image_id, case_id, inspection_id, filepath, raw_lat, raw_lng, accuracy, "
                 "captured_at, uploaded_at, locality, ip_region, ip_match, distance_to_fbo_m, "
-                "verification_status, stamped FROM photo_evidence"
-            )
+                "verification_status, stamped FROM photo_evidence",
+            ),
         )
         .mappings()
         .all()
@@ -178,7 +178,7 @@ def downgrade():
             verification_status VARCHAR,
             stamped BOOLEAN
         )
-        """
+        """,
     )
     op.execute(
         """
@@ -189,7 +189,7 @@ def downgrade():
             caption VARCHAR(200),
             uploaded_at DATETIME
         )
-        """
+        """,
     )
 
     # Copy evidence photo rows back (best-effort).
@@ -200,8 +200,8 @@ def downgrade():
                 "SELECT id, case_id, inspection_id, filepath, raw_lat, raw_lng, accuracy, "
                 "captured_at, uploaded_at, locality, ip_region, ip_match, distance_to_fbo_m, "
                 "verification_status, stamped FROM evidence "
-                "WHERE evidence_type = 'photo'"
-            )
+                "WHERE evidence_type = 'photo'",
+            ),
         )
         .mappings()
         .all()
@@ -216,7 +216,7 @@ def downgrade():
                 "distance_to_fbo_m, verification_status, stamped) "
                 "VALUES (:id, :case_id, :inspection_id, :filepath, :raw_lat, :raw_lng, :accuracy, "
                 ":captured_at, :uploaded_at, :locality, :ip_region, :ip_match, :distance_to_fbo_m, "
-                ":verification_status, :stamped)" + conflict
+                ":verification_status, :stamped)" + conflict,
             ),
             dict(row),
         )
@@ -231,7 +231,7 @@ def downgrade():
             sa.text(  # prefix/conflict come from a fixed dialect set
                 f"{prefix} inspection_photos (id, adjudication_id, file_url, uploaded_at) "  # noqa: S608
                 "VALUES (:id, (SELECT adjudication_id FROM evidence WHERE id = :id2), :filepath, :uploaded_at)"
-                + conflict
+                + conflict,
             ),
             {"id": int(row["id"]), "id2": row["id"], "filepath": row["filepath"], "uploaded_at": row["uploaded_at"]},
         )

@@ -88,7 +88,7 @@ class TestSparseEmbeddingService:
         assert SparseEmbeddingService(embedder=_FakeSparseEmbedder()).is_available() is True
 
     def test_degrades_when_fastembed_missing(self, monkeypatch):
-        """fastembed absent -> is_available False, embed raises RuntimeError."""
+        """Fastembed absent -> is_available False, embed raises RuntimeError."""
         import sys
 
         monkeypatch.setitem(sys.modules, "fastembed", None)  # import fails

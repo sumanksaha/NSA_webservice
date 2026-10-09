@@ -39,7 +39,7 @@ def _analysis_with_citations(refs: list[str]) -> dict:
             {
                 "citations": [{"type": "section", "reference": ref} for ref in refs]
                 + [{"type": "statutory", "reference": "of the said Act"}],
-            }
+            },
         ],
     }
 
@@ -62,7 +62,7 @@ class TestExtractSectionReferences:
         analysis = _analysis_with_citations([])
         # Only a statutory citation — no section refs
         analysis["paragraphs"][0]["citations"] = [
-            {"type": "statutory", "reference": "of the Food Safety and Standards Act"}
+            {"type": "statutory", "reference": "of the Food Safety and Standards Act"},
         ]
         assert extract_section_references(analysis) == []
 

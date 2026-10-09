@@ -1,0 +1,478 @@
+{
+  "version": "gold-answers-phase2-residual",
+  "generated_at": "2026-10-06T00:00:00+00:00",
+  "source_provisions": "benchmark/gold_provisions_v1.0.json",
+  "source_corpus": "evaluation/out/cache/payload_index.jsonl",
+  "source_questions": "benchmark/benchmark_v1.0.jsonl (questions whose primary_provisions had no gold answer after v3 + phase1)",
+  "question_count": 28,
+  "purpose": "Phase 2 of the gold-answer expansion. Supplies provision-level gold answers for every remaining benchmark_v1.0 question whose primary provision lacked a key after the v3 (45) and phase-1 top-15 passes, so all 150 v1 questions now have a primary-provision gold answer.",
+  "scoring_rule": {
+    "2": "Gold-equivalent: materially correct answer and correct legal proposition.",
+    "1": "Partially correct: captures the core proposition but omits a material qualification or detail.",
+    "0": "Incorrect or contradicts the cited provision.",
+    "NA": "Question is invalid/under-specified and should not be used to penalize retrieval."
+  },
+  "important_note": "MAPPING CAVEAT. Several benchmark question ids pair a provision id with a title/section that does not match the indexed corpus text. Verified mismatches handled in this file: epa:s2(e) is 'hazardous substance' (not 'environmentally sensitive area'); epa:s5 is 'power to give directions' (not forest/substrate restrictions); air_act:s8 is 'disqualifications' (consent is s21); water_act:s8 is 'meetings of Board' and water_act:s12 is not the penalty section (penalties are s42-45A); wbpt:s46 is a transitional provision (eviction grounds/notice are s6); fssai:s75 is 'power to transfer cases' (the FSSAIT is s70); partnership:s30 is 'minors admitted to benefits' (implied authority is s19/s20); cpa:product_liability is Chapter VI ss.82-87 (not 88-92); contract:consideration is s2(d) (not 2(1)(c)). Where a question rests on a provision-mapping error, the gold answer states the actual provision content and the entry is marked valid_question_repaired or valid_but_source_limited; per the benchmark-quality rule, a response that correctly identifies the invalid premise should receive full credit and must not be penalised against an unsupported key. The full list of mismatches is also recorded machine-readably in benchmark/qid_mapping_warnings.json. Gold answers are written at provision level and grounded in the indexed corpus where available. Following re-OCR of the source PDFs, the two entries originally flagged as ungroundable were re-grounded: the indexed 'Prevention of Cruelty to Animals Rules, 2017' document was shown (by re-OCR with Tesseract) to be the PCA (Dog Breeding and Marketing) Rules, 2017, so the slaughter-house licensing and humane-slaughter content was grounded instead in the corpus's FSSAI Licensing and Registration Regulations and the KMC Act 1980 (pcra:s4, pcra:s63), and the West Bengal Meat Order entry was cross-checked against the full source text (orders 1-8, no penalty clause) with the sanction attributed to the Essential Commodities Act, 1955 (wbmo:penalties). Where the corpus is absent or a rule-specific detail is not retrievable, the answer says so and is flagged rather than presenting invented text.",
+  "questions": [
+    {
+      "qid": "fssai:s16(1)",
+      "question_ids": ["Q001"],
+      "question": "Under the Food Safety and Standards Act, 2006, what is the principal statutory duty of the Food Safety and Standards Authority of India (FSSAI)?",
+      "section": "16(1)",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Duties and functions of Food Authority",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "States that the Food Authority's duty is to regulate and monitor the manufacture, processing, distribution, sale and import of food so as to ensure safe and wholesome food.",
+        "1": "Names the safe-and-wholesome-food duty but omits the regulated activities or confines it to one activity.",
+        "0": "Attributes operator-level duties (for example s26 obligations of a food business operator) to the Authority.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 16(1) casts a duty on the Food Authority (FSSAI) to regulate and monitor the manufacture, processing, distribution, sale and import of food so as to ensure safe and wholesome food. Section 16(2) amplifies this: the Authority may, by regulations, specify the standards and guidelines for articles of food and the system for enforcing them; the limits for use of food additives, crop contaminants, pesticide residues, residues of veterinary drugs, heavy metals, processing aids, mycotoxins, antibiotics and pharmacologically active substances and irradiation of food; and the mechanisms and guidelines for accreditation of certification bodies and food-safety management systems. The duty is regulatory and supervisory; the Authority does not itself carry on food business, and the corresponding operator-level obligations are in s26.",
+      "answer_type": "duty",
+      "validity": "valid",
+      "note": "Corpus-grounded (FSS Act 2006, s16(1)-(2)). The intended trap is confusion with s26 operator obligations; the answer must not attribute operator duties to the Authority."
+    },
+    {
+      "qid": "fssai:s30",
+      "question_ids": ["Q006"],
+      "question": "Who is the principal enforcement authority under the FSS Act 2006 at the State level, and what is that officer entitled to do?",
+      "section": "30",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Commissioner of Food Safety",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Identifies the Commissioner of Food Safety as the State-level head and gives at least the core statutory functions (prohibition in the interest of public health, survey of units, training/awareness).",
+        "1": "Names the Commissioner but omits the statutory functions or overstates the office as the central FSSAI Board.",
+        "0": "Confuses the Commissioner with the central FSSAI or with the Food Safety Officer.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 30 requires the State Government to appoint a Commissioner of Food Safety for the State for efficient implementation of food safety and standards under the Act and the rules and regulations made thereunder. The Commissioner is the State-level head of the food-safety administration. The statutory functions include: prohibiting, in the interest of public health, the manufacture, storage, distribution or sale of any article of food in the whole or any part of the State for a period not exceeding one year, by order notified in the Official Gazette; carrying out surveys of the industrial units engaged in the manufacture or processing of food in the State to check compliance with the standards notified by the Food Authority; and conducting or organising training programmes for the personnel of the office and, more widely, for different segments of the food chain to generate food-safety awareness. By virtue of the provision enacted as s29(6) in the corpus, the Commissioner of Food Safety and the Designated Officer also exercise the same powers as are conferred on a Food Safety Officer and follow the same procedure.",
+      "answer_type": "institutional_authority",
+      "validity": "valid",
+      "note": "Corpus-grounded (FSS Act 2006, s30). The answer should not describe the Commissioner as the central FSSAI Board."
+    },
+    {
+      "qid": "fssai:s37",
+      "question_ids": ["Q007"],
+      "question": "Which officer under the FSS Act 2006 is empowered to take samples of food, inspect food premises, and enter and inspect licensed premises, and where is that power defined?",
+      "section": "37",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Food Safety Officer",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Names the Food Safety Officer and locates the sampling/inspection/seizure powers in s38 (and search in s41), noting that s37 provides for the appointment/constitution of the cadre.",
+        "1": "Names the Food Safety Officer but attributes all the powers to s37 without the s38/s41 distinction.",
+        "0": "Attributes the powers to the Designated Officer or the Commissioner.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 37 provides for the constitution of the Food Safety Officer cadre: the Commissioner of Food Safety shall, by notification, appoint such persons as he thinks fit, having the qualifications prescribed by the Central Government, as Food Safety Officers for the local areas assigned to them for the purposes of the Act; and the State Government may authorise any of its officers having the prescribed qualifications to perform the functions of a Food Safety Officer within a specified jurisdiction. The operational powers the question describes are conferred by the succeeding provisions, not by s37: s38 (Powers of Food Safety Officer) empowers the Food Safety Officer to take samples of any food or substance intended for sale or sold for human consumption, to seize any article of food that appears to contravene the Act or the regulations, and to enter and inspect premises; the power to search a place under a warrant is in s41. The correct answer therefore names the Food Safety Officer as the empowered officer and locates the powers in s38 (read with s41).",
+      "answer_type": "authority",
+      "validity": "valid_question_repaired",
+      "note": "The s37/38 distinction should be flagged. The benchmark's acceptable_conclusion already hedges '(and sampling under s38/s41)', which is the correct position; a response naming the FSO and citing s38 should receive full credit."
+    },
+    {
+      "qid": "fssai:s34",
+      "question_ids": ["Q013"],
+      "question": "Under the FSS Act 2006, what distinguishes an emergency prohibition notice/order from an ordinary prohibition order?",
+      "section": "34",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Emergency prohibition notices and orders",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "Describes the emergency route: Designated Officer satisfied the health risk condition exists, serves an emergency prohibition notice, applies to the Commissioner, who by order imposes the prohibition; one day's prior notice; and contravention is an offence (up to two years/rupees two lakh).",
+        "1": "Captures the emergency/immediacy distinction but omits the Designated-Officer-to-Commissioner pathway or the health risk condition.",
+        "0": "Treats the emergency and ordinary prohibition routes as identical or invents a different trigger.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 34 governs emergency prohibition notices and orders. Where the Designated Officer is satisfied that the health risk condition exists with respect to a food business, he may, after serving a notice on the food business operator (the emergency prohibition notice), apply to the Commissioner of Food Safety for imposition of a prohibition; and where the Commissioner is satisfied, on that application, that the health risk condition exists, he shall by order impose the prohibition (the emergency prohibition order). At least one day before the application, the Designated Officer must have served notice on the food business operator of his intention to apply. As soon as practicable after the order is made, the Designated Officer must require a Food Safety Officer either to serve a copy of the order on the food business operator or to affix a copy at a conspicuous place on the premises. Knowingly contravening an emergency prohibition order is an offence punishable with imprisonment up to two years and fine up to two lakh rupees. The ordinary prohibition route under s33 proceeds on an improvement notice and does not carry the same immediate, health-risk-condition trigger.",
+      "answer_type": "procedure",
+      "validity": "valid",
+      "note": "Corpus-grounded (s34(1)-(4) and the penalty in s34(5)). The material distinction is the health-risk condition plus the Designated-Officer/Commissioner pathway, not the label alone."
+    },
+    {
+      "qid": "fssai:s69",
+      "question_ids": ["Q020"],
+      "question": "Under Section 69 of the FSS Act 2006, what is the maximum penalty that may be imposed when compounding an offence?",
+      "section": "69",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Power to compound offences",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that the composition sum shall not exceed one lakh rupees and that an offence punishable with imprisonment cannot be compounded.",
+        "1": "Describes compounding correctly but omits the one-lakh ceiling or the imprisonment-offence exclusion.",
+        "0": "Invents an uncapped penalty or states that compounding waives penalty entirely.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 69 empowers the Commissioner of Food Safety, by order, to authorise the Designated Officer to compound offences: the Designated Officer may accept from petty manufacturers who himself manufactures and sells any article of food, retailers, hawkers, itinerant vendors and temporary stall holders, against whom a reasonable belief exists that they have committed an offence or contravention, payment of a sum of money by way of composition. The sum accepted or agreed to be accepted as composition shall not be more than one lakh rupees, and due regard must be had to the guidelines specified in s49. On payment, the suspected person, if in custody, is discharged and no further proceedings in respect of the offence may be taken against him. An offence for which punishment of imprisonment has been prescribed under the Act cannot be compounded.",
+      "answer_type": "penalty",
+      "validity": "valid_question_repaired",
+      "note": "The benchmark's acceptable_conclusion (compounding may impose a penalty up to the maximum penalty for the offence or an equivalent monetary penalty) is not what s69 says. The correct ceiling is one lakh rupees and imprisonment offences are excluded. Score a response stating the one-lakh ceiling (or the imprisonment exclusion) as full credit; do not require the unsupported 'equal to the maximum penalty' formulation."
+    },
+    {
+      "qid": "fssai:s75",
+      "question_ids": ["Q021"],
+      "question": "Under the FSS Act 2006, what is the role of the Food Safety Appellate Tribunal (FSSAIT), and what decisions can be appealed before it?",
+      "section": "75",
+      "act": "Food Safety and Standards Act, 2006",
+      "title": "Appeal to Food Safety Appellate Tribunal",
+      "domain": "FOOD_SAFETY",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that the Food Safety Appellate Tribunal hears appeals from decisions of the Adjudicating Officer under s68 and identifies the composition/qualification of the Presiding Officer.",
+        "1": "Names the Tribunal and the adjudicating-officer appeal route but omits the establishment provision or the District Judge qualification.",
+        "0": "Confuses the Tribunal with the High Court/Supreme Court or places it below the Designated Officer.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "The Food Safety Appellate Tribunal is established under s70 of the FSS Act 2006, not s75. Section 70 empowers the Central Government or, as the case may be, the State Government to establish, by notification, one or more tribunals known as the Food Safety Appellate Tribunal to hear appeals from the decisions of the Adjudicating Officer under s68; the Government prescribes the matters and areas in relation to which the Tribunal may exercise jurisdiction. The Tribunal consists of one person only (the Presiding Officer), who must be, or have been, a District Judge. An appeal against a decision or order of the Tribunal lies to the High Court under the provision appearing as s76 in the corpus (45 days, with power to condone delay). Section 75 itself confers the power to transfer cases to regular courts where a Special Court finds the offence not triable by it.",
+      "answer_type": "institutional_procedure",
+      "validity": "valid_but_source_limited",
+      "note": "The gold-pool qid fssai:s75 -> 'Establishment of Food Safety Appellate Tribunal' does not match the corpus, where the FSSAIT is established by s70 and s75 is the transfer-of-cases provision. The gold answer is pinned to the corpus text; a response that cites s70 for the Tribunal should receive full credit."
+    },
+    {
+      "qid": "pcra:s4",
+      "question_ids": ["Q033"],
+      "question": "Under the Prevention of Cruelty to Animals Rules, 2017, what licence is required to operate a slaughter house, and who may refuse or cancel it?",
+      "section": "4",
+      "act": "Prevention of Cruelty to Animals Rules, 2017",
+      "title": "Licensing of slaughter houses",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that operating a slaughter house requires a licence under the Rules (subject to conditions) and that the licensing authority may refuse or cancel it for non-compliance/cruelty.",
+        "1": "States the licence requirement but omits refusal/cancellation or the conditions.",
+        "0": "Says no licence is needed or that a Meat-Order licence alone suffices.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "A slaughter house may be operated only under a licence and in compliance with the slaughter-house licensing regime. In the corpus this is recorded in the FSSAI Licensing and Registration of Food Businesses Regulations (the compendium at document d1a069819e934a688c82fd56776ed037 and the linked licensing-regulation documents), which require a slaughter house/meat establishment to be licensed, to obtain a No Objection Certificate from the Municipality or Panchayat and the State Pollution Control Board, and to comply with the prescribed slaughter-house premises, hygiene and animal-welfare conditions; municipal law likewise bars the use of any place other than a licensed or municipal slaughter house as a slaughter house (Kolkata Municipal Corporation Act, 1980). The licensing authority may refuse to grant, or may cancel, the licence where the establishment is run in breach of the licence conditions or of the applicable rules, including failure of humane handling. A slaughter-house licence is in addition to, and not a substitute for, any other required licence (for example the municipal or FSSAI licensing regime).",
+      "answer_type": "licensing",
+      "validity": "valid_question_repaired",
+      "note": "Confirmed against the source PDF (other domain/Prevention_of_Cruenlty_to_Animals_Rules_2017.pdf, re-OCR'd with Tesseract): the indexed PCRA document is the Prevention of Cruelty to Animals (Dog Breeding and Marketing) Rules, 2017, and contains no slaughter-house licensing rule, so the benchmark's pcra:s4 mapping does not resolve in the corpus. The licensing substance is grounded instead in the corpus's FSSAI Licensing and Registration Regulations and the KMC Act 1980 (documents d1a069819e934a688c82fd56776ed037 and kmc_act_1980), which is what a retriever can surface. Score a response stating the licence requirement and the refusal/cancellation power as full credit."
+    },
+    {
+      "qid": "pcra:s63",
+      "question_ids": ["Q034", "Q042"],
+      "question": "Under the Prevention of Cruelty to Animals Rules, 2017, what prohibitions apply to the slaughter process itself to prevent cruelty?",
+      "section": "63",
+      "act": "Prevention of Cruelty to Animals Rules, 2017",
+      "title": "Prevention of cruelty at slaughter",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "States the pre-stunning/least-possible-suffering requirement (animal rendered insensible to pain before the neck is cut).",
+        "1": "States the humane-slaughter duty but omits the pre-stunning requirement.",
+        "0": "Allows slaughter without pre-stunning or invents a blanket religious exemption as if stated in the Rules.",
+        "NA": "For Q042 (adversarial insufficient-evidence): the corpus does not establish a religious-ritual exception, so a response stating that should score full credit and must not be penalised."
+      },
+      "gold_answer": "Slaughter must be carried out humanely, with the animal rendered insensible to pain and to the sensation of injury before it is killed. In the corpus this is recorded in the FSSAI Licensing and Registration Regulations (Slaughter and Animal Welfare requirements): animals are slaughtered by being first stunned and then exsanguinated (bled out); stunning before slaughter is mandatory; by inducing unconsciousness and insensibility, stunning avoids and minimises reactions of fear and anxiety as well as pain, suffering and distress; permitted stunning methods include asphyxiation with carbon dioxide, a gun or captive bolt pistol, and electric current, applied with correctly used equipment and prompt sticking; animals must be reared, handled, transported and slaughtered using humane practices, and movement/handling must not cause avoidable suffering. Slaughter without pre-stunning, or otherwise than by a humane method, is not permitted. For the adversarial question (Q042), the corpus does not establish any religious-ritual exception to the pre-stunning requirement: whether one exists is a matter of the rule text and judicial interpretation, not something the indexed corpus states.",
+      "answer_type": "prohibition_standard",
+      "validity": "valid_question_repaired",
+      "note": "Re-OCR of the source PDF confirms the indexed PCRA document is the Prevention of Cruelty to Animals (Dog Breeding and Marketing) Rules, 2017, with no rule on cruelty at slaughter, so the benchmark's pcra:s63 mapping does not resolve in the corpus. The stunning/humane-slaughter substance is grounded in the FSSAI Licensing and Registration Regulations (corpus document d1a069819e934a688c82fd56776ed037, chunks 386-388). Q034 is the direct question; Q042 is an adversarial insufficient-evidence question and should be scored NA (or 2 for a response that identifies the corpus gap) and 0 for inventing a blanket religious exemption."
+    },
+    {
+      "qid": "wbmo:penalties",
+      "question_ids": ["Q036", "Q045"],
+      "question": "Under the West Bengal Meat Order, 1966, what is the penalty for slaughtering a prohibited animal or carrying on a meat trade without a licence?",
+      "section": "Penalty",
+      "act": "West Bengal Meat Order, 1966",
+      "title": "Penalties",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_4",
+      "answer_scoring": {
+        "2": "States that contravention is punishable with imprisonment and/or fine (criminal, not merely civil) and that the Order is made under the Essential Commodities Act, 1955, whose penalty provisions supply the sanction.",
+        "1": "States that contravention is punishable criminally but does not connect it to the Essential Commodities Act, 1955.",
+        "0": "Treats the penalties as civil only, or invents a specific term/amount as if stated in the Meat Order.",
+        "NA": "For Q045 (insufficient-evidence): the corpus does not establish a compensation rate, so a response stating that should score full credit."
+      },
+      "gold_answer": "The West Bengal Meat Order, 1966 (the indexed document wb_meat_order_1966, cross-checked against the full text in other domain/Essential_Commodity_act_1955.pdf) runs to orders 1-8: title/extent/commencement and definitions; the prohibition on slaughtering animals or selling, supplying or serving meat on a 'prohibited day' (every Thursday and any other day notified by the State Government); powers of entry and inspection; seizure of animals and a complaint before a Magistrate; orders for custody and sale of seized animals pending trial; the State Government's power to exempt, by notification, the slaughter of animals or sale/supply of meat on religious occasions on specified terms (order 7); and non-application of the Order to military-controlled butchery (order 8). The Order does not itself contain a penalty clause and does not create a general 'meat trade' licence. The penal consequence of contravening an order made under the Essential Commodities Act, 1955 (under which the Meat Order was made) is supplied by s7 of that Act: contravention is punishable with imprisonment and/or fine (the quantum being that prescribed by the EC Act, 1955). For the insufficient-evidence question (Q045), the Order's text does not establish any compensation rate for the destruction of stock due to a notifiable disease.",
+      "answer_type": "penalty_regime",
+      "validity": "valid_but_source_limited",
+      "note": "Confirmed against the full source text: the indexed Order runs to orders 1-8 and contains no penalty clause and no general licensing requirement, so the benchmark's 'carrying on a meat trade without a licence' premise is not supported by the Order; slaughter-house licensing is in municipal law and the FSSAI licensing regime, not the Meat Order. Q036: score a response stating that contravention is punishable with imprisonment and/or fine per the Essential Commodities Act, 1955, as full credit; do not require a figure quoted from the Order. Q045: the corpus establishes no compensation rate, so state that and score NA rather than inventing a figure."
+    },
+    {
+      "qid": "livestock_quarantine",
+      "question_ids": ["Q037"],
+      "question": "Scenario: A meat-processing unit in Howrah receives animals from a neighbour State for slaughter. Under the West Bengal quarantinery rules, what is the primary legal requirement before the animals can be slaughtered?",
+      "section": "N/A",
+      "act": "The Bengal Livestock Import Quarantine Rules, 1944",
+      "title": "Import quarantine of livestock",
+      "domain": "ANIMAL_SLAUGHTER",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that imported livestock must be examined and quarantined (or covered by a valid certificate) and released only on veterinary clearance before slaughter.",
+        "1": "States the quarantine requirement but omits the valid-certificate exception or the release-on-clearance condition.",
+        "0": "Allows direct entry to the slaughter house without quarantine or veterinary clearance.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Under the Bengal Livestock (Import) Quarantine Rules, 1944, imported livestock is subject to veterinary examination and quarantine. The master or officer in charge of the vessel must not permit landing of livestock until the Veterinary Officer has made his inspection, and then only in accordance with the Officer's directions; the Veterinary Officer may order detention in quarantine of any imported livestock. Livestock ordered into quarantine is removed to the place of quarantine by the importer and remains under the entire control of the Veterinary Officer, and it may not be released from quarantine except with the Veterinary Officer's permission, which is granted only once the livestock is certified to be free from disease and all charges have been paid. Livestock accompanied by a valid certificate (issued within thirty days before embarkation by the prescribed authority, certifying freedom from the scheduled diseases) is not liable to detention in quarantine, unless an infectious or contagious disorder or a death occurred on board during the voyage. The primary legal requirement before slaughter is therefore veterinary examination and quarantine clearance (or a valid certificate) of the incoming animals.",
+      "answer_type": "procedure",
+      "validity": "valid_but_source_limited",
+      "note": "Corpus-grounded (Bengal Livestock (Import) Quarantine Rules, 1944, rules 2-14). Literally, the 1944 Rules define 'imported' as livestock brought by sea into Calcutta from outside British India, so the 'neighbouring State by land' framing is not squarely within their text; the quarantine-plus-valid-certificate principle is the correct provision-level answer, and the exact quarantine period/fee schedule is a rule-specific detail not needed for the general answer."
+    },
+    {
+      "qid": "air_act:s8",
+      "question_ids": ["Q048"],
+      "question": "Under the Air (Prevention and Control of Pollution) Act, 1981, what consent is required before an industry establishes/operates, and what triggers closure without consent?",
+      "section": "8",
+      "act": "Air (Prevention and Control of Pollution) Act, 1981",
+      "title": "Consent to establish/operate",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_4",
+      "answer_scoring": {
+        "2": "States the s21 consent requirement (previous consent of the State Board before establishing/operating an industrial plant in an air pollution control area) and that operating in contravention exposes the plant to closure/direction powers.",
+        "1": "States the consent requirement but attributes it to s8 or omits the closure consequence.",
+        "0": "Says no consent is required or confuses the consent with a mere intimation.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Under the Air (Prevention and Control of Pollution) Act, 1981, the consent requirement is in s21, not s8. Section 21 (Restrictions on use of certain industrial plants) provides that no person shall establish or operate any industrial plant in an air pollution control area without the previous consent of the State Board; the application is made with the prescribed fee and particulars; the Board may make such inquiry as it deems fit and, within four months, by written order grant the consent (subject to conditions and for a specified period) or refuse it, and may cancel a consent before expiry for breach of conditions after a reasonable opportunity of being heard; an existing plant that has applied is deemed to be operating with consent until the application is refused. Operating without consent, or in breach of consent conditions, is an offence and exposes the plant to the Board's emission standards and direction/closure powers (s22 and s31). Section 8 of the Act is not the consent provision: it sets out the disqualifications for membership of a State Pollution Control Board.",
+      "answer_type": "licensing_consent",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid air_act:s8 -> 'Consent to establish/operate' does not match the corpus, where the consent provision is s21 and s8 is 'Disqualifications'. Score a response grounded in s21 as full credit."
+    },
+    {
+      "qid": "water_act:s12",
+      "question_ids": ["Q052", "Q088"],
+      "question": "Under the Water (Prevention and Control of Pollution) Act, 1974, what is the maximum penalty for carrying out a polluting process in contravention of an order, and is the offence cognizable?",
+      "section": "12",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Penalty",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_4",
+      "answer_scoring": {
+        "2": "Locates the penalties in the Act's penalties chapter (s42-45A) and states at least one concrete penalty (for example the s45A residual penalty of up to three months and/or a fine up to ten thousand rupees, with a continuing fine up to five thousand rupees per day), and notes the restricted cognizance under s49.",
+        "1": "Gives a penalty figure but without the correct provision or without the cognizance restriction.",
+        "0": "Invokes a penalty or a 'cognizable' character not traceable to the indexed Act.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "The penalty provisions of the Water (Prevention and Control of Pollution) Act, 1974, are in the Act's penalties chapter, not s12. In the indexed corpus these are s42 (Penalty for certain acts, including false statements made to obtain consent and tampering with monitoring devices), s43 (Penalty for contravention of the provision prohibiting the discharge of polluting matter), s44 (Penalty for contravention of the consent provisions), s45 (Enhanced penalty after previous conviction) and s45A (residual penalty for contravention of any provision of the Act or failure to comply with an order or direction for which no penalty is elsewhere provided). Section 45A prescribes imprisonment up to three months or fine up to ten thousand rupees or both, and where the contravention is continuing, an additional fine up to five thousand rupees for every day after conviction for the first contravention. Contravention of the consent provisions attracts a higher penalty under s44 (imprisonment of not less than one year six months and up to six years with fine), enhanced on a second or subsequent conviction by s45 (two to seven years with fine). Cognizance of offences is restricted by s49: no court may take cognizance except on a complaint made by the Board or an authorised officer, or by a person who has given at least sixty days' notice of the alleged offence and of his intention to complain, and no court inferior to a Metropolitan Magistrate or a Judicial Magistrate of the first class may try an offence under the Act.",
+      "answer_type": "penalty",
+      "validity": "valid_question_repaired",
+      "note": "The benchmark's acceptable figures (three months / five months and a fine of at least two thousand rupees per day, and 'cognizable') are not traceable to the indexed penalty sections; the corpus shows s45A (three months / ten thousand rupees, continuing five thousand rupees per day) and complaint-based cognizance under s49. Score a response citing the corpus penalty regime as correct; do not require the unsupported two-thousand-per-day or 'cognizable' figures. Section 12 is not the penalty section."
+    },
+    {
+      "qid": "water_act:s8",
+      "question_ids": ["Q082"],
+      "question": "Under the Water (Prevention and Control of Pollution) Act, 1974, what 'quality' standard is set for surface water used (or intended for) drinking, and who notifies it?",
+      "section": "8",
+      "act": "Water (Prevention and Control of Pollution) Act, 1974",
+      "title": "Water quality",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Locates the water-quality/standards power in the Board-functions provisions (lay down/modify/annul effluent standards and standards for the quality of receiving waters, and classify waters of the State), and/or notes that drinking-water standards are notified under the environment-protection framework.",
+        "1": "Names the Boards as the standard-setting authority but attributes the power to s8.",
+        "0": "States that s8 itself notifies drinking-water standards, or that all surface water has identical standards.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 8 of the Water (Prevention and Control of Pollution) Act, 1974, is 'Meetings of Board' (a Board shall meet at least once in every three months), not a water-quality or standards provision. The power to set water-quality standards lies in the Board-functions provisions: the Boards are to lay down, modify or annul effluent standards for sewage and trade effluents and for the quality of receiving waters (other than water in an inter-State stream) resulting from the discharge of effluents, and to classify the waters of the State; the Central Board also has standard-setting functions. Drinking-water quality standards (for example the IS 10500 specification for drinking water) are notified under the environment-protection framework rather than by s8 of the Water Act. A correct answer identifies the actual source of the standards power and does not attribute a notification power to s8.",
+      "answer_type": "standard",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid water_act:s8 -> 'Water quality' does not match the corpus (s8 = Meetings of Board). Score a response that locates the standards power in the Board-functions provisions (and/or notes that drinking-water standards are notified under the EPA framework) as correct."
+    },
+    {
+      "qid": "swm_rules:segregation",
+      "question_ids": ["Q057", "Q086"],
+      "question": "Under the Solid Waste Management Rules, 2026, what source-segregation and collection duties are imposed on generators, and how do they affect public health?",
+      "section": "N/A",
+      "act": "Solid Waste Management Rules, 2026",
+      "title": "Segregation & door-to-door collection",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "States the generator's duty to segregate at source and hand over only to authorised collectors, plus the no-open-dumping prohibition and the local body's collection/processing duty.",
+        "1": "States segregation at source but omits the handover-only-to-authorised-collectors point or the no-dumping prohibition.",
+        "0": "Places the segregation duty on the municipal authority rather than the generator, or permits mixed-waste dumping.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Under the Solid Waste Management Rules, 2026, every waste generator has a duty to segregate and store the waste generated in four separate streams at source - wet waste, dry waste, sanitary waste and special care waste - and to hand over the segregated waste to authorised waste pickers or waste collectors as directed or notified by the local authority; the generator must further wrap sanitary waste separately and must not throw, burn or bury the solid waste on streets or open public spaces, or dispose of it in any drain or water body (Rule 5). The local body is separately charged with collection, segregation, transportation and environmentally sound processing of the solid waste, and must ensure that no intermixing of waste streams occurs during collection and transportation and that the streams remain segregated until they reach the designated processing facility (Rule 8). Source segregation and proper collection prevent open dumping and burning, which is the public-health link: mixed or openly dumped waste causes nuisance, vector breeding and pollution.",
+      "answer_type": "obligation_standard",
+      "validity": "valid_question_repaired",
+      "note": "The benchmark's acceptable_conclusion uses the older three-stream terminology (biodegradable/recyclable/dry); the 2026 Rules as indexed use four streams (wet, dry, sanitary, special care). Either way the key propositions (segregation at source; handover only to authorised collectors; no open dumping) hold and should score full credit."
+    },
+    {
+      "qid": "epa:s2(e)",
+      "question_ids": ["Q058", "Q085"],
+      "question": "Under the Environment (Protection) Act, 1986, what does an 'environmentally sensitive area' (s2(e)) mean, and how does Section 5 restrict activity in such areas?",
+      "section": "2(e)",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Environmentally sensitive area",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "States that the EPA does not define 'environmentally sensitive area' in s2(e) and gives the actual definition of s2(e) ('hazardous substance'), or otherwise correctly identifies the premise error.",
+        "1": "Discusses priority/ecologically sensitive areas without flagging that s2(e) does not define them.",
+        "0": "Asserts a statutory definition of 'environmentally sensitive area' in s2(e) that the Act does not contain.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 2(e) of the Environment (Protection) Act, 1986, does not define 'environmentally sensitive area'. It defines 'hazardous substance': any substance or preparation which, by reason of its chemical or physico-chemical properties or handling, is liable to cause harm to human beings, other living creatures, plants, micro-organisms, property or the environment. The Act contains no statutory definition of 'environmentally sensitive area'; the closest concepts are the definitions of 'environment', 'environmental pollutant' and 'environmental pollution' in s2(a)-(c), and the Central Government's power under s3 (read with s6) to take measures and make rules for protecting the environment, under which ecologically sensitive areas are notified. A correct provision-level answer identifies this mismatch rather than paraphrasing a definition the Act does not contain.",
+      "answer_type": "definition",
+      "validity": "valid_but_source_limited",
+      "note": "The question embeds a provision-mapping error (s2(e) is 'hazardous substance'). Per the benchmark-quality rule, a response that identifies the invalid premise and states the actual content of s2(e) should receive full credit; do not penalise it for failing to describe a non-existent 'environmentally sensitive area' definition."
+    },
+    {
+      "qid": "epa:s5",
+      "question_ids": ["Q058", "Q085"],
+      "question": "Under the Environment (Protection) Act, 1986, what does an 'environmentally sensitive area' (s2(e)) mean, and how does Section 5 restrict activity in such areas?",
+      "section": "5",
+      "act": "Environment (Protection) Act, 1986",
+      "title": "Restrictions on use of forest/substrates",
+      "domain": "ENVIRONMENT_POLLUTION",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "States that s5 is the power to give directions (including closure/prohibition/regulation of an industry, operation or process, or stoppage/regulation of a service) and that the Act contains no s5 'forest/substrate' restriction.",
+        "1": "States the directions/closure power but does not flag the mismatch with the question's framing.",
+        "0": "Asserts a s5 restriction on the use of forests/substrates that the Act does not contain.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 5 of the Environment (Protection) Act, 1986, is the 'power to give directions': notwithstanding anything contained in any other law but subject to the Act, the Central Government may, in the exercise of its powers and performance of its functions under the Act, issue directions in writing to any person, officer or authority, and such person, officer or authority is bound to comply. The Explanation declares that the power to issue directions includes the power to direct the closure, prohibition or regulation of any industry, operation or process, or the stoppage or regulation of the supply of electricity or water or any other service. There is no s5 provision restricting the 'use of forest/substrates'; such restrictions, where they exist, arise from notifications or rules made under s3 (for example ecologically sensitive areas) or from other environmental laws, not from s5 itself.",
+      "answer_type": "power",
+      "validity": "valid_but_source_limited",
+      "note": "Same mapping caveat as epa:s2(e): the benchmark's qid titles do not match the corpus. A response that states s5 is the directions power (including closure/prohibition) should be scored full credit."
+    },
+    {
+      "qid": "wbpt:s46",
+      "question_ids": ["Q079", "Q080"],
+      "question": "Under the West Bengal Premises Tenancy Act, 1997, what notice must a landlord give before filing an eviction suit, and what are the grounds?",
+      "section": "46",
+      "act": "West Bengal Premises Tenancy Act, 1997",
+      "title": "Recovery of possession",
+      "domain": "LAND_PREMISES",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States the one-month notice expiring with a month of the tenancy required before instituting proceedings on grounds other than the tenant's own notice to quit, and identifies the s6 statutory grounds.",
+        "1": "States the notice requirement or the grounds but not both.",
+        "0": "Allows eviction without notice or on a non-statutory ground, or asserts self-help eviction.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 46 of the West Bengal Premises Tenancy Act, 1997, is a transitional/interpretation provision (a declaration for the removal of doubt that proceedings pending at the commencement of the Act are dealt with as provided), not the notice or recovery-of-possession provision. The substantive eviction regime is in s6 (Protection of tenant against eviction): notwithstanding any other law or contract, no order or decree for recovery of possession may be made by the Controller in favour of the landlord except on an application on one or more of the statutory grounds, which include sub-letting, assignment or parting with possession without the landlord's written consent, or use of the premises for a purpose other than that for which it was let (s6(1)(a)); default in payment of rent for three months within twelve months, or three rental periods within three years where rent is not monthly (s6(1)(b)); nuisance or annoyance to neighbours including the landlord (s6(1)(i)); and non-residence for the most part of a year (s6(1)(l)). Section 6(4) requires that, before instituting a proceeding for recovery of possession on any ground other than the tenant's failure to deliver possession after the tenant's own notice to quit, the landlord must give the tenant one month's notice expiring with a month of the tenancy. After an eviction order/decree, possession is recovered through the Controller's order, which is executed in the prescribed manner (s8(14)); Chapter V (s10) provides for restoration of possession and compensation, and self-help eviction is not permitted.",
+      "answer_type": "procedure",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid wbpt:s46 -> 'Recovery of possession' does not match the corpus; the eviction grounds/notice are in s6 and execution is in s8/Chapter V. Score a response citing s6 for the notice/grounds as full credit. Q080's execution point is grounded in s8(14)."
+    },
+    {
+      "qid": "partnership:s22",
+      "question_ids": ["Q093"],
+      "question": "Under the Indian Partnership Act, 1932, what is the rule on a partner's authority to bind the firm in ordinary business, and what limits it?",
+      "section": "22",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Partner's authority to bind firm",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that an act done by a partner in the ordinary course of the firm's business binds the firm, and identifies the ordinary-course/implied-authority limitation (s18-20 read with s22).",
+        "1": "States that a partner binds the firm but omits the ordinary-course limitation or the s22 mode requirement.",
+        "0": "Extends authority to every act of a partner, ignoring the ordinary-course/implied-authority limit.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 22 of the Indian Partnership Act, 1932 ('Mode of doing act to bind firm') provides that, in order to bind a firm, an act or instrument done or executed by a partner or other person on behalf of the firm must be done or executed in the firm-name, or in any other manner expressing or implying an intention to bind the firm. It is read with s18 (a partner is the agent of the firm for the purposes of the business of the firm) and s19 (implied authority of a partner as agent of the firm: the authority to do all such acts as are necessary or proper for carrying on the business in the usual way), subject to s20 (extension and restriction of a partner's implied authority by contract, provided that an act falling within the partner's implied authority binds the firm unless the third party knows of the restriction or does not know or believe him to be a partner). The limiting rule is therefore the scope of the firm's business and the partner's implied authority in the ordinary course of that business, as reflected in the mode-of-binding requirement of s22.",
+      "answer_type": "rule",
+      "validity": "valid",
+      "note": "The gold-pool title 'Partner's authority to bind firm' paraphrases the effect of s22; the substantive agency/authority rules are in s18-s20 and should be cited alongside. Corpus-grounded."
+    },
+    {
+      "qid": "partnership:s30",
+      "question_ids": ["Q093"],
+      "question": "Under the Indian Partnership Act, 1932, what is the rule on a partner's authority to bind the firm in ordinary business, and what limits it?",
+      "section": "30",
+      "act": "Indian Partnership Act, 1932",
+      "title": "Implied authority of partner",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Correctly identifies that implied authority is governed by s19 read with s20 (and s18), and notes that s30 in the Act deals with minors admitted to the benefits of partnership.",
+        "1": "Discusses implied authority correctly but does not flag the s30 mismatch.",
+        "0": "Asserts that s30 is the implied-authority provision or that a minor is a partner.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 30 of the Indian Partnership Act, 1932, is 'Minors admitted to the benefits of partnership': a minor may not be a partner in a firm, but with the consent of all the partners may be admitted to the benefits of partnership; on attaining majority the person must elect, within the prescribed time, whether to become a partner. It is not the provision on a partner's implied authority. The implied-authority rule is s19 (a partner is the agent of the firm, with implied authority to do all acts necessary or proper for carrying on the business in the usual way) read with s20 (the partners may by contract extend or restrict a partner's implied authority, but an act falling within that implied authority binds the firm unless the third party knows of the restriction or does not know or believe him to be a partner). The answer to 'what limits a partner's authority' is therefore the scope of the firm's business and any restriction of which the third party is aware (s19-s20), not s30.",
+      "answer_type": "rule",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid partnership:s30 -> 'Implied authority of partner' does not match the corpus (s30 = minors admitted to the benefits of partnership). Score a response citing s19/s20 for implied authority, and s30 only for minors, as full credit."
+    },
+    {
+      "qid": "comp:s188",
+      "question_ids": ["Q094", "Q131"],
+      "question": "Under the Companies Act, 2013, what approvals are required for a related party transaction, and which level of member approval is needed?",
+      "section": "188",
+      "act": "Companies Act, 2013",
+      "title": "Related party transactions",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_1",
+      "answer_scoring": {
+        "2": "States the Board consent requirement, the general-meeting approval for prescribed-threshold transactions (by resolution - an ordinary resolution since the 2015 amendment), the Audit Committee approval, and the arm's-length/ordinary-course carve-out.",
+        "1": "States the Board and member approval requirements but omits the 2015 special-to-ordinary change or the Audit Committee role.",
+        "0": "Says a board resolution alone suffices, or insists on a special resolution as if unamended.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 188 of the Companies Act, 2013, governs related-party transactions. Except with the consent of the Board of Directors given by a resolution at a meeting of the Board - and subject to the prescribed conditions - a company shall not enter into the specified contracts or arrangements with a related party: sale, purchase or supply of goods or materials; sale, purchase or leasing of property; availing or rendering of services; appointment of an agent for purchase or sale of goods, materials, services or property; appointment of a related party to an office or place of profit in the company, its subsidiary or associate company; and underwriting the subscription of securities or derivatives. The consent requirement does not apply to transactions entered into in the ordinary course of business and on an arm's-length basis. Where the company's paid-up share capital or the transaction value exceeds the prescribed thresholds, the transaction requires the prior approval of the company by a resolution in general meeting; as originally enacted this was a special resolution, but the words were substituted by 'resolution' by the Companies (Amendment) Act, 2015, so an ordinary resolution now suffices. The Audit Committee's approval is also required under s177(4), and a related-party member may not vote on the resolution. A transaction entered into without the required consent or approval is voidable at the option of the Board or, as the case may be, the shareholders unless ratified within three months, and the interested directors must indemnify the company for any loss. This regime reflects the 2013 Act's tightening compared with the 1956 Act's related-party provisions, which required Board approval (and in some cases central-government approval) rather than the 2013 Act's general-meeting approval and Audit Committee oversight.",
+      "answer_type": "procedure",
+      "validity": "valid",
+      "note": "Corpus-grounded (s188(1) and its provisos; the corpus substitution note 'Subs. by Act 21 of 2015, s.16, for \"special resolution\"'). The key trap is the special-versus-ordinary resolution point: since 2015 the general-meeting approval is by an ordinary resolution. Q094 and Q131 are variant questions on the same provision."
+    },
+    {
+      "qid": "cpa:product_liability",
+      "question_ids": ["Q096"],
+      "question": "Under the Consumer Protection Act, 2019, what liability does a manufacturer/product seller bear for a defective product that harms a consumer?",
+      "section": "88-92",
+      "act": "Consumer Protection Act, 2019",
+      "title": "Product liability",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that the manufacturer/seller/service provider is liable in a product liability action to compensate for harm caused by a defect, without proof of negligence, subject to the statutory exceptions.",
+        "1": "States the compensation liability but omits either the no-fault character or the s87 exceptions.",
+        "0": "Requires proof of negligence or limits liability to the purchase price only.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Product liability in the Consumer Protection Act, 2019, is in Chapter VI, ss.82 to 87 (not ss.88-92, which are the offences and penalties chapter). 'Product liability' means the responsibility of a product manufacturer or product seller of any product or service to compensate for any harm caused to a consumer by a defective product or by deficiency in services (s2(34)); a 'product liability action' is a complaint claiming compensation for the harm caused (s2(35)); 'harm' is defined in s2(22) and includes injury, damage to property and mental anguish. A product liability action may be brought against a product manufacturer, product service provider or product seller (s83). A product manufacturer is liable where the product contains a manufacturing defect, is defective in design, deviates from manufacturing specifications, does not conform to the express warranty, or fails to contain adequate instructions/warnings (s84), and is liable even if he proves that he was not negligent or fraudulent in making the express warranty. A product service provider (s85) and a product seller (s86) may also be liable subject to the Act. The statutory exceptions (s87) include that an action cannot be brought against a product seller where the product was misused, altered or modified, and the manufacturer is not liable where the warnings/instructions exception applies. The liability is compensatory damages for harm and does not require the consumer to prove fault.",
+      "answer_type": "liability",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid cpa:product_liability maps to '88-92', but in the corpus the product-liability chapter is ss.82-87 (s.88 onwards are offences/penalties). Score a response grounded in Chapter VI (ss.82-87) as full credit."
+    },
+    {
+      "qid": "contract:s74",
+      "question_ids": ["Q099"],
+      "question": "Under the Indian Contract Act, 1872, is a liquidated-damages clause that names a sum far exceeding the probable loss enforceable, and what relief does the Act grant?",
+      "section": "74",
+      "act": "Indian Contract Act, 1872",
+      "title": "Penalty clause unenforceable",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_2",
+      "answer_scoring": {
+        "2": "States that a stipulation by way of penalty is not enforceable as such, that the claimant recovers only reasonable compensation not exceeding the sum named, and connects it to s73 (proved loss).",
+        "1": "States that the clause is a penalty but does not mention the reasonable-compensation measure or s73.",
+        "0": "Enforces the full stipulated sum or treats it as an enforceable genuine pre-estimate regardless of proportion.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Section 74 of the Indian Contract Act, 1872 ('Compensation for breach of contract where penalty stipulated for') provides that when a contract has been broken, if a sum is named in the contract as the amount to be paid in case of such breach, or if the contract contains any other stipulation by way of penalty, the party complaining of the breach is entitled, whether or not actual damage or loss is proved to have been caused thereby, to receive from the party who has broken the contract reasonable compensation not exceeding the amount so named or, as the case may be, the penalty stipulated for. The section embodies the rule that a stipulation in terrorem is not enforceable as a penalty: the promisee may recover only reasonable compensation, and where a sum is named the court may award the whole or such part of it as it considers reasonable in light of the loss actually proved. It is read with s73 (compensation for loss or damage that naturally arose in the usual course of things or was reasonably in contemplation, excluding remote or indirect loss). A liquidated-damages clause naming a sum far exceeding the probable loss is therefore treated as a penalty and is not enforceable in full; only reasonable compensation, ordinarily measured by the loss proved under s73, is recoverable.",
+      "answer_type": "rule",
+      "validity": "valid",
+      "note": "Corpus-grounded (Contract Act 1872, s74 heading and the illustration set at the s73/s74 chunks). The material qualifications are the genuine-pre-estimate-versus-penalty distinction and the court's power to reduce to reasonable compensation."
+    },
+    {
+      "qid": "contract:consideration",
+      "question_ids": ["Q100"],
+      "question": "Under the Indian Contract Act, 1872, can an agreement without consideration be a valid contract, and which exceptions apply for supply agreements?",
+      "section": "2(1)(c)",
+      "act": "Indian Contract Act, 1872",
+      "title": "Consideration (definition)",
+      "domain": "BUSINESS_CIVIL",
+      "source_template": "make_question_3",
+      "answer_scoring": {
+        "2": "Gives the s2(d) definition of consideration and lists the s25 exceptions (writing+registration and near relation; past voluntary service; time-barred debt in writing).",
+        "1": "Gives the definition and general rule but omits one or more s25 exceptions.",
+        "0": "Holds that all agreements without consideration are invalid, or invents a 'supply agreement' exception not in s25.",
+        "NA": "Use only if later source verification establishes the question itself is invalid."
+      },
+      "gold_answer": "Consideration is defined in s2(d) of the Indian Contract Act, 1872 (not s2(1)(c)): when, at the desire of the promisor, the promisee or any other person has done or abstained from doing, or does or abstains from doing, or promises to do or to abstain from doing something, such act, abstinence or promise is called a consideration for the promise. Section 25 then provides that an agreement made without consideration is void, unless it falls within one of the statutory exceptions: (1) it is expressed in writing and registered under the law for registration of documents, and is made on account of natural love and affection between parties standing in a near relation to each other; or (2) it is a promise to compensate, wholly or in part, a person who has already voluntarily done something for the promisor, or something which the promisor was legally compellable to do; or (3) it is a promise, made in writing and signed by the person to be charged or his authorised agent, to pay wholly or in part a debt of which the creditor might have enforced payment but for the law of limitation of suits. In these cases the agreement is a contract. Explanation 2 to s25 provides that an agreement is not void merely because the consideration is inadequate, though inadequacy may be taken into account in deciding whether consent was free. The benchmark's 'supply agreement at a prevailing price' framing is not one of the statutory exceptions to s25; the exceptions are the three listed above.",
+      "answer_type": "rule",
+      "validity": "valid_question_repaired",
+      "note": "The gold-pool qid labels the provision '2(1)(c)', but the corpus defines consideration in s2(d). The 'supply agreement' exception in the benchmark's acceptable_conclusion is not an s25 exception. Score a response listing the correct s25 exceptions as full credit."
+    }
+  ]
+}

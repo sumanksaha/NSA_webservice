@@ -26,8 +26,6 @@ from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    pass
 
 
 def build_dense_retriever(collection_name: str | None = None):

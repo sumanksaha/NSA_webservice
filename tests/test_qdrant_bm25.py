@@ -135,17 +135,17 @@ class TestHybridSearchText:
         received = {}
 
         def query_points(
-            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw
+            collection_name, prefetch, query, limit=10, with_payload=True, with_vectors=False, query_filter=None, **kw,
         ):
             received.update(
-                collection_name=collection_name, prefetch=prefetch, query=query, limit=limit, query_filter=query_filter
+                collection_name=collection_name, prefetch=prefetch, query=query, limit=limit, query_filter=query_filter,
             )
             return SimpleNamespace(points=[_point()])
 
         store = QdrantStore(client=SimpleNamespace(query_points=query_points))
         store._models = False
         results = store.hybrid_search_text(
-            [0.1] * 768, "penalty for substandard food", top_k=5, filters={"is_current": True}
+            [0.1] * 768, "penalty for substandard food", top_k=5, filters={"is_current": True},
         )
         assert received["collection_name"] == DEFAULT_COLLECTION
         assert received["limit"] == 5

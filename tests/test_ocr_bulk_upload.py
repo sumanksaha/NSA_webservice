@@ -43,7 +43,7 @@ def app():
     yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app):
     import contextlib
 
@@ -83,10 +83,9 @@ def _no_real_qstash(request, monkeypatch):
     monkeypatch.setattr("app.utils.qstash_client.publish_task", fake_publish)
 
 
-@pytest.fixture()
+@pytest.fixture
 def stub_publish(monkeypatch):
     """Stubbed QStash publish recording calls instead of publishing."""
-
     calls = []
 
     def fake_publish(task_name, payload, **kwargs):

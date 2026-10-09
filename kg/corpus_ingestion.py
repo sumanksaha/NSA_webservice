@@ -332,6 +332,7 @@ class KGCorpusIngestionEngine:
         manifest_path: Path to ``other domain/manifest.json``.
         qdrant_client: Optional pre-built QdrantClient (injected for tests).
         batch_size: UNWIND batch size for writes.
+
     """
 
     def __init__(
@@ -394,7 +395,7 @@ class KGCorpusIngestionEngine:
         return rows
 
     def load_qdrant_chunks(
-        self, collections: Iterable[str] | None = None
+        self, collections: Iterable[str] | None = None,
     ) -> dict[str, dict[str, list[dict[str, Any]]]]:
         """Scroll every configured Qdrant collection once (read-only).
 
@@ -412,7 +413,7 @@ class KGCorpusIngestionEngine:
             pages = 0
             while True:
                 recs, offset = client.scroll(
-                    collection_name=coll, limit=1000, with_payload=True, with_vectors=False, offset=offset
+                    collection_name=coll, limit=1000, with_payload=True, with_vectors=False, offset=offset,
                 )
                 if not recs:
                     break
@@ -469,7 +470,7 @@ class KGCorpusIngestionEngine:
                     "qdrant_collection": doc.qdrant_collection or "fssai_legal_768",
                     "chunk_count": doc.chunk_count or 0,
                     "is_fss_act": bool(
-                        re.search(r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006", doc.source_uri or "")
+                        re.search(r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006", doc.source_uri or ""),
                     ),
                 })
             rows = (
@@ -580,7 +581,7 @@ class KGCorpusIngestionEngine:
                             r"Food[_ ]?Safety[_ ]?and[_ ]?Standards[_ ]?Act[_ ]?2006",
                             str(payload.get("document_uri") or ""),
                             flags=re.IGNORECASE,
-                        )
+                        ),
                     ),
                     "instrument_id": str(payload.get("instrument_id") or ""),
                 },
@@ -612,12 +613,12 @@ class KGCorpusIngestionEngine:
                     "provision_ids": list(payload.get("provision_ids") or []),
                     "provision_modality": payload.get("provision_modality"),
                     "provision_confidence": payload.get("provision_confidence"),
-                }
+                },
             )
         return by_doc
 
     def build_fss_provisions(
-        self, instrument_id: str, chunks: list[dict[str, Any]]
+        self, instrument_id: str, chunks: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Group FSSAI chunks into provisions keyed by clause number.
 
@@ -669,7 +670,7 @@ class KGCorpusIngestionEngine:
                     "source": "corpus_qdrant",
                     "confidence": float(entry["confidence"]) if entry["confidence"] is not None else 0.9,
                     "modality": entry["modality"] or "",
-                }
+                },
             )
         return provisions
 
@@ -1412,6 +1413,7 @@ class KGCorpusIngestionEngine:
 
         Returns:
             Summary dict (counts per entity type, skipped edges, timings).
+
         """
         from kg.schema import setup_legal_kg_schema
 
@@ -1452,7 +1454,7 @@ class KGCorpusIngestionEngine:
         summary["steps"]["provisions"] = self.write_provisions(collected["provisions"])
         summary["steps"]["chunks"] = self.write_chunks(collected["chunks"])
         summary["steps"]["cross_domain"] = self.write_cross_domain(
-            collected["instrument_ids"], collected["provision_ids"]
+            collected["instrument_ids"], collected["provision_ids"],
         )
         summary["steps"]["concepts"] = self.write_concept_edges(collected["provision_ids"])
 
@@ -1573,7 +1575,7 @@ def _explicit_section_key(chunk: dict[str, Any], known: frozenset[str] | None) -
 
 
 def resolve_section_keys(
-    chunks: list[dict[str, Any]], known: frozenset[str] | None
+    chunks: list[dict[str, Any]], known: frozenset[str] | None,
 ) -> dict[str, str]:
     """Map ``chunk_id -> section key``, carrying the last declaration forward.
 

@@ -110,6 +110,7 @@ def setup_legal_kg_schema(driver: Any | None = None, database: str = "neo4j") ->
 
     Returns:
         ``{"constraints_added": N, "indexes_added": N, "existing": True}``
+
     """
     if driver is None:
         from app.services.neo4j_graph import _get_driver, neo4j_configured
@@ -175,6 +176,7 @@ def clear_legal_kg(driver: Any | None = None, database: str = "neo4j") -> int:
     Raises:
         RuntimeError: when ``NEO4J_ALLOW_WRITE`` is not ``1`` (fail-closed
             guard — this function deletes every legal-KG node).
+
     """
     if driver is None:
         from app.services.neo4j_graph import _get_driver, neo4j_configured
@@ -196,7 +198,7 @@ def clear_legal_kg(driver: Any | None = None, database: str = "neo4j") -> int:
     if not neo4j_writes_allowed():
         raise RuntimeError(
             "Refusing to clear the legal KG: set NEO4J_ALLOW_WRITE=1 to allow "
-            "clear_legal_kg() (e.g. NEO4J_ALLOW_WRITE=1 python scripts/build_kg_corpus.py)."
+            "clear_legal_kg() (e.g. NEO4J_ALLOW_WRITE=1 python scripts/build_kg_corpus.py).",
         )
 
     legal_labels = [

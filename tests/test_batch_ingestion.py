@@ -59,7 +59,8 @@ class _FakeDocResult:
 
 class _FakeLoaderRaisesOn:
     """Loader that reads the real file content (per-file text -> distinct
-    fingerprints) and raises for files named ``bad*`` (fault-isolation test)."""
+    fingerprints) and raises for files named ``bad*`` (fault-isolation test).
+    """
 
     def __init__(self, ok_doc=None):
         self._ok_doc = ok_doc

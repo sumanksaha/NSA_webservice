@@ -157,7 +157,6 @@ class TestDocumentTypeClassifier(unittest.TestCase):
 
     def test_classifer_thread_safety(self):
         """Test thread safety."""
-
         text = "Food Safety Act: Licensing and Registration."
 
         results = []
@@ -184,7 +183,8 @@ class TestDocumentTypeClassifier(unittest.TestCase):
     def test_detector_cache(self):
         """Test detector cache.
 
-        This test was causing an error before the fix."""
+        This test was causing an error before the fix.
+        """
         text = "Food Safety Act: Licensing and Registration."
 
         result1 = self.classifier.classify_document(text)

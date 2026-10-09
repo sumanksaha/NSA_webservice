@@ -150,6 +150,7 @@ def sync_to_excel(module: str, row_dict: dict, db_record_id: int | None = None) 
 
     Returns:
         bool: True if sync succeeded, False otherwise.
+
     """
     # Gate on feature flag — dormant when ENABLE_EXCEL_SYNC is false
     if not current_app.config.get("ENABLE_EXCEL_SYNC", False):

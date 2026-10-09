@@ -1,0 +1,51 @@
+# Test the workflow improvement system with a sample scenario
+
+from app.rag.evaluation.workflow_evaluator import evaluate_workflow_answer
+from app.rag.feedback.workflow_comparator import compare_workflow_answers
+from app.rag.feedback.workflow_improvement_engine import WorkflowImprovementEngine
+
+
+def test_improvement_engine():
+    engine = WorkflowImprovementEngine()
+
+    # Sample test case
+    query = "Which form does the FSO give to the business operator as a notice?"
+    gold = "The FSO gives a notice to the business operator in Form V, Regulation 2.4.1.3."
+    system = "Form V is used for notices to the business operator."
+    user = "The FSO gives Form V to the business operator as a notice (Regulation 2.4.1.3). Form VIII is for appeals."
+
+    # Evaluate
+    eval_result = evaluate_workflow_answer(query, system, gold)
+    print("=== Evaluation ===")
+    print("Faithfulness:", eval_result.faithfulness.score)
+    print("Completeness:", eval_result.completeness.score)
+    print("Citation quality:", eval_result.citation_quality.score)
+    print("Structure:", eval_result.structure.score)
+    print("Overall:", eval_result.overall.score)
+
+    # Compare
+    comparison = compare_workflow_answers(query, system, user, gold)
+    print("\n=== Comparison ===")
+    print("Missing forms:", comparison.missing_forms)
+    print("Extra forms:", comparison.extra_forms)
+    print("Missing steps:", comparison.missing_steps)
+    print("Extra steps:", comparison.extra_steps)
+    print("Rating:", comparison.overall_rating)
+
+    # Analyze
+    result = engine.analyze_query(query, system, user, gold)
+    print("\n=== Improvement Result ===")
+    print("Summary:", result.summary)
+    print("Recommendations:", len(result.recommendations))
+    for r in result.recommendations:
+        print("  -", r.title)
+    print("Training entries:", len(result.training_entries))
+
+    print("\n\n=== Full JSON ===")
+    print(result.to_dict())
+
+    return result
+
+
+if __name__ == "__main__":
+    test_improvement_engine()

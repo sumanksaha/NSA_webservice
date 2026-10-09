@@ -329,7 +329,8 @@ class TestUnsafeFileDocxDownload:
     def test_docx_renders_real_word_table(self, client, case_file):
         """The ADR-001 fallback must emit real Word grid tables (<w:tbl>),
         not cells flattened into joined paragraphs — so page tables render as
-        true tables even without pandoc."""
+        true tables even without pandoc.
+        """
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
             xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
@@ -338,7 +339,8 @@ class TestUnsafeFileDocxDownload:
 
     def test_docx_has_no_unsubstituted_placeholders(self, client, case_file):
         """No leaked Jinja placeholders in the generated Unsafe File DOCX —
-        every {{ case_number }} / {{ product_name }} etc. must be substituted."""
+        every {{ case_number }} / {{ product_name }} etc. must be substituted.
+        """
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
             xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
@@ -361,7 +363,8 @@ class TestUnsafeFileDocxDownload:
 
     def test_docx_14_column_table_fill_rules(self, client, case_file):
         """Fill rules: Packed state (separate FBOs), report dates, Sec 46(4)
-        preference No, referral columns blank, fixed remarks."""
+        preference No, referral columns blank, fixed remarks.
+        """
         from app.extensions import db
 
         case_file.is_unsafe = True
@@ -389,7 +392,8 @@ class TestUnsafeFileDocxDownload:
 
     def test_docx_letter_body_contains_sample_data(self, client, case_file):
         """Page 2 letter body carries sample data inline (no duplicate sample table —
-        page 1's 14-column table is the only sample table)."""
+        page 1's 14-column table is the only sample table).
+        """
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         text = _extract_docx_text(response.data)
         for label, value in [
@@ -530,7 +534,7 @@ class TestUnsafeFileButtonGating:
         )
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False,
         )
         response = client.get("/case_file_generator/")
         html = response.data.decode("utf-8", errors="replace")
@@ -583,7 +587,7 @@ class TestUnsafeFileButtonGating:
         )
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False
+            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False,
         )
         response = client.get(url)
         assert response.status_code == 200

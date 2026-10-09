@@ -24,7 +24,7 @@ def test_load_drafts_basic_and_skips(tmp_path):
     p = tmp_path / "drafts.csv"
     p.write_text(
         "question_id,add,note,anchor_quote\n"
-        "Q006,The Commissioner heads State food safety administration.,positive framing,\"exercising powers of supervision\"\n"
+        'Q006,The Commissioner heads State food safety administration.,positive framing,"exercising powers of supervision"\n'
         ",,missing qid,\n"
         "Q009,,empty add,\n",
         encoding="utf-8-sig",
@@ -169,7 +169,7 @@ def test_merge_adds_and_preserves(tmp_path, monkeypatch):
             {"qid": "Q006", "status": "valid", "entry": {"add": "new reading", "note": "n", "anchor_quote": "q", "anchor_chunk_ids": ["c1"]}},
             {"qid": "Q004", "status": "valid", "entry": {"add": "would clobber", "note": "", "anchor_quote": "", "anchor_chunk_ids": []}},
             {"qid": "Q009", "status": "invalid", "reasons": ["x"]},
-        ]
+        ],
     }
     out = w.merge_overlay(validation)
     assert out["added"] == ["Q006"]

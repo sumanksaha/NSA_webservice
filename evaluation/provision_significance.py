@@ -80,7 +80,7 @@ def build_per_document_metrics(
                 hybrid_gold_resolved=0,
                 rules_n_gold=0,
                 hybrid_n_gold=0,
-            )
+            ),
         )
     return metrics
 
@@ -116,7 +116,8 @@ class SignificanceRow:
 
 def _doc_gold_rate(document_id: str, tp: int, fn: int) -> float:
     """Per-document gold-resolution rate = tp / (tp + fn).  0 when there are
-    no gold provisions in the document (fails closed to 0)."""
+    no gold provisions in the document (fails closed to 0).
+    """
     denom = tp + fn
     return float(tp / denom) if denom else 0.0
 
@@ -181,7 +182,7 @@ def bootstrap_significance(
                 f"boundary recall: hybrid {mean_b_recall:.3f} vs rules {mean_a_recall:.3f} "
                 f"(Delta {mean_diff_recall:+.3f}, 95% CI [{ci_recall['ci95'][0]:.3f}, {ci_recall['ci95'][1]:.3f}])"
             ),
-        )
+        ),
     )
 
     # ---- gold resolution ---------------------------------------------------
@@ -221,7 +222,7 @@ def bootstrap_significance(
                 f"gold resolution: hybrid {mean_b_gold:.3f} vs rules {mean_a_gold:.3f} "
                 f"(Delta {mean_diff_gold:+.3f}, 95% CI [{ci_gold['ci95'][0]:.3f}, {ci_gold['ci95'][1]:.3f}])"
             ),
-        )
+        ),
     )
 
     adopt = all(r.significant for r in rows)

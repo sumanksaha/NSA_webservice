@@ -59,7 +59,8 @@ REMOVER_CONFIG = {
 
 def _make_lines(n_pages=6):
     """>=20 lines exercising page numbers, watermarks, headers/footers,
-    running titles, duplicates and blank lines."""
+    running titles, duplicates and blank lines.
+    """
     lines = []
     for p in range(n_pages):
         lines.append("HEADER NOTE")  # repeated header

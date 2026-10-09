@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def ab():
     """Import scripts/ab_agent_vs_legacy.py as a module (no side effects)."""
     spec = importlib.util.spec_from_file_location(
-        "ab_agent_vs_legacy_under_test", ROOT / "scripts" / "ab_agent_vs_legacy.py"
+        "ab_agent_vs_legacy_under_test", ROOT / "scripts" / "ab_agent_vs_legacy.py",
     )
     mod = importlib.util.module_from_spec(spec)
     sys.modules.setdefault("ab_agent_vs_legacy_under_test", mod)

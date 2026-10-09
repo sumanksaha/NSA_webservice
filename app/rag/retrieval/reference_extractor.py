@@ -53,6 +53,7 @@ class Reference:
         span_end: Character offset (exclusive) in the source text.
         raw: The raw matched text.
         target_provision_id: Provision ID if resolvable (often None).
+
     """
 
     act: str | None = None
@@ -171,6 +172,7 @@ def extract_references(
 
     Returns:
         List of ``Reference`` objects, ordered by position in the text.
+
     """
     if not text:
         return []
@@ -212,7 +214,7 @@ def extract_references(
                 span_start=m.start(),
                 span_end=end,
                 raw=text[m.start() : end],
-            )
+            ),
         )
 
     # 2. Rule references
@@ -225,7 +227,7 @@ def extract_references(
                 span_start=m.start(),
                 span_end=m.end(),
                 raw=m.group(0),
-            )
+            ),
         )
 
     # 3. Schedule references
@@ -238,7 +240,7 @@ def extract_references(
                 span_start=m.start(),
                 span_end=m.end(),
                 raw=m.group(0),
-            )
+            ),
         )
 
     # 4. Chapter references
@@ -251,7 +253,7 @@ def extract_references(
                 span_start=m.start(),
                 span_end=m.end(),
                 raw=m.group(0),
-            )
+            ),
         )
 
     # 5. Textual relation patterns (LOW confidence — no explicit section)
@@ -271,7 +273,7 @@ def extract_references(
                     span_start=m.start(),
                     span_end=m.end(),
                     raw=matched_text,
-                )
+                ),
             )
 
     refs.sort(key=lambda r: r.span_start)

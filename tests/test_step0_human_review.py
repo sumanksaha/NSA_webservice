@@ -16,7 +16,6 @@ sys.path.insert(0, str(ROOT / "evaluation"))
 import evaluation.step0_human_review as hr
 import evaluation.step0_label_residual as s0
 
-
 RESIDUAL = ["Q001", "Q002", "Q003", "Q004"]
 
 
@@ -188,9 +187,9 @@ def test_load_csv_records_full_schema(tmp_path):
     path = tmp_path / "review.csv"
     path.write_text(
         "packet_no,question_id,human_correct,verdict,model_action,category,notes\n"
-        "1,Q001,true,model_wrong,contrastive_repair,provision_application_error,\"misapplied s.22\"\n"
+        '1,Q001,true,model_wrong,contrastive_repair,provision_application_error,"misapplied s.22"\n'
         "2,Q002,false,evidence_missing,add_instrument_text,corpus_gap,rule 63 absent\n"
-        "3,Q003,true,reference_narrow,fix_reference,reference_scope_mismatch,\"narrow ref\"\n",
+        '3,Q003,true,reference_narrow,fix_reference,reference_scope_mismatch,"narrow ref"\n',
         encoding="utf-8",
     )
     records, skipped = hr.load_csv_records(path, RESIDUAL)
@@ -235,7 +234,7 @@ def test_load_csv_records_bom_and_case(tmp_path):
 def test_load_csv_records_missing_optional_columns(tmp_path):
     path = tmp_path / "review.csv"
     path.write_text("question_id,verdict\nQ001,evidence_missing\n", encoding="utf-8")
-    records, skipped = hr.load_csv_records(path, ["Q001"])
+    records, _skipped = hr.load_csv_records(path, ["Q001"])
     assert records["Q001"] == {
         "verdict": "evidence_missing",
         "notes": "",

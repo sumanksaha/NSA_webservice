@@ -80,6 +80,7 @@ class GenerationLogger:
 
         Returns:
             The updated ``RAGQueryLog`` row, or ``None`` on failure.
+
         """
         try:
             log_entry: RAGQueryLog | None = db.session.get(RAGQueryLog, query_log_id)

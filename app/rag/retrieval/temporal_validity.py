@@ -48,6 +48,7 @@ class ValidityResult:
         reason: Human-readable explanation of the determination.
         source: "payload" if from chunk payload, "text" if from the
             amendment chain in the provision text, "graph" if from Neo4j.
+
     """
 
     document_id: str | None
@@ -150,6 +151,7 @@ def is_valid(
 
     Returns:
         ``ValidityResult`` with status ``valid`` / ``invalid`` / ``unknown``.
+
     """
     # Resolve query_date (default: today)
     if query_date is None:
@@ -410,7 +412,7 @@ def extract_amendment_chain(text: str) -> list[AmendmentEvent]:
         if kind in ("re-enact", "reenacted", "reenact"):
             kind = "re-enacted"
         events.append(
-            AmendmentEvent(kind=kind, instrument=(m.group(2) or "").strip() or None, raw=m.group(0).strip()[:200])
+            AmendmentEvent(kind=kind, instrument=(m.group(2) or "").strip() or None, raw=m.group(0).strip()[:200]),
         )
     return events
 
@@ -461,7 +463,7 @@ if __name__ == "__main__":
 
     # Query date after effective_to
     r = is_valid(
-        "prov4", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01"
+        "prov4", "2025-01-01", provision_status="current", effective_from="2020-01-01", effective_to="2023-01-01",
     )
     assert r.status == VALIDITY_INVALID, r
 

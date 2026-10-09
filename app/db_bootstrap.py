@@ -115,7 +115,7 @@ def _verify_required_columns(app: Flask, engine) -> None:
         f"Database schema is missing required columns: {detail}. "
         "Repair with `SKIP_SCHEMA_CHECK=1 flask db upgrade` (the env var lets "
         "the pre-upgrade app boot far enough to run the migration), or apply "
-        f"the columns manually: {manual_sql}"
+        f"the columns manually: {manual_sql}",
     )
 
 

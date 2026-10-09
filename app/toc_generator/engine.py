@@ -78,7 +78,7 @@ class _HeadingExtractor(HTMLParser):
                         text=text,
                         heading_id=f"toc-{self._counter}",
                         tag=tag,
-                    )
+                    ),
                 )
             self._current_tag = None
             self._current_text = []
@@ -177,7 +177,7 @@ class TocGeneratorEngine:
             if entry.is_annexure:
                 item_class += " toc-annexure"
             lines.append(
-                f'<li class="{item_class}"><a href="{entry.href}">{number_span}{badge}{html.escape(entry.text)}</a>'
+                f'<li class="{item_class}"><a href="{entry.href}">{number_span}{badge}{html.escape(entry.text)}</a>',
             )
             li_stack.append((level, False))
 

@@ -40,7 +40,7 @@ if not REVIEWED.exists():
     raise SystemExit(
         f"not found: {REVIEWED.name}\n"
         "Review full_review_worksheet.md and save the reviewed copy as "
-        "full_review_worksheet_reviewed.md (partial reviews are fine - rerun any time)."
+        "full_review_worksheet_reviewed.md (partial reviews are fine - rerun any time).",
     )
 
 # --------------------------------------------------------------------------- #
@@ -51,12 +51,12 @@ blocks = re.split(r"\n### (Q\d{3}) ", text)
 records: list[dict] = []
 for i in range(1, len(blocks), 2):
     qid, body = blocks[i], blocks[i + 1]
-    jz = re.search(r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.S)
+    jz = re.search(r"\*\*(?:Your judgment|Prior judgment.*?):\*\*(.*?)(?=\n---|\Z)", body, re.DOTALL)
     j = jz.group(1) if jz else ""
 
     def grab(label: str) -> str:
         # [ \t]* (not \s*) so the pattern cannot cross into the next judgment line
-        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.I | re.M)
+        m = re.search(rf"^[ \t]*-\s*{label}\s*(?:\([^)]*\))?\s*:[ \t]*(.*)$", j, re.IGNORECASE | re.MULTILINE)
         if not m:
             return ""
         # strip inline guidance comments (e.g. "# required: reference_narrow | ...")
@@ -67,7 +67,7 @@ for i in range(1, len(blocks), 2):
         records.append({"qid": qid, "reviewed": False, "step0_residual": "[STEP0-RESIDUAL]" in body})
         continue
     # Track which condition the reviewer judged best (from human_correct note or explicit letter)
-    best_m = re.search(r"best answer[^a-zA-Z]*([A-D])\b", j, re.I)
+    best_m = re.search(r"best answer[^a-zA-Z]*([A-D])\b", j, re.IGNORECASE)
     records.append({
         "qid": qid,
         "reviewed": True,
@@ -175,7 +175,7 @@ step0 = {
     "note": "publish per-label counts before any aggregate soft-score claim (plan sec 5.2/Step 3)",
 }
 (OUT / "step0_residual_labels.json").write_text(
-    json.dumps(step0, indent=1, ensure_ascii=False), encoding="utf-8"
+    json.dumps(step0, indent=1, ensure_ascii=False), encoding="utf-8",
 )
 
 corpus_fill = sorted(qid for qid, v in valid_step0.items() if v == "evidence_missing")
@@ -285,7 +285,7 @@ with (OUT / "human_gold_labels.jsonl").open("w", encoding="utf-8") as f:
                 },
                 ensure_ascii=False,
             )
-            + "\n"
+            + "\n",
         )
 
 
@@ -349,7 +349,7 @@ if bad_step0:
 if not step0["step0_complete"]:
     print(
         "NOTE: Step 0 incomplete — label every residual qid "
-        f"({step0['n_blank']} blank, {len(bad_step0)} invalid) before Experiment G."
+        f"({step0['n_blank']} blank, {len(bad_step0)} invalid) before Experiment G.",
     )
 print("verdicts:", dict(verdicts))
 print("actions:", dict(actions))

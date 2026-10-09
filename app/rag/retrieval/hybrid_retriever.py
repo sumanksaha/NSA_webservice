@@ -37,6 +37,7 @@ class HybridRetriever:
         sparse: :class:`SparseRetriever` instance.
         reranker: Optional :class:`Reranker` applied after fusion.
         rrf_k: RRF constant (default 60).
+
     """
 
     def __init__(
@@ -88,6 +89,7 @@ class HybridRetriever:
 
         Returns:
             A :class:`SearchResult` with fused, optionally re-ranked chunks.
+
         """
         import time
 
@@ -120,13 +122,13 @@ class HybridRetriever:
                             hybrid = getattr(sparse_store, "hybrid_search_text", None)
                             if not callable(hybrid):
                                 raise RuntimeError(
-                                    "store lacks hybrid_search_text (server BM25 requires qdrant-client >= 1.12)"
+                                    "store lacks hybrid_search_text (server BM25 requires qdrant-client >= 1.12)",
                                 )
                             points = hybrid(dense_vector, query, top_k=top_k, filters=filters)
                         else:
                             sparse_vector = sparse_embed(query)
                             points = sparse_store.hybrid_search(
-                                dense_vector, sparse_vector, top_k=top_k, filters=filters
+                                dense_vector, sparse_vector, top_k=top_k, filters=filters,
                             )
                         from app.rag.retrieval.dense_retriever import DenseRetriever
 
@@ -266,6 +268,7 @@ def mmr_rerank(
 
     Returns:
         A list of at most ``top_k`` chunks re-ranked for diversity.
+
     """
     if not fused_chunks:
         return []

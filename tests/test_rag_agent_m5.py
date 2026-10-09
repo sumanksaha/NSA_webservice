@@ -25,7 +25,7 @@ from app.rag.agent.state import initial_state
 pytestmark = pytest.mark.usefixtures("_rag_stub_llm_env")
 
 
-@pytest.fixture()
+@pytest.fixture
 def app_env():
     """Build the test app/client once per test (mirrors test_rag_routes)."""
     from tests.test_rag_routes import _setup_test_env
@@ -36,7 +36,7 @@ def app_env():
 
 
 def _patch_pipeline(monkeypatch, groundedness=0.9, answer="Section 50 answer"):
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     monkeypatch.setattr(
         tasks,
@@ -247,7 +247,7 @@ def test_hitl_resume_approved_finalizes(monkeypatch):
 
 def test_hitl_resume_rejected_retries_then_finalizes(monkeypatch):
     """Rejecting the review routes to expand_query → regenerate → finalize."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     calls = {"n": 0}
 
@@ -301,7 +301,7 @@ def test_resume_without_checkpointer_raises(monkeypatch):
 
 def test_agent_route_hitl_202_then_resume_200(monkeypatch, app_env):
     """Full HTTP flow: agent route pauses (202) → resume (200)."""
-    import app.rag.tasks as tasks
+    from app.rag import tasks
 
     app, client = app_env
     app.config["RAG_USE_AGENT_PIPELINE"] = True

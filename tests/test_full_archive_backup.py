@@ -150,7 +150,7 @@ class TestExportFullArchive:
         monkeypatch.setitem(app_ctx.config, "BACKUP_FULL_ARCHIVE_ENABLED", False)
         # Any accidental R2 access fails the test loudly.
         monkeypatch.setattr(
-            "app.utils.storage._get_client", lambda: (_ for _ in ()).throw(AssertionError("R2 touched"))
+            "app.utils.storage._get_client", lambda: (_ for _ in ()).throw(AssertionError("R2 touched")),
         )
 
         assert export_full_archive_to_r2() is None

@@ -239,7 +239,7 @@ class TestRetrievalAuditLog:
             try:
                 audit = RetrievalAuditLog()
                 ok = audit.log_retrieval(
-                    query_log_id="x", query="q", query_type="general_qa", chunk_ids=[], latency_ms=1
+                    query_log_id="x", query="q", query_type="general_qa", chunk_ids=[], latency_ms=1,
                 )
                 assert ok is False
             finally:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Convert HTML legal document templates to AsciiDoc format for easier maintenance.
+"""Convert HTML legal document templates to AsciiDoc format for easier maintenance.
 
 Preserves HTML templates as reference and generates AsciiDoc equivalents.
 
@@ -271,7 +270,7 @@ Converted AsciiDoc available at: {self.output_path.name}
                     "* **Generated:** 2026-08-26",
                     "",
                     *self._generate_asciidoc_content(),
-                ])
+                ]),
             )
 
         # Save original HTML as reference

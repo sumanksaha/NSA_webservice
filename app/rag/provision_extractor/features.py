@@ -128,6 +128,7 @@ def extract_features(
         first_occurrence: Whether this is the first candidate for its number.
         sections_covered: Payload ``sections_covered`` for the candidate's chunk.
         engine_confidence: Engine-stamped confidence, when available.
+
     """
     number = _base_number(candidate.raw_number)
     known = is_known_section_for_act(str(number) if number else candidate.raw_number, act_name)

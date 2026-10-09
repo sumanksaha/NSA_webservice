@@ -87,7 +87,7 @@ def _chunks_for(chunk_ids: list[str], payload_index: dict[str, dict]):
                 act_name=payload.get("act_name", "") or "",
                 document_type=payload.get("document_type", "") or "",
                 authority=payload.get("authority", "") or "",
-            )
+            ),
         )
     return out
 
@@ -113,7 +113,7 @@ def _gold_hit(chunk_ids: list[str], payload_index: dict[str, dict], question, fa
 
 
 def _load_gold_index(payload_index: dict[str, dict]) -> dict[str, list]:
-    """qid -> its GoldUnit list, for provision-level matching.
+    """Qid -> its GoldUnit list, for provision-level matching.
 
     Gold provisions are keyed by act+section (``fssai:s16(1)``) and their
     ``chunk_id`` fields are largely null, so gold CANNOT be resolved by id
@@ -282,7 +282,7 @@ def main() -> int:
         print(
             f"{a['max_chunks']:>9} {a['arm']:<11} {a['n_questions']:>4} {a['baseline_gold_rate']:>9.4f} "
             f"{a['packed_gold_rate']:>9.4f} {a['packed_primary_first_rate']:>8.4f} "
-            f"{a['prompt_changed_rate']:>8.4f} {a['evidence_set_fit_rate']:>7.4f}"
+            f"{a['prompt_changed_rate']:>8.4f} {a['evidence_set_fit_rate']:>7.4f}",
         )
     print()
     print("goldBase/goldPack = gold provision present in prompt (must not drop)")

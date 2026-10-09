@@ -124,7 +124,7 @@ def plan_for_groups(groups: dict[str, DocumentChunks], disambiguator: Any | None
                 ],
                 "provision_ids": [getattr(record, "provision_id", "") for record in chunk_records],
                 "provision_confidence": round(
-                    max(float(getattr(record, "confidence", 0.0)) for record in chunk_records), 6
+                    max(float(getattr(record, "confidence", 0.0)) for record in chunk_records), 6,
                 ),
                 "provision_modality": modalities.most_common(1)[0][0] if modalities else "",
             }
@@ -155,7 +155,7 @@ def apply_updates(store: Any, updates: dict[str, dict[str, Any]], collection: st
         ids = group["ids"]
         for index in range(0, len(ids), BATCH_SIZE):
             client.set_payload(
-                collection_name=collection, payload=group["fields"], points=ids[index : index + BATCH_SIZE]
+                collection_name=collection, payload=group["fields"], points=ids[index : index + BATCH_SIZE],
             )
         written += len(ids)
     return written

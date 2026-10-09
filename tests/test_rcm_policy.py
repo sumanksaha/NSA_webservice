@@ -17,7 +17,7 @@ from app.models import CaseFile, User
 from app.shared import rcm_policy
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     from app import create_app
 

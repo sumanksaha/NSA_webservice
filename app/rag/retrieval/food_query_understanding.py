@@ -46,40 +46,36 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 #: Supported intents (task spec §2).
-FOOD_INTENTS: frozenset[str] = frozenset(
-    {
-        "definition",
-        "food_standard",
-        "requirement",
-        "parameter_specific_standard",
-        "compliance",
-        "prohibition",
-        "licensing",
-        "sampling",
-        "procedure",
-        "penalty",
-        "scope",
-        "general_information",
-    }
-)
+FOOD_INTENTS: frozenset[str] = frozenset({
+    "definition",
+    "food_standard",
+    "requirement",
+    "parameter_specific_standard",
+    "compliance",
+    "prohibition",
+    "licensing",
+    "sampling",
+    "procedure",
+    "penalty",
+    "scope",
+    "general_information",
+})
 
 #: Requested provision types (task spec §2/§3).
-PROVISION_TYPES: frozenset[str] = frozenset(
-    {
-        "definition",
-        "standard",
-        "requirement",
-        "limit",
-        "prohibition",
-        "procedure",
-        "sampling",
-        "licensing",
-        "penalty",
-        "scope",
-        "explanation",
-        "general",
-    }
-)
+PROVISION_TYPES: frozenset[str] = frozenset({
+    "definition",
+    "standard",
+    "requirement",
+    "limit",
+    "prohibition",
+    "procedure",
+    "sampling",
+    "licensing",
+    "penalty",
+    "scope",
+    "explanation",
+    "general",
+})
 
 #: Intent → default requested provision type (task spec examples).
 _INTENT_TO_PROVISION: dict[str, str] = {
@@ -183,7 +179,7 @@ _COMMODITY_VOCAB: frozenset[str] = frozenset(
         "bakery",
         "masala",
         "ajwan",
-    }
+    },
 )
 
 
@@ -209,9 +205,7 @@ def _load_harvested_commodities() -> frozenset[str]:
 #: Query-side vocabulary = base + harvested (union).  Longest-name-first
 #: matching in :func:`extract_entity` means multi-word names ("dried mango
 #: powder", "mixed masala") win over their head words.
-_COMMODITY_VOCAB: frozenset[str] = frozenset(
-    {s.lower() for s in _COMMODITY_VOCAB} | _load_harvested_commodities()
-)
+_COMMODITY_VOCAB: frozenset[str] = frozenset({s.lower() for s in _COMMODITY_VOCAB} | _load_harvested_commodities())
 
 
 # ---------------------------------------------------------------------------
@@ -245,8 +239,11 @@ _INTENT_PATTERNS: list[tuple[str, list[re.Pattern[str]]]] = [
                 r"(?:limit|level|content|value|requirement)s?\b",
                 re.IGNORECASE,
             ),
-            re.compile(r"\b(?:moisture|extraneous\s+matter|foreign\s+matter|total\s+ash|acid\s+insoluble\s+ash|"
-                       r"volatile\s+oil|insect[\s-]*damaged|defective\s+seeds?|aflatoxin|lead)\b", re.IGNORECASE),
+            re.compile(
+                r"\b(?:moisture|extraneous\s+matter|foreign\s+matter|total\s+ash|acid\s+insoluble\s+ash|"
+                r"volatile\s+oil|insect[\s-]*damaged|defective\s+seeds?|aflatoxin|lead)\b",
+                re.IGNORECASE,
+            ),
             re.compile(r"\bhow\s+much\s+(?:moisture|ash|extraneous|foreign)\b", re.IGNORECASE),
         ],
     ),
@@ -282,7 +279,9 @@ _INTENT_PATTERNS: list[tuple[str, list[re.Pattern[str]]]] = [
     (
         "requirement",
         [
-            re.compile(r"\brequirements?\b.{0,30}\b(?:for|of|apply|applicable)\b|\bwhat\s+requirements?\b", re.IGNORECASE),
+            re.compile(
+                r"\brequirements?\b.{0,30}\b(?:for|of|apply|applicable)\b|\bwhat\s+requirements?\b", re.IGNORECASE,
+            ),
             re.compile(r"\bspecifications?\s+(?:for|of)\b", re.IGNORECASE),
         ],
     ),
@@ -290,14 +289,20 @@ _INTENT_PATTERNS: list[tuple[str, list[re.Pattern[str]]]] = [
     (
         "prohibition",
         [
-            re.compile(r"\bprohibit(?:ed|ion)?\b|\b(?:banned?|ban\s+on)\b|\bshall\s+not\s+(?:be\s+)?(?:sold|used|added)\b", re.IGNORECASE),
+            re.compile(
+                r"\bprohibit(?:ed|ion)?\b|\b(?:banned?|ban\s+on)\b|\bshall\s+not\s+(?:be\s+)?(?:sold|used|added)\b",
+                re.IGNORECASE,
+            ),
         ],
     ),
     # licensing
     (
         "licensing",
         [
-            re.compile(r"\blicen[cs]e\b|\blicensing\b|\bregistration\s+(?:requirement|for)\b|\bfbo\s+licen[cs]e\b", re.IGNORECASE),
+            re.compile(
+                r"\blicen[cs]e\b|\blicensing\b|\bregistration\s+(?:requirement|for)\b|\bfbo\s+licen[cs]e\b",
+                re.IGNORECASE,
+            ),
         ],
     ),
     # sampling
@@ -313,6 +318,11 @@ _INTENT_PATTERNS: list[tuple[str, list[re.Pattern[str]]]] = [
         "procedure",
         [
             re.compile(r"\bprocedure\b|\bprocess\s+(?:for|of)\b|\bhow\s+(?:to|do|should)\b", re.IGNORECASE),
+            # New: form/seizure/sampling related procedure questions
+            re.compile(
+                r"\b(seizure|sample|appeal|memorandum|form)\b.{0,80}\b(procedure|how|step|after|next)\b", re.IGNORECASE,
+            ),
+            re.compile(r"\bwhich form\b|\bwhat form\b|\bform\s+(?:ii|iii|iv|v|vi|vii|viii)\b", re.IGNORECASE),
         ],
     ),
     # penalty
@@ -363,6 +373,7 @@ _STRIP_WORDS_RE = re.compile(
 # ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------
+
 
 def extract_parameters(query: str) -> list[str]:
     """Ordered, de-duplicated parameter names mentioned in the query."""
@@ -433,8 +444,8 @@ def detect_food_intent(query: str) -> tuple[str, float]:
     # procedure) matched, it wins outright over the incidental definition
     # hit; the bare-definition flip below only handles "what is the standard
     # for X" (a *request* for the provision, not a named provision word).
-    _SPECIFIC_PROVISIONS = ("sampling", "penalty", "licensing", "prohibition", "procedure")
-    specific = {k: v for k, v in scores.items() if k in _SPECIFIC_PROVISIONS}
+    _specific_provisions = ("sampling", "penalty", "licensing", "prohibition", "procedure")
+    specific = {k: v for k, v in scores.items() if k in _specific_provisions}
     if specific and scores.get("definition"):
         best_specific = max(specific.items(), key=lambda kv: kv[1])[0]
         return best_specific, min(0.6 + 0.2 * specific[best_specific], 1.0)
@@ -474,6 +485,7 @@ def detect_food_intent(query: str) -> tuple[str, float]:
 # Value object
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class FoodQueryUnderstanding:
     """The food-commodity view of one query (task spec §2 schema)."""
@@ -512,7 +524,7 @@ class FoodQueryUnderstanding:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
-    def from_query(cls, query: str, jurisdiction: str | None = None) -> "FoodQueryUnderstanding":
+    def from_query(cls, query: str, jurisdiction: str | None = None) -> FoodQueryUnderstanding:
         """Parse ``query`` into the food view (deterministic)."""
         intent, confidence = detect_food_intent(query)
         entity = extract_entity(query)

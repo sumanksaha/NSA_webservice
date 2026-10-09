@@ -23,7 +23,6 @@ from app.rag.evaluation.advisor_metrics import (
     reliability_bins,
 )
 
-
 # ---------------------------------------------------------------------------
 # heuristic_v1: byte-exact reproduction of the ADR-0003 formula
 # ---------------------------------------------------------------------------
@@ -70,7 +69,7 @@ def test_custom_confidence_fn_flows_through_payload():
 def test_compute_wrapper_accepts_confidence_fn():
     from app.rag.advisor import compute_fso_advisory
 
-    out = compute_fso_advisory(["51"], confidence_fn=lambda n, l: ConfidenceAssessment(0.5, "x"))
+    out = compute_fso_advisory(["51"], confidence_fn=lambda n, lbl: ConfidenceAssessment(0.5, "x"))
     assert out["fso_act"]["confidence"] == 0.5
     assert out["fso_act"]["confidence_param_set"] == "x"
 
@@ -89,7 +88,8 @@ def test_fit_isotonic_monotone_records_pass_through():
 
 def test_fit_isotonic_pools_violating_blocks():
     """(0.7, ✓), (0.8, ✗) violate monotonicity → pooled to one block at
-    mean 0.5; the calibration is then flat 0.5 across the pooled range."""
+    mean 0.5; the calibration is then flat 0.5 across the pooled range.
+    """
     iso = fit_isotonic_confidence([(0.7, True), (0.8, False)], "iso_v1")
     assert iso.breakpoints == ((0.75, 0.5),)
     assert iso(1, False).value == 0.5
@@ -98,9 +98,10 @@ def test_fit_isotonic_pools_violating_blocks():
 
 def test_fit_isotonic_hand_derived_with_ties_and_weights():
     """(0.1,✓), (0.2,✗×3), (0.3,✓): the 1.0 and 0.0 blocks violate → merged
-    to mean 0.25 at weighted x 0.175; 0.25 ≤ 1.0 so no further merge."""
+    to mean 0.25 at weighted x 0.175; 0.25 ≤ 1.0 so no further merge.
+    """
     iso = fit_isotonic_confidence(
-        [(0.1, True), (0.2, False), (0.2, False), (0.2, False), (0.3, True)], "iso_v1"
+        [(0.1, True), (0.2, False), (0.2, False), (0.2, False), (0.3, True)], "iso_v1",
     )
     assert iso.breakpoints == ((pytest.approx(0.175), 0.25), (0.3, 1.0))
 

@@ -12,8 +12,8 @@ from __future__ import annotations
 from app.rag.evidence_task import EvidenceRequirement
 from app.rag.planning.query_planner import Intent, QueryPlanner
 from app.rag.retrieval.legal_query_classifier import (
-    DEFINITION_CONFIG,
     DEFAULT_CONFIG,
+    DEFINITION_CONFIG,
     LEGAL_QUERY_TYPES,
     QUERY_TYPE_CONFIGS,
     classify_legal_query,

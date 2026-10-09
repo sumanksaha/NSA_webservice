@@ -365,7 +365,7 @@ class KGReasoner:
                 confidence=1.0,
                 evidence_types=["PROVISION"],
                 description=f"Direct provision {prov['provision_id']}",
-            )
+            ),
         ]
         paths.extend(self._find_concept_paths(prov))
         paths.extend(self._find_applicability_paths(prov, max_depth - 1))
@@ -393,7 +393,7 @@ class KGReasoner:
                     confidence=confidence,
                     evidence_types=[etype],
                     description=f"{pid} {rel} {concept}",
-                )
+                ),
             )
         return out
 
@@ -448,7 +448,7 @@ class KGReasoner:
                     confidence=0.7,
                     evidence_types=["JURISDICTION"],
                     description=f"Applies in {legal_domain} domain",
-                )
+                ),
             ]
         return []
 
@@ -529,7 +529,7 @@ class KGReasoner:
             paths.extend(self.reason_from_provision(pid, 2))
         paths = score_paths(filter_paths_by_intent(paths, intent))
         cypher = generate_cypher(
-            intent, {"section": _resolve_provision_ids(sections, query)[:1] or ([query] if not sections else [])}
+            intent, {"section": _resolve_provision_ids(sections, query)[:1] or ([query] if not sections else [])},
         )
         if not paths:
             return KGAnswer("actionable_answer", "Insufficient KG evidence to answer.", [], cypher, 0.0)

@@ -42,7 +42,7 @@ def resolve(conflict_id: int):
     applied through the review workflow (OCRCorrection + extracted_json update).
     """
     resolved_value = request.form.get("resolved_value") or (request.get_json(silent=True) or {}).get(
-        "resolved_value", ""
+        "resolved_value", "",
     )
     if not resolved_value:
         return jsonify({"error": "resolved_value is required"}), 400

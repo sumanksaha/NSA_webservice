@@ -36,7 +36,7 @@ def upgrade():
                 TG_TABLE_NAME;
         END;
         $$ LANGUAGE plpgsql;
-        """
+        """,
     )
 
     # Apply trigger to fssai_licenses
@@ -46,7 +46,7 @@ def upgrade():
         BEFORE DELETE ON fssai_licenses
         FOR EACH ROW
         EXECUTE FUNCTION prevent_fssai_delete();
-        """
+        """,
     )
 
     # Apply trigger to fssai_registrations
@@ -56,7 +56,7 @@ def upgrade():
         BEFORE DELETE ON fssai_registrations
         FOR EACH ROW
         EXECUTE FUNCTION prevent_fssai_delete();
-        """
+        """,
     )
 
     # Document the protection
@@ -64,13 +64,13 @@ def upgrade():
         """
         COMMENT ON TRIGGER fssai_licenses_no_delete ON fssai_licenses IS
         'Protects FSSAI license lookup data from deletion. Added 2026-08-29.';
-        """
+        """,
     )
     op.execute(
         """
         COMMENT ON TRIGGER fssai_registrations_no_delete ON fssai_registrations IS
         'Protects FSSAI registration lookup data from deletion. Added 2026-08-29.';
-        """
+        """,
     )
 
 

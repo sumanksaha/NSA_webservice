@@ -121,7 +121,7 @@ def record_cross_references(
             target = xr["target_chunk_id"]
             relation = xr.get("relation", "REFERS_TO")
             row = ChunkCrossReference.query.filter_by(
-                source_chunk_id=source, target_chunk_id=target, relation=relation
+                source_chunk_id=source, target_chunk_id=target, relation=relation,
             ).first()
             if row is None:
                 row = ChunkCrossReference(
@@ -165,7 +165,7 @@ def record_resource_usage(
             retries=retries,
             duration_s=round(duration_s, 3),
             recorded_at=datetime.now(UTC),
-        )
+        ),
     )
 
 

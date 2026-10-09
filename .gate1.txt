@@ -1,0 +1,12 @@
+============================= test session starts =============================
+collected 167 items
+
+tests\test_food_intent_retrieval.py .................................... [ 21%]
+...................................                                      [ 42%]
+tests\test_rag_generation_characterization.py ..........                 [ 48%]
+tests\test_query_understanding.py ..................                     [ 59%]
+tests\test_step1_preregister_gates.py ...................                [ 70%]
+tests\test_corpus_discovery.py .......................................   [ 94%]
+tests\test_retrieval_stages.py ..........                                [100%]
+
+============================ 167 passed in 57.10s =============================

@@ -28,7 +28,7 @@ def upgrade() -> None:
     """Add version_id and is_latest columns to legal_document table."""
     op.add_column("legal_document", sa.Column("version_id", sa.Integer(), nullable=False, server_default="1"))
     op.add_column(
-        "legal_document", sa.Column("is_latest", sa.Boolean(), nullable=False, server_default=sa.text("true"))
+        "legal_document", sa.Column("is_latest", sa.Boolean(), nullable=False, server_default=sa.text("true")),
     )
 
 

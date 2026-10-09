@@ -262,7 +262,7 @@ def evaluate(note_id: int):
             note_id=note.id,
             payload=json.dumps(payload),
             provider_model=f"{service.provider}/{service.model}",
-        )
+        ),
     )
     note.status = "evaluated"
     db.session.commit()

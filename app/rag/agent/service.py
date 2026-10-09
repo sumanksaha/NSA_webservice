@@ -57,7 +57,7 @@ def _warn_hitl_durability() -> bool:
         logger.warning(
             "RAG_AGENT_HITL is enabled with the in-memory checkpointer — "
             "paused threads are LOST on process restart. Set "
-            "RAG_AGENT_CHECKPOINTER=postgres for production HITL."
+            "RAG_AGENT_CHECKPOINTER=postgres for production HITL.",
         )
         _hitl_durability_warned = True
     return durable

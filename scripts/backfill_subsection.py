@@ -71,7 +71,7 @@ SNAPSHOT_DIR = PROJECT_ROOT / "reports"
 #: semantics as the L5 section pass).  A new PART/SCHEDULE/CHAPTER/ANNEXURE
 #: starts a fresh identity namespace; the previous running clause must not
 #: leak across it.
-_STRUCTURAL_BOUNDARY_RE = re.compile(r"^\s*(PART|SCHEDULE|CHAPTER|ANNEXURE)\b", re.I)
+_STRUCTURAL_BOUNDARY_RE = re.compile(r"^\s*(PART|SCHEDULE|CHAPTER|ANNEXURE)\b", re.IGNORECASE)
 
 #: Document types whose identity is a dotted clause number (G8).  ``rule``
 #: is included because rules use the same dotted numbering (``1.2.3 Rule
@@ -103,7 +103,7 @@ def collections_from_config(app) -> list[str]:
             cfg.get("RAG_QDRANT_COLLECTION_ANIMAL", "animal_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_WB_STATE", "wb_state_legal_768"),
             cfg.get("RAG_QDRANT_COLLECTION_CRIMINAL", "criminal_legal_768"),
-        ])
+        ]),
     )
 
 
@@ -213,8 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             payloads = scroll_payloads(app, collections)
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             with open(CACHE, "w", encoding="utf-8") as f:
-                for pid, pl in payloads.items():
-                    f.write(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n")
+                f.writelines(json.dumps({"id": pid, "payload": pl}, ensure_ascii=False) + "\n" for pid, pl in payloads.items())
             logger.info("payload cache refreshed: %d points", len(payloads))
         else:
             payloads = {}
@@ -291,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
                 for p in pts:
                     prov[str(p["id"])] = coll
         else:
-            prov = {pid: "cache" for pid in changes}
+            prov = dict.fromkeys(changes, "cache")
 
         by_coll: Counter = Counter(prov.get(pid, "?") for pid in changes)
 
@@ -383,7 +382,8 @@ def set_payload_batched(client, collection: str, changes: dict[str, dict], batch
 def mirror_metadata_json(changes: dict[str, dict]) -> int:
     """Mirror the payload changes into ``LegalChunk.metadata_json`` for rows
     that exist in the local DB (identity-preserving: a later DB-driven
-    re-ingest must not lose the stamps)."""
+    re-ingest must not lose the stamps).
+    """
     from app.extensions import db
     from app.models.rag import LegalChunk
 
