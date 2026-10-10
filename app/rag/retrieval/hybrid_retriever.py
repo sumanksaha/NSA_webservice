@@ -150,7 +150,10 @@ class HybridRetriever:
                         else:
                             sparse_vector = sparse_embed(query)
                             points = sparse_store.hybrid_search(
-                                dense_vector, sparse_vector, top_k=top_k, filters=filters,
+                                dense_vector,
+                                sparse_vector,
+                                top_k=top_k,
+                                filters=filters,
                             )
                         from app.rag.retrieval.dense_retriever import DenseRetriever
 

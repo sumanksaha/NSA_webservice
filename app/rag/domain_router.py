@@ -35,14 +35,11 @@ import logging
 from typing import Any
 
 from app.rag.collections import (
-    DEFAULT_COLLECTION,
     DEFAULT_DOMAIN,
-    DOMAIN_COLLECTIONS,
     collection_for_domain,
 )
-from app.rag.retrieval import HybridRetriever
-from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.rag.retrieval.factory import build_hybrid_retriever
+from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -58,40 +55,42 @@ logger = logging.getLogger(__name__)
 _KEYWORD_TAXONOMY: list[tuple[list[str], str]] = [
     # FSSAI identity / FBO + hygiene + penalty / correction families.
     (
-        ["food business operator", "FBO", "food establishment", "manufacturer",
-         "processor", "seller", "retailer", "vendor"],
+        [
+            "food business operator",
+            "FBO",
+            "food establishment",
+            "manufacturer",
+            "processor",
+            "seller",
+            "retailer",
+            "vendor",
+        ],
         "fssai",
     ),
     (
-        ["solid waste", "waste", "dumping", "dump", "disposal", "dumped",
-         "discarding"],
+        ["solid waste", "waste", "dumping", "dump", "disposal", "dumped", "discarding"],
         "fssai",
     ),
     (
-        ["hygiene", "unsanitary", "sanitation", "dirty", "filth", "vermin",
-         "rodent", "pest"],
+        ["hygiene", "unsanitary", "sanitation", "dirty", "filth", "vermin", "rodent", "pest"],
         "fssai",
     ),
     (
-        ["penalty", "fine", "punishment", "imprisonment", "prosecution",
-         "offence", "contravention"],
+        ["penalty", "fine", "punishment", "imprisonment", "prosecution", "offence", "contravention"],
         "fssai",
     ),
     (
-        ["improvement notice", "correct", "comply", "remedy", "CAPA",
-         "remediation", "closure"],
+        ["improvement notice", "correct", "comply", "remedy", "CAPA", "remediation", "closure"],
         "fssai",
     ),
     # Environment / solid-waste-management family.
     (
-        ["solid waste management", "segregation", "SWM", "recyclable",
-         "biodegradable", "door-to-door"],
+        ["solid waste management", "segregation", "SWM", "recyclable", "biodegradable", "door-to-door"],
         "env",
     ),
     # Municipality / KMC family.
     (
-        ["KMC", "municipal", "Kolkata", "municipality", "municipal commissioner",
-         "ULB", "urban local body"],
+        ["KMC", "municipal", "Kolkata", "municipality", "municipal commissioner", "ULB", "urban local body"],
         "wb_state",
     ),
 ]
@@ -140,7 +139,7 @@ def classify_domain(query: str) -> list[tuple[str, float]]:
         always containing at least ``[(DEFAULT_DOMAIN, 1.0)]``.
     """
     lowered = query.lower()
-    votes: list[str] = []          # de-duplicated vote order
+    votes: list[str] = []  # de-duplicated vote order
     scores: dict[str, float] = {}  # vote bonuses per domain
     for family, domain in _KEYWORD_TAXONOMY:
         if any(kw.lower() in lowered for kw in family):
@@ -214,11 +213,10 @@ def run_multi_collection_retrieval(
     """
     if collection_names is None:
         domains = classify_domain(query)
-        collection_names = [
-            collection_for_domain(domain) for domain, _ in domains[:_MAX_CANDIDATE_DOMAINS]
-        ]
-    logger.debug("multi-domain route: collections=%s top_k=%s per_collection=%s",
-                 collection_names, top_k, per_collection_top_k)
+        collection_names = [collection_for_domain(domain) for domain, _ in domains[:_MAX_CANDIDATE_DOMAINS]]
+    logger.debug(
+        "multi-domain route: collections=%s top_k=%s per_collection=%s", collection_names, top_k, per_collection_top_k
+    )
 
     domain_of: dict[str, str] = {}
     results: list[tuple[str, SearchResult]] = []
@@ -236,7 +234,9 @@ def run_multi_collection_retrieval(
         if res.error:
             logger.warning(
                 "multi-domain route: collection %s (domain %s) returned error %s",
-                collection, domain, res.error,
+                collection,
+                domain,
+                res.error,
             )
             continue
         for chunk in res.chunks:
@@ -279,9 +279,7 @@ def run_multi_collection_retrieval(
     if cfg.ensemble_rerank and final_chunks:
         try:
             final_chunks = list(
-                build_hybrid_retriever().reranker.rerank(
-                    query, final_chunks, top_k=top_k, query_type=query_type
-                )
+                build_hybrid_retriever().reranker.rerank(query, final_chunks, top_k=top_k, query_type=query_type)
             )
         except Exception as exc:
             logger.warning("multi-domain rerank failed, keeping priority-fused pool: %s", exc)

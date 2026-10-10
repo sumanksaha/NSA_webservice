@@ -95,6 +95,41 @@ def section_scope_filter(act: str | None, section: str | None) -> dict[str, Any]
     return built
 
 
+def merge_caller_filters(
+    base: dict[str, Any] | None, caller_filters: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """AND a base Qdrant-style filter with the caller's payload filters.
+
+    ``base`` is the section/act structural arm filter (e.g. ``{"must": [...],
+    "should": [...}]}`` from :func:`section_scope_filter` — a section pin plus
+    the Act identity). ``caller_filters`` are the payload filters parsed from
+    the query (document type, instrument, authority, etc.) — plus anything the
+    HTTP body supplied. Combining them with AND means the structural arm can
+    never retrieve outside the caller's declared scope: a chunk must satisfy
+    the structural requirement AND all of the caller's payload conditions.
+
+    ``must`` clauses from both sides are concatenated (every item must match).
+    ``should`` clauses are also concatenated: each side's disjunctions are
+    independent, so the union keeps both sides satisfiable without loosening
+    the ``must`` side. The resulting shape stays at the Qdrant model's
+    ``{"must": [...], "should": [...]}`` top-level form.
+    """
+    base = base or {}
+    caller = caller_filters or {}
+    result: dict[str, Any] = {}
+    # Every ``must`` item from both sides must hold together.
+    base_must = base.get("must", [])
+    caller_must = caller.get("must", [])
+    if base_must or caller_must:
+        result["must"] = [*base_must, *caller_must]
+    # Independent disjunctions on each side: union keeps both satisfiable.
+    base_should = base.get("should", [])
+    caller_should = caller.get("should", [])
+    if base_should or caller_should:
+        result["should"] = [*base_should, *caller_should]
+    return result
+
+
 def section_scope_meta(query: str) -> dict[str, Any] | None:
     """Detect the Act/section in ``query`` and describe the structural arm to run.
 
