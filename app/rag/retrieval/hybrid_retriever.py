@@ -24,7 +24,7 @@ from typing import Any
 from app.rag.retrieval.dense_retriever import DenseRetriever
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.rag.retrieval.rrf import DEFAULT_RRF_K, reciprocal_rank_fuse
-from app.rag.retrieval.section_scope import section_scope_meta
+from app.rag.retrieval.section_scope import merge_caller_filters, section_scope_meta
 from app.rag.retrieval.sparse_retriever import SparseRetriever
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class HybridRetriever:
         """
         from app.shared.config import cfg
 
-        return bool(getattr(cfg, "section_arm", False))
+        return bool(cfg.section_arm)
 
     def retrieve(
         self,
@@ -74,6 +74,7 @@ class HybridRetriever:
         identifier_query: str | None = None,
         form_query: str | None = None,
         query_type: str | None = None,
+        rrf_k: float | None = None,
     ) -> SearchResult:
         """Retrieve chunks by fusing dense and sparse results.
 
@@ -98,6 +99,10 @@ class HybridRetriever:
                 run through the sparse retriever as a *parallel additive* arm
                 and RRF-fused.  Used for workflow/procedure queries that
                 reference specific FSSAI forms.
+
+        ``rrf_k`` overrides the retriever's default RRF constant (60) for this
+        single query — used by the RL arm to vary the fusion breadth per query.
+        ``None`` uses ``self._rrf_k``.
 
         When ``cfg.section_arm`` is on, a section/act-scoped structural arm
         also runs (see :mod:`app.rag.retrieval.section_scope`). It is derived
@@ -178,12 +183,23 @@ class HybridRetriever:
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("HybridRetriever: identifier arm failed (%s)", exc)
 
-        # Form reference arm: for workflow/procedure queries referencing
-        # specific FSSAI forms (e.g., "Form VIII" for appeals).
+        # Form reference arm: for procedure queries that explicitly name a
+        # form (e.g., "Form VIII" for appeals).
+        #
+        # Sized to the *same* depth as the dense/sparse lists, not deeper.
+        # RRF is rank-based, so a candidate from a short list always enters
+        # near the top of its own list and therefore outranks every item
+        # below that depth in the other lists — no matter how irrelevant it
+        # is. The identifier arm above asks for max(top_k*2, 20); doing the
+        # same here would hand the form arm a structural advantage over the
+        # vector pool for every procedure query that names a form.
+        # This is the same geometry that made KG fusion cost 20.6pp of
+        # citation recall (analysis §1), where each KG item entered at rank
+        # 1-5 of its own list and outranked gold by construction.
         form_result = None
         if form_query:
             try:
-                form_result = self.sparse.retrieve(form_query, top_k=max(top_k * 2, 20), filters=None)
+                form_result = self.sparse.retrieve(form_query, top_k=top_k, filters=None)
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("HybridRetriever: form arm failed (%s)", exc)
 
@@ -207,8 +223,25 @@ class HybridRetriever:
                     # sections compete for the governing provision), so it
                     # gets the same 2x width the identifier/form arms use.
                     width = top_k if scope_meta["mode"] == "act_section" else max(top_k * 2, 20)
-                    scope_result = self.dense.search(query, top_k=width, filters=scope_meta["filter"])
-                    scope_result.source = "section_scope"
+                    # The caller's own payload filters (QueryParser output and
+                    # anything the HTTP body supplied) still apply: the arm
+                    # must not be a way to retrieve outside the caller's scope.
+                    scope_filter = merge_caller_filters(scope_meta["filter"], filters)
+                    armed = self.dense.search(query, top_k=width, filters=scope_filter)
+                    # ``dense.search`` swallows its own exceptions and returns
+                    # an empty result carrying ``error``, so the ``except``
+                    # below rarely fires. An arm that found nothing is not a
+                    # reason to widen the pool — gate on the chunks, not on
+                    # the object, so a missing payload index (or any other
+                    # silent Qdrant failure) leaves the pool exactly as the
+                    # base arms built it.
+                    if armed.chunks:
+                        scope_result = armed
+                    else:
+                        logger.debug(
+                            "HybridRetriever: section/act-scope arm returned no chunks (%s)",
+                            armed.error or "no matches",
+                        )
                 except (ConnectionError, RuntimeError) as exc:
                     logger.warning("HybridRetriever: section/act-scope arm failed (%s)", exc)
 
@@ -223,7 +256,8 @@ class HybridRetriever:
             ranked_lists.append(form_result.chunks)
         if scope_result:
             ranked_lists.append(scope_result.chunks)
-        chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=self._rrf_k)
+        per_call_rrf_k = rrf_k if rrf_k is not None else self._rrf_k
+        chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=per_call_rrf_k)
 
         # Build the chunk_map with keep-higher-score upsert.  For the first
         # list (dense, chunk_map empty) this is equivalent to first-wins.
@@ -248,19 +282,39 @@ class HybridRetriever:
         # chunk in any arm's own ``top_k`` is retained, appended after the
         # fusion order so the added arm still promotes what it found.
         #
+        # Two details make that safe to hand to the reranker:
+        #
+        # * **Deduplicated.** Arms overlap by design (dense and sparse share
+        #   hits; the identifier and form arms are both sparse retrievals), so
+        #   a chunk missed by the cut is usually in several arms. Collecting
+        #   into ``selected`` as we go — rather than testing against a
+        #   snapshot — keeps one ``RetrievedChunk`` per chunk_id. Without it
+        #   the same object lands in the pool twice and ``ContextBuilder``
+        #   emits it under two ``[Source n]`` labels.
+        # * **Bounded.** Every extra chunk is another cross-encoder forward
+        #   pass on the hot path, so the protection is capped at ``top_k``
+        #   extras, taken in fused-score order — the survivors that the
+        #   structural arm actually promoted. The pool is therefore at most
+        #   ``2 * top_k``, not the ~``5 * top_k`` an uncapped per-arm union
+        #   would give once the identifier and form arms are also firing.
+        #
         # Only applied when the scope arm fired, so the default two-arm path
         # is byte-identical to before.
         if scope_result is not None:
             selected = set(selected_ids)
-            protected = [
-                chunk.chunk_id
-                for ranked in ranked_lists
-                if ranked is not scope_result.chunks
-                for chunk in ranked[:top_k]
-                if chunk.chunk_id not in selected
-            ]
-            if protected:
-                selected_ids = selected_ids + protected
+            protected: list[str] = []
+            for ranked in ranked_lists:
+                if ranked is scope_result.chunks:
+                    continue
+                for chunk in ranked[:top_k]:
+                    if chunk.chunk_id in selected:
+                        continue
+                    selected.add(chunk.chunk_id)
+                    protected.append(chunk.chunk_id)
+            if len(protected) > top_k:
+                protected.sort(key=lambda cid: chunk_scores[cid], reverse=True)
+                protected = protected[:top_k]
+            selected_ids = selected_ids + protected
         fused_chunks = [chunk_map[cid] for cid in selected_ids]
 
         # Update scores to the RRF score
@@ -286,6 +340,12 @@ class HybridRetriever:
                 fused_chunks = self.reranker.rerank(query, fused_chunks, top_k=top_k, query_type=query_type)
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("Reranker failed, returning unfused results: %s (%s)", exc, type(exc).__name__)
+                fused_chunks = fused_chunks[:top_k]
+        else:
+            # No reranker to truncate the widened pool: honour ``top_k`` here
+            # so ``retrieve`` keeps its documented contract. A no-op on the
+            # default path, where the pool is already exactly ``top_k``.
+            fused_chunks = fused_chunks[:top_k]
 
         return SearchResult(
             query=query,

@@ -143,6 +143,36 @@ def _routes_from_plan(retrieval: Any) -> list[str]:
     return routes
 
 
+def _enrich_multi_domain_trace(query: str, result: Any) -> dict[str, Any]:
+    """Record the domain distribution of a multi-domain fused result.
+
+    Only emits when ``result.source == "multi-domain"``, so single-collection
+    traces carry no footprint. Emits the source marker and the top-3
+    (domain, chunk_count) pairs for the audit log and the eval harness.
+    """
+    source = getattr(result, "source", None)
+    if source != "multi-domain":
+        return {}
+    domains: dict[str, int] = {}
+    for chunk in result.chunks:
+        d = getattr(chunk, "domain", "unknown")
+        domains[d] = domains.get(d, 0) + 1
+    top = sorted(domains.items(), key=lambda kv: kv[1], reverse=True)[:3]
+    return {
+        "multi_domain_trace": {
+            "source": "multi-domain",
+            "domain_distribution": dict(top),
+        },
+    }
+
+
+def _multi_domain_trace_flag() -> bool:
+    """Feature flag for the multi-domain trace enrichment stage."""
+    from app.shared.config import cfg
+
+    return bool(cfg.multi_domain_router)
+
+
 # ---------------------------------------------------------------------------
 # Stage definitions (ordered: identity → expansion → evidence)
 # ---------------------------------------------------------------------------
@@ -197,6 +227,14 @@ POST_RETRIEVAL_STAGES: list[RetrievalStage] = [
         is_enabled=_evidence_plan_flag,
         enrich=_enrich_evidence_plan,
         output_key="retrieval_plan",
+        default={},
+        isolate=True,
+    ),
+    RetrievalStage(
+        name="multi_domain_trace",
+        is_enabled=_multi_domain_trace_flag,
+        enrich=_enrich_multi_domain_trace,
+        output_key="multi_domain_trace",
         default={},
         isolate=True,
     ),

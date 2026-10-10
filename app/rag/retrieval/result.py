@@ -38,6 +38,15 @@ class RetrievedChunk:
     #: parent-standard reconstruction (clause grouping across a document).
     document_id: str = ""
 
+    #: Owning domain key (``fssai``, ``env``, ``wb_state``, ...) used by the
+    #: multi-domain router to tag the origin of each chunk. Defaults to ""
+    #: (retro-compat: payloads carry no domain tag).
+    domain: str = ""
+
+    #: Owning Qdrant collection (``fssai_legal_768``, ``env_legal_768``, ...) —
+    #: mirrors ``domain`` for traceability and eval harnessing.
+    collection: str = ""
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "chunk_id": self.chunk_id,
@@ -53,6 +62,8 @@ class RetrievedChunk:
             "hierarchy_level": self.hierarchy_level,
             "parent_chunk_id": self.parent_chunk_id,
             "document_id": self.document_id,
+            "domain": self.domain,
+            "collection": self.collection,
         }
 
     @classmethod
@@ -71,6 +82,8 @@ class RetrievedChunk:
             hierarchy_level=data.get("hierarchy_level", 0),
             parent_chunk_id=data.get("parent_chunk_id"),
             document_id=data.get("document_id", ""),
+            domain=data.get("domain", ""),
+            collection=data.get("collection", ""),
         )
 
 

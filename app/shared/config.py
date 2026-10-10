@@ -205,6 +205,19 @@ _TABLE: tuple[Setting, ...] = (
         ),
     ),
     Setting(
+        "RAG_FORM_ARM",
+        "form_arm",
+        bool,
+        False,
+        help=(
+            "Form-reference parallel additive retrieval arm for workflow/"
+            "procedure queries (lexical 'Form N' query). Requires form "
+            "vocabulary in retrieval.form_references. Opt-out=False means the "
+            "string must be 'true' to enable; default off so the arm stays "
+            "disabled unless explicitly opted in."
+        ),
+    ),
+    Setting(
         "ENABLE_EVIDENCE_SELECTOR",
         "evidence_selector",
         bool,
@@ -335,6 +348,23 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         False,
         help="Prefix CE passages with §-identity before scoring (CV2 P1).",
+    ),
+    Setting(
+        "RAG_MULTI_DOMAIN_ROUTER",
+        "multi_domain_router",
+        bool,
+        True,
+        opt_in=False,
+        help=(
+            "Production multi-domain query router with FSSAI-first priority "
+            "fusion for mixed FBO-violation queries (e.g. FBO + solid waste). "
+            "Default True: mixed-domain queries are routed to fssai + "
+            "env/wb_state/etc. and fused so FSSAI chunks occupy the top slots; "
+            "single-domain queries short-circuit to the existing default "
+            "collection fetch. When False the stack degrades to the single "
+            "default collection — no silent cross-domain contamination "
+            "(RAG_FSSAI_PRIMARY_MULTI_DOMAIN_ANALYSIS.md Gap #2)."
+        ),
     ),
     # --- Reranker ------------------------------------------------------------
     Setting(

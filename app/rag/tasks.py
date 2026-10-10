@@ -82,7 +82,7 @@ def clear_retrieval_cache() -> None:
 def _retrieval_cache_key(
     query: str,
     top_k: int,
-    collection_name: str | None,
+    collection_name: str | list[str] | None,
     filters: dict[str, Any] | None,
     query_type: str,
     legal_qt: str | None,
@@ -95,12 +95,23 @@ def _retrieval_cache_key(
     that differ only in the RL-selected RRF constant are *different* results.
     Without it the bandit varied a parameter the cache then silently discarded,
     and the second query in a TTL window replayed the first query's fusion.
+
+    When *collection_name* is a list (multi-domain route, Gap #2), it is
+    normalized to a sorted tuple so the cache key is order-independent:
+    fetching the same set of collections in a different order yields the same
+    cached result.
     """
     try:
+        if collection_name is None:
+            coll_key = ""
+        elif isinstance(collection_name, list):
+            coll_key = tuple(sorted(collection_name))
+        else:
+            coll_key = collection_name
         return (
             query.strip().lower(),
             int(top_k),
-            collection_name or "",
+            coll_key,
             query_type,
             legal_qt or None,
             (identifier or {}).get("form"),
@@ -114,7 +125,7 @@ def _retrieval_cache_key(
 def run_retrieval_pipeline(
     query: str,
     top_k: int = 10,
-    collection_name: str | None = None,
+    collection_name: str | list[str] | None = None,
     filters: dict[str, Any] | None = None,
     pipeline: str | None = None,
     cache: RetrievalCache | None = None,
@@ -127,6 +138,12 @@ def run_retrieval_pipeline(
     Returns a JSON-serializable dict with ``chunks``, ``query_type``,
     ``latency_ms``, and ``error`` (if any).
 
+    When ``collection_name`` is a list of collection names and the
+    ``RAG_MULTI_DOMAIN_ROUTER`` flag (default on) is enabled, the pipeline
+    routes across all named collections and fuses them with FSSAI-first
+    priority ranking (Gap #2, app/rag/domain_router.py); otherwise the
+    pipeline runs against the single named/default collection exactly as before.
+
     *pipeline* stamps the ``RAGQueryLog`` row with the calling pipeline
     (``"legacy"`` / ``"agent"``) for the rollout §8 A/B comparison —
     ``None`` leaves it unstamped.
@@ -136,7 +153,10 @@ def run_retrieval_pipeline(
 
     Orchestrates three stages (split from a single 161-line body,
     2026-09-12 review): query understanding, cached evidence fetch, and
-    enrichment + response assembly.  Behaviour is unchanged.
+    enrichment + response assembly.  Behaviour is unchanged EXCEPT that when
+    ``collection_name`` is a list and the ``RAG_MULTI_DOMAIN_ROUTER`` flag
+    (default on) is enabled, the fetch is routed across all named collections
+    and fused with FSSAI-first priority ranking (Gap #2, app/rag/domain_router.py).
     """
     from app.rag.retrieval.logger import RetrievalLogger
     from app.rag.retrieval.stages import apply_stages
@@ -145,7 +165,9 @@ def run_retrieval_pipeline(
 
     # Stage 1 — understand the query: classify, parse, legal typing,
     # identifier route, and (food-intent flag) the food-commodity view.
-    query_type, legal_qt, identifier, identifier_query, form_query, merged_filters = _retrieval_understand_query(query, filters)
+    query_type, legal_qt, identifier, identifier_query, form_query, merged_filters = _retrieval_understand_query(
+        query, filters
+    )
     food_view = _retrieval_food_view(query)
 
     # Stage 2 — fetch evidence through the hybrid retriever with the
@@ -180,19 +202,108 @@ def run_retrieval_pipeline(
     # pool for every food-intent query.
     eff_top_k = max(rl_params.top_k, fetch_k) if rl_params else fetch_k
     cache = cache or _default_cache
-    result = _retrieval_fetch(
-        query,
-        top_k=eff_top_k,
-        collection_name=collection_name,
-        merged_filters=merged_filters,
-        query_type=query_type,
-        legal_qt=legal_qt,
-        identifier=identifier,
-        identifier_query=identifier_query,
-        form_query=form_query,
-        cache=cache,
-        rrf_k=eff_rrf_k,
-    )
+    # Stage 2a — multi-domain route (Gap #2: RAG_MULTI_DOMAIN_ROUTER). When
+    # ``collection_name`` is a list of collection names the query is routed
+    # across all named collections and fused with FSSAI-first priority ranking
+    # (app/rag/domain_router.py). On router failure the platform degrades to
+    # the single default collection so the stack never fails because the
+    # router is misbehaving.
+    result: SearchResult | None = None
+    # Default collection for the fallback path (used in the else branch and
+    # inside food-stage narrow fallbacks); imported at function scope so it is
+    # always bound regardless of the router flag.
+    from app.rag.collections import DEFAULT_COLLECTION
+
+    if cfg.multi_domain_router and isinstance(collection_name, list):
+        from app.rag.domain_router import run_multi_collection_retrieval
+        from app.rag.retrieval.result import SearchResult
+
+        multi_result = run_multi_collection_retrieval(
+            query,
+            collection_names=collection_name,
+            top_k=eff_top_k,
+            per_collection_top_k=eff_top_k,
+            rrf_k=eff_rrf_k,
+            filters=merged_filters,
+            query_type=legal_qt,
+        )
+        if multi_result.error:
+            logger.warning("multi-domain route failed, degrading to default collection: %s", multi_result.error)
+            result = _retrieval_fetch(
+                query,
+                top_k=eff_top_k,
+                collection_name=DEFAULT_COLLECTION,
+                merged_filters=merged_filters,
+                query_type=query_type,
+                legal_qt=legal_qt,
+                identifier=identifier,
+                identifier_query=identifier_query,
+                form_query=form_query,
+                cache=cache,
+                rrf_k=eff_rrf_k,
+            )
+        else:
+            # Cache the fused pool (§12.1): the fused result is deterministic and
+            # LLM-free for a fixed (query, collection set, filters, top_k, rrf_k)
+            # tuple. The cache key is order-independent for the collection set.
+            if _retrieval_cache_enabled():
+                cache_key = _retrieval_cache_key(
+                    query,
+                    eff_top_k,
+                    tuple(collection_name),
+                    merged_filters,
+                    query_type.value,
+                    legal_qt,
+                    identifier,
+                    rrf_k=eff_rrf_k,
+                )
+                if cache_key is not None:
+                    cached = cache.get(cache_key)
+                    if cached is not None:
+                        # Rebuild rather than return the shared object; preserve
+                        # the multi-domain source on cache hits for the audit log
+                        # and UI gauges.
+                        result = SearchResult(
+                            query=cached.query,
+                            query_type=cached.query_type,
+                            chunks=list(cached.chunks),
+                            total=cached.total,
+                            latency_ms=0,
+                            source=cached.source or "cache",
+                            error=cached.error,
+                        )
+                        logger.info(
+                            "run_retrieval_pipeline: CACHE HIT multi-domain query=%r top_k=%s", query, eff_top_k
+                        )
+                    else:
+                        cache.put(cache_key, multi_result)
+            result = multi_result
+    else:
+        # Single-collection fetch. When the router is off (or disabled) and a
+        # collection list was passed, degrade to the single default collection
+        # rather than fanning out (design doc fallback): the list is ignored,
+        # never used directly, so there is no silent cross-domain retrieval.
+        if isinstance(collection_name, list):
+            collection_arg = DEFAULT_COLLECTION
+            logger.debug(
+                "multi-domain route disabled; collection list %s ignored, using default collection",
+                collection_name,
+            )
+        else:
+            collection_arg = collection_name or None
+        result = _retrieval_fetch(
+            query,
+            top_k=eff_top_k,
+            collection_name=collection_arg,
+            merged_filters=merged_filters,
+            query_type=query_type,
+            legal_qt=legal_qt,
+            identifier=identifier,
+            identifier_query=identifier_query,
+            form_query=form_query,
+            cache=cache,
+            rrf_k=eff_rrf_k,
+        )
 
     # Stage 2b — food-intent reranking + validation + fallback. The view
     # carries the fetch context, so the stage asks one narrow question.
@@ -201,12 +312,15 @@ def run_retrieval_pipeline(
     if food_view is not None:
         from app.rag.retrieval.food_view import FoodFetchContext, food_stage_2b
 
+        # Narrow fallbacks target the top-priority collection when a list was
+        # routed through the multi-domain path.
+        fallback_collection = collection_name[0] if isinstance(collection_name, list) else collection_name
         result, trace, fallback_rounds_used = food_stage_2b(
             food_view,
             result,
             FoodFetchContext(
                 top_k=top_k,
-                collection_name=collection_name,
+                collection_name=fallback_collection,
                 merged_filters=merged_filters,
                 query_type=query_type,
                 legal_qt=legal_qt,
@@ -347,8 +461,8 @@ def _retrieval_fetch(
     The retrieval stack is built by the composition root
     (app/rag/retrieval/factory.py): collection-aware dense, Qdrant-BM25
     sparse, ensemble/plain reranker, fused hybrid.  One module owns the
-    wiring; the historical inline assembly (and the wrong-collection bug
-    class it bred) lives there now.
+    wiring; the historical inline assembly — and the wrong-collection bug
+    that it bred — lives there now.
 
     Cached (§12.1): retrieval is deterministic and LLM-free, so an identical
     query repeated within the TTL skips the Qdrant round-trip; a fresh copy
@@ -411,10 +525,13 @@ def _retrieval_fetch(
 def retrieve_task(
     query: str,
     top_k: int = 10,
-    collection_name: str | None = None,
+    collection_name: str | list[str] | None = None,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Task entry point around :func:`run_retrieval_pipeline`."""
+    """Task entry point around :func:`run_retrieval_pipeline`.
+
+    When ``collection_name`` is a list and ``RAG_MULTI_DOMAIN_ROUTER`` is on,
+    the task routes through the FSSAI-first multi-collection router (Gap #2)."""
     return run_retrieval_pipeline(
         query=query,
         top_k=top_k,
