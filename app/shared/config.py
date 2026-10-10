@@ -193,6 +193,18 @@ _TABLE: tuple[Setting, ...] = (
         help="Lexical '{Act} section {N}' parallel retrieval arm (V5-validated).",
     ),
     Setting(
+        "RAG_SECTION_ARM",
+        "section_arm",
+        bool,
+        False,
+        help=(
+            "Section/act-scoped structural retrieval arm (exact payload "
+            "identity, RRF-fused additively). Phase 0: recovers gold that "
+            "text similarity ranks below the packing window. Requires the "
+            "section_number/act_name payload indexes."
+        ),
+    ),
+    Setting(
         "ENABLE_EVIDENCE_SELECTOR",
         "evidence_selector",
         bool,

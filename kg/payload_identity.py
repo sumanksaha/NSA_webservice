@@ -51,7 +51,23 @@ STAMP_FIELDS: tuple[str, ...] = ("provision_id", "instrument_id", "legal_domain"
 #: Keyword payload indexes to create after stamping (audit §20 recommended
 #: indexable identity fields). Created best-effort; already-existing indexes
 #: are ignored.
-INDEX_FIELDS: tuple[str, ...] = ("provision_id", "instrument_id", "legal_domain", "status")
+#:
+#: ``act_name`` and ``document_title`` are included because the structural
+#: retrieval arm (``app/rag/retrieval/section_scope.py``) filters an Act by
+#: these two fields — the same union ``evaluation/resolution.py:
+#: payload_to_keys`` resolves a chunk's family from. Without them that filter
+#: 400s, and the failure is silent: ``DenseRetriever.search`` swallows the
+#: exception and returns an empty arm. ``section_number`` (indexed by
+#: ``app/rag/qdrant_client.py:DEFAULT_PAYLOAD_INDEX_FIELDS``) completes the
+#: section-scoped filter.
+INDEX_FIELDS: tuple[str, ...] = (
+    "provision_id",
+    "instrument_id",
+    "legal_domain",
+    "status",
+    "act_name",
+    "document_title",
+)
 
 
 class QdrantPayloadStamper:

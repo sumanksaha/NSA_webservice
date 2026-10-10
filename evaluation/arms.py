@@ -8,6 +8,7 @@ Arms:
     A  dense only                      (Qdrant dense, per-question collection)
     B  sparse / BM25 only              (Qdrant BM25 sparse, per-question collection)
     C  dense + sparse hybrid           (HybridRetriever, no reranker)
+    C_hybrid_section  C + the section/act-scoped structural arm (additive RRF)
     D  KG retrieval                    (graph-RAG contract: query -> provisions)
     E  dense + sparse + KG             (hybrid chunks + KG expansion of chunk ids)
     F  dense + sparse + KG + reranker  (rerank hybrid pool, then KG expansion)
@@ -160,6 +161,36 @@ def arm_c_hybrid(question: dict[str, Any], top_k: int) -> dict[str, Any]:
         "latency_ms": result.latency_ms,
         "error": result.error,
         "retriever": "hybrid",
+    }
+
+
+def arm_c_hybrid_section(question: dict[str, Any], top_k: int) -> dict[str, Any]:
+    """Arm C **plus** the section/act-scoped structural arm (``RAG_SECTION_ARM``).
+
+    Identical to :func:`arm_c_hybrid` except the structural arm runs. The arm
+    is additive in the RRF fusion, so the only way this differs from
+    ``C_hybrid`` is by *adding* structurally-correct chunks that the lexical
+    arms ranked below the packing window.
+
+    No LLM is called; this is retrieval + embeddings only, exactly like
+    ``arm_c_hybrid``.
+    """
+    from app.shared.config import cfg
+
+    collection = question["collections"][0]
+    previous = getattr(cfg, "section_arm", False)
+    cfg.section_arm = True
+    try:
+        result = _hybrid(collection, with_reranker=False).retrieve(question["question"], top_k=top_k)
+    finally:
+        cfg.section_arm = previous
+    return {
+        "chunk_ids": [c.chunk_id for c in result.chunks],
+        "kg_provisions": [],
+        "kg_source": None,
+        "latency_ms": result.latency_ms,
+        "error": result.error,
+        "retriever": "hybrid_section",
     }
 
 

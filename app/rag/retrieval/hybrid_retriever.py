@@ -24,6 +24,7 @@ from typing import Any
 from app.rag.retrieval.dense_retriever import DenseRetriever
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.rag.retrieval.rrf import DEFAULT_RRF_K, reciprocal_rank_fuse
+from app.rag.retrieval.section_scope import section_scope_meta
 from app.rag.retrieval.sparse_retriever import SparseRetriever
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,17 @@ class HybridRetriever:
         self.sparse = sparse
         self.reranker = reranker
         self._rrf_k = rrf_k
+
+    def _section_arm_enabled(self) -> bool:
+        """Whether the section/act-scoped structural arm runs.
+
+        Read per call rather than cached in ``__init__`` so tests can flip the
+        flag after construction, matching how the other feature flags are
+        consumed.
+        """
+        from app.shared.config import cfg
+
+        return bool(getattr(cfg, "section_arm", False))
 
     def retrieve(
         self,
@@ -86,6 +98,11 @@ class HybridRetriever:
                 run through the sparse retriever as a *parallel additive* arm
                 and RRF-fused.  Used for workflow/procedure queries that
                 reference specific FSSAI forms.
+
+        When ``cfg.section_arm`` is on, a section/act-scoped structural arm
+        also runs (see :mod:`app.rag.retrieval.section_scope`). It is derived
+        from the query itself, so it needs no new argument, and it is purely
+        additive in the RRF fusion.
 
         Returns:
             A :class:`SearchResult` with fused, optionally re-ranked chunks.
@@ -170,6 +187,31 @@ class HybridRetriever:
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("HybridRetriever: form arm failed (%s)", exc)
 
+        # Section/act-scoped structural arm (Phase 0, RAG_SECTION_ARM).
+        # Retrieves the structurally-correct chunks by exact section/Act
+        # payload identity and RRF-fuses them with the lexical arms. This is
+        # the production form of the deterministic section/act signal that
+        # outranks both cross-encoders on R@10 (ce_rerank_eval.json). See
+        # app/rag/retrieval/section_scope.py for the rationale and the
+        # trigger classes.
+        scope_result = None
+        if self._section_arm_enabled():
+            scope_meta = section_scope_meta(query)
+            if scope_meta is None:
+                logger.debug("HybridRetriever: no section scope detected in query; structural arm skipped")
+            else:
+                try:
+                    # Section-scoped arm is precision-oriented: the filter
+                    # already pins the instrument, so top_k is enough. The
+                    # act-only arm benefits from a wider fetch (the Act's
+                    # sections compete for the governing provision), so it
+                    # gets the same 2x width the identifier/form arms use.
+                    width = top_k if scope_meta["mode"] == "act_section" else max(top_k * 2, 20)
+                    scope_result = self.dense.search(query, top_k=width, filters=scope_meta["filter"])
+                    scope_result.source = "section_scope"
+                except (ConnectionError, RuntimeError) as exc:
+                    logger.warning("HybridRetriever: section/act-scope arm failed (%s)", exc)
+
         # RRF fusion — rank-based, so scores from different retrievers are
         # comparable regardless of scale.  The core scoring is delegated to
         # ``reciprocal_rank_fuse`` (app.rag.retrieval.rrf) to eliminate the
@@ -179,6 +221,8 @@ class HybridRetriever:
             ranked_lists.append(ident_result.chunks)
         if form_result:
             ranked_lists.append(form_result.chunks)
+        if scope_result:
+            ranked_lists.append(scope_result.chunks)
         chunk_scores = reciprocal_rank_fuse(ranked_lists, rrf_k=self._rrf_k)
 
         # Build the chunk_map with keep-higher-score upsert.  For the first
@@ -192,7 +236,32 @@ class HybridRetriever:
 
         # Sort by fused RRF score descending
         fused_ids = sorted(chunk_scores, key=chunk_scores.get, reverse=True)  # type: ignore[arg-type]
-        fused_chunks = [chunk_map[cid] for cid in fused_ids[:top_k]]
+        selected_ids = fused_ids[:top_k]
+
+        # Non-lossy fusion invariant. A *newly added* arm is additive in pool
+        # membership but not in rank: giving a third set of RRF points
+        # re-orders the pool, and a marginal gold chunk sitting at the
+        # ``top_k`` boundary can be pushed below the cut. That is exactly the
+        # failure a structural arm must not cause — it is supposed to recover
+        # gold, not displace it. So when the structural arm fired, the pool is
+        # made a strict superset of what the arms already surfaced: every
+        # chunk in any arm's own ``top_k`` is retained, appended after the
+        # fusion order so the added arm still promotes what it found.
+        #
+        # Only applied when the scope arm fired, so the default two-arm path
+        # is byte-identical to before.
+        if scope_result is not None:
+            selected = set(selected_ids)
+            protected = [
+                chunk.chunk_id
+                for ranked in ranked_lists
+                if ranked is not scope_result.chunks
+                for chunk in ranked[:top_k]
+                if chunk.chunk_id not in selected
+            ]
+            if protected:
+                selected_ids = selected_ids + protected
+        fused_chunks = [chunk_map[cid] for cid in selected_ids]
 
         # Update scores to the RRF score
         for _i, chunk in enumerate(fused_chunks):

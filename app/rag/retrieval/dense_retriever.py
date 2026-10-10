@@ -284,7 +284,17 @@ class DenseRetriever:
 
     @staticmethod
     def _build_filter(filters: dict[str, Any]) -> dict[str, Any]:
-        """Convert a flat ``{field: value}`` dict into a Qdrant filter dict."""
+        """Convert a flat ``{field: value}`` dict into a Qdrant filter dict.
+
+        A filter that is *already* shaped — i.e. it carries Qdrant's boolean
+        clauses (``must`` / ``should`` / ``must_not``) — is passed through
+        untouched, so callers can express an OR over scoping keys (e.g.
+        ``section_number == N`` AND (``act_name`` OR ``document_title``) ==
+        Act), which a flat dict cannot. See
+        :mod:`app.rag.retrieval.section_scope`.
+        """
+        if any(k in filters for k in ("must", "should", "must_not")):
+            return filters
         must = []
         for key, value in filters.items():
             if isinstance(value, list):
