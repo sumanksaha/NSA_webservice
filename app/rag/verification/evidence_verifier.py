@@ -345,9 +345,7 @@ class EvidenceVerifier:
             chunk_prohibits = bool(_PROHIBITION_RE.search(chunk_text))
             chunk_permits = bool(_PERMISSION_RE.search(chunk_text))
             # A chunk with mixed polarity is ambiguous, not contradictory.
-            supports_polarity = (
-                (claim_prohibits and chunk_prohibits) or (claim_permits and chunk_permits)
-            )
+            supports_polarity = (claim_prohibits and chunk_prohibits) or (claim_permits and chunk_permits)
             if not supports_polarity and (chunk_prohibits or chunk_permits):
                 return False, "polarity_mismatch"
 

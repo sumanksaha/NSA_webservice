@@ -87,6 +87,7 @@ def split_census() -> dict[str, list[str]]:
         out.setdefault(q.raw.get("split") or "MISSING", []).append(q.question_id)
     return out
 
+
 def _split_of() -> dict[str, str]:
     global _SPLIT_BY_QID
     if _SPLIT_BY_QID is None:

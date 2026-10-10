@@ -107,8 +107,7 @@ def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dic
         admitted = {c.get("chunk_id") for c in built.citations}
         units = question.recall_units()
         gold_in_prompt = any(
-            cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units)
-            for cid in admitted
+            cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted
         )
     except Exception as exc:
         logging.getLogger(__name__).warning("gold check failed for %s: %s", qid, exc)
@@ -180,7 +179,13 @@ def adjudicate_tags(tags: list[str], cohort: str = "failures") -> None:
             ok = (cov["all"] and auth["hit"] and not abstained) or (
                 q.insufficient_evidence and rec.get("binary_correct_abstention_credit")
             )
-            rows.append({**t, "concepts_covered": cov["covered"], "concepts_missing": cov["missing"], "authority_hit": auth["hit"], "eliminated": bool(ok)})
+            rows.append({
+                **t,
+                "concepts_covered": cov["covered"],
+                "concepts_missing": cov["missing"],
+                "authority_hit": auth["hit"],
+                "eliminated": bool(ok),
+            })
         fixed = sum(1 for r in rows if r["eliminated"])
         by_action: dict[str, list] = {}
         for r in rows:
@@ -251,7 +256,9 @@ def main() -> int:
     parser.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY)
     parser.add_argument("--delay", type=float, default=1.0, help="seconds between completed calls")
     parser.add_argument("--force", action="store_true")
-    parser.add_argument("--max-chars", type=int, default=0, help="override ContextBuilder char budget (0 = config default)")
+    parser.add_argument(
+        "--max-chars", type=int, default=0, help="override ContextBuilder char budget (0 = config default)"
+    )
     parser.add_argument(
         "--cohort",
         choices=["failures", "control", "all"],
@@ -340,7 +347,10 @@ def main() -> int:
         return rec
 
     if todo:
-        with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as ex, open(out_path, "a", encoding="utf-8") as out:
+        with (
+            ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as ex,
+            open(out_path, "a", encoding="utf-8") as out,
+        ):
             futures = {ex.submit(work, t): t for t in todo}
             for i, fut in enumerate(as_completed(futures), 1):
                 rec = fut.result()

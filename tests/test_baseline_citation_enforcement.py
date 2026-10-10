@@ -18,6 +18,7 @@ exceeds SPEC-1's own >= 0.50 target.
 These tests pin the *shipped* contract and assert the reverted gate stays out.
 Do not re-add a hard quote gate without re-running the A/B.
 """
+
 from __future__ import annotations
 
 from app.rag.generation.prompt_template import (
@@ -37,9 +38,7 @@ class TestShippedContract:
 
     def test_every_domain_prompt_forbids_fabrication(self):
         for domain, prompt in DOMAIN_SYSTEM_PROMPTS.items():
-            assert "never fabricate" in prompt.lower(), (
-                f"domain={domain} missing no-fabrication rule"
-            )
+            assert "never fabricate" in prompt.lower(), f"domain={domain} missing no-fabrication rule"
 
     def test_fssai_prompt_is_the_default(self):
         assert DOMAIN_SYSTEM_PROMPTS["fssai"] == GROUND_QA_SYSTEM_PROMPT
@@ -118,9 +117,7 @@ class TestScanLineSurvivesConditioning:
 
     def test_conditioned_template_contains_the_scan_line(self):
         assert "Before answering, go through every numbered source in the context" in GROUND_QA_USER_TEMPLATE
-        assert (
-            "condition, exception, threshold or definition the answer depends on" in GROUND_QA_USER_TEMPLATE
-        )
+        assert "condition, exception, threshold or definition the answer depends on" in GROUND_QA_USER_TEMPLATE
         assert "First quote the passages that bear on the question" in GROUND_QA_USER_TEMPLATE
 
     def test_conditioned_block_targets_the_audited_causes(self):

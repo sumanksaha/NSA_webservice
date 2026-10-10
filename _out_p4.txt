@@ -1,0 +1,91 @@
+version: 'evaluator_v2'
+date: '2026-09-23'
+provenance: 'Derived from the section-20 human audit (45 packets, seed 20260923). Widened acceptable conclusions ONLY for questions 
+rule: 'score = max over {v1 conclusion, added alternatives}; binary threshold and token_overlap unchanged'
+widened_conclusions: dict len 53
+banned_abstain_markers: dict len 3
+revisions: list len 2
+
+all qids: ['Q004', 'Q005', 'Q006', 'Q008', 'Q009', 'Q011', 'Q013', 'Q017', 'Q019', 'Q029', 'Q030', 'Q037', 'Q041', 'Q046', 'Q054', 'Q055', 'Q056', 'Q060', 'Q061', 'Q062', 'Q064', 'Q065', 'Q066', 'Q069', 'Q070', 'Q073', 'Q075', 'Q077', 'Q081', 'Q087', 'Q091', 'Q092', 'Q093', 'Q099', 'Q101', 'Q103', 'Q106', 'Q108', 'Q113', 'Q114', 'Q120', 'Q121', 'Q131', 'Q136', 'Q138', 'Q139', 'Q140', 'Q141', 'Q142', 'Q143', 'Q144', 'Q145', 'Q150']
+evaluator_miss total: 57
+  any-arm v2 correct : 19
+  remaining (no arm) : 38
+remaining categories: Counter({'P': 38})
+
+--- remaining, sorted by soft desc ---
+Q142 cat=P soft=0.4960
+    The answer correctly separates impossibility/unlawfulness under s56 from damages under s73; it is more nuanced than the reference.
+Q128 cat=P soft=0.4943
+    The answer reaches the benchmark's evidentiary conclusion that no higher amended penalty is reliably established in the corpus.
+Q101 cat=P soft=0.4822
+    The answer correctly states that FSSAI and KMC licensing are cumulative.
+Q004 cat=P soft=0.4800
+    The answer correctly states the FBO's general compliance duty and the s26(2) prohibitions; it is at least as complete as the widened reference.
+Q143 cat=P soft=0.4765
+    The answer reaches the same contractual conclusion as the reference: suspension can constitute breach supporting termination, subject to the agreement.
+Q140 cat=P soft=0.4729
+    The answer identifies simultaneous FSS, KMC and public-health duties.
+Q041 cat=P soft=0.4692
+    The answer correctly states that FSSAI and Meat Order requirements are cumulative.
+Q028 cat=P soft=0.4651
+    The answer correctly identifies a Central licence for an 8-State chain and the 1–5 year validity framework; it appropriately qualifies unsupported turnover details.
+Q029 cat=P soft=0.4618
+    The answer correctly concludes that a petty FBO is exempt from licensing but must register.
+Q132 cat=P soft=0.4618
+    The answer correctly concludes that the exact Type-B medium-restaurant fee is not established in the supplied corpus.
+Q069 cat=P soft=0.4551
+    The answer correctly identifies drainage/nuisance duties and the power to prohibit/remove noxious liquid discharge.
+Q083 cat=P soft=0.4476
+    The answer gives multiple concrete Board powers that collectively implement the public-health protection function in the reference.
+Q106 cat=P soft=0.4403
+    The answer correctly explains concurrent KMC building enforcement and FSSAI food-safety prosecution under separate statutes.
+Q113 cat=P soft=0.4371
+    The answer correctly states that the Meat Order licence does not substitute for a valid FSSAI licence and that operating without the latter attracts FSS consequences.
+Q146 cat=P soft=0.4298
+    The answer correctly identifies both KMC and FSSAI obligations while appropriately noting the petty-operator exception.
+Q092 cat=P soft=0.4285
+    The answer accurately explains s19/s23 appropriation and s26 risk-passing rules.
+Q137 cat=P soft=0.4282
+    The answer correctly concludes that no statutory numerical cap is established in the EPA text/corpus.
+Q150 cat=P soft=0.4200
+    The answer correctly concludes that an FSSAI prohibition order does not oust KMC or environmental jurisdiction.
+Q030 cat=P soft=0.4136
+    The answer correctly concludes that the exact chlorpyrifos MRL is not reliably readable from the Act/corpus and belongs in delegated standards.
+Q009 cat=P soft=0.4133
+    The answers correctly describe the Food Analyst's analysis/reporting role and its evidentiary connection to prosecution; the reference is narrower.
+Q133 cat=P soft=0.4125
+    The answer correctly concludes that the exact KMC scrutiny/redevelopment fee schedule is not established in the supplied corpus.
+Q119 cat=P soft=0.4078
+    The answer correctly concludes that a 500 m setback is not established as a firm rule in the Act corpus.
+Q006 cat=P soft=0.4015
+    The answers identify the Commissioner of Food Safety and provide valid examples of the State-level functions; the reference is narrower than the response.
+Q071 cat=P soft=0.3983
+    The answer identifies the nuisance route and written notice/abatement mechanism, consistent with the reference.
+Q019 cat=P soft=0.3931
+    The answer correctly notices that compounding is governed by s69 rather than s68 and describes the petty-FBO mechanism.
+Q061 cat=P soft=0.3906
+    The answer correctly states the s392 sanction requirement and legal consequence.
+Q090 cat=P soft=0.3819
+    The answer correctly states that the numeric PM2.5 limit is not fixed/readable from the Act text itself.
+Q077 cat=P soft=0.3818
+    The answer gives a detailed statutory standard-rent determination framework and therefore adequately answers the question.
+Q056 cat=P soft=0.3811
+    The answer accurately describes EPR obligations and the 1 July 2022 single-use-plastic prohibition.
+Q068 cat=P soft=0.3801
+    The answer identifies the municipal market/trade licences and explains that they operate alongside the Meat Order regime.
+Q134 cat=P soft=0.3696
+    The answer correctly concludes that the exact Type-A/Type-B turnover threshold is not established in the supplied corpus.
+Q135 cat=P soft=0.3618
+    The answer correctly concludes that the exact current s15(b) maximum fine is not established in the supplied corpus.
+Q013 cat=P soft=0.3609
+    The answers correctly distinguish the post-conviction ordinary prohibition order from the emergency administrative route under s34.
+Q065 cat=P soft=0.3515
+    The answer gives a coherent set of KMC nuisance/trade-control powers protecting adjacent premises/users.
+Q008 cat=P soft=0.3449
+    The answer accurately describes core sampling safeguards including cost, witnesses, custody and analysis/reporting.
+Q087 cat=P soft=0.3167
+    The answer accurately identifies the prohibited single-use plastic categories and 1 July 2022 effective date.
+Q012 cat=P soft=0.3064
+    The answers correctly describe the court prohibition order under s33, its restrictions, service, contravention and lifting; the machine marking is too strict.
+Q066 cat=P soft=0.2551
+    The answer gives a detailed composition and role for the Municipal Building Committee consistent with the reference.

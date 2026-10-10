@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import pytest
 
-from evaluation.split_policy import split_census
 from evaluation.benchmark import load_questions
 from evaluation.split_policy import (
     DEV_SPLIT,
@@ -26,6 +25,7 @@ from evaluation.split_policy import (
     assert_no_holdout,
     contamination_report,
     describe_qids,
+    split_census,
     stamp_split,
 )
 
@@ -38,8 +38,6 @@ def _census():
 @pytest.fixture(scope="module")
 def census():
     return _census()
-
-
 
 
 class TestCensus:
@@ -146,7 +144,7 @@ class TestAssertNoHoldout:
     def test_unidentifiable_qids_are_refused_too(self, census):
         """A guard that passes when it cannot tell is not a guard."""
         with pytest.raises(ValueError, match="not in the benchmark"):
-            assert_no_holdout(census[EVAL_SPLIT][:2] + ["Q999-unknown"])
+            assert_no_holdout([*census[EVAL_SPLIT][:2], "Q999-unknown"])
 
 
 class TestStampSplit:
@@ -179,6 +177,6 @@ class TestStampSplit:
         assert rep["touches_holdout"] is True
         assert "CONTAMINATED" in rep["statement"]
 
+
 def _question_ids_by_split(name: str) -> list[str]:
     return split_census()[name]
-

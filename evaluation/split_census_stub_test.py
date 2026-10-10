@@ -1,4 +1,5 @@
 import sys
+
 sys.path.insert(0, ".")
 
 # Canonical definition site and both consumers import cleanly.
@@ -36,5 +37,3 @@ assert load_questions(split="nope") == []
 assert load_questions(split=[]) == []
 assert all(q.split == "validation" for q in load_questions(split="validation"))
 assert set(q.question_id for q in load_questions(split="validation")) == set(census["validation"])
-
-print("split_census cleanup smoke test OK", flush=True)

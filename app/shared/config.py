@@ -234,7 +234,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         help="Arm-aware TargetPlan retry path (RAG-TR-001), active by default. "
-             "Off = legacy string path (dormant: it silently echoes untargetable queries).",
+        "Off = legacy string path (dormant: it silently echoes untargetable queries).",
     ),
     Setting(
         "RAG_VERIFIER_SHADOW",
@@ -366,7 +366,11 @@ _TABLE: tuple[Setting, ...] = (
         help="Post-sec_act head size the CE scores (validated h=30).",
     ),
     Setting(
-        "RAG_ENSEMBLE_CE_WEIGHT", "ensemble_ce_weight", float, 0.5, help="Bonus weight for normalized CE head scores.",
+        "RAG_ENSEMBLE_CE_WEIGHT",
+        "ensemble_ce_weight",
+        float,
+        0.5,
+        help="Bonus weight for normalized CE head scores.",
     ),
     # --- Remote dense embeddings ---------------------------------------------
     Setting(
@@ -555,7 +559,11 @@ _TABLE: tuple[Setting, ...] = (
         ),
     ),
     Setting(
-        "RAG_KG_MAX_PROVISIONS", "kg_max_provisions", int, 5, help="Max KG provisions injected into the LLM context.",
+        "RAG_KG_MAX_PROVISIONS",
+        "kg_max_provisions",
+        int,
+        5,
+        help="Max KG provisions injected into the LLM context.",
     ),
     Setting(
         "RAG_RETRIEVAL_CACHE_TTL_SECONDS",

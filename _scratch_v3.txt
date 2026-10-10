@@ -1,0 +1,116 @@
+--- evaluator_v3_triage.json: keys=['version', 'date', 'provenance', 'summary', 'buckets', 'bucket_stats', 'already_fixed_qids', 'recommended_next_action']
+   summary: {"evaluator_miss_total": 57, "already_correct_under_v2_best_condition": 19, "still_unresolved": 38, "widen_overlay": 14, "overlay_insufficient": 24}
+   provenance: dict keys=['tabulation', 'overlay_v2', 'note']
+   summary: dict keys=['evaluator_miss_total', 'already_correct_under_v2_best_condition', 'still_unresolved', 'widen_overlay', 'overlay_insufficient']
+   buckets: dict keys=['widen_overlay', 'overlay_insufficient']
+   bucket_stats: dict keys=['widen_overlay', 'overlay_insufficient']
+   already_fixed_qids: list n=19
+   recommended_next_action: dict keys=['widen_overlay', 'overlay_insufficient']
+--- evaluator_v3_candidates.json: keys=['Q001', 'Q002', 'Q003', 'Q004', 'Q006', 'Q008', 'Q009', 'Q011', 'Q012', 'Q013', 'Q017', 'Q019', 'Q027', 'Q028', 'Q029', 'Q030', 'Q037', 'Q041', 'Q042', 'Q043', 'Q045', 'Q046', 'Q056', 'Q060', 'Q061', 'Q064', 'Q065', 'Q066', 'Q068', 'Q069', 'Q071', 'Q077', 'Q081', 'Q083', 'Q087', 'Q090', 'Q091', 'Q092', 'Q093', 'Q095', 'Q098', 'Q099', 'Q101', 'Q103', 'Q106', 'Q108', 'Q113', 'Q119', 'Q128', 'Q132', 'Q133', 'Q134', 'Q135', 'Q137', 'Q138', 'Q140', 'Q142', 'Q143', 'Q146', 'Q148', 'Q150']
+   Q001: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q002: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q003: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q004: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q006: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q008: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q009: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q011: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q012: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q013: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q017: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q019: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q027: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q028: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q029: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q030: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q037: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q041: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q042: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q043: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q045: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q046: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q056: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q060: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q061: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q064: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q065: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q066: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q068: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q069: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q071: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q077: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q081: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q083: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q087: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q090: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q091: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q092: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q093: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q095: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q098: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q099: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q101: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q103: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q106: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q108: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q113: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q119: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q128: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q132: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q133: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q134: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q135: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q137: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q138: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q140: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q142: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q143: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q146: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q148: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+   Q150: dict keys=['verdict', 'notes', 'already_fixed_by_v2']
+--- evaluator_v3_component_rule.json: keys=['version', 'date', 'source', 'threshold_sweep', 'component_availability', 'recommended_rule']
+   threshold_sweep: dict keys=['n_unresolved_misses', 'n_model_wrong', 'unresolved_best_soft', 'model_wrong_best_soft', 'rows', 'best_precision', 'conclusion']
+   component_availability: dict keys=['stored_arm_keys', 'available_components', 'unavailable_components', 'component_definitions', 'note']
+   recommended_rule: dict keys=['principle', 'proposed', 'rationale', 'status', 'next_step']
+
+[widen_overlay] n=14
+    Q012 | cat= P | soft= {'C-O3': 0.29, 'D2': 0.3064, 'D3': 0.2516, 'E1': 0.3064}
+    Q028 | cat= P | soft= {'C-O3': 0.3147, 'D2': 0.4651, 'D3': 0.4146, 'E1': 0.4651}
+    Q068 | cat= P | soft= {'C-O3': 0.3801, 'D2': 0.3056, 'D3': 0.3186, 'E1': 0.3346}
+    Q071 | cat= P | soft= {'C-O3': 0.3983, 'D2': 0.3057, 'D3': 0.3586, 'E1': 0.3057}
+    Q083 | cat= P | soft= {'C-O3': 0.4304, 'D2': 0.4089, 'D3': 0.4476, 'E1': 0.4173}
+    Q090 | cat= P | soft= {'C-O3': 0.3819, 'D2': 0.3414, 'D3': 0.3679, 'E1': 0.3414}
+    Q119 | cat= P | soft= {'C-O3': 0.3805, 'D2': 0.4078, 'D3': 0.3021, 'E1': 0.4078}
+    Q128 | cat= P | soft= {'C-O3': 0.4893, 'D2': 0.4943, 'D3': 0.4665, 'E1': 0.4943}
+    Q132 | cat= P | soft= {'C-O3': 0.448, 'D2': 0.4618, 'D3': 0.4459, 'E1': 0.4618}
+    Q133 | cat= P | soft= {'C-O3': 0.4095, 'D2': 0.375, 'D3': 0.4125, 'E1': 0.375}
+    Q134 | cat= P | soft= {'C-O3': 0.3343, 'D2': 0.3436, 'D3': 0.3696, 'E1': 0.3436}
+    Q135 | cat= P | soft= {'C-O3': 0.3618, 'D2': 0.3442, 'D3': 0.34, 'E1': 0.3442}
+    Q137 | cat= P | soft= {'C-O3': 0.362, 'D2': 0.4282, 'D3': 0.4119, 'E1': 0.4282}
+    Q146 | cat= P | soft= {'C-O3': 0.4284, 'D2': 0.4298, 'D3': 0.3013, 'E1': 0.4298}
+
+[overlay_insufficient] n=24
+    Q004 | cat= P | soft= {'C-O3': 0.48, 'D2': 0.3576, 'D3': 0.3937, 'E1': 0.3576}
+    Q006 | cat= P | soft= {'C-O3': 0.37, 'D2': 0.3951, 'D3': 0.4015, 'E1': 0.3951}
+    Q008 | cat= P | soft= {'C-O3': 0.3449, 'D2': 0.3032, 'D3': 0.2889, 'E1': 0.3032}
+    Q009 | cat= P | soft= {'C-O3': 0.3586, 'D2': 0.4133, 'D3': 0.3953, 'E1': 0.4133}
+    Q013 | cat= P | soft= {'C-O3': 0.3582, 'D2': 0.3609, 'D3': 0.3408, 'E1': 0.3609}
+    Q019 | cat= P | soft= {'C-O3': 0.3632, 'D2': 0.3418, 'D3': 0.3931, 'E1': 0.3418}
+    Q029 | cat= P | soft= {'C-O3': 0.4028, 'D2': 0.4618, 'D3': 0.4103, 'E1': 0.4618}
+    Q030 | cat= P | soft= {'C-O3': 0.4136, 'D2': 0.41, 'D3': 0.3928, 'E1': 0.41}
+    Q041 | cat= P | soft= {'C-O3': 0.3885, 'D2': 0.4429, 'D3': 0.4692, 'E1': 0.4429}
+    Q056 | cat= P | soft= {'C-O3': 0.3356, 'D2': 0.3811, 'D3': 0.3157, 'E1': 0.3811}
+    Q061 | cat= P | soft= {'C-O3': 0.3847, 'D2': 0.3906, 'D3': 0.3712, 'E1': 0.3906}
+    Q065 | cat= P | soft= {'C-O3': 0.3515, 'D2': 0.2973, 'D3': 0.3424, 'E1': 0.2973}
+    Q066 | cat= P | soft= {'C-O3': 0.2551, 'D2': 0.2526, 'D3': 0.248, 'E1': 0.2526}
+    Q069 | cat= P | soft= {'C-O3': 0.4551, 'D2': 0.454, 'D3': 0.4312, 'E1': 0.454}
+    Q077 | cat= P | soft= {'C-O3': 0.3165, 'D2': 0.3818, 'D3': 0.3751, 'E1': 0.3818}
+    Q087 | cat= P | soft= {'C-O3': 0.3167, 'D2': 0.2768, 'D3': 0.3154, 'E1': 0.2768}
+    Q092 | cat= P | soft= {'C-O3': 0.4141, 'D2': 0.374, 'D3': 0.4285, 'E1': 0.374}
+    Q101 | cat= P | soft= {'C-O3': 0.4822, 'D2': 0.4624, 'D3': 0.3833, 'E1': 0.4624}
+    Q106 | cat= P | soft= {'C-O3': 0.4403, 'D2': 0.3893, 'D3': 0.3122, 'E1': 0.3893}
+    Q113 | cat= P | soft= {'C-O3': 0.4371, 'D2': 0.35, 'D3': 0.4085, 'E1': 0.35}
+    Q140 | cat= P | soft= {'C-O3': 0.4144, 'D2': 0.4729, 'D3': 0.4317, 'E1': 0.4729}
+    Q142 | cat= P | soft= {'C-O3': 0.3591, 'D2': 0.3869, 'D3': 0.496, 'E1': 0.3446}
+    Q143 | cat= P | soft= {'C-O3': 0.4718, 'D2': 0.4765, 'D3': 0.454, 'E1': 0.4765}
+    Q150 | cat= P | soft= {'C-O3': 0.42, 'D2': 0.4048, 'D3': 0.3483, 'E1': 0.4048}

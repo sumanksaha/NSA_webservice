@@ -148,7 +148,7 @@ def spearman(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     if sx == 0.0 or sy == 0.0:
         return None
     mx, my = _mean(rx), _mean(ry)
-    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry, strict=True))
     return round(cov / (len(rx) * sx * sy), 6)
 
 
@@ -161,8 +161,8 @@ def point_biserial(binary: Sequence[int], continuous: Sequence[float]) -> float 
     n = len(binary)
     if n == 0 or n != len(continuous):
         return None
-    ones = [c for b, c in zip(binary, continuous) if b]
-    zeros = [c for b, c in zip(binary, continuous) if not b]
+    ones = [c for b, c in zip(binary, continuous, strict=True) if b]
+    zeros = [c for b, c in zip(binary, continuous, strict=True) if not b]
     if not ones or not zeros:
         return None
     sd = _pstdev(continuous)

@@ -26,8 +26,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from kg.corpus_ingestion import _is_bare_section_stub  # noqa: F401 (re-used in load_fssai_provisions)
-
+from kg.corpus_ingestion import _is_bare_section_stub
 from kg.domain_manifest import (
     AUTHORITIES,
     CONCEPTS,

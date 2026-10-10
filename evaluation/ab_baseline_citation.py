@@ -151,9 +151,7 @@ _CANDIDATES: dict[str, str] = {
         "the question using those quotes, citing specific sources with "
         "[n] markers.\n"
         "Name the section or rule you rely on and put its source label at the "
-        "end of the same sentence (for example: Section 31(2) [3]).\n"
-        + _CITE_BREADTH
-        + "\n\n"
+        "end of the same sentence (for example: Section 31(2) [3]).\n" + _CITE_BREADTH + "\n\n"
         "Question: {query}\n"
         "Answer:"
     ),
@@ -270,7 +268,9 @@ _ABSTAIN_RE = re.compile(
 _MARKER_RE = re.compile(r"\[(\d+)\]")
 
 
-def _select_population(payload_index: dict, questions: dict, recs: dict, limit: int) -> list[tuple[str, str, list, set]]:
+def _select_population(
+    payload_index: dict, questions: dict, recs: dict, limit: int
+) -> list[tuple[str, str, list, set]]:
     """Qids whose BASELINE window already contains gold (the measurable slice)."""
     from evaluation.resolution import matches_gold as _mg
 
@@ -287,11 +287,7 @@ def _select_population(payload_index: dict, questions: dict, recs: dict, limit: 
             continue
         family_map = FamilyMap()
         pool = chunks[:BASELINE_K]
-        gold = {
-            c.chunk_id
-            for c in pool
-            if any(_mg(payload_index.get(c.chunk_id, {}), u, family_map) for u in units)
-        }
+        gold = {c.chunk_id for c in pool if any(_mg(payload_index.get(c.chunk_id, {}), u, family_map) for u in units)}
         if not gold:
             continue  # citation_recall undefined for this qid
         picked.append((qid, recs[qid].get("query") or q.question, pool, gold))
@@ -314,7 +310,11 @@ def _run_one(task, payload_index, questions, template: str | None) -> dict[str, 
 
         svc._render_prompt = _render  # type: ignore[method-assign]
 
-    qt = (questions[qid].question_types or ["general"])[0] if getattr(questions[qid], "question_types", None) else "general"
+    qt = (
+        (questions[qid].question_types or ["general"])[0]
+        if getattr(questions[qid], "question_types", None)
+        else "general"
+    )
     try:
         built = svc.context_builder.build(qtext, pool, query_type=qt)
         sys_p, user_p = svc._render_prompt(qtext, built)
@@ -380,7 +380,7 @@ KEYS = (
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=60)
-    ap.add_argument("--variant", default="legacy", choices=sorted(VARIANTS) + ["shipped"])
+    ap.add_argument("--variant", default="legacy", choices=[*sorted(VARIANTS), "shipped"])
     ap.add_argument("--qids", default="")
     ap.add_argument("--tag", default="", help="suffix the output file, for independent replicates")
     args = ap.parse_args()

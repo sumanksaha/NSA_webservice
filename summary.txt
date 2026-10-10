@@ -1,0 +1,24 @@
+Implementation Summary - Priority 1, 3, and 4
+
+## Priority 1: Claim-Level Entailment in EvidenceVerifier ✅ COMPLETE
+- Modified: app/rag/verification/evidence_verifier.py
+- Added polarity and numeric entailment gates to verify_claim()
+- 51 passed in tests/test_hallucination_detector.py (21 new gate tests + 30 pre-existing)
+- Key bugs fixed: _PROHIBITION_RE pattern ordering, staticmethod self bug
+- New test class TestClaimEntailmentGates covers polarity inversion, numeric hallucination, regression coverage
+
+## Priority 3: KG Payload Ingestion ✅ ROOT CAUSE FIXED
+- Modified: kg/ingestion.py and kg/corpus_ingestion.py
+- Fixed: load_fssai_provisions() now accumulates text from all chunks per section (not just header)
+- Restores provision text quality and should restore KG fusion citation recall toward 0.31
+
+## Priority 4: Evaluator-v3 Reference Overlay ⚠️ ENTRIES DETERMINED
+- 24 of 38 no-arm evaluator_miss qids already have overlay entries
+- 14 remaining qids need overlay entries (Q012, Q028, Q068, Q071, Q083, Q090, Q119, Q128, Q132, Q133, Q134, Q135, Q137, Q146)
+- Entries determined and documented - ready to add via Python script or text editor to evaluation/evaluator_v2_overlay.json
+
+## Additional Fixes
+- _PROHIBITION_RE pattern ordering bug fixed
+- _chunk_supports_claim staticmethod self bug fixed
+- _asserted_numerics normalization helper added
+- _ranked_matches and _text_confidence helpers added

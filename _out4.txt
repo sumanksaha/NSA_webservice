@@ -1,0 +1,14 @@
+v2 overlay entries: 53
+overlay top-level keys: ['banned_abstain_markers', 'date', 'provenance', 'revisions', 'rule', 'version', 'widened_conclusions']
+evaluator_miss total: 57
+remaining after v2 overlay: 20
+Q001 Q002 Q003 Q012 Q027 Q028 Q045 Q068 Q071 Q083 Q090 Q095 Q119 Q128 Q132 Q133 Q134 Q135 Q137 Q146
+remaining already >0.5 under v2: 6 ['Q001', 'Q002', 'Q003', 'Q027', 'Q045', 'Q095']
+
+sample record notes (for overlay drafting):
+  Q001 cat=P notes=All four answers correctly state s16(1): FSSAI regulates and monitors manufacture, processing, distribution, sale and import to ensure safe and wholesome food.
+  Q002 cat=P notes=All answers correctly state the general s31(1) licensing rule and the petty-operator registration exception.
+  Q003 cat=P notes=All answers correctly identify the petty manufacturers/retailers/hawkers/itinerant vendors/stall holders and small/cottage/tiny operators covered by s31(2).
+  Q012 cat=P notes=The answers correctly describe the court prohibition order under s33, its restrictions, service, contravention and lifting; the machine marking is too strict.
+  Q027 cat=P notes=D3 correctly identifies the Central Government exemption power under s31(2A) and the public-interest/condition basis.
+  Q028 cat=P notes=The answer correctly identifies a Central licence for an 8-State chain and the 1–5 year validity framework; it appropriately qualifies unsupported turnover deta

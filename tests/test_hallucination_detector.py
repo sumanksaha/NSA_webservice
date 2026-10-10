@@ -182,7 +182,9 @@ class TestClaimEntailmentGates:
     def test_mixed_polarity_chunk_supports_claim(self):
         """A chunk stating the rule *and* its exception is ambiguous, not contradictory."""
         chunks = [
-            self._chunk("A licence shall not be sold to unqualified applicants, but sale may be permitted with a waiver.")
+            self._chunk(
+                "A licence shall not be sold to unqualified applicants, but sale may be permitted with a waiver."
+            )
         ]
         claim = ClaimExtractor().extract("A licence shall not be sold to unqualified applicants.")[0]
         ver = EvidenceVerifier().verify_claim(claim, chunks)

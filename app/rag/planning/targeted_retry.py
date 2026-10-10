@@ -28,7 +28,9 @@ ARM_HYBRID = "hybrid"
 ARM_NONE = "none"
 
 #: Pseudo-tag suffixes that must never appear in an emitted query (RAG-TR-001 §4 hard rule).
-_PSEUDO_TAG_RE = re.compile(r"\(\s*(identifier|definition|temporal|hierarchy|authority|case_law|expand)\s*\)", re.IGNORECASE)
+_PSEUDO_TAG_RE = re.compile(
+    r"\(\s*(identifier|definition|temporal|hierarchy|authority|case_law|expand)\s*\)", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,7 @@ class TargetPlan:
             failures=tuple(str(f) for f in (data.get("failures") or [])),
             meta=dict(data.get("meta") or {}),
         )
+
 
 if TYPE_CHECKING:
     from app.rag.planning.failure_classifier import RetrievalFailure
@@ -109,8 +112,16 @@ class TargetedRetryPlanner:
             plan = TargetPlan(query=query, arm=ARM_NONE, strategy=strategy, failures=fail_codes)
         else:
             # Unknown strategy: explicit no-op plan, never a silent query echo
-            logger.warning("Unknown retry strategy %r for failures %r — emitting unmapped no-op plan", strategy, fail_codes)
-            plan = TargetPlan(query=query, arm=ARM_NONE, strategy="unmapped", failures=fail_codes, meta={"unmapped_strategy": strategy})
+            logger.warning(
+                "Unknown retry strategy %r for failures %r — emitting unmapped no-op plan", strategy, fail_codes
+            )
+            plan = TargetPlan(
+                query=query,
+                arm=ARM_NONE,
+                strategy="unmapped",
+                failures=fail_codes,
+                meta={"unmapped_strategy": strategy},
+            )
         self._check_plan_invariant(query, plan)
         return plan
 
@@ -146,7 +157,6 @@ class TargetedRetryPlanner:
         # Delegate to the single structured path (ADR-0010 §2.6 decision).
         return self.target_plan(query, failures, query_type, context).query
 
-
     def target_query(
         self,
         query: str,
@@ -177,7 +187,14 @@ class TargetedRetryPlanner:
             return self._degrade(query, failures, "identifier_search", "none")
         override = (top_k * 2) if top_k else None
         clean = {k: v for k, v in meta.items() if v is not None}
-        return TargetPlan(query=lex, arm=ARM_SPARSE_IDENTIFIER, top_k_override=override, strategy="identifier_search", failures=failures, meta=clean)
+        return TargetPlan(
+            query=lex,
+            arm=ARM_SPARSE_IDENTIFIER,
+            top_k_override=override,
+            strategy="identifier_search",
+            failures=failures,
+            meta=clean,
+        )
 
     def _degrade(self, query: str, failures: tuple[str, ...], strategy: str, reason: str) -> TargetPlan:
         """Explicit abstain when a builder cannot produce a targeted query.
@@ -208,7 +225,7 @@ class TargetedRetryPlanner:
         section, _sub = detect_section(query)
         # Extract collection-scoped terms from context chunks
         collection_terms: list[str] = []
-        for chunk in (ctx.get("chunks") or []):
+        for chunk in ctx.get("chunks") or []:
             if not isinstance(chunk, dict):
                 continue
             title = str(chunk.get("document_title") or "")
@@ -224,12 +241,24 @@ class TargetedRetryPlanner:
             parts.append(" ".join(collection_terms[:3]))
         if not parts:
             # No targeting tokens available — route to abstain
-            return TargetPlan(query=query, arm=ARM_NONE, strategy="collection_reroute", failures=failures, meta={"collection_target": "unresolvable"})
+            return TargetPlan(
+                query=query,
+                arm=ARM_NONE,
+                strategy="collection_reroute",
+                failures=failures,
+                meta={"collection_target": "unresolvable"},
+            )
         collection_query = " ".join(parts)
-        return TargetPlan(query=collection_query, arm=ARM_SPARSE_IDENTIFIER, strategy="collection_reroute", failures=failures, meta={"act": act, "section": section, "collection_terms": collection_terms[:3]})
+        return TargetPlan(
+            query=collection_query,
+            arm=ARM_SPARSE_IDENTIFIER,
+            strategy="collection_reroute",
+            failures=failures,
+            meta={"act": act, "section": section, "collection_terms": collection_terms[:3]},
+        )
 
     def _mine_defined_term(self, ctx: dict) -> str | None:
-        for chunk in (ctx.get("chunks") or []):
+        for chunk in ctx.get("chunks") or []:
             if not isinstance(chunk, dict):
                 continue
             try:
@@ -254,7 +283,13 @@ class TargetedRetryPlanner:
         term = self._mine_defined_term(ctx)
         if not term:
             return self._degrade(query, failures, "definition_search", "no_defined_term")
-        return TargetPlan(query=f'"{term} means" OR "definition of {term}"', arm=ARM_DEFINITION, strategy="definition_search", failures=failures, meta={"term": term})
+        return TargetPlan(
+            query=f'"{term} means" OR "definition of {term}"',
+            arm=ARM_DEFINITION,
+            strategy="definition_search",
+            failures=failures,
+            meta={"term": term},
+        )
 
     def _build_hierarchy(self, query: str, ctx: dict, failures: tuple[str, ...]) -> TargetPlan:
         from app.rag.retrieval.identifier import detect_act, detect_section
@@ -280,7 +315,13 @@ class TargetedRetryPlanner:
                 from app.rag.retrieval.reference_graph import expand_candidates
                 from app.rag.retrieval.result import RetrievedChunk
 
-                objs = [RetrievedChunk(chunk_id=c.get("chunk_id", ""), text=c.get("text", ""), score=float(c.get("score") or 0)) for c in chunks if isinstance(c, dict)]
+                objs = [
+                    RetrievedChunk(
+                        chunk_id=c.get("chunk_id", ""), text=c.get("text", ""), score=float(c.get("score") or 0)
+                    )
+                    for c in chunks
+                    if isinstance(c, dict)
+                ]
                 expanded = list(expand_candidates(objs, top_k=10, depth=1))[:10]
         except Exception as exc:
             logger.debug("hierarchy expansion failed: %s", exc)
@@ -292,11 +333,17 @@ class TargetedRetryPlanner:
             return self._degrade(query, failures, "hierarchy_graph", "no_section_token")
         if adjacent:
             q += " OR Section " + " OR Section ".join(adjacent)
-        return TargetPlan(query=q, arm=ARM_HIERARCHY, strategy="hierarchy_graph", failures=failures, meta={"act": act, "section": section, "adjacent": adjacent, "expanded_candidates": expanded})
+        return TargetPlan(
+            query=q,
+            arm=ARM_HIERARCHY,
+            strategy="hierarchy_graph",
+            failures=failures,
+            meta={"act": act, "section": section, "adjacent": adjacent, "expanded_candidates": expanded},
+        )
 
     def _build_kg(self, query: str, ctx: dict, failures: tuple[str, ...], strategy: str) -> TargetPlan:
         targets: list[str] = []
-        for item in (ctx.get("kg_paths") or []):
+        for item in ctx.get("kg_paths") or []:
             try:
                 if isinstance(item, str) and item.strip():
                     targets.append(item.strip())
@@ -317,5 +364,10 @@ class TargetedRetryPlanner:
         if not seen:
             return self._degrade(query, failures, strategy, "no_kg_targets")
         sec_qs = " OR ".join(f"Section {t}" if not t.lower().startswith("section") else t for t in seen[:5])
-        return TargetPlan(query=f"{query} {sec_qs}".strip(), arm=ARM_KG_PATHS, strategy=strategy, failures=failures, meta={"kg_hint": seen[0], "kg_targets": seen[:5]})
-
+        return TargetPlan(
+            query=f"{query} {sec_qs}".strip(),
+            arm=ARM_KG_PATHS,
+            strategy=strategy,
+            failures=failures,
+            meta={"kg_hint": seen[0], "kg_targets": seen[:5]},
+        )

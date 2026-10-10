@@ -574,16 +574,20 @@ class TestLLMRateLimitRetry:
 
         def fake_post(self, url, headers=None, json=None):
             calls.append(1)
-            return FakeResp() if len(calls) == 1 else type(
-                "OK",
-                (),
-                {
-                    "status_code": 200,
-                    "headers": {},
-                    "raise_for_status": lambda self: None,
-                    "json": lambda self: {"choices": [{"message": {"content": "ok"}}], "usage": {}},
-                },
-            )()
+            return (
+                FakeResp()
+                if len(calls) == 1
+                else type(
+                    "OK",
+                    (),
+                    {
+                        "status_code": 200,
+                        "headers": {},
+                        "raise_for_status": lambda self: None,
+                        "json": lambda self: {"choices": [{"message": {"content": "ok"}}], "usage": {}},
+                    },
+                )()
+            )
 
         monkeypatch.setattr(httpx.Client, "post", fake_post)
         assert client.call("sys", "usr").success
@@ -998,7 +1002,9 @@ class TestGenerationLogger:
         db.session.add(FSO(fso_name="Test Officer"))
         db.session.commit()
         log = RAGQueryLog(
-            query="What is Section 55?", query_type="section_lookup", content_hash=hashlib.sha256(b"test").hexdigest(),
+            query="What is Section 55?",
+            query_type="section_lookup",
+            content_hash=hashlib.sha256(b"test").hexdigest(),
         )
         db.session.add(log)
         db.session.commit()

@@ -35,6 +35,7 @@ Deterministic; no model calls, no network.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 from collections.abc import Iterable
@@ -210,7 +211,8 @@ def main() -> int:
     text = json.dumps(payload, indent=2, ensure_ascii=False)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
-    print(text)
+    else:
+        sys.stdout.write(text)
     return 0
 
 

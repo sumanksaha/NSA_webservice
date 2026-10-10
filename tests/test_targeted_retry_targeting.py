@@ -5,12 +5,13 @@ plan query must contain a class-specific token for its failure class.
 
 No network, no LLM, no Qdrant.
 """
+
 from __future__ import annotations
 
 from app.rag.planning.targeted_retry import (
     ARM_DEFINITION,
-    ARM_HYBRID,
     ARM_HIERARCHY,
+    ARM_HYBRID,
     ARM_KG_PATHS,
     ARM_NONE,
     ARM_SPARSE_IDENTIFIER,
@@ -197,7 +198,12 @@ class TestPlanInvariant:
         planner = TargetedRetryPlanner()
         test_cases = [
             ("punishment under Section 31", ["missing_provision"], "penalty", {"top_k": 10}),
-            ("what does food business mean", ["missing_definition"], "definition", {"answer": "'food business' means X"}),
+            (
+                "what does food business mean",
+                ["missing_definition"],
+                "definition",
+                {"answer": "'food business' means X"},
+            ),
             ("Section 16 exceptions", ["missing_exception"], "general", {"chunks": []}),
             ("cross ref question", ["missing_cross_ref"], "general", {"kg_paths": [{"steps": ["Section 31"]}]}),
             ("wrong provision", ["wrong_provision"], "general", {"chunks": [{"document_title": "FSS Act"}]}),
@@ -210,14 +216,10 @@ class TestPlanInvariant:
                 continue
             if plan.query == query:
                 # Echo is allowed only for declared no-ops.
-                assert plan.arm == ARM_NONE, (
-                    f"failures={failures} plan silently echoed with arm={plan.arm!r}"
+                assert plan.arm == ARM_NONE, f"failures={failures} plan silently echoed with arm={plan.arm!r}"
+                assert plan.strategy == "unmapped" or plan.strategy == "abstain" or "degraded" in (plan.meta or {}), (
+                    f"failures={failures} echo must be declared via arm/strategy/meta, got {plan.to_dict()}"
                 )
-                assert (
-                    plan.strategy == "unmapped"
-                    or plan.strategy == "abstain"
-                    or "degraded" in (plan.meta or {})
-                ), f"failures={failures} echo must be declared via arm/strategy/meta, got {plan.to_dict()}"
 
     def test_abstain_is_exception_to_invariant(self):
         """Abstain may echo the query because it's a no-op (arm=none)."""
@@ -272,14 +274,10 @@ class TestRetryPathParity:
             "EVIDENCE_CONTRADICTION",
         ]
         for code in failure_codes:
-            legacy = planner._legacy_target_query(
-                "q?", [code], "general", {}
-            )
+            legacy = planner._legacy_target_query("q?", [code], "general", {})
             fixed = planner.target_plan("q?", [code], "general", {})
-            assert (
-                legacy == fixed.query
-            ), "parity break on %r: legacy=%r fixed.query=%r" % (code, legacy, fixed.query)
-            assert fixed.failures == (code,), "failures lost: %s" % fixed.to_dict()
+            assert legacy == fixed.query, f"parity break on {code!r}: legacy={legacy!r} fixed.query={fixed.query!r}"
+            assert fixed.failures == (code,), f"failures lost: {fixed.to_dict()}"
 
     def test_both_paths_abstain_not_echo_for_untargetable_failures(self):
         """A retry plan with non-empty failures must not silently echo:
@@ -287,9 +285,7 @@ class TestRetryPathParity:
         planner = TargetedRetryPlanner()
         for code in ("EVIDENCE_CONTRADICTION", "no_such_failure_code"):
             legacy_plan = planner.target_plan("q?", [code], "general", {})
-            assert legacy_plan.arm == ARM_NONE, (
-                "legacy/delegated path must abstain, got %s" % legacy_plan.to_dict()
-            )
+            assert legacy_plan.arm == ARM_NONE, f"legacy/delegated path must abstain, got {legacy_plan.to_dict()}"
             assert legacy_plan.strategy in ("unmapped", "abstain")
             # arm=none + a non-empty failures tuple means the query is echoed
             # by design as an explicit abstain, not a silent re-query.
@@ -308,6 +304,7 @@ class TestRetryPathParity:
         assert plan.strategy == "dense_expansion"
         # legacy wrapper agrees
         assert planner._legacy_target_query("qq?", [], "general", {}) == "qq?"
+
 
 class TestCollectionReroute:
     """Collection_reroute must produce a real collection-targeted query."""

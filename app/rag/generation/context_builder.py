@@ -99,7 +99,7 @@ def is_index_chunk(text: str) -> bool:
     # leaves a remainder and survives.
     match = _MASTHEAD_RE.match(stripped)
     if match:
-        remainder = _MASTHEAD_METADATA_RE.sub("", stripped[match.end():], count=1).strip(" ,.-;:][()")
+        remainder = _MASTHEAD_METADATA_RE.sub("", stripped[match.end() :], count=1).strip(" ,.-;:][()")
         if not remainder:
             return True
     return False

@@ -176,6 +176,7 @@ def load_questions(split: str | list[str] | None = None) -> list[BenchmarkQuesti
     questions = _filter_by_split(questions, split)
     return questions
 
+
 def _filter_by_split(
     questions: list[BenchmarkQuestion],
     split: str | list[str] | None,
@@ -198,8 +199,6 @@ def _filter_by_split(
     if not names:
         return []
     return [q for q in questions if q.split in names]
-
-
 
 
 def _resolve_units(raw: dict[str, Any], registry: dict[str, dict[str, Any]]) -> list[GoldUnit]:
