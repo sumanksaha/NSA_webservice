@@ -226,9 +226,19 @@ class TestGroundednessScorer:
         assert score.score > 0.3  # claim weight * section confidence
         assert score.claim_support_ratio == 1.0
 
-    def test_no_claims_neutral(self):
+    def test_no_claims_flagged(self):
+        """No claims extracted from a non-empty response is a red flag.
+
+        P1-5 fix: the empty-claims loophole closed — claim_ratio is now
+        0.50 (was 1.0) so a vacuous answer cannot score maximally on the
+        claim axis.  The combined score with neutral citations is 0.70,
+        which stays above the 0.50 hallucination threshold (a response
+        that says nothing extractable is not a hallucination).
+        """
         score = GroundednessScorer().score([])
-        assert score.claim_support_ratio == 1.0  # no claims = neutral
+        assert score.claim_support_ratio == 0.50  # no claims = flagged, not neutral
+        assert score.score == 0.70  # 0.6*0.50 + 0.4*1.0
+        assert score.detail.get("empty_claims") is True
 
     def test_all_unverified(self):
         claim = ClaimExtractor().extract("Section 999 is law.")[0]

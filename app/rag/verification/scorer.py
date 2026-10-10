@@ -97,11 +97,12 @@ class GroundednessScorer:
             verified = sum(1 for v in claim_verifications if v.verified)
             claim_ratio = verified / len(claim_verifications)
         else:
-            # No claims extracted — treat as neutral (1.0) so that
-            # responses with no extractable claims aren't penalised
-            # purely for being short.
+            # No claims extracted — on a non-empty response this is a
+            # red flag (the answer made assertions the extractor could not
+            # parse, or the answer is vague), so score neutral/flagged
+            # (0.50) instead of defaulting to 1.0.
             verified = 0
-            claim_ratio = 1.0
+            claim_ratio = 0.50
 
         # Citation validity ratio.
         citation_ratio = citation_result.score if citation_result is not None and citation_result.detail else 1.0
@@ -120,5 +121,6 @@ class GroundednessScorer:
                 "total_claims": len(claim_verifications),
                 "claim_weight": self.claim_weight,
                 "citation_weight": self.citation_weight,
+                "empty_claims": len(claim_verifications) == 0,
             },
         )
