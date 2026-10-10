@@ -56,11 +56,14 @@ verified on the 20 paired qids (re-run) plus a >=50-qid held-out slice.
 
 **Problem.** Consistent with `docs/RAG_AUTORESEARCH_RESEARCH.md` section 5.6
 ("targeted retries are often placeholders"): `TargetedRetryPlanner.target_plan()` in
-`app/rag/planning/targeted_retry.py` classifies failures, but two paths degrade to the
-original query — (a) `strategy == "collection_reroute"` is remapped to
-`identifier_search` (code comment notes `_target_collection` was an identity no-op),
-and (b) unknown strategies fall through to `arm=HYBRID` with the unmodified query.
-Stage-2 shows recovery improves evidence *volume* (citation_recall 0.76) but binary
+`app/rag/planning/targeted_retry.py` classifies failures, but two paths degraded to
+the original query — (a) `strategy == "collection_reroute"` was remapped to
+`identifier_search` (the `_target_collection` identity no-op), and (b) unknown
+strategies fell through to `arm=HYBRID` with the unmodified query. **Status: this
+spec is implemented — `collection_reroute` now builds a collection-targeted query,
+unknown strategies yield an explicit `strategy="unmapped"` no-op, and the whole path
+is the production default via `RAG_TARGETED_RETRY_V2=true`.**
+Stage-2 showed recovery improves evidence *volume* (citation_recall 0.76) but binary
 only ties (1 up / 1 down): retrieval recovers *more* evidence, not reliably the
 *missing provision class*.
 

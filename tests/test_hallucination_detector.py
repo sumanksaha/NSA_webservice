@@ -7,6 +7,8 @@ No Qdrant/network required — all verification runs against in-memory
 
 from __future__ import annotations
 
+import pytest
+
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.verification import (
     CitationValidator,
@@ -15,6 +17,7 @@ from app.rag.verification import (
     GroundednessScorer,
     HallucinationDetector,
 )
+from app.rag.verification.evidence_verifier import _PROHIBITION_RE
 
 
 def _make_chunks(n=3, section_base="55"):
@@ -120,6 +123,188 @@ class TestEvidenceVerifier:
         vers = EvidenceVerifier().verify_claims(claims, chunks)
         assert len(vers) == len(claims)
         assert all(isinstance(v.verified, bool) for v in vers)
+
+
+# --------------------------------------------------------------------------- #
+# EvidenceVerifier — claim-level entailment gates (P1 item 5.5)
+# --------------------------------------------------------------------------- #
+class TestClaimEntailmentGates:
+    """Fuzzy similarity (rapidfuzz >= 70) alone must not verify a claim.
+
+    ``partial_ratio`` scores "sale is banned" highly against "sale may be
+    permitted", and "Rs. 10,000" against "Rs. 50,000" — so ``verify_claim``
+    now applies a polarity gate and a numeric-entailment gate before a
+    textual match can count as evidence.
+    """
+
+    @staticmethod
+    def _chunk(text, section_number=None, chunk_id="c0", score=0.9):
+        return RetrievedChunk(
+            chunk_id=chunk_id,
+            score=score,
+            text=text,
+            section_number=section_number,
+            document_title="FSS Act 2006",
+            document_type="act",
+            authority="FSSAI",
+        )
+
+    # -- Polarity gate ---------------------------------------------------- #
+    def test_inverted_polarity_not_verified(self):
+        """Claim prohibits, evidence permits -> not supported.
+
+        The two sentences score 85 on ``partial_ratio`` (differing only in
+        "shall not" vs "may"), so this is exactly the case raw fuzzy
+        matching used to wave through.
+        """
+        chunks = [self._chunk("A licence may be sold to unqualified applicants.")]
+        claim = ClaimExtractor().extract("A licence shall not be sold to unqualified applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "polarity_mismatch"
+
+    def test_inverted_polarity_other_direction_not_verified(self):
+        """Claim permits, evidence prohibits -> not supported."""
+        chunks = [self._chunk("A licence shall not be sold to unqualified applicants.")]
+        claim = ClaimExtractor().extract("A licence may be sold to unqualified applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "polarity_mismatch"
+
+    def test_matching_polarity_still_verified(self):
+        chunks = [self._chunk("A licence shall not be sold to unqualified applicants.")]
+        claim = ClaimExtractor().extract("A licence shall not be sold to unqualified applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.reason == ""
+        assert ver.method == "text"
+
+    def test_mixed_polarity_chunk_supports_claim(self):
+        """A chunk stating the rule *and* its exception is ambiguous, not contradictory."""
+        chunks = [
+            self._chunk("A licence shall not be sold to unqualified applicants, but sale may be permitted with a waiver.")
+        ]
+        claim = ClaimExtractor().extract("A licence shall not be sold to unqualified applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.reason == ""
+
+    def test_polarity_gate_ignores_neutral_evidence(self):
+        """A chunk with no polarity language cannot contradict the claim."""
+        chunks = [self._chunk("Section 55 of the FSS Act deals with licensing of food businesses.")]
+        claim = ClaimExtractor().extract("A licence shall not be sold to unqualified applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.reason != "polarity_mismatch"
+
+    def test_polarity_mismatch_applies_on_cited_section_fallthrough(self):
+        """Section cited but no stamp on any chunk -> fuzzy path, gate still applies."""
+        chunks = [self._chunk("Under Section 55, the item may be sold freely to applicants.")]
+        claim = ClaimExtractor().extract("Under Section 55, the item shall not be sold to applicants.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "polarity_mismatch"
+
+    # -- Polarity regex coverage ------------------------------------------ #
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "A licence shall not be sold to unqualified applicants.",
+            "The substance shall not be used in food.",
+            "The item shall not be imported without approval.",
+            "No person shall sell the item under Section 55.",
+            "Sale of the item is prohibited under Section 55.",
+        ],
+    )
+    def test_prohibition_regex_recognises_statutory_phrasing(self, text):
+        """``shall not be <verb>`` is the dominant statutory prohibition form.
+
+        The previous pattern could never match it, which would have made
+        the polarity gate silently blind to most real prohibitions.
+        """
+        assert _PROHIBITION_RE.search(text)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "A licence may be sold to unqualified applicants.",
+            "The item may be used in food.",
+            "Sale is permitted under Section 55.",
+        ],
+    )
+    def test_prohibition_regex_does_not_match_permissions(self, text):
+        assert not _PROHIBITION_RE.search(text)
+
+    # -- Numeric entailment gate ------------------------------------------ #
+    def test_hallucinated_amount_not_verified(self):
+        """Claim asserts Rs. 50,000, evidence says Rs. 10,000 -> not supported."""
+        chunks = [self._chunk("A penalty of Rs. 10,000 may be imposed on unlicensed operators.")]
+        claim = ClaimExtractor().extract("A penalty of Rs. 50,000 may be imposed on unlicensed operators.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "numeric_mismatch"
+
+    def test_hallucinated_percent_not_verified(self):
+        chunks = [self._chunk("The inspector may reject up to 5% of the consignment.")]
+        claim = ClaimExtractor().extract("The inspector may reject up to 95% of the consignment.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "numeric_mismatch"
+
+    def test_matching_amount_still_verified(self):
+        chunks = [self._chunk("A penalty of Rs. 10,000 may be imposed on unlicensed operators.")]
+        claim = ClaimExtractor().extract("A penalty of Rs. 10,000 may be imposed on unlicensed operators.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.reason == ""
+
+    def test_amount_currency_spelling_does_not_matter(self):
+        """Rs./INR spelling is presentation; the figure is what must match."""
+        chunks = [self._chunk("A penalty of INR 10,000 may be imposed on unlicensed operators.")]
+        claim = ClaimExtractor().extract("A penalty of Rs. 10,000 may be imposed on unlicensed operators.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.reason == ""
+
+    def test_second_chunk_supplies_missing_figure(self):
+        """A gate failure on the best chunk does not veto a later, valid one."""
+        chunks = [
+            self._chunk("A penalty of Rs. 10,000 may be imposed on unlicensed operators.", chunk_id="c0"),
+            self._chunk("A penalty of Rs. 50,000 may be imposed on unlicensed operators.", chunk_id="c1"),
+        ]
+        claim = ClaimExtractor().extract("A penalty of Rs. 50,000 may be imposed on unlicensed operators.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert "c1" in ver.supporting_chunks
+
+    def test_numeric_gate_skipped_when_claim_has_no_figures(self):
+        chunks = [self._chunk("Food businesses must obtain a licence before operating.")]
+        claim = ClaimExtractor().extract("Food businesses must obtain a licence before operating.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.reason == ""
+
+    def test_multi_figure_claim_requires_all_figures(self):
+        """One grounded and one invented figure is still a hallucination."""
+        chunks = [self._chunk("A penalty of Rs. 10,000 or 100% of turnover may be imposed.")]
+        claim = ClaimExtractor().extract("A penalty of Rs. 10,000 or 500% of turnover may be imposed.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "numeric_mismatch"
+
+    # -- Regression: existing paths unchanged ----------------------------- #
+    def test_section_match_unaffected_by_gates(self):
+        """An exact section stamp is not fuzzy-matched; the gates do not apply."""
+        chunks = [self._chunk("Section 55 text.", section_number="55")]
+        claim = ClaimExtractor().extract("Section 55 requires a license.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.method == "section"
+        assert ver.confidence == 0.85
+        assert ver.reason == ""
+
+    def test_asserted_numerics_helper(self):
+        assert EvidenceVerifier._asserted_numerics("Rs. 1,000 and 50% and INR 200") == {"1000", "50", "200"}
+        assert EvidenceVerifier._asserted_numerics("no figures here") == set()
 
 
 # --------------------------------------------------------------------------- #

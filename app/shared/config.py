@@ -232,8 +232,9 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_TARGETED_RETRY_V2",
         "targeted_retry_v2",
         bool,
-        False,
-        help="Arm-aware TargetPlan retry path (RAG-TR-001). Off = legacy string path.",
+        True,
+        help="Arm-aware TargetPlan retry path (RAG-TR-001), active by default. "
+             "Off = legacy string path (dormant: it silently echoes untargetable queries).",
     ),
     Setting(
         "RAG_VERIFIER_SHADOW",
@@ -597,7 +598,24 @@ _TABLE: tuple[Setting, ...] = (
         "context_max_chars",
         int,
         24000,
-        help="Max context characters (ContextBuilder ceiling); raised to widen the evidence window.",
+        help=(
+            "Max context characters (ContextBuilder ceiling). Held at 24k: raising it to 40k "
+            "diluted the gold-in-prompt slice's eliminations 11 -> 8 (out/ceiling_v5/"
+            "rerun_gip/cond_v4), so the wider window buys recall elsewhere but costs precision here."
+        ),
+    ),
+    Setting(
+        "RAG_CONTEXT_DROP_INDEX_CHUNKS",
+        "context_drop_index_chunks",
+        bool,
+        True,
+        help=(
+            "Drop index/navigation chunks (arrangement-of-sections listings, Act mastheads, "
+            "sub-60-char fragments) before packing so substantive provisions occupy the window. "
+            "Measured: they consumed 16.9% of admitted slots (158/933) on the gold-in-prompt "
+            "failure slice (evaluation/out/ceiling_v5/gip_window_content.txt) while carrying "
+            "no provision text."
+        ),
     ),
     # --- Runtime / plugins ------------------------------------------------------
     Setting("RAG_TORCH_THREADS", "torch_threads", int, 4, help="Torch intra/inter-op thread cap for RAG inference."),

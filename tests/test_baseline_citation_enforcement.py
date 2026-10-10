@@ -101,11 +101,53 @@ class TestShippedScanInstruction:
     def test_shipped_template_is_the_winning_candidate_verbatim(self):
         """The shipped wording must equal the measured candidate exactly.
 
-        Guards against drifting away from the configuration the A/B validated.
+        Pinned to ``cand_scan_cond`` since the conditioning block landed
+        (2026-10-10): the pin moved deliberately, after the scan line was
+        kept verbatim inside it, so the A/B control (``cand_scan``) stays
+        registered and unchanged. A future move must repeat this: keep
+        cand_scan, register the new candidate, re-point this pin.
         """
         from evaluation.ab_baseline_citation import _CANDIDATES
 
-        assert _CANDIDATES["cand_scan"] == GROUND_QA_USER_TEMPLATE
+        assert _CANDIDATES["cand_scan_cond"] == GROUND_QA_USER_TEMPLATE
+        assert "cand_scan" in _CANDIDATES, "A/B control candidate must stay registered"
+
+
+class TestScanLineSurvivesConditioning:
+    """The conditioning block is additive: the SPEC-1 scan line survives verbatim."""
+
+    def test_conditioned_template_contains_the_scan_line(self):
+        assert "Before answering, go through every numbered source in the context" in GROUND_QA_USER_TEMPLATE
+        assert (
+            "condition, exception, threshold or definition the answer depends on" in GROUND_QA_USER_TEMPLATE
+        )
+        assert "First quote the passages that bear on the question" in GROUND_QA_USER_TEMPLATE
+
+    def test_conditioned_block_targets_the_audited_causes(self):
+        lowered = GROUND_QA_USER_TEMPLATE.lower()
+        # abstention_gate slice: answer every part, check before refusing.
+        assert "answer every part the question names" in lowered
+        assert "point to the numbered sources you checked" in lowered
+        # provision_check slice: provision-by-claim identification.
+        assert "name the exact provision you rely on" in lowered
+        # penalty incompleteness: full penalty structure, exact figures.
+        assert "continuing daily fine" in lowered
+        assert "exact figures as printed" in lowered
+        # needs_deeper_reasoning slice: truncation honesty, no false completeness.
+        assert "cut off mid-clause" in lowered
+        assert "do not call a list complete" in lowered
+
+    def test_conditioning_block_readds_no_gate(self):
+        banned = (
+            "at least one verbatim",
+            "you must follow these steps",
+            "zero relevant passages",
+            "produced zero quotes",
+            "cannot find the answer",
+        )
+        lowered = GROUND_QA_USER_TEMPLATE.lower()
+        for phrase in banned:
+            assert phrase not in lowered, f"conditioning block re-introduced banned gate {phrase!r}"
 
 
 class TestSpec1Candidates:

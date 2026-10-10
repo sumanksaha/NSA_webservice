@@ -23,6 +23,7 @@ from app.rag.generation import (
     PromptTemplate,
     ResponseSanitizer,
 )
+from app.rag.generation.context_builder import is_index_chunk
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.tasks import run_generation_pipeline
 
@@ -76,6 +77,100 @@ class TestContextBuilder:
         assert '<document index="1">' in built.context
         assert built.context.count("</document>") == 3
         assert "<source>" in built.context and "</source>" in built.context
+
+
+_ARRANGEMENT_STUB = (
+    "THE WATER (PREVENTION AND CONTROL OF POLLUTION) ACT, 1974 "
+    "_______ ARRANGEMENT OF SECTIONS 1. Short title, extent and commencement. "
+    "2. Definitions. 3. Constitution of Central Board. 4. Constitution of "
+    "State Boards. 5. Constitution of committees."
+)
+_MASTHEAD_STUB = "THE BENGAL DISEASES OF ANIMALS ACT, 1944 (BEN. ACT VI OF 1944)"
+_THIN_FRAGMENT = "3. Prohibition of slaughter of animal, sale of meat, etc.:"
+
+
+class TestIndexChunkDropping:
+    """Index/navigation chunks must not occupy window slots.
+
+    Measured on the gold-in-prompt failure slice: they consumed 16.9% of
+    admitted slots (158/933, evaluation/out/ceiling_v5/gip_window_content.txt)
+    while carrying no provision text, crowding the provisions the answer
+    needs out of a character-capped window.
+    """
+
+    def test_is_index_chunk_recognises_navigation_shapes(self):
+        assert is_index_chunk(_ARRANGEMENT_STUB)
+        assert is_index_chunk(_MASTHEAD_STUB)
+        assert is_index_chunk(_THIN_FRAGMENT)
+        assert not is_index_chunk(
+            "Whoever contravenes any provision of this Act shall be punishable "
+            "with imprisonment for a term which may extend to six months and "
+            "with fine which may extend to five lakh rupees."
+        )
+        # A masthead followed by operative text is substantive, not index.
+        assert not is_index_chunk(
+            "THE FSS ACT, 2006 (34 of 2006). Section 31 provides that the "
+            "Designated Officer may impose a penalty not exceeding five lakh rupees."
+        )
+
+    def test_stub_does_not_consume_the_window_slot(self):
+        chunks = [
+            RetrievedChunk(
+                chunk_id="stub",
+                score=0.99,
+                text=_ARRANGEMENT_STUB,
+                section_number="1",
+                document_title="Water Act 1974",
+                document_type="act",
+                authority="CPCB",
+            ),
+            *_make_chunks(2),
+        ]
+        built = ContextBuilder(max_chunks=1).build("query", chunks, query_type="general")
+        ids = [c["chunk_id"] for c in built.citations]
+        assert "stub" not in ids
+        assert ids == ["c0"]
+
+    def test_flag_off_keeps_legacy_behavior(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "context_drop_index_chunks", False)
+        chunks = [
+            RetrievedChunk(
+                chunk_id="stub",
+                score=0.99,
+                text=_MASTHEAD_STUB,
+                section_number="1",
+                document_title="Bengal Act 1944",
+                document_type="act",
+                authority="State",
+            ),
+            *_make_chunks(2),
+        ]
+        built = ContextBuilder(max_chunks=1).build("query", chunks, query_type="general")
+        assert [c["chunk_id"] for c in built.citations] == ["stub"]
+
+    def test_all_index_window_falls_back_to_unfiltered(self, monkeypatch):
+        # Never return an empty context just because every chunk looked like
+        # navigation material. The answerability gate is patched open so the
+        # test isolates the packing rule.
+        from app.rag.generation.context_builder import ContextBuilder as CB
+
+        monkeypatch.setattr(CB, "_check_answerability", lambda self, q, c, t: (True, []))
+        chunks = [
+            RetrievedChunk(
+                chunk_id=f"m{i}",
+                score=0.9 - i * 0.1,
+                text=_MASTHEAD_STUB,
+                section_number=str(i),
+                document_title="Bengal Act 1944",
+                document_type="act",
+                authority="State",
+            )
+            for i in range(2)
+        ]
+        built = ContextBuilder(max_chunks=2).build("query", chunks, query_type="general")
+        assert len(built.citations) == 2
 
     def test_truncation_respects_char_budget_with_tags(self):
         built = ContextBuilder(max_context_chars=600, max_chunks=10).build("query", _make_chunks(3))

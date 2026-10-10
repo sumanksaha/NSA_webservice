@@ -26,6 +26,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from kg.corpus_ingestion import _is_bare_section_stub  # noqa: F401 (re-used in load_fssai_provisions)
+
 from kg.domain_manifest import (
     AUTHORITIES,
     CONCEPTS,
@@ -379,33 +381,53 @@ class LegalKGIngestionEngine:
 
             # Batch insert provisions
             batch: list[dict] = []
+            # First accumulate all chunks per section number
+            chunks_by_section: dict[str, list[LegalChunk]] = {}
+            all_chunks_early: list[LegalChunk] = (
+                db.session
+                .execute(
+                    db.select(LegalChunk).filter(
+                        LegalChunk.document_id == doc_id,
+                        LegalChunk.section_number.isnot(None),
+                        LegalChunk.section_number != "0",
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for chunk in all_chunks_early:
+                sn = str(chunk.section_number or "")
+                if not sn:
+                    continue
+                chunks_by_section.setdefault(sn, []).append(chunk)
+
             for sec_num in section_numbers:
                 provision_id = f"FSS_ACT_2006_SEC_{sec_num}"
-                # Check if chunk text looks like a section header
-                header_chunk = db.session.execute(
-                    db
-                    .select(LegalChunk)
-                    .filter(
-                        LegalChunk.document_id == doc_id,
-                        LegalChunk.section_number == sec_num,
-                        LegalChunk.hierarchy_level == 1,
-                    )
-                    .limit(1),
-                ).scalar_one_or_none()
-
-                section_text = header_chunk.text[:2000] if header_chunk and header_chunk.text else ""
-                section_title = (
-                    _extract_section_title(header_chunk.text) if header_chunk and header_chunk.text else None
-                )
+                section_chunks = chunks_by_section.get(sec_num, [])
+                # Accumulate text from ALL chunks of this section (not just header)
+                text_parts: list[str] = []
+                section_title: str | None = None
+                header_chunk_id: int | None = None
+                for chunk in section_chunks:
+                    text = (chunk.text or "").strip()
+                    # Drop bare-number header stubs that carry no provision body
+                    if text and not _is_bare_section_stub(text):
+                        text_parts.append(text)
+                    if not section_title and chunk.section_title:
+                        section_title = chunk.section_title
+                    if header_chunk_id is None and chunk.hierarchy_level == 1:
+                        header_chunk_id = chunk.id
+                section_text = "\n".join(text_parts)[:2000] if text_parts else ""
+                section_title = section_title or f"Section {sec_num}"
 
                 batch.append({
                     "provision_id": provision_id,
                     "provision_number": sec_num,
-                    "title": section_title or f"Section {sec_num}",
+                    "title": section_title,
                     "instrument_id": "FSS_ACT_2006",
                     "text": section_text,
-                    "chunk_id": header_chunk.id if header_chunk else None,
-                    "chunk_text": header_chunk.text[:500] if header_chunk and header_chunk.text else "",
+                    "chunk_id": header_chunk_id,
+                    "chunk_text": section_chunks[0].text[:500] if section_chunks else "",
                 })
 
                 if len(batch) >= BATCH_SIZE:

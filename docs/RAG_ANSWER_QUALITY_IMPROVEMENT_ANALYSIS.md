@@ -192,15 +192,26 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 
 ### 5.5 Verification is fuzzy, not true entailment (P1)
 
-- **Files:** `verification/claim_extractor.py`, `evidence_verifier.py`, `hallucination_detector.py`
-- **Gap:** Sentence-split claims; section-number matches; rapidfuzz ≥70 counts as verified; empty-claims edge cases can look fully faithful.
+- **Files:** `verification/claim_extractor.py`, `evidence_verifier.py`, `hallucination_detector.py`, `verification/scorer.py`
+- **Audit Status:** Partially completed. `GroundednessScorer` empty-claims guard (scoring 0.50 claim ratio on non-empty responses) has landed. However, `EvidenceVerifier.verify_claim()` still relies on section matching with a fallback to `rapidfuzz >= 70`. While `_PROHIBITION_RE` and `_AMOUNT_RE` regexes exist in `evidence_verifier.py`, they are currently only evaluated in `find_contradictions` (inter-chunk conflicts), **not** in `verify_claim(claim, chunks)`.
+- **Gap:** Inverted polarity (prohibition vs permission) and hallucinated amounts/percentages can still pass claim verification if rapidfuzz string similarity $\ge 70$.
 - **Why it hurts:** Wrong polarity, wrong numbers, or missed exceptions can still “verify” and finalize.
 
-### 5.6 Targeted retries are often placeholders (P1)
+### 5.6 Targeted retries are often placeholders (P1) — RESOLVED
 
 - **Files:** `planning/targeted_retry.py`, `agent/nodes/linear.py` (`targeted_retry_node`)
-- **Gap:** Strategies such as `_target_collection` return the original query; identifier targeting may only append `" (identifier)"`.
-- **Why it hurts:** Failures are classified but retries do not reliably fetch the missing provision class.
+- **Status:** Implemented and production default (`RAG_TARGETED_RETRY_V2=true`).
+  `TargetedRetryPlanner.target_plan()` maps every failure class to a targeted arm
+  (`identifier_search` / `collection_reroute` / `definition_search` /
+  `hierarchy_graph` / `kg_paths`), each builder emits a real, structurally
+  different query; unknown strategies yield an explicit `strategy="unmapped"`
+  no-op (logged, `arm="none"`) rather than a silent query echo. The legacy echo
+  path now delegates to `target_plan`, so both paths satisfy a single contract.
+- **Why it matters:** Retry retrievals now fetch genuinely new evidence instead of
+  echoing the baseline query — the SPEC-2 defect is permanently fixed (guarded by
+  `TestRetryPathParity`, which asserts the legacy and fixed paths return identical
+  `TargetPlan` for every failure). The remaining open question is not retry quality
+  but answer adoption (SPEC-3: adopt the retry answer only when measurably better).
 
 ### 5.7 Subquery decomposition is shallow (P1)
 
@@ -238,6 +249,70 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 - **Gap:** `dense_weight` / `sparse_weight` ignored (pure RRF). `RAG_QDRANT_BM25` default false; sparse may fall back to rapidfuzz.
 - **Why it hurts:** Lexical misses when sparse vectors absent; less tunable for identifier-heavy legal corpora.
 
+### 5.13 Downstream generation prompt conditioning (P1)
+
+- **Files:** `generation/prompt_template.py`, `generation/grounded_service.py`
+- **Measured Gap:** 60 of 89 failure cases (67.4%) have the gold provision already present in the prompt context window. Widening the context window yielded +29.5% citations but flat binary accuracy across 3 A/B runs (0/7 causal subset moves). The primary model failure mode is downstream statutory misinterpretation and failing to apply conditional provisos.
+- **Why it hurts:** Merely retrieving and packing gold evidence does not guarantee the LLM will synthesize the correct legal rule without explicit chain-of-thought / proviso quoting directives in the prompt.
+
+#### Root Cause Breakdown of the 60/89 Generation Failures
+From the human audit (`full_review_tabulation.md`) and failure attribution data (`failure_attribution.py`), 5 concrete legal failure modes occur in generation:
+1. **Proviso Blindness:** The model quotes the operative section but ignores trailing *"Provided that..."* or *"Nothing contained in this section shall apply to..."* qualification clauses.
+2. **Definition Anchoring:** The LLM anchors to general definitions rather than operative duty/offence clauses.
+3. **Conjunction Drift:** Cumulative statutory requirements ($A \text{ AND } B$) are misread as alternative conditions ($A \text{ OR } B$).
+4. **Penalty Incompleteness:** The base penalty is stated while continuing daily fines or subsequent conviction escalations are omitted.
+5. **Polarity Inversion:** Exceptions are misconstrued as broad permissions or vice versa under rapid reading.
+
+#### Prompt Engineering & Conditioning Strategies
+To target these failure modes without inducing false abstentions:
+
+1. **Dual-Tier Structured Scrutiny (IRAC Scan):**
+   Replace generic quote extraction with structured scrutiny before the answer:
+   - *Primary Legal Rule:* Governing section and core obligation/prohibition.
+   - *Exceptions & Provisos:* Explicitly list exemptions, monetary thresholds, or non-applicability provisos.
+   - *Application:* Apply the synthesized rule directly to the query facts.
+
+2. **Role-Conditioned Prompting (Leveraging P0-1 `<document role="...">`):**
+   Instruct the model on the legal hierarchy of tags:
+   - `primary_provision`: Establishes the governing statutory rule or prohibition.
+   - `exception` / `proviso`: Narrowing conditions that take precedence over the general rule.
+   - `definition`: Clarifies terms but never creates standalone liabilities or overrides operative sections.
+   - `penalty_provision`: Prescribes sanctions, fines, and imprisonment terms.
+
+3. **Query-Intent Conditioned Directives:**
+   - *Penalty Queries:* Require stating both the base penalty and any recurring/daily continuing fines.
+   - *Exemption Queries:* Require quoting the exact *"Provided that"* or *"Notwithstanding"* clause.
+   - *Procedure Queries:* Require stating designated authorities, statutory deadlines (in days), and statutory Form names.
+
+4. **Negative Constraints & Guardrails:**
+   - *Exact Number Constraint:* Transcribe exact statutory numbers and currencies (e.g., ₹5,00,000, 14 days) without rounding or approximation.
+   - *No Over-Abstention Gate:* Avoid hard quote-or-abstain gates (which caused ADR-0010 false abstention spikes from 0.07 to 0.44); use qualified unknown statements instead.
+
+#### Concrete Implementation Template (`GROUND_QA_USER_TEMPLATE_V2`)
+
+```
+Relevant legal context:
+<legal_context>
+{context}
+</legal_context>
+
+Instructions for Legal Analysis:
+1. Document Roles:
+   - "primary_provision" establishes the governing rule or prohibition.
+   - "exception" / "proviso" contains narrowing conditions that take precedence over the general rule.
+   - "definition" defines terms; it does not create standalone liabilities.
+2. Statutory Scrutiny (perform before concluding):
+   - Quote the primary statutory rule and cite its source [n].
+   - Scan all sources for qualifying provisos ("provided that", "except", "unless", "notwithstanding").
+   - If penalties are involved, extract both base sanctions and daily continuing fines.
+3. Final Determination:
+   - Provide a precise, concise answer synthesizing the rule and all applicable exceptions.
+   - Attach [n] citations to every factual/legal proposition.
+
+Question: {query}
+Answer:
+```
+
 ---
 
 ## 6. Prioritized improvement plan & technical specifications
@@ -255,9 +330,10 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 | # | Improvement | Key files | Action & Technical Specification | Effort | Expected impact |
 |---|---|---|---|---|---|
 | 4 | Enable agent pipeline in staging | `shared/config.py`, `agent/graph.py`, `agent/thresholds.py` | **Agent activation:**<br>• Set `RAG_USE_AGENT_PIPELINE=true` in staging/benchmark configurations.<br>• Enforce strict thresholds: `CLAIM_GROUNDEDNESS_THRESHOLD` (0.70) and `citation_quality_ok` gate retries prior to `finalize`. | Low | Activates self-correcting retry and verification loops on live query paths. |
-| 5 | Strengthen claim verification & fix empty-claim loophole | `verification/scorer.py`, `verification/evidence_verifier.py`, `verification/hallucination_detector.py` | **Verifier hardening:**<br>• Fix `GroundednessScorer`: if `response_text` is non-empty but claims list is empty, score neutral/flagged (0.50) instead of default 1.0.<br>• In `EvidenceVerifier`, enforce exact section number match + prohibition/permission polarity alignment (`_PROHIBITION_RE` vs `_PERMISSION_RE`) and numerical exactness (`_AMOUNT_RE`, `_PERCENT_RE`) instead of relying solely on rapidfuzz $\ge 70$. | Med | Stops false-positive verifications and prevents ungrounded answers from passing. |
-| 6 | Replace placeholder targeted retries | `planning/targeted_retry.py`, `agent/nodes/linear.py` (`targeted_retry_node`) | **Actionable retry strategies:**<br>• Replace string appending (`" (identifier)"`) with real query builders:<br>  - `_target_definition`: generate `"{term} means" OR "definition of {term}"`<br>  - `_target_identifier`: generate exact statutory lexical query `"{Act} Section {N}"`<br>  - `_target_hierarchy`/`_target_exception`: query adjacent provisions and exception clauses (`"Section {N} exception proviso notwithstanding"`).<br>• Direct retries to specific retrieval arms (sparse identifier route, definition search, or KG expansion). | Med | Ensures retry passes actually fetch missing evidence classes rather than repeating the same failed query. |
+| 5 | Strengthen claim verification & fix empty-claim loophole | `verification/scorer.py`, `verification/evidence_verifier.py`, `verification/hallucination_detector.py` | **Verifier hardening:**<br>• `GroundednessScorer` empty-claims guard is **complete** (0.50 score on non-empty response with no claims).<br>• **Remaining in `EvidenceVerifier.verify_claim()`**: In `verify_claim()`, check polarity alignment (`_PROHIBITION_RE` vs `_PERMISSION_RE`) and numerical exactness (`_AMOUNT_RE`, `_PERCENT_RE`) between `claim.text` and `best_chunk.text` when using fuzzy matching ($\ge 70$), rather than relying purely on string similarity. | Med | Stops false-positive verifications and prevents ungrounded answers with inverted polarity/wrong numbers from passing. |
+| 6 | Replace placeholder targeted retries | `planning/targeted_retry.py`, `agent/nodes/linear.py` (`targeted_retry_node`) | **Actionable retry strategies (Complete):**<br>• Replaced string appending (`" (identifier)"`) with real query builders (`_build_identifier`, `_build_definition`, `_build_hierarchy`, `_build_kg`).<br>• Anti-echo and anti-pseudo-tag invariants enforced by tests. | Med | Ensures retry passes actually fetch missing evidence classes rather than repeating the same failed query. |
 | 7 | Deeper multi-part decomposition | `retrieval/subquery_decomposer.py`, `planning/query_planner.py`, `tasks.py` | **Compound query planning:**<br>• Extend `subquery_decomposer` beyond multiple "Section N" patterns to handle compound factual/legal queries.<br>• Unify `EvidenceTask` planner across linear and agent paths; execute per-task retrieval and merge results through `EvidenceSelector`. | Med | Provides complete coverage for multi-part legal questions without cross-topic context dilution. |
+| 7b | Generation prompt conditioning (Addresses 60/89 failure bottleneck) | `generation/prompt_template.py`, `generation/grounded_service.py` | **Statutory reasoning prompt directives:**<br>• 60 of 89 failure cases fail downstream with gold evidence present in the prompt.<br>• Update `PromptTemplate` with statutory reasoning directives: (1) require quoting qualifying conditions and exception provisos before stating permissions/prohibitions; (2) enforce Issue-Rule-Application structure for penalty and licensing queries. | Low | Directly targets the largest residual failure bucket (interpretation/application depth in LLM generation). |
 
 ### P2 — Reasoning quality (after evidence is clean)
 
@@ -285,7 +361,12 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 4. **Staging Agent Pipeline:** Enable `RAG_USE_AGENT_PIPELINE=true` in staging environments.
 
 ### Phase 2 (Weeks 2–3) — Recovery & Honest Evaluation Ceiling
-1. **Targeted Retry Hardening:** Implement failure-specific query generators in `TargetedRetryPlanner` (`_target_definition`, `_target_identifier`, `_target_exception`).
+1. **Targeted Retry Hardening:** Implemented — `TargetedRetryPlanner` now maps every
+   failure class to a targeted arm and an unknown-strategy → explicit `unmapped`
+   no-op; it is production default. The next open question is answer adoption:
+   adopt the retry answer only when measurably better than baseline (SPEC-3:
+   `RETRY_ADOPT_SOFT_DELTA_AT_LEAST`, `RETRY_ADOPT_GROUNDEDNESS_SLACK` in
+   `app/rag/agent/thresholds.py`).
 2. **Corpus Ingestion (deferred, P2):** the measured gap is 1.6% and confined to the Prevention of Cruelty to Animals Rules, 2017 — not the acts originally listed. See §5.2.
 3. **Dual Metric Evaluation & 50-Answer Human Audit:** Run benchmark measuring binary correctness alongside soft metrics; classify residual failures.
 
@@ -337,28 +418,43 @@ Track these together, never soft alone:
 
 ## 11. Next implementation candidates & technical details
 
-If implementing immediately after this analysis, execute in this exact sequence:
+Execution status & next prioritized sequence based on the codebase evaluation:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 1: P0-1 EvidenceSet Context Packing Filter              │
+│ [COMPLETE] Step 1: P0-1 EvidenceSet Context Packing Filter   │
 │ files: app/rag/generation/context_builder.py                │
 │        app/rag/agent/nodes/linear.py                        │
 │        app/rag/tasks.py                                     │
 ├─────────────────────────────────────────────────────────────┤
-│ Step 2: P1-5 Verifier Empty-Claims & Polarity Guard         │
-│ files: app/rag/verification/scorer.py                       │
-│        app/rag/verification/evidence_verifier.py            │
+│ [OPEN] Step 2: Complete P1-5 Verifier Claim Polarity/Numbers │
+│ files: app/rag/verification/evidence_verifier.py            │
+│ detail: Enforce _PROHIBITION_RE / _PERMISSION_RE &          │
+│         _AMOUNT_RE / _PERCENT_RE in verify_claim()          │
 ├─────────────────────────────────────────────────────────────┤
-│ Step 3: P1-6 Actionable Targeted Retries                     │
+│ [OPEN] Step 3: P1-7b Prompt Conditioning for Legal Reasoning│
+│ files: app/rag/generation/prompt_template.py                │
+│ detail: Directives to quote statutory provisos/conditions   │
+│         before concluding (targets 60/89 model failures)    │
+├─────────────────────────────────────────────────────────────┤
+│ [COMPLETE] Step 4: P1-6 Actionable Targeted Retries          │
 │ files: app/rag/planning/targeted_retry.py                   │
 │        app/rag/agent/nodes/linear.py                        │
 ├─────────────────────────────────────────────────────────────┤
-│ Step 4: P1-4 Agent Pipeline Staging Activation              │
+│ [IN PROGRESS] Step 5: P1-4 Agent Staging A/B Evaluation      │
 │ files: app/shared/config.py                                 │
 │        app/rag/agent/graph.py                               │
+├─────────────────────────────────────────────────────────────┤
+│ [BLOCKED ON DATA] Step 6: Ingest Provision Bodies for KG    │
+│ files: app/rag/kg/                                          │
+│ detail: Backfill LegalProvision.text with full body text     │
+│         before re-enabling RAG_KG_FUSION                    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> **Note on Test Suite Import Drift:** Two test modules have minor import drift to clean up:
+> - `tests/test_form_arm_precision.py`: expects `FORM_NAMES`, renamed to `_FORM_NAMES` in `form_references.py`.
+> - `tests/test_split_policy.py`: expects `split_census`, refactored out of `evaluation.benchmark`.
 
 **Do not enable `RAG_KG_FUSION` yet.** The fusion path is now correct but the graph carries no quotable text (§1): re-run `evaluation/ab_kg_fusion.py` only after `LegalProvision.text` holds real provision bodies or the injected chunk resolves `SUPPORTED_BY` chunk text. Note the cost figure quoted in §1 is itself pre-fix and under-reported; the direction (fusion costs citations, gains no correctness) is what matters.
 

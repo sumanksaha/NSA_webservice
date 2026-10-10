@@ -105,6 +105,13 @@ class GroundednessScorer:
             claim_ratio = 0.50
 
         # Citation validity ratio.
+        # When there are no citations AND no claims, both default to non-1.0
+        # (claim_ratio=0.50 from empty-claims rule; citation_ratio stays 1.0
+        # because no citations is neutral). The combined score is 0.70, which
+        # is above the 0.50 hallucination threshold — so a vacuous answer
+        # (nothing extracted) is not falsely flagged. When citations ARE
+        # provided but invalid, citation_ratio drops and the combined score
+        # can fall below threshold as intended.
         citation_ratio = citation_result.score if citation_result is not None and citation_result.detail else 1.0
 
         score = self.claim_weight * claim_ratio + self.citation_weight * citation_ratio

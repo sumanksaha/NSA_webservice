@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from app.rag.planning.targeted_retry import (
     ARM_DEFINITION,
+    ARM_HYBRID,
     ARM_HIERARCHY,
     ARM_KG_PATHS,
     ARM_NONE,
@@ -227,48 +228,86 @@ class TestPlanInvariant:
         assert plan.arm == ARM_NONE
 
 
-class TestLegacyPathIsFlagGated:
-    """The legacy path's silent echo is live only while the flag is OFF.
+class TestRetryPathParity:
+    """The retry paths must be parity (ADR-0010 sec. 2.6): the flag is an
+    observability switch, never a behavioural fork.
 
-    ``RAG_TARGETED_RETRY_V2`` selects the retry implementation:
-    ``linear.py`` calls ``target_plan`` when it is on and
-    ``_legacy_target_query`` when it is off. The legacy path keeps its own
-    dispatch and echoes the query for strategies it does not handle.
-
-    Collapsing the two was tried and reverted (it changes served behaviour with
-    no adoption gate). Instead the flag was enabled, so production now takes
-    the fixed path and the divergence is dormant. These tests pin which side of
-    that switch we are on, so turning the flag off cannot silently reintroduce
-    the SPEC-2 defect.
+    The flag ``RAG_TARGETED_RETRY_V2`` selects the retry implementation in
+    ``linear.py``: ``target_plan`` when on, ``_legacy_target_query`` when off.
+    ``_legacy_target_query`` now delegates to ``target_plan().query`` with no
+    dispatch of its own, so the two paths can never diverge. The flag is the
+    default ``True`` (V2 is the production path); the parity assertions below
+    mean that even flipping the flag to ``false`` cannot silently reintroduce
+    the SPEC-2 silent-echo defect.
     """
 
-    def test_flag_is_enabled_so_production_uses_the_fixed_path(self):
+    def test_flag_is_true_by_default_and_stays_true(self):
+        """Guard: V2 is the production default, not an opt-in env tweak."""
         from app.shared.config import cfg
 
         assert bool(cfg.targeted_retry_v2) is True, (
-            "RAG_TARGETED_RETRY_V2 is off: production falls back to "
-            "_legacy_target_query, which silently echoes the query for "
-            "collection_reroute / temporal_retrieval / authority_retrieval / "
-            "kg_* (the SPEC-2 defect). Either collapse the two paths "
-            "deliberately, or leave the flag on."
+            "RAG_TARGETED_RETRY_V2 must remain the default; production must not "
+            "fall back to the legacy path. This is the adoption gate for the V2 "
+            "retry behaviour. Set explicitly only for rollback experiments."
         )
 
-    def test_legacy_path_would_still_echo_if_the_flag_were_off(self):
-        """Documents the dormant defect so a flag flip is never a surprise."""
+    def test_legacy_and_fixed_paths_return_identical_plan(self):
+        """Legacy and fixed paths are parity for every failure code."""
         planner = TargetedRetryPlanner()
-        # temporal_retrieval is dispatched by neither the legacy path nor...
-        out = planner._legacy_target_query("q?", ["EVIDENCE_CONTRADICTION"], "general", {})
-        assert out == "q?", (
-            "legacy path echo changed; re-evaluate whether the two paths can "
-            "now be collapsed"
-        )
+        failure_codes = [
+            "missing_provision",
+            "wrong_provision",
+            "missing_definition",
+            "missing_exception",
+            "missing_cross_ref",
+            "temporal_invalidity",
+            "insufficient_authority",
+            "evidence_contradiction",
+            "conflicting_authorities",
+            "low_relevance",
+            "insufficient_evidence_coverage",
+            "missing_specificity",
+            "abstain_required",
+            "no_such_failure_code",
+            "EVIDENCE_CONTRADICTION",
+        ]
+        for code in failure_codes:
+            legacy = planner._legacy_target_query(
+                "q?", [code], "general", {}
+            )
+            fixed = planner.target_plan("q?", [code], "general", {})
+            assert (
+                legacy == fixed.query
+            ), "parity break on %r: legacy=%r fixed.query=%r" % (code, legacy, fixed.query)
+            assert fixed.failures == (code,), "failures lost: %s" % fixed.to_dict()
 
-    def test_fixed_path_does_not_echo_for_that_same_input(self):
+    def test_both_paths_abstain_not_echo_for_untargetable_failures(self):
+        """A retry plan with non-empty failures must not silently echo:
+        untargetable failures -> explicit no-op (arm=none), both paths."""
         planner = TargetedRetryPlanner()
-        plan = planner.target_plan("q?", ["EVIDENCE_CONTRADICTION"], "general", {})
-        assert plan.arm == ARM_NONE, "flag-on path must abstain, not echo"
-        assert plan.strategy in ("temporal_retrieval", "unmapped", "abstain")
+        for code in ("EVIDENCE_CONTRADICTION", "no_such_failure_code"):
+            legacy_plan = planner.target_plan("q?", [code], "general", {})
+            assert legacy_plan.arm == ARM_NONE, (
+                "legacy/delegated path must abstain, got %s" % legacy_plan.to_dict()
+            )
+            assert legacy_plan.strategy in ("unmapped", "abstain")
+            # arm=none + a non-empty failures tuple means the query is echoed
+            # by design as an explicit abstain, not a silent re-query.
+            assert not (legacy_plan.arm != ARM_NONE and legacy_plan.query == "q?"), (
+                "silent echo with an active arm is forbidden: " + legacy_plan.to_dict()
+            )
 
+    def test_empty_failures_may_echo_but_flagged_as_no_retry(self):
+        """A retry plan with failures=() may echo the input query; it carries no
+        failures and no targeted arm."""
+        planner = TargetedRetryPlanner()
+        plan = planner.target_plan("q?", [], "general", {})
+        assert plan.query == "q?"
+        assert plan.failures == ()
+        assert plan.arm == ARM_HYBRID
+        assert plan.strategy == "dense_expansion"
+        # legacy wrapper agrees
+        assert planner._legacy_target_query("qq?", [], "general", {}) == "qq?"
 
 class TestCollectionReroute:
     """Collection_reroute must produce a real collection-targeted query."""

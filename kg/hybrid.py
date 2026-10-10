@@ -40,6 +40,59 @@ logger = logging.getLogger(__name__)
 #: Maximum chunk IDs to expand in one call (protects the Cypher query size).
 MAX_CHUNK_IDS = 200
 
+#: Property/alias names under which a provision body may arrive.
+#:
+#: The producers do not agree on one key: ``KGContextExpander`` projects
+#: ``p.provision_text`` as ``text``, ``search_provisions`` calls the same
+#: property ``snippet``, and ``get_cross_domain_laws`` returns the
+#: ``SUPPORTED_BY`` chunk body as ``chunk_text``.  Reading only ``text``
+#: therefore left the fusion path — which runs through
+#: ``provisions_for_query`` — with **no** body at all: every injected
+#: ``[Source n]`` block carried just the header line (provision number,
+#: instrument, status, domain, authority), which is the 85-character
+#: pointer stub that dropped citation recall from 0.31 to 0.10.
+#:
+#: Order is by authority, not by convenience: the provision's own text
+#: beats a single supporting chunk, which beats the header-derived title.
+_PROVISION_TEXT_KEYS: tuple[str, ...] = ("text", "provision_text", "snippet", "chunk_text")
+
+#: A body shorter than this is a pointer stub, not provision text — the
+#: header line alone ("PROVISION 16 — Duties of the Authority" plus the
+#: Instrument/Status/Domain/Authority lines) is already ~85 characters, so
+#: anything at or below that carries no statutory content to ground a
+#: citation against.
+_MIN_PROVISION_BODY_CHARS = 85
+
+
+def provision_body_text(provision: dict[str, Any]) -> str:
+    """Resolve the actual statutory body of *provision* from any known alias.
+
+    Every KG query path names the body property differently (see
+    :data:`_PROVISION_TEXT_KEYS`), so a single-key read silently dropped the
+    text for the fusion path and left KG evidence as header-only stubs.
+    Resolving the alias chain here fixes every producer at once.
+
+    Args:
+        provision: A provision dict from any ``kg`` query path.
+
+    Returns:
+        The longest non-stub body found, or ``""`` when the provision only
+        has a header/pointer stub (so callers can say so rather than emit a
+        misleading empty-looking block).
+    """
+    best = ""
+    for key in _PROVISION_TEXT_KEYS:
+        value = provision.get(key)
+        if not isinstance(value, str):
+            continue
+        candidate = value.strip()
+        # Longest wins: the full provision text and one arbitrary
+        # ``SUPPORTED_BY`` chunk can both be present, and the fuller one is
+        # strictly better evidence for grounding a citation.
+        if len(candidate) > len(best):
+            best = candidate
+    return best if len(best) > _MIN_PROVISION_BODY_CHARS else ""
+
 
 class KGContextExpander:
     """Expand Qdrant chunk IDs into structured Neo4j legal context.
@@ -422,6 +475,19 @@ def provisions_to_retrieved_chunks(
     Returns:
         List of ``RetrievedChunk`` — empty when no provisions are given.
 
+    The body is resolved through :func:`provision_body_text`, which reads
+    the alias chain in :data:`_PROVISION_TEXT_KEYS`.  A single-key read of
+    ``text`` is what produced the header-only 85-character stubs that
+    dropped citation recall from 0.31 to 0.10: the fusion path runs via
+    :func:`kg.queries.provisions_for_query`, whose producers name the body
+    ``snippet`` (``search_provisions``) or ``chunk_text``
+    (``get_cross_domain_laws``) — never ``text``.
+
+    A provision whose resolved body is a stub is still emitted (it carries
+    real identity — number, instrument, status, domain, authority), but the
+    block records that no statutory text was resolved so the missing
+    ``provision_text`` is visible in the prompt/audit rather than being
+    mistaken for an empty-evidence verdict.
     """
     from app.rag.retrieval.result import RetrievedChunk
 
@@ -431,10 +497,10 @@ def provisions_to_retrieved_chunks(
             break
         number = str(p.get("provision_number") or "").strip()
         title = str(p.get("title") or "").strip()
-        text = str(p.get("text") or "").strip()
+        body = provision_body_text(p)
         instrument = str(p.get("instrument_title") or "").strip()
         status = str(p.get("status") or "").strip()
-        domain = str(p.get("legal_domain") or "").strip()
+        domain = str(p.get("legal_domain") or p.get("domain") or "").strip()
         authorities = [a for a in (p.get("authorities") or []) if a]
         auth = ", ".join(authorities) or str(p.get("issuing_authority") or "").strip()
 
@@ -447,8 +513,10 @@ def provisions_to_retrieved_chunks(
             parts.append(f"Domain: {domain}")
         if auth:
             parts.append(f"Authority: {auth}")
-        if text:
-            parts.append(text)
+        if body:
+            parts.append(body)
+        else:
+            parts.append("[No statutory text available for this provision.]")
 
         chunks.append(
             RetrievedChunk(

@@ -9,6 +9,7 @@ context string with citation labels that the LLM can reference as [n].
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -44,6 +45,64 @@ _PACK_ORDER: dict[str, int] = {
     "duplicate": 8,
 }
 _PACK_ORDER_DEFAULT = 7
+
+#: Index/navigation detection for context dropping (config
+#: ``RAG_CONTEXT_DROP_INDEX_CHUNKS``, default on).
+#:
+#: On the gold-in-prompt failure slice these chunks consumed 16.9% of
+#: admitted slots (158/933) while carrying no provision text —
+#: ``evaluation/out/ceiling_v5/gip_window_content.txt``. Two shapes matter in
+#: this corpus: arrangement-of-sections listings (long, but pure navigation)
+#: and Act mastheads (the "THE <Act> ACT, <year>" cover line). Everything
+#: substantive — including a one-clause penalty provision — must survive, so
+#: the masthead rule only fires when nothing remains after the title and its
+#: bracketed/numeric metadata.
+_INDEX_MARKER_RE = re.compile(r"arrangement\s+of\s+sections", re.IGNORECASE)
+_MASTHEAD_RE = re.compile(
+    r"^\s*(?:\d{1,3}\.?\s+)?(?:THE\s+.{3,120}?\s+ACT|AN\s+ACT)\b",
+    re.IGNORECASE,
+)
+#: Title metadata that may follow a masthead: years, act numbers, bracketed
+#: enactment data (``[23rd March, 1974]``, ``(BEN. ACT VI OF 1944)``).
+_MASTHEAD_METADATA_RE = re.compile(
+    r"^[\s,\.\-–—]*(?:"
+    r"\d{1,3}\.?\s+"
+    r"|\(\s*[^)]{0,60}\)"
+    r"|\[\s*[^\]]{0,60}\]?"
+    r"|\d{4}"
+    r"|NO\.?\s*\d+\s+OF\s+\d{4}"
+    r"|ACT\b"
+    r"|THE\b|\s+|,|\.|;|:|-"
+    r")+",
+    re.IGNORECASE,
+)
+#: A body shorter than this cannot hold a provision clause; dropping it loses
+#: nothing a model could cite.
+_INDEX_MIN_CHARS = 60
+
+
+def is_index_chunk(text: str) -> bool:
+    """True when *text* is navigation/heading material, not a provision.
+
+    Deliberately conservative: a penalty clause, a definition-with-explanation,
+    and an amendment-note fragment all pass. Only arrangement-of-sections
+    listings, bare mastheads, and under-60-character fragments are treated as
+    index material.
+    """
+    stripped = (text or "").strip()
+    if len(stripped) < _INDEX_MIN_CHARS:
+        return True
+    if _INDEX_MARKER_RE.search(stripped):
+        return True
+    # Masthead-only: after the title and its enactment metadata, nothing is
+    # left. Operative text ("... ACT, 2006. Section 31 provides that ...")
+    # leaves a remainder and survives.
+    match = _MASTHEAD_RE.match(stripped)
+    if match:
+        remainder = _MASTHEAD_METADATA_RE.sub("", stripped[match.end():], count=1).strip(" ,.-;:][()")
+        if not remainder:
+            return True
+    return False
 
 
 @dataclass
@@ -166,6 +225,26 @@ class ContextBuilder:
             )
 
         ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
+
+        # GIP packing fix: drop index/navigation chunks before selection so the
+        # freed slots go to substantive provisions ranked below them. Applied
+        # after the answerability gate (the gate has already judged the full
+        # pool) and before role packing, so P0-1 behaviour is unchanged when
+        # *evidence_set* is supplied.
+        dropped_index = 0
+        if cfg.context_drop_index_chunks:
+            keep: list[RetrievedChunk] = []
+            for chunk in ranked:
+                if is_index_chunk(chunk.text):
+                    dropped_index += 1
+                    continue
+                keep.append(chunk)
+            # Never empty the window: if every chunk looked like index
+            # material, fall back to the unfiltered ranking.
+            if keep:
+                ranked = keep
+                if dropped_index:
+                    logger.debug("Dropped %d index chunks before packing", dropped_index)
 
         # P0-1: evidence-set packing.  The answerability gate above has
         # already judged the FULL pool — packing happens strictly after, so

@@ -156,8 +156,12 @@ def load_gold_sources() -> dict[str, Any]:
     return _load_json(GOLD_SOURCES_FILE)
 
 
-def load_questions() -> list[BenchmarkQuestion]:
-    """Load the 150 frozen questions and resolve gold units against the registry."""
+def load_questions(split: str | list[str] | None = None) -> list[BenchmarkQuestion]:
+    """Load the 150 frozen questions and resolve gold units against the registry.
+
+    Filtering is opt-in and only ever narrows the returned set — it never
+    mutates the frozen file or rewrites the stored ``n=`` in any report.
+    """
     registry = load_gold_registry()
     questions: list[BenchmarkQuestion] = []
     with open(BENCHMARK_FILE, encoding="utf-8") as f:
@@ -169,7 +173,33 @@ def load_questions() -> list[BenchmarkQuestion]:
             q = BenchmarkQuestion(raw=raw)
             q.gold_units = _resolve_units(raw, registry)
             questions.append(q)
+    questions = _filter_by_split(questions, split)
     return questions
+
+def _filter_by_split(
+    questions: list[BenchmarkQuestion],
+    split: str | list[str] | None,
+) -> list[BenchmarkQuestion]:
+    """Opt-in narrowing by the frozen ``split`` label.
+
+    ``None`` returns the full benchmark unchanged.  A single split name returns
+    only questions labelled with that value.  A list of names returns the union,
+    in benchmark order.  An unknown name returns an empty list rather than the
+    full set, so a typo is a no-op the caller can notice rather than a silent
+    reversion to ``n=150``.
+    """
+    if split is None:
+        return questions
+    names: set[str]
+    if isinstance(split, str):
+        names = {split}
+    else:
+        names = set(split)
+    if not names:
+        return []
+    return [q for q in questions if q.split in names]
+
+
 
 
 def _resolve_units(raw: dict[str, Any], registry: dict[str, dict[str, Any]]) -> list[GoldUnit]:

@@ -175,6 +175,44 @@ _CANDIDATES: dict[str, str] = {
         "Question: {query}\n"
         "Answer:"
     ),
+    # Same scan, plus the conditioning block for the residual answer-quality
+    # failures. Additive directives only (completeness per question part,
+    # provision-by-claim identification, penalty structure, truncation
+    # honesty) — no hard gate, no prescribed closing format, so the
+    # abstention-side regressions of cand_scan_enumerate are not re-run.
+    # Control candidate on the citation slice; correctness side is measured by
+    # `python -m evaluation.rerun_gold_in_prompt` (gold-in-prompt qids).
+    "cand_scan_cond": (
+        "Relevant legal context:\n"
+        "<legal_context>\n"
+        "{context}\n"
+        "</legal_context>\n\n"
+        "First quote the passages that bear on the question, then answer "
+        "the question using those quotes, citing specific sources with "
+        "[n] markers.\n"
+        "Before answering, go through every numbered source in the context and "
+        "note the ones that bear on the question, including any that add a "
+        "condition, exception, threshold or definition the answer depends on.\n"
+        "Answer every part the question names, each with its own [n] citations. "
+        "If one part is not covered by the context, answer the other parts and "
+        "say which part is uncovered rather than declining the whole question; "
+        "before stating that the context does not address something, point to "
+        "the numbered sources you checked for it.\n"
+        "For each material legal proposition, name the exact provision you rely "
+        "on (Act and section) beside its [n] citation. If more than one section "
+        "could apply, say which one governs and why. If the context holds more "
+        "than one version of a provision, use the version the question asks "
+        "about and say which that is.\n"
+        "When a penalty is at issue, state its full structure — base fine and/or "
+        "imprisonment, any continuing daily fine, any escalation on repeat "
+        "conviction — with exact figures as printed in the source, never a "
+        "rounded summary.\n"
+        "If a source is cut off mid-clause, say which point is missing instead "
+        "of reconstructing it, and do not call a list complete unless the "
+        "context establishes it.\n\n"
+        "Question: {query}\n"
+        "Answer:"
+    ),
     # Same scan, plus a trailing enumeration. A structured closing line is a
     # format the model fills far more reliably than an inline instruction, so
     # this is the higher-ceiling variant of the breadth idea.

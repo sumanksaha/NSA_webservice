@@ -115,7 +115,40 @@ GROUND_QA_USER_TEMPLATE = (
     "[n] markers.\n"
     "Before answering, go through every numbered source in the context and "
     "note the ones that bear on the question, including any that add a "
-    "condition, exception, threshold or definition the answer depends on.\n\n"
+    "condition, exception, threshold or definition the answer depends on.\n"
+    # Conditioning block v1 (2026-10-10). The scan line addressed *citation
+    # breadth*; the block below addresses the residual *answer-quality*
+    # failures. On the gold-in-prompt slice (60 qids where the provider admits
+    # gold to the window and the audit still scored the answer wrong —
+    # `python -m evaluation.rerun_gold_in_prompt --tag baseline`), the shipped
+    # scan-only template graded 57/60 still wrong, decomposed by the human
+    # audit's own model_action: abstention_gate 24 (premature or partial
+    # refusal when the reference IS in the context), provision_check 20
+    # (wrong section / wrong penalty figure provision identified),
+    # needs_deeper_reasoning 16 (multi-part question answered partially,
+    # truncated source not flagged, completeness claimed). Each directive is
+    # additive wording: no hard precondition, no gating clause, no prescribed
+    # closing format — the shapes that regressed abstention in ADR-0010
+    # (§7.1 quote gate 0.073 -> 0.436 false abstention; §7.3 enumerate
+    # candidate p=0.004). Success is measured on the same slice per directive
+    # iteration; `abstained` is the binding risk to watch.
+    "Answer every part the question names, each with its own [n] citations. "
+    "If one part is not covered by the context, answer the other parts and "
+    "say which part is uncovered rather than declining the whole question; "
+    "before stating that the context does not address something, point to "
+    "the numbered sources you checked for it.\n"
+    "For each material legal proposition, name the exact provision you rely "
+    "on (Act and section) beside its [n] citation. If more than one section "
+    "could apply, say which one governs and why. If the context holds more "
+    "than one version of a provision, use the version the question asks "
+    "about and say which that is.\n"
+    "When a penalty is at issue, state its full structure — base fine and/or "
+    "imprisonment, any continuing daily fine, any escalation on repeat "
+    "conviction — with exact figures as printed in the source, never a "
+    "rounded summary.\n"
+    "If a source is cut off mid-clause, say which point is missing instead "
+    "of reconstructing it, and do not call a list complete unless the "
+    "context establishes it.\n\n"
     "Question: {query}\n"
     "Answer:"
 )

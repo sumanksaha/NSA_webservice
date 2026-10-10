@@ -63,14 +63,16 @@
 - Code path is functional (kg_reason_node registered, state keys declared)
 - Flag stays false pending A/B of agent path vs linear pipeline
 
----### P1-5: Strengthen claim verification & fix empty-claim loophole
-**Status:** ✅ Complete (scorer fix landed)
-**Files:** `verification/scorer.py`, `verification/evidence_verifier.py`, `verification/hallucination_detector.py`
-**Verification:**
+---
+
+### P1-5: Strengthen claim verification & fix empty-claim loophole
+**Status:** 🔄 In Progress (scorer fix landed; verify_claim polarity check open)  
+**Files:** `verification/scorer.py`, `verification/evidence_verifier.py`, `verification/hallucination_detector.py`  
+**Verification & Status:**
 - `GroundednessScorer.score()` now returns 0.50 claim_ratio for empty claims (was 1.0)
 - `detail["empty_claims"]` flag added for observability
 - Score for empty-claims-on-nonempty-response: 0.70 (0.6×0.50 + 0.4×1.0)
-- hardened_scorer.py already had the correct behavior (shadow copy)
+- **Open:** Enforce `_PROHIBITION_RE`/`_PERMISSION_RE` and `_AMOUNT_RE`/`_PERCENT_RE` comparison in `EvidenceVerifier.verify_claim()`
 
 ---
 
@@ -95,6 +97,16 @@
 - `QueryPlanner.plan()` builds EvidenceTask DAGs with complexity labels
 - Used in `run_generation_pipeline` for compound query decomposition
 - Planner integrated into agent graph via `plan_node`
+
+---
+
+### P1-7b: Downstream generation prompt conditioning (60/89 failure bottleneck)
+**Status:** 🔄 In Progress / Planned
+**Files:** `generation/prompt_template.py`, `generation/grounded_service.py`  
+**Notes:**
+- 60 of 89 failures have gold evidence in prompt; widening context yielded citations but flat accuracy
+- Prompt conditioning: mandate quoting qualifying conditions and provisos before conclusions
+- Directs Issue-Rule-Application structure in grounded prompts
 
 ---
 

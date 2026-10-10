@@ -10,6 +10,18 @@ that claim is verified.
 
 This replaces Phase 2's heuristic claim-flagging in ``ResponseSanitizer``
 with a claim-level evidence check.
+
+Because ``partial_ratio`` cannot distinguish an inverted proposition from a
+grounded one, every *fuzzy* verification additionally passes two
+claim-level entailment gates (:meth:`EvidenceVerifier._chunk_supports_claim`):
+a **polarity** gate (a prohibiting claim needs prohibiting evidence, a
+permitting claim needs permitting evidence) and a **numeric entailment**
+gate (every amount/percentage the claim asserts must be stated by the
+evidence).  A chunk that fails a gate is not evidence — the claim is
+rejected with the failing gate recorded in ``EvidenceVerification.reason``.
+This is P1 item 5.5 of ``RAG_ANSWER_QUALITY_IMPROVEMENT_ANALYSIS.md`` and
+mirrors the reason codes from
+:func:`app.rag.verification.hardened_scorer.verify_claim_strict`.
 """
 
 from __future__ import annotations
@@ -31,8 +43,14 @@ from app.rag.verification.claim_extractor import (
 logger = logging.getLogger(__name__)
 
 #: Prohibition language ("no person shall sell", "shall not be added").
+#:
+#: The optional ``\w+`` filler must come *after* "be" (or be absent), so the
+#: alternation is ordered to allow "shall not X be sold" and
+#: "shall not be sold" alike.  A naive ``shall not(?:\s+\w+){0,3}\b(?:be\s+)?``
+#: ordering can never match, because the optional group sits directly after
+#: "not" where the input actually holds a space.
 _PROHIBITION_RE = re.compile(
-    r"\b(?:no person shall|shall not(?:\s+\w+){0,3}\b(?:be\s+)?(?:added|sold|used|manufactured|imported)|prohibited)\b",
+    r"\b(?:no person shall|shall not\s+(?:\w+\s+){0,3}?(?:be\s+)?(?:added|sold|used|manufactured|imported)|prohibited)\b",
     re.IGNORECASE,
 )
 #: Permission language ("may be sold/used/…", "permitted", "allowed").
@@ -92,6 +110,10 @@ class EvidenceVerification:
         method: How the claim was verified
             (``"section"`` | ``"text"`` | ``"none"``).
         evidence_snippet: The best-matching chunk text (truncated).
+        reason: Entailment-gate verdict for fuzzy (``"text"``) matches —
+            ``""`` when the gates passed, otherwise ``"polarity_mismatch"``
+            or ``"numeric_mismatch"``.  Mirrors the reason codes returned by
+            :func:`app.rag.verification.hardened_scorer.verify_claim_strict`.
 
     """
 
@@ -100,6 +122,7 @@ class EvidenceVerification:
     supporting_chunks: list[str] = field(default_factory=list)
     method: str = "none"
     evidence_snippet: str = ""
+    reason: str = ""
 
 
 class EvidenceVerifier:
@@ -143,9 +166,26 @@ class EvidenceVerifier:
             # flagged claims whose evidence simply lacked metadata).
             best_score, best_chunk = self._best_text_match(claim.text, chunks)
             if best_chunk is not None and best_score >= self.similarity_threshold:
+                # Entailment gates: string similarity alone is not support.
+                supports, reason = self._chunk_supports_claim(claim, best_chunk)
+                if not supports:
+                    logger.debug(
+                        "Claim rejected by entailment gate (%s) despite fuzzy score %.1f: %s",
+                        reason,
+                        best_score,
+                        claim.text[:120],
+                    )
+                    return EvidenceVerification(
+                        verified=False,
+                        confidence=_UNVERIFIED_CONFIDENCE,
+                        supporting_chunks=[],
+                        method="none",
+                        evidence_snippet="",
+                        reason=reason,
+                    )
                 return EvidenceVerification(
                     verified=True,
-                    confidence=_TEXT_MATCH_CONFIDENCE * (best_score / 100.0),
+                    confidence=self._text_confidence(best_score),
                     supporting_chunks=[best_chunk.chunk_id],
                     method="text",
                     evidence_snippet=self._snippet(best_chunk.text),
@@ -159,14 +199,38 @@ class EvidenceVerifier:
             )
 
         # 2. Textual overlap via rapidfuzz.
-        best_score, best_chunk = self._best_text_match(claim.text, chunks)
-        if best_chunk is not None and best_score >= self.similarity_threshold:
+        ranked = self._ranked_matches(claim.text, chunks)
+        if ranked and ranked[0][0] >= self.similarity_threshold:
+            # Entailment gates: a chunk can score highly on ``partial_ratio``
+            # while asserting the opposite polarity or a different figure.
+            # Only a chunk that passes the gates counts as evidence.
+            failed_reason = ""
+            for score, chunk in ranked:
+                if score < self.similarity_threshold:
+                    break
+                supports, reason = self._chunk_supports_claim(claim, chunk)
+                if supports:
+                    return EvidenceVerification(
+                        verified=True,
+                        confidence=self._text_confidence(score),
+                        supporting_chunks=[chunk.chunk_id],
+                        method="text",
+                        evidence_snippet=self._snippet(chunk.text),
+                    )
+                failed_reason = failed_reason or reason
+                logger.debug(
+                    "Fuzzy candidate (score %.1f) rejected by entailment gate (%s): %s",
+                    score,
+                    reason,
+                    claim.text[:120],
+                )
             return EvidenceVerification(
-                verified=True,
-                confidence=_TEXT_MATCH_CONFIDENCE * (best_score / 100.0),
-                supporting_chunks=[best_chunk.chunk_id],
-                method="text",
-                evidence_snippet=self._snippet(best_chunk.text),
+                verified=False,
+                confidence=_UNVERIFIED_CONFIDENCE,
+                supporting_chunks=[],
+                method="none",
+                evidence_snippet="",
+                reason=failed_reason,
             )
 
         # 3. General support — claim references an authority that appears
@@ -200,14 +264,102 @@ class EvidenceVerifier:
 
     def _best_text_match(self, claim_text: str, chunks: list[RetrievedChunk]) -> tuple[float, RetrievedChunk | None]:
         """Find the chunk with the highest ``partial_ratio`` to *claim_text*."""
-        best_score = 0.0
-        best_chunk: RetrievedChunk | None = None
-        for chunk in chunks:
-            score = fuzz.partial_ratio(claim_text, chunk.text)
-            if score > best_score:
-                best_score = score
-                best_chunk = chunk
-        return best_score, best_chunk
+        ranked = self._ranked_matches(claim_text, chunks)
+        if not ranked:
+            return 0.0, None
+        return ranked[0]
+
+    def _ranked_matches(self, claim_text: str, chunks: list[RetrievedChunk]) -> list[tuple[float, RetrievedChunk]]:
+        """All chunks with their ``partial_ratio`` to *claim_text*, best first."""
+        scored = [(fuzz.partial_ratio(claim_text, chunk.text), chunk) for chunk in chunks]
+        return sorted(scored, key=lambda pair: pair[0], reverse=True)
+
+    def _text_confidence(self, best_score: float) -> float:
+        """Confidence for a fuzzy (``"text"``) verification.
+
+        Scaled by similarity, and always below the exact section-stamp
+        confidence: string overlap never proves as much as a matched
+        section number, even after the entailment gates pass.
+        """
+        return round(_TEXT_MATCH_CONFIDENCE * (best_score / 100.0), 4)
+
+    # ------------------------------------------------------------------ #
+    # Claim-level entailment gates (V2 plan item 5.5)
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _asserted_numerics(text: str) -> set[str]:
+        """Monetary/percentage figures asserted in *text*, normalized.
+
+        Only the bare numeric core is kept (currency prefix and thousands
+        separators dropped) so ``"Rs. 10,000"``, ``"₹10,000"`` and
+        ``"INR 10,000"`` compare equal — the currency spelling is
+        presentation, the *figure* is the asserted content.
+        """
+        values: set[str] = set()
+        for match in _AMOUNT_RE.finditer(text or ""):
+            core = re.sub(r"[^\d.]", "", match.group(2))
+            if core:
+                values.add(core)
+        for match in _PERCENT_RE.finditer(text or ""):
+            core = re.sub(r"[^\d.]", "", match.group(1))
+            if core:
+                values.add(core)
+        return values
+
+    @staticmethod
+    def _chunk_supports_claim(claim: ExtractedClaim, chunk: RetrievedChunk) -> tuple[bool, str]:
+        """Check whether *chunk* entails *claim* beyond raw string overlap.
+
+        ``rapidfuzz`` similarity alone cannot tell an inverted proposition
+        from a grounded one: "sale may be permitted" and "sale is banned"
+        score highly against each other, as do "Rs. 10,000" and
+        "Rs. 50,000" penalties.  These gates close that gap so a claim that
+        merely *looks* like its evidence cannot verify (P1 item 5.5):
+
+        1. **Polarity** — if the claim uses prohibition language
+           (``_PROHIBITION_RE``) while the chunk uses permission language
+           (``_PERMISSION_RE``), or vice-versa, the chunk contradicts the
+           claim and the claim is rejected.
+        2. **Numeric entailment** — every monetary amount / percentage the
+           claim asserts (``_AMOUNT_RE`` / ``_PERCENT_RE``) must appear
+           among the figures the chunk states.  A hallucinated number is
+           rejected even when the surrounding prose overlaps heavily.
+
+        A chunk carrying *both* polarity flavours (e.g. a prohibition plus
+        its own exception) is treated as supporting either, since the text
+        genuinely discusses the claim's sense.
+
+        Returns:
+            ``(True, "")`` when the chunk entails the claim, else
+            ``(False, reason)`` with reason ``"polarity_mismatch"`` or
+            ``"numeric_mismatch"``.
+        """
+        claim_text = claim.text or ""
+        chunk_text = chunk.text or ""
+
+        # -- Gate 1: polarity ------------------------------------------ #
+        claim_prohibits = bool(_PROHIBITION_RE.search(claim_text))
+        claim_permits = bool(_PERMISSION_RE.search(claim_text))
+        if claim_prohibits or claim_permits:
+            chunk_prohibits = bool(_PROHIBITION_RE.search(chunk_text))
+            chunk_permits = bool(_PERMISSION_RE.search(chunk_text))
+            # A chunk with mixed polarity is ambiguous, not contradictory.
+            supports_polarity = (
+                (claim_prohibits and chunk_prohibits) or (claim_permits and chunk_permits)
+            )
+            if not supports_polarity and (chunk_prohibits or chunk_permits):
+                return False, "polarity_mismatch"
+
+        # -- Gate 2: numeric entailment -------------------------------- #
+        # Every figure the claim asserts must be stated by the chunk.  A
+        # single hallucinated number is enough to reject, even when the
+        # rest of the prose overlaps perfectly.
+        claim_values = EvidenceVerifier._asserted_numerics(claim_text)
+        if claim_values and not claim_values <= EvidenceVerifier._asserted_numerics(chunk_text):
+            return False, "numeric_mismatch"
+
+        return True, ""
 
     @staticmethod
     def _authority_support(claim: ExtractedClaim, chunks: list[RetrievedChunk]) -> bool:

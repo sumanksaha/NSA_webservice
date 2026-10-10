@@ -134,27 +134,18 @@ class TargetedRetryPlanner:
         )
 
     def _legacy_target_query(self, query: str, failures: list[Any], query_type: str, context: dict) -> str:
-        """Pre-V2 string behavior without deprecation warning (legacy path).
+        """Pre-V2 string API — now a thin wrapper delegating to ``target_plan``.
 
-        NOTE: this path keeps its own dispatch and silently echoes the input
-        query for strategies it does not handle (``collection_reroute``,
-        ``temporal_retrieval``, ``authority_retrieval``, ``kg_*``).  Collapsing
-        it onto :meth:`target_plan` was tried and **reverted**: ``
-        RAG_TARGETED_RETRY_V2`` defaults to False, so this is the production
-        path and the change would have altered served behaviour without an
-        adoption gate.  The SPEC-2 fixes are therefore live only under that
-        flag.  See docs/adr/0010-shadow-verifier-threshold-calibration.md §2.6.
+        The V2 structured-Plan path is the production default
+        (``RAG_TARGETED_RETRY_V2`` defaults to ``True``), so this method is
+        dormant machinery kept only for backwards compatibility with any caller
+        that still calls the legacy string API. It keeps no dispatch of its own:
+        it forwards to :meth:`target_plan` and returns ``.query``, so both paths
+        satisfy a single contract and there is no silent-echo fallback path.
         """
-        if not failures:
-            return query
-        strategy = FailureClassifier().recovery_strategy(failures[0])  # type: ignore[arg-type]
-        if strategy == "identifier_search":
-            return self._target_identifier(query)
-        if strategy == "hierarchy_graph":
-            return self._target_hierarchy(query)
-        if strategy == "definition_search":
-            return self._target_definition(query)
-        return query
+        # Delegate to the single structured path (ADR-0010 §2.6 decision).
+        return self.target_plan(query, failures, query_type, context).query
+
 
     def target_query(
         self,
@@ -328,18 +319,3 @@ class TargetedRetryPlanner:
         sec_qs = " OR ".join(f"Section {t}" if not t.lower().startswith("section") else t for t in seen[:5])
         return TargetPlan(query=f"{query} {sec_qs}".strip(), arm=ARM_KG_PATHS, strategy=strategy, failures=failures, meta={"kg_hint": seen[0], "kg_targets": seen[:5]})
 
-    # Legacy thin fallbacks (no pseudo-tags).
-    def _target_identifier(self, query: str) -> str:
-        return self._build_identifier(query, (), None).query
-
-    def _target_collection(self, query: str) -> str:
-        return query
-
-    def _target_temporal(self, query: str) -> str:
-        return query
-
-    def _target_hierarchy(self, query: str) -> str:
-        return self._build_hierarchy(query, {}, ()).query
-
-    def _target_definition(self, query: str) -> str:
-        return self._build_definition(query, {}, ()).query

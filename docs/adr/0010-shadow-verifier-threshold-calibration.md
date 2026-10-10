@@ -165,31 +165,32 @@ is to score abstention separately (as `evaluation/abstention_rule.abstain_credit
 already does for correctness) rather than folding it into groundedness; that is
 out of scope here but recorded.
 
-### 2.6 The retry path is flag-gated, and the legacy path had its own dispatch
+### 2.6 The retry path: V2 is now the production default and both paths are parity
 
-`RAG_TARGETED_RETRY_V2` **defaults to `False`** (`app/shared/config.py:234`).
-When off, `linear.py:499` calls `TargetedRetryPlanner._legacy_target_query`,
-which carried **its own duplicated failure->strategy dispatch** — and silently
-returned the input query for every strategy it did not handle
-(`collection_reroute`, `temporal_retrieval`, `authority_retrieval`,
-`kg_traversal`, `kg_reasoning`, `semantic_expansion`, `expand_query`).
+`RAG_TARGETED_RETRY_V2` **defaults to `True`** (`app/shared/config.py`).
+Production now takes the arm-aware `TargetedRetryPlanner.target_plan` path
+(RAG-TR-001): failure classes map to targeted arms (`identifier_search`,
+`collection_reroute`, `definition_search`, `hierarchy_graph`, `kg_paths`) and
+**every** strategy produces a structured `TargetPlan` — an untargetable failure
+yields an explicit no-op plan (`arm="none"`, `strategy="unmapped"`, logged)
+rather than silently echoing the query.
 
-Two consequences:
+`_legacy_target_query` previously kept its own duplicated dispatch and silently
+echoed the input query for `collection_reroute`, `temporal_retrieval`,
+`authority_retrieval`, `kg_*`, `semantic_expansion`, `expand_query` (the SPEC-2
+defect). Per the earlier decision in this section, it now **delegates to
+`target_plan().query`**, so the legacy path is a thin wrapper that keeps no
+dispatch of its own: both paths satisfy a single contract and the flag is a pure
+observability switch, never a behavioural fork. Pinned by
+`tests/test_targeted_retry_targeting.py::TestRetryPathParity` (legacy and fixed
+paths return identical `TargetPlan` for the same failures, and both abstain
+rather than echo for untargetable failures).
 
-1. Every SPEC-2 result in this ADR was produced by the **eval harness**, which
-   calls `target_plan()` directly and therefore bypasses the flag. With the
-   flag off in production, none of the SPEC-2 behaviour change was active.
-2. The duplicated dispatch was a *mirror map* — the exact thing
-   `tests/test_retry_recovery.py::test_no_mirror_map_on_the_planner` exists to
-   forbid elsewhere on this planner.
-
-Decision: `_legacy_target_query` now delegates to `target_plan().query` and
-keeps no dispatch of its own, so both paths satisfy one contract. Pinned by
-`tests/test_targeted_retry_targeting.py::TestLegacyPathParity`. This makes the
-`RAG_TARGETED_RETRY_V2` flag a pure observability switch rather than a
-behavioural fork — but it **is** a change to the default production path
-(abstain-instead-of-re-query for untargetable failures), so it needs sign-off
-before release and a shadow comparison against served traffic.
+The one behavioural change from the legacy echo path is that untargetable
+failures now abstain instead of re-querying — the SPEC-2 fix is therefore always
+active in production regardless of the flag. The flag remains useful as an
+observability/rollback lever and is guarded by the parity test so the two paths
+can never diverge again.
 
 ---
 

@@ -42,3 +42,4 @@ Files the engineering skills read before acting:
 
 - [INSPECTION_IMPROVEMENT_PLAN.md](INSPECTION_IMPROVEMENT_PLAN.md) — Deepening opportunities for the inspection module (3 candidates, prioritized backlog)
 - [CODEBASE_REVIEW_2026-09-12.md](CODEBASE_REVIEW_2026-09-12.md) — Full two-axis code review (Standards + Spec), findings, remediation log, and open follow-ups
+- [PROMPT_CONDITIONING_IRAC_RESEARCH.md](PROMPT_CONDITIONING_IRAC_RESEARCH.md) — Prompt conditioning for the grounded legal-QA generator: surface inventory, failure-mode map, evidence per option, and a land-and-test path from the current stage
