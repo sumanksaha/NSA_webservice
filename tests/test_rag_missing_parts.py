@@ -1,7 +1,9 @@
 """Integration: plan_node → kg_reason_node → targeted_retry flow + Step-5 units."""
 
+import re
+
 from app.rag.agent.nodes import kg_reason_node, plan_node, targeted_retry_node
-from app.rag.planning.kg_reasoner import generate_cypher, reason_from_query
+from app.rag.planning.kg_reasoner import ALLOWED_RELATIONS, generate_cypher, reason_from_query
 from app.rag.planning.profiles import ProfileManager
 from app.rag.retrieval.temporal_validity import extract_amendment_chain, resolve_temporal_state
 
@@ -27,18 +29,42 @@ def test_plan_kg_retry_flow():
     # First failure is citation-based → identifier route; KG path exercised directly.
     from app.rag.planning.targeted_retry import TargetedRetryPlanner
 
-    kg_q = TargetedRetryPlanner().target_query("What is Section 12?", ["kg_traversal_failed"], "general", {})
-    assert "HAS_CROSS_REFERENCES" in kg_q
+    planner = TargetedRetryPlanner()
+
+    # With KG paths in context the retry appends a "Section N" hint derived
+    # from the traversal, so the query differs from the input.
+    kg_plan = planner.target_plan(
+        "What is Section 12?", ["kg_traversal_failed"], "general", {"kg_paths": [{"steps": ["12", "55"]}]}
+    )
+    assert kg_plan.arm == "kg_paths"
+    assert kg_plan.query != "What is Section 12?"
+    assert "Section 12" in kg_plan.query
+
+    # With no KG targets the planner must abstain rather than silently echo
+    # the query (SPEC-2): an explicit no-op arm, not a pretend retry.
+    empty_plan = planner.target_query("What is Section 12?", ["kg_traversal_failed"], "general", {})
+    assert empty_plan == "What is Section 12?"
+    assert planner.target_plan("What is Section 12?", ["kg_traversal_failed"], "general", {}).arm == "none"
 
 
 def test_kg_cypher_allowlist():
-    assert generate_cypher("penalty", {"section": "12"}) is not None
-    assert "HAS_PENALTY" in generate_cypher("penalty", {"section": "12"})
+    # Only relationships the graph actually stores may appear — the old
+    # HAS_PENALTY / HAS_AUTHORITY set matched nothing (see ALLOWED_RELATIONS).
+    q = generate_cypher("penalty", {"section": "12"})
+    assert q is not None
+    assert any(rel in q for rel in ("PRESCRIBES_PENALTY", "CREATES_OFFENCE"))
+    assert "HAS_PENALTY" not in q
     assert generate_cypher("unknown_intent") is None
     # Injection chars stripped; only allowlisted relations appear.
     q = generate_cypher("permission", {"section": "12; DROP TABLE"})
     assert q is not None and ";" not in q
-    assert all(rel in q for rel in ("HAS_AUTHORITY", "GRANTS_POWER_TO"))
+    assert all(rel in q for rel in ("GRANTS_POWER_TO", "GRANTS_PERMISSION"))
+    # Every relationship emitted by any template is in the allowlist.
+    for intent in ("permission", "penalty", "prohibition", "definition"):
+        emitted = generate_cypher(intent, {"section": "12"})
+        if emitted:
+            for rel in __import__("re").findall(r"-\[:([A-Z_]+)", emitted):
+                assert rel in ALLOWED_RELATIONS, rel
 
 
 def test_reason_from_query_no_sections():

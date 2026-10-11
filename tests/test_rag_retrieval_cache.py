@@ -89,7 +89,13 @@ class TestRetrievalCache:
         clear_retrieval_cache()
 
     def test_cache_hit_skips_second_retrieve(self):
-        """Identical query within TTL: HybridRetriever.retrieve runs once."""
+        """Identical query within TTL: the retriever is not re-entered.
+
+        One pipeline call may issue more than one ``HybridRetriever.retrieve``
+        call (the food-stage narrow fallback re-fetches into the same cache),
+        so the contract is asserted as "the repeat adds no retrieves" rather
+        than an absolute count.
+        """
         app, ctx = _setup_test_env()
         try:
             app.config["RAG_RETRIEVAL_CACHE"] = True
@@ -106,9 +112,11 @@ class TestRetrievalCache:
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 r1 = run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
+                after_miss = retrieve_mock.call_count
+                assert after_miss >= 1
                 r2 = run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
-            # 2nd call was a cache hit — retrieve() was only invoked once.
-            assert retrieve_mock.call_count == 1
+            # 2nd call was a cache hit — retrieve() was not invoked again.
+            assert retrieve_mock.call_count == after_miss
             assert r1["chunks"] == r2["chunks"]
             # Hit path reports zero retrieval latency (the miss path carries the
             # real Qdrant round-trip latency) — the distinguishing hit signal
@@ -143,8 +151,11 @@ class TestRetrievalCache:
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
+                first = retrieve_mock.call_count
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
-            assert retrieve_mock.call_count == 2
+                second = retrieve_mock.call_count
+            # No memoization: the repeat re-enters the retriever.
+            assert second > first
         finally:
             _teardown(ctx)
 
@@ -166,18 +177,25 @@ class TestRetrievalCache:
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
+                cached_hits = retrieve_mock.call_count
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
-                # Hit -> only 1 retrieve so far.
-                assert retrieve_mock.call_count == 1
+                # Hit -> no further retrieve() so far.
+                assert retrieve_mock.call_count == cached_hits
                 clear_retrieval_cache()
                 run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
                 # Eviction + cache miss -> retrieve() called again.
-                assert retrieve_mock.call_count == 2
+                assert retrieve_mock.call_count > cached_hits
         finally:
             _teardown(ctx)
 
-    def test_different_top_k_misses_cache(self):
-        """A different top_k yields a distinct cache key -> cache miss."""
+    def test_different_filters_miss_cache(self):
+        """Different filters yield a distinct cache key -> cache miss.
+
+        Filters are part of the cache key verbatim, so two queries that differ
+        only in scope must not replay each other's pool. (The caller's top_k is
+        not used here: RL widening resolves it to the same effective fetch width
+        for both calls, so it is not a discriminating input.)
+        """
         app, ctx = _setup_test_env()
         try:
             app.config["RAG_RETRIEVAL_CACHE"] = True
@@ -193,8 +211,16 @@ class TestRetrievalCache:
             )
             cm = _patched_pipeline(retrieve_mock)
             with cm[0], cm[1], cm[2], cm[3]:
-                run_retrieval_pipeline(QUERY, top_k=5, collection_name="fssai_legal_768")
-                run_retrieval_pipeline(QUERY, top_k=10, collection_name="fssai_legal_768")
-            assert retrieve_mock.call_count == 2
+                run_retrieval_pipeline(
+                    QUERY, top_k=5, collection_name="fssai_legal_768",
+                    filters={"section_number": "55"},
+                )
+                first = retrieve_mock.call_count
+                run_retrieval_pipeline(
+                    QUERY, top_k=5, collection_name="fssai_legal_768",
+                    filters={"section_number": "56"},
+                )
+            # Distinct filters -> distinct key -> the second fetch ran.
+            assert retrieve_mock.call_count > first
         finally:
             _teardown(ctx)

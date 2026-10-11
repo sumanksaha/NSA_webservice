@@ -63,7 +63,16 @@ concurrency:
 jobs:
     # ── G2: Staging deploy — fires on validation success, no approval needed ──
     deploy_staging:
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.environment == 'staging'
+        # Only deploy a commit the validation workflow actually accepted. The
+        # production job below gates on ``workflow_run.conclusion == 'success'``;
+        # staging previously had no such gate, so a red validation still rolled
+        # an unvalidated commit out to staging (it only failed later, at the
+        # missing-hook check, because the secret is unset).
+        if: >-
+            !cancelled() &&
+            (github.event_name == 'workflow_dispatch'
+                ? github.event.inputs.environment == 'staging'
+                : github.event.workflow_run.conclusion == 'success')
         name: Deploy validated commit to Staging
         runs-on: ubuntu-24.04
         timeout-minutes: 15

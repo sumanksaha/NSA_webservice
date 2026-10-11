@@ -296,7 +296,10 @@ class TestCorpusDirE2E:
             "5(1) No person shall carry on food business without a licence.\n",
             encoding="utf-8",
         )
-        (tmp_path / "ignore.md").write_text("not supported", encoding="utf-8")
+        # .rtf is not in _CORPUS_EXTENSIONS, so it is excluded by the scan
+        # filter. (Markdown IS supported — .md exercises MarkdownLoader — so
+        # it is ingested like any other supported type.)
+        (tmp_path / "ignore.rtf").write_text("not supported", encoding="utf-8")
         client = InMemoryQdrantClient()
         pipeline, store, _indexer = _make_pipeline(client)
 

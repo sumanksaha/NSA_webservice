@@ -37,17 +37,31 @@ QUERY = "what is Section 55?"
 class TestStageDefinition:
     def test_stages_are_ordered_list_of_retrieval_stage(self):
         assert isinstance(POST_RETRIEVAL_STAGES, list)
-        assert len(POST_RETRIEVAL_STAGES) == 4
+        # Five since 6c34530 added ``multi_domain_trace``; the four-stage
+        # assertion outlived it and shipped red.
+        assert len(POST_RETRIEVAL_STAGES) == 5
         assert all(isinstance(s, RetrievalStage) for s in POST_RETRIEVAL_STAGES)
 
     def test_stage_names_are_deterministic(self):
         names = [s.name for s in POST_RETRIEVAL_STAGES]
-        assert names == ["legal_identity", "reference_expansion", "evidence_selector", "evidence_plan"]
+        assert names == [
+            "legal_identity",
+            "reference_expansion",
+            "evidence_selector",
+            "evidence_plan",
+            "multi_domain_trace",
+        ]
 
     def test_output_keys_match_original_contract(self):
         """The registry output keys must match the pipeline return-dict keys."""
         keys = [s.output_key for s in POST_RETRIEVAL_STAGES]
-        assert keys == ["legal_identities", "expanded_candidates", "evidence_set", "retrieval_plan"]
+        assert keys == [
+            "legal_identities",
+            "expanded_candidates",
+            "evidence_set",
+            "retrieval_plan",
+            "multi_domain_trace",
+        ]
 
 
 class TestApplyStagesNoChunks:
@@ -60,6 +74,7 @@ class TestApplyStagesNoChunks:
             "expanded_candidates": [],
             "evidence_set": None,
             "retrieval_plan": {},
+            "multi_domain_trace": {},
         }
 
 

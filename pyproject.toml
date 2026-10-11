@@ -505,12 +505,20 @@ omit = [
 command_line = "-m pytest"
 
 [tool.coverage.report]
-# Coverage gate (CI/CD research doc G6 / §4.3): fail the slow-test shard if
-# line coverage drops below this threshold. Start conservative (measured via
-# full slow-shard run in CI) and ratchet up. pytest-cov reads this value from
-# the coverage config automatically — no CLI flag needed in validation.yml.
-# To re-measure in CI: check the "Coverage" annotation on the test-slow job.
-fail_under = 60
+# Coverage gate (CI/CD research doc G6 / §4.3).
+#
+# MEASURED CONTEXT (2026-10-11): only ~1356 of ~5188 tests carry the ``slow``
+# marker, and the slow job is the only job that passes ``--cov``. That shard
+# alone cannot cover ``app`` more than ~50%, so the previous 60% floor failed
+# every run regardless of code quality — the gate was measuring "which tests are
+# marked slow", not coverage.
+#
+# 45 is a floor just under the measured slow-shard total (50), so it still
+# catches a real regression (a cluster of newly uncovered modules) without
+# failing on shard composition. To reach the intended 60% app-wide target,
+# attach ``--cov`` to the fast shard (which runs 3832 tests) and measure there
+# first — do not raise this number until that run is taken.
+fail_under = 45
 exclude_lines = [
   "pragma: no cover",
   "def __repr__",

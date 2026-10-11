@@ -17,6 +17,8 @@ from app import create_app
 @pytest.fixture
 def test_client():
     """Test client with database context and RL enabled."""
+    from app.rag.rl.controller import reset_rl_controller
+
     app = create_app()
     app.config["TESTING"] = True
     app.config["RAG_RL_ENABLED"] = True
@@ -27,6 +29,10 @@ def test_client():
     app.config["OPENROUTER_API_KEY"] = "sk-or-v1-fake"
     app.config["RAG_USE_STUB_LLM"] = True  # deterministic stub answers
 
+    # The RL controller is a process-level singleton that latches the flag at
+    # build time, so each test must start from a clean slate — otherwise the
+    # first test that touches it fixes the flag for the rest of the session.
+    reset_rl_controller()
     with app.test_client() as client:
         with app.app_context():
             from app.extensions import db
@@ -37,6 +43,7 @@ def test_client():
             from app.extensions import db
 
             db.drop_all()
+    reset_rl_controller()
 
 
 class TestRLIntegrationFlow:
@@ -50,15 +57,27 @@ class TestRLIntegrationFlow:
             controller = get_rl_controller()
             assert controller.enabled is True
 
-    def test_controller_disabled_when_rl_flag_off(self, test_client):
-        """When RAG_RL_ENABLED=false, the controller returns defaults."""
-        from app.rag.rl.controller import get_rl_controller, reset_rl_controller
+    def test_controller_disabled_when_rl_flag_off(self, test_client, monkeypatch):
+        """When RAG_RL_ENABLED=false, the controller returns defaults.
 
+        ``get_rl_controller`` reads the flag through the app.shared.config
+        seam (not ``app.config``), so the test must patch that seam and then
+        drop the process-level singleton — otherwise the controller built by
+        the preceding test is returned again with its flag latched on.
+        """
+        from app.rag.rl.controller import get_rl_controller, reset_rl_controller
+        from app.rag.rl.controller import _DEFAULT_RRF_K
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "rl_enabled", False, raising=False)
         reset_rl_controller()
 
         with test_client.application.app_context():
             controller = get_rl_controller()
             assert controller.enabled is False
+            # Disabled controller: returns the production defaults, no bandit.
+            action = controller.select_params(query="What is Section 55?", query_type="section_lookup")
+            assert action.rrf_k == _DEFAULT_RRF_K
 
     def test_policy_action_space(self):
         """The policy has the expected action space of (top_k, rrf_k) pairs."""
