@@ -29,7 +29,9 @@
     function nonJsonError(resp) {
         var err =
             resp.redirected || (resp.url && resp.url.indexOf("/auth/login") !== -1)
-                ? new Error("Your session may have expired. Please reload the page, log in again, and retry.")
+                ? new Error(
+                      "Your session may have expired. Please reload the page, log in again, and retry."
+                  )
                 : new Error(
                       "Unexpected response from the server (HTTP " +
                           resp.status +
@@ -58,7 +60,9 @@
                 return resp.json().then(
                     function (data) {
                         if (!resp.ok) {
-                            var err = new Error(data.error || "Request failed (" + resp.status + ")");
+                            var err = new Error(
+                                data.error || "Request failed (" + resp.status + ")"
+                            );
                             err.status = resp.status;
                             err.errors = data.errors || null;
                             err.data = data; // full body — e.g. bill_id when only the PDF step failed
