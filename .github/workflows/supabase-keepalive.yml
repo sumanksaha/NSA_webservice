@@ -59,9 +59,9 @@ jobs:
                   # failures comment on it, so a daily schedule cannot flood
                   # the tracker.
                   title="[keepalive] /health ping failing"
-                  # Dynamic values arrive via env instead of "${{ }}"
-                  # interpolation, so this body stays a plain shell script that
-                  # can be syntax-checked without a runner.
+                  # Dynamic values arrive via env (WORKFLOW_NAME, RUN_URL) rather
+                  # than GitHub expression syntax, so this body stays a plain shell
+                  # script that can be syntax-checked without a runner.
                   existing=$(gh issue list --state open --search "$title in:title" --json number --limit 1)
                   printf -v body '%s\n' \
                       "The scheduled \`${WORKFLOW_NAME}\` ping failed at $(date -u +'%Y-%m-%d %H:%M UTC')." \
