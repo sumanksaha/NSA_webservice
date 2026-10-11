@@ -90,9 +90,12 @@ class TestRcmNullableMigration:
         for col in self.COLUMNS:
             assert _notnull(old_shape_db, col) == 1
 
-    def test_single_head_is_rcm_nullable(self):
-        """The new migration must remain the sole alembic head so
-        ``flask db upgrade`` on deploy actually applies it.
+    def test_single_alembic_head(self):
+        """Exactly one alembic head so ``flask db upgrade`` on deploy applies
+        the whole chain. (Was pinned to ``allow_null_rcm_fields`` — that went
+        stale once later migrations chained on; the durable invariant is
+        single-head, and the current head is pinned by each migration's own
+        test, e.g. ``tests/test_migration_note_answer.py``.)
         """
         from pathlib import Path
 
@@ -100,4 +103,4 @@ class TestRcmNullableMigration:
         cfg = Config()
         cfg.set_main_option("script_location", str(repo_root / "migrations"))
         script = ScriptDirectory.from_config(cfg)
-        assert script.get_heads() == ["allow_null_rcm_fields"]
+        assert len(script.get_heads()) == 1

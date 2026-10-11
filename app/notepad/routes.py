@@ -1,4 +1,8 @@
-"""Notepad routes — Notes intake queue with AI evaluation."""
+"""Notepad routes — Notes intake queue with AI evaluation and the
+Legal-RAG Q&A thread (``POST /<id>/ask``, ``POST /<id>/edit``).
+
+See ``docs/NOTEPAD_LEGAL_RAG_SPEC.md`` §8 for the route contract.
+"""
 
 from __future__ import annotations
 
@@ -9,9 +13,13 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 
 from app.extensions import db
 from app.models import DailyPlan, Note, NoteEvaluation
+from app.notepad import thread
 from app.shared.config import cfg
 
 notepad_bp = Blueprint("notepad", __name__, template_folder="templates")
+
+#: One 503 description shared by both kill-switch gates of ``ask`` (FR-3).
+_RAG_DISABLED_DESCRIPTION = "Notepad Legal RAG is disabled."
 
 #: The seven lens fields every evaluation payload must contain.
 _PAYLOAD_KEYS = (
@@ -226,7 +234,7 @@ def detail(note_id: int):
         except (json.JSONDecodeError, TypeError):
             payload = {}
         evaluations.append((ev, payload))
-    return render_template("notepad/detail.html", note=note, evaluations=evaluations)
+    return render_template("notepad/detail.html", note=note, evaluations=evaluations, answers=note.answers)
 
 
 @notepad_bp.route("/<int:note_id>/evaluate", methods=["POST"])
@@ -267,6 +275,71 @@ def evaluate(note_id: int):
     note.status = "evaluated"
     db.session.commit()
     flash("Note evaluated.", "success")
+    return redirect(url_for("notepad.detail", note_id=note.id))
+
+
+@notepad_bp.route("/<int:note_id>/ask", methods=["POST"])
+def ask(note_id: int):
+    """Answer a question against the note via the legal RAG pipeline.
+
+    Spec §8 order: visibility (404) → author-only (403, FR-13) → §7
+    validation (warning flash + redirect, no RAG call) → kill-switch
+    gates (503, FR-1/FR-3) → ``thread.ask`` → commit. ``thread.ask``
+    returns un-added rows, so a pipeline failure commits nothing
+    (INV-8); the thread never touches ``note.status`` (FR-11).
+    """
+    from flask_login import current_user
+
+    note = Note.query.get_or_404(note_id)
+    if not note.is_shared and note.author_id != current_user.id:
+        abort(404)  # do not reveal private notes' existence (SEC-1)
+    if note.author_id != current_user.id:
+        abort(403)  # a thread is the author's research record (FR-13)
+
+    question = request.form.get("question") or ""
+    try:
+        thread.validate_question(question)
+    except ValueError as exc:
+        flash(str(exc), "warning")
+        return redirect(url_for("notepad.detail", note_id=note.id))
+
+    if not cfg.notepad_ai_enabled or not cfg.rag_enabled:
+        abort(503, description=_RAG_DISABLED_DESCRIPTION)
+
+    try:
+        answers = thread.ask(note, question)
+    except Exception as exc:  # graceful: never persist a partial thread
+        flash(f"Legal RAG failed: {exc}", "danger")
+        return redirect(url_for("notepad.detail", note_id=note.id))
+
+    db.session.add_all(answers)
+    db.session.commit()
+    flash(f"Answer(s) added — {len(answers)} fragment(s).", "success")
+    return redirect(url_for("notepad.detail", note_id=note.id))
+
+
+@notepad_bp.route("/<int:note_id>/edit", methods=["POST"])
+def edit(note_id: int):
+    """Update a Note's statement text. Author-only (FR-14).
+
+    Only ``content_text`` is read from the form (FR-16): no other column
+    is reachable through this endpoint, and recorded answers are never
+    touched (FR-15).
+    """
+    from flask_login import current_user
+
+    note = Note.query.get_or_404(note_id)
+    if note.author_id != current_user.id:
+        abort(403)
+
+    content_text = (request.form.get("content_text") or "").strip()
+    if not content_text:
+        flash("Note content is empty.", "warning")
+        return redirect(url_for("notepad.detail", note_id=note.id))
+
+    note.content_text = content_text
+    db.session.commit()
+    flash("Note updated.", "success")
     return redirect(url_for("notepad.detail", note_id=note.id))
 
 

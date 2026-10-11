@@ -7,9 +7,12 @@ Supports the Notes intake queue:
   legal record — no hash-chained audit, no optimistic concurrency.
 - ``NoteEvaluation`` — one AI-generated structured verdict on a Note.
   Append-only: re-evaluations add rows and never overwrite earlier ones.
+- ``NoteAnswer`` — one grounded legal-RAG answer to one question in a
+  Note's Q&A thread. Append-only; carries the exact question, the
+  statement snapshot at ask time, citations, and verification signals.
 
-See ``docs/NOTEPAD_IMPLEMENTATION_PLAN.md`` and the **Note** entry in
-``CONTEXT.md``.
+See ``docs/NOTEPAD_LEGAL_RAG_PLAN.md`` / ``docs/NOTEPAD_LEGAL_RAG_SPEC.md``
+and the **Note** entry in ``CONTEXT.md``.
 """
 
 from __future__ import annotations
@@ -51,6 +54,13 @@ class Note(db.Model):
         order_by="NoteEvaluation.created_at",
         lazy="selectin",
     )
+    answers = db.relationship(
+        "NoteAnswer",
+        backref="note",
+        cascade="all, delete-orphan",
+        order_by="NoteAnswer.created_at",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         db.Index("idx_note_author_id", "author_id"),
@@ -86,6 +96,43 @@ class NoteEvaluation(db.Model):
 
     def __repr__(self) -> str:
         return f"<NoteEvaluation id={self.id} note={self.note_id}>"
+
+
+class NoteAnswer(db.Model):
+    """One append-only grounded RAG answer to one question in a Note's thread.
+
+    Produced by ``app/notepad/thread.py`` via the legal RAG pipeline
+    (``run_generation_pipeline``). ``question`` is the exact fragment that
+    was asked; ``note_snapshot`` is the statement at ask time so history
+    stays interpretable after the Note is edited (INV-3). ``degraded`` marks
+    a circuit-open stub fallback (no retrieval happened).
+    """
+
+    __tablename__ = "note_answer"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    note_id = db.Column(
+        db.Integer,
+        db.ForeignKey("note.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    citations = db.Column(db.Text, nullable=True)  # JSON list of pipeline citation dicts
+    note_snapshot = db.Column(db.Text, nullable=True)
+    groundedness_score = db.Column(db.Float, nullable=True)
+    hallucination_detected = db.Column(db.Boolean, nullable=True)
+    degraded = db.Column(db.Boolean, nullable=False, default=False)
+    provider_model = db.Column(db.String(200), nullable=True)
+    token_usage = db.Column(db.Integer, nullable=True)
+    rag_log_id = db.Column(db.String(64), nullable=True)  # rag_query_log.id join-back
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (db.Index("idx_note_answer_note_id", "note_id"),)
+
+    def __repr__(self) -> str:
+        return f"<NoteAnswer id={self.id} note={self.note_id} degraded={self.degraded}>"
 
 
 class DailyPlan(db.Model):

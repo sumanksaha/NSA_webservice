@@ -47,6 +47,8 @@ Files the engineering skills read before acting:
 - [SCHEDULE_PLANNING_AGENT_RESEARCH.md](SCHEDULE_PLANNING_AGENT_RESEARCH.md) — Planning an FSO's day from a free-text intent: what already exists, the three blockers (locality is unresolvable, no programmatic diary write, no audit trail), and two build options
 - [SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md](./SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md) — Project report for the above: 10 numbered assumptions, a 6-phase breakdown, exact files to create/modify, test plan, risks, and the decisions that gate Phase 5
 - [SCHEDULE_PLANNING_AGENT_SPEC.md](./SCHEDULE_PLANNING_AGENT_SPEC.md) — Normative specification for the above: requirement IDs, data contracts, 9 invariants, 8 validation rules, route state machine, error taxonomy, security requirements, and 19 testable acceptance criteria
+- [NOTEPAD_LEGAL_RAG_PLAN.md](./NOTEPAD_LEGAL_RAG_PLAN.md) — Turning the Notepad into a legal-Q&A thread: the AI button routes through the legal RAG pipeline (`run_generation_pipeline`) instead of the generic LLM; append-only Answer turns, deterministic query rewriting for follow-ups, user-driven query fragmentation, statement editing with stale-answer markers
+- [NOTEPAD_LEGAL_RAG_SPEC.md](./NOTEPAD_LEGAL_RAG_SPEC.md) — Normative specification for the above: requirement IDs (FR/NFR/INV/V/SEC), the `NoteAnswer` data contract, fragmentation and query-rewrite rules, pipeline-result mapping, route state machine, error taxonomy, 16 acceptance criteria, and traceability
 
 ## Implemented
 

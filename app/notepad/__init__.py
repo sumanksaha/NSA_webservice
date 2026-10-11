@@ -1,6 +1,7 @@
-"""Notepad blueprint — Notes intake queue with AI evaluation.
+"""Notepad blueprint — Notes intake queue with AI evaluation and the
+Legal-RAG Q&A thread.
 
-See ``docs/NOTEPAD_IMPLEMENTATION_PLAN.md``.
+See ``docs/NOTEPAD_LEGAL_RAG_PLAN.md`` and ``docs/NOTEPAD_LEGAL_RAG_SPEC.md``.
 """
 
 from app.notepad.routes import notepad_bp
