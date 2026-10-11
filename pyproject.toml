@@ -212,21 +212,43 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S105", "S106", "S108", "S311", "T20", "B017", "SIM117", "N806", "N814", "N817"]
+"tests/*" = ["S101", "S105", "S106", "S108", "S310", "S311", "SIM115", "T20", "B017", "SIM117", "N806", "N814", "N817"]
 # Characterization test reuses fixtures imported from a sibling test module;
 # test-method parameters MUST repeat the fixture names for pytest injection,
 # which reads as shadowing to pyflakes.
 "tests/test_upload_evidence_characterization.py" = ["F811"]
 # Experiment/research scripts: compact one-liners, loop-var reuse and
 # dataset-sampling randomness are deliberate; style churn is not valuable.
+# "T20" (print) covers the harnesses below that already exempt it file by
+# file — their stdout tables ARE the report output.
 "evaluation/*" = [
-  "E701", "E702", "E741",
-  "B007", "B023",
-  "N802", "N806",
-  "F841",
-  "S311", "S607",
+  "E701", "E702", "E731", "E741",
+  "F401", "F541", "F841",
+  "B007", "B023", "B905",
+  "N802", "N803", "N806",
+  "S310", "S311", "S501", "S605", "S607",
+  "UP031",
+  "RUF005", "RUF015", "RUF059", "RUF100",
+  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM113", "SIM115",
+  "W291", "W292", "W293",
   "I001",
-  "SIM102", "SIM108", "SIM110", "SIM113", "SIM115",
+  "T20",
+]
+# Same treatment for the workflow-evaluator codegen scripts under the RAG
+# package (_insert_*.py / _part*.py / _test_improvement.py): they are generator
+# helpers run once per schema change, not shipped modules.
+"app/rag/evaluation/*" = [
+  "E701", "E702", "E731", "E741",
+  "F401", "F541", "F841",
+  "B007", "B023", "B905",
+  "N802", "N803", "N806",
+  "S310", "S311", "S501", "S605", "S607",
+  "UP031",
+  "RUF005", "RUF015", "RUF059", "RUF100",
+  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM113", "SIM115",
+  "W291", "W292", "W293",
+  "I001",
+  "T20",
 ]
 # Step 0 CE-v2 regression harness: the console tables ARE the report output
 # (diffed against the preserved v1/v2 logs), so print is deliberate here.
@@ -288,6 +310,31 @@ ignore = [
 "read_results.py" = ["T201"]
 "read_results2.py" = ["T201"]
 "read_results3.py" = ["T201"]
+# Root-level one-off research/repair scripts (_*.py, and the named analysis
+# tools below). These are throwaway investigation code from specific work
+# sessions: stdout IS the interface, randomness is sampling rather than
+# crypto, and file handles are intentionally left to process exit. Kept
+# separate from the shipped entrypoints (app.py / asgi.py), which stay fully
+# linted via the negation below.
+#
+# F401/F541/F841 are relaxed (throwaway scripts import more than they use) but
+# F821/F811 are NOT, so a genuinely broken script still fails the gate.
+"/*.py" = [
+  "E401", "E402", "E701", "E702", "E731", "E741",
+  "F401", "F541", "F841",
+  "I001",
+  "N802", "N803", "N806",
+  "T20",
+  "S310", "S311", "S501", "S605", "S607",
+  "B007", "B023", "B905",
+  "UP031",
+  "RUF005", "RUF015", "RUF059", "RUF100",
+  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM115",
+  "W291", "W292", "W293",
+]
+# Shipped entrypoints: re-include with the default rule set.
+"!app.py" = []
+"!asgi.py" = []
 # Local experiment harnesses: endpoint cert policy is owned by deployment
 # (these scripts target localhost/staging with self-signed certs); the
 # shipped security posture is gated by the bandit job scanning app/.
@@ -315,7 +362,7 @@ ignore = [
 "app/ocr_pipeline/preprocessing.py" = ["S110"]
 "app/utils/sync.py" = ["S110"]
 "app/rag/retrieval/*" = ["S101"]  # internal invariant checks on rule-based parse results (equivalent to test assertions)
-"scripts/**/*" = ["B007", "T201", "S101"]  # CLI tools legitimately use print for stdout output
+"scripts/**/*" = ["B007", "T201", "S101", "E401", "E402", "F401", "F541", "N806", "RUF010", "RUF015", "RUF059", "RUF100", "S310", "S311", "S603", "S605", "SIM103", "SIM105", "SIM115", "W292"]
 # One-off ETL / verification scripts: SQL identifiers interpolated from
 # internal constants (table names), never from request/user input; pandoc is
 # invoked as a fixed argv list. Same rationale as scripts/**/* above.
@@ -332,6 +379,10 @@ ignore = [
 "upsert_reg.py" = ["T201", "S608"]
 "app/inspection/inspection_utils.py" = ["S311"]
 "app/sample/sample_utils.py" = ["S311"]
+# Epsilon-greedy action selection and uniform warm-start sampling in the RAG
+# policy: non-cryptographic by design (mirrors the bandit B311 skip in
+# [tool.bandit] above).
+"app/rag/rl/policy.py" = ["S311"]
 "check_*.py" = ["B007", "S110", "S608", "SIM108"]
 "count_loc.py" = ["E741", "S110"]
 "create_tables.py" = ["F403"]

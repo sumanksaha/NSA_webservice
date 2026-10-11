@@ -9,8 +9,6 @@ Upgrade path: ML-based evidence selection if needed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 
 class EvidenceCoverageOptimizer:
     """Optimizes evidence selection to maximize coverage of evidence requirements."""

@@ -289,9 +289,8 @@ def get_unified_actions(inspection_id: int):
     actions = build_unified_actions(violations, [])
 
     # Write to a temporary JSON file and serve it
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-    json.dump(actions, tmp, indent=2)
-    tmp.close()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump(actions, tmp, indent=2)
 
     return send_file(
         tmp.name,

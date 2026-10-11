@@ -1,4 +1,4 @@
-﻿"""Evaluate query understanding + targeted retry combinations with live LLM calls."""
+"""Evaluate query understanding + targeted retry combinations with live LLM calls."""
 from __future__ import annotations
 
 import argparse

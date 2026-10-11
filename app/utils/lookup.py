@@ -243,34 +243,32 @@ class RateLimiter:
         # may not exist on fresh checkouts/deploys — without this, every
         # KMC lookup dies with FileNotFoundError before any HTTP happens.
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_fd = open(self._lock_path, "w")
-        try:
-            if fcntl:
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
-
-            try:
-                with open(self._timestamp_path) as f:
-                    last_time = float(f.read().strip() or "0")
-            except (FileNotFoundError, ValueError):
-                last_time = 0
-
-            current_time = time.time()
-            elapsed = current_time - last_time
-            if elapsed < self._min_gap:
-                sleep_time = self._min_gap - elapsed
-                time.sleep(sleep_time)
-                current_time = time.time()
-
-            with open(self._timestamp_path, "w") as f:
-                f.write(str(current_time))
-        finally:
+        with open(self._lock_path, "w") as lock_fd:
             try:
                 if fcntl:
-                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
-            except Exception as e:
-                logger.warning("Failed to release file lock: %s", e)
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+
+                try:
+                    with open(self._timestamp_path) as f:
+                        last_time = float(f.read().strip() or "0")
+                except (FileNotFoundError, ValueError):
+                    last_time = 0
+
+                current_time = time.time()
+                elapsed = current_time - last_time
+                if elapsed < self._min_gap:
+                    sleep_time = self._min_gap - elapsed
+                    time.sleep(sleep_time)
+                    current_time = time.time()
+
+                with open(self._timestamp_path, "w") as f:
+                    f.write(str(current_time))
             finally:
-                lock_fd.close()
+                try:
+                    if fcntl:
+                        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                except Exception as e:
+                    logger.warning("Failed to release file lock: %s", e)
 
 
 class _NoopRateLimiter:
